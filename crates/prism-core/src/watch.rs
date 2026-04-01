@@ -21,6 +21,7 @@ use crate::layout::discover_layout;
 use crate::session::{WorkspaceRefreshResult, WorkspaceRefreshState, WorkspaceSession};
 use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
+use crate::shared_runtime_store::SharedRuntimeStore;
 use crate::workspace_runtime_state::{WorkspacePublishedGeneration, WorkspaceRuntimeState};
 use crate::workspace_tree::{
     diff_workspace_tree_snapshot, plan_full_refresh, plan_incremental_refresh,
@@ -43,7 +44,7 @@ pub(crate) fn spawn_fs_watch(
     runtime_state: Arc<Mutex<WorkspaceRuntimeState>>,
     store: Arc<Mutex<SqliteStore>>,
     cold_query_store: Arc<Mutex<SqliteStore>>,
-    shared_runtime_store: Option<Arc<Mutex<SqliteStore>>>,
+    shared_runtime_store: Option<Arc<Mutex<SharedRuntimeStore>>>,
     shared_runtime_sqlite: Option<PathBuf>,
     refresh_lock: Arc<Mutex<()>>,
     refresh_state: Arc<WorkspaceRefreshState>,
@@ -159,7 +160,7 @@ pub(crate) fn refresh_prism_snapshot(
     runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
     store: &Arc<Mutex<SqliteStore>>,
     cold_query_store: &Arc<Mutex<SqliteStore>>,
-    shared_runtime_store: Option<&Arc<Mutex<SqliteStore>>>,
+    shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
     shared_runtime_sqlite: Option<&Path>,
     refresh_lock: &Arc<Mutex<()>>,
     refresh_state: &Arc<WorkspaceRefreshState>,
@@ -204,7 +205,7 @@ pub(crate) fn try_refresh_prism_snapshot(
     runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
     store: &Arc<Mutex<SqliteStore>>,
     cold_query_store: &Arc<Mutex<SqliteStore>>,
-    shared_runtime_store: Option<&Arc<Mutex<SqliteStore>>>,
+    shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
     shared_runtime_sqlite: Option<&Path>,
     refresh_lock: &Arc<Mutex<()>>,
     refresh_state: &Arc<WorkspaceRefreshState>,
@@ -250,7 +251,7 @@ fn refresh_prism_snapshot_with_guard(
     runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
     store: &Arc<Mutex<SqliteStore>>,
     cold_query_store: &Arc<Mutex<SqliteStore>>,
-    shared_runtime_store: Option<&Arc<Mutex<SqliteStore>>>,
+    shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
     shared_runtime_sqlite: Option<&Path>,
     refresh_state: &Arc<WorkspaceRefreshState>,
     loaded_workspace_revision: &Arc<AtomicU64>,
@@ -332,7 +333,7 @@ fn refresh_prism_snapshot_with_guard(
         .lock()
         .expect("workspace store lock poisoned")
         .reopen_runtime_writer()?;
-    let reopened_shared_runtime_store = shared_runtime_store
+    let reopened_shared_runtime_store: Option<SharedRuntimeStore> = shared_runtime_store
         .map(|store| {
             store
                 .lock()
@@ -385,7 +386,7 @@ fn refresh_prism_snapshot_with_guard(
         indexer
             .shared_runtime_store
             .as_ref()
-            .map(SqliteStore::workspace_revision)
+            .map(SharedRuntimeStore::workspace_revision)
             .transpose()?,
     );
     let next_state = indexer.into_runtime_state();

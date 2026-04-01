@@ -27,6 +27,7 @@ pub struct MemoryStore {
     projection_snapshot: Option<prism_projections::ProjectionSnapshot>,
     workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
     curator_snapshot: Option<prism_curator::CuratorSnapshot>,
+    principal_registry_snapshot: Option<prism_ir::PrincipalRegistrySnapshot>,
     coordination_events: Vec<CoordinationEvent>,
     coordination_compaction: Option<(usize, prism_coordination::CoordinationSnapshot)>,
     coordination_read_model: Option<CoordinationReadModel>,
@@ -293,6 +294,20 @@ impl Store for MemoryStore {
         snapshot: &prism_curator::CuratorSnapshot,
     ) -> anyhow::Result<()> {
         self.curator_snapshot = Some(snapshot.clone());
+        Ok(())
+    }
+
+    fn load_principal_registry_snapshot(
+        &mut self,
+    ) -> anyhow::Result<Option<prism_ir::PrincipalRegistrySnapshot>> {
+        Ok(self.principal_registry_snapshot.clone())
+    }
+
+    fn save_principal_registry_snapshot(
+        &mut self,
+        snapshot: &prism_ir::PrincipalRegistrySnapshot,
+    ) -> anyhow::Result<()> {
+        self.principal_registry_snapshot = Some(snapshot.clone());
         Ok(())
     }
 

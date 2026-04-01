@@ -23,6 +23,7 @@ use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_i
 use crate::session::{WorkspaceRefreshSeed, WorkspaceRefreshState, WorkspaceSession};
 use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
+use crate::shared_runtime_store::SharedRuntimeStore;
 use crate::util::{persisted_file_hash, workspace_walk};
 use crate::watch::spawn_fs_watch;
 use crate::workspace_identity::coordination_persist_context_for_root;
@@ -33,7 +34,7 @@ pub(crate) fn build_workspace_session(
     store: SqliteStore,
     workspace_tree_snapshot: WorkspaceTreeSnapshot,
     shared_runtime: SharedRuntimeBackend,
-    shared_runtime_store: Option<SqliteStore>,
+    shared_runtime_store: Option<SharedRuntimeStore>,
     layout: crate::layout::WorkspaceLayout,
     graph: Graph,
     history: HistoryStore,
@@ -51,7 +52,7 @@ pub(crate) fn build_workspace_session(
         store.workspace_revision()?,
         shared_runtime_store
             .as_ref()
-            .map(SqliteStore::workspace_revision)
+            .map(SharedRuntimeStore::workspace_revision)
             .transpose()?,
     );
     let cold_query_store = store.reopen_runtime_reader()?;

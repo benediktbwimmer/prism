@@ -18,7 +18,7 @@ use prism_projections::{CoChangeDelta, ProjectionIndex, ProjectionSnapshot, Vali
 use prism_store::WorkspaceTreeSnapshot;
 use prism_store::{
     AuxiliaryPersistBatch, CoordinationCheckpointStore, CoordinationJournal, Graph, GraphSnapshot,
-    MaterializationStore, SqliteStore,
+    MaterializationStore,
 };
 use tracing::warn;
 
@@ -73,7 +73,14 @@ enum CheckpointMaterializerMessage {
 }
 
 impl CheckpointMaterializerHandle {
-    pub(crate) fn new(root: PathBuf, store: Arc<Mutex<SqliteStore>>) -> Self {
+    pub(crate) fn new<T>(root: PathBuf, store: Arc<Mutex<T>>) -> Self
+    where
+        T: CoordinationJournal
+            + CoordinationCheckpointStore
+            + MaterializationStore
+            + Send
+            + 'static,
+    {
         let (tx, rx) = mpsc::channel::<CheckpointMaterializerMessage>();
         let handle = thread::spawn(move || {
             let mut pending = PendingMaterializations::default();
@@ -339,21 +346,26 @@ impl CheckpointMaterializerHandle {
     }
 }
 
-fn flush_pending_materializations(
+fn flush_pending_materializations<T>(
     root: &Path,
-    store: &Arc<Mutex<SqliteStore>>,
+    store: &Arc<Mutex<T>>,
     pending: &mut PendingMaterializations,
-) {
+) where
+    T: CoordinationJournal + CoordinationCheckpointStore + MaterializationStore + Send + 'static,
+{
     if let Err(error) = flush_pending_materializations_result(root, store, pending) {
         warn!(error = %error, "checkpoint materializer flush failed");
     }
 }
 
-fn flush_pending_materializations_result(
+fn flush_pending_materializations_result<T>(
     _root: &Path,
-    store_handle: &Arc<Mutex<SqliteStore>>,
+    store_handle: &Arc<Mutex<T>>,
     pending: &mut PendingMaterializations,
-) -> Result<()> {
+) -> Result<()>
+where
+    T: CoordinationJournal + CoordinationCheckpointStore + MaterializationStore + Send + 'static,
+{
     let co_change_deltas = std::mem::take(&mut pending.co_change_deltas);
     let validation_deltas = take_coalesced_validation_deltas(&mut pending.validation_deltas);
     let coordination_snapshot = pending.coordination_snapshot.take();

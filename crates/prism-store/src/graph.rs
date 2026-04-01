@@ -49,6 +49,7 @@ pub struct FileUpdate {
     pub file_id: FileId,
     pub observed: ObservedChangeSet,
     pub changes: Vec<GraphChange>,
+    pub persist_in_place: bool,
     pub requires_index_rebuild: bool,
     pub requires_edge_resolution: bool,
     pub dependency_invalidation_keys: DependencyInvalidationKeys,
@@ -381,10 +382,11 @@ impl Graph {
         );
         let dependency_invalidation_keys = dependency_invalidation_keys_for_observed(&observed);
         let changes = self.compute_file_changes(previous.as_ref(), &nodes, reanchors);
-        let can_update_in_place = previous_path.unwrap_or(path) == path
+        let can_persist_in_place = previous_path.unwrap_or(path) == path
             && previous_state
                 .as_ref()
-                .is_some_and(|state| same_file_graph_shape(state, &nodes, &edges))
+                .is_some_and(|state| same_file_graph_shape(state, &nodes, &edges));
+        let can_update_in_place = can_persist_in_place
             && previous.as_ref().is_some_and(|record| {
                 same_unresolved_call_shape(&record.unresolved_calls, &unresolved_calls)
                     && same_unresolved_import_shape(&record.unresolved_imports, &unresolved_imports)
@@ -416,6 +418,7 @@ impl Graph {
                 file_id,
                 observed,
                 changes,
+                persist_in_place: true,
                 requires_index_rebuild: false,
                 requires_edge_resolution: false,
                 dependency_invalidation_keys,
@@ -457,6 +460,7 @@ impl Graph {
             file_id,
             observed,
             changes,
+            persist_in_place: can_persist_in_place,
             requires_index_rebuild: false,
             requires_edge_resolution: true,
             dependency_invalidation_keys,
@@ -760,6 +764,7 @@ impl Graph {
             file_id,
             observed,
             changes,
+            persist_in_place: false,
             requires_index_rebuild: false,
             requires_edge_resolution: true,
             dependency_invalidation_keys,
@@ -1376,50 +1381,128 @@ fn unindex_vec_value<T: PartialEq>(index: &mut HashMap<String, Vec<T>>, key: &st
 }
 
 fn same_file_graph_shape(previous: &FileState, nodes: &[Node], edges: &[Edge]) -> bool {
-    previous.nodes.len() == nodes.len()
-        && previous
-            .nodes
-            .iter()
-            .zip(nodes.iter())
-            .all(|(before, after)| {
-                before.id == after.id
-                    && before.name == after.name
-                    && before.kind == after.kind
-                    && before.file == after.file
-            })
-        && previous.edges == edges
+    canonical_node_shape(previous.nodes.iter()) == canonical_node_shape(nodes.iter())
+        && canonical_edge_shape(&previous.edges) == canonical_edge_shape(edges)
 }
 
 fn same_unresolved_call_shape(before: &[UnresolvedCall], after: &[UnresolvedCall]) -> bool {
-    before.len() == after.len()
-        && before.iter().zip(after.iter()).all(|(lhs, rhs)| {
-            lhs.caller == rhs.caller && lhs.name == rhs.name && lhs.module_path == rhs.module_path
-        })
+    canonical_unresolved_call_shape(before) == canonical_unresolved_call_shape(after)
 }
 
 fn same_unresolved_import_shape(before: &[UnresolvedImport], after: &[UnresolvedImport]) -> bool {
-    before.len() == after.len()
-        && before.iter().zip(after.iter()).all(|(lhs, rhs)| {
-            lhs.importer == rhs.importer
-                && lhs.path == rhs.path
-                && lhs.module_path == rhs.module_path
-        })
+    canonical_unresolved_import_shape(before) == canonical_unresolved_import_shape(after)
 }
 
 fn same_unresolved_impl_shape(before: &[UnresolvedImpl], after: &[UnresolvedImpl]) -> bool {
-    before.len() == after.len()
-        && before.iter().zip(after.iter()).all(|(lhs, rhs)| {
-            lhs.impl_node == rhs.impl_node
-                && lhs.target == rhs.target
-                && lhs.module_path == rhs.module_path
-        })
+    canonical_unresolved_impl_shape(before) == canonical_unresolved_impl_shape(after)
 }
 
 fn same_unresolved_intent_shape(before: &[UnresolvedIntent], after: &[UnresolvedIntent]) -> bool {
-    before.len() == after.len()
-        && before.iter().zip(after.iter()).all(|(lhs, rhs)| {
-            lhs.source == rhs.source && lhs.kind == rhs.kind && lhs.target == rhs.target
+    canonical_unresolved_intent_shape(before) == canonical_unresolved_intent_shape(after)
+}
+
+fn canonical_node_shape<'a>(nodes: impl IntoIterator<Item = &'a Node>) -> Vec<String> {
+    let mut shape: Vec<String> = nodes
+        .into_iter()
+        .map(|node| {
+            format!(
+                "{}\u{1f}{}\u{1f}{:?}\u{1f}{}\u{1f}{}",
+                node.id.crate_name,
+                node.id.path,
+                node.kind,
+                node.name,
+                node.file.0
+            )
         })
+        .collect();
+    shape.sort_unstable();
+    shape
+}
+
+fn canonical_edge_shape(edges: &[Edge]) -> Vec<String> {
+    let mut shape: Vec<String> = edges
+        .iter()
+        .map(|edge| {
+            format!(
+                "{:?}\u{1f}{}\u{1f}{}\u{1f}{:?}\u{1f}{}",
+                edge.kind,
+                canonical_node_id_key(&edge.source),
+                canonical_node_id_key(&edge.target),
+                edge.origin,
+                edge.confidence.to_bits()
+            )
+        })
+        .collect();
+    shape.sort_unstable();
+    shape
+}
+
+fn canonical_unresolved_call_shape(calls: &[UnresolvedCall]) -> Vec<String> {
+    let mut shape: Vec<String> = calls
+        .iter()
+        .map(|call| {
+            format!(
+                "{}\u{1f}{}\u{1f}{}",
+                canonical_node_id_key(&call.caller),
+                call.name,
+                call.module_path
+            )
+        })
+        .collect();
+    shape.sort_unstable();
+    shape
+}
+
+fn canonical_unresolved_import_shape(imports: &[UnresolvedImport]) -> Vec<String> {
+    let mut shape: Vec<String> = imports
+        .iter()
+        .map(|import| {
+            format!(
+                "{}\u{1f}{}\u{1f}{}",
+                canonical_node_id_key(&import.importer),
+                import.path,
+                import.module_path
+            )
+        })
+        .collect();
+    shape.sort_unstable();
+    shape
+}
+
+fn canonical_unresolved_impl_shape(implementations: &[UnresolvedImpl]) -> Vec<String> {
+    let mut shape: Vec<String> = implementations
+        .iter()
+        .map(|implementation| {
+            format!(
+                "{}\u{1f}{}\u{1f}{}",
+                canonical_node_id_key(&implementation.impl_node),
+                implementation.target,
+                implementation.module_path
+            )
+        })
+        .collect();
+    shape.sort_unstable();
+    shape
+}
+
+fn canonical_unresolved_intent_shape(intents: &[UnresolvedIntent]) -> Vec<String> {
+    let mut shape: Vec<String> = intents
+        .iter()
+        .map(|intent| {
+            format!(
+                "{}\u{1f}{:?}\u{1f}{}",
+                canonical_node_id_key(&intent.source),
+                intent.kind,
+                intent.target
+            )
+        })
+        .collect();
+    shape.sort_unstable();
+    shape
+}
+
+fn canonical_node_id_key(node_id: &NodeId) -> String {
+    format!("{}\u{1f}{}\u{1f}{:?}", node_id.crate_name, node_id.path, node_id.kind)
 }
 
 fn is_derived_kind(kind: EdgeKind) -> bool {

@@ -249,6 +249,7 @@ pub(super) struct FileStateWriter<'tx> {
     delete_unresolved_impls: CachedStatement<'tx>,
     delete_unresolved_intents: CachedStatement<'tx>,
     insert_file_record: CachedStatement<'tx>,
+    update_file_record: CachedStatement<'tx>,
     insert_node: CachedStatement<'tx>,
     insert_file_node: CachedStatement<'tx>,
     insert_node_fingerprint: CachedStatement<'tx>,
@@ -289,6 +290,11 @@ impl<'tx> FileStateWriter<'tx> {
                 .prepare_cached("DELETE FROM unresolved_intents WHERE file_path = ?1")?,
             insert_file_record: tx.prepare_cached(
                 "INSERT INTO file_records(path, file_id, hash, parse_depth) VALUES (?1, ?2, ?3, ?4)",
+            )?,
+            update_file_record: tx.prepare_cached(
+                "UPDATE file_records
+                 SET file_id = ?2, hash = ?3, parse_depth = ?4
+                 WHERE path = ?1",
             )?,
             insert_node: tx.prepare_cached(
                 "INSERT INTO nodes(crate_name, path, kind, name, file_id, span_start, span_end, language)
@@ -488,6 +494,104 @@ impl<'tx> FileStateWriter<'tx> {
         }
 
         Ok(stale_nodes)
+    }
+
+    pub(super) fn update_file_state_in_place(&mut self, state: &FileState) -> Result<()> {
+        let file_path = state.path.to_string_lossy();
+        self.update_file_record.execute(params![
+            file_path.as_ref(),
+            state.record.file_id.0,
+            state.record.hash as i64,
+            encode_parse_depth(state.record.parse_depth),
+        ])?;
+
+        for node in &state.nodes {
+            self.insert_node.execute(params![
+                node.id.crate_name.as_str(),
+                node.id.path.as_str(),
+                encode_node_kind(node.kind),
+                node.name.as_str(),
+                node.file.0,
+                node.span.start,
+                node.span.end,
+                encode_language(node.language),
+            ])?;
+        }
+
+        self.delete_node_fingerprints
+            .execute(params![file_path.as_ref()])?;
+        for (node_id, fingerprint) in &state.record.fingerprints {
+            self.insert_node_fingerprint.execute(params![
+                file_path.as_ref(),
+                node_id.crate_name.as_str(),
+                node_id.path.as_str(),
+                encode_node_kind(node_id.kind),
+                serde_json::to_string(fingerprint)?,
+            ])?;
+        }
+
+        self.delete_unresolved_calls
+            .execute(params![file_path.as_ref()])?;
+        for call in &state.record.unresolved_calls {
+            self.insert_unresolved_call.execute(params![
+                file_path.as_ref(),
+                call.caller.crate_name.as_str(),
+                call.caller.path.as_str(),
+                encode_node_kind(call.caller.kind),
+                call.span.start,
+                call.span.end,
+                call.name.as_str(),
+                call.module_path.as_str(),
+            ])?;
+        }
+
+        self.delete_unresolved_imports
+            .execute(params![file_path.as_ref()])?;
+        for import in &state.record.unresolved_imports {
+            self.insert_unresolved_import.execute(params![
+                file_path.as_ref(),
+                import.importer.crate_name.as_str(),
+                import.importer.path.as_str(),
+                encode_node_kind(import.importer.kind),
+                import.span.start,
+                import.span.end,
+                import.path.as_str(),
+                import.module_path.as_str(),
+                import.path.as_str(),
+            ])?;
+        }
+
+        self.delete_unresolved_impls
+            .execute(params![file_path.as_ref()])?;
+        for implementation in &state.record.unresolved_impls {
+            self.insert_unresolved_impl.execute(params![
+                file_path.as_ref(),
+                implementation.impl_node.crate_name.as_str(),
+                implementation.impl_node.path.as_str(),
+                encode_node_kind(implementation.impl_node.kind),
+                implementation.span.start,
+                implementation.span.end,
+                implementation.target.as_str(),
+                implementation.module_path.as_str(),
+            ])?;
+        }
+
+        self.delete_unresolved_intents
+            .execute(params![file_path.as_ref()])?;
+        for intent in &state.record.unresolved_intents {
+            self.insert_unresolved_intent.execute(params![
+                file_path.as_ref(),
+                intent.source.crate_name.as_str(),
+                intent.source.path.as_str(),
+                encode_node_kind(intent.source.kind),
+                intent.span.start,
+                intent.span.end,
+                encode_edge_kind(intent.kind),
+                intent.target.as_str(),
+            ])?;
+        }
+
+        Ok(())
     }
 }
 

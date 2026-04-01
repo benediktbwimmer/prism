@@ -30,6 +30,7 @@ use crate::shared_runtime::{
     overlay_persisted_projection_knowledge, projection_snapshot_without_knowledge,
 };
 use crate::shared_runtime_backend::SharedRuntimeBackend;
+use crate::shared_runtime_store::SharedRuntimeStore;
 use crate::util::{cache_path, cleanup_legacy_cache, default_adapters};
 use crate::workspace_runtime_state::WorkspaceRuntimeState;
 use crate::workspace_tree::{
@@ -90,7 +91,7 @@ pub struct WorkspaceIndexer<S: Store> {
     pub(crate) shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     pub(crate) workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
     pub(crate) shared_runtime: SharedRuntimeBackend,
-    pub(crate) shared_runtime_store: Option<SqliteStore>,
+    pub(crate) shared_runtime_store: Option<SharedRuntimeStore>,
     pub(crate) coordination_enabled: bool,
     pub(crate) startup_refresh: Option<WorkspaceRefreshSeed>,
 }
@@ -117,13 +118,7 @@ impl WorkspaceIndexer<SqliteStore> {
         cleanup_legacy_cache(&root)?;
         let store = SqliteStore::open(cache_path(&root)?)?;
         let mut indexer = Self::with_store_and_options(root.clone(), store, options.clone())?;
-        let mut shared_runtime_store = match &options.shared_runtime {
-            SharedRuntimeBackend::Disabled => None,
-            SharedRuntimeBackend::Sqlite { path } => Some(SqliteStore::open(path)?),
-            SharedRuntimeBackend::Remote { uri } => {
-                anyhow::bail!("shared runtime backend `{uri}` is not implemented yet")
-            }
-        };
+        let mut shared_runtime_store = SharedRuntimeStore::open(&options.shared_runtime)?;
         if let Some(shared_store) = shared_runtime_store.as_mut() {
             if options.coordination {
                 let plan_state =
@@ -192,13 +187,7 @@ impl WorkspaceIndexer<SqliteStore> {
             checkpoint_materializer,
             options.clone(),
         )?;
-        let shared_runtime_store = match &options.shared_runtime {
-            SharedRuntimeBackend::Disabled => None,
-            SharedRuntimeBackend::Sqlite { path } => Some(SqliteStore::open(path)?),
-            SharedRuntimeBackend::Remote { uri } => {
-                anyhow::bail!("shared runtime backend `{uri}` is not implemented yet")
-            }
-        };
+        let shared_runtime_store = SharedRuntimeStore::open(&options.shared_runtime)?;
         indexer.shared_runtime = options.shared_runtime.clone();
         indexer.shared_runtime_store = shared_runtime_store;
         Ok(indexer)
@@ -217,13 +206,7 @@ impl WorkspaceIndexer<SqliteStore> {
         let root = root.as_ref().canonicalize()?;
         cleanup_legacy_cache(&root)?;
         let store = SqliteStore::open(cache_path(&root)?)?;
-        let shared_runtime_store = match &options.shared_runtime {
-            SharedRuntimeBackend::Disabled => None,
-            SharedRuntimeBackend::Sqlite { path } => Some(SqliteStore::open(path)?),
-            SharedRuntimeBackend::Remote { uri } => {
-                anyhow::bail!("shared runtime backend `{uri}` is not implemented yet")
-            }
-        };
+        let shared_runtime_store = SharedRuntimeStore::open(&options.shared_runtime)?;
         Self::with_runtime_state_stores_and_options(
             root,
             store,
@@ -240,7 +223,7 @@ impl WorkspaceIndexer<SqliteStore> {
     pub(crate) fn with_runtime_state_stores_and_options(
         root: impl AsRef<Path>,
         store: SqliteStore,
-        shared_runtime_store: Option<SqliteStore>,
+        shared_runtime_store: Option<SharedRuntimeStore>,
         runtime_state: WorkspaceRuntimeState,
         layout: WorkspaceLayout,
         refresh_runtime_roots: bool,
@@ -705,6 +688,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         let mut requires_edge_resolution = false;
         let mut dependency_invalidation_keys = DependencyInvalidationKeys::default();
         let mut upserted_paths = Vec::<PathBuf>::new();
+        let mut in_place_upserted_paths = Vec::<PathBuf>::new();
         let mut removed_paths = Vec::<PathBuf>::new();
         let refresh_scope =
             refresh_plan.map(|plan| plan.delta.scope_paths().into_iter().collect::<HashSet<_>>());
@@ -855,7 +839,11 @@ impl<S: Store> WorkspaceIndexer<S> {
             }
             observed_changes.push(update.observed.clone());
             changes.extend(update.changes);
-            upserted_paths.push(parsed_job.pending.path.clone());
+            if update.persist_in_place {
+                in_place_upserted_paths.push(parsed_job.pending.path.clone());
+            } else {
+                upserted_paths.push(parsed_job.pending.path.clone());
+            }
             let file_total_ms = parsed_job.parse_ms + upsert_ms;
 
             if parsed_job.parse_ms >= SLOW_FILE_PHASE_THRESHOLD_MS
@@ -919,6 +907,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                 &mut observed_changes,
                 &mut changes,
                 &mut upserted_paths,
+                &mut in_place_upserted_paths,
             )?;
         }
         let apply_unsupported_ms = apply_unsupported_started.elapsed().as_millis();
@@ -1000,6 +989,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         if observed_changes.is_empty()
             && changes.is_empty()
             && upserted_paths.is_empty()
+            && in_place_upserted_paths.is_empty()
             && removed_paths.is_empty()
         {
             self.had_prior_snapshot = true;
@@ -1150,13 +1140,14 @@ impl<S: Store> WorkspaceIndexer<S> {
             self.history
                 .persistence_delta(&all_lineage_events, &seeded_node_lineages)
         });
-        let upserted_file_count = upserted_paths.len();
+        let upserted_file_count = upserted_paths.len() + in_place_upserted_paths.len();
         let removed_file_count = removed_paths.len();
         let co_change_delta_count = co_change_deltas.len();
         let validation_delta_count = validation_deltas.len();
         let deferred_materializer = self.checkpoint_materializer.clone();
         let batch = IndexPersistBatch {
             upserted_paths,
+            in_place_upserted_paths,
             removed_paths,
             history_snapshot: self.history.snapshot(),
             history_delta,
@@ -1187,6 +1178,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         let skip_persist = self.had_prior_snapshot
             && self.had_projection_snapshot
             && batch.upserted_paths.is_empty()
+            && batch.in_place_upserted_paths.is_empty()
             && batch.removed_paths.is_empty()
             && batch.co_change_deltas.is_empty()
             && batch.validation_deltas.is_empty()
@@ -1474,6 +1466,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         observed_changes: &mut Vec<ObservedChangeSet>,
         changes: &mut Vec<prism_ir::GraphChange>,
         upserted_paths: &mut Vec<PathBuf>,
+        in_place_upserted_paths: &mut Vec<PathBuf>,
     ) -> Result<()> {
         let new_lineage_events = self.history.apply(&update.observed);
         let change_set_deltas = co_change_delta_batch_for_events(&new_lineage_events);
@@ -1499,7 +1492,11 @@ impl<S: Store> WorkspaceIndexer<S> {
         }
         observed_changes.push(update.observed.clone());
         changes.extend(update.changes);
-        upserted_paths.push(path.to_path_buf());
+        if update.persist_in_place {
+            in_place_upserted_paths.push(path.to_path_buf());
+        } else {
+            upserted_paths.push(path.to_path_buf());
+        }
         Ok(())
     }
 }

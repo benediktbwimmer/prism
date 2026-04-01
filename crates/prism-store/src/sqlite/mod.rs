@@ -688,6 +688,19 @@ impl Store for SqliteStore {
         snapshots::save_snapshot_row(&self.conn, "curator", snapshot)
     }
 
+    fn load_principal_registry_snapshot(
+        &mut self,
+    ) -> Result<Option<prism_ir::PrincipalRegistrySnapshot>> {
+        snapshots::load_snapshot_row(&self.conn, "principal_registry")
+    }
+
+    fn save_principal_registry_snapshot(
+        &mut self,
+        snapshot: &prism_ir::PrincipalRegistrySnapshot,
+    ) -> Result<()> {
+        snapshots::save_snapshot_row(&self.conn, "principal_registry", snapshot)
+    }
+
     fn coordination_revision(&self) -> Result<u64> {
         Self::coordination_revision(self)
     }
@@ -943,6 +956,23 @@ impl Store for SqliteStore {
             let upsert_started = Instant::now();
             {
                 let mut file_state_writer = graph_io::FileStateWriter::new(&tx)?;
+                for path in &batch.in_place_upserted_paths {
+                    let Some(state) = graph.file_state(path) else {
+                        file_state_totals.skipped_missing_upsert_count += 1;
+                        continue;
+                    };
+                    file_state_totals.persisted_file_state_count += 1;
+                    file_state_totals.node_count += state.nodes.len();
+                    file_state_totals.edge_count += state.edges.len();
+                    file_state_totals.fingerprint_count += state.record.fingerprints.len();
+                    file_state_totals.unresolved_call_count += state.record.unresolved_calls.len();
+                    file_state_totals.unresolved_import_count +=
+                        state.record.unresolved_imports.len();
+                    file_state_totals.unresolved_impl_count += state.record.unresolved_impls.len();
+                    file_state_totals.unresolved_intent_count +=
+                        state.record.unresolved_intents.len();
+                    file_state_writer.update_file_state_in_place(&state)?;
+                }
                 for path in &batch.upserted_paths {
                     let Some(state) = graph.file_state(path) else {
                         file_state_totals.skipped_missing_upsert_count += 1;
@@ -1099,7 +1129,8 @@ impl Store for SqliteStore {
         }
         info!(
             removed_file_count = batch.removed_paths.len(),
-            upserted_file_count = batch.upserted_paths.len(),
+            upserted_file_count = batch.upserted_paths.len() + batch.in_place_upserted_paths.len(),
+            in_place_upserted_file_count = batch.in_place_upserted_paths.len(),
             persisted_file_state_count = file_state_totals.persisted_file_state_count,
             skipped_missing_upsert_count = file_state_totals.skipped_missing_upsert_count,
             persisted_node_count = file_state_totals.node_count,

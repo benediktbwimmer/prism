@@ -6,8 +6,10 @@ use prism_agent::{EdgeId, InferenceSnapshot, InferredEdgeRecord, InferredEdgeSco
 use prism_coordination::{CoordinationEvent, CoordinationSnapshot};
 use prism_history::{HistoryPersistDelta, HistorySnapshot, LineageTombstone};
 use prism_ir::{
-    CoordinationEventKind, Edge, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, FileId,
-    GraphChange, Language, LineageEvent, LineageId, Node, NodeId, NodeKind, Span, TaskId,
+    CoordinationEventKind, CredentialCapability, CredentialId, CredentialRecord, CredentialStatus,
+    Edge, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, FileId, GraphChange, Language,
+    LineageEvent, LineageId, Node, NodeId, NodeKind, PrincipalAuthorityId, PrincipalId,
+    PrincipalKind, PrincipalProfile, PrincipalRegistrySnapshot, PrincipalStatus, Span, TaskId,
 };
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryId, MemoryKind, MemorySource, OutcomeMemorySnapshot,
@@ -388,6 +390,80 @@ fn structurally_unchanged_file_update_does_not_require_index_rebuild() {
 }
 
 #[test]
+fn structurally_unchanged_file_update_ignores_edge_order_for_in_place_fast_path() {
+    let path = Path::new("src/lib.rs");
+    let mut graph = Graph::new();
+    let alpha = node("alpha");
+    let beta = node("beta");
+    let edges = vec![
+        Edge {
+            kind: EdgeKind::Calls,
+            source: alpha.id.clone(),
+            target: beta.id.clone(),
+            origin: EdgeOrigin::Static,
+            confidence: 1.0,
+        },
+        Edge {
+            kind: EdgeKind::References,
+            source: beta.id.clone(),
+            target: alpha.id.clone(),
+            origin: EdgeOrigin::Static,
+            confidence: 1.0,
+        },
+    ];
+
+    graph.upsert_file(
+        path,
+        1,
+        vec![alpha.clone(), beta.clone()],
+        edges.clone(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+
+    let mut reversed_edges = edges;
+    reversed_edges.reverse();
+    let update = graph.upsert_file_from_with_observed_without_rebuild(
+        None,
+        path,
+        2,
+        ParseDepth::Deep,
+        vec![
+            Node {
+                span: Span::line(3),
+                ..alpha
+            },
+            Node {
+                span: Span::line(7),
+                ..beta
+            },
+        ],
+        reversed_edges,
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        &[],
+        EventMeta {
+            id: EventId::new("observed:test".to_string()),
+            ts: 1,
+            actor: EventActor::System,
+            correlation: None,
+            causation: None,
+        },
+        prism_ir::ChangeTrigger::ManualReindex,
+    );
+
+    assert!(update.persist_in_place);
+    assert!(!update.requires_index_rebuild);
+    assert!(!update.requires_edge_resolution);
+}
+
+#[test]
 fn structural_file_update_maintains_indexes_incrementally() {
     let path = Path::new("src/lib.rs");
     let mut graph = Graph::new();
@@ -689,6 +765,60 @@ fn memory_store_round_trips_auxiliary_snapshots() {
         store.load_workspace_tree_snapshot().unwrap(),
         Some(workspace_tree)
     );
+}
+
+#[test]
+fn sqlite_store_round_trips_principal_registry_snapshot() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-principal-registry-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let mut store = SqliteStore::open(&path).unwrap();
+    let snapshot = PrincipalRegistrySnapshot {
+        principals: vec![PrincipalProfile {
+            authority_id: PrincipalAuthorityId("authority:test".into()),
+            principal_id: PrincipalId("principal:test".into()),
+            kind: PrincipalKind::Agent,
+            name: "Test Agent".to_string(),
+            role: Some("worker".to_string()),
+            status: PrincipalStatus::Active,
+            created_at: 11,
+            updated_at: 12,
+            parent_principal_id: Some(PrincipalId("principal:parent".into())),
+            profile: serde_json::json!({
+                "team": "runtime",
+            }),
+        }],
+        credentials: vec![CredentialRecord {
+            credential_id: CredentialId("credential:test".into()),
+            authority_id: PrincipalAuthorityId("authority:test".into()),
+            principal_id: PrincipalId("principal:test".into()),
+            token_verifier: "verifier:test".to_string(),
+            capabilities: vec![
+                CredentialCapability::MutateCoordination,
+                CredentialCapability::MintChildPrincipal,
+            ],
+            status: CredentialStatus::Active,
+            created_at: 13,
+            last_used_at: Some(14),
+            revoked_at: None,
+        }],
+    };
+
+    store.save_principal_registry_snapshot(&snapshot).unwrap();
+
+    assert_eq!(
+        store.load_principal_registry_snapshot().unwrap(),
+        Some(snapshot)
+    );
+
+    drop(store);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
 }
 
 #[test]
@@ -2857,6 +2987,7 @@ fn sqlite_store_commits_index_batches_atomically() {
 
     let batch = IndexPersistBatch {
         upserted_paths: vec![source_path.clone()],
+        in_place_upserted_paths: Vec::new(),
         removed_paths: Vec::new(),
         history_snapshot: HistorySnapshot {
             node_to_lineage: Vec::new(),
@@ -2996,6 +3127,7 @@ fn sqlite_store_applies_incremental_history_delta() {
             &initial_graph,
             &IndexPersistBatch {
                 upserted_paths: vec![source_path.clone()],
+                in_place_upserted_paths: Vec::new(),
                 removed_paths: Vec::new(),
                 history_snapshot: initial_snapshot.clone(),
                 history_delta: None,
@@ -3031,6 +3163,7 @@ fn sqlite_store_applies_incremental_history_delta() {
             &renamed_graph,
             &IndexPersistBatch {
                 upserted_paths: vec![source_path],
+                in_place_upserted_paths: Vec::new(),
                 removed_paths: Vec::new(),
                 history_snapshot: expected_snapshot.clone(),
                 history_delta: Some(HistoryPersistDelta {
@@ -3091,6 +3224,7 @@ fn sqlite_store_tolerates_duplicate_node_ids_in_single_file_state() {
 
     let batch = IndexPersistBatch {
         upserted_paths: vec![source_path],
+        in_place_upserted_paths: Vec::new(),
         removed_paths: Vec::new(),
         history_snapshot: HistorySnapshot {
             node_to_lineage: Vec::new(),
@@ -3162,6 +3296,7 @@ fn sqlite_store_index_batch_appends_outcome_events_without_snapshot_reload() {
 
     let batch = IndexPersistBatch {
         upserted_paths: vec![source_path],
+        in_place_upserted_paths: Vec::new(),
         removed_paths: Vec::new(),
         history_snapshot: HistorySnapshot {
             node_to_lineage: Vec::new(),
@@ -3187,6 +3322,110 @@ fn sqlite_store_index_batch_appends_outcome_events_without_snapshot_reload() {
 
     let loaded_outcomes = store.load_outcome_snapshot().unwrap().unwrap();
     assert_eq!(loaded_outcomes.events, vec![event]);
+
+    drop(store);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn sqlite_store_index_batch_updates_structurally_unchanged_file_state_in_place() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-index-in-place-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let source_path = PathBuf::from("src/lib.rs");
+    let mut graph = Graph::new();
+    graph.upsert_file_from(
+        None,
+        &source_path,
+        1,
+        prism_parser::ParseDepth::Deep,
+        vec![node("alpha")],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        &[],
+    );
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    store
+        .commit_index_persist_batch(
+            &graph,
+            &IndexPersistBatch {
+                upserted_paths: vec![source_path.clone()],
+                in_place_upserted_paths: Vec::new(),
+                removed_paths: Vec::new(),
+                history_snapshot: HistorySnapshot {
+                    node_to_lineage: Vec::new(),
+                    events: Vec::new(),
+                    tombstones: Vec::new(),
+                    next_lineage: 1,
+                    next_event: 2,
+                },
+                history_delta: None,
+                outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+                outcome_events: Vec::new(),
+                defer_graph_materialization: false,
+                co_change_deltas: Vec::new(),
+                validation_deltas: Vec::new(),
+                projection_snapshot: None,
+                workspace_tree_snapshot: None,
+            },
+        )
+        .unwrap();
+
+    let update = graph.upsert_file_from(
+        None,
+        &source_path,
+        2,
+        prism_parser::ParseDepth::Deep,
+        vec![node("alpha")],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        &[],
+    );
+    assert!(update.persist_in_place);
+
+    store
+        .commit_index_persist_batch(
+            &graph,
+            &IndexPersistBatch {
+                upserted_paths: Vec::new(),
+                in_place_upserted_paths: vec![source_path.clone()],
+                removed_paths: Vec::new(),
+                history_snapshot: HistorySnapshot {
+                    node_to_lineage: Vec::new(),
+                    events: Vec::new(),
+                    tombstones: Vec::new(),
+                    next_lineage: 1,
+                    next_event: 2,
+                },
+                history_delta: None,
+                outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+                outcome_events: Vec::new(),
+                defer_graph_materialization: false,
+                co_change_deltas: Vec::new(),
+                validation_deltas: Vec::new(),
+                projection_snapshot: None,
+                workspace_tree_snapshot: None,
+            },
+        )
+        .unwrap();
+
+    let reloaded = store.load_graph().unwrap().unwrap();
+    let state = reloaded.file_state(&source_path).unwrap();
+    assert_eq!(state.record.hash, 2);
+    assert_eq!(state.nodes.len(), 1);
 
     drop(store);
     let _ = std::fs::remove_file(path);

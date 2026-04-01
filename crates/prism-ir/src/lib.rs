@@ -38,5 +38,5 @@ pub use plans::{
 pub use primitives::{EdgeIndex, FileId, Language, Span, Timestamp};
 pub use principal::{
     CredentialCapability, CredentialRecord, CredentialStatus, PrincipalActor, PrincipalKind,
-    PrincipalProfile, PrincipalRef, PrincipalStatus,
+    PrincipalProfile, PrincipalRef, PrincipalRegistrySnapshot, PrincipalStatus,
 };

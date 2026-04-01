@@ -16,9 +16,9 @@ pub use persistence::{
 };
 pub use sqlite::{SnapshotRevisions, SqliteStore};
 pub use store::{
-    AuxiliaryPersistBatch, CoordinationPersistBatch, CoordinationPersistContext,
-    CoordinationPersistResult, IndexPersistBatch, Store, WorkspaceTreeDirectoryFingerprint,
-    WorkspaceTreeFileFingerprint, WorkspaceTreeSnapshot,
+    AuxiliaryPersistBatch, CoordinationEventStream, CoordinationPersistBatch,
+    CoordinationPersistContext, CoordinationPersistResult, IndexPersistBatch, Store,
+    WorkspaceTreeDirectoryFingerprint, WorkspaceTreeFileFingerprint, WorkspaceTreeSnapshot,
 };
 
 #[cfg(test)]

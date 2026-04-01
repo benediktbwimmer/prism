@@ -5,7 +5,7 @@ use prism_coordination::{
     CoordinationEvent, CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
 };
 use prism_history::{HistoryPersistDelta, HistorySnapshot};
-use prism_ir::{EventId, LineageEvent, LineageId, TaskId};
+use prism_ir::{EventId, LineageEvent, LineageId, PrincipalRegistrySnapshot, TaskId};
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEvent, OutcomeEvent, OutcomeMemorySnapshot, OutcomeRecallQuery,
     TaskReplay,
@@ -112,6 +112,11 @@ pub trait MaterializationStore {
     fn save_workspace_tree_snapshot(&mut self, snapshot: &WorkspaceTreeSnapshot) -> Result<()>;
     fn load_curator_snapshot(&mut self) -> Result<Option<prism_curator::CuratorSnapshot>>;
     fn save_curator_snapshot(&mut self, snapshot: &prism_curator::CuratorSnapshot) -> Result<()>;
+    fn load_principal_registry_snapshot(&mut self) -> Result<Option<PrincipalRegistrySnapshot>>;
+    fn save_principal_registry_snapshot(
+        &mut self,
+        snapshot: &PrincipalRegistrySnapshot,
+    ) -> Result<()>;
     fn commit_auxiliary_persist_batch(&mut self, batch: &AuxiliaryPersistBatch) -> Result<()>;
     fn commit_index_persist_batch(
         &mut self,
@@ -318,6 +323,17 @@ impl<T: Store + ?Sized> MaterializationStore for T {
 
     fn save_curator_snapshot(&mut self, snapshot: &prism_curator::CuratorSnapshot) -> Result<()> {
         Store::save_curator_snapshot(self, snapshot)
+    }
+
+    fn load_principal_registry_snapshot(&mut self) -> Result<Option<PrincipalRegistrySnapshot>> {
+        Store::load_principal_registry_snapshot(self)
+    }
+
+    fn save_principal_registry_snapshot(
+        &mut self,
+        snapshot: &PrincipalRegistrySnapshot,
+    ) -> Result<()> {
+        Store::save_principal_registry_snapshot(self, snapshot)
     }
 
     fn commit_auxiliary_persist_batch(&mut self, batch: &AuxiliaryPersistBatch) -> Result<()> {

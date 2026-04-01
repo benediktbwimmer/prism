@@ -85,6 +85,7 @@ pub struct CredentialRecord {
     pub credential_id: CredentialId,
     pub authority_id: PrincipalAuthorityId,
     pub principal_id: PrincipalId,
+    pub token_verifier: String,
     #[serde(default)]
     pub capabilities: Vec<CredentialCapability>,
     pub status: CredentialStatus,
@@ -93,4 +94,12 @@ pub struct CredentialRecord {
     pub last_used_at: Option<Timestamp>,
     #[serde(default)]
     pub revoked_at: Option<Timestamp>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, Default)]
+pub struct PrincipalRegistrySnapshot {
+    #[serde(default)]
+    pub principals: Vec<PrincipalProfile>,
+    #[serde(default)]
+    pub credentials: Vec<CredentialRecord>,
 }

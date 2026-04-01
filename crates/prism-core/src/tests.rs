@@ -16,9 +16,11 @@ use prism_curator::{
     CuratorProposal, CuratorRun,
 };
 use prism_ir::{
-    AnchorRef, ChangeTrigger, CoordinationEventKind, EdgeKind, EventActor, EventId, EventMeta,
-    GraphChange, LineageEvent, LineageEventKind, LineageEvidence, LineageId, NodeId, NodeKind,
-    SessionId, TaskId,
+    AnchorRef, ChangeTrigger, CoordinationEventKind, CredentialCapability, CredentialId,
+    CredentialRecord, CredentialStatus, EdgeKind, EventActor, EventId, EventMeta, GraphChange,
+    LineageEvent, LineageEventKind, LineageEvidence, LineageId, NodeId, NodeKind,
+    PrincipalAuthorityId, PrincipalId, PrincipalKind, PrincipalProfile, PrincipalRegistrySnapshot,
+    PrincipalStatus, SessionId, TaskId,
 };
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryEventQuery, MemoryId,
@@ -2057,6 +2059,74 @@ fn shared_runtime_sqlite_shares_memory_events_without_checkpoint_flush() {
         .entries
         .iter()
         .any(|candidate| candidate.content == "shared event journal memory"));
+
+    let _ = fs::remove_dir_all(root_one);
+    let _ = fs::remove_dir_all(root_two);
+    let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
+fn shared_runtime_sqlite_shares_principal_registry_across_workspaces() {
+    let shared_runtime_root = temp_workspace();
+    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+    let root_one = temp_workspace();
+    let root_two = temp_workspace();
+    for root in [&root_one, &root_two] {
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+    }
+
+    let options = WorkspaceSessionOptions {
+        coordination: true,
+        shared_runtime: SharedRuntimeBackend::Sqlite {
+            path: shared_runtime_sqlite.clone(),
+        },
+        hydrate_persisted_projections: false,
+    };
+    let session_one = index_workspace_session_with_options(&root_one, options.clone()).unwrap();
+    let snapshot = PrincipalRegistrySnapshot {
+        principals: vec![PrincipalProfile {
+            authority_id: PrincipalAuthorityId("authority:test".into()),
+            principal_id: PrincipalId("principal:agent-one".into()),
+            kind: PrincipalKind::Agent,
+            name: "Agent One".to_string(),
+            role: Some("coordination_worker".to_string()),
+            status: PrincipalStatus::Active,
+            created_at: 101,
+            updated_at: 102,
+            parent_principal_id: Some(PrincipalId("principal:human-root".into())),
+            profile: json!({
+                "session": "one",
+            }),
+        }],
+        credentials: vec![CredentialRecord {
+            credential_id: CredentialId("credential:agent-one".into()),
+            authority_id: PrincipalAuthorityId("authority:test".into()),
+            principal_id: PrincipalId("principal:agent-one".into()),
+            token_verifier: "verifier:agent-one".to_string(),
+            capabilities: vec![
+                CredentialCapability::MutateCoordination,
+                CredentialCapability::MutateRepoMemory,
+            ],
+            status: CredentialStatus::Active,
+            created_at: 103,
+            last_used_at: Some(104),
+            revoked_at: None,
+        }],
+    };
+    session_one.persist_principal_registry(&snapshot).unwrap();
+    drop(session_one);
+
+    let session_two = index_workspace_session_with_options(&root_two, options).unwrap();
+    assert_eq!(
+        session_two.load_principal_registry().unwrap(),
+        Some(snapshot)
+    );
 
     let _ = fs::remove_dir_all(root_one);
     let _ = fs::remove_dir_all(root_two);

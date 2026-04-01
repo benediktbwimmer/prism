@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::MutexGuard;
 
 use anyhow::Result;
 use prism_agent::{InferenceSnapshot, InferredEdgeRecord};
@@ -8,7 +9,7 @@ use prism_coordination::{
 };
 use prism_curator::CuratorSnapshot;
 use prism_history::{HistoryPersistDelta, HistorySnapshot};
-use prism_ir::{EventId, LineageEvent, LineageId, TaskId};
+use prism_ir::{EventId, LineageEvent, LineageId, PrincipalRegistrySnapshot, TaskId};
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEvent, OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot,
     OutcomeRecallQuery, TaskReplay,
@@ -53,6 +54,7 @@ pub struct CoordinationPersistContext {
 #[derive(Debug, Clone)]
 pub struct IndexPersistBatch {
     pub upserted_paths: Vec<PathBuf>,
+    pub in_place_upserted_paths: Vec<PathBuf>,
     pub removed_paths: Vec<PathBuf>,
     pub history_snapshot: HistorySnapshot,
     pub history_delta: Option<HistoryPersistDelta>,
@@ -191,6 +193,11 @@ pub trait Store {
     fn save_workspace_tree_snapshot(&mut self, snapshot: &WorkspaceTreeSnapshot) -> Result<()>;
     fn load_curator_snapshot(&mut self) -> Result<Option<CuratorSnapshot>>;
     fn save_curator_snapshot(&mut self, snapshot: &CuratorSnapshot) -> Result<()>;
+    fn load_principal_registry_snapshot(&mut self) -> Result<Option<PrincipalRegistrySnapshot>>;
+    fn save_principal_registry_snapshot(
+        &mut self,
+        snapshot: &PrincipalRegistrySnapshot,
+    ) -> Result<()>;
     fn coordination_revision(&self) -> Result<u64>;
     fn load_coordination_events(&mut self) -> Result<Vec<CoordinationEvent>>;
     fn load_coordination_event_stream(&mut self) -> Result<CoordinationEventStream>;
@@ -220,4 +227,235 @@ pub trait Store {
     fn remove_file_state(&mut self, path: &Path) -> Result<()>;
     fn replace_derived_edges(&mut self, graph: &Graph) -> Result<()>;
     fn finalize(&mut self, graph: &Graph) -> Result<()>;
+}
+
+impl<T: Store + ?Sized> Store for MutexGuard<'_, T> {
+    fn load_graph(&mut self) -> Result<Option<Graph>> {
+        Store::load_graph(&mut **self)
+    }
+
+    fn load_history_snapshot(&mut self) -> Result<Option<HistorySnapshot>> {
+        Store::load_history_snapshot(&mut **self)
+    }
+
+    fn load_history_snapshot_with_options(
+        &mut self,
+        include_events: bool,
+    ) -> Result<Option<HistorySnapshot>> {
+        Store::load_history_snapshot_with_options(&mut **self, include_events)
+    }
+
+    fn load_lineage_history(&mut self, lineage: &LineageId) -> Result<Vec<LineageEvent>> {
+        Store::load_lineage_history(&mut **self, lineage)
+    }
+
+    fn save_history_snapshot(&mut self, snapshot: &HistorySnapshot) -> Result<()> {
+        Store::save_history_snapshot(&mut **self, snapshot)
+    }
+
+    fn apply_history_delta(&mut self, delta: &HistoryPersistDelta) -> Result<()> {
+        Store::apply_history_delta(&mut **self, delta)
+    }
+
+    fn save_history_snapshot_with_co_change_deltas(
+        &mut self,
+        snapshot: &HistorySnapshot,
+        deltas: &[CoChangeDelta],
+    ) -> Result<()> {
+        Store::save_history_snapshot_with_co_change_deltas(&mut **self, snapshot, deltas)
+    }
+
+    fn load_outcome_snapshot(&mut self) -> Result<Option<OutcomeMemorySnapshot>> {
+        Store::load_outcome_snapshot(&mut **self)
+    }
+
+    fn load_recent_outcome_snapshot(
+        &mut self,
+        limit: usize,
+    ) -> Result<Option<OutcomeMemorySnapshot>> {
+        Store::load_recent_outcome_snapshot(&mut **self, limit)
+    }
+
+    fn load_outcomes(&mut self, query: &OutcomeRecallQuery) -> Result<Vec<OutcomeEvent>> {
+        Store::load_outcomes(&mut **self, query)
+    }
+
+    fn load_outcome_event(&mut self, event_id: &EventId) -> Result<Option<OutcomeEvent>> {
+        Store::load_outcome_event(&mut **self, event_id)
+    }
+
+    fn load_task_replay(&mut self, task_id: &TaskId) -> Result<TaskReplay> {
+        Store::load_task_replay(&mut **self, task_id)
+    }
+
+    fn save_outcome_snapshot(&mut self, snapshot: &OutcomeMemorySnapshot) -> Result<()> {
+        Store::save_outcome_snapshot(&mut **self, snapshot)
+    }
+
+    fn append_outcome_events(
+        &mut self,
+        events: &[OutcomeEvent],
+        validation_deltas: &[ValidationDelta],
+    ) -> Result<usize> {
+        Store::append_outcome_events(&mut **self, events, validation_deltas)
+    }
+
+    fn apply_validation_deltas(&mut self, deltas: &[ValidationDelta]) -> Result<()> {
+        Store::apply_validation_deltas(&mut **self, deltas)
+    }
+
+    fn save_outcome_snapshot_with_validation_deltas(
+        &mut self,
+        snapshot: &OutcomeMemorySnapshot,
+        deltas: &[ValidationDelta],
+    ) -> Result<()> {
+        Store::save_outcome_snapshot_with_validation_deltas(&mut **self, snapshot, deltas)
+    }
+
+    fn load_memory_events(&mut self) -> Result<Vec<MemoryEvent>> {
+        Store::load_memory_events(&mut **self)
+    }
+
+    fn append_memory_events(&mut self, events: &[MemoryEvent]) -> Result<usize> {
+        Store::append_memory_events(&mut **self, events)
+    }
+
+    fn load_episodic_snapshot(&mut self) -> Result<Option<EpisodicMemorySnapshot>> {
+        Store::load_episodic_snapshot(&mut **self)
+    }
+
+    fn save_episodic_snapshot(&mut self, snapshot: &EpisodicMemorySnapshot) -> Result<()> {
+        Store::save_episodic_snapshot(&mut **self, snapshot)
+    }
+
+    fn load_inference_snapshot(&mut self) -> Result<Option<InferenceSnapshot>> {
+        Store::load_inference_snapshot(&mut **self)
+    }
+
+    fn save_inference_snapshot(&mut self, snapshot: &InferenceSnapshot) -> Result<()> {
+        Store::save_inference_snapshot(&mut **self, snapshot)
+    }
+
+    fn load_projection_snapshot(&mut self) -> Result<Option<ProjectionSnapshot>> {
+        Store::load_projection_snapshot(&mut **self)
+    }
+
+    fn save_projection_snapshot(&mut self, snapshot: &ProjectionSnapshot) -> Result<()> {
+        Store::save_projection_snapshot(&mut **self, snapshot)
+    }
+
+    fn apply_projection_deltas(
+        &mut self,
+        co_change_deltas: &[CoChangeDelta],
+        validation_deltas: &[ValidationDelta],
+    ) -> Result<()> {
+        Store::apply_projection_deltas(&mut **self, co_change_deltas, validation_deltas)
+    }
+
+    fn load_workspace_tree_snapshot(&mut self) -> Result<Option<WorkspaceTreeSnapshot>> {
+        Store::load_workspace_tree_snapshot(&mut **self)
+    }
+
+    fn save_workspace_tree_snapshot(&mut self, snapshot: &WorkspaceTreeSnapshot) -> Result<()> {
+        Store::save_workspace_tree_snapshot(&mut **self, snapshot)
+    }
+
+    fn load_curator_snapshot(&mut self) -> Result<Option<CuratorSnapshot>> {
+        Store::load_curator_snapshot(&mut **self)
+    }
+
+    fn save_curator_snapshot(&mut self, snapshot: &CuratorSnapshot) -> Result<()> {
+        Store::save_curator_snapshot(&mut **self, snapshot)
+    }
+
+    fn load_principal_registry_snapshot(&mut self) -> Result<Option<PrincipalRegistrySnapshot>> {
+        Store::load_principal_registry_snapshot(&mut **self)
+    }
+
+    fn save_principal_registry_snapshot(
+        &mut self,
+        snapshot: &PrincipalRegistrySnapshot,
+    ) -> Result<()> {
+        Store::save_principal_registry_snapshot(&mut **self, snapshot)
+    }
+
+    fn coordination_revision(&self) -> Result<u64> {
+        Store::coordination_revision(&**self)
+    }
+
+    fn load_coordination_events(&mut self) -> Result<Vec<CoordinationEvent>> {
+        Store::load_coordination_events(&mut **self)
+    }
+
+    fn load_coordination_event_stream(&mut self) -> Result<CoordinationEventStream> {
+        Store::load_coordination_event_stream(&mut **self)
+    }
+
+    fn save_coordination_compaction(&mut self, snapshot: &CoordinationSnapshot) -> Result<()> {
+        Store::save_coordination_compaction(&mut **self, snapshot)
+    }
+
+    fn load_coordination_read_model(&mut self) -> Result<Option<CoordinationReadModel>> {
+        Store::load_coordination_read_model(&mut **self)
+    }
+
+    fn save_coordination_read_model(&mut self, read_model: &CoordinationReadModel) -> Result<()> {
+        Store::save_coordination_read_model(&mut **self, read_model)
+    }
+
+    fn load_coordination_queue_read_model(&mut self) -> Result<Option<CoordinationQueueReadModel>> {
+        Store::load_coordination_queue_read_model(&mut **self)
+    }
+
+    fn save_coordination_queue_read_model(
+        &mut self,
+        read_model: &CoordinationQueueReadModel,
+    ) -> Result<()> {
+        Store::save_coordination_queue_read_model(&mut **self, read_model)
+    }
+
+    fn load_latest_coordination_persist_context(
+        &mut self,
+    ) -> Result<Option<CoordinationPersistContext>> {
+        Store::load_latest_coordination_persist_context(&mut **self)
+    }
+
+    fn commit_coordination_persist_batch(
+        &mut self,
+        batch: &CoordinationPersistBatch,
+    ) -> Result<CoordinationPersistResult> {
+        Store::commit_coordination_persist_batch(&mut **self, batch)
+    }
+
+    fn commit_auxiliary_persist_batch(&mut self, batch: &AuxiliaryPersistBatch) -> Result<()> {
+        Store::commit_auxiliary_persist_batch(&mut **self, batch)
+    }
+
+    fn commit_index_persist_batch(
+        &mut self,
+        graph: &Graph,
+        batch: &IndexPersistBatch,
+    ) -> Result<()> {
+        Store::commit_index_persist_batch(&mut **self, graph, batch)
+    }
+
+    fn save_graph_snapshot(&mut self, graph: &Graph) -> Result<()> {
+        Store::save_graph_snapshot(&mut **self, graph)
+    }
+
+    fn save_file_state(&mut self, path: &Path, graph: &Graph) -> Result<()> {
+        Store::save_file_state(&mut **self, path, graph)
+    }
+
+    fn remove_file_state(&mut self, path: &Path) -> Result<()> {
+        Store::remove_file_state(&mut **self, path)
+    }
+
+    fn replace_derived_edges(&mut self, graph: &Graph) -> Result<()> {
+        Store::replace_derived_edges(&mut **self, graph)
+    }
+
+    fn finalize(&mut self, graph: &Graph) -> Result<()> {
+        Store::finalize(&mut **self, graph)
+    }
 }
