@@ -6,9 +6,9 @@ use serde_json::{json, Value};
 
 use super::*;
 use crate::tests_support::{
-    demo_node, initialize_client, initialized_notification, list_resources_request,
+    client_message, demo_node, initialize_client, initialized_notification, list_resources_request,
     list_tools_request, ping_request, read_resource_request, response_json, server_with_node,
-    server_with_node_and_features, temp_workspace, wait_until,
+    server_with_node_and_features, temp_workspace, test_session, wait_until,
 };
 use prism_core::index_workspace_session;
 
@@ -658,6 +658,94 @@ async fn mcp_server_reads_file_resource_templates_for_workspace_paths() {
 }
 
 #[tokio::test]
+async fn mcp_server_lists_and_reads_plan_detail_resources() {
+    let server = server_with_node(demo_node());
+    let plan = server
+        .host
+        .store_coordination(
+            test_session(&server.host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Migrate persistence storage semantics" }),
+                task_id: None,
+            },
+        )
+        .expect("plan create should succeed");
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+    server
+        .host
+        .store_coordination(
+            test_session(&server.host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({ "planId": plan_id, "title": "Classify authoritative tables" }),
+                task_id: None,
+            },
+        )
+        .expect("plan node create should succeed");
+
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(client_message(
+            r#"{ "jsonrpc": "2.0", "id": 2, "method": "resources/templates/list" }"#,
+        ))
+        .await
+        .unwrap();
+    let templates = response_json(client.receive().await.unwrap());
+    assert!(templates["result"]["resourceTemplates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|template| template["uriTemplate"] == "prism://plan/{planId}"));
+
+    client
+        .send(read_resource_request(3, &plan_resource_uri(&plan_id)))
+        .await
+        .unwrap();
+    let resource = response_json(client.receive().await.unwrap());
+    let payload = serde_json::from_str::<Value>(
+        resource["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("plan resource should be text"),
+    )
+    .unwrap();
+    assert_eq!(payload["plan"]["id"], plan_id);
+    assert_eq!(payload["summary"]["actionableNodes"], 1);
+    assert!(payload["relatedResources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|link| link["uri"] == "prism://plans"));
+
+    client
+        .send(read_resource_request(4, "prism://schema/plan"))
+        .await
+        .unwrap();
+    let schema = response_json(client.receive().await.unwrap());
+    let schema_payload = serde_json::from_str::<Value>(
+        schema["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("plan schema should be text"),
+    )
+    .unwrap();
+    assert_eq!(schema_payload["$id"], "prism://schema/plan");
+    assert_eq!(schema_payload["title"], "PRISM Plan Resource Schema");
+    assert_eq!(schema_payload["examples"][0]["plan"]["id"], "plan:1");
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn mcp_server_internal_developer_mode_surfaces_runtime_and_query_history_queries() {
     let server = server_with_node_and_features(
         demo_node(),
@@ -817,6 +905,20 @@ async fn schema_catalog_and_capabilities_surface_stable_examples() {
         .unwrap()
         .iter()
         .any(|tool| tool["name"] == "prism_query" && tool["exampleInput"]["language"] == "ts"));
+    assert!(capabilities_payload["resourceTemplates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|template| template["name"] == "PRISM Plan"
+            && template["exampleUri"] == "prism://plan/plan%3A1"));
+
+    let plan_entry = catalog_payload["schemas"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["resourceKind"] == "plan")
+        .expect("plan schema entry should exist");
+    assert_eq!(plan_entry["exampleUri"], "prism://plan/plan%3A1");
 
     running.cancel().await.unwrap();
 }

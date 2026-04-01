@@ -296,6 +296,25 @@ fn prism_mutate_validation_feedback_accepts_flat_snake_case_fields() {
 }
 
 #[test]
+fn prism_mutate_session_repair_accepts_clear_current_task_operation() {
+    let args = serde_json::from_value::<PrismMutationArgs>(json!({
+        "action": "session_repair",
+        "input": {
+            "operation": "clear_current_task"
+        }
+    }))
+    .expect("session repair mutation should deserialize");
+
+    let PrismMutationArgs::SessionRepair(args) = args else {
+        panic!("expected session repair mutation");
+    };
+    assert!(matches!(
+        args.operation,
+        SessionRepairOperationInput::ClearCurrentTask
+    ));
+}
+
+#[test]
 fn prism_mutate_coordination_rejects_missing_typed_payload_fields() {
     let error = serde_json::from_value::<PrismMutationArgs>(json!({
         "action": "coordination",

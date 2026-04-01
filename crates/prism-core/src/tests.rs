@@ -619,6 +619,45 @@ fn try_mutate_coordination_defers_when_refresh_is_in_progress() {
 }
 
 #[test]
+fn mutate_coordination_with_wait_succeeds_after_refresh_lock_releases() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let refresh_lock = Arc::clone(&session.refresh_lock);
+    let holder = thread::spawn(move || {
+        let _guard = refresh_lock
+            .lock()
+            .expect("workspace refresh lock poisoned");
+        thread::sleep(Duration::from_millis(75));
+    });
+
+    let started = std::time::Instant::now();
+    let result = session
+        .mutate_coordination_with_session_wait_observed(
+            None,
+            |_| Ok::<_, anyhow::Error>(()),
+            |_operation, _duration, _args, _success, _error| {},
+        )
+        .unwrap();
+    holder.join().expect("lock holder should finish");
+
+    assert!(result.is_some());
+    assert!(
+        started.elapsed() >= Duration::from_millis(50),
+        "bounded-wait coordination mutation should wait for the refresh lock"
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn try_ensure_paths_deep_defers_when_refresh_is_in_progress() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

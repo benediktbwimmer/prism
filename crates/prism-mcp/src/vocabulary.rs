@@ -73,6 +73,11 @@ const PRISM_MUTATE_ACTIONS: &[VocabularyValueSpec] = &[
         description: "Record PRISM dogfooding validation feedback.",
     },
     VocabularyValueSpec {
+        value: "session_repair",
+        aliases: &[],
+        description: "Apply a narrow safe repair to the current MCP session context.",
+    },
+    VocabularyValueSpec {
         value: "infer_edge",
         aliases: &[],
         description: "Record an inferred edge.",

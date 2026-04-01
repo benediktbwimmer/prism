@@ -18651,6 +18651,10 @@ fn plans_resource_payload_surfaces_filters_and_root_nodes() {
         .related_resources
         .iter()
         .any(|link| link.uri == "prism://plans?contains=persistence"));
+    assert!(payload
+        .related_resources
+        .iter()
+        .any(|link| link.uri == plan_resource_uri(&plan_id)));
     assert_eq!(
         payload.plans[0].root_node_ids,
         vec![root_node.state["id"].as_str().unwrap()]
@@ -18684,6 +18688,60 @@ fn plans_resource_contains_filter_matches_singular_and_plural_terms() {
         .title
         .to_ascii_lowercase()
         .contains("bottleneck"));
+}
+
+#[test]
+fn plan_resource_payload_surfaces_detail_summary_and_navigation_links() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Migrate persistence storage semantics" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let root_node = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({ "planId": plan_id, "title": "Classify authoritative tables" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+
+    let payload = host
+        .plan_resource_value(&PlanId::new(plan_id.clone()))
+        .expect("plan resource should succeed");
+
+    assert_eq!(payload.uri, plan_resource_uri(&plan_id));
+    assert_eq!(payload.plan.id, plan_id);
+    assert_eq!(
+        payload.plan.root_node_ids,
+        vec![root_node.state["id"].as_str().unwrap()]
+    );
+    assert_eq!(
+        payload
+            .summary
+            .as_ref()
+            .map(|summary| summary.actionable_nodes),
+        Some(1)
+    );
+    assert!(payload
+        .related_resources
+        .iter()
+        .any(|link| link.uri == plans_resource_uri()));
+    assert!(payload
+        .related_resources
+        .iter()
+        .any(|link| link.uri == payload.uri));
 }
 
 #[test]
@@ -19309,13 +19367,13 @@ fn session_resource_surfaces_detached_current_task_context() {
     assert!(current_task
         .context_summary
         .contains("leftover session context"));
-    assert!(current_task.next_action.contains("start_task"));
+    assert!(current_task.next_action.contains("start a fresh task"));
     let repair = current_task
         .repair_action
         .expect("detached task should surface a repair action");
-    assert_eq!(repair.tool, "prism_session");
-    assert_eq!(repair.input["action"], "configure");
-    assert_eq!(repair.input["input"]["clearCurrentTask"], true);
+    assert_eq!(repair.tool, "prism_mutate");
+    assert_eq!(repair.input["action"], "session_repair");
+    assert_eq!(repair.input["input"]["operation"], "clear_current_task");
 }
 
 #[test]
@@ -19445,6 +19503,37 @@ fn session_resource_surfaces_stale_current_task_context() {
         .expect("stale task should surface a repair action");
     assert_eq!(repair.tool, "prism_task_brief");
     assert_eq!(repair.input["taskId"], task_id.0.to_string());
+}
+
+#[test]
+fn session_repair_mutation_clears_current_task_binding() {
+    let host = host_with_node(demo_node());
+    test_session(&host).set_current_task(
+        TaskId::new("task:leftover-session-context"),
+        Some("Leftover task".to_string()),
+        vec!["old".to_string()],
+        None,
+    );
+
+    let result = host
+        .repair_session_without_refresh(
+            test_session(&host).as_ref(),
+            PrismSessionRepairArgs {
+                operation: SessionRepairOperationInput::ClearCurrentTask,
+            },
+        )
+        .expect("session repair should clear the current task");
+
+    assert_eq!(
+        result.operation,
+        SessionRepairOperationSchema::ClearCurrentTask
+    );
+    assert_eq!(
+        result.cleared_task_id.as_deref(),
+        Some("task:leftover-session-context")
+    );
+    assert!(test_session(&host).current_task_state().is_none());
+    assert!(result.session.current_task.is_none());
 }
 
 #[test]

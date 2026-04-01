@@ -1747,6 +1747,32 @@ pub(crate) struct PrismInferEdgeArgs {
     pub(crate) task_id: Option<String>,
 }
 
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum SessionRepairOperationInput {
+    ClearCurrentTask,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismSessionRepairArgs {
+    pub(crate) operation: SessionRepairOperationInput,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum SessionRepairOperationSchema {
+    ClearCurrentTask,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SessionRepairMutationResult {
+    pub(crate) operation: SessionRepairOperationSchema,
+    pub(crate) cleared_task_id: Option<String>,
+    pub(crate) session: SessionView,
+}
+
 #[derive(Debug, JsonSchema)]
 #[schemars(transform = ensure_root_object_input_schema)]
 #[serde(rename_all = "snake_case", tag = "action", content = "input")]
@@ -1757,6 +1783,7 @@ pub(crate) enum PrismMutationArgs {
     Contract(PrismContractMutationArgs),
     ConceptRelation(PrismConceptRelationMutationArgs),
     ValidationFeedback(PrismValidationFeedbackArgs),
+    SessionRepair(PrismSessionRepairArgs),
     InferEdge(PrismInferEdgeArgs),
     Coordination(PrismCoordinationArgs),
     Claim(PrismClaimArgs),
@@ -1780,6 +1807,7 @@ enum PrismMutationArgsWire {
     Contract(PrismContractMutationArgs),
     ConceptRelation(PrismConceptRelationMutationArgs),
     ValidationFeedback(PrismValidationFeedbackArgs),
+    SessionRepair(PrismSessionRepairArgs),
     InferEdge(PrismInferEdgeArgs),
     Coordination(PrismCoordinationArgs),
     Claim(PrismClaimArgs),
@@ -1803,6 +1831,7 @@ impl From<PrismMutationArgsWire> for PrismMutationArgs {
             PrismMutationArgsWire::Contract(args) => Self::Contract(args),
             PrismMutationArgsWire::ConceptRelation(args) => Self::ConceptRelation(args),
             PrismMutationArgsWire::ValidationFeedback(args) => Self::ValidationFeedback(args),
+            PrismMutationArgsWire::SessionRepair(args) => Self::SessionRepair(args),
             PrismMutationArgsWire::InferEdge(args) => Self::InferEdge(args),
             PrismMutationArgsWire::Coordination(args) => Self::Coordination(args),
             PrismMutationArgsWire::Claim(args) => Self::Claim(args),
@@ -1840,6 +1869,7 @@ pub(crate) enum PrismMutationActionSchema {
     Contract,
     ConceptRelation,
     ValidationFeedback,
+    SessionRepair,
     InferEdge,
     Coordination,
     Claim,

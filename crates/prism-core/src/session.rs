@@ -35,6 +35,8 @@ use tracing::info;
 pub use prism_store::SnapshotRevisions as WorkspaceSnapshotRevisions;
 
 pub(crate) const HOT_OUTCOME_HYDRATION_LIMIT: usize = 256;
+const MUTATION_REFRESH_WAIT_TIMEOUT: Duration = Duration::from_millis(1500);
+const MUTATION_REFRESH_RETRY_INTERVAL: Duration = Duration::from_millis(10);
 
 use crate::admission::AdmissionBusyError;
 use crate::checkpoint_materializer::CheckpointMaterializerHandle;
@@ -466,6 +468,48 @@ impl WorkspaceSession {
         reason: &'static str,
     ) -> Result<Option<MutexGuard<'_, ()>>> {
         self.try_lock_refresh_for_phase("mutation.waitRefreshLock", reason)
+    }
+
+    fn wait_lock_refresh_for_phase(
+        &self,
+        phase: &'static str,
+        reason: &'static str,
+        timeout: Duration,
+    ) -> Result<Option<MutexGuard<'_, ()>>> {
+        let wait_started = Instant::now();
+        loop {
+            match self.refresh_lock.try_lock() {
+                Ok(guard) => {
+                    mutation_trace::record_phase(
+                        phase,
+                        json!({ "reason": reason }),
+                        wait_started.elapsed(),
+                        true,
+                        None,
+                    );
+                    return Ok(Some(guard));
+                }
+                Err(TryLockError::WouldBlock) => {
+                    let elapsed = wait_started.elapsed();
+                    if elapsed >= timeout {
+                        let error = AdmissionBusyError::refresh_lock(reason);
+                        mutation_trace::record_phase(
+                            phase,
+                            json!({ "reason": reason, "admission": "busy" }),
+                            elapsed,
+                            false,
+                            Some(error.to_string()),
+                        );
+                        return Ok(None);
+                    }
+                    let remaining = timeout.saturating_sub(elapsed);
+                    std::thread::sleep(remaining.min(MUTATION_REFRESH_RETRY_INTERVAL));
+                }
+                Err(TryLockError::Poisoned(_)) => {
+                    panic!("workspace refresh lock poisoned");
+                }
+            }
+        }
     }
 
     fn lock_store_for_mutation<'a>(
@@ -2108,6 +2152,33 @@ impl WorkspaceSession {
         let Some(guard) = self.try_lock_refresh_for_phase(
             "mutation.coordination.waitRefreshLock",
             "mutateCoordination",
+        )?
+        else {
+            return Ok(None);
+        };
+        self.mutate_coordination_with_session_guarded(session_id, mutate, observe_phase, guard)
+            .map(Some)
+    }
+
+    pub fn mutate_coordination_with_session_wait_observed<T, F, O>(
+        &self,
+        session_id: Option<&SessionId>,
+        mutate: F,
+        observe_phase: O,
+    ) -> Result<Option<T>>
+    where
+        F: FnOnce(&Prism) -> Result<T>,
+        O: FnMut(&str, Duration, Value, bool, Option<String>),
+    {
+        if !self.coordination_enabled {
+            return Err(anyhow!(
+                "coordination is disabled for this workspace session"
+            ));
+        }
+        let Some(guard) = self.wait_lock_refresh_for_phase(
+            "mutation.coordination.waitRefreshLock",
+            "mutateCoordination",
+            MUTATION_REFRESH_WAIT_TIMEOUT,
         )?
         else {
             return Ok(None);

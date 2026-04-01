@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use prism_agent::EdgeId;
-use prism_ir::{AnchorRef, CoordinationTaskId, EventId, LineageId, NodeId, TaskId};
+use prism_ir::{AnchorRef, CoordinationTaskId, EventId, LineageId, NodeId, PlanId, TaskId};
 use prism_memory::{MemoryEventQuery, MemoryId};
 use serde_json::json;
 use std::sync::Arc;
@@ -16,7 +16,8 @@ use crate::{
     file_resource_view_link, inferred_edge_record_view, instructions_resource_view_link,
     lineage_event_view, lineage_resource_view_link, lineage_status, memory_entry_view,
     memory_event_view, memory_resource_uri, memory_resource_view_link, owner_views_for_query,
-    paginate_items, parse_resource_page, parse_resource_query_param, plans_resource_view_link,
+    paginate_items, parse_resource_page, parse_resource_query_param, plan_resource_uri,
+    plan_resource_view_link, plan_summary_view, plan_view, plans_resource_view_link,
     plans_resource_view_link_with_options, resource_link_view, resource_schema_catalog_entries,
     schema_resource_uri, schema_resource_view_link, schemas_resource_uri,
     schemas_resource_view_link, search_ambiguity_from_diagnostics,
@@ -28,10 +29,10 @@ use crate::{
     workspace_revision_view, CapabilitiesResourcePayload, ContractsResourcePayload,
     CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
     EventResourcePayload, FeatureFlagsView, FileResourcePayload, InferredEdgeRecordView,
-    LineageResourcePayload, MemoryResourcePayload, PlansQueryArgs, PlansResourcePayload,
-    QueryExecution, QueryHost, ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload,
-    SessionLimitsView, SessionRepairActionView, SessionResourcePayload, SessionState,
-    SessionTaskView, SessionView, SymbolResourcePayload, TaskResourcePayload,
+    LineageResourcePayload, MemoryResourcePayload, PlanResourcePayload, PlansQueryArgs,
+    PlansResourcePayload, QueryExecution, QueryHost, ResourceSchemaCatalogPayload, SearchArgs,
+    SearchResourcePayload, SessionLimitsView, SessionRepairActionView, SessionResourcePayload,
+    SessionState, SessionTaskView, SessionView, SymbolResourcePayload, TaskResourcePayload,
     VocabularyResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
     DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
 };
@@ -367,6 +368,13 @@ impl QueryHost {
                     )
                 },
             ];
+            let mut related_resources = related_resources;
+            related_resources.extend(
+                paged
+                    .items
+                    .iter()
+                    .map(|plan| plan_resource_view_link(&plan.plan_id)),
+            );
             Ok(PlansResourcePayload {
                 uri: uri.to_string(),
                 schema_uri,
@@ -378,6 +386,43 @@ impl QueryHost {
                 page: paged.page,
                 truncated: paged.truncated,
                 diagnostics: execution.diagnostics(),
+                related_resources: dedupe_resource_link_views(related_resources),
+            })
+        })
+    }
+
+    pub(crate) fn plan_resource_value(&self, plan_id: &PlanId) -> Result<PlanResourcePayload> {
+        let uri = plan_resource_uri(&plan_id.0);
+        self.execute_traced_resource_read("plan", &uri, || {
+            let schema_uri = schema_resource_uri("plan");
+            let prism = self.current_prism();
+            let plan = prism
+                .coordination_plan(plan_id)
+                .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
+            let root_node_ids = prism
+                .plan_graph(plan_id)
+                .map(|graph| graph.root_nodes)
+                .unwrap_or_else(|| {
+                    plan.root_tasks
+                        .iter()
+                        .map(|task_id| prism_ir::PlanNodeId::new(task_id.0.clone()))
+                        .collect()
+                });
+            let plan = plan_view(plan, root_node_ids);
+            let summary = prism.plan_summary(plan_id).map(plan_summary_view);
+            let related_resources = vec![
+                session_resource_view_link(),
+                plans_resource_view_link(),
+                plan_resource_view_link(&plan.id),
+                schema_resource_view_link("plan"),
+                schemas_resource_view_link(),
+            ];
+            Ok(PlanResourcePayload {
+                uri: uri.clone(),
+                schema_uri,
+                workspace_revision: workspace_revision_view(prism.workspace_revision()),
+                plan,
+                summary,
                 related_resources: dedupe_resource_link_views(related_resources),
             })
         })
@@ -1149,13 +1194,13 @@ fn session_task_context_summary(
             status: "detached",
             summary: "Current task has no recorded replay history or live coordination binding and may be leftover session context."
                 .to_string(),
-            next_action: "Clear the current task if you are changing scope, or start a fresh one with prism_session action `start_task`.".to_string(),
+            next_action: "Clear the current task if you are changing scope, or start a fresh task through the normal task-start flow.".to_string(),
             repair_action: Some(SessionRepairActionView {
-                tool: "prism_session".to_string(),
+                tool: "prism_mutate".to_string(),
                 input: json!({
-                    "action": "configure",
+                    "action": "session_repair",
                     "input": {
-                        "clearCurrentTask": true
+                        "operation": "clear_current_task"
                     }
                 }),
                 label: "Clear the leftover current-task session binding.".to_string(),
@@ -1174,11 +1219,11 @@ fn session_task_context_summary(
                 .to_string(),
             next_action: "Rebind the session to a live coordination task, or clear the current task before starting new work.".to_string(),
             repair_action: Some(SessionRepairActionView {
-                tool: "prism_session".to_string(),
+                tool: "prism_mutate".to_string(),
                 input: json!({
-                    "action": "configure",
+                    "action": "session_repair",
                     "input": {
-                        "clearCurrentTask": true
+                        "operation": "clear_current_task"
                     }
                 }),
                 label: "Clear the stale coordination-task session binding.".to_string(),

@@ -12,10 +12,11 @@ use crate::{
     ToolCapabilityView, API_REFERENCE_URI, CAPABILITIES_URI, CONTRACTS_RESOURCE_TEMPLATE_URI,
     CONTRACTS_URI, EDGE_RESOURCE_TEMPLATE_URI, ENTRYPOINTS_RESOURCE_TEMPLATE_URI,
     EVENT_RESOURCE_TEMPLATE_URI, FILE_RESOURCE_TEMPLATE_URI, LINEAGE_RESOURCE_TEMPLATE_URI,
-    MEMORY_RESOURCE_TEMPLATE_URI, PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI, SCHEMAS_URI,
-    SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
-    TASK_RESOURCE_TEMPLATE_URI, TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI,
-    TOOL_SCHEMA_RESOURCE_TEMPLATE_URI, VOCAB_URI,
+    MEMORY_RESOURCE_TEMPLATE_URI, PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI,
+    PLAN_RESOURCE_TEMPLATE_URI, SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI,
+    SYMBOL_RESOURCE_TEMPLATE_URI, TASK_RESOURCE_TEMPLATE_URI,
+    TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI, TOOL_SCHEMA_RESOURCE_TEMPLATE_URI,
+    VOCAB_URI,
 };
 
 pub(crate) fn capabilities_resource_value(
@@ -692,6 +693,13 @@ fn resource_template_capabilities() -> Vec<ResourceTemplateCapabilityView> {
                 "Read plan discovery results with optional status, scope, text, and pagination filters."
                     .to_string(),
             example_uri: resource_example_uri("plans"),
+        },
+        ResourceTemplateCapabilityView {
+            name: "PRISM Plan".to_string(),
+            uri_template: PLAN_RESOURCE_TEMPLATE_URI.to_string(),
+            mime_type: "application/json".to_string(),
+            description: "Read a coordination plan by id.".to_string(),
+            example_uri: resource_example_uri("plan"),
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Contracts Page".to_string(),

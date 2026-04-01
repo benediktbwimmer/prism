@@ -160,6 +160,7 @@ const SEARCH_RESOURCE_TEMPLATE_URI: &str =
     "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&preferCallableCode={preferCallableCode}&preferEditableTargets={preferEditableTargets}&preferBehavioralOwners={preferBehavioralOwners}&includeInferred={includeInferred}";
 const LINEAGE_RESOURCE_TEMPLATE_URI: &str =
     "prism://lineage/{lineageId}?limit={limit}&cursor={cursor}";
+const PLAN_RESOURCE_TEMPLATE_URI: &str = "prism://plan/{planId}";
 const TASK_RESOURCE_TEMPLATE_URI: &str = "prism://task/{taskId}?limit={limit}&cursor={cursor}";
 const PLANS_RESOURCE_TEMPLATE_URI: &str =
     "prism://plans?status={status}&scope={scope}&contains={contains}&limit={limit}&cursor={cursor}";

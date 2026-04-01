@@ -2,8 +2,9 @@ pub(crate) use prism_js::{
     AnchorRefView, ChangeImpactView, CoChangeView, ContractKindView, ContractPacketView,
     ContractStatusView, DiscoveryBundleView, EdgeView, EditContextView, LineageEventView,
     LineageStatus, LineageView, MemoryEntryView, MemoryEventView, OwnerCandidateView,
-    PlanListEntryView, QueryDiagnostic, ReadContextView, RelationsView, SourceExcerptView,
-    SuggestedQueryView, SymbolView, TaskJournalView, ValidationRecipeView, WorkspaceRevisionView,
+    PlanListEntryView, PlanSummaryView, PlanView, QueryDiagnostic, ReadContextView, RelationsView,
+    SourceExcerptView, SuggestedQueryView, SymbolView, TaskJournalView, ValidationRecipeView,
+    WorkspaceRevisionView,
 };
 use rmcp::schemars::JsonSchema;
 use serde_json::Value;
@@ -220,6 +221,17 @@ pub(crate) struct PlansResourcePayload {
     pub(crate) page: ResourcePageView,
     pub(crate) truncated: bool,
     pub(crate) diagnostics: Vec<QueryDiagnostic>,
+    pub(crate) related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PlanResourcePayload {
+    pub(crate) uri: String,
+    pub(crate) schema_uri: String,
+    pub(crate) workspace_revision: WorkspaceRevisionView,
+    pub(crate) plan: PlanView,
+    pub(crate) summary: Option<PlanSummaryView>,
     pub(crate) related_resources: Vec<ResourceLinkView>,
 }
 

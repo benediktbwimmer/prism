@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use prism_agent::EdgeId;
-use prism_ir::{AnchorRef, EventId, LineageId, NodeId, TaskId};
+use prism_ir::{AnchorRef, EventId, LineageId, NodeId, PlanId, TaskId};
 use prism_js::{NodeIdView, SymbolView};
 use prism_memory::{MemoryId, OutcomeEvent};
 use rmcp::{
@@ -17,8 +17,9 @@ use crate::{
     CAPABILITIES_URI, CONTRACTS_RESOURCE_TEMPLATE_URI, CONTRACTS_URI, EDGE_RESOURCE_TEMPLATE_URI,
     ENTRYPOINTS_RESOURCE_TEMPLATE_URI, EVENT_RESOURCE_TEMPLATE_URI, FILE_RESOURCE_TEMPLATE_URI,
     INSTRUCTIONS_URI, LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI,
-    PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI, SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI,
-    SYMBOL_RESOURCE_TEMPLATE_URI, TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI, VOCAB_URI,
+    PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI, PLAN_RESOURCE_TEMPLATE_URI, SCHEMAS_URI,
+    SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
+    TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI, VOCAB_URI,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -311,6 +312,13 @@ pub(crate) fn parse_lineage_resource_uri(uri: &str) -> Option<LineageId> {
         .map(LineageId::new)
 }
 
+pub(crate) fn parse_plan_resource_uri(uri: &str) -> Option<PlanId> {
+    let (base, _) = split_resource_uri(uri);
+    base.strip_prefix("prism://plan/")
+        .map(percent_decode_lossy)
+        .map(PlanId::new)
+}
+
 pub(crate) fn parse_task_resource_uri(uri: &str) -> Option<TaskId> {
     let (base, _) = split_resource_uri(uri);
     base.strip_prefix("prism://task/")
@@ -457,6 +465,10 @@ pub(crate) fn tool_action_schema_resource_uri(tool_name: &str, action: &str) -> 
         percent_encode_component(tool_name),
         percent_encode_component(action)
     )
+}
+
+pub(crate) fn plan_resource_uri(plan_id: &str) -> String {
+    format!("prism://plan/{}", percent_encode_component(plan_id))
 }
 
 pub(crate) fn task_resource_uri(task_id: &str) -> String {
@@ -804,6 +816,14 @@ pub(crate) fn task_resource_view_link(task_id: &str) -> ResourceLinkView {
     )
 }
 
+pub(crate) fn plan_resource_view_link(plan_id: &str) -> ResourceLinkView {
+    resource_link_view(
+        plan_resource_uri(plan_id),
+        format!("PRISM Plan: {plan_id}"),
+        "Coordination plan detail with root nodes and progress summary",
+    )
+}
+
 pub(crate) fn search_resource_view_link_with_options(
     query: &str,
     strategy: Option<&str>,
@@ -994,6 +1014,13 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             description:
                 "Schema for compact plan discovery results, filters, and pagination metadata."
                     .to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "plan".to_string(),
+            schema_uri: schema_resource_uri("plan"),
+            resource_uri: Some(PLAN_RESOURCE_TEMPLATE_URI.to_string()),
+            example_uri: resource_example_uri("plan"),
+            description: "Schema for a single coordination plan detail resource.".to_string(),
         },
         ResourceSchemaCatalogEntry {
             resource_kind: "contracts".to_string(),

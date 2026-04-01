@@ -60,11 +60,12 @@ use crate::{
     PrismConceptRelationMutationArgs, PrismContractMutationArgs, PrismCoordinationArgs,
     PrismCuratorApplyProposalArgs, PrismCuratorPromoteConceptArgs, PrismCuratorPromoteEdgeArgs,
     PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs, PrismFinishTaskArgs,
-    PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs, PrismValidationFeedbackArgs, QueryHost,
-    SessionState, SparsePatch, SparsePatchInput, TaskCreatePayload,
-    ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
-    ValidationFeedbackVerdictInput, WorkflowStatusInput, WorkflowUpdatePayload,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+    PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs, PrismSessionRepairArgs,
+    PrismValidationFeedbackArgs, QueryHost, SessionRepairMutationResult,
+    SessionRepairOperationInput, SessionRepairOperationSchema, SessionState, SparsePatch,
+    SparsePatchInput, TaskCreatePayload, ValidationFeedbackCategoryInput,
+    ValidationFeedbackMutationResult, ValidationFeedbackVerdictInput, WorkflowStatusInput,
+    WorkflowUpdatePayload, DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
 
 #[derive(Default)]
@@ -141,10 +142,6 @@ fn coordination_audit_since(prism: &Prism, before_len: usize) -> CoordinationAud
         }
     }
     audit
-}
-
-fn coordination_mutation_busy_error() -> anyhow::Error {
-    AdmissionBusyError::refresh_lock("mutateCoordination").into()
 }
 
 fn current_plan_node_state(prism: &Prism, plan_id: &PlanId, node_id: &str) -> Result<Value> {
@@ -289,6 +286,29 @@ impl QueryHost {
             ));
         }
         Ok(())
+    }
+
+    pub(crate) fn repair_session_without_refresh(
+        &self,
+        session: &SessionState,
+        args: PrismSessionRepairArgs,
+    ) -> Result<SessionRepairMutationResult> {
+        match args.operation {
+            SessionRepairOperationInput::ClearCurrentTask => {
+                let cleared_task_id = session
+                    .current_task_state()
+                    .map(|task| task.id.0.to_string());
+                if cleared_task_id.is_none() {
+                    return Err(anyhow!("no current task is set for this session"));
+                }
+                session.clear_current_task();
+                Ok(SessionRepairMutationResult {
+                    operation: SessionRepairOperationSchema::ClearCurrentTask,
+                    cleared_task_id,
+                    session: self.session_view_without_refresh(session),
+                })
+            }
+        }
     }
 
     pub(crate) fn start_task(
@@ -1154,7 +1174,7 @@ impl QueryHost {
         };
         if let Some(workspace) = self.workspace_session() {
             let result = if let Some(trace) = trace {
-                match workspace.try_mutate_coordination_with_session_observed(
+                match workspace.mutate_coordination_with_session_wait_observed(
                     Some(&session.session_id()),
                     |prism| self.apply_coordination_mutation(session, prism, args, meta.clone()),
                     |operation, duration, args, success, error| {
@@ -1162,16 +1182,17 @@ impl QueryHost {
                     },
                 ) {
                     Ok(Some(state)) => Ok(state),
-                    Ok(None) => Err(coordination_mutation_busy_error()),
+                    Ok(None) => Err(AdmissionBusyError::refresh_lock("mutateCoordination").into()),
                     Err(error) => Err(error),
                 }
             } else {
-                match workspace
-                    .try_mutate_coordination_with_session(Some(&session.session_id()), |prism| {
-                        self.apply_coordination_mutation(session, prism, args, meta.clone())
-                    }) {
+                match workspace.mutate_coordination_with_session_wait_observed(
+                    Some(&session.session_id()),
+                    |prism| self.apply_coordination_mutation(session, prism, args, meta.clone()),
+                    |_operation, _duration, _args, _success, _error| {},
+                ) {
                     Ok(Some(state)) => Ok(state),
-                    Ok(None) => Err(coordination_mutation_busy_error()),
+                    Ok(None) => Err(AdmissionBusyError::refresh_lock("mutateCoordination").into()),
                     Err(error) => Err(error),
                 }
             };
@@ -1317,10 +1338,11 @@ impl QueryHost {
             causation: None,
         };
         if let Some(workspace) = self.workspace_session() {
-            match workspace
-                .try_mutate_coordination_with_session(Some(&session.session_id()), |prism| {
-                    self.apply_claim_mutation(session, prism, args, meta.clone())
-                }) {
+            match workspace.mutate_coordination_with_session_wait_observed(
+                Some(&session.session_id()),
+                |prism| self.apply_claim_mutation(session, prism, args, meta.clone()),
+                |_operation, _duration, _args, _success, _error| {},
+            ) {
                 Ok(Some(mut result)) => {
                     self.sync_coordination_revision(workspace)?;
                     let prism = self.current_prism();
@@ -1329,7 +1351,7 @@ impl QueryHost {
                     result.violations.extend(audit.violations);
                     Ok(result)
                 }
-                Ok(None) => Err(coordination_mutation_busy_error()),
+                Ok(None) => Err(AdmissionBusyError::refresh_lock("mutateCoordination").into()),
                 Err(error) => {
                     let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
@@ -1396,10 +1418,11 @@ impl QueryHost {
             causation: None,
         };
         if let Some(workspace) = self.workspace_session() {
-            match workspace
-                .try_mutate_coordination_with_session(Some(&session.session_id()), |prism| {
-                    self.apply_artifact_mutation(prism, args, meta.clone())
-                }) {
+            match workspace.mutate_coordination_with_session_wait_observed(
+                Some(&session.session_id()),
+                |prism| self.apply_artifact_mutation(prism, args, meta.clone()),
+                |_operation, _duration, _args, _success, _error| {},
+            ) {
                 Ok(Some(mut result)) => {
                     self.sync_coordination_revision(workspace)?;
                     let prism = self.current_prism();
@@ -1408,7 +1431,7 @@ impl QueryHost {
                     result.violations.extend(audit.violations);
                     Ok(result)
                 }
-                Ok(None) => Err(coordination_mutation_busy_error()),
+                Ok(None) => Err(AdmissionBusyError::refresh_lock("mutateCoordination").into()),
                 Err(error) => {
                     let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);

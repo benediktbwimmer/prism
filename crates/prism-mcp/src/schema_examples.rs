@@ -3,9 +3,9 @@ use serde_json::{json, Value};
 use crate::{
     capabilities_resource_uri, contracts_resource_uri_with_options, edge_resource_uri,
     event_resource_uri, file_resource_uri_with_options, instructions_resource_uri,
-    memory_resource_uri, plans_resource_uri, schema_resource_uri, session_resource_uri,
-    symbol_resource_uri_from_node_id, task_resource_uri, tool_schema_resource_uri,
-    vocab_resource_uri, API_REFERENCE_URI,
+    memory_resource_uri, plan_resource_uri, plans_resource_uri, schema_resource_uri,
+    session_resource_uri, symbol_resource_uri_from_node_id, task_resource_uri,
+    tool_schema_resource_uri, vocab_resource_uri, API_REFERENCE_URI,
 };
 use prism_ir::{EdgeKind, NodeId};
 
@@ -25,6 +25,7 @@ pub(crate) fn resource_example_uri(resource_kind: &str) -> Option<String> {
         "vocab" => Some(vocab_resource_uri()),
         "tool-schemas" => Some("prism://tool-schemas".to_string()),
         "plans" => Some("prism://plans?contains=persistence&limit=5".to_string()),
+        "plan" => Some(plan_resource_uri("plan:1")),
         "contracts" => Some(contracts_resource_uri_with_options(
             Some("runtime"),
             Some("active"),
@@ -167,6 +168,7 @@ pub(crate) fn tool_action_examples(tool_name: &str, action: &str) -> Vec<Value> 
 fn prism_mutate_examples() -> Vec<Value> {
     let mut examples = [
         "validation_feedback",
+        "session_repair",
         "outcome",
         "memory",
         "concept",
@@ -203,6 +205,12 @@ fn prism_mutate_action_example(action: &str) -> Option<Value> {
                 "category": "projection",
                 "verdict": "helpful",
                 "correctedManually": false
+            }
+        })),
+        "session_repair" => Some(json!({
+            "action": "session_repair",
+            "input": {
+                "operation": "clear_current_task"
             }
         })),
         "outcome" => Some(json!({
@@ -574,6 +582,7 @@ fn resource_payload_example(resource_kind: &str) -> Option<Value> {
         "vocab" => Some(vocab_payload_example()),
         "tool-schemas" => Some(tool_schema_catalog_payload_example()),
         "plans" => Some(plans_payload_example()),
+        "plan" => Some(plan_payload_example()),
         "contracts" => Some(contracts_payload_example()),
         "entrypoints" => Some(entrypoints_payload_example()),
         "search" => Some(search_payload_example()),
@@ -765,6 +774,57 @@ fn plans_payload_example() -> Value {
         "truncated": false,
         "diagnostics": [],
         "relatedResources": [{
+            "uri": plans_resource_uri(),
+            "name": "PRISM Plans",
+            "description": "Browse published and runtime-hydrated plans with compact progress summaries"
+        }, {
+            "uri": session_resource_uri(),
+            "name": "PRISM Session",
+            "description": "Active workspace root, current task context, and runtime query limits"
+        }],
+    })
+}
+
+fn plan_payload_example() -> Value {
+    json!({
+        "uri": resource_example_uri("plan"),
+        "schemaUri": schema_resource_uri("plan"),
+        "workspaceRevision": {
+            "graphVersion": 42,
+            "gitCommit": "abc123def456"
+        },
+        "plan": {
+            "id": "plan:1",
+            "title": "Migrate persistence to DB-native runtime storage",
+            "goal": "Move persistence away from snapshot-authoritative writes.",
+            "status": "active",
+            "scope": "repo",
+            "kind": "migration",
+            "revision": 3,
+            "tags": ["persistence", "storage"],
+            "createdFrom": "manual",
+            "rootNodeIds": ["coord-task:1"]
+        },
+        "summary": {
+            "planId": "plan:1",
+            "status": "active",
+            "totalNodes": 6,
+            "completedNodes": 0,
+            "abandonedNodes": 0,
+            "inProgressNodes": 0,
+            "actionableNodes": 1,
+            "executionBlockedNodes": 0,
+            "completionGatedNodes": 0,
+            "reviewGatedNodes": 0,
+            "validationGatedNodes": 0,
+            "staleNodes": 0,
+            "claimConflictedNodes": 0
+        },
+        "relatedResources": [{
+            "uri": plan_resource_uri("plan:1"),
+            "name": "PRISM Plan: plan:1",
+            "description": "Coordination plan detail with root nodes and progress summary"
+        }, {
             "uri": plans_resource_uri(),
             "name": "PRISM Plans",
             "description": "Browse published and runtime-hydrated plans with compact progress summaries"

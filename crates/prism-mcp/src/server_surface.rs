@@ -1170,6 +1170,35 @@ impl PrismMcpServer {
                     vec![task_resource_link(&result.task_id)],
                 )
             }
+            PrismMutationArgs::SessionRepair(args) => {
+                let result = self.execute_logged_mutation(
+                    "mutate.session_repair",
+                    MutationRefreshPolicy::None,
+                    || {
+                        self.host
+                            .repair_session_without_refresh(self.session.as_ref(), args)
+                    },
+                    |result| {
+                        MutationDashboardMeta::task(
+                            result.cleared_task_id.clone(),
+                            result.cleared_task_id.clone().into_iter().collect(),
+                            0,
+                        )
+                    },
+                )?;
+                let mut links = Vec::new();
+                if let Some(task_id) = &result.cleared_task_id {
+                    links.push(task_resource_link(task_id));
+                }
+                structured_tool_result_with_links(
+                    PrismMutationResult {
+                        action: PrismMutationActionSchema::SessionRepair,
+                        result: serde_json::to_value(result.clone())
+                            .map_err(|err| map_query_error(err.into()))?,
+                    },
+                    links,
+                )
+            }
             PrismMutationArgs::InferEdge(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.infer_edge",
@@ -1924,6 +1953,18 @@ impl ServerHandler for PrismMcpServer {
                                 None,
                             )),
                         )?
+                    } else if let Some(plan_id) = parse_plan_resource_uri(uri) {
+                        json_resource_contents_with_meta(
+                            self.host
+                                .plan_resource_value(&plan_id)
+                                .map_err(map_query_error)?,
+                            request.uri.clone(),
+                            Some(resource_meta(
+                                "plan",
+                                Some(schema_resource_uri("plan")),
+                                None,
+                            )),
+                        )?
                     } else if let Some(task_id) = parse_task_resource_uri(uri) {
                         json_resource_contents_with_meta(
                             self.host
@@ -2003,6 +2044,12 @@ impl ServerHandler for PrismMcpServer {
                         "PRISM Plans Resource Schema",
                         "JSON Schema for the PRISM plans discovery resource payload.",
                         "plans",
+                    )?,
+                    "plan" => schema_resource_contents::<PlanResourcePayload>(
+                        uri,
+                        "PRISM Plan Resource Schema",
+                        "JSON Schema for the PRISM plan detail resource payload.",
+                        "plan",
                     )?,
                     "contracts" => schema_resource_contents::<ContractsResourcePayload>(
                         uri,
@@ -2161,9 +2208,14 @@ impl ServerHandler for PrismMcpServer {
                     .with_mime_type("application/json")
                     .with_title("PRISM Plans Page")
                     .no_annotation(),
+                RawResourceTemplate::new(PLAN_RESOURCE_TEMPLATE_URI, "PRISM Plan")
+                    .with_description("Read a coordination plan by id")
+                    .with_mime_type("application/json")
+                    .with_title("PRISM Plan")
+                    .no_annotation(),
                 RawResourceTemplate::new(SCHEMA_RESOURCE_TEMPLATE_URI, "PRISM Resource Schema")
                     .with_description(
-                        "Read a JSON Schema document for a structured PRISM resource payload kind such as `session`, `plans`, `entrypoints`, `search`, `symbol`, `lineage`, `task`, `event`, `memory`, or `edge`",
+                        "Read a JSON Schema document for a structured PRISM resource payload kind such as `session`, `plans`, `plan`, `entrypoints`, `search`, `symbol`, `lineage`, `task`, `event`, `memory`, or `edge`",
                     )
                     .with_mime_type("application/schema+json")
                     .with_title("PRISM Resource Schema")
