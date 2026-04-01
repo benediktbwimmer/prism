@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use prism_agent::EdgeId;
-use prism_ir::{AnchorRef, EventId, LineageId, NodeId, TaskId};
+use prism_ir::{AnchorRef, CoordinationTaskId, EventId, LineageId, NodeId, TaskId};
 use prism_memory::{MemoryEventQuery, MemoryId};
 use serde_json::json;
 use std::sync::Arc;
@@ -118,14 +118,12 @@ impl QueryHost {
 
     pub(crate) fn session_view_without_refresh(&self, session: &SessionState) -> SessionView {
         let limits = session.limits();
+        let current_task = session
+            .current_task_state()
+            .map(|task| session_task_view(self, session, &task));
         SessionView {
             workspace_root: self.workspace_root().map(|root| root.display().to_string()),
-            current_task: session.current_task_state().map(|task| SessionTaskView {
-                task_id: task.id.0.to_string(),
-                description: task.description,
-                tags: task.tags,
-                coordination_task_id: task.coordination_task_id,
-            }),
+            current_task,
             current_agent: session.current_agent().map(|agent| agent.0.to_string()),
             limits: SessionLimitsView {
                 max_result_nodes: limits.max_result_nodes,
@@ -1057,6 +1055,113 @@ impl QueryHost {
             })
         })
     }
+}
+
+pub(crate) fn session_task_view(
+    host: &QueryHost,
+    _session: &SessionState,
+    task: &crate::session_state::SessionTaskState,
+) -> SessionTaskView {
+    let prism = host.current_prism();
+    let replay =
+        crate::load_task_replay(host.workspace_session_ref(), prism.as_ref(), &task.id).ok();
+    let replay_event_count = replay.as_ref().map_or(0, |replay| replay.events.len());
+    let coordination_task_id = task.coordination_task_id.clone().or_else(|| {
+        task.id
+            .0
+            .starts_with("coord-task:")
+            .then(|| task.id.0.to_string())
+    });
+    let coordination_task = coordination_task_id
+        .as_ref()
+        .and_then(|task_id| prism.coordination_task(&CoordinationTaskId::new(task_id.clone())));
+    let blockers = coordination_task_id
+        .as_ref()
+        .map(|task_id| {
+            prism.blockers(
+                &CoordinationTaskId::new(task_id.clone()),
+                crate::current_timestamp(),
+            )
+        })
+        .unwrap_or_default();
+    let (context_status, context_summary, next_action) = session_task_context_summary(
+        task,
+        replay_event_count,
+        coordination_task.is_some(),
+        &blockers,
+    );
+
+    SessionTaskView {
+        task_id: task.id.0.to_string(),
+        description: task.description.clone(),
+        tags: task.tags.clone(),
+        coordination_task_id,
+        context_status: context_status.to_string(),
+        context_summary,
+        next_action,
+    }
+}
+
+fn session_task_context_summary(
+    task: &crate::session_state::SessionTaskState,
+    replay_event_count: usize,
+    has_coordination_task: bool,
+    blockers: &[prism_coordination::TaskBlocker],
+) -> (&'static str, String, String) {
+    if blockers
+        .iter()
+        .any(|blocker| blocker.kind == prism_coordination::BlockerKind::StaleRevision)
+    {
+        return (
+            "stale",
+            "Current task is bound to a stale coordination revision and may reflect older workspace state."
+                .to_string(),
+            "Refresh this task against the current workspace revision, then rerun prism_task_brief or prism.blockers(taskId).".to_string(),
+        );
+    }
+    if let Some(blocker) = blockers.first() {
+        return (
+            "blocked",
+            format!("Current task is blocked: {}", blocker.summary),
+            "Inspect the current task blockers before continuing; use prism.blockers(taskId) or prism_task_brief for full coordination detail.".to_string(),
+        );
+    }
+    if replay_event_count == 0 && !has_coordination_task {
+        return (
+            "detached",
+            "Current task has no recorded replay history or live coordination binding and may be leftover session context."
+                .to_string(),
+            "Clear the current task if you are changing scope, or start a fresh one with prism_session action `start_task`.".to_string(),
+        );
+    }
+    if replay_event_count == 0
+        && task
+            .coordination_task_id
+            .as_ref()
+            .is_some_and(|_| !has_coordination_task)
+    {
+        return (
+            "detached",
+            "Current task still references a coordination task that is no longer present in the live workspace context."
+                .to_string(),
+            "Rebind the session to a live coordination task, or clear the current task before starting new work.".to_string(),
+        );
+    }
+    (
+        "active",
+        if has_coordination_task {
+            "Current task is bound to live coordination state.".to_string()
+        } else if replay_event_count > 0 {
+            format!(
+                "Current task has recorded replay history ({} event{}).",
+                replay_event_count,
+                if replay_event_count == 1 { "" } else { "s" }
+            )
+        } else {
+            "Current task is active in this session.".to_string()
+        },
+        "Continue with the current task, or open its task replay / task brief before switching scope.".to_string(),
+    )
 }
 
 pub(crate) fn contract_kind_label(kind: &crate::ContractKindView) -> &'static str {

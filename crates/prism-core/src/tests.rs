@@ -4534,6 +4534,8 @@ fn refresh_fs_with_paths_consumes_only_scoped_dirty_paths() {
 
 #[test]
 fn recovery_rebuild_from_persisted_state_defers_when_refresh_is_in_progress() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -4564,6 +4566,8 @@ fn recovery_rebuild_from_persisted_state_defers_when_refresh_is_in_progress() {
 
 #[test]
 fn recovery_rebuild_from_persisted_state_records_replay_bounds() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(

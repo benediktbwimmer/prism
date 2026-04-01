@@ -11,9 +11,9 @@ use anyhow::Result;
 use prism_agent::InferenceStore;
 use prism_core::runtime_engine::{
     RuntimeDomain, RuntimeDomainState, RuntimeFreshnessState, RuntimeMaterializationDepth,
-    WorkspaceFileDelta, WorkspaceRuntimeCoalescingKey, WorkspaceRuntimeCommand,
-    WorkspaceRuntimeCommandKind, WorkspaceRuntimeEngine, WorkspaceRuntimeQueueClass,
-    WorkspaceRuntimeQueueSnapshot,
+    WorkspaceFileDelta, WorkspaceFileSemanticFacts, WorkspaceRuntimeCoalescingKey,
+    WorkspaceRuntimeCommand, WorkspaceRuntimeCommandKind, WorkspaceRuntimeEngine,
+    WorkspaceRuntimeQueueClass, WorkspaceRuntimeQueueSnapshot,
 };
 use prism_core::{
     AdmissionBusyError, FsRefreshStatus, WorkspaceRefreshWork, WorkspaceSession,
@@ -854,7 +854,7 @@ pub(crate) fn sync_persisted_workspace_state(
         config,
         &revisions,
         refresh_path,
-        file_deltas_from_observed(&refresh_outcome.observed),
+        file_deltas_from_observed(config.workspace.as_ref(), &refresh_outcome.observed),
     );
     if deferred {
         config
@@ -1004,7 +1004,7 @@ fn run_workspace_prepare_paths_command(
         config,
         &revisions,
         refresh_path,
-        file_deltas_from_observed(&refresh_outcome.observed),
+        file_deltas_from_observed(config.workspace.as_ref(), &refresh_outcome.observed),
     );
     log_refresh_workspace(
         refresh_path,
@@ -1480,7 +1480,12 @@ fn runtime_domain_states(
     states
 }
 
-fn file_deltas_from_observed(observed: &[ObservedChangeSet]) -> Vec<WorkspaceFileDelta> {
+fn file_deltas_from_observed(
+    workspace: &WorkspaceSession,
+    observed: &[ObservedChangeSet],
+) -> Vec<WorkspaceFileDelta> {
+    let prism = workspace.prism();
+    let graph = prism.graph();
     observed
         .iter()
         .map(|change| WorkspaceFileDelta {
@@ -1496,6 +1501,23 @@ fn file_deltas_from_observed(observed: &[ObservedChangeSet]) -> Vec<WorkspaceFil
             added_nodes: change.added.len(),
             removed_nodes: change.removed.len(),
             updated_nodes: change.updated.len(),
+            current_facts: change.current_path.as_ref().and_then(|path| {
+                graph
+                    .file_record(std::path::Path::new(path.as_str()))
+                    .map(|record| WorkspaceFileSemanticFacts {
+                        path: PathBuf::from(path.as_str()),
+                        file_id: record.file_id,
+                        source_hash: record.hash,
+                        parse_depth: record.parse_depth,
+                        node_count: record.nodes.len(),
+                        edge_count: record.edges.len(),
+                        fingerprint_count: record.fingerprints.len(),
+                        unresolved_call_count: record.unresolved_calls.len(),
+                        unresolved_import_count: record.unresolved_imports.len(),
+                        unresolved_impl_count: record.unresolved_impls.len(),
+                        unresolved_intent_count: record.unresolved_intents.len(),
+                    })
+            }),
             edge_added: change.edge_added.len(),
             edge_removed: change.edge_removed.len(),
         })
@@ -1960,6 +1982,75 @@ mod tests {
             config.loaded_episodic_revision.load(Ordering::Relaxed),
             persisted_revision
         );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn scoped_prepare_paths_publish_file_local_semantic_facts() {
+        let root = temp_workspace();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+        let workspace = Arc::new(index_workspace_session(&root).unwrap());
+        let runtime_engine = Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
+            WorkspaceRuntimeContext::from_root(&root),
+        )));
+        let config = WorkspaceRuntimeConfig {
+            workspace: Arc::clone(&workspace),
+            notes: Arc::new(SessionMemory::new()),
+            inferred_edges: Arc::new(InferenceStore::new()),
+            dashboard_state: Arc::new(DashboardState::default()),
+            diagnostics_state: Arc::new(DiagnosticsState::default()),
+            mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            sync_lock: Arc::new(Mutex::new(())),
+            loaded_workspace_revision: Arc::new(AtomicU64::new(
+                workspace.loaded_workspace_revision(),
+            )),
+            loaded_episodic_revision: Arc::new(AtomicU64::new(
+                workspace.episodic_revision().unwrap_or(0),
+            )),
+            loaded_inference_revision: Arc::new(AtomicU64::new(
+                workspace.inference_revision().unwrap_or(0),
+            )),
+            loaded_coordination_revision: Arc::new(AtomicU64::new(
+                workspace.coordination_revision().unwrap_or(0),
+            )),
+            runtime_engine: Arc::clone(&runtime_engine),
+        };
+
+        std::fs::write(
+            root.join("src/lib.rs"),
+            "pub fn alpha() { let _value = 1; }\n",
+        )
+        .unwrap();
+        thread::sleep(Duration::from_millis(300));
+
+        let scoped_path = root.join("src/lib.rs");
+        let outcome = run_workspace_prepare_paths_command(&config, &[scoped_path]).unwrap();
+        assert!(matches!(
+            outcome.report.refresh_path,
+            "incremental" | "rescan" | "full"
+        ));
+
+        let recent_deltas = runtime_engine
+            .lock()
+            .expect("workspace runtime engine lock poisoned")
+            .recent_deltas();
+        let facts = recent_deltas
+            .last()
+            .and_then(|delta| delta.file_deltas.first())
+            .and_then(|delta| delta.current_facts.as_ref())
+            .expect("committed delta should carry current file facts");
+        assert_eq!(facts.path.file_name().and_then(|name| name.to_str()), Some("lib.rs"));
+        assert!(facts.source_hash > 0);
+        assert!(facts.node_count > 0);
+        assert!(facts.fingerprint_count > 0);
 
         let _ = std::fs::remove_dir_all(root);
     }

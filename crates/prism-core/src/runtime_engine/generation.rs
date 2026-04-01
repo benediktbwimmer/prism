@@ -2,6 +2,8 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use super::context::WorkspaceRuntimeContext;
+use prism_ir::FileId;
+use prism_parser::ParseDepth;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WorkspaceGenerationId(pub u64);
@@ -76,6 +78,21 @@ impl WorkspacePublishedGeneration {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspaceFileSemanticFacts {
+    pub path: PathBuf,
+    pub file_id: FileId,
+    pub source_hash: u64,
+    pub parse_depth: ParseDepth,
+    pub node_count: usize,
+    pub edge_count: usize,
+    pub fingerprint_count: usize,
+    pub unresolved_call_count: usize,
+    pub unresolved_import_count: usize,
+    pub unresolved_impl_count: usize,
+    pub unresolved_intent_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkspaceFileDelta {
     pub previous_path: Option<PathBuf>,
     pub current_path: Option<PathBuf>,
@@ -85,6 +102,7 @@ pub struct WorkspaceFileDelta {
     pub updated_nodes: usize,
     pub edge_added: usize,
     pub edge_removed: usize,
+    pub current_facts: Option<WorkspaceFileSemanticFacts>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

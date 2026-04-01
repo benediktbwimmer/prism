@@ -25,6 +25,9 @@ pub(crate) struct SessionTaskView {
     pub(crate) description: Option<String>,
     pub(crate) tags: Vec<String>,
     pub(crate) coordination_task_id: Option<String>,
+    pub(crate) context_status: String,
+    pub(crate) context_summary: String,
+    pub(crate) next_action: String,
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]

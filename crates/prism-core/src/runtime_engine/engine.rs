@@ -206,9 +206,11 @@ mod tests {
     use super::*;
     use crate::runtime_engine::{
         RuntimeFreshnessState, RuntimeMaterializationDepth, WorkspaceFileDelta,
-        WorkspaceRuntimeCoalescingKey, WorkspaceRuntimeCommand, WorkspaceRuntimeCommandKind,
-        WorkspaceRuntimeQueueClass,
+        WorkspaceFileSemanticFacts, WorkspaceRuntimeCoalescingKey, WorkspaceRuntimeCommand,
+        WorkspaceRuntimeCommandKind, WorkspaceRuntimeQueueClass,
     };
+    use prism_ir::FileId;
+    use prism_parser::ParseDepth;
 
     #[test]
     fn runtime_queue_classes_prioritize_interactive_work_first() {
@@ -254,6 +256,19 @@ mod tests {
                 updated_nodes: 0,
                 edge_added: 0,
                 edge_removed: 0,
+                current_facts: Some(WorkspaceFileSemanticFacts {
+                    path: PathBuf::from("src/lib.rs"),
+                    file_id: FileId(1),
+                    source_hash: 7,
+                    parse_depth: ParseDepth::Deep,
+                    node_count: 1,
+                    edge_count: 0,
+                    fingerprint_count: 1,
+                    unresolved_call_count: 0,
+                    unresolved_import_count: 0,
+                    unresolved_impl_count: 0,
+                    unresolved_intent_count: 0,
+                }),
             }],
             domain_states.clone(),
         );
@@ -276,6 +291,7 @@ mod tests {
                 updated_nodes: 1,
                 edge_added: 1,
                 edge_removed: 1,
+                current_facts: None,
             }],
             domain_states,
         );

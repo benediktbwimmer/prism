@@ -10,11 +10,12 @@ use crate::dashboard_types::{
     DashboardCoordinationQueuesView, DashboardCoordinationSummaryView, DashboardSummaryView,
     DashboardTaskSnapshotView,
 };
+use crate::host_resources::session_task_view;
 use crate::runtime_views::runtime_status;
 use crate::{
     artifact_view, claim_view, coordination_task_view, current_timestamp,
     policy_violation_record_view, CoordinationFeaturesView, FeatureFlagsView, QueryHost,
-    SessionLimitsView, SessionState, SessionTaskView, SessionView,
+    SessionLimitsView, SessionState, SessionView,
 };
 
 const DASHBOARD_TASK_EVENT_LIMIT: usize = 12;
@@ -202,12 +203,9 @@ fn dashboard_session_view(host: &QueryHost, session: Option<&SessionState>) -> S
             .workspace_session()
             .map(|workspace| workspace.root().display().to_string()),
         current_task: session.and_then(|session| {
-            session.current_task_state().map(|task| SessionTaskView {
-                task_id: task.id.0.to_string(),
-                description: task.description,
-                tags: task.tags,
-                coordination_task_id: task.coordination_task_id,
-            })
+            session
+                .current_task_state()
+                .map(|task| session_task_view(host, session, &task))
         }),
         current_agent: session
             .and_then(|session| session.current_agent().map(|agent| agent.0.to_string())),

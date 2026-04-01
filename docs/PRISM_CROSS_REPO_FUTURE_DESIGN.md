@@ -8,7 +8,7 @@ Scope: project-scoped published knowledge, cross-repo coordination, shared runti
 
 ## 1. Summary
 
-PRISM should eventually support **cross-repo concepts, contracts, plans, and memories** without abandoning the core rule that published knowledge should be explicit, durable, reviewable, and portable.
+PRISM should eventually support **cross-repo concepts, contracts, plans, and memories** without abandoning the core rule that published knowledge should be explicit, durable, reviewable, portable, and still grounded in git-backed artifacts.
 
 The central design decision is:
 
@@ -17,7 +17,13 @@ The central design decision is:
 - **shared runtime state** continues to live in the shared runtime backend (`SQLite` locally first, `Postgres` later)
 - **worktree-local hot acceleration** remains local and rebuildable
 
-This means PRISM grows by **adding a project scope**, not by collapsing all truth into a mutable database.
+This means PRISM grows by **adding a project scope**, not by collapsing all truth into a mutable database or inventing a vague global mode.
+
+This should read as a direct architecture extension of PRISM's current model, not as a parallel side system:
+
+- published truth stays explicit and git-backed
+- mutable coordination and working knowledge stay in the runtime/backend
+- rebuildable acceleration stays disposable
 
 The shared runtime database is still important, but its role is different:
 
@@ -31,10 +37,12 @@ The database should **not** become the only home of durable published system kno
 
 The long-term architecture is therefore:
 
-1. **Repo scope** for published repo truth
-2. **Project scope** for published cross-repo truth
-3. **Shared runtime scope** for mutable coordination and working knowledge
-4. **Worktree scope** for rebuildable hot acceleration
+1. **Worktree scope** for local checkout reality and rebuildable acceleration
+2. **Repo scope** for published repo truth
+3. **Project scope** for published cross-repo truth
+4. **Global import / external scope** for non-canonical imported evidence
+
+With that scope model in place, the shared runtime backend serves as the mutable operational plane across repo and project work rather than becoming a fifth published scope.
 
 ---
 
@@ -101,6 +109,8 @@ That enables workflows such as:
 
 PRISM should gain a first-class **project scope** for workflows and knowledge that genuinely span multiple repos.
 
+That keeps cross-repo work disciplined as a new scope layer rather than turning it into an undifferentiated global namespace.
+
 A project may include:
 
 - zero or more repos
@@ -122,9 +132,13 @@ This is the best long-term home because it preserves the same properties that ma
 - diffable
 - branchable
 - cloneable
+- forkable
 - portable
 - explicitly promoted
+- human-legible
 - inspectable by both humans and agents
+
+It also lets published cross-repo truth inherit naturally through normal git workflows such as clone, fork, and branch, instead of depending on whichever backend happens to be live today.
 
 The project repo is the cross-repo equivalent of a code repo's local `.prism/`.
 
@@ -226,6 +240,12 @@ This scope should remain clearly separate from both repo truth and project truth
 ## 6. Published truth vs mutable runtime truth
 
 The most important architectural rule is to keep these separate.
+
+In compact form:
+
+- published truth is durable and git-backed
+- mutable runtime truth is operational and provisional
+- derived acceleration is disposable
 
 ### 6.1 Published truth
 
@@ -490,6 +510,18 @@ The key rule is:
 - use path and revision as hints
 - never make a project artifact depend only on raw line numbers in another repo
 
+`repo_id` is therefore a critical primitive, not an incidental label. It should identify the logical member repo rather than one local checkout.
+
+That means the identity policy should aim to keep one `repo_id` stable across:
+
+- multiple local clones of the same repo
+- multiple worktrees of the same clone
+- checkout path changes on one machine
+- partial local discovery where only some member repos are currently bound
+- normalized remote URL changes or aliases when the underlying repo is still the same published member
+
+Forks should default to distinct `repo_id` values unless the project publishes an explicit relationship saying otherwise.
+
 ### 9.5 Resolution contract for cross-repo anchors
 
 Cross-repo anchor resolution should be explicit and degradable.
@@ -508,10 +540,24 @@ The UX contract should be:
 
 - project-published truth remains readable even when some bindings drift
 - unresolved bindings are reported clearly instead of silently disappearing
+- degraded bindings explain why they degraded, not only that they degraded
+- degraded bindings point at the next action needed, such as rebinding, accepting a remap, or checking out the missing repo
 - plan readiness, validation, and claim logic can treat stale bindings as blockers when policy
   requires it
 - rebinding is an explicit runtime or promotion-time action, not an invisible mutation of
   published history
+
+The runtime should be able to explain whether drift came from:
+
+- a repo that is not currently bound on this machine
+- descriptor mismatch or repo identity ambiguity
+- anchor movement or rename with a credible remap candidate
+- branch or revision divergence
+- multiple plausible candidates in the target repo
+
+PRISM should also distinguish **artifact semantic validity** from **current binding health**.
+
+A project concept, contract, or plan can remain semantically valid even while one or more concrete bindings are stale. Binding degradation should be treated as an explicit maintenance condition, not as automatic invalidation of the published truth.
 
 ### 9.6 Do not flatten everything into one global graph root
 
@@ -706,6 +752,13 @@ The project repo should answer "what belongs to this project?"
 
 The local runtime should answer "where are those repos on this machine right now?"
 
+The published manifest and runtime bindings should work together to preserve repo identity discipline:
+
+- the manifest publishes the stable logical member set
+- runtime bindings attach zero or more local checkouts or worktrees to one published `repo_id`
+- worktrees never get their own repo identity
+- partial checkout is normal, not an error condition
+
 ### 13.2 Suggested manifest shape
 
 The exact TOML schema can evolve, but the first version should stay small and explicit.
@@ -718,16 +771,20 @@ name = "Search Platform"
 [[repos]]
 repo_id = "repo:service-api"
 remote = "git@github.com:org/service-api.git"
+hosting_id = "github:org/service-api"
 role = "producer"
 
 [[repos]]
 repo_id = "repo:typescript-sdk"
 remote = "git@github.com:org/typescript-sdk.git"
+hosting_id = "github:org/typescript-sdk"
 role = "consumer"
 ```
 
 The manifest should not try to mirror runtime truth such as local checkout paths, active leases, or
 freshness state.
+
+It should, however, provide enough stable descriptor material for runtime binding to survive common clone and remote variations without changing the published `repo_id`.
 
 ---
 
@@ -766,12 +823,23 @@ That means:
 - resolve each referenced repo descriptor to a member repo
 - resolve each `CrossRepoAnchorRef`
 - record resolution state for each binding
+- determine the artifact-level binding-validation posture for the promotion candidate
 - reject or downgrade promotion when policy requires exact bindings and the runtime only has stale
   or ambiguous ones
 
 ### 14.4 Promote
 
 If it is stable enough to be part of durable system knowledge, it is promoted into the project repo.
+
+Promotion should record not only the artifact contents, but also the binding-validation posture under which it was published.
+
+Examples of that posture include:
+
+- published with all bindings exact
+- published with degraded bindings explicitly accepted
+- published with unresolved bindings intentionally allowed by policy
+
+That metadata matters later when someone asks whether a project artifact is trustworthy but needs binding maintenance, or whether it was knowingly published in a degraded state from the start.
 
 ### 14.5 Reproject
 
@@ -839,6 +907,7 @@ Concrete outcomes for this phase:
 - add `project_id` to runtime context, persistence context, and event metadata where scope matters
 - define project-scoped ids and entity kinds
 - add a local representation for project membership and checkout bindings
+- define the initial `repo_id` stability policy before cross-repo truth is published
 - keep all cross-repo behavior runtime-only until the identity model is stable
 
 ### Phase 2 — runtime-only cross-repo coordination
@@ -862,6 +931,7 @@ Introduce the project git repo and promotion flows for:
 - project plans
 - project memories
 - `workspace.prism.toml` as the published membership manifest
+- explicit binding-validation posture on promoted cross-repo artifacts
 
 ### Phase 4 — integrated query and promotion workflows
 
@@ -875,6 +945,7 @@ Unify project queries across:
 At this point, PRISM should be able to:
 
 - explain why a cross-repo binding is stale or ambiguous
+- distinguish semantic truth validity from current binding health
 - show project execution state and linked repo-local claims together
 - promote runtime-discovered relations into published project artifacts
 - degrade gracefully when only part of the project is checked out locally
@@ -919,6 +990,8 @@ These questions do not block the direction, but they should be answered before i
 - Should project-scoped concepts and contracts use the exact same artifact schema as repo-scoped ones, or an extended variant?
 - How much cross-repo projection should be eagerly materialized versus computed on demand?
 - Should project scope initially support exactly one project per repo, or allow many-to-many later?
+- Which published descriptors are sufficient for `repo_id` stability across clone, worktree, remote, and fork realities?
+- Which binding-validation posture values should be first-class in published artifacts?
 
 Questions with a recommended default answer now:
 
@@ -928,6 +1001,10 @@ Questions with a recommended default answer now:
   not raw file-line pointers.
 - Project scope should own execution leases, while repo scope should continue to own concrete anchor
   claims.
+- `repo_id` should identify a logical member repo rather than a checkout, and forks should default
+  to distinct identities unless the project publishes an explicit relationship.
+- Published cross-repo artifacts should record their binding-validation posture explicitly, and
+  binding health should not silently redefine semantic truth validity.
 
 ---
 
@@ -935,7 +1012,7 @@ Questions with a recommended default answer now:
 
 The recommended stance is:
 
-- **repo repos** own local published truth
+- **code repos** own local published truth
 - the **project repo** owns published cross-repo truth
 - the **shared runtime backend** owns mutable coordination and unpublished working graph state
 - **worktree-local state** owns rebuildable hot acceleration

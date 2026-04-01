@@ -18822,6 +18822,161 @@ fn start_task_can_bind_directly_to_coordination_task() {
             .and_then(|task| task.coordination_task_id.as_deref()),
         Some(task_id.as_str())
     );
+    assert_eq!(
+        session
+            .current_task
+            .as_ref()
+            .map(|task| task.context_status.as_str()),
+        Some("active")
+    );
+}
+
+#[test]
+fn session_resource_surfaces_detached_current_task_context() {
+    let host = host_with_node(demo_node());
+    test_session(&host).set_current_task(
+        TaskId::new("task:leftover-session-context"),
+        Some("Leftover task".to_string()),
+        vec!["old".to_string()],
+        None,
+    );
+
+    let session = host
+        .session_resource_value(test_session(&host).as_ref())
+        .expect("session resource should load");
+    let current_task = session
+        .current_task
+        .expect("current task should be present");
+
+    assert_eq!(current_task.context_status, "detached");
+    assert!(current_task
+        .context_summary
+        .contains("leftover session context"));
+    assert!(current_task.next_action.contains("start_task"));
+}
+
+#[test]
+fn session_resource_surfaces_stale_current_task_context() {
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha.clone()]);
+    history.apply(&ObservedChangeSet {
+        meta: EventMeta {
+            id: EventId::new("observed:session-resource-stale"),
+            ts: 1,
+            actor: EventActor::System,
+            correlation: None,
+            causation: None,
+        },
+        trigger: ChangeTrigger::ManualReindex,
+        files: vec![FileId(1)],
+        previous_path: Some("/workspace/src/lib.rs".into()),
+        current_path: Some("/workspace/src/lib.rs".into()),
+        added: Vec::new(),
+        removed: Vec::new(),
+        updated: vec![(
+            ObservedNode {
+                node: Node {
+                    id: alpha.clone(),
+                    name: "alpha".into(),
+                    kind: NodeKind::Function,
+                    file: FileId(1),
+                    span: Span::line(1),
+                    language: Language::Rust,
+                },
+                fingerprint: SymbolFingerprint::with_parts(1, Some(1), None, None),
+            },
+            ObservedNode {
+                node: Node {
+                    id: alpha.clone(),
+                    name: "alpha".into(),
+                    kind: NodeKind::Function,
+                    file: FileId(1),
+                    span: Span::line(1),
+                    language: Language::Rust,
+                },
+                fingerprint: SymbolFingerprint::with_parts(1, Some(1), None, None),
+            },
+        )],
+        edge_added: Vec::new(),
+        edge_removed: Vec::new(),
+    });
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:session-resource-stale"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Refresh stale task".into(),
+                status: None,
+                policy: Some(CoordinationPolicy {
+                    stale_after_graph_change: true,
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:session-resource-stale"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id,
+                title: "Edit alpha".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![AnchorRef::Node(alpha)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
+    prism.replace_coordination_snapshot(coordination.snapshot());
+    let host = host_with_prism(prism);
+    test_session(&host).set_current_task(
+        TaskId::new(task_id.0.clone()),
+        Some("Edit alpha".to_string()),
+        Vec::new(),
+        Some(task_id.0.to_string()),
+    );
+
+    let session = host
+        .session_resource_value(test_session(&host).as_ref())
+        .expect("session resource should load");
+    let current_task = session
+        .current_task
+        .expect("current task should be present");
+
+    assert_eq!(current_task.context_status, "stale");
+    assert!(current_task
+        .context_summary
+        .contains("stale coordination revision"));
+    assert!(current_task.next_action.contains("Refresh this task"));
 }
 
 #[test]
