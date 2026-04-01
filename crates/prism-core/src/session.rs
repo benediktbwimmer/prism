@@ -1165,16 +1165,16 @@ impl WorkspaceSession {
         let local_snapshot = {
             let mut store = self.store.lock().expect("workspace store lock poisoned");
             if self.shared_runtime_store().is_none() {
-                self.sync_repo_memory_events_locked(&mut store)?;
+                self.sync_repo_memory_events_locked(&mut *store)?;
             }
-            store.load_episodic_snapshot()?
+            prism_store::MaterializationStore::load_episodic_snapshot(&mut *store)?
         };
         let shared_snapshot = if let Some(shared_runtime_store) = self.shared_runtime_store() {
             let mut store = shared_runtime_store
                 .lock()
                 .expect("shared runtime store lock poisoned");
-            self.sync_repo_memory_events_locked(&mut store)?;
-            store.load_episodic_snapshot()?
+            self.sync_repo_memory_events_locked(&mut *store)?;
+            prism_store::MaterializationStore::load_episodic_snapshot(&mut *store)?
         } else {
             None
         };
@@ -1188,10 +1188,10 @@ impl WorkspaceSession {
             .expect("workspace store lock poisoned")
             .load_episodic_snapshot()?;
         let shared_snapshot = if let Some(shared_runtime_store) = self.shared_runtime_store() {
-            shared_runtime_store
+            let mut store = shared_runtime_store
                 .lock()
-                .expect("shared runtime store lock poisoned")
-                .load_episodic_snapshot()?
+                .expect("shared runtime store lock poisoned");
+            prism_store::MaterializationStore::load_episodic_snapshot(&mut *store)?
         } else {
             None
         };
@@ -1225,7 +1225,7 @@ impl WorkspaceSession {
                 let mut shared_store = shared_runtime_store
                     .lock()
                     .expect("shared runtime store lock poisoned");
-                self.sync_repo_memory_events_locked(&mut shared_store)?;
+                self.sync_repo_memory_events_locked(&mut *shared_store)?;
                 Some(shared_store.workspace_revision()?)
             } else {
                 None
@@ -1243,10 +1243,10 @@ impl WorkspaceSession {
         let shared_projection_snapshot = if shared_runtime_aliases_workspace_store {
             None
         } else if let Some(shared_runtime_store) = self.shared_runtime_store() {
-            shared_runtime_store
+            let mut shared_store = shared_runtime_store
                 .lock()
-                .expect("shared runtime store lock poisoned")
-                .load_projection_knowledge_snapshot()?
+                .expect("shared runtime store lock poisoned");
+            shared_store.load_projection_knowledge_snapshot()?
         } else {
             None
         };
@@ -1401,7 +1401,7 @@ impl WorkspaceSession {
             let mut shared_store = shared_runtime_store
                 .lock()
                 .expect("shared runtime store lock poisoned");
-            self.sync_repo_memory_events_locked(&mut shared_store)?;
+            self.sync_repo_memory_events_locked(&mut *shared_store)?;
             let shared_revisions = shared_store.snapshot_revisions()?;
             revisions.workspace =
                 composite_workspace_revision(revisions.workspace, Some(shared_revisions.workspace));
@@ -1409,7 +1409,7 @@ impl WorkspaceSession {
             revisions.coordination = shared_revisions.coordination;
         } else {
             let mut store = self.store.lock().expect("workspace store lock poisoned");
-            self.sync_repo_memory_events_locked(&mut store)?;
+            self.sync_repo_memory_events_locked(&mut *store)?;
             revisions = store.snapshot_revisions()?;
         }
         if !self.coordination_enabled {
@@ -1450,7 +1450,7 @@ impl WorkspaceSession {
             let mut store = shared_runtime_store
                 .lock()
                 .expect("shared runtime store lock poisoned");
-            self.sync_repo_memory_events_locked(&mut store)?;
+            self.sync_repo_memory_events_locked(&mut *store)?;
             Ok(local_revision.max(store.episodic_revision()?))
         } else {
             Ok(local_revision)
@@ -1492,7 +1492,10 @@ impl WorkspaceSession {
                         "mutation.waitSharedRuntimeStoreLock",
                         "persistEpisodicShared",
                     );
-                    shared_store.save_episodic_snapshot(&shared_snapshot)
+                    prism_store::MaterializationStore::save_episodic_snapshot(
+                        &mut *shared_store,
+                        &shared_snapshot,
+                    )
                 });
             mutation_trace::record_phase(
                 "mutation.persistEpisodicSchedule",
@@ -1563,7 +1566,10 @@ impl WorkspaceSession {
                     "appendMemoryEventShared",
                 );
                 let persist_started = Instant::now();
-                let result = store.append_memory_events(&[event]);
+                let result = prism_store::EventJournalStore::append_memory_events(
+                    &mut *store,
+                    &[event],
+                );
                 mutation_trace::record_phase(
                     "mutation.appendMemoryEvent",
                     json!({ "target": "sharedRuntime", "scope": scope }),
@@ -1647,7 +1653,7 @@ impl WorkspaceSession {
         let local_events = {
             let mut store = self.store.lock().expect("workspace store lock poisoned");
             if self.shared_runtime_store().is_none() {
-                self.sync_repo_memory_events_locked(&mut store)?;
+                self.sync_repo_memory_events_locked(&mut *store)?;
             }
             store.load_memory_events()?
         };
@@ -1655,8 +1661,8 @@ impl WorkspaceSession {
             let mut store = shared_runtime_store
                 .lock()
                 .expect("shared runtime store lock poisoned");
-            self.sync_repo_memory_events_locked(&mut store)?;
-            store.load_memory_events()?
+            self.sync_repo_memory_events_locked(&mut *store)?;
+            prism_store::ColdQueryStore::load_memory_events(&mut *store)?
         } else {
             Vec::new()
         };
@@ -1670,10 +1676,10 @@ impl WorkspaceSession {
         let Some(shared_runtime_store) = self.shared_runtime_store() else {
             return Ok(None);
         };
-        shared_runtime_store
+        let mut store = shared_runtime_store
             .lock()
-            .expect("shared runtime store lock poisoned")
-            .load_principal_registry_snapshot()
+            .expect("shared runtime store lock poisoned");
+        prism_store::MaterializationStore::load_principal_registry_snapshot(&mut *store)
     }
 
     pub fn persist_principal_registry(&self, snapshot: &PrincipalRegistrySnapshot) -> Result<()> {
@@ -1682,10 +1688,10 @@ impl WorkspaceSession {
                 "principal registry persistence requires a shared runtime backend"
             ));
         };
-        shared_runtime_store
+        let mut store = shared_runtime_store
             .lock()
-            .expect("shared runtime store lock poisoned")
-            .save_principal_registry_snapshot(snapshot)
+            .expect("shared runtime store lock poisoned");
+        prism_store::MaterializationStore::save_principal_registry_snapshot(&mut *store, snapshot)
     }
 
     pub fn event_execution_context(
@@ -1899,10 +1905,10 @@ impl WorkspaceSession {
             return Ok(0);
         }
         if let Some(shared_runtime_store) = self.shared_runtime_store() {
-            shared_runtime_store
+            let store = shared_runtime_store
                 .lock()
-                .expect("shared runtime store lock poisoned")
-                .coordination_revision()
+                .expect("shared runtime store lock poisoned");
+            prism_store::CoordinationJournal::coordination_revision(&*store)
         } else {
             self.store
                 .lock()
@@ -1955,10 +1961,10 @@ impl WorkspaceSession {
             return Ok(None);
         }
         let persisted = if let Some(shared_runtime_store) = self.shared_runtime_store() {
-            shared_runtime_store
+            let mut store = shared_runtime_store
                 .lock()
-                .expect("shared runtime store lock poisoned")
-                .load_coordination_read_model()
+                .expect("shared runtime store lock poisoned");
+            prism_store::CoordinationCheckpointStore::load_coordination_read_model(&mut *store)
         } else {
             self.store
                 .lock()
@@ -1975,10 +1981,12 @@ impl WorkspaceSession {
             return Ok(None);
         }
         let persisted = if let Some(shared_runtime_store) = self.shared_runtime_store() {
-            shared_runtime_store
+            let mut store = shared_runtime_store
                 .lock()
-                .expect("shared runtime store lock poisoned")
-                .load_coordination_queue_read_model()
+                .expect("shared runtime store lock poisoned");
+            prism_store::CoordinationCheckpointStore::load_coordination_queue_read_model(
+                &mut *store,
+            )
         } else {
             self.store
                 .lock()
@@ -2130,10 +2138,25 @@ impl WorkspaceSession {
                     let mut store = shared_runtime_store
                         .lock()
                         .expect("coordination store lock poisoned");
-                    store.save_coordination_read_model(&read_model)?;
-                    store.save_coordination_queue_read_model(&queue_model)?;
-                    if store.load_coordination_event_stream()?.suffix_events.len() >= 128 {
-                        store.save_coordination_compaction(&snapshot)?;
+                    prism_store::CoordinationCheckpointStore::save_coordination_read_model(
+                        &mut *store,
+                        &read_model,
+                    )?;
+                    prism_store::CoordinationCheckpointStore::save_coordination_queue_read_model(
+                        &mut *store,
+                        &queue_model,
+                    )?;
+                    if prism_store::CoordinationJournal::load_coordination_event_stream(
+                        &mut *store,
+                    )?
+                    .suffix_events
+                    .len()
+                        >= 128
+                    {
+                        prism_store::CoordinationCheckpointStore::save_coordination_compaction(
+                            &mut *store,
+                            &snapshot,
+                        )?;
                     }
                 } else {
                     let mut store = self.store.lock().expect("coordination store lock poisoned");
@@ -2297,10 +2320,25 @@ impl WorkspaceSession {
                 } else {
                     let read_model = coordination_read_model_from_snapshot(&snapshot);
                     let queue_model = coordination_queue_read_model_from_snapshot(&snapshot);
-                    store.save_coordination_read_model(&read_model)?;
-                    store.save_coordination_queue_read_model(&queue_model)?;
-                    if store.load_coordination_event_stream()?.suffix_events.len() >= 128 {
-                        store.save_coordination_compaction(&snapshot)?;
+                    prism_store::CoordinationCheckpointStore::save_coordination_read_model(
+                        &mut *store,
+                        &read_model,
+                    )?;
+                    prism_store::CoordinationCheckpointStore::save_coordination_queue_read_model(
+                        &mut *store,
+                        &queue_model,
+                    )?;
+                    if prism_store::CoordinationJournal::load_coordination_event_stream(
+                        &mut *store,
+                    )?
+                    .suffix_events
+                    .len()
+                        >= 128
+                    {
+                        prism_store::CoordinationCheckpointStore::save_coordination_compaction(
+                            &mut *store,
+                            &snapshot,
+                        )?;
                     }
                     Ok(())
                 };
@@ -2904,12 +2942,15 @@ impl WorkspaceSession {
         )
     }
 
-    fn sync_repo_memory_events_locked<S: Store>(&self, store: &mut S) -> Result<bool> {
+    fn sync_repo_memory_events_locked<S: prism_store::EventJournalStore>(
+        &self,
+        store: &mut S,
+    ) -> Result<bool> {
         let events = load_repo_memory_events(&self.root)?;
         if events.is_empty() {
             return Ok(false);
         }
-        Ok(store.append_memory_events(&events)? > 0)
+        Ok(prism_store::EventJournalStore::append_memory_events(store, &events)? > 0)
     }
 }
 

@@ -3,9 +3,11 @@ use std::path::Path;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use anyhow::{bail, Result};
 use prism_store::{
-    AuxiliaryPersistBatch, CoordinationEventStream, CoordinationPersistBatch,
-    CoordinationPersistContext, CoordinationPersistResult, IndexPersistBatch, SnapshotRevisions,
-    SqliteStore, Store, WorkspaceTreeSnapshot,
+    AuxiliaryPersistBatch, ColdQueryStore, CoordinationCheckpointStore,
+    CoordinationEventStream, CoordinationJournal, CoordinationPersistBatch,
+    CoordinationPersistContext, CoordinationPersistResult, EventJournalStore, Graph,
+    IndexPersistBatch, MaterializationStore, SnapshotRevisions, SqliteStore, Store,
+    WorkspaceTreeSnapshot,
 };
 
 pub(crate) enum SharedRuntimeStore {
@@ -56,6 +58,14 @@ impl SharedRuntimeStore {
         }
     }
 
+    pub(crate) fn load_projection_knowledge_snapshot(
+        &mut self,
+    ) -> Result<Option<prism_projections::ProjectionSnapshot>> {
+        match self {
+            Self::Sqlite(store) => <SqliteStore as Store>::load_projection_knowledge_snapshot(store),
+        }
+    }
+
     pub(crate) fn upsert_projection_concept(
         &mut self,
         concept: &prism_projections::ConceptPacket,
@@ -94,16 +104,19 @@ impl SharedRuntimeStore {
     }
 }
 
-impl Store for SharedRuntimeStore {
-    fn load_graph(&mut self) -> Result<Option<prism_store::Graph>> {
+impl ColdQueryStore for SharedRuntimeStore {
+    fn load_lineage_history(
+        &mut self,
+        lineage: &prism_ir::LineageId,
+    ) -> Result<Vec<prism_ir::LineageEvent>> {
         match self {
-            Self::Sqlite(store) => store.load_graph(),
+            Self::Sqlite(store) => <SqliteStore as Store>::load_lineage_history(store, lineage),
         }
     }
 
     fn load_history_snapshot(&mut self) -> Result<Option<prism_history::HistorySnapshot>> {
         match self {
-            Self::Sqlite(store) => store.load_history_snapshot(),
+            Self::Sqlite(store) => <SqliteStore as Store>::load_history_snapshot(store),
         }
     }
 
@@ -112,28 +125,99 @@ impl Store for SharedRuntimeStore {
         include_events: bool,
     ) -> Result<Option<prism_history::HistorySnapshot>> {
         match self {
-            Self::Sqlite(store) => store.load_history_snapshot_with_options(include_events),
+            Self::Sqlite(store) => <SqliteStore as Store>::load_history_snapshot_with_options(store, include_events),
         }
     }
 
-    fn load_lineage_history(
-        &mut self,
-        lineage: &prism_ir::LineageId,
-    ) -> Result<Vec<prism_ir::LineageEvent>> {
+    fn load_outcome_snapshot(&mut self) -> Result<Option<prism_memory::OutcomeMemorySnapshot>> {
         match self {
-            Self::Sqlite(store) => store.load_lineage_history(lineage),
+            Self::Sqlite(store) => <SqliteStore as Store>::load_outcome_snapshot(store),
+        }
+    }
+
+    fn load_recent_outcome_snapshot(
+        &mut self,
+        limit: usize,
+    ) -> Result<Option<prism_memory::OutcomeMemorySnapshot>> {
+        match self {
+            Self::Sqlite(store) => <SqliteStore as Store>::load_recent_outcome_snapshot(store, limit),
+        }
+    }
+
+    fn load_outcomes(
+        &mut self,
+        query: &prism_memory::OutcomeRecallQuery,
+    ) -> Result<Vec<prism_memory::OutcomeEvent>> {
+        match self {
+            Self::Sqlite(store) => <SqliteStore as Store>::load_outcomes(store, query),
+        }
+    }
+
+    fn load_outcome_event(
+        &mut self,
+        event_id: &prism_ir::EventId,
+    ) -> Result<Option<prism_memory::OutcomeEvent>> {
+        match self {
+            Self::Sqlite(store) => <SqliteStore as Store>::load_outcome_event(store, event_id),
+        }
+    }
+
+    fn load_task_replay(&mut self, task_id: &prism_ir::TaskId) -> Result<prism_memory::TaskReplay> {
+        match self {
+            Self::Sqlite(store) => <SqliteStore as Store>::load_task_replay(store, task_id),
+        }
+    }
+
+    fn load_memory_events(&mut self) -> Result<Vec<prism_memory::MemoryEvent>> {
+        match self {
+            Self::Sqlite(store) => <SqliteStore as Store>::load_memory_events(store),
+        }
+    }
+}
+
+impl EventJournalStore for SharedRuntimeStore {
+    fn apply_history_delta(&mut self, delta: &prism_history::HistoryPersistDelta) -> Result<()> {
+        match self {
+            Self::Sqlite(store) => <SqliteStore as Store>::apply_history_delta(store, delta),
+        }
+    }
+
+    fn append_outcome_events(
+        &mut self,
+        events: &[prism_memory::OutcomeEvent],
+        validation_deltas: &[prism_projections::ValidationDelta],
+    ) -> Result<usize> {
+        match self {
+            Self::Sqlite(store) => <SqliteStore as Store>::append_outcome_events(store, events, validation_deltas),
+        }
+    }
+
+    fn append_memory_events(&mut self, events: &[prism_memory::MemoryEvent]) -> Result<usize> {
+        match self {
+            Self::Sqlite(store) => <SqliteStore as Store>::append_memory_events(store, events),
+        }
+    }
+}
+
+impl MaterializationStore for SharedRuntimeStore {
+    fn apply_validation_deltas(
+        &mut self,
+        deltas: &[prism_projections::ValidationDelta],
+    ) -> Result<()> {
+        match self {
+            Self::Sqlite(store) => <SqliteStore as Store>::apply_validation_deltas(store, deltas),
+        }
+    }
+
+    fn load_graph(&mut self) -> Result<Option<Graph>> {
+        match self {
+            Self::Sqlite(store) => <SqliteStore as Store>::load_graph(store),
         }
     }
 
     fn save_history_snapshot(&mut self, snapshot: &prism_history::HistorySnapshot) -> Result<()> {
         match self {
-            Self::Sqlite(store) => store.save_history_snapshot(snapshot),
-        }
-    }
-
-    fn apply_history_delta(&mut self, delta: &prism_history::HistoryPersistDelta) -> Result<()> {
-        match self {
-            Self::Sqlite(store) => store.apply_history_delta(delta),
+            Self::Sqlite(store) => <SqliteStore as Store>::save_history_snapshot(store, snapshot),
         }
     }
 
@@ -144,47 +228,8 @@ impl Store for SharedRuntimeStore {
     ) -> Result<()> {
         match self {
             Self::Sqlite(store) => {
-                store.save_history_snapshot_with_co_change_deltas(snapshot, deltas)
+                <SqliteStore as Store>::save_history_snapshot_with_co_change_deltas(store, snapshot, deltas)
             }
-        }
-    }
-
-    fn load_outcome_snapshot(&mut self) -> Result<Option<prism_memory::OutcomeMemorySnapshot>> {
-        match self {
-            Self::Sqlite(store) => store.load_outcome_snapshot(),
-        }
-    }
-
-    fn load_recent_outcome_snapshot(
-        &mut self,
-        limit: usize,
-    ) -> Result<Option<prism_memory::OutcomeMemorySnapshot>> {
-        match self {
-            Self::Sqlite(store) => store.load_recent_outcome_snapshot(limit),
-        }
-    }
-
-    fn load_outcomes(
-        &mut self,
-        query: &prism_memory::OutcomeRecallQuery,
-    ) -> Result<Vec<prism_memory::OutcomeEvent>> {
-        match self {
-            Self::Sqlite(store) => store.load_outcomes(query),
-        }
-    }
-
-    fn load_outcome_event(
-        &mut self,
-        event_id: &prism_ir::EventId,
-    ) -> Result<Option<prism_memory::OutcomeEvent>> {
-        match self {
-            Self::Sqlite(store) => store.load_outcome_event(event_id),
-        }
-    }
-
-    fn load_task_replay(&mut self, task_id: &prism_ir::TaskId) -> Result<prism_memory::TaskReplay> {
-        match self {
-            Self::Sqlite(store) => store.load_task_replay(task_id),
         }
     }
 
@@ -193,26 +238,7 @@ impl Store for SharedRuntimeStore {
         snapshot: &prism_memory::OutcomeMemorySnapshot,
     ) -> Result<()> {
         match self {
-            Self::Sqlite(store) => store.save_outcome_snapshot(snapshot),
-        }
-    }
-
-    fn append_outcome_events(
-        &mut self,
-        events: &[prism_memory::OutcomeEvent],
-        validation_deltas: &[prism_projections::ValidationDelta],
-    ) -> Result<usize> {
-        match self {
-            Self::Sqlite(store) => store.append_outcome_events(events, validation_deltas),
-        }
-    }
-
-    fn apply_validation_deltas(
-        &mut self,
-        deltas: &[prism_projections::ValidationDelta],
-    ) -> Result<()> {
-        match self {
-            Self::Sqlite(store) => store.apply_validation_deltas(deltas),
+            Self::Sqlite(store) => <SqliteStore as Store>::save_outcome_snapshot(store, snapshot),
         }
     }
 
@@ -223,26 +249,14 @@ impl Store for SharedRuntimeStore {
     ) -> Result<()> {
         match self {
             Self::Sqlite(store) => {
-                store.save_outcome_snapshot_with_validation_deltas(snapshot, deltas)
+                <SqliteStore as Store>::save_outcome_snapshot_with_validation_deltas(store, snapshot, deltas)
             }
-        }
-    }
-
-    fn load_memory_events(&mut self) -> Result<Vec<prism_memory::MemoryEvent>> {
-        match self {
-            Self::Sqlite(store) => store.load_memory_events(),
-        }
-    }
-
-    fn append_memory_events(&mut self, events: &[prism_memory::MemoryEvent]) -> Result<usize> {
-        match self {
-            Self::Sqlite(store) => store.append_memory_events(events),
         }
     }
 
     fn load_episodic_snapshot(&mut self) -> Result<Option<prism_memory::EpisodicMemorySnapshot>> {
         match self {
-            Self::Sqlite(store) => store.load_episodic_snapshot(),
+            Self::Sqlite(store) => <SqliteStore as Store>::load_episodic_snapshot(store),
         }
     }
 
@@ -251,19 +265,22 @@ impl Store for SharedRuntimeStore {
         snapshot: &prism_memory::EpisodicMemorySnapshot,
     ) -> Result<()> {
         match self {
-            Self::Sqlite(store) => store.save_episodic_snapshot(snapshot),
+            Self::Sqlite(store) => <SqliteStore as Store>::save_episodic_snapshot(store, snapshot),
         }
     }
 
     fn load_inference_snapshot(&mut self) -> Result<Option<prism_agent::InferenceSnapshot>> {
         match self {
-            Self::Sqlite(store) => store.load_inference_snapshot(),
+            Self::Sqlite(store) => <SqliteStore as Store>::load_inference_snapshot(store),
         }
     }
 
-    fn save_inference_snapshot(&mut self, snapshot: &prism_agent::InferenceSnapshot) -> Result<()> {
+    fn save_inference_snapshot(
+        &mut self,
+        snapshot: &prism_agent::InferenceSnapshot,
+    ) -> Result<()> {
         match self {
-            Self::Sqlite(store) => store.save_inference_snapshot(snapshot),
+            Self::Sqlite(store) => <SqliteStore as Store>::save_inference_snapshot(store, snapshot),
         }
     }
 
@@ -271,15 +288,7 @@ impl Store for SharedRuntimeStore {
         &mut self,
     ) -> Result<Option<prism_projections::ProjectionSnapshot>> {
         match self {
-            Self::Sqlite(store) => store.load_projection_snapshot(),
-        }
-    }
-
-    fn load_projection_knowledge_snapshot(
-        &mut self,
-    ) -> Result<Option<prism_projections::ProjectionSnapshot>> {
-        match self {
-            Self::Sqlite(store) => store.load_projection_knowledge_snapshot(),
+            Self::Sqlite(store) => <SqliteStore as Store>::load_projection_snapshot(store),
         }
     }
 
@@ -288,7 +297,7 @@ impl Store for SharedRuntimeStore {
         snapshot: &prism_projections::ProjectionSnapshot,
     ) -> Result<()> {
         match self {
-            Self::Sqlite(store) => store.save_projection_snapshot(snapshot),
+            Self::Sqlite(store) => <SqliteStore as Store>::save_projection_snapshot(store, snapshot),
         }
     }
 
@@ -299,32 +308,32 @@ impl Store for SharedRuntimeStore {
     ) -> Result<()> {
         match self {
             Self::Sqlite(store) => {
-                store.apply_projection_deltas(co_change_deltas, validation_deltas)
+                <SqliteStore as Store>::apply_projection_deltas(store, co_change_deltas, validation_deltas)
             }
         }
     }
 
     fn load_workspace_tree_snapshot(&mut self) -> Result<Option<WorkspaceTreeSnapshot>> {
         match self {
-            Self::Sqlite(store) => store.load_workspace_tree_snapshot(),
+            Self::Sqlite(store) => <SqliteStore as Store>::load_workspace_tree_snapshot(store),
         }
     }
 
     fn save_workspace_tree_snapshot(&mut self, snapshot: &WorkspaceTreeSnapshot) -> Result<()> {
         match self {
-            Self::Sqlite(store) => store.save_workspace_tree_snapshot(snapshot),
+            Self::Sqlite(store) => <SqliteStore as Store>::save_workspace_tree_snapshot(store, snapshot),
         }
     }
 
     fn load_curator_snapshot(&mut self) -> Result<Option<prism_curator::CuratorSnapshot>> {
         match self {
-            Self::Sqlite(store) => store.load_curator_snapshot(),
+            Self::Sqlite(store) => <SqliteStore as Store>::load_curator_snapshot(store),
         }
     }
 
     fn save_curator_snapshot(&mut self, snapshot: &prism_curator::CuratorSnapshot) -> Result<()> {
         match self {
-            Self::Sqlite(store) => store.save_curator_snapshot(snapshot),
+            Self::Sqlite(store) => <SqliteStore as Store>::save_curator_snapshot(store, snapshot),
         }
     }
 
@@ -332,7 +341,7 @@ impl Store for SharedRuntimeStore {
         &mut self,
     ) -> Result<Option<prism_ir::PrincipalRegistrySnapshot>> {
         match self {
-            Self::Sqlite(store) => store.load_principal_registry_snapshot(),
+            Self::Sqlite(store) => <SqliteStore as Store>::load_principal_registry_snapshot(store),
         }
     }
 
@@ -341,68 +350,69 @@ impl Store for SharedRuntimeStore {
         snapshot: &prism_ir::PrincipalRegistrySnapshot,
     ) -> Result<()> {
         match self {
-            Self::Sqlite(store) => store.save_principal_registry_snapshot(snapshot),
+            Self::Sqlite(store) => <SqliteStore as Store>::save_principal_registry_snapshot(store, snapshot),
         }
     }
 
+    fn commit_auxiliary_persist_batch(&mut self, batch: &AuxiliaryPersistBatch) -> Result<()> {
+        match self {
+            Self::Sqlite(store) => <SqliteStore as Store>::commit_auxiliary_persist_batch(store, batch),
+        }
+    }
+
+    fn commit_index_persist_batch(&mut self, graph: &Graph, batch: &IndexPersistBatch) -> Result<()> {
+        match self {
+            Self::Sqlite(store) => <SqliteStore as Store>::commit_index_persist_batch(store, graph, batch),
+        }
+    }
+
+    fn save_graph_snapshot(&mut self, graph: &Graph) -> Result<()> {
+        match self {
+            Self::Sqlite(store) => <SqliteStore as Store>::save_graph_snapshot(store, graph),
+        }
+    }
+
+    fn save_file_state(&mut self, path: &Path, graph: &Graph) -> Result<()> {
+        match self {
+            Self::Sqlite(store) => <SqliteStore as Store>::save_file_state(store, path, graph),
+        }
+    }
+
+    fn remove_file_state(&mut self, path: &Path) -> Result<()> {
+        match self {
+            Self::Sqlite(store) => <SqliteStore as Store>::remove_file_state(store, path),
+        }
+    }
+
+    fn replace_derived_edges(&mut self, graph: &Graph) -> Result<()> {
+        match self {
+            Self::Sqlite(store) => <SqliteStore as Store>::replace_derived_edges(store, graph),
+        }
+    }
+
+    fn finalize(&mut self, graph: &Graph) -> Result<()> {
+        match self {
+            Self::Sqlite(store) => <SqliteStore as Store>::finalize(store, graph),
+        }
+    }
+}
+
+impl CoordinationJournal for SharedRuntimeStore {
     fn coordination_revision(&self) -> Result<u64> {
         match self {
-            Self::Sqlite(store) => store.coordination_revision(),
+            Self::Sqlite(store) => <SqliteStore as Store>::coordination_revision(store),
         }
     }
 
     fn load_coordination_events(&mut self) -> Result<Vec<prism_coordination::CoordinationEvent>> {
         match self {
-            Self::Sqlite(store) => store.load_coordination_events(),
+            Self::Sqlite(store) => <SqliteStore as Store>::load_coordination_events(store),
         }
     }
 
     fn load_coordination_event_stream(&mut self) -> Result<CoordinationEventStream> {
         match self {
-            Self::Sqlite(store) => store.load_coordination_event_stream(),
-        }
-    }
-
-    fn save_coordination_compaction(
-        &mut self,
-        snapshot: &prism_coordination::CoordinationSnapshot,
-    ) -> Result<()> {
-        match self {
-            Self::Sqlite(store) => store.save_coordination_compaction(snapshot),
-        }
-    }
-
-    fn load_coordination_read_model(
-        &mut self,
-    ) -> Result<Option<prism_coordination::CoordinationReadModel>> {
-        match self {
-            Self::Sqlite(store) => store.load_coordination_read_model(),
-        }
-    }
-
-    fn save_coordination_read_model(
-        &mut self,
-        read_model: &prism_coordination::CoordinationReadModel,
-    ) -> Result<()> {
-        match self {
-            Self::Sqlite(store) => store.save_coordination_read_model(read_model),
-        }
-    }
-
-    fn load_coordination_queue_read_model(
-        &mut self,
-    ) -> Result<Option<prism_coordination::CoordinationQueueReadModel>> {
-        match self {
-            Self::Sqlite(store) => store.load_coordination_queue_read_model(),
-        }
-    }
-
-    fn save_coordination_queue_read_model(
-        &mut self,
-        read_model: &prism_coordination::CoordinationQueueReadModel,
-    ) -> Result<()> {
-        match self {
-            Self::Sqlite(store) => store.save_coordination_queue_read_model(read_model),
+            Self::Sqlite(store) => <SqliteStore as Store>::load_coordination_event_stream(store),
         }
     }
 
@@ -410,7 +420,7 @@ impl Store for SharedRuntimeStore {
         &mut self,
     ) -> Result<Option<CoordinationPersistContext>> {
         match self {
-            Self::Sqlite(store) => store.load_latest_coordination_persist_context(),
+            Self::Sqlite(store) => <SqliteStore as Store>::load_latest_coordination_persist_context(store),
         }
     }
 
@@ -419,53 +429,52 @@ impl Store for SharedRuntimeStore {
         batch: &CoordinationPersistBatch,
     ) -> Result<CoordinationPersistResult> {
         match self {
-            Self::Sqlite(store) => store.commit_coordination_persist_batch(batch),
+            Self::Sqlite(store) => <SqliteStore as Store>::commit_coordination_persist_batch(store, batch),
         }
     }
+}
 
-    fn commit_auxiliary_persist_batch(&mut self, batch: &AuxiliaryPersistBatch) -> Result<()> {
-        match self {
-            Self::Sqlite(store) => store.commit_auxiliary_persist_batch(batch),
-        }
-    }
-
-    fn commit_index_persist_batch(
+impl CoordinationCheckpointStore for SharedRuntimeStore {
+    fn save_coordination_compaction(
         &mut self,
-        graph: &prism_store::Graph,
-        batch: &IndexPersistBatch,
+        snapshot: &prism_coordination::CoordinationSnapshot,
     ) -> Result<()> {
         match self {
-            Self::Sqlite(store) => store.commit_index_persist_batch(graph, batch),
+            Self::Sqlite(store) => <SqliteStore as Store>::save_coordination_compaction(store, snapshot),
         }
     }
 
-    fn save_graph_snapshot(&mut self, graph: &prism_store::Graph) -> Result<()> {
+    fn load_coordination_read_model(
+        &mut self,
+    ) -> Result<Option<prism_coordination::CoordinationReadModel>> {
         match self {
-            Self::Sqlite(store) => store.save_graph_snapshot(graph),
+            Self::Sqlite(store) => <SqliteStore as Store>::load_coordination_read_model(store),
         }
     }
 
-    fn save_file_state(&mut self, path: &Path, graph: &prism_store::Graph) -> Result<()> {
+    fn save_coordination_read_model(
+        &mut self,
+        read_model: &prism_coordination::CoordinationReadModel,
+    ) -> Result<()> {
         match self {
-            Self::Sqlite(store) => store.save_file_state(path, graph),
+            Self::Sqlite(store) => <SqliteStore as Store>::save_coordination_read_model(store, read_model),
         }
     }
 
-    fn remove_file_state(&mut self, path: &Path) -> Result<()> {
+    fn load_coordination_queue_read_model(
+        &mut self,
+    ) -> Result<Option<prism_coordination::CoordinationQueueReadModel>> {
         match self {
-            Self::Sqlite(store) => store.remove_file_state(path),
+            Self::Sqlite(store) => <SqliteStore as Store>::load_coordination_queue_read_model(store),
         }
     }
 
-    fn replace_derived_edges(&mut self, graph: &prism_store::Graph) -> Result<()> {
+    fn save_coordination_queue_read_model(
+        &mut self,
+        read_model: &prism_coordination::CoordinationQueueReadModel,
+    ) -> Result<()> {
         match self {
-            Self::Sqlite(store) => store.replace_derived_edges(graph),
-        }
-    }
-
-    fn finalize(&mut self, graph: &prism_store::Graph) -> Result<()> {
-        match self {
-            Self::Sqlite(store) => store.finalize(graph),
+            Self::Sqlite(store) => <SqliteStore as Store>::save_coordination_queue_read_model(store, read_model),
         }
     }
 }

@@ -13482,10 +13482,15 @@ return {
         status["logPath"].as_str().unwrap_or_default(),
         log_path.display().to_string()
     );
-    assert!(status["cachePath"]
-        .as_str()
-        .unwrap_or_default()
-        .ends_with("/shared/runtime/state.db"));
+    assert_eq!(
+        status["cachePath"].as_str().unwrap_or_default(),
+        PrismPaths::for_workspace_root(&root)
+            .unwrap()
+            .worktree_cache_db_path()
+            .unwrap()
+            .display()
+            .to_string()
+    );
     assert_eq!(status["freshness"]["fsDirty"], false);
     assert!(
         status["freshness"]["materialization"]["workspace"]["status"]

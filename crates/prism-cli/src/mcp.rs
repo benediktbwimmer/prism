@@ -1279,7 +1279,7 @@ impl McpPaths {
         Ok(Self {
             uri_file: prism_paths.mcp_http_uri_path()?,
             log_path: prism_paths.mcp_daemon_log_path()?,
-            cache_path: prism_paths.shared_runtime_db_path()?,
+            cache_path: prism_paths.worktree_cache_db_path()?,
             runtime_state_path: prism_paths.mcp_runtime_state_path()?,
             startup_marker: prism_paths.mcp_startup_marker_path()?,
         })
@@ -1307,6 +1307,26 @@ mod tests {
 
     fn create_parent(path: &Path) {
         fs::create_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn mcp_paths_report_worktree_cache_db() {
+        let root = temp_root("paths-cache");
+        fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
+
+        let paths = McpPaths::for_root(&root).unwrap();
+        let prism_paths = PrismPaths::for_workspace_root(&root).unwrap();
+
+        assert_eq!(
+            paths.cache_path,
+            prism_paths.worktree_cache_db_path().unwrap()
+        );
+        assert_ne!(
+            paths.cache_path,
+            prism_paths.shared_runtime_db_path().unwrap()
+        );
+
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

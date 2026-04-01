@@ -146,17 +146,21 @@ impl WorkspaceIndexer<SqliteStore> {
             } else {
                 shared_store.load_projection_knowledge_snapshot()?
             };
+            let base_local_projection_snapshot = local_projection_snapshot.clone().map(|snapshot| {
+                if options.hydrate_persisted_projections {
+                    snapshot
+                } else {
+                    projection_snapshot_without_knowledge(snapshot)
+                }
+            });
+            let base_shared_projection_snapshot = if options.hydrate_persisted_projections {
+                shared_projection_snapshot.clone()
+            } else {
+                None
+            };
             indexer.projections = merged_projection_index(
-                if options.hydrate_persisted_projections {
-                    local_projection_snapshot.clone()
-                } else {
-                    None
-                },
-                if options.hydrate_persisted_projections {
-                    shared_projection_snapshot.clone()
-                } else {
-                    None
-                },
+                base_local_projection_snapshot,
+                base_shared_projection_snapshot,
                 load_repo_curated_concepts(&root)?,
                 load_repo_curated_contracts(&root)?,
                 load_repo_concept_relations(&root)?,

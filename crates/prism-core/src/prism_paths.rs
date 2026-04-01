@@ -27,6 +27,9 @@ pub struct PrismPaths {
     home_root: PathBuf,
     repo_prism_dir: PathBuf,
     repo_home_dir: PathBuf,
+    worktree_cache_dir: PathBuf,
+    worktree_cache_db_path: PathBuf,
+    worktree_backups_dir: PathBuf,
     shared_runtime_dir: PathBuf,
     shared_runtime_db_path: PathBuf,
     shared_backups_dir: PathBuf,
@@ -48,6 +51,7 @@ impl PrismPaths {
         let worktree_dir = repo_home_dir
             .join("worktrees")
             .join(storage_component(&identity.worktree_id));
+        let worktree_cache_dir = worktree_dir.join("cache");
         let shared_runtime_dir = repo_home_dir.join("shared").join("runtime");
         let feedback_dir = repo_home_dir.join("feedback");
         let worktree_mcp_state_dir = worktree_dir.join("mcp").join("state");
@@ -56,6 +60,9 @@ impl PrismPaths {
             identity,
             home_root,
             repo_prism_dir: canonical_root.join(".prism"),
+            worktree_cache_dir: worktree_cache_dir.clone(),
+            worktree_cache_db_path: worktree_cache_dir.join("state.db"),
+            worktree_backups_dir: worktree_dir.join("backups"),
             shared_runtime_db_path: shared_runtime_dir.join("state.db"),
             shared_backups_dir: repo_home_dir.join("shared").join("backups"),
             validation_feedback_path: feedback_dir.join("validation_feedback.jsonl"),
@@ -96,6 +103,14 @@ impl PrismPaths {
         &self.worktree_dir
     }
 
+    pub fn worktree_cache_dir(&self) -> &Path {
+        &self.worktree_cache_dir
+    }
+
+    pub fn worktree_backups_dir(&self) -> &Path {
+        &self.worktree_backups_dir
+    }
+
     pub fn worktree_mcp_state_dir(&self) -> &Path {
         &self.worktree_mcp_state_dir
     }
@@ -108,17 +123,24 @@ impl PrismPaths {
         self.ensure_home_metadata()?;
         fs::create_dir_all(&self.shared_runtime_dir)
             .with_context(|| format!("failed to create {}", self.shared_runtime_dir.display()))?;
+        Ok(self.shared_runtime_db_path.clone())
+    }
+
+    pub fn worktree_cache_db_path(&self) -> Result<PathBuf> {
+        self.ensure_home_metadata()?;
+        fs::create_dir_all(&self.worktree_cache_dir)
+            .with_context(|| format!("failed to create {}", self.worktree_cache_dir.display()))?;
         migrate_legacy_sqlite_store(
-            &self.shared_runtime_db_path,
+            &self.worktree_cache_db_path,
             &self.repo_prism_dir.join("cache.db"),
         )?;
         migrate_legacy_backups(
-            &self.shared_backups_dir,
+            &self.worktree_backups_dir,
             &self.repo_prism_dir.join("backups"),
             "cache.db",
             "state.db",
         )?;
-        Ok(self.shared_runtime_db_path.clone())
+        Ok(self.worktree_cache_db_path.clone())
     }
 
     pub fn credentials_path(&self) -> Result<PathBuf> {

@@ -1124,7 +1124,7 @@ impl RuntimePaths {
         Ok(Self {
             uri_file: prism_paths.mcp_http_uri_path()?,
             log_path: prism_paths.mcp_daemon_log_path()?,
-            cache_path: prism_paths.shared_runtime_db_path()?,
+            cache_path: prism_paths.worktree_cache_db_path()?,
         })
     }
 }
@@ -1133,6 +1133,39 @@ impl RuntimePaths {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    fn temp_root(label: &str) -> PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "prism-runtime-views-tests-{label}-{}-{stamp}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    #[test]
+    fn runtime_paths_report_worktree_cache_db() {
+        let root = temp_root("paths-cache");
+        fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
+
+        let paths = RuntimePaths::for_root(&root).unwrap();
+        let prism_paths = PrismPaths::for_workspace_root(&root).unwrap();
+
+        assert_eq!(
+            paths.cache_path,
+            prism_paths.worktree_cache_db_path().unwrap()
+        );
+        assert_ne!(
+            paths.cache_path,
+            prism_paths.shared_runtime_db_path().unwrap()
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
 
     #[test]
     fn parses_json_log_lines_into_runtime_events() {

@@ -141,7 +141,7 @@ mod tests {
 }
 
 pub(crate) fn cache_path(root: &Path) -> Result<PathBuf> {
-    PrismPaths::for_workspace_root(root)?.shared_runtime_db_path()
+    PrismPaths::for_workspace_root(root)?.worktree_cache_db_path()
 }
 
 pub(crate) fn validation_feedback_path(root: &Path) -> Result<PathBuf> {

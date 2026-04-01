@@ -1,7 +1,7 @@
 use anyhow::Result;
 use prism_ir::LineageEvent;
 use prism_memory::{EpisodicMemorySnapshot, SessionMemory};
-use prism_store::{AuxiliaryPersistBatch, Store};
+use prism_store::{AuxiliaryPersistBatch, MaterializationStore};
 
 pub(crate) fn reanchor_episodic_snapshot(
     snapshot: EpisodicMemorySnapshot,
@@ -16,7 +16,7 @@ pub(crate) fn reanchor_episodic_snapshot(
     Ok(memory.snapshot())
 }
 
-pub(crate) fn reanchor_persisted_memory_snapshot<S: Store>(
+pub(crate) fn reanchor_persisted_memory_snapshot<S: MaterializationStore>(
     store: &mut S,
     events: &[LineageEvent],
 ) -> Result<()> {

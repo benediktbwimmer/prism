@@ -311,11 +311,11 @@ fn reloads_graph_from_disk_cache() {
     first.index().unwrap();
     drop(first);
 
-    let state_db = PrismPaths::for_workspace_root(&root)
+    let cache_db = PrismPaths::for_workspace_root(&root)
         .unwrap()
-        .shared_runtime_db_path()
+        .worktree_cache_db_path()
         .unwrap();
-    assert!(state_db.exists());
+    assert!(cache_db.exists());
 
     let second = WorkspaceIndexer::new(&root).unwrap();
     assert!(second
@@ -348,7 +348,7 @@ fn migrates_legacy_repo_local_cache_db_to_state_db() {
     let indexer = WorkspaceIndexer::new(&root).unwrap();
     let state_db = PrismPaths::for_workspace_root(&root)
         .unwrap()
-        .shared_runtime_db_path()
+        .worktree_cache_db_path()
         .unwrap();
     assert!(state_db.exists());
     assert!(!legacy_cache.exists());
@@ -370,12 +370,14 @@ fn prism_paths_respect_prism_home_override_and_write_metadata_manifests() {
     let _env = PrismHomeEnvGuard::set(&prism_home);
 
     let paths = PrismPaths::for_workspace_root(&root).unwrap();
-    let state_db = paths.shared_runtime_db_path().unwrap();
+    let shared_runtime_db = paths.shared_runtime_db_path().unwrap();
+    let worktree_cache_db = paths.worktree_cache_db_path().unwrap();
     let credentials_path = paths.credentials_path().unwrap();
     let repo_metadata_path = paths.repo_home_dir().join("repo.json");
     let worktree_metadata_path = paths.worktree_dir().join("worktree.json");
 
-    assert!(state_db.starts_with(&prism_home));
+    assert!(shared_runtime_db.starts_with(&prism_home));
+    assert!(worktree_cache_db.starts_with(&prism_home));
     assert_eq!(credentials_path, prism_home.join("credentials.toml"));
     assert!(repo_metadata_path.exists());
     assert!(worktree_metadata_path.exists());
@@ -4180,14 +4182,20 @@ fn coordination_session_materializes_read_models_off_request_path() {
 
     session.flush_materializations().unwrap();
 
-    let mut store = session.store.lock().expect("workspace store lock poisoned");
-    let persisted_read_model = store
+    let mut shared_runtime_store = SqliteStore::open(
+        PrismPaths::for_workspace_root(&root)
+            .unwrap()
+            .shared_runtime_db_path()
+            .unwrap(),
+    )
+    .unwrap();
+    let persisted_read_model = shared_runtime_store
         .load_coordination_read_model()
         .unwrap()
         .expect("persisted coordination read model should materialize after flush");
     assert_eq!(persisted_read_model.active_plans.len(), 1);
     assert_eq!(persisted_read_model.task_count, 1);
-    let persisted_queue_model = store
+    let persisted_queue_model = shared_runtime_store
         .load_coordination_queue_read_model()
         .unwrap()
         .expect("persisted coordination queue model should materialize after flush");
@@ -6020,7 +6028,7 @@ fn curator_context_loads_lineage_history_from_store_when_hot_history_is_empty() 
     let root = temp_workspace();
     let cache_path = PrismPaths::for_workspace_root(&root)
         .unwrap()
-        .shared_runtime_db_path()
+        .worktree_cache_db_path()
         .unwrap();
     let mut store = SqliteStore::open(&cache_path).unwrap();
 
@@ -6093,7 +6101,7 @@ fn curator_context_loads_outcomes_from_locked_store_without_backend_reentry() {
     let root = temp_workspace();
     let cache_path = PrismPaths::for_workspace_root(&root)
         .unwrap()
-        .shared_runtime_db_path()
+        .worktree_cache_db_path()
         .unwrap();
     let mut store = SqliteStore::open(&cache_path).unwrap();
 
