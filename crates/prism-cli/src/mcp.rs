@@ -60,6 +60,7 @@ struct McpPaths {
     uri_file: PathBuf,
     log_path: PathBuf,
     cache_path: PathBuf,
+    runtime_state_path: PathBuf,
     startup_marker: PathBuf,
 }
 
@@ -286,7 +287,7 @@ fn cleanup(root: &Path) -> Result<()> {
     let processes = list_processes(root)?;
     let daemons = select_kind(&processes, McpProcessKind::Daemon);
     let bridges = select_kind(&processes, McpProcessKind::Bridge);
-    let uri = resolve_daemon_uri(root, &paths, &daemons)?;
+    let uri = resolve_daemon_uri(&paths, &daemons)?;
     let connected_bridge_pids = uri
         .as_deref()
         .and_then(|uri| connected_process_ids_for_uri(uri).ok())
@@ -826,7 +827,7 @@ fn wait_for_healthy_uri(root: &Path, paths: &McpPaths, health_path: &str) -> Res
     let deadline = Instant::now() + START_TIMEOUT;
     while Instant::now() < deadline {
         let daemons = select_kind(&list_processes(root)?, McpProcessKind::Daemon);
-        let uri = resolve_daemon_uri(root, paths, &daemons)?;
+        let uri = resolve_daemon_uri(paths, &daemons)?;
         if let Some(uri) = uri {
             let health = health_status(&Some(uri.clone()), health_path)?;
             if health.ok {
@@ -971,7 +972,7 @@ fn daemon_connection_info(
     paths: &McpPaths,
     daemons: &[McpProcess],
 ) -> Result<DaemonConnectionInfo> {
-    let uri = resolve_daemon_uri(root, paths, daemons)?;
+    let uri = resolve_daemon_uri(paths, daemons)?;
     let health_path = daemon_health_path(daemons);
     let health_uri = uri.as_ref().map(|uri| join_health_uri(uri, health_path));
     let health = health_status(&uri, health_path)?;
@@ -1017,7 +1018,7 @@ fn daemon_connection_snapshot(
     let Some(restart_nonce) = startup_marker.nonce.as_deref() else {
         return Ok((Vec::new(), missing_daemon_connection_info()));
     };
-    let runtime_daemons = live_runtime_daemon_records(root, observed_daemons)?;
+    let runtime_daemons = live_runtime_daemon_records(paths, observed_daemons)?;
     let matching = runtime_daemons
         .iter()
         .filter(|record| {
@@ -1119,30 +1120,23 @@ fn should_wait_for_restart_grace(
         && (startup_marker.is_some() || !bridges.is_empty())
 }
 
-fn resolve_daemon_uri(
-    root: &Path,
-    paths: &McpPaths,
-    daemons: &[McpProcess],
-) -> Result<Option<String>> {
+fn resolve_daemon_uri(paths: &McpPaths, daemons: &[McpProcess]) -> Result<Option<String>> {
     if let Some(uri) = read_uri_file(&paths.uri_file)? {
         return Ok(Some(uri));
     }
-    runtime_state_uri(root, daemons)
+    runtime_state_uri(paths, daemons)
 }
 
-fn runtime_state_uri(root: &Path, daemons: &[McpProcess]) -> Result<Option<String>> {
+fn runtime_state_uri(paths: &McpPaths, daemons: &[McpProcess]) -> Result<Option<String>> {
     if daemons.is_empty() {
         return Ok(None);
     }
-    Ok(live_runtime_daemon_records(root, daemons)?
+    Ok(live_runtime_daemon_records(paths, daemons)?
         .into_iter()
         .find_map(|record| record.http_uri))
 }
 
-fn live_runtime_daemon_records(
-    root: &Path,
-    daemons: &[McpProcess],
-) -> Result<Vec<RuntimeDaemonRecord>> {
+fn live_runtime_daemon_records(paths: &McpPaths, daemons: &[McpProcess]) -> Result<Vec<RuntimeDaemonRecord>> {
     if daemons.is_empty() {
         return Ok(Vec::new());
     }
@@ -1150,7 +1144,7 @@ fn live_runtime_daemon_records(
         .iter()
         .map(|daemon| daemon.pid)
         .collect::<BTreeSet<_>>();
-    let path = root.join(".prism").join("prism-mcp-runtime.json");
+    let path = &paths.runtime_state_path;
     if !path.exists() {
         return Ok(Vec::new());
     }
@@ -1286,10 +1280,11 @@ impl McpPaths {
     fn for_root(root: &Path) -> Result<Self> {
         let prism_paths = PrismPaths::for_workspace_root(root)?;
         Ok(Self {
-            uri_file: root.join(".prism").join("prism-mcp-http-uri"),
-            log_path: root.join(".prism").join("prism-mcp-daemon.log"),
+            uri_file: prism_paths.mcp_http_uri_path()?,
+            log_path: prism_paths.mcp_daemon_log_path()?,
             cache_path: prism_paths.shared_runtime_db_path()?,
-            startup_marker: root.join(".prism").join("prism-mcp-startup"),
+            runtime_state_path: prism_paths.mcp_runtime_state_path()?,
+            startup_marker: prism_paths.mcp_startup_marker_path()?,
         })
     }
 }

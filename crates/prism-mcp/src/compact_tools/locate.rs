@@ -779,16 +779,20 @@ fn locate_intent_profile(args: &PrismLocateArgs) -> LocateIntentProfile {
 
 fn locate_ownership_query_terms(tokens: &[String]) -> Vec<&'static str> {
     let mut terms = Vec::new();
+    let has_route_context = tokens
+        .iter()
+        .any(|token| matches!(token.as_str(), "route" | "routes" | "routing" | "router"));
+    let has_shell_context = tokens
+        .iter()
+        .any(|token| matches!(token.as_str(), "shell" | "app" | "page"));
+    let has_layout_context = tokens.iter().any(|token| token == "layout");
     if tokens
         .iter()
         .any(|token| matches!(token.as_str(), "route" | "routes" | "routing" | "router"))
     {
         terms.push("route");
     }
-    if tokens
-        .iter()
-        .any(|token| matches!(token.as_str(), "shell" | "app" | "layout" | "page"))
-    {
+    if has_shell_context || (has_layout_context && has_route_context) {
         terms.push("shell");
     }
     if tokens.iter().any(|token| {

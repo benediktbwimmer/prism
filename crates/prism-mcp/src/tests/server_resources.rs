@@ -244,19 +244,17 @@ async fn mcp_surface_request_logs_include_common_envelope_phases() {
         let Some(ping) = ping else {
             return false;
         };
-        let all_ready = [tool_list, resource_read, ping]
-            .into_iter()
-            .all(|record| {
-                let operations = record
-                    .phases
-                    .iter()
-                    .map(|phase| phase.operation.as_str())
-                    .collect::<Vec<_>>();
-                operations.contains(&"mcp.receiveRequest")
-                    && operations.contains(&"mcp.routeRequest")
-                    && operations.contains(&"mcp.executeHandler")
-                    && operations.contains(&"mcp.encodeResponse")
-            });
+        let all_ready = [tool_list, resource_read, ping].into_iter().all(|record| {
+            let operations = record
+                .phases
+                .iter()
+                .map(|phase| phase.operation.as_str())
+                .collect::<Vec<_>>();
+            operations.contains(&"mcp.receiveRequest")
+                && operations.contains(&"mcp.routeRequest")
+                && operations.contains(&"mcp.executeHandler")
+                && operations.contains(&"mcp.encodeResponse")
+        });
         all_ready
     });
 
@@ -559,48 +557,51 @@ async fn mcp_server_reads_file_resource_templates_for_workspace_paths() {
         .iter()
         .any(|resource| resource["uri"] == "prism://schema/file"));
 
-    wait_until("resource read traces to include workspace refresh phases", || {
-        let records = server_handle.host.mcp_call_log_store.records();
-        let session_read = records.iter().find(|record| {
-            record.entry.call_type == "resource_read" && record.entry.name == SESSION_URI
-        });
-        let capabilities_read = records.iter().find(|record| {
-            record.entry.call_type == "resource_read" && record.entry.name == CAPABILITIES_URI
-        });
-        let file_read = records.iter().find(|record| {
-            record.entry.call_type == "resource_read"
-                && record
-                    .metadata
-                    .get("uri")
-                    .and_then(Value::as_str)
-                    .map(|uri| uri.starts_with("prism://file/"))
-                    .unwrap_or(false)
-        });
-        let Some(session_read) = session_read else {
-            return false;
-        };
-        let Some(capabilities_read) = capabilities_read else {
-            return false;
-        };
-        let Some(file_read) = file_read else {
-            return false;
-        };
-        let all_ready = [session_read, capabilities_read, file_read]
-            .into_iter()
-            .all(|record| {
-                let operations = record
-                    .phases
-                    .iter()
-                    .map(|phase| phase.operation.as_str())
-                    .collect::<Vec<_>>();
-                operations.contains(&"runtimeSync.waitLock")
-                    && operations.contains(&"runtimeSync.refreshFs")
-                    && operations.contains(&"runtimeSync.snapshotRevisions")
-                    && operations.contains(&"resource.refreshWorkspace")
-                    && operations.contains(&"resource.handler")
+    wait_until(
+        "resource read traces to include workspace refresh phases",
+        || {
+            let records = server_handle.host.mcp_call_log_store.records();
+            let session_read = records.iter().find(|record| {
+                record.entry.call_type == "resource_read" && record.entry.name == SESSION_URI
             });
-        all_ready
-    });
+            let capabilities_read = records.iter().find(|record| {
+                record.entry.call_type == "resource_read" && record.entry.name == CAPABILITIES_URI
+            });
+            let file_read = records.iter().find(|record| {
+                record.entry.call_type == "resource_read"
+                    && record
+                        .metadata
+                        .get("uri")
+                        .and_then(Value::as_str)
+                        .map(|uri| uri.starts_with("prism://file/"))
+                        .unwrap_or(false)
+            });
+            let Some(session_read) = session_read else {
+                return false;
+            };
+            let Some(capabilities_read) = capabilities_read else {
+                return false;
+            };
+            let Some(file_read) = file_read else {
+                return false;
+            };
+            let all_ready = [session_read, capabilities_read, file_read]
+                .into_iter()
+                .all(|record| {
+                    let operations = record
+                        .phases
+                        .iter()
+                        .map(|phase| phase.operation.as_str())
+                        .collect::<Vec<_>>();
+                    operations.contains(&"runtimeSync.waitLock")
+                        && operations.contains(&"runtimeSync.refreshFs")
+                        && operations.contains(&"runtimeSync.snapshotRevisions")
+                        && operations.contains(&"resource.refreshWorkspace")
+                        && operations.contains(&"resource.handler")
+                });
+            all_ready
+        },
+    );
 
     let records = server_handle.host.mcp_call_log_store.records();
     let session_read = records

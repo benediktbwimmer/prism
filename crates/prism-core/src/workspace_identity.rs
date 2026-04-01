@@ -19,6 +19,8 @@ struct GitWorkspaceIdentity {
 pub(crate) struct WorkspaceIdentity {
     pub(crate) canonical_root: PathBuf,
     pub(crate) repo_id: String,
+    pub(crate) repo_locator_kind: &'static str,
+    pub(crate) repo_locator_path: PathBuf,
     pub(crate) worktree_id: String,
     pub(crate) branch_ref: Option<String>,
     pub(crate) instance_id: String,
@@ -27,15 +29,22 @@ pub(crate) struct WorkspaceIdentity {
 pub(crate) fn workspace_identity_for_root(root: &Path) -> WorkspaceIdentity {
     let canonical_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
     let git_identity = discover_git_workspace_identity(&canonical_root);
-    let repo_source = git_identity
+    let repo_locator_path = git_identity
         .common_dir
         .as_ref()
-        .unwrap_or(&canonical_root)
-        .to_string_lossy()
-        .to_string();
+        .cloned()
+        .unwrap_or_else(|| canonical_root.clone());
+    let repo_locator_kind = if git_identity.common_dir.is_some() {
+        "git_common_dir"
+    } else {
+        "canonical_root"
+    };
+    let repo_source = repo_locator_path.to_string_lossy().to_string();
     WorkspaceIdentity {
         canonical_root: canonical_root.clone(),
         repo_id: scoped_id("repo", &repo_source),
+        repo_locator_kind,
+        repo_locator_path,
         worktree_id: scoped_id("worktree", &canonical_root.to_string_lossy()),
         branch_ref: git_identity.head_ref,
         instance_id: instance_id().clone(),

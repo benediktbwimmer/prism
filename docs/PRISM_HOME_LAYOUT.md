@@ -108,6 +108,9 @@ Design constraints:
 ```text
 ~/.prism/
   VERSION
+  auth/
+    principals/
+    tokens/
   config/
     user.toml
   projects/
@@ -151,6 +154,41 @@ Design constraints:
               prism-mcp-call-log.jsonl
               prism-mcp-call-log.<instance_id>.jsonl
 ```
+
+## Home Resolution
+
+`~/.prism` is the default visible home, not a hardcoded invariant.
+
+Resolution rule:
+
+- use `PRISM_HOME` when it is set
+- otherwise default to `$HOME/.prism`
+- keep the scope model independent from the concrete root path so XDG or other
+  platform-specific homes can be added later without redefining repo semantics
+
+This matters immediately for tests, CI, containers, and future multi-platform
+support.
+
+## Current Implementation Status
+
+The current codebase already implements the first half of this split:
+
+- `PRISM_HOME` override support with `$HOME/.prism` as the default
+- repo-scoped shared runtime storage at
+  `~/.prism/repos/<repo_id>/shared/runtime/state.db`
+- repo-scoped validation feedback under `feedback/`
+- worktree-scoped MCP URI, runtime, session-seed, and log paths under
+  `worktrees/<worktree_id>/mcp/`
+- opportunistic migration from repo-local `.prism` runtime files to the new home
+  layout
+- `repo.json` and `worktree.json` manifests for discovery and cleanup metadata
+
+The following remain architectural targets rather than fully landed behavior:
+
+- project-scoped coordination storage under `projects/<project_id>/`
+- first-class writers for worktree-local acceleration artifacts
+- principal/auth storage under `auth/`
+- automated cleanup and garbage-collection workflows
 
 ## Source Buckets
 
@@ -354,6 +392,48 @@ Two small metadata files make the hierarchy manageable:
 
 These files are for discovery, cleanup, and debugging. They do not replace the
 actual runtime records inside the database.
+
+## Identity Derivation
+
+`repo_id` and `worktree_id` need stricter rules than simple path-joins.
+
+The intended policy is:
+
+- `worktree_id` may be derived from the canonical checkout root because it is
+  explicitly checkout-local
+- `repo_id` should represent the logical repo, not one specific worktree path
+- the filesystem layout must not be the only place that scope is inferred
+
+The current implementation keeps the existing local-ID scheme for compatibility:
+
+- `repo_id` is derived from the Git common dir path when available
+- otherwise `repo_id` falls back to the canonical repo root path
+- `worktree_id` is derived from the canonical repo root path
+- `repo.json` records the locator kind and locator path that produced the current
+  `repo_id`
+
+That is good enough for the current local-home migration, but it is intentionally
+not the final logical identity story. If PRISM later adopts a stronger repo
+identity policy, it should migrate or alias these ids explicitly rather than
+silently changing the meaning of an existing `repo_id`.
+
+## Lifecycle And Cleanup
+
+This layout will accumulate stale local state over time, so cleanup semantics are
+part of the design rather than an afterthought.
+
+Rules:
+
+- `repo.json`, `worktree.json`, and `project.json` should carry `last_seen`
+  metadata so cleanup can identify cold directories safely
+- old worktree directories are cleanup candidates once the checkout path no
+  longer exists or has not been seen for a long time
+- `acceleration/` contents are always disposable and should be the first eviction
+  target under storage pressure
+- rotated logs, crash leftovers, and old backups should be bounded and reclaimable
+- cleanup must never delete repo-published truth in `<repo>/.prism`
+- cleanup must never treat imported evidence or feedback logs as authoritative
+  runtime truth
 
 ## Compatibility Rules
 

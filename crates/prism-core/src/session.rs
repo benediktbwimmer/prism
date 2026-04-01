@@ -519,10 +519,7 @@ impl WorkspaceSession {
             .clone()
     }
 
-    pub(crate) fn attach_cold_query_backends(
-        prism: &Prism,
-        store: &Arc<Mutex<SqliteStore>>,
-    ) {
+    pub(crate) fn attach_cold_query_backends(prism: &Prism, store: &Arc<Mutex<SqliteStore>>) {
         prism.set_history_backend(Some(Arc::new(StoreHistoryReadBackend::new(Arc::clone(
             store,
         )))));
@@ -568,6 +565,20 @@ impl WorkspaceSession {
     }
 
     pub fn refresh_fs_with_status(&self) -> Result<WorkspaceFsRefreshOutcome> {
+        self.refresh_fs_with_scoped_paths(None)
+    }
+
+    pub fn refresh_fs_with_paths(
+        &self,
+        dirty_paths: Vec<PathBuf>,
+    ) -> Result<WorkspaceFsRefreshOutcome> {
+        self.refresh_fs_with_scoped_paths((!dirty_paths.is_empty()).then_some(dirty_paths))
+    }
+
+    fn refresh_fs_with_scoped_paths(
+        &self,
+        dirty_paths_override: Option<Vec<PathBuf>>,
+    ) -> Result<WorkspaceFsRefreshOutcome> {
         if !self.refresh_state.needs_refresh()
             && !self
                 .refresh_state
@@ -578,9 +589,11 @@ impl WorkspaceSession {
                 observed: Vec::new(),
             });
         }
-        let dirty_paths = self.refresh_state.dirty_paths_snapshot();
+        let dirty_paths = dirty_paths_override
+            .clone()
+            .unwrap_or_else(|| self.refresh_state.dirty_paths_snapshot());
         let refreshed = if self.refresh_state.needs_refresh() && !dirty_paths.is_empty() {
-            self.refresh_with_trigger(ChangeTrigger::FsWatch, None)?
+            self.refresh_with_trigger(ChangeTrigger::FsWatch, None, Some(dirty_paths))?
         } else {
             let known_snapshot = self
                 .fs_snapshot
@@ -594,7 +607,7 @@ impl WorkspaceSession {
                     observed: Vec::new(),
                 });
             }
-            self.refresh_with_trigger(ChangeTrigger::FsWatch, Some(plan.next_snapshot))?
+            self.refresh_with_trigger(ChangeTrigger::FsWatch, Some(plan.next_snapshot), None)?
         };
         let status = match refreshed.mode {
             None => FsRefreshStatus::Clean,
@@ -618,7 +631,11 @@ impl WorkspaceSession {
             return Ok(FsRefreshStatus::Clean);
         }
         let dirty_paths = self.refresh_state.dirty_paths_snapshot();
-        let refreshed = self.try_refresh_with_trigger(ChangeTrigger::FsWatch, None)?;
+        let refreshed = self.try_refresh_with_trigger(
+            ChangeTrigger::FsWatch,
+            None,
+            (!dirty_paths.is_empty()).then_some(dirty_paths.clone()),
+        )?;
         match refreshed {
             Some(result) => Ok(match result.mode {
                 None => FsRefreshStatus::Clean,
@@ -2391,6 +2408,7 @@ impl WorkspaceSession {
         &self,
         trigger: ChangeTrigger,
         known_fingerprint: Option<WorkspaceTreeSnapshot>,
+        dirty_paths_override: Option<Vec<PathBuf>>,
     ) -> Result<WorkspaceRefreshResult> {
         let curator = self.curator.as_ref().map(CuratorHandleRef::from);
         refresh_prism_snapshot(
@@ -2410,6 +2428,7 @@ impl WorkspaceSession {
             curator.as_ref(),
             trigger,
             known_fingerprint,
+            dirty_paths_override,
         )
     }
 
@@ -2417,6 +2436,7 @@ impl WorkspaceSession {
         &self,
         trigger: ChangeTrigger,
         known_fingerprint: Option<WorkspaceTreeSnapshot>,
+        dirty_paths_override: Option<Vec<PathBuf>>,
     ) -> Result<Option<WorkspaceRefreshResult>> {
         try_refresh_prism_snapshot(
             &self.root,
@@ -2435,6 +2455,7 @@ impl WorkspaceSession {
             self.curator.as_ref().map(CuratorHandleRef::from).as_ref(),
             trigger,
             known_fingerprint,
+            dirty_paths_override,
         )
     }
 

@@ -14,8 +14,8 @@ use prism_agent::{InferenceSnapshot, InferredEdgeScope};
 use prism_coordination::{CoordinationPolicy, CoordinationStore, PlanCreateInput, TaskCreateInput};
 use prism_core::{
     hydrate_workspace_session_with_options, index_workspace_session,
-    index_workspace_session_with_curator, ValidationFeedbackCategory, ValidationFeedbackRecord,
-    ValidationFeedbackVerdict, WorkspaceSessionOptions, PrismPaths,
+    index_workspace_session_with_curator, PrismPaths, ValidationFeedbackCategory,
+    ValidationFeedbackRecord, ValidationFeedbackVerdict, WorkspaceSessionOptions,
 };
 use prism_curator::{
     CandidateConcept, CandidateConceptOperation, CandidateEdge, CandidateMemory,
@@ -6096,6 +6096,76 @@ pub fn render_operation_detail() {
         .why_short
         .to_ascii_lowercase()
         .contains("ownership-style query"));
+}
+
+#[test]
+fn compact_locate_does_not_treat_home_layout_path_queries_as_routing_queries() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod app_shell;
+pub mod prism_paths;
+pub mod workspace_identity;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/app_shell.rs"),
+        r#"
+pub fn route_page_layout() {}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/prism_paths.rs"),
+        r#"
+pub fn prism_home_root() {}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/workspace_identity.rs"),
+        r#"
+pub fn workspace_identity_path_resolution() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "PRISM home layout workspace identity path resolution".to_string(),
+                path: None,
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Inspect),
+                limit: Some(3),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+
+    assert!(
+        matches!(
+            locate.status,
+            prism_js::AgentLocateStatus::Ok | prism_js::AgentLocateStatus::Ambiguous
+        ),
+        "broad inspect query may still be ambiguous, but should rank the path-layer target first"
+    );
+    assert_eq!(
+        locate.candidates[0].path,
+        "demo::workspace_identity::workspace_identity_path_resolution"
+    );
+    assert!(
+        !locate.candidates[0]
+            .why_short
+            .to_ascii_lowercase()
+            .contains("ownership-style query"),
+        "path/layout inspect query should not be treated as a routing-style owner query"
+    );
 }
 
 #[test]

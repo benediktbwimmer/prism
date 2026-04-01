@@ -217,12 +217,7 @@ impl WorkspaceRuntime {
             let Some(command) = command else {
                 continue;
             };
-            let sync_result = match command.kind {
-                WorkspaceRuntimeCommandKind::MaterializeCheckpoint => {
-                    sync_workspace_runtime_materialization(&config)
-                }
-                _ => sync_workspace_runtime(&config),
-            };
+            let sync_result = run_workspace_runtime_command(&config, &command);
             if let Err(error) = sync_result {
                 if is_transient_sqlite_lock(&error) {
                     config
@@ -332,6 +327,21 @@ impl Drop for WorkspaceRuntime {
         {
             let _ = handle.join();
         }
+    }
+}
+
+fn run_workspace_runtime_command(
+    config: &WorkspaceRuntimeConfig,
+    command: &WorkspaceRuntimeCommand,
+) -> Result<WorkspaceRefreshReport> {
+    match command.kind {
+        WorkspaceRuntimeCommandKind::PreparePaths => {
+            sync_workspace_prepare_paths(config, command.paths.as_slice())
+        }
+        WorkspaceRuntimeCommandKind::MaterializeCheckpoint => {
+            sync_workspace_runtime_materialization(config)
+        }
+        _ => sync_workspace_runtime(config),
     }
 }
 
@@ -894,6 +904,145 @@ pub(crate) fn sync_persisted_workspace_state(
     })
 }
 
+fn sync_workspace_prepare_paths(
+    config: &WorkspaceRuntimeConfig,
+    dirty_paths: &[PathBuf],
+) -> Result<WorkspaceRefreshReport> {
+    let lock_wait_started = Instant::now();
+    let _guard = config
+        .sync_lock
+        .lock()
+        .expect("workspace runtime sync lock poisoned");
+    let lock_wait_ms = elapsed_ms(lock_wait_started);
+    let started = Instant::now();
+    let fs_refresh_started = Instant::now();
+    let refresh_outcome = config
+        .workspace
+        .refresh_fs_with_paths(dirty_paths.to_vec())?;
+    let fs_refresh_ms = elapsed_ms(fs_refresh_started);
+    let refresh_path = match refresh_outcome.status {
+        FsRefreshStatus::Clean => "none",
+        FsRefreshStatus::Incremental => "incremental",
+        FsRefreshStatus::Rescan => "rescan",
+        FsRefreshStatus::Full => "full",
+        FsRefreshStatus::DeferredBusy => "deferred",
+    };
+    let workspace_reloaded = refresh_path == "full";
+    if refresh_path == "deferred" {
+        let duration_ms = started.elapsed().as_millis();
+        return Ok(dirty_workspace_deferred_report(
+            config,
+            true,
+            WorkspaceRefreshMetrics {
+                lock_wait_ms,
+                lock_hold_ms: u64::try_from(duration_ms).unwrap_or(u64::MAX),
+                fs_refresh_ms,
+                ..WorkspaceRefreshMetrics::default()
+            },
+        ));
+    }
+    config.loaded_workspace_revision.store(
+        config.workspace.loaded_workspace_revision(),
+        Ordering::Relaxed,
+    );
+    let revisions_started = Instant::now();
+    let revisions = config.workspace.snapshot_revisions_for_runtime()?;
+    let snapshot_revisions_ms = elapsed_ms(revisions_started);
+    let duration_ms = started.elapsed().as_millis();
+    let metrics = WorkspaceRefreshMetrics {
+        lock_wait_ms,
+        lock_hold_ms: u64::try_from(duration_ms).unwrap_or(u64::MAX),
+        fs_refresh_ms,
+        snapshot_revisions_ms,
+        load_episodic_ms: 0,
+        load_inference_ms: 0,
+        load_coordination_ms: 0,
+        loaded_bytes: 0,
+        replay_volume: 0,
+        full_rebuild_count: u64::from(workspace_reloaded),
+        workspace_reloaded,
+    };
+    publish_runtime_generation(
+        config,
+        &revisions,
+        refresh_path,
+        file_deltas_from_observed(&refresh_outcome.observed),
+    );
+    log_refresh_workspace(
+        refresh_path,
+        config.loaded_workspace_revision.load(Ordering::Relaxed),
+        config.loaded_episodic_revision.load(Ordering::Relaxed),
+        config.loaded_inference_revision.load(Ordering::Relaxed),
+        config.loaded_coordination_revision.load(Ordering::Relaxed),
+        config.workspace.as_ref(),
+        false,
+        false,
+        false,
+        duration_ms,
+        metrics,
+    );
+    config.dashboard_state.publish_value(
+        "runtime.refreshed",
+        json!({
+            "refreshPath": refresh_path,
+            "durationMs": duration_ms,
+            "coordinationReloaded": false,
+            "deferred": false,
+            "episodicReloaded": false,
+            "fsAppliedRevision": config.workspace.applied_fs_revision(),
+            "fsDirty": config.workspace.observed_fs_revision() != config.workspace.applied_fs_revision(),
+            "fsObservedRevision": config.workspace.observed_fs_revision(),
+            "lockWaitMs": metrics.lock_wait_ms,
+            "lockHoldMs": metrics.lock_hold_ms,
+            "fsRefreshMs": metrics.fs_refresh_ms,
+            "snapshotRevisionsMs": metrics.snapshot_revisions_ms,
+            "loadEpisodicMs": 0,
+            "loadInferenceMs": 0,
+            "loadCoordinationMs": 0,
+            "loadedBytes": 0,
+            "replayVolume": 0,
+            "fullRebuildCount": metrics.full_rebuild_count,
+            "inferenceReloaded": false,
+            "loadedCoordinationRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
+            "loadedEpisodicRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
+            "loadedInferenceRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
+            "loadedWorkspaceRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
+            "materialization": {
+                "workspace": {
+                    "currentRevision": revisions.workspace,
+                    "loadedRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
+                    "status": revision_status(config.loaded_workspace_revision.load(Ordering::Relaxed), revisions.workspace),
+                },
+                "episodic": {
+                    "currentRevision": revisions.episodic,
+                    "loadedRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
+                    "status": revision_status(config.loaded_episodic_revision.load(Ordering::Relaxed), revisions.episodic),
+                },
+                "inference": {
+                    "currentRevision": revisions.inference,
+                    "loadedRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
+                    "status": revision_status(config.loaded_inference_revision.load(Ordering::Relaxed), revisions.inference),
+                },
+                "coordination": {
+                    "currentRevision": revisions.coordination,
+                    "loadedRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
+                    "status": revision_status(config.loaded_coordination_revision.load(Ordering::Relaxed), revisions.coordination),
+                }
+            },
+            "workspaceReloaded": workspace_reloaded,
+        }),
+    );
+    Ok(WorkspaceRefreshReport {
+        refresh_path,
+        runtime_sync_used: true,
+        deferred: false,
+        episodic_reloaded: false,
+        inference_reloaded: false,
+        coordination_reloaded: false,
+        metrics,
+    })
+}
+
 fn reload_episodic_snapshot_if_needed(
     config: &WorkspaceRuntimeConfig,
     revision: u64,
@@ -1249,7 +1398,7 @@ mod tests {
     use prism_agent::InferenceStore;
     use prism_core::index_workspace_session;
     use prism_core::runtime_engine::{WorkspaceRuntimeContext, WorkspaceRuntimeEngine};
-    use prism_memory::SessionMemory;
+    use prism_memory::{MemoryEntry, MemoryKind, SessionMemory};
 
     use super::*;
     use crate::diagnostics_state::DiagnosticsState;
@@ -1371,6 +1520,74 @@ mod tests {
                 .as_ref()
                 .map(|refresh| refresh.path.as_str()),
             Some("rescan")
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn scoped_prepare_paths_skip_auxiliary_snapshot_reload() {
+        let root = temp_workspace();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+        let workspace = Arc::new(index_workspace_session(&root).unwrap());
+        let initial_episodic_revision = workspace.episodic_revision().unwrap_or(0);
+        let config = WorkspaceRuntimeConfig {
+            workspace: Arc::clone(&workspace),
+            notes: Arc::new(SessionMemory::new()),
+            inferred_edges: Arc::new(InferenceStore::new()),
+            dashboard_state: Arc::new(DashboardState::default()),
+            diagnostics_state: Arc::new(DiagnosticsState::default()),
+            mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            sync_lock: Arc::new(Mutex::new(())),
+            loaded_workspace_revision: Arc::new(AtomicU64::new(
+                workspace.loaded_workspace_revision(),
+            )),
+            loaded_episodic_revision: Arc::new(AtomicU64::new(initial_episodic_revision)),
+            loaded_inference_revision: Arc::new(AtomicU64::new(
+                workspace.inference_revision().unwrap_or(0),
+            )),
+            loaded_coordination_revision: Arc::new(AtomicU64::new(
+                workspace.coordination_revision().unwrap_or(0),
+            )),
+            runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
+                WorkspaceRuntimeContext::from_root(&root),
+            ))),
+        };
+
+        workspace
+            .persist_episodic(&EpisodicMemorySnapshot {
+                entries: vec![MemoryEntry::new(
+                    MemoryKind::Structural,
+                    "prepare path should not reload this episodic snapshot",
+                )],
+            })
+            .unwrap();
+        std::fs::write(root.join("src/lib.rs"), "pub fn alpha() { let _x = 1; }\n").unwrap();
+        let scoped_path = root.join("src/lib.rs");
+        thread::sleep(Duration::from_millis(300));
+
+        let report = sync_workspace_prepare_paths(&config, &[scoped_path]).unwrap();
+
+        assert!(matches!(
+            report.refresh_path,
+            "incremental" | "rescan" | "full"
+        ));
+        assert!(!report.episodic_reloaded);
+        assert_eq!(report.metrics.load_episodic_ms, 0);
+        assert_eq!(
+            config.loaded_episodic_revision.load(Ordering::Relaxed),
+            initial_episodic_revision
+        );
+        assert!(
+            workspace.episodic_revision().unwrap() > initial_episodic_revision,
+            "persisted episodic revision should advance independently of scoped prepare"
         );
 
         let _ = std::fs::remove_dir_all(root);

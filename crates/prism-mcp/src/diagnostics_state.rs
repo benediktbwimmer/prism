@@ -22,10 +22,12 @@ impl DiagnosticsState {
             .runtime_status
             .lock()
             .expect("diagnostics runtime status lock poisoned") = Some(runtime_status);
-        *self
-            .last_runtime_event
-            .lock()
-            .expect("diagnostics last runtime event lock poisoned") = last_runtime_event;
+        if let Some(last_runtime_event) = last_runtime_event {
+            *self
+                .last_runtime_event
+                .lock()
+                .expect("diagnostics last runtime event lock poisoned") = Some(last_runtime_event);
+        }
     }
 
     pub(crate) fn runtime_status(&self) -> Option<RuntimeStatusView> {

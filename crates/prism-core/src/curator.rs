@@ -90,7 +90,12 @@ impl CuratorHandle {
                 let mut store = worker_context_store
                     .lock()
                     .expect("curator context store lock poisoned");
-                build_curator_context(prism.as_ref(), &mut store, &item.job.focus, &item.job.budget)
+                build_curator_context(
+                    prism.as_ref(),
+                    &mut store,
+                    &item.job.focus,
+                    &item.job.budget,
+                )
             };
 
             let Ok(context) = context else {

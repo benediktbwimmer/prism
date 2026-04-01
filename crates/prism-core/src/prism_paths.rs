@@ -3,14 +3,20 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
+use serde::{Deserialize, Serialize};
 
-use crate::workspace_identity::workspace_identity_for_root;
+use crate::util::current_timestamp_millis;
+use crate::workspace_identity::{workspace_identity_for_root, WorkspaceIdentity};
 
 const PRISM_HOME_ENV: &str = "PRISM_HOME";
+const PATH_METADATA_VERSION: u32 = 1;
+const REPO_METADATA_FILE_NAME: &str = "repo.json";
 const SESSION_SEED_FILE_NAME: &str = "prism-mcp-session-seed.json";
+const WORKTREE_METADATA_FILE_NAME: &str = "worktree.json";
 
 #[derive(Debug, Clone)]
 pub struct PrismPaths {
+    identity: WorkspaceIdentity,
     repo_prism_dir: PathBuf,
     repo_home_dir: PathBuf,
     shared_runtime_dir: PathBuf,
@@ -28,7 +34,9 @@ impl PrismPaths {
         let canonical_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
         let identity = workspace_identity_for_root(&canonical_root);
         let home_root = prism_home_root()?;
-        let repo_home_dir = home_root.join("repos").join(storage_component(&identity.repo_id));
+        let repo_home_dir = home_root
+            .join("repos")
+            .join(storage_component(&identity.repo_id));
         let worktree_dir = repo_home_dir
             .join("worktrees")
             .join(storage_component(&identity.worktree_id));
@@ -37,6 +45,7 @@ impl PrismPaths {
         let worktree_mcp_state_dir = worktree_dir.join("mcp").join("state");
         let worktree_mcp_logs_dir = worktree_dir.join("mcp").join("logs");
         Ok(Self {
+            identity,
             repo_prism_dir: canonical_root.join(".prism"),
             shared_runtime_db_path: shared_runtime_dir.join("state.db"),
             shared_backups_dir: repo_home_dir.join("shared").join("backups"),
@@ -83,6 +92,7 @@ impl PrismPaths {
     }
 
     pub fn shared_runtime_db_path(&self) -> Result<PathBuf> {
+        self.ensure_home_metadata()?;
         fs::create_dir_all(&self.shared_runtime_dir)
             .with_context(|| format!("failed to create {}", self.shared_runtime_dir.display()))?;
         migrate_legacy_sqlite_store(
@@ -99,6 +109,7 @@ impl PrismPaths {
     }
 
     pub fn validation_feedback_path(&self) -> Result<PathBuf> {
+        self.ensure_home_metadata()?;
         migrate_legacy_file(
             &self.validation_feedback_path,
             &self.repo_prism_dir.join("validation_feedback.jsonl"),
@@ -107,40 +118,84 @@ impl PrismPaths {
     }
 
     pub fn mcp_http_uri_path(&self) -> Result<PathBuf> {
+        self.ensure_home_metadata()?;
         let path = self.worktree_mcp_state_dir.join("prism-mcp-http-uri");
         migrate_legacy_file(&path, &self.repo_prism_dir.join("prism-mcp-http-uri"))?;
         Ok(path)
     }
 
     pub fn mcp_runtime_state_path(&self) -> Result<PathBuf> {
+        self.ensure_home_metadata()?;
         let path = self.worktree_mcp_state_dir.join("prism-mcp-runtime.json");
         migrate_legacy_file(&path, &self.repo_prism_dir.join("prism-mcp-runtime.json"))?;
         Ok(path)
     }
 
     pub fn mcp_session_seed_path(&self) -> Result<PathBuf> {
+        self.ensure_home_metadata()?;
         let path = self.worktree_mcp_state_dir.join(SESSION_SEED_FILE_NAME);
         migrate_legacy_file(&path, &self.repo_prism_dir.join(SESSION_SEED_FILE_NAME))?;
         Ok(path)
     }
 
     pub fn mcp_startup_marker_path(&self) -> Result<PathBuf> {
+        self.ensure_home_metadata()?;
         let path = self.worktree_mcp_state_dir.join("prism-mcp-startup");
         migrate_legacy_file(&path, &self.repo_prism_dir.join("prism-mcp-startup"))?;
         Ok(path)
     }
 
     pub fn mcp_daemon_log_path(&self) -> Result<PathBuf> {
+        self.ensure_home_metadata()?;
         let path = self.worktree_mcp_logs_dir.join("prism-mcp-daemon.log");
         migrate_legacy_file(&path, &self.repo_prism_dir.join("prism-mcp-daemon.log"))?;
         Ok(path)
     }
 
     pub fn mcp_call_log_path(&self) -> Result<PathBuf> {
+        self.ensure_home_metadata()?;
         let path = self.worktree_mcp_logs_dir.join("prism-mcp-call-log.jsonl");
         migrate_legacy_file(&path, &self.repo_prism_dir.join("prism-mcp-call-log.jsonl"))?;
         Ok(path)
     }
+
+    fn ensure_home_metadata(&self) -> Result<()> {
+        fs::create_dir_all(&self.repo_home_dir)
+            .with_context(|| format!("failed to create {}", self.repo_home_dir.display()))?;
+        fs::create_dir_all(&self.worktree_dir)
+            .with_context(|| format!("failed to create {}", self.worktree_dir.display()))?;
+        write_repo_metadata(
+            &self.repo_home_dir.join(REPO_METADATA_FILE_NAME),
+            &self.identity,
+        )?;
+        write_worktree_metadata(
+            &self.worktree_dir.join(WORKTREE_METADATA_FILE_NAME),
+            &self.identity,
+        )?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct RepoMetadata {
+    version: u32,
+    repo_id: String,
+    locator_kind: String,
+    locator_path: String,
+    canonical_root_hint: String,
+    created_at: u64,
+    last_seen_at: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct WorktreeMetadata {
+    version: u32,
+    repo_id: String,
+    worktree_id: String,
+    canonical_root: String,
+    branch_ref: Option<String>,
+    created_at: u64,
+    last_seen_at: u64,
 }
 
 fn prism_home_root() -> Result<PathBuf> {
@@ -160,6 +215,66 @@ fn storage_component(id: &str) -> String {
             _ => '-',
         })
         .collect()
+}
+
+fn write_repo_metadata(path: &Path, identity: &WorkspaceIdentity) -> Result<()> {
+    let existing = read_json_file::<RepoMetadata>(path);
+    let now = current_timestamp_millis();
+    write_json_file(
+        path,
+        &RepoMetadata {
+            version: PATH_METADATA_VERSION,
+            repo_id: identity.repo_id.clone(),
+            locator_kind: identity.repo_locator_kind.to_string(),
+            locator_path: identity.repo_locator_path.to_string_lossy().to_string(),
+            canonical_root_hint: identity.canonical_root.to_string_lossy().to_string(),
+            created_at: existing
+                .as_ref()
+                .map_or(now, |metadata| metadata.created_at),
+            last_seen_at: now,
+        },
+    )
+}
+
+fn write_worktree_metadata(path: &Path, identity: &WorkspaceIdentity) -> Result<()> {
+    let existing = read_json_file::<WorktreeMetadata>(path);
+    let now = current_timestamp_millis();
+    write_json_file(
+        path,
+        &WorktreeMetadata {
+            version: PATH_METADATA_VERSION,
+            repo_id: identity.repo_id.clone(),
+            worktree_id: identity.worktree_id.clone(),
+            canonical_root: identity.canonical_root.to_string_lossy().to_string(),
+            branch_ref: identity.branch_ref.clone(),
+            created_at: existing
+                .as_ref()
+                .map_or(now, |metadata| metadata.created_at),
+            last_seen_at: now,
+        },
+    )
+}
+
+fn read_json_file<T>(path: &Path) -> Option<T>
+where
+    T: for<'de> Deserialize<'de>,
+{
+    let bytes = fs::read(path).ok()?;
+    serde_json::from_slice(&bytes).ok()
+}
+
+fn write_json_file<T>(path: &Path, value: &T) -> Result<()>
+where
+    T: Serialize,
+{
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
+    }
+    let mut bytes =
+        serde_json::to_vec_pretty(value).context("failed to serialize PRISM path metadata")?;
+    bytes.push(b'\n');
+    fs::write(path, bytes).with_context(|| format!("failed to write {}", path.display()))
 }
 
 fn migrate_legacy_file(target: &Path, legacy: &Path) -> Result<()> {
@@ -207,8 +322,8 @@ fn migrate_legacy_backups(
     }
     fs::create_dir_all(target_dir)
         .with_context(|| format!("failed to create {}", target_dir.display()))?;
-    for entry in
-        fs::read_dir(legacy_dir).with_context(|| format!("failed to read {}", legacy_dir.display()))?
+    for entry in fs::read_dir(legacy_dir)
+        .with_context(|| format!("failed to read {}", legacy_dir.display()))?
     {
         let entry = entry.with_context(|| format!("failed to read {}", legacy_dir.display()))?;
         let name = entry.file_name();
@@ -240,8 +355,9 @@ fn rename_or_copy(source: &Path, target: &Path) -> Result<()> {
                 )
             })?;
             if source.is_file() {
-                fs::remove_file(source)
-                    .with_context(|| format!("failed to remove legacy file {}", source.display()))?;
+                fs::remove_file(source).with_context(|| {
+                    format!("failed to remove legacy file {}", source.display())
+                })?;
             }
             Ok(())
         }

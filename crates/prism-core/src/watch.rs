@@ -131,6 +131,7 @@ pub(crate) fn spawn_fs_watch(
                 curator.as_ref(),
                 ChangeTrigger::FsWatch,
                 None,
+                Some(dirty_paths),
             ) {
                 error!(
                     root = %root.display(),
@@ -167,6 +168,7 @@ pub(crate) fn refresh_prism_snapshot(
     curator: Option<&CuratorHandleRef>,
     trigger: ChangeTrigger,
     known_fingerprint: Option<WorkspaceTreeSnapshot>,
+    dirty_paths_override: Option<Vec<PathBuf>>,
 ) -> Result<WorkspaceRefreshResult> {
     let guard = refresh_lock
         .lock()
@@ -187,6 +189,7 @@ pub(crate) fn refresh_prism_snapshot(
         curator,
         trigger,
         known_fingerprint,
+        dirty_paths_override,
         guard,
     )
 }
@@ -208,6 +211,7 @@ pub(crate) fn try_refresh_prism_snapshot(
     curator: Option<&CuratorHandleRef>,
     trigger: ChangeTrigger,
     known_fingerprint: Option<WorkspaceTreeSnapshot>,
+    dirty_paths_override: Option<Vec<PathBuf>>,
 ) -> Result<Option<WorkspaceRefreshResult>> {
     let Ok(guard) = refresh_lock.try_lock() else {
         return Ok(None);
@@ -228,6 +232,7 @@ pub(crate) fn try_refresh_prism_snapshot(
         curator,
         trigger,
         known_fingerprint,
+        dirty_paths_override,
         guard,
     )?;
     Ok(Some(observed))
@@ -249,12 +254,13 @@ fn refresh_prism_snapshot_with_guard(
     curator: Option<&CuratorHandleRef>,
     trigger: ChangeTrigger,
     known_fingerprint: Option<WorkspaceTreeSnapshot>,
+    dirty_paths_override: Option<Vec<PathBuf>>,
     _guard: MutexGuard<'_, ()>,
 ) -> Result<WorkspaceRefreshResult> {
     let started = Instant::now();
     let observed_revision = refresh_state.observed_fs_revision();
     let dirty_paths = if trigger == ChangeTrigger::FsWatch {
-        refresh_state.dirty_paths_snapshot()
+        dirty_paths_override.unwrap_or_else(|| refresh_state.dirty_paths_snapshot())
     } else {
         Vec::new()
     };

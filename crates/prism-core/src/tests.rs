@@ -50,6 +50,29 @@ use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::workspace_tree::build_workspace_tree_snapshot;
 
 static NEXT_TEMP_WORKSPACE: AtomicU64 = AtomicU64::new(0);
+static PRISM_HOME_ENV_LOCK: Mutex<()> = Mutex::new(());
+
+struct PrismHomeEnvGuard {
+    original: Option<std::ffi::OsString>,
+}
+
+impl PrismHomeEnvGuard {
+    fn set(path: &PathBuf) -> Self {
+        let original = std::env::var_os("PRISM_HOME");
+        std::env::set_var("PRISM_HOME", path);
+        Self { original }
+    }
+}
+
+impl Drop for PrismHomeEnvGuard {
+    fn drop(&mut self) {
+        if let Some(value) = self.original.take() {
+            std::env::set_var("PRISM_HOME", value);
+        } else {
+            std::env::remove_var("PRISM_HOME");
+        }
+    }
+}
 
 #[test]
 fn reindexes_incrementally_across_file_changes() {
@@ -326,6 +349,67 @@ fn migrates_legacy_repo_local_cache_db_to_state_db() {
     drop(indexer);
 
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn prism_paths_respect_prism_home_override_and_write_metadata_manifests() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+
+    let root = temp_workspace();
+    let prism_home = temp_workspace();
+    fs::create_dir_all(&root).unwrap();
+    fs::create_dir_all(&prism_home).unwrap();
+    fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
+
+    let _env = PrismHomeEnvGuard::set(&prism_home);
+
+    let paths = PrismPaths::for_workspace_root(&root).unwrap();
+    let state_db = paths.shared_runtime_db_path().unwrap();
+    let repo_metadata_path = paths.repo_home_dir().join("repo.json");
+    let worktree_metadata_path = paths.worktree_dir().join("worktree.json");
+
+    assert!(state_db.starts_with(&prism_home));
+    assert!(repo_metadata_path.exists());
+    assert!(worktree_metadata_path.exists());
+
+    let repo_metadata: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&repo_metadata_path).unwrap()).unwrap();
+    let worktree_metadata: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&worktree_metadata_path).unwrap()).unwrap();
+    let canonical_root = root.canonicalize().unwrap();
+
+    assert_eq!(repo_metadata["version"], json!(1));
+    assert!(repo_metadata["repo_id"]
+        .as_str()
+        .unwrap()
+        .starts_with("repo:"));
+    assert_eq!(repo_metadata["locator_kind"], json!("canonical_root"));
+    assert_eq!(
+        repo_metadata["locator_path"],
+        json!(canonical_root.to_string_lossy().to_string())
+    );
+    assert_eq!(
+        repo_metadata["canonical_root_hint"],
+        json!(canonical_root.to_string_lossy().to_string())
+    );
+    assert_eq!(worktree_metadata["version"], json!(1));
+    assert_eq!(
+        worktree_metadata["repo_id"], repo_metadata["repo_id"],
+        "repo and worktree metadata should share repo identity"
+    );
+    assert!(worktree_metadata["worktree_id"]
+        .as_str()
+        .unwrap()
+        .starts_with("worktree:"));
+    assert_eq!(
+        worktree_metadata["canonical_root"],
+        json!(canonical_root.to_string_lossy().to_string())
+    );
+    assert!(worktree_metadata["created_at"].as_u64().is_some());
+    assert!(worktree_metadata["last_seen_at"].as_u64().is_some());
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(prism_home);
 }
 
 #[test]
@@ -4398,6 +4482,34 @@ fn refresh_fs_with_status_reports_rescan_for_fallback_scan() {
             .map(|refresh| refresh.path.as_str()),
         Some("rescan")
     );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn refresh_fs_with_paths_consumes_only_scoped_dirty_paths() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    fs::write(root.join("docs/guide.md"), "# Guide\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let lib = root.join("src/lib.rs");
+    let guide = root.join("docs/guide.md");
+    session
+        .refresh_state
+        .mark_fs_dirty_paths([lib.clone(), guide.clone()]);
+
+    let outcome = session.refresh_fs_with_paths(vec![lib]).unwrap();
+
+    assert_eq!(outcome.status, crate::FsRefreshStatus::Clean);
+    assert_eq!(session.pending_refresh_paths(), vec![guide]);
 
     let _ = fs::remove_dir_all(root);
 }
