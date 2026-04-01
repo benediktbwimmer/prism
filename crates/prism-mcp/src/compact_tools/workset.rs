@@ -56,6 +56,7 @@ impl QueryHost {
                             &handle,
                         )?;
                         result.remapped = true;
+                        result.freshness = result_freshness(true);
                         return Ok((result, Vec::new()));
                     }
                 }
@@ -135,6 +136,7 @@ pub(super) fn budgeted_workset_result_with_followups(
         why: clamp_string(&why, WORKSET_WHY_MAX_CHARS),
         truncated: false,
         remapped,
+        freshness: result_freshness(remapped),
         next_action,
         suggested_actions,
     };

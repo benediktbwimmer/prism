@@ -2980,4 +2980,92 @@ mod tests {
 
         let _ = std::fs::remove_dir_all(root);
     }
+
+    #[test]
+    fn hydrate_persisted_workspace_state_replays_shared_runtime_memory_without_checkpoint_flush() {
+        let shared_runtime_root = temp_workspace();
+        let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+        let root = temp_workspace();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+        let options = prism_core::WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: prism_core::SharedRuntimeBackend::Sqlite {
+                path: shared_runtime_sqlite,
+            },
+            hydrate_persisted_projections: false,
+        };
+        let session = Arc::new(
+            prism_core::index_workspace_session_with_options(&root, options.clone()).unwrap(),
+        );
+        let alpha = session
+            .prism()
+            .symbol("alpha")
+            .into_iter()
+            .find(|symbol| symbol.id().path == "demo::alpha")
+            .expect("alpha should be indexed")
+            .id()
+            .clone();
+        let mut entry =
+            prism_memory::MemoryEntry::new(prism_memory::MemoryKind::Structural, "hydrate replay memory");
+        entry.id = prism_memory::MemoryId("memory:hydrate-replay".to_string());
+        entry.anchors = vec![prism_ir::AnchorRef::Node(alpha)];
+        entry.scope = prism_memory::MemoryScope::Session;
+        entry.source = prism_memory::MemorySource::User;
+        entry.trust = 0.9;
+        session
+            .append_memory_event(prism_memory::MemoryEvent::from_entry(
+                prism_memory::MemoryEventKind::Stored,
+                entry,
+                Some("task:hydrate-replay".to_string()),
+                Vec::new(),
+                Vec::new(),
+            ))
+            .unwrap();
+        drop(session);
+
+        let workspace = Arc::new(
+            prism_core::index_workspace_session_with_options(&root, options).unwrap(),
+        );
+        let runtime_engine = Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
+            WorkspaceRuntimeContext::from_root(&root),
+        )));
+        let config = WorkspaceRuntimeConfig {
+            workspace: Arc::clone(&workspace),
+            notes: Arc::new(SessionMemory::new()),
+            inferred_edges: Arc::new(InferenceStore::new()),
+            dashboard_state: Arc::new(DashboardState::default()),
+            diagnostics_state: Arc::new(DiagnosticsState::default()),
+            mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            sync_lock: Arc::new(RwLock::new(())),
+            loaded_workspace_revision: Arc::new(AtomicU64::new(0)),
+            loaded_episodic_revision: Arc::new(AtomicU64::new(0)),
+            loaded_inference_revision: Arc::new(AtomicU64::new(0)),
+            loaded_coordination_revision: Arc::new(AtomicU64::new(0)),
+            runtime_engine,
+            prepared_delta: Arc::new(Mutex::new(None)),
+        };
+
+        hydrate_persisted_workspace_state(&config).unwrap();
+
+        let notes = config.notes.snapshot();
+        assert!(notes
+            .entries
+            .iter()
+            .any(|candidate| candidate.content == "hydrate replay memory"));
+        assert!(config.loaded_episodic_revision.load(Ordering::Relaxed) > 0);
+        assert_eq!(
+            config.loaded_coordination_revision.load(Ordering::Relaxed),
+            workspace.coordination_revision().unwrap()
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+        let _ = std::fs::remove_dir_all(shared_runtime_root);
+    }
 }

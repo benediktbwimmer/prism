@@ -4740,6 +4740,115 @@ fn recovery_rebuild_from_persisted_state_records_replay_bounds() {
 }
 
 #[test]
+fn recovery_rebuild_from_shared_runtime_journals_without_checkpoint_flush() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+
+    let shared_runtime_root = temp_workspace();
+    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let options = WorkspaceSessionOptions {
+        coordination: true,
+        shared_runtime: SharedRuntimeBackend::Sqlite {
+            path: shared_runtime_sqlite,
+        },
+        hydrate_persisted_projections: false,
+    };
+    let session = index_workspace_session_with_options(&root, options.clone()).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::alpha")
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    let mut entry = MemoryEntry::new(MemoryKind::Structural, "shared runtime recovery memory");
+    entry.id = MemoryId("memory:shared-runtime-recovery".to_string());
+    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.scope = MemoryScope::Session;
+    entry.source = MemorySource::User;
+    entry.trust = 0.9;
+    session
+        .append_memory_event(MemoryEvent::from_entry(
+            MemoryEventKind::Stored,
+            entry.clone(),
+            Some("task:shared-runtime-recovery".to_string()),
+            Vec::new(),
+            Vec::new(),
+        ))
+        .unwrap();
+
+    let plan_id = session
+        .mutate_coordination(|prism| {
+            prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:shared-runtime-recovery"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:shared-runtime-recovery")),
+                    causation: None,
+                },
+                "Recover coordination from shared-runtime journal".into(),
+                None,
+                Some(Default::default()),
+            )
+        })
+        .unwrap();
+    drop(session);
+
+    let reloaded = index_workspace_session_with_options(&root, options).unwrap();
+    reloaded.record_runtime_refresh_observation("deferred", 0);
+
+    let recovered = reloaded.try_recover_runtime_from_persisted_state().unwrap();
+    assert!(recovered);
+
+    let recovery = reloaded
+        .last_refresh()
+        .expect("recovery should record runtime refresh metadata");
+    assert_eq!(recovery.path, "recovery");
+    assert!(recovery.workspace_reloaded);
+    assert_eq!(recovery.full_rebuild_count, 0);
+    assert!(recovery.loaded_bytes > 0);
+    assert!(recovery.replay_volume > 0);
+
+    let events = reloaded
+        .memory_events(&MemoryEventQuery {
+            memory_id: Some(entry.id.clone()),
+            focus: Vec::new(),
+            text: None,
+            limit: 5,
+            kinds: None,
+            actions: Some(vec![MemoryEventKind::Stored]),
+            scope: Some(MemoryScope::Session),
+            task_id: Some("task:shared-runtime-recovery".to_string()),
+            since: None,
+        })
+        .unwrap();
+    assert_eq!(events.len(), 1);
+    let state = reloaded
+        .load_coordination_plan_state()
+        .unwrap()
+        .expect("shared runtime coordination state should replay");
+    assert!(state
+        .snapshot
+        .plans
+        .iter()
+        .any(|plan| plan.id == plan_id && plan.goal == "Recover coordination from shared-runtime journal"));
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
 fn coordination_mutations_use_live_runtime_state_without_forcing_persisted_reload() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

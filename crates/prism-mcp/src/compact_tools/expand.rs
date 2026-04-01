@@ -270,6 +270,7 @@ impl QueryHost {
                         kind,
                         result,
                         remapped,
+                        freshness: result_freshness(remapped),
                         top_preview,
                         next_action: Some(compact_expand_next_action(kind, &target)),
                         suggested_actions,
@@ -319,6 +320,7 @@ fn compact_concept_expand_result(
         kind,
         result,
         remapped: false,
+        freshness: result_freshness(false),
         top_preview: None,
         next_action: Some(compact_concept_expand_next_action(kind)),
         suggested_actions: compact_concept_expand_suggested_actions(

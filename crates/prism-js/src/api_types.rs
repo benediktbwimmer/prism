@@ -67,6 +67,8 @@ pub struct AgentTargetHandleView {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub why_not_top: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence_label: Option<ConfidenceLabel>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub file_path: Option<String>,
 }
 
@@ -132,6 +134,13 @@ pub enum AgentOpenMode {
     Raw,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentResultFreshnessView {
+    Current,
+    Remapped,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentOpenResultView {
@@ -143,6 +152,7 @@ pub struct AgentOpenResultView {
     pub text: String,
     pub truncated: bool,
     pub remapped: bool,
+    pub freshness: AgentResultFreshnessView,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_action: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -162,6 +172,7 @@ pub struct AgentWorksetResultView {
     pub why: String,
     pub truncated: bool,
     pub remapped: bool,
+    pub freshness: AgentResultFreshnessView,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_action: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
@@ -191,6 +202,7 @@ pub struct AgentExpandResultView {
     pub kind: AgentExpandKind,
     pub result: Value,
     pub remapped: bool,
+    pub freshness: AgentResultFreshnessView,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_preview: Option<AgentTextPreviewView>,
     #[serde(skip_serializing_if = "Option::is_none")]

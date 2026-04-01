@@ -66,6 +66,7 @@ impl QueryHost {
                             Some(args.query.as_str()),
                             Some(candidate.why_short.clone()),
                             None,
+                            Some(candidate.confidence_label),
                         );
                         compact_preview_for_ranked_target(
                             host,
@@ -88,6 +89,7 @@ impl QueryHost {
                             Some(args.query.as_str()),
                             Some(candidate.why_short),
                             candidate.why_not_top,
+                            Some(candidate.confidence_label),
                         )
                     })
                     .collect::<Vec<_>>();
@@ -563,6 +565,7 @@ fn rank_locate_candidate(
         why_short,
         why_not_top: None,
         signals,
+        confidence_label: locate_confidence_label(&signals),
     }
 }
 
@@ -684,6 +687,7 @@ fn rank_text_locate_candidate(
         why_short,
         why_not_top: None,
         signals,
+        confidence_label: locate_confidence_label(&signals),
     }
 }
 
@@ -771,6 +775,24 @@ fn locate_top_advantage(
         );
     }
     None
+}
+
+fn locate_confidence_label(signals: &LocateReasonSignals) -> ConfidenceLabel {
+    if signals.task_scope_strength > 0
+        || signals.path_scope
+        || signals.exact_identifier
+        || signals.exact_query_match
+        || signals.exact_text_hit
+    {
+        ConfidenceLabel::High
+    } else if signals.ownership_boundary
+        || (signals.total_tokens > 0 && signals.matched_tokens == signals.total_tokens)
+        || signals.matched_tokens >= 2
+    {
+        ConfidenceLabel::Medium
+    } else {
+        ConfidenceLabel::Low
+    }
 }
 
 fn locate_selection_reason(reasons: &[String]) -> String {
@@ -1000,6 +1022,7 @@ mod tests {
             why_not_top: None,
             selection_reason: "selection".to_string(),
             signals,
+            confidence_label: locate_confidence_label(&signals),
         }
     }
 

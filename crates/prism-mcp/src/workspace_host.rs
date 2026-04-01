@@ -13,6 +13,7 @@ use prism_memory::SessionMemory;
 use crate::dashboard_events::DashboardState;
 use crate::diagnostics_state::DiagnosticsState;
 use crate::mcp_call_log::McpCallLogStore;
+use crate::runtime_views::refresh_cached_runtime_status_for_config;
 use crate::workspace_diagnostics::{WorkspaceDiagnosticsConfig, WorkspaceDiagnosticsRuntime};
 use crate::workspace_runtime::{
     hydrate_persisted_workspace_state, WorkspaceRuntime, WorkspaceRuntimeConfig,
@@ -87,6 +88,17 @@ impl WorkspaceRuntimeBinding {
             },
         ));
         let _ = hydrate_persisted_workspace_state(&config);
+        let diagnostics_config = WorkspaceDiagnosticsConfig {
+            workspace: Arc::clone(&workspace),
+            loaded_workspace_revision: Arc::clone(&loaded_workspace_revision),
+            loaded_episodic_revision: Arc::clone(&loaded_episodic_revision),
+            loaded_inference_revision: Arc::clone(&loaded_inference_revision),
+            loaded_coordination_revision: Arc::clone(&loaded_coordination_revision),
+            runtime_engine: Arc::clone(&engine),
+            diagnostics_state: Arc::clone(&diagnostics_state),
+            mcp_call_log_store: Arc::clone(&mcp_call_log_store),
+        };
+        let _ = refresh_cached_runtime_status_for_config(&diagnostics_config);
         if workspace.needs_refresh() {
             runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
         }

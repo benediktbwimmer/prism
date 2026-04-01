@@ -9,8 +9,9 @@ use prism_ir::{EdgeKind, LineageId, NodeId, NodeKind};
 use prism_js::{
     AgentExpandKind, AgentExpandResultView, AgentGatherResultView, AgentHandleCategoryView,
     AgentLocateResultView, AgentLocateStatus, AgentOpenMode, AgentOpenResultView,
-    AgentTargetHandleView, AgentTextPreviewView, AgentWorksetResultView, QueryDiagnostic,
-    SourceExcerptView, SourceLocationView, SourceSliceView, SymbolView, TextSearchMatchView,
+    AgentResultFreshnessView, AgentTargetHandleView, AgentTextPreviewView,
+    AgentWorksetResultView, ConfidenceLabel, QueryDiagnostic, SourceExcerptView,
+    SourceLocationView, SourceSliceView, SymbolView, TextSearchMatchView,
 };
 use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions};
 use serde_json::{json, Value};
@@ -131,6 +132,7 @@ struct RankedLocateCandidate {
     why_not_top: Option<String>,
     selection_reason: String,
     signals: LocateReasonSignals,
+    confidence_label: ConfidenceLabel,
 }
 
 #[derive(Debug, Clone)]
@@ -291,6 +293,7 @@ fn compact_target_view(
         name: symbol.name.clone(),
         why_short,
         why_not_top: None,
+        confidence_label: None,
         file_path: symbol.file_path.clone(),
     }
 }
@@ -308,6 +311,7 @@ fn compact_target_from_session_target(
         name: target.name.clone(),
         why_short: target.why_short.clone(),
         why_not_top: None,
+        confidence_label: None,
         file_path: target.file_path.clone(),
     }
 }
@@ -318,6 +322,7 @@ fn compact_ranked_target_view(
     query: Option<&str>,
     why_override: Option<String>,
     why_not_top: Option<String>,
+    confidence_label: Option<ConfidenceLabel>,
 ) -> AgentTargetHandleView {
     let mut view = match target {
         RankedLocateTarget::Symbol(symbol) => {
@@ -333,7 +338,16 @@ fn compact_ranked_target_view(
     };
     view.why_not_top =
         why_not_top.map(|reason| clamp_string(&reason, LOCATE_WHY_NOT_TOP_MAX_CHARS));
+    view.confidence_label = confidence_label;
     view
+}
+
+fn result_freshness(remapped: bool) -> AgentResultFreshnessView {
+    if remapped {
+        AgentResultFreshnessView::Remapped
+    } else {
+        AgentResultFreshnessView::Current
+    }
 }
 
 fn trim_leading_section_ordinal(text: &str) -> &str {
@@ -756,6 +770,7 @@ mod tests {
             name: format!("very_long_function_name_for_budget_tests_{index}"),
             why_short: "Matched ranking hint from a compact budget regression test.".to_string(),
             why_not_top: None,
+            confidence_label: None,
             file_path: file_path.map(ToString::to_string),
         }
     }
@@ -794,6 +809,7 @@ mod tests {
             text: "x".repeat(text_len),
             truncated: false,
             remapped: false,
+            freshness: AgentResultFreshnessView::Current,
             next_action: None,
             promoted_handle: None,
             related_handles,

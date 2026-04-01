@@ -685,6 +685,7 @@ mod tests {
                     name: "one".to_string(),
                     why_short: "next read one".to_string(),
                     why_not_top: None,
+                    confidence_label: None,
                     file_path: Some(
                         "src/really/deeply/nested/module/with/a/very/long/path.rs".to_string(),
                     ),
@@ -697,6 +698,7 @@ mod tests {
                     name: "two".to_string(),
                     why_short: "next read two".to_string(),
                     why_not_top: None,
+                    confidence_label: None,
                     file_path: Some(
                         "src/really/deeply/nested/module/with/a/very/long/other_path.rs"
                             .to_string(),

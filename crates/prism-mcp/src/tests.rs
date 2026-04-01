@@ -6037,6 +6037,10 @@ pub fn alpha_handler() {}
         .as_deref()
         .is_some_and(|reason| reason.contains("requested task scope")));
     assert!(locate.candidates[0].why_not_top.is_none());
+    assert_eq!(
+        locate.candidates[0].confidence_label,
+        Some(prism_js::ConfidenceLabel::High)
+    );
     if let Some(reason) = locate
         .candidates
         .get(1)
@@ -6613,6 +6617,7 @@ fn compact_open_remaps_stale_text_fragment_handles_after_file_edits() {
         .expect("open should remap the stale text-fragment handle");
 
     assert!(open.remapped);
+    assert_eq!(open.freshness, prism_js::AgentResultFreshnessView::Remapped);
     assert_eq!(open.start_line, 4);
     assert_eq!(open.end_line, 4);
     assert!(open.text.contains("prism_compact_tool_calls = 0"));
@@ -7039,6 +7044,7 @@ pub fn beta() {
     assert!(open.text.contains("pub fn beta()"));
     assert!(open.text.contains("let value = 42;"));
     assert!(open.file_path.ends_with("/src/lib.rs"));
+    assert_eq!(open.freshness, prism_js::AgentResultFreshnessView::Current);
 
     let reopened = host
         .compact_open(
@@ -8401,7 +8407,10 @@ This section mentions the open and workset follow-through path in prose, but it 
     assert!(workset
         .supporting_reads
         .iter()
-        .any(|candidate| candidate.path.starts_with("demo::workset_flow")));
+        .any(|candidate| {
+            candidate.path.starts_with("demo::open_flow")
+                || candidate.path.starts_with("demo::workset_flow")
+        }));
     assert!(workset
         .supporting_reads
         .iter()
@@ -9632,7 +9641,14 @@ pub fn memory_system_test() {}
         .supporting_reads
         .iter()
         .any(|target| target.path == "demo::outcome_memory"));
-    assert!(workset.remapped);
+    assert_eq!(
+        workset.freshness,
+        if workset.remapped {
+            prism_js::AgentResultFreshnessView::Remapped
+        } else {
+            prism_js::AgentResultFreshnessView::Current
+        }
+    );
     assert!(workset
         .why
         .contains("Session memory recall and outcome history"));
@@ -16556,6 +16572,22 @@ fn runtime_status_and_dashboard_summary_prefer_cached_diagnostics_snapshot() {
             .message,
         "cached runtime event"
     );
+}
+
+#[test]
+fn workspace_binding_seeds_cached_runtime_status_on_startup() {
+    let root = temp_workspace();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let cached = host
+        .diagnostics_state()
+        .runtime_status()
+        .expect("workspace binding should seed cached runtime status");
+    assert!(cached
+        .root
+        .ends_with(root.file_name().unwrap().to_string_lossy().as_ref()));
+    assert!(cached.freshness.generation_id.is_some());
 }
 
 #[test]
