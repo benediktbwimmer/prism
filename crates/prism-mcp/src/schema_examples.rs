@@ -175,6 +175,7 @@ fn prism_mutate_examples() -> Vec<Value> {
         "contract",
         "concept_relation",
         "infer_edge",
+        "heartbeat_lease",
         "coordination",
         "claim",
         "artifact",
@@ -319,6 +320,12 @@ fn prism_mutate_action_example(action: &str) -> Option<Value> {
                 "scope": "persisted",
                 "evidence": ["Observed together in repeated validation worksets."],
                 "taskId": "task:demo-main"
+            }
+        })),
+        "heartbeat_lease" => Some(json!({
+            "action": "heartbeat_lease",
+            "input": {
+                "taskId": "coord-task:1"
             }
         })),
         "coordination" => Some(json!({

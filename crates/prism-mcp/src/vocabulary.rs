@@ -83,6 +83,12 @@ const PRISM_MUTATE_ACTIONS: &[VocabularyValueSpec] = &[
         description: "Record an inferred edge.",
     },
     VocabularyValueSpec {
+        value: "heartbeat_lease",
+        aliases: &[],
+        description:
+            "Refresh one active task or claim lease without changing authored workflow state.",
+    },
+    VocabularyValueSpec {
         value: "coordination",
         aliases: &[],
         description: "Mutate coordination plans, tasks, nodes, edges, and handoffs.",

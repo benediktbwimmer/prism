@@ -28,6 +28,11 @@ pub use compat::{
     plan_graph_from_coordination, snapshot_plan_graphs,
 };
 pub use event_replay::coordination_snapshot_from_events;
+pub use lease::{
+    assisted_heartbeat_window, claim_heartbeat_due_state, claim_lease_state,
+    heartbeat_due_soon_window, task_heartbeat_due_state, task_lease_state, LeaseHeartbeatDueState,
+    LeaseState,
+};
 pub use queue_read_model::{
     coordination_queue_read_model_from_seed, coordination_queue_read_model_from_snapshot,
     CoordinationQueueReadModel,

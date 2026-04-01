@@ -3,11 +3,18 @@ use prism_ir::{EventActor, EventMeta, SessionId, Timestamp};
 use crate::types::{CoordinationPolicy, CoordinationTask, LeaseHolder, WorkClaim};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum LeaseState {
+pub enum LeaseState {
     Unleased,
     Active,
     Stale,
     Expired,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LeaseHeartbeatDueState {
+    NotDue,
+    DueSoon,
+    DueNow,
 }
 
 fn session_id_from_meta(meta: &EventMeta) -> Option<SessionId> {
@@ -36,11 +43,21 @@ fn lease_window(
     )
 }
 
+pub fn heartbeat_due_soon_window(policy: &CoordinationPolicy) -> u64 {
+    (policy.lease_stale_after_seconds / 6).clamp(60, 300)
+}
+
+pub fn assisted_heartbeat_window(policy: &CoordinationPolicy) -> u64 {
+    policy
+        .lease_stale_after_seconds
+        .min(policy.lease_expires_after_seconds)
+}
+
 fn holder_has_identity(holder: &LeaseHolder) -> bool {
     holder.principal.is_some() || holder.session_id.is_some() || holder.agent_id.is_some()
 }
 
-pub(crate) fn task_lease_state(task: &CoordinationTask, now: Timestamp) -> LeaseState {
+pub fn task_lease_state(task: &CoordinationTask, now: Timestamp) -> LeaseState {
     let Some(expires_at) = task.lease_expires_at else {
         return LeaseState::Unleased;
     };
@@ -53,7 +70,7 @@ pub(crate) fn task_lease_state(task: &CoordinationTask, now: Timestamp) -> Lease
     LeaseState::Active
 }
 
-pub(crate) fn claim_lease_state(claim: &WorkClaim, now: Timestamp) -> LeaseState {
+pub fn claim_lease_state(claim: &WorkClaim, now: Timestamp) -> LeaseState {
     if matches!(
         claim.status,
         prism_ir::ClaimStatus::Released | prism_ir::ClaimStatus::Expired
@@ -67,6 +84,48 @@ pub(crate) fn claim_lease_state(claim: &WorkClaim, now: Timestamp) -> LeaseState
         return LeaseState::Stale;
     }
     LeaseState::Active
+}
+
+pub fn task_heartbeat_due_state(
+    task: &CoordinationTask,
+    policy: &CoordinationPolicy,
+    now: Timestamp,
+) -> LeaseHeartbeatDueState {
+    if !matches!(task_lease_state(task, now), LeaseState::Active) {
+        return LeaseHeartbeatDueState::NotDue;
+    }
+    let Some(stale_at) = task.lease_stale_at else {
+        return LeaseHeartbeatDueState::NotDue;
+    };
+    let remaining = stale_at.saturating_sub(now);
+    if remaining <= 60 {
+        LeaseHeartbeatDueState::DueNow
+    } else if remaining <= heartbeat_due_soon_window(policy) {
+        LeaseHeartbeatDueState::DueSoon
+    } else {
+        LeaseHeartbeatDueState::NotDue
+    }
+}
+
+pub fn claim_heartbeat_due_state(
+    claim: &WorkClaim,
+    policy: &CoordinationPolicy,
+    now: Timestamp,
+) -> LeaseHeartbeatDueState {
+    if !matches!(claim_lease_state(claim, now), LeaseState::Active) {
+        return LeaseHeartbeatDueState::NotDue;
+    }
+    let Some(stale_at) = claim.stale_at else {
+        return LeaseHeartbeatDueState::NotDue;
+    };
+    let remaining = stale_at.saturating_sub(now);
+    if remaining <= 60 {
+        LeaseHeartbeatDueState::DueNow
+    } else if remaining <= heartbeat_due_soon_window(policy) {
+        LeaseHeartbeatDueState::DueSoon
+    } else {
+        LeaseHeartbeatDueState::NotDue
+    }
 }
 
 pub(crate) fn claim_is_live(claim: &WorkClaim, now: Timestamp) -> bool {

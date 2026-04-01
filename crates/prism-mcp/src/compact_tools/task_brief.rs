@@ -11,7 +11,9 @@ use prism_query::{PlanNodeRecommendation, PlanSummary, Prism};
 
 use super::suggested_actions::{dedupe_suggested_actions, suggested_open_action};
 use super::*;
-use crate::PrismTaskBriefArgs;
+use crate::{
+    task_heartbeat_advice, task_heartbeat_next_action, PrismTaskBriefArgs, TaskHeartbeatAdvice,
+};
 
 impl QueryHost {
     pub(crate) fn compact_task_brief(
@@ -63,7 +65,12 @@ impl QueryHost {
                     plan_graph.as_ref(),
                     plan_next.as_slice(),
                 )?;
+                let heartbeat_advice = subject
+                    .coordination_task_id
+                    .as_ref()
+                    .and_then(|task_id| task_heartbeat_advice(prism.as_ref(), task_id, now));
                 let next_action = compact_task_brief_next_action(
+                    heartbeat_advice.as_ref(),
                     &subject.node_id,
                     subject.blockers.as_slice(),
                     plan_summary.as_ref(),
@@ -112,6 +119,7 @@ impl QueryHost {
 
 struct TaskBriefSubject {
     task_id: String,
+    coordination_task_id: Option<CoordinationTaskId>,
     node_id: PlanNodeId,
     plan_id: prism_ir::PlanId,
     title: String,
@@ -160,6 +168,7 @@ fn resolve_task_brief_subject(prism: &Prism, task_id: &str, now: u64) -> Result<
         );
         return Ok(TaskBriefSubject {
             task_id: task.id.0.to_string(),
+            coordination_task_id: Some(task.id.clone()),
             node_id: PlanNodeId::new(task.id.0.to_string()),
             plan_id: task.plan.clone(),
             title: task.title,
@@ -194,6 +203,7 @@ fn resolve_task_brief_subject(prism: &Prism, task_id: &str, now: u64) -> Result<
         .map(|agent| agent.0.to_string());
     Ok(TaskBriefSubject {
         task_id: node.id.0.to_string(),
+        coordination_task_id: None,
         node_id: node.id.clone(),
         plan_id,
         title: node.title,
@@ -498,11 +508,15 @@ fn compact_outcome_summary_view(
 }
 
 fn compact_task_brief_next_action(
+    heartbeat_advice: Option<&TaskHeartbeatAdvice>,
     current_node_id: &PlanNodeId,
     blockers: &[AgentTaskBlockerView],
     plan_summary: Option<&PlanSummary>,
     plan_next: &[PlanNodeRecommendation],
 ) -> String {
+    if let Some(advice) = heartbeat_advice {
+        return task_heartbeat_next_action(advice);
+    }
     if blockers
         .iter()
         .any(|blocker| blocker.kind == prism_coordination::BlockerKind::StaleRevision)

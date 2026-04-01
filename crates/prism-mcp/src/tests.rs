@@ -5266,7 +5266,7 @@ return {
 
     let mutate = &result.result["mutateSummary"];
     assert_eq!(mutate["toolName"], "prism_mutate");
-    assert_eq!(mutate["actionCount"], 19);
+    assert_eq!(mutate["actionCount"], 20);
     assert_eq!(mutate["exampleAction"], "validation_feedback");
     assert_eq!(
         mutate["examplePrismSaid"],
@@ -5603,6 +5603,7 @@ fn prism_mutate_schema_surfaces_action_specific_examples() {
         "contract",
         "concept_relation",
         "infer_edge",
+        "heartbeat_lease",
         "coordination",
         "claim",
         "artifact",
@@ -10798,6 +10799,104 @@ fn compact_task_brief_prefers_refresh_for_stale_current_task() {
         .next_action
         .as_deref()
         .is_some_and(|value| value.contains("Refresh this task")));
+}
+
+#[test]
+fn compact_task_brief_prioritizes_heartbeat_instruction_when_lease_is_due() {
+    let now = crate::current_timestamp();
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha.clone()]);
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let meta = EventMeta {
+        id: EventId::new("coord:plan:task-brief-heartbeat"),
+        ts: now.saturating_sub(260),
+        actor: EventActor::Principal(prism_ir::PrincipalActor {
+            authority_id: prism_ir::PrincipalAuthorityId::new("local"),
+            principal_id: prism_ir::PrincipalId::new("agent:a"),
+            kind: Some(prism_ir::PrincipalKind::Agent),
+            name: Some("agent:a".to_string()),
+        }),
+        correlation: None,
+        causation: None,
+        execution_context: Some(prism_ir::EventExecutionContext {
+            repo_id: None,
+            worktree_id: None,
+            branch_ref: None,
+            session_id: Some("session:a".to_string()),
+            instance_id: None,
+            request_id: None,
+            credential_id: None,
+        }),
+    };
+    let (plan_id, _) = coordination
+        .create_plan(
+            meta.clone(),
+            PlanCreateInput {
+                goal: "Heartbeat due task brief".into(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: Some(CoordinationPolicy {
+                    lease_stale_after_seconds: 300,
+                    lease_expires_after_seconds: 900,
+                    lease_renewal_mode: prism_ir::LeaseRenewalMode::Assisted,
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:task-brief-heartbeat"),
+                ts: now.saturating_sub(250),
+                ..meta
+            },
+            TaskCreateInput {
+                plan_id,
+                title: "Edit alpha".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![AnchorRef::Node(alpha)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
+    prism.replace_coordination_snapshot(coordination.snapshot());
+    let host = host_with_prism(prism);
+
+    let brief = host
+        .compact_task_brief(
+            test_session(&host),
+            PrismTaskBriefArgs {
+                task_id: task_id.0.to_string(),
+            },
+        )
+        .expect("task brief should succeed");
+
+    assert!(brief
+        .next_action
+        .as_deref()
+        .is_some_and(|value| value.contains("heartbeat_lease")));
+    assert!(brief
+        .next_action
+        .as_deref()
+        .is_some_and(|value| value.contains(task_id.0.as_str())));
 }
 
 #[test]
@@ -19815,6 +19914,107 @@ fn session_resource_surfaces_stale_current_task_context() {
         .expect("stale task should surface a repair action");
     assert_eq!(repair.tool, "prism_task_brief");
     assert_eq!(repair.input["taskId"], task_id.0.to_string());
+}
+
+#[test]
+fn session_resource_prioritizes_heartbeat_instruction_when_lease_is_due() {
+    let now = crate::current_timestamp();
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha.clone()]);
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let meta = EventMeta {
+        id: EventId::new("coord:plan:session-resource-heartbeat"),
+        ts: now.saturating_sub(260),
+        actor: EventActor::Principal(prism_ir::PrincipalActor {
+            authority_id: prism_ir::PrincipalAuthorityId::new("local"),
+            principal_id: prism_ir::PrincipalId::new("agent:a"),
+            kind: Some(prism_ir::PrincipalKind::Agent),
+            name: Some("agent:a".to_string()),
+        }),
+        correlation: None,
+        causation: None,
+        execution_context: Some(prism_ir::EventExecutionContext {
+            repo_id: None,
+            worktree_id: None,
+            branch_ref: None,
+            session_id: Some("session:a".to_string()),
+            instance_id: None,
+            request_id: None,
+            credential_id: None,
+        }),
+    };
+    let (plan_id, _) = coordination
+        .create_plan(
+            meta.clone(),
+            PlanCreateInput {
+                goal: "Heartbeat due session resource".into(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: Some(CoordinationPolicy {
+                    lease_stale_after_seconds: 300,
+                    lease_expires_after_seconds: 900,
+                    lease_renewal_mode: prism_ir::LeaseRenewalMode::Assisted,
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:session-resource-heartbeat"),
+                ts: now.saturating_sub(250),
+                ..meta
+            },
+            TaskCreateInput {
+                plan_id,
+                title: "Edit alpha".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![AnchorRef::Node(alpha)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
+    prism.replace_coordination_snapshot(coordination.snapshot());
+    let host = host_with_prism(prism);
+    test_session(&host).set_current_task(
+        TaskId::new(task_id.0.clone()),
+        Some("Edit alpha".to_string()),
+        Vec::new(),
+        Some(task_id.0.to_string()),
+    );
+
+    let session = host
+        .session_resource_value(test_session(&host).as_ref())
+        .expect("session resource should load");
+    let current_task = session
+        .current_task
+        .expect("current task should be present");
+
+    assert_eq!(current_task.context_status, "heartbeat_due");
+    assert!(current_task
+        .context_summary
+        .contains("lease is nearing staleness"));
+    assert!(current_task.next_action.contains("heartbeat_lease"));
+    assert!(current_task.next_action.contains(task_id.0.as_str()));
+    assert!(current_task.repair_action.is_none());
 }
 
 #[test]

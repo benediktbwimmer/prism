@@ -846,3 +846,87 @@ async fn mcp_server_rejects_prism_mutate_when_capability_is_denied() {
 
     running.cancel().await.unwrap();
 }
+
+#[tokio::test]
+async fn mcp_server_executes_heartbeat_lease_mutation_round_trip() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session(session);
+    let server_handle = server.clone();
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_mutate",
+            json!({
+                "action": "claim",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "action": "acquire",
+                    "payload": {
+                        "anchors": [],
+                        "capability": "edit"
+                    }
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let claim = first_tool_content_json(client.receive().await.unwrap());
+    let claim_id = claim["result"]["claimId"]
+        .as_str()
+        .expect("claim id should be present")
+        .to_string();
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_mutate",
+            json!({
+                "action": "heartbeat_lease",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "claimId": claim_id
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let heartbeat = first_tool_content_json(client.receive().await.unwrap());
+
+    assert_eq!(heartbeat["action"], "heartbeat_lease");
+    assert_eq!(heartbeat["result"]["claimId"], claim["result"]["claimId"]);
+    assert_eq!(
+        heartbeat["result"]["state"]["id"],
+        claim["result"]["state"]["id"]
+    );
+    assert_eq!(heartbeat["result"]["rejected"], Value::Bool(false));
+
+    let event = server_handle
+        .host
+        .current_prism()
+        .coordination_events()
+        .last()
+        .expect("heartbeat event should be recorded")
+        .clone();
+    assert_eq!(event.kind, prism_ir::CoordinationEventKind::ClaimRenewed);
+    assert_eq!(event.metadata["renewalProvenance"], "explicit");
+
+    running.cancel().await.unwrap();
+}

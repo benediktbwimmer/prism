@@ -139,6 +139,7 @@ pub fn coordination_read_model_from_seed(
             | CoordinationEventKind::TaskBlocked
             | CoordinationEventKind::TaskUnblocked
             | CoordinationEventKind::TaskStatusChanged
+            | CoordinationEventKind::TaskHeartbeated
             | CoordinationEventKind::TaskResumed
             | CoordinationEventKind::TaskReclaimed
             | CoordinationEventKind::HandoffRequested

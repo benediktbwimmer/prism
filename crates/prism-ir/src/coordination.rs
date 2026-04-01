@@ -96,6 +96,7 @@ pub enum CoordinationEventKind {
     TaskStatusChanged,
     TaskBlocked,
     TaskUnblocked,
+    TaskHeartbeated,
     TaskResumed,
     TaskReclaimed,
     ClaimAcquired,

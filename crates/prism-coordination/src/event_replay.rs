@@ -88,6 +88,7 @@ pub fn rehydrate_coordination_snapshot(mut snapshot: CoordinationSnapshot) -> Co
             | CoordinationEventKind::TaskBlocked
             | CoordinationEventKind::TaskUnblocked
             | CoordinationEventKind::TaskStatusChanged
+            | CoordinationEventKind::TaskHeartbeated
             | CoordinationEventKind::TaskResumed
             | CoordinationEventKind::TaskReclaimed
             | CoordinationEventKind::HandoffRequested

@@ -14,8 +14,8 @@ use crate::helpers::{
 use crate::lease::claim_blocks_new_work;
 use crate::mutations::{
     accept_handoff_mutation, acquire_claim_mutation, create_plan_mutation, create_task_mutation,
-    handoff_mutation, propose_artifact_mutation, reclaim_task_mutation, release_claim_mutation,
-    renew_claim_mutation, resume_task_mutation, review_artifact_mutation,
+    handoff_mutation, heartbeat_task_mutation, propose_artifact_mutation, reclaim_task_mutation,
+    release_claim_mutation, renew_claim_mutation, resume_task_mutation, review_artifact_mutation,
     supersede_artifact_mutation, update_plan_mutation, update_task_mutation,
 };
 use crate::state::CoordinationState;
@@ -130,14 +130,31 @@ impl CoordinationRuntimeState {
         reclaim_task_mutation(&mut self.state, meta, input)
     }
 
+    pub fn heartbeat_task(
+        &mut self,
+        meta: EventMeta,
+        task_id: &prism_ir::CoordinationTaskId,
+        renewal_provenance: &str,
+    ) -> Result<CoordinationTask> {
+        heartbeat_task_mutation(&mut self.state, meta, task_id, renewal_provenance)
+    }
+
     pub fn renew_claim(
         &mut self,
         meta: EventMeta,
         session_id: &SessionId,
         claim_id: &ClaimId,
         ttl_seconds: Option<u64>,
+        renewal_provenance: &str,
     ) -> Result<WorkClaim> {
-        renew_claim_mutation(&mut self.state, meta, session_id, claim_id, ttl_seconds)
+        renew_claim_mutation(
+            &mut self.state,
+            meta,
+            session_id,
+            claim_id,
+            ttl_seconds,
+            renewal_provenance,
+        )
     }
 
     pub fn release_claim(

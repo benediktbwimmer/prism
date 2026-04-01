@@ -376,6 +376,12 @@ fn validate_prism_mutate_input(
             required_fields,
         )
         .and_then(validate_artifact_payload),
+        Some("heartbeat_lease") => deserialize_or_issue::<PrismHeartbeatLeaseArgsValidationWire>(
+            input,
+            Some("input"),
+            required_fields,
+        )
+        .and_then(validate_heartbeat_lease_payload),
         _ => deserialize_or_issue::<PrismMutationArgsWire>(value, Some("input"), required_fields)
             .map(|_| ()),
     }
@@ -407,6 +413,13 @@ struct PrismClaimArgsValidationWire {
 struct PrismArtifactArgsValidationWire {
     action: ArtifactActionInput,
     payload: Value,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PrismHeartbeatLeaseArgsValidationWire {
+    task_id: Option<String>,
+    claim_id: Option<String>,
 }
 
 fn validate_memory_payload(
@@ -574,6 +587,22 @@ fn validate_artifact_payload(
         )
         .map(|_| ()),
     }
+}
+
+fn validate_heartbeat_lease_payload(
+    args: PrismHeartbeatLeaseArgsValidationWire,
+) -> Result<(), ToolValidationIssueView> {
+    let target_count = usize::from(args.task_id.is_some()) + usize::from(args.claim_id.is_some());
+    if target_count == 1 {
+        return Ok(());
+    }
+    Err(ToolValidationIssueView {
+        code: "invalid_input".to_string(),
+        path: Some("input".to_string()),
+        summary: "Provide exactly one of `input.taskId` or `input.claimId`.".to_string(),
+        allowed_values: Vec::new(),
+        required_fields: vec!["taskId | claimId".to_string()],
+    })
 }
 
 fn deserialize_or_issue<T>(
@@ -1828,6 +1857,15 @@ pub(crate) struct PrismMutationArgs {
     pub(crate) mutation: PrismMutationKindArgs,
 }
 
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismHeartbeatLeaseArgs {
+    #[serde(alias = "task_id")]
+    pub(crate) task_id: Option<String>,
+    #[serde(alias = "claim_id")]
+    pub(crate) claim_id: Option<String>,
+}
+
 #[derive(Debug)]
 pub(crate) enum PrismMutationKindArgs {
     Outcome(PrismOutcomeArgs),
@@ -1838,6 +1876,7 @@ pub(crate) enum PrismMutationKindArgs {
     ValidationFeedback(PrismValidationFeedbackArgs),
     SessionRepair(PrismSessionRepairArgs),
     InferEdge(PrismInferEdgeArgs),
+    HeartbeatLease(PrismHeartbeatLeaseArgs),
     Coordination(PrismCoordinationArgs),
     Claim(PrismClaimArgs),
     Artifact(PrismArtifactArgs),
@@ -1863,6 +1902,7 @@ enum PrismMutationKindArgsWire {
     ValidationFeedback(PrismValidationFeedbackArgs),
     SessionRepair(PrismSessionRepairArgs),
     InferEdge(PrismInferEdgeArgs),
+    HeartbeatLease(PrismHeartbeatLeaseArgs),
     Coordination(PrismCoordinationArgs),
     Claim(PrismClaimArgs),
     Artifact(PrismArtifactArgs),
@@ -1895,6 +1935,7 @@ impl From<PrismMutationKindArgsWire> for PrismMutationKindArgs {
             PrismMutationKindArgsWire::ValidationFeedback(args) => Self::ValidationFeedback(args),
             PrismMutationKindArgsWire::SessionRepair(args) => Self::SessionRepair(args),
             PrismMutationKindArgsWire::InferEdge(args) => Self::InferEdge(args),
+            PrismMutationKindArgsWire::HeartbeatLease(args) => Self::HeartbeatLease(args),
             PrismMutationKindArgsWire::Coordination(args) => Self::Coordination(args),
             PrismMutationKindArgsWire::Claim(args) => Self::Claim(args),
             PrismMutationKindArgsWire::Artifact(args) => Self::Artifact(args),
@@ -1982,6 +2023,7 @@ pub(crate) enum PrismMutationActionSchema {
     ValidationFeedback,
     SessionRepair,
     InferEdge,
+    HeartbeatLease,
     Coordination,
     Claim,
     Artifact,
@@ -2954,6 +2996,17 @@ pub(crate) struct ClaimMutationResult {
     pub(crate) event_ids: Vec<String>,
     pub(crate) rejected: bool,
     pub(crate) conflicts: Vec<Value>,
+    pub(crate) violations: Vec<MutationViolationView>,
+    pub(crate) state: Value,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct HeartbeatLeaseMutationResult {
+    pub(crate) task_id: Option<String>,
+    pub(crate) claim_id: Option<String>,
+    pub(crate) event_ids: Vec<String>,
+    pub(crate) rejected: bool,
     pub(crate) violations: Vec<MutationViolationView>,
     pub(crate) state: Value,
 }

@@ -395,6 +395,7 @@ fn expired_claim_can_be_renewed_by_same_principal() {
             &prism_ir::SessionId::new("session:a"),
             &claim_id.expect("claim id"),
             None,
+            "explicit",
         )
         .unwrap();
     assert_eq!(renewed.status, prism_ir::ClaimStatus::Active);
@@ -3201,6 +3202,7 @@ fn claim_ownership_is_enforced_and_audited() {
             &prism_ir::SessionId::new("session:b"),
             &claim_id,
             Some(120),
+            "explicit",
         )
         .unwrap_err();
     assert!(renew_error.to_string().contains("cannot be renewed"));
@@ -3231,4 +3233,107 @@ fn claim_ownership_is_enforced_and_audited() {
         )
         .unwrap();
     assert_eq!(released.status, prism_ir::ClaimStatus::Released);
+}
+
+#[test]
+fn heartbeat_task_refreshes_active_lease_for_same_principal() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            principal_meta("event:plan", 1, "local", "agent:a", "session:a"),
+            PlanCreateInput {
+                goal: "Refresh task lease".to_string(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, original) = store
+        .create_task(
+            principal_meta("event:task", 2, "local", "agent:a", "session:a"),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Edit alpha".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+
+    let heartbeated = store
+        .heartbeat_task(
+            principal_meta("event:heartbeat", 100, "local", "agent:a", "session:a"),
+            &task_id,
+            "explicit",
+        )
+        .unwrap();
+
+    assert_eq!(heartbeated.lease_refreshed_at, Some(100));
+    assert!(heartbeated.lease_stale_at > original.lease_stale_at);
+    let event = store.events().last().unwrap().clone();
+    assert_eq!(event.kind, prism_ir::CoordinationEventKind::TaskHeartbeated);
+    assert_eq!(event.metadata["renewalProvenance"], "explicit");
+    assert_eq!(event.metadata["leaseRenewalMode"], "strict");
+}
+
+#[test]
+fn stale_task_heartbeat_requires_resume() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            principal_meta("event:plan", 1, "local", "agent:a", "session:a"),
+            PlanCreateInput {
+                goal: "Reject stale task heartbeat".to_string(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            principal_meta("event:task", 2, "local", "agent:a", "session:a"),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Edit alpha".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+
+    let error = store
+        .heartbeat_task(
+            principal_meta("event:heartbeat", 1900, "local", "agent:a", "session:a"),
+            &task_id,
+            "explicit",
+        )
+        .unwrap_err();
+
+    assert!(error.to_string().contains("heartbeat rejected"));
+    let rejection = store.events().last().unwrap().clone();
+    assert_eq!(
+        rejection.kind,
+        prism_ir::CoordinationEventKind::MutationRejected
+    );
+    let violations = store.policy_violations(Some(&plan_id), Some(&task_id), 10);
+    assert!(violations.iter().any(|record| {
+        record
+            .violations
+            .iter()
+            .any(|violation| violation.code == PolicyViolationCode::TaskResumeRequired)
+    }));
 }

@@ -1,3 +1,4 @@
+use std::env;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc;
@@ -7,10 +8,19 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use notify::{recommended_watcher, Event, RecursiveMode, Watcher};
+use prism_coordination::{
+    assisted_heartbeat_window, claim_heartbeat_due_state, claim_lease_state,
+    task_heartbeat_due_state, task_lease_state, CoordinationPolicy, CoordinationTask,
+    LeaseHeartbeatDueState, LeaseState, WorkClaim,
+};
 use prism_history::HistoryStore;
-use prism_ir::ChangeTrigger;
+use prism_ir::{
+    new_prefixed_id, ChangeTrigger, ClaimStatus, EventActor, EventExecutionContext, EventId,
+    EventMeta, LeaseRenewalMode, PrincipalActor, SessionId, TaskId,
+};
 use prism_memory::OutcomeMemory;
 use prism_projections::ProjectionIndex;
+use prism_query::Prism;
 use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::{error, warn};
 
@@ -26,11 +36,17 @@ use crate::session::{
 use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::shared_runtime_store::SharedRuntimeStore;
+use crate::util::current_timestamp;
+use crate::workspace_identity::{
+    coordination_persist_context_for_root, workspace_identity_for_root,
+};
 use crate::workspace_runtime_state::{WorkspacePublishedGeneration, WorkspaceRuntimeState};
 use crate::workspace_tree::{
     diff_workspace_tree_snapshot, plan_full_refresh, plan_incremental_refresh,
     populate_package_regions, WorkspaceRefreshMode,
 };
+
+const ASSISTED_LEASE_RENEWAL_ENV: &str = "PRISM_ASSISTED_LEASE_RENEWAL";
 
 pub(crate) struct WatchHandle {
     pub(crate) stop: mpsc::Sender<WatchMessage>,
@@ -461,7 +477,7 @@ fn refresh_prism_snapshot_with_guard(
     )?;
     indexer.shared_runtime_materializer = shared_runtime_materializer;
     populate_package_regions(&mut plan.delta, &indexer.layout);
-    let observed = match indexer.index_with_refresh_plan(trigger, &plan) {
+    let observed = match indexer.index_with_refresh_plan(trigger.clone(), &plan) {
         Ok(observed) => observed,
         Err(error) => {
             *runtime_state
@@ -488,14 +504,45 @@ fn refresh_prism_snapshot_with_guard(
             .map(SharedRuntimeStore::workspace_revision)
             .transpose()?,
     );
-    let next_state = indexer.into_runtime_state();
-    let next = next_state.publish_generation(
-        prism_ir::WorkspaceRevision {
-            graph_version: local_workspace_revision,
-            git_commit: None,
-        },
-        coordination_context,
+    let mut next_state = indexer.into_runtime_state();
+    let published_workspace_revision = prism_ir::WorkspaceRevision {
+        graph_version: local_workspace_revision,
+        git_commit: None,
+    };
+    let mut next = next_state.publish_generation(
+        published_workspace_revision.clone(),
+        coordination_context.clone(),
     );
+    if trigger == ChangeTrigger::FsWatch && coordination_enabled {
+        match maybe_auto_heartbeat_assisted_leases(
+            root,
+            next.prism_arc().as_ref(),
+            store,
+            shared_runtime_store,
+        ) {
+            Ok(true) => {
+                let prism = next.prism_arc();
+                next_state.replace_coordination_runtime(
+                    prism.coordination_snapshot(),
+                    prism.authored_plan_graphs(),
+                    prism.plan_execution_overlays_by_plan(),
+                );
+                next = next_state.publish_generation(
+                    published_workspace_revision.clone(),
+                    coordination_context.clone(),
+                );
+            }
+            Ok(false) => {}
+            Err(error) => {
+                warn!(
+                    root = %root.display(),
+                    error = %error,
+                    error_chain = %format_error_chain(&error),
+                    "assisted lease heartbeat skipped after fs refresh"
+                );
+            }
+        }
+    }
     *fs_snapshot
         .lock()
         .expect("workspace tree snapshot lock poisoned") = plan.next_snapshot;
@@ -606,6 +653,322 @@ fn sync_published_plan_authority_with_guard(
     Ok(true)
 }
 
+#[derive(Debug, Clone)]
+enum AssistedLeaseTarget {
+    Task {
+        task: CoordinationTask,
+        principal: PrincipalActor,
+        session_id: Option<SessionId>,
+        policy: CoordinationPolicy,
+    },
+    Claim {
+        claim: WorkClaim,
+        principal: PrincipalActor,
+        session_id: SessionId,
+        policy: CoordinationPolicy,
+    },
+}
+
+impl AssistedLeaseTarget {
+    fn session_id(&self) -> Option<&SessionId> {
+        match self {
+            Self::Task { session_id, .. } => session_id.as_ref(),
+            Self::Claim { session_id, .. } => Some(session_id),
+        }
+    }
+
+    fn correlation(&self) -> Option<TaskId> {
+        match self {
+            Self::Task { task, .. } => Some(TaskId::new(task.id.0.clone())),
+            Self::Claim { claim, .. } => claim
+                .task
+                .as_ref()
+                .map(|task_id| TaskId::new(task_id.0.clone())),
+        }
+    }
+
+    fn principal(&self) -> &PrincipalActor {
+        match self {
+            Self::Task { principal, .. } | Self::Claim { principal, .. } => principal,
+        }
+    }
+
+    fn due_state(&self, now: u64) -> LeaseHeartbeatDueState {
+        match self {
+            Self::Task { task, policy, .. } => task_heartbeat_due_state(task, policy, now),
+            Self::Claim { claim, policy, .. } => claim_heartbeat_due_state(claim, policy, now),
+        }
+    }
+
+    fn assisted_window(&self) -> u64 {
+        match self {
+            Self::Task { policy, .. } | Self::Claim { policy, .. } => {
+                assisted_heartbeat_window(policy)
+            }
+        }
+    }
+
+    fn matches_event(&self, event: &prism_coordination::CoordinationEvent) -> bool {
+        match self {
+            Self::Task { task, .. } => event
+                .task
+                .as_ref()
+                .is_some_and(|task_id| task_id == &task.id),
+            Self::Claim { claim, .. } => event
+                .claim
+                .as_ref()
+                .is_some_and(|claim_id| claim_id == &claim.id),
+        }
+    }
+}
+
+fn assisted_lease_renewal_enabled() -> bool {
+    env::var(ASSISTED_LEASE_RENEWAL_ENV)
+        .ok()
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
+        .unwrap_or(false)
+}
+
+fn maybe_auto_heartbeat_assisted_leases(
+    root: &Path,
+    prism: &Prism,
+    store: &Arc<Mutex<SqliteStore>>,
+    shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
+) -> Result<bool> {
+    if !assisted_lease_renewal_enabled() {
+        return Ok(false);
+    }
+    if let Some(shared_runtime_store) = shared_runtime_store {
+        let mut store = shared_runtime_store
+            .lock()
+            .expect("shared runtime store lock poisoned");
+        maybe_auto_heartbeat_assisted_leases_in_store(root, prism, &mut *store)
+    } else {
+        let mut store = store.lock().expect("workspace store lock poisoned");
+        maybe_auto_heartbeat_assisted_leases_in_store(root, prism, &mut *store)
+    }
+}
+
+fn maybe_auto_heartbeat_assisted_leases_in_store<T>(
+    root: &Path,
+    prism: &Prism,
+    store: &mut T,
+) -> Result<bool>
+where
+    T: CoordinationPersistenceBackend,
+{
+    let worktree_id = workspace_identity_for_root(root).worktree_id;
+    let now = current_timestamp();
+    let Some(target) = select_assisted_lease_target(prism, &worktree_id, now) else {
+        return Ok(false);
+    };
+    if !matches!(
+        target.due_state(now),
+        LeaseHeartbeatDueState::DueSoon | LeaseHeartbeatDueState::DueNow
+    ) {
+        return Ok(false);
+    }
+    let Some(last_explicit_ts) = last_explicit_authenticated_target_event_ts(prism, &target) else {
+        return Ok(false);
+    };
+    if now > last_explicit_ts.saturating_add(target.assisted_window()) {
+        return Ok(false);
+    }
+
+    let before_snapshot = prism.coordination_snapshot();
+    let before_plan_graphs = prism.authored_plan_graphs();
+    let before_execution_overlays = prism.plan_execution_overlays_by_plan();
+    let event_meta = assisted_lease_event_meta(root, &target, now);
+
+    let heartbeat_result = match &target {
+        AssistedLeaseTarget::Task { task, .. } => prism
+            .heartbeat_native_task(event_meta, &task.id, "watcher_auto")
+            .map(|_| ()),
+        AssistedLeaseTarget::Claim {
+            claim, session_id, ..
+        } => prism
+            .renew_native_claim(event_meta, session_id, &claim.id, None, "watcher_auto")
+            .map(|_| ()),
+    };
+    if let Err(error) = heartbeat_result {
+        prism.replace_coordination_snapshot_and_plan_graphs(
+            before_snapshot,
+            before_plan_graphs,
+            before_execution_overlays,
+        );
+        return Err(error);
+    }
+
+    let snapshot = prism.coordination_snapshot();
+    let appended_events = snapshot
+        .events
+        .iter()
+        .filter(|event| {
+            !before_snapshot
+                .events
+                .iter()
+                .any(|stored| stored.meta.id == event.meta.id)
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    let plan_graphs = prism.authored_plan_graphs();
+    let execution_overlays = prism.plan_execution_overlays_by_plan();
+    let expected_revision = store.coordination_revision()?;
+
+    if let Err(error) = store
+        .persist_coordination_authoritative_mutation_state_for_root_with_session_observed(
+            root,
+            expected_revision,
+            &snapshot,
+            &appended_events,
+            target.session_id(),
+            Some(&plan_graphs),
+            Some(&execution_overlays),
+            |_operation, _duration, _args, _success, _error| {},
+        )
+    {
+        prism.replace_coordination_snapshot_and_plan_graphs(
+            before_snapshot,
+            before_plan_graphs,
+            before_execution_overlays,
+        );
+        return Err(error);
+    }
+
+    Ok(true)
+}
+
+fn select_assisted_lease_target(
+    prism: &Prism,
+    worktree_id: &str,
+    now: u64,
+) -> Option<AssistedLeaseTarget> {
+    let task_targets = prism
+        .coordination_snapshot()
+        .tasks
+        .into_iter()
+        .filter_map(|task| assisted_task_target(prism, worktree_id, task, now));
+    let claim_targets = prism
+        .coordination_snapshot()
+        .claims
+        .into_iter()
+        .filter_map(|claim| assisted_claim_target(prism, worktree_id, claim, now));
+    let mut targets = task_targets.chain(claim_targets).collect::<Vec<_>>();
+    if targets.len() != 1 {
+        return None;
+    }
+    targets.pop()
+}
+
+fn assisted_task_target(
+    prism: &Prism,
+    worktree_id: &str,
+    task: CoordinationTask,
+    now: u64,
+) -> Option<AssistedLeaseTarget> {
+    if task.worktree_id.as_deref() != Some(worktree_id) || task.pending_handoff_to.is_some() {
+        return None;
+    }
+    if !matches!(task_lease_state(&task, now), LeaseState::Active) {
+        return None;
+    }
+    let holder = task.lease_holder.clone()?;
+    let principal = holder.principal.clone()?;
+    let plan = prism.coordination_plan(&task.plan)?;
+    if plan.policy.lease_renewal_mode != LeaseRenewalMode::Assisted {
+        return None;
+    }
+    Some(AssistedLeaseTarget::Task {
+        task,
+        principal,
+        session_id: holder.session_id.clone(),
+        policy: plan.policy,
+    })
+}
+
+fn assisted_claim_target(
+    prism: &Prism,
+    worktree_id: &str,
+    claim: WorkClaim,
+    now: u64,
+) -> Option<AssistedLeaseTarget> {
+    if claim.worktree_id.as_deref() != Some(worktree_id) || claim.status != ClaimStatus::Active {
+        return None;
+    }
+    if !matches!(claim_lease_state(&claim, now), LeaseState::Active) {
+        return None;
+    }
+    let holder = claim.lease_holder.as_ref()?;
+    let principal = holder.principal.clone()?;
+    let task_id = claim.task.as_ref()?;
+    let task = prism.coordination_task(task_id)?;
+    if task.pending_handoff_to.is_some() {
+        return None;
+    }
+    let plan = prism.coordination_plan(&task.plan)?;
+    if plan.policy.lease_renewal_mode != LeaseRenewalMode::Assisted {
+        return None;
+    }
+    let session_id = claim.holder.clone();
+    Some(AssistedLeaseTarget::Claim {
+        claim,
+        principal,
+        session_id,
+        policy: plan.policy,
+    })
+}
+
+fn last_explicit_authenticated_target_event_ts(
+    prism: &Prism,
+    target: &AssistedLeaseTarget,
+) -> Option<u64> {
+    prism
+        .coordination_events()
+        .into_iter()
+        .rev()
+        .find_map(|event| {
+            if !target.matches_event(&event) {
+                return None;
+            }
+            let EventActor::Principal(principal) = &event.meta.actor else {
+                return None;
+            };
+            if principal != target.principal() {
+                return None;
+            }
+            event
+                .meta
+                .execution_context
+                .as_ref()
+                .and_then(|context| context.credential_id.as_ref().map(|_| event.meta.ts))
+        })
+}
+
+fn assisted_lease_event_meta(root: &Path, target: &AssistedLeaseTarget, now: u64) -> EventMeta {
+    let context = coordination_persist_context_for_root(root, target.session_id());
+    EventMeta {
+        id: EventId::new(new_prefixed_id("coordination")),
+        ts: now,
+        actor: EventActor::Principal(target.principal().clone()),
+        correlation: target.correlation(),
+        causation: None,
+        execution_context: Some(EventExecutionContext {
+            repo_id: Some(context.repo_id),
+            worktree_id: Some(context.worktree_id),
+            branch_ref: context.branch_ref,
+            session_id: context.session_id,
+            instance_id: context.instance_id,
+            request_id: None,
+            credential_id: None,
+        }),
+    }
+}
+
 fn can_scope_watch_refresh(root: &Path, dirty_paths: &[PathBuf]) -> bool {
     dirty_paths.iter().all(|path| path.starts_with(root))
 }
@@ -685,14 +1048,32 @@ fn format_error_chain(error: &anyhow::Error) -> String {
 mod tests {
     use super::{
         can_scope_watch_refresh, is_ignored_watch_relative_path,
-        is_published_plan_watch_relative_path, relevant_published_plan_watch_paths,
-        relevant_watch_paths,
+        is_published_plan_watch_relative_path, maybe_auto_heartbeat_assisted_leases_in_store,
+        relevant_published_plan_watch_paths, relevant_watch_paths,
     };
     use notify::{
         event::{EventAttributes, ModifyKind},
         Event, EventKind,
     };
+    use prism_coordination::{
+        CoordinationPolicy, CoordinationStore, PlanCreateInput, TaskCreateInput,
+    };
+    use prism_ir::{AgentId, EventActor, EventExecutionContext, EventId, EventMeta, SessionId};
+    use prism_query::Prism;
+    use prism_store::{CoordinationJournal, Graph, MemoryStore};
     use std::path::PathBuf;
+    use std::sync::Mutex;
+
+    use crate::util::current_timestamp;
+    use crate::workspace_identity::coordination_persist_context_for_root;
+
+    static ASSISTED_LEASE_ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn temp_root(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(prism_ir::new_prefixed_id(name).to_string());
+        std::fs::create_dir_all(&root).unwrap();
+        root
+    }
 
     fn modify_event(path: PathBuf) -> Event {
         Event {
@@ -790,5 +1171,188 @@ mod tests {
                 PathBuf::from("/tmp/editor-copy.md")
             ]
         ));
+    }
+
+    fn principal_meta(id: &str, ts: u64, credential_id: Option<&str>) -> EventMeta {
+        EventMeta {
+            id: EventId::new(id),
+            ts,
+            actor: EventActor::Principal(prism_ir::PrincipalActor {
+                authority_id: prism_ir::PrincipalAuthorityId::new("local"),
+                principal_id: prism_ir::PrincipalId::new("agent:a"),
+                kind: Some(prism_ir::PrincipalKind::Agent),
+                name: Some("agent:a".to_string()),
+            }),
+            correlation: None,
+            causation: None,
+            execution_context: Some(EventExecutionContext {
+                repo_id: None,
+                worktree_id: None,
+                branch_ref: None,
+                session_id: Some("session:a".to_string()),
+                instance_id: None,
+                request_id: None,
+                credential_id: credential_id.map(prism_ir::CredentialId::new),
+            }),
+        }
+    }
+
+    #[test]
+    fn assisted_watcher_heartbeat_renews_single_due_task() {
+        let _guard = ASSISTED_LEASE_ENV_LOCK.lock().unwrap();
+        unsafe { std::env::set_var(super::ASSISTED_LEASE_RENEWAL_ENV, "1") };
+        let root = temp_root("watch-heartbeat");
+        let prism = Prism::new(Graph::default());
+        let coordination_context = coordination_persist_context_for_root(root.as_path(), None);
+        prism.set_coordination_context(Some(coordination_context.clone()));
+        let now = current_timestamp();
+        let coordination = CoordinationStore::new();
+        let (plan_id, _) = coordination
+            .create_plan(
+                principal_meta(
+                    "coord:plan:watcher-auto",
+                    now.saturating_sub(260),
+                    Some("credential:explicit"),
+                ),
+                PlanCreateInput {
+                    goal: "Watcher auto heartbeat".to_string(),
+                    status: Some(prism_ir::PlanStatus::Active),
+                    policy: Some(CoordinationPolicy {
+                        lease_stale_after_seconds: 300,
+                        lease_expires_after_seconds: 900,
+                        lease_renewal_mode: prism_ir::LeaseRenewalMode::Assisted,
+                        ..CoordinationPolicy::default()
+                    }),
+                },
+            )
+            .unwrap();
+        let (task_id, _) = coordination
+            .create_task(
+                principal_meta(
+                    "coord:task:watcher-auto",
+                    now.saturating_sub(250),
+                    Some("credential:explicit"),
+                ),
+                TaskCreateInput {
+                    plan_id,
+                    title: "Edit alpha".to_string(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: Some(AgentId::new("agent:a")),
+                    session: Some(SessionId::new("session:a")),
+                    worktree_id: Some(coordination_context.worktree_id),
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: prism_ir::WorkspaceRevision::default(),
+                },
+            )
+            .unwrap();
+        prism.replace_coordination_snapshot(coordination.snapshot());
+
+        let mut store = MemoryStore::default();
+        let worktree_id = super::workspace_identity_for_root(root.as_path()).worktree_id;
+        let target = super::select_assisted_lease_target(&prism, &worktree_id, current_timestamp())
+            .unwrap_or_else(|| {
+                panic!(
+                    "missing assisted target: {:?}",
+                    prism.coordination_snapshot().tasks
+                )
+            });
+        assert!(matches!(
+            target.due_state(current_timestamp()),
+            prism_coordination::LeaseHeartbeatDueState::DueSoon
+                | prism_coordination::LeaseHeartbeatDueState::DueNow
+        ));
+        assert!(super::last_explicit_authenticated_target_event_ts(&prism, &target).is_some());
+        let changed =
+            maybe_auto_heartbeat_assisted_leases_in_store(root.as_path(), &prism, &mut store)
+                .expect("assisted heartbeat should succeed");
+
+        assert!(changed);
+        let event = prism
+            .coordination_events()
+            .last()
+            .expect("heartbeat event should exist")
+            .clone();
+        assert_eq!(event.kind, prism_ir::CoordinationEventKind::TaskHeartbeated);
+        assert_eq!(event.task.as_ref(), Some(&task_id));
+        assert_eq!(event.metadata["renewalProvenance"], "watcher_auto");
+        let context = event
+            .meta
+            .execution_context
+            .expect("watcher auto heartbeat should record execution context");
+        assert!(context.credential_id.is_none());
+        assert_eq!(store.coordination_revision().unwrap(), 1);
+        unsafe { std::env::remove_var(super::ASSISTED_LEASE_RENEWAL_ENV) };
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn assisted_watcher_heartbeat_skips_when_multiple_active_leases_exist() {
+        let _guard = ASSISTED_LEASE_ENV_LOCK.lock().unwrap();
+        unsafe { std::env::set_var(super::ASSISTED_LEASE_RENEWAL_ENV, "1") };
+        let root = temp_root("watch-heartbeat-skip");
+        let prism = Prism::new(Graph::default());
+        let coordination_context = coordination_persist_context_for_root(root.as_path(), None);
+        prism.set_coordination_context(Some(coordination_context.clone()));
+        let now = current_timestamp();
+        let coordination = CoordinationStore::new();
+        let (plan_id, _) = coordination
+            .create_plan(
+                principal_meta(
+                    "coord:plan:watcher-skip",
+                    now.saturating_sub(260),
+                    Some("credential:explicit"),
+                ),
+                PlanCreateInput {
+                    goal: "Watcher skip on ambiguity".to_string(),
+                    status: Some(prism_ir::PlanStatus::Active),
+                    policy: Some(CoordinationPolicy {
+                        lease_stale_after_seconds: 300,
+                        lease_expires_after_seconds: 900,
+                        lease_renewal_mode: prism_ir::LeaseRenewalMode::Assisted,
+                        ..CoordinationPolicy::default()
+                    }),
+                },
+            )
+            .unwrap();
+        for (index, title) in ["Edit alpha", "Edit beta"].into_iter().enumerate() {
+            coordination
+                .create_task(
+                    principal_meta(
+                        &format!("coord:task:watcher-skip:{index}"),
+                        now.saturating_sub(250),
+                        Some("credential:explicit"),
+                    ),
+                    TaskCreateInput {
+                        plan_id: plan_id.clone(),
+                        title: title.to_string(),
+                        status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                        assignee: Some(AgentId::new("agent:a")),
+                        session: Some(SessionId::new("session:a")),
+                        worktree_id: Some(coordination_context.worktree_id.clone()),
+                        branch_ref: None,
+                        anchors: Vec::new(),
+                        depends_on: Vec::new(),
+                        acceptance: Vec::new(),
+                        base_revision: prism_ir::WorkspaceRevision::default(),
+                    },
+                )
+                .unwrap();
+        }
+        prism.replace_coordination_snapshot(coordination.snapshot());
+
+        let event_count = prism.coordination_events().len();
+        let mut store = MemoryStore::default();
+        let changed =
+            maybe_auto_heartbeat_assisted_leases_in_store(root.as_path(), &prism, &mut store)
+                .expect("ambiguous assisted heartbeat should be skipped cleanly");
+
+        assert!(!changed);
+        assert_eq!(prism.coordination_events().len(), event_count);
+        assert_eq!(store.coordination_revision().unwrap(), 0);
+        unsafe { std::env::remove_var(super::ASSISTED_LEASE_RENEWAL_ENV) };
+        let _ = std::fs::remove_dir_all(root);
     }
 }

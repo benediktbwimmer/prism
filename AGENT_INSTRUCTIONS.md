@@ -68,6 +68,8 @@ Use PRISM MCP as the primary repo-awareness surface when it is available.
 - During meaningful PRISM work, look for chances to capture 1 to 3 high-signal episodic memories instead of ending with no reusable memory.
 - Use `prism_mutate` with action `infer_edge` when a new inferred relationship should be captured explicitly.
 - Use `prism_mutate` with actions `coordination`, `claim`, and `artifact` when the work involves shared planning, task state, claims, handoffs, or reviewable artifacts.
+- Task-scoped reads may occasionally return a server-authored instruction to call `prism_mutate` with action `heartbeat_lease`.
+- When that heartbeat instruction appears, satisfy it before continuing other task work.
 
 ## Memory Guidance
 

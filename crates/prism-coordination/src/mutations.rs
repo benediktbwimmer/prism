@@ -495,6 +495,7 @@ pub(crate) fn renew_claim_mutation(
     session_id: &SessionId,
     claim_id: &ClaimId,
     ttl_seconds: Option<u64>,
+    renewal_provenance: &str,
 ) -> Result<WorkClaim> {
     expire_claims_locked(state, meta.ts);
     let claim_snapshot = state
@@ -559,9 +560,154 @@ pub(crate) fn renew_claim_mutation(
         review: None,
         metadata: json!({
             "claim": claim.clone(),
+            "renewalProvenance": renewal_provenance,
         }),
     });
     Ok(claim)
+}
+
+pub(crate) fn heartbeat_task_mutation(
+    state: &mut CoordinationState,
+    meta: EventMeta,
+    task_id: &CoordinationTaskId,
+    renewal_provenance: &str,
+) -> Result<CoordinationTask> {
+    let previous = state
+        .tasks
+        .get(task_id)
+        .cloned()
+        .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))?;
+    let Some(plan) = state.plans.get(&previous.plan).cloned() else {
+        return Err(anyhow!("unknown plan `{}`", previous.plan.0));
+    };
+    let lease_state = task_lease_state(&previous, meta.ts);
+    let current_holder = current_task_holder(&meta, &previous);
+    let Some(lease_holder) = previous.lease_holder.as_ref() else {
+        return Err(anyhow!(
+            "coordination task `{}` does not have an active lease to heartbeat",
+            previous.id.0
+        ));
+    };
+    if !same_holder(lease_holder, &current_holder) {
+        let violations = vec![policy_violation(
+            PolicyViolationCode::TaskLeaseHeldByOther,
+            format!(
+                "coordination task `{}` is actively leased by another principal and cannot be heartbeated",
+                previous.id.0
+            ),
+            Some(previous.plan.clone()),
+            Some(previous.id.clone()),
+            None,
+            None,
+            json!({
+                "leaseState": format!("{lease_state:?}").to_ascii_lowercase(),
+                "leaseHolder": lease_holder_details(Some(lease_holder)),
+                "currentHolder": lease_holder_details(Some(&current_holder)),
+                "leaseStaleAt": previous.lease_stale_at,
+                "leaseExpiresAt": previous.lease_expires_at,
+            }),
+        )];
+        return Err(rejection_error(
+            state,
+            &meta,
+            "coordination task heartbeat rejected",
+            Some(previous.plan.clone()),
+            Some(previous.id.clone()),
+            None,
+            None,
+            violations,
+        ));
+    }
+    if matches!(lease_state, LeaseState::Stale | LeaseState::Expired) {
+        let violations = vec![policy_violation(
+            PolicyViolationCode::TaskResumeRequired,
+            format!(
+                "coordination task `{}` has a {:?} lease and must be resumed before it can be heartbeated",
+                previous.id.0, lease_state
+            ),
+            Some(previous.plan.clone()),
+            Some(previous.id.clone()),
+            None,
+            None,
+            json!({
+                "leaseState": format!("{lease_state:?}").to_ascii_lowercase(),
+                "leaseHolder": lease_holder_details(Some(lease_holder)),
+                "currentHolder": lease_holder_details(Some(&current_holder)),
+                "leaseStaleAt": previous.lease_stale_at,
+                "leaseExpiresAt": previous.lease_expires_at,
+            }),
+        )];
+        return Err(rejection_error(
+            state,
+            &meta,
+            "coordination task heartbeat rejected",
+            Some(previous.plan.clone()),
+            Some(previous.id.clone()),
+            None,
+            None,
+            violations,
+        ));
+    }
+
+    let task = state.tasks.get_mut(task_id).expect("task validated above");
+    refresh_task_lease(task, &meta, meta.ts, &plan.policy);
+    let task = task.clone();
+
+    let mut patch = serde_json::Map::new();
+    if previous.lease_holder != task.lease_holder {
+        push_patch_op(&mut patch, "leaseHolder", "set");
+    }
+    if previous.lease_started_at != task.lease_started_at {
+        push_patch_op(&mut patch, "leaseStartedAt", "set");
+    }
+    if previous.lease_refreshed_at != task.lease_refreshed_at {
+        push_patch_op(&mut patch, "leaseRefreshedAt", "set");
+    }
+    if previous.lease_stale_at != task.lease_stale_at {
+        push_patch_op(&mut patch, "leaseStaleAt", "set");
+    }
+    if previous.lease_expires_at != task.lease_expires_at {
+        push_patch_op(&mut patch, "leaseExpiresAt", "set");
+    }
+
+    let mut patch_values = serde_json::Map::new();
+    if previous.lease_holder != task.lease_holder {
+        insert_serialized(&mut patch_values, "leaseHolder", task.lease_holder.clone());
+    }
+    if previous.lease_started_at != task.lease_started_at {
+        insert_serialized(&mut patch_values, "leaseStartedAt", task.lease_started_at);
+    }
+    if previous.lease_refreshed_at != task.lease_refreshed_at {
+        insert_serialized(
+            &mut patch_values,
+            "leaseRefreshedAt",
+            task.lease_refreshed_at,
+        );
+    }
+    if previous.lease_stale_at != task.lease_stale_at {
+        insert_serialized(&mut patch_values, "leaseStaleAt", task.lease_stale_at);
+    }
+    if previous.lease_expires_at != task.lease_expires_at {
+        insert_serialized(&mut patch_values, "leaseExpiresAt", task.lease_expires_at);
+    }
+
+    state.events.push(CoordinationEvent {
+        meta,
+        kind: CoordinationEventKind::TaskHeartbeated,
+        summary: format!("task `{}` heartbeat refreshed", task.id.0),
+        plan: Some(task.plan.clone()),
+        task: Some(task.id.clone()),
+        claim: None,
+        artifact: None,
+        review: None,
+        metadata: json!({
+            "renewalProvenance": renewal_provenance,
+            "leaseRenewalMode": plan.policy.lease_renewal_mode,
+            "patch": Value::Object(patch),
+            "patchValues": Value::Object(patch_values),
+        }),
+    });
+    Ok(task)
 }
 
 pub(crate) fn release_claim_mutation(
@@ -2829,6 +2975,19 @@ impl CoordinationStore {
         reclaim_task_mutation(&mut state, meta, input)
     }
 
+    pub fn heartbeat_task(
+        &self,
+        meta: EventMeta,
+        task_id: &CoordinationTaskId,
+        renewal_provenance: &str,
+    ) -> Result<CoordinationTask> {
+        let mut state = self
+            .state
+            .write()
+            .expect("coordination store lock poisoned");
+        heartbeat_task_mutation(&mut state, meta, task_id, renewal_provenance)
+    }
+
     pub fn acquire_claim(
         &self,
         meta: EventMeta,
@@ -2852,12 +3011,20 @@ impl CoordinationStore {
         session_id: &SessionId,
         claim_id: &ClaimId,
         ttl_seconds: Option<u64>,
+        renewal_provenance: &str,
     ) -> Result<WorkClaim> {
         let mut state = self
             .state
             .write()
             .expect("coordination store lock poisoned");
-        renew_claim_mutation(&mut state, meta, session_id, claim_id, ttl_seconds)
+        renew_claim_mutation(
+            &mut state,
+            meta,
+            session_id,
+            claim_id,
+            ttl_seconds,
+            renewal_provenance,
+        )
     }
 
     pub fn release_claim(

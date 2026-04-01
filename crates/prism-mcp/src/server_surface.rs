@@ -1352,6 +1352,41 @@ impl PrismMcpServer {
                     ],
                 )
             }
+            PrismMutationKindArgs::HeartbeatLease(args) => {
+                self.host
+                    .ensure_tool_enabled("prism_coordination", "coordination lease heartbeats")
+                    .map_err(map_query_error)?;
+                let authenticated = self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateCoordination,
+                )?;
+                let result = self.execute_logged_mutation(
+                    "mutate.heartbeat_lease",
+                    MutationRefreshPolicy::None,
+                    || {
+                        self.host.store_heartbeat_lease_authenticated(
+                            self.session.as_ref(),
+                            args,
+                            Some(&authenticated),
+                        )
+                    },
+                    |result| {
+                        let mut result_ids = result.event_ids.clone();
+                        if let Some(task_id) = &result.task_id {
+                            result_ids.push(task_id.clone());
+                        }
+                        if let Some(claim_id) = &result.claim_id {
+                            result_ids.push(claim_id.clone());
+                        }
+                        MutationDashboardMeta::coordination(result_ids, result.violations.len())
+                    },
+                )?;
+                structured_tool_result(PrismMutationResult {
+                    action: PrismMutationActionSchema::HeartbeatLease,
+                    result: serde_json::to_value(result)
+                        .map_err(|err| map_query_error(err.into()))?,
+                })
+            }
             PrismMutationKindArgs::Coordination(args) => {
                 self.host
                     .ensure_tool_enabled("prism_coordination", "coordination workflow mutations")

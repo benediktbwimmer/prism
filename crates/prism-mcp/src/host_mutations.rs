@@ -55,18 +55,18 @@ use crate::{
     ContractValidationInput, CoordinationMutationKindInput, CoordinationMutationResult,
     CuratorJobView, CuratorProposalCreatedResources, CuratorProposalDecision,
     CuratorProposalDecisionResult, EdgeMutationResult, EventMutationResult, HandoffAcceptPayload,
-    MemoryMutationActionInput, MemoryMutationResult, MemoryRetirePayload, MemoryStorePayload,
-    MutationViolationView, NodeIdInput, PlanArchivePayload, PlanEdgeCreatePayload,
-    PlanEdgeDeletePayload, PlanNodeCreatePayload, PlanUpdatePayload, PrismArtifactArgs,
-    PrismClaimArgs, PrismConceptLensInput, PrismConceptMutationArgs,
-    PrismConceptRelationMutationArgs, PrismContractMutationArgs, PrismCoordinationArgs,
-    PrismCuratorApplyProposalArgs, PrismCuratorPromoteConceptArgs, PrismCuratorPromoteEdgeArgs,
-    PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs, PrismFinishTaskArgs,
-    PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs, PrismSessionRepairArgs,
-    PrismValidationFeedbackArgs, QueryHost, SessionRepairMutationResult,
-    SessionRepairOperationInput, SessionRepairOperationSchema, SessionState, SparsePatch,
-    SparsePatchInput, TaskCreatePayload, TaskReclaimPayload, TaskResumePayload,
-    ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
+    HeartbeatLeaseMutationResult, MemoryMutationActionInput, MemoryMutationResult,
+    MemoryRetirePayload, MemoryStorePayload, MutationViolationView, NodeIdInput,
+    PlanArchivePayload, PlanEdgeCreatePayload, PlanEdgeDeletePayload, PlanNodeCreatePayload,
+    PlanUpdatePayload, PrismArtifactArgs, PrismClaimArgs, PrismConceptLensInput,
+    PrismConceptMutationArgs, PrismConceptRelationMutationArgs, PrismContractMutationArgs,
+    PrismCoordinationArgs, PrismCuratorApplyProposalArgs, PrismCuratorPromoteConceptArgs,
+    PrismCuratorPromoteEdgeArgs, PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs,
+    PrismFinishTaskArgs, PrismHeartbeatLeaseArgs, PrismInferEdgeArgs, PrismMemoryArgs,
+    PrismOutcomeArgs, PrismSessionRepairArgs, PrismValidationFeedbackArgs, QueryHost,
+    SessionRepairMutationResult, SessionRepairOperationInput, SessionRepairOperationSchema,
+    SessionState, SparsePatch, SparsePatchInput, TaskCreatePayload, TaskReclaimPayload,
+    TaskResumePayload, ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
     ValidationFeedbackVerdictInput, WorkflowStatusInput, WorkflowUpdatePayload,
     DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
@@ -1513,6 +1513,95 @@ impl QueryHost {
         }
     }
 
+    pub(crate) fn store_heartbeat_lease_authenticated(
+        &self,
+        session: &SessionState,
+        args: PrismHeartbeatLeaseArgs,
+        authenticated: Option<&AuthenticatedPrincipal>,
+    ) -> Result<HeartbeatLeaseMutationResult> {
+        self.ensure_tool_enabled(
+            "prism_coordination",
+            "coordination lease heartbeat mutations",
+        )?;
+        if let Some(workspace) = self.workspace_session() {
+            self.refresh_workspace_for_mutation()?;
+            self.sync_coordination_revision(workspace)?;
+        }
+        let prism = self.current_prism();
+        let before_events = prism.coordination_events().len();
+        let requested_task_id = args.task_id.clone();
+        let requested_claim_id = args.claim_id.clone();
+        let task = args
+            .task_id
+            .clone()
+            .map(TaskId::new)
+            .or_else(|| Some(session.task_for_mutation(None)));
+        let meta = mutation_provenance(self, session, authenticated).event_meta(
+            session.next_event_id("coordination"),
+            task,
+            None,
+            current_timestamp(),
+        );
+        if let Some(workspace) = self.workspace_session() {
+            match workspace.mutate_coordination_with_session_wait_observed(
+                Some(&session.session_id()),
+                |prism| self.apply_heartbeat_lease_mutation(session, prism, args, meta.clone()),
+                |_operation, _duration, _args, _success, _error| {},
+            ) {
+                Ok(Some(mut result)) => {
+                    self.sync_coordination_revision(workspace)?;
+                    let prism = self.current_prism();
+                    let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    result.event_ids = audit.event_ids;
+                    result.violations.extend(audit.violations);
+                    Ok(result)
+                }
+                Ok(None) => Err(AdmissionBusyError::refresh_lock("mutateCoordination").into()),
+                Err(error) => {
+                    let prism = self.current_prism();
+                    let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    if audit.rejected && !audit.event_ids.is_empty() {
+                        self.sync_coordination_revision(workspace)?;
+                        return Ok(HeartbeatLeaseMutationResult {
+                            task_id: requested_task_id,
+                            claim_id: requested_claim_id,
+                            event_ids: audit.event_ids,
+                            rejected: true,
+                            violations: audit.violations,
+                            state: Value::Null,
+                        });
+                    }
+                    Err(error)
+                }
+            }
+        } else {
+            match self.apply_heartbeat_lease_mutation(session, prism.as_ref(), args, meta.clone()) {
+                Ok(mut result) => {
+                    let prism = self.current_prism();
+                    let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    result.event_ids = audit.event_ids;
+                    result.violations.extend(audit.violations);
+                    Ok(result)
+                }
+                Err(error) => {
+                    let prism = self.current_prism();
+                    let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    if audit.rejected && !audit.event_ids.is_empty() {
+                        return Ok(HeartbeatLeaseMutationResult {
+                            task_id: requested_task_id,
+                            claim_id: requested_claim_id,
+                            event_ids: audit.event_ids,
+                            rejected: true,
+                            violations: audit.violations,
+                            state: Value::Null,
+                        });
+                    }
+                    Err(error)
+                }
+            }
+        }
+    }
+
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn store_artifact(
         &self,
@@ -2059,6 +2148,7 @@ impl QueryHost {
                     &session.session_id(),
                     &ClaimId::new(payload.claim_id.clone()),
                     payload.ttl_seconds,
+                    "explicit",
                 )?;
                 Ok(ClaimMutationResult {
                     claim_id: Some(payload.claim_id),
@@ -2085,6 +2175,52 @@ impl QueryHost {
                     state: serde_json::to_value(claim_view(claim))?,
                 })
             }
+        }
+    }
+
+    pub(crate) fn apply_heartbeat_lease_mutation(
+        &self,
+        session: &SessionState,
+        prism: &Prism,
+        args: PrismHeartbeatLeaseArgs,
+        meta: EventMeta,
+    ) -> Result<HeartbeatLeaseMutationResult> {
+        match (args.task_id, args.claim_id) {
+            (Some(task_id), None) => {
+                let task = prism.heartbeat_native_task(
+                    meta,
+                    &CoordinationTaskId::new(task_id.clone()),
+                    "explicit",
+                )?;
+                Ok(HeartbeatLeaseMutationResult {
+                    task_id: Some(task_id),
+                    claim_id: None,
+                    event_ids: Vec::new(),
+                    rejected: false,
+                    violations: Vec::new(),
+                    state: serde_json::to_value(coordination_task_view(task))?,
+                })
+            }
+            (None, Some(claim_id)) => {
+                let claim = prism.renew_native_claim(
+                    meta,
+                    &session.session_id(),
+                    &ClaimId::new(claim_id.clone()),
+                    None,
+                    "explicit",
+                )?;
+                Ok(HeartbeatLeaseMutationResult {
+                    task_id: None,
+                    claim_id: Some(claim_id),
+                    event_ids: Vec::new(),
+                    rejected: false,
+                    violations: Vec::new(),
+                    state: serde_json::to_value(claim_view(claim))?,
+                })
+            }
+            _ => Err(anyhow!(
+                "heartbeat_lease requires exactly one of `taskId` or `claimId`"
+            )),
         }
     }
 

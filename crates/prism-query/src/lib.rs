@@ -30,9 +30,9 @@ use prism_coordination::{
 };
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
-    AgentId, AnchorRef, ArtifactId, ClaimId, EventId, EventMeta, LineageEvent, LineageId, NodeId,
-    PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanNodeId, PlanNodeKind,
-    PlanNodeStatus, ReviewId, SessionId, TaskId, WorkspaceRevision,
+    AgentId, AnchorRef, ArtifactId, ClaimId, CoordinationTaskId, EventId, EventMeta, LineageEvent,
+    LineageId, NodeId, PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanNodeId,
+    PlanNodeKind, PlanNodeStatus, ReviewId, SessionId, TaskId, WorkspaceRevision,
 };
 use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot};
 use prism_memory::{OutcomeRecallQuery, TaskReplay};
@@ -677,6 +677,30 @@ impl Prism {
         }
     }
 
+    pub fn heartbeat_native_task(
+        &self,
+        meta: EventMeta,
+        task_id: &CoordinationTaskId,
+        renewal_provenance: &str,
+    ) -> Result<CoordinationTask> {
+        let (before_snapshot, snapshot, result) =
+            self.mutate_live_coordination_runtime(|runtime| {
+                runtime.heartbeat_task(meta, task_id, renewal_provenance)
+            });
+        match result {
+            Ok(task) => self
+                .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
+                    plan_runtime.update_task_from_coordination(&task)?;
+                    Ok(task.clone())
+                })
+                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone())),
+            Err(error) => {
+                self.persist_coordination_snapshot(snapshot)?;
+                Err(error)
+            }
+        }
+    }
+
     pub fn acquire_native_claim(
         &self,
         meta: EventMeta,
@@ -702,9 +726,10 @@ impl Prism {
         session_id: &SessionId,
         claim_id: &ClaimId,
         ttl_seconds: Option<u64>,
+        renewal_provenance: &str,
     ) -> Result<WorkClaim> {
         self.mutate_validated_coordination_snapshot(|store| {
-            store.renew_claim(meta, session_id, claim_id, ttl_seconds)
+            store.renew_claim(meta, session_id, claim_id, ttl_seconds, renewal_provenance)
         })
     }
 

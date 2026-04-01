@@ -23,8 +23,8 @@ use crate::{
     schemas_resource_view_link, search_ambiguity_from_diagnostics,
     search_resource_view_link_with_options, session_resource_uri, session_resource_view_link,
     symbol_for, symbol_resource_uri, symbol_resource_view_link, symbol_resource_view_link_for_id,
-    symbol_view, symbol_views_for_ids, task_resource_view_link,
-    task_resource_view_links_from_events, tool_schemas_resource_value,
+    symbol_view, symbol_views_for_ids, task_heartbeat_advice, task_heartbeat_next_action,
+    task_resource_view_link, task_resource_view_links_from_events, tool_schemas_resource_value,
     tool_schemas_resource_view_link, vocab_resource_value, vocab_resource_view_link,
     workspace_revision_view, CapabilitiesResourcePayload, ContractsResourcePayload,
     CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
@@ -32,9 +32,9 @@ use crate::{
     LineageResourcePayload, MemoryResourcePayload, PlanResourcePayload, PlansQueryArgs,
     PlansResourcePayload, QueryExecution, QueryHost, ResourceSchemaCatalogPayload, SearchArgs,
     SearchResourcePayload, SessionLimitsView, SessionRepairActionView, SessionResourcePayload,
-    SessionState, SessionTaskView, SessionView, SymbolResourcePayload, TaskResourcePayload,
-    VocabularyResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
+    SessionState, SessionTaskView, SessionView, SymbolResourcePayload, TaskHeartbeatAdvice,
+    TaskResourcePayload, VocabularyResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
 };
 
 impl QueryHost {
@@ -1108,6 +1108,7 @@ pub(crate) fn session_task_view(
     task: &crate::session_state::SessionTaskState,
 ) -> SessionTaskView {
     let prism = host.current_prism();
+    let now = crate::current_timestamp();
     let replay =
         crate::load_task_replay(host.workspace_session_ref(), prism.as_ref(), &task.id).ok();
     let replay_event_count = replay.as_ref().map_or(0, |replay| replay.events.len());
@@ -1122,18 +1123,21 @@ pub(crate) fn session_task_view(
         .and_then(|task_id| prism.coordination_task(&CoordinationTaskId::new(task_id.clone())));
     let blockers = coordination_task_id
         .as_ref()
-        .map(|task_id| {
-            prism.blockers(
-                &CoordinationTaskId::new(task_id.clone()),
-                crate::current_timestamp(),
-            )
-        })
+        .map(|task_id| prism.blockers(&CoordinationTaskId::new(task_id.clone()), now))
         .unwrap_or_default();
+    let heartbeat_advice = coordination_task_id.as_ref().and_then(|task_id| {
+        task_heartbeat_advice(
+            prism.as_ref(),
+            &CoordinationTaskId::new(task_id.clone()),
+            now,
+        )
+    });
     let context = session_task_context_summary(
         task,
         replay_event_count,
         coordination_task.is_some(),
         &blockers,
+        heartbeat_advice.as_ref(),
     );
 
     SessionTaskView {
@@ -1160,7 +1164,17 @@ fn session_task_context_summary(
     replay_event_count: usize,
     has_coordination_task: bool,
     blockers: &[prism_coordination::TaskBlocker],
+    heartbeat_advice: Option<&TaskHeartbeatAdvice>,
 ) -> SessionTaskContextSummary {
+    if let Some(advice) = heartbeat_advice {
+        return SessionTaskContextSummary {
+            status: "heartbeat_due",
+            summary: "Current task lease is nearing staleness and needs an authenticated heartbeat before other work continues."
+                .to_string(),
+            next_action: task_heartbeat_next_action(advice),
+            repair_action: None,
+        };
+    }
     if blockers
         .iter()
         .any(|blocker| blocker.kind == prism_coordination::BlockerKind::StaleRevision)
