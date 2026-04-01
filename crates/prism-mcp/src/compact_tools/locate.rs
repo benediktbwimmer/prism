@@ -65,6 +65,7 @@ impl QueryHost {
                             &candidate.target,
                             Some(args.query.as_str()),
                             Some(candidate.why_short.clone()),
+                            None,
                         );
                         compact_preview_for_ranked_target(
                             host,
@@ -86,6 +87,7 @@ impl QueryHost {
                             &candidate.target,
                             Some(args.query.as_str()),
                             Some(candidate.why_short),
+                            candidate.why_not_top,
                         )
                     })
                     .collect::<Vec<_>>();
@@ -362,7 +364,9 @@ fn rerank_locate_results(
             .cmp(&left.score)
             .then_with(|| ranked_target_path(&left.target).cmp(ranked_target_path(&right.target)))
     });
-    select_locate_candidates(ranked, limit)
+    let mut selected = select_locate_candidates(ranked, limit);
+    annotate_close_alternative_explanations(&mut selected);
+    selected
 }
 
 fn rank_locate_candidate(
@@ -392,6 +396,7 @@ fn rank_locate_candidate(
     let ownership_query_terms = locate_ownership_query_terms(tokens);
     let mut score = 0_i32;
     let mut reasons = Vec::<String>::new();
+    let mut signals = LocateReasonSignals::default();
 
     if let Some(owner_boost) = ownership_locate_boost(
         &symbol,
@@ -402,6 +407,7 @@ fn rank_locate_candidate(
         &file_normalized,
     ) {
         score += owner_boost;
+        signals.ownership_boundary = true;
         reasons.push(format!(
             "Ownership-style query favored this owner-like boundary target (+{owner_boost})."
         ));
@@ -410,11 +416,13 @@ fn rank_locate_candidate(
     for term in identifier_terms {
         if name_raw == *term {
             score += 420;
+            signals.exact_identifier = true;
             reasons.push(format!(
                 "Exact identifier `{term}` matched the candidate name."
             ));
         } else if final_segment_raw == term {
             score += 360;
+            signals.exact_identifier = true;
             reasons.push(format!(
                 "Exact identifier `{term}` matched the candidate path tail."
             ));
@@ -434,12 +442,15 @@ fn rank_locate_candidate(
     if !query_normalized.is_empty() {
         if name_normalized == *query_normalized {
             score += 240;
+            signals.exact_query_match = true;
             reasons.push("Exact query matched the candidate name.".to_string());
         } else if semantic_label_normalized == *query_normalized {
             score += 240;
+            signals.exact_query_match = true;
             reasons.push("Normalized semantic label matched the query.".to_string());
         } else if final_segment_normalized(&symbol.id.path) == query_normalized {
             score += 210;
+            signals.exact_query_match = true;
             reasons.push("Exact query matched the candidate path tail.".to_string());
         } else if name_normalized.contains(query_normalized) {
             score += if query_uses_identifiers { 60 } else { 170 };
@@ -478,6 +489,8 @@ fn rank_locate_candidate(
             matched_tokens += 1;
         }
     }
+    signals.matched_tokens = matched_tokens;
+    signals.total_tokens = tokens.len();
     if !tokens.is_empty() && matched_tokens == tokens.len() {
         score += if query_uses_identifiers { 24 } else { 72 };
         reasons.push(format!(
@@ -494,12 +507,14 @@ fn rank_locate_candidate(
     if is_code_like_kind(symbol.kind) {
         score += profile.code_bias;
         if profile.code_bias > 0 {
+            signals.code_bias = true;
             reasons.push("Locate intent favored callable or editable code.".to_string());
         }
     }
     if is_docs_like_kind(symbol.kind) {
         score += profile.docs_bias;
         if profile.docs_bias > 0 {
+            signals.docs_bias = true;
             reasons.push("Locate intent favored docs or structured spec surfaces.".to_string());
         }
     }
@@ -509,12 +524,17 @@ fn rank_locate_candidate(
     if path_scope.is_some_and(|scope| locate_path_scope_matches(scope, symbol.file_path.as_deref()))
     {
         score += 150;
+        signals.path_scope = true;
         reasons.push("Matched the requested path scope.".to_string());
     }
     if let Some(task_match) = candidate_task_match(&symbol, task_scope) {
         score += match task_match {
             TaskMatch::ExactNode => 120,
             TaskMatch::SameLineage => 90,
+        };
+        signals.task_scope_strength = match task_match {
+            TaskMatch::ExactNode => 2,
+            TaskMatch::SameLineage => 1,
         };
         reasons.push(match task_match {
             TaskMatch::ExactNode => "Matched the exact requested task scope.".to_string(),
@@ -541,6 +561,8 @@ fn rank_locate_candidate(
         score,
         selection_reason: locate_selection_reason(&reasons),
         why_short,
+        why_not_top: None,
+        signals,
     }
 }
 
@@ -570,6 +592,10 @@ fn rank_text_locate_candidate(
         candidate.target.file_path.as_deref().unwrap_or_default(),
         candidate.target.start_line.unwrap_or_default()
     )];
+    let mut signals = LocateReasonSignals {
+        exact_text_hit: true,
+        ..LocateReasonSignals::default()
+    };
 
     for term in identifier_terms {
         if matched_text_normalized == *term {
@@ -591,6 +617,8 @@ fn rank_text_locate_candidate(
                 || file_normalized.contains(token.as_str())
         })
         .count();
+    signals.matched_tokens = matched_tokens;
+    signals.total_tokens = tokens.len();
     if !tokens.is_empty() && matched_tokens == tokens.len() {
         score += 38;
     } else if matched_tokens > 0 {
@@ -600,17 +628,21 @@ fn rank_text_locate_candidate(
         locate_path_scope_matches(scope, candidate.target.file_path.as_deref())
     }) {
         score += 150;
+        signals.path_scope = true;
         reasons.insert(0, "Matched the requested path scope.".to_string());
     }
     if is_docs_like_kind(candidate.target.kind) {
         score += profile.docs_bias.max(0);
+        signals.docs_bias = profile.docs_bias > 0;
     } else if matches!(
         candidate.target.kind,
         NodeKind::JsonKey | NodeKind::TomlKey | NodeKind::YamlKey
     ) {
         score += profile.docs_bias.max(0) / 2;
+        signals.docs_bias = profile.docs_bias > 0;
     } else {
         score += profile.code_bias / 2;
+        signals.code_bias = profile.code_bias > 0;
     }
     if profile.test_penalty > 0
         && candidate
@@ -650,7 +682,95 @@ fn rank_text_locate_candidate(
         score,
         selection_reason: locate_selection_reason(&reasons),
         why_short,
+        why_not_top: None,
+        signals,
     }
+}
+
+fn annotate_close_alternative_explanations(ranked: &mut [RankedLocateCandidate]) {
+    let Some(top) = ranked.first().cloned() else {
+        return;
+    };
+    for candidate in ranked.iter_mut().skip(1).take(LOCATE_WHY_NOT_TOP_LIMIT) {
+        let gap = top.score.saturating_sub(candidate.score);
+        if gap > LOCATE_CLOSE_ALTERNATIVE_MAX_GAP {
+            continue;
+        }
+        candidate.why_not_top = Some(locate_why_not_top(&top, candidate, gap));
+    }
+}
+
+fn locate_why_not_top(
+    top: &RankedLocateCandidate,
+    candidate: &RankedLocateCandidate,
+    gap: i32,
+) -> String {
+    let explanation = locate_top_advantage(top, candidate)
+        .unwrap_or_else(|| "the winner kept a stronger overall mix of ranking signals".to_string());
+    clamp_string(
+        &format!("Lost to top candidate because {explanation}. It scored {gap} points lower."),
+        LOCATE_WHY_NOT_TOP_MAX_CHARS,
+    )
+}
+
+fn locate_top_advantage(
+    top: &RankedLocateCandidate,
+    candidate: &RankedLocateCandidate,
+) -> Option<String> {
+    if top.signals.task_scope_strength > candidate.signals.task_scope_strength {
+        return Some(if top.signals.task_scope_strength == 2 {
+            "the winner matched the exact requested task scope and this candidate did not"
+                .to_string()
+        } else {
+            "the winner matched the requested task's current lineage and this candidate did not"
+                .to_string()
+        });
+    }
+    if top.signals.path_scope && !candidate.signals.path_scope {
+        return Some(
+            "the winner matched the requested path scope and this candidate did not".to_string(),
+        );
+    }
+    if top.signals.ownership_boundary && !candidate.signals.ownership_boundary {
+        return Some(
+            "the winner had the stronger ownership-style boundary signal for this query"
+                .to_string(),
+        );
+    }
+    if top.signals.exact_identifier && !candidate.signals.exact_identifier {
+        return Some(
+            "the winner had an exact identifier match and this candidate did not".to_string(),
+        );
+    }
+    if top.signals.exact_query_match && !candidate.signals.exact_query_match {
+        return Some("the winner matched the exact query phrase more directly".to_string());
+    }
+    if top.signals.exact_text_hit && !candidate.signals.exact_text_hit {
+        return Some("the winner had the stronger exact text hit for this query".to_string());
+    }
+    if top.signals.matched_tokens > candidate.signals.matched_tokens && top.signals.total_tokens > 0
+    {
+        return Some(format!(
+            "the winner matched more significant query terms ({}/{} vs {}/{})",
+            top.signals.matched_tokens,
+            top.signals.total_tokens,
+            candidate.signals.matched_tokens,
+            candidate.signals.total_tokens
+        ));
+    }
+    if top.signals.code_bias && !candidate.signals.code_bias {
+        return Some(
+            "the current locate intent favored callable or editable code for the winner"
+                .to_string(),
+        );
+    }
+    if top.signals.docs_bias && !candidate.signals.docs_bias {
+        return Some(
+            "the current locate intent favored docs or structured spec targets for the winner"
+                .to_string(),
+        );
+    }
+    None
 }
 
 fn locate_selection_reason(reasons: &[String]) -> String {
@@ -848,6 +968,74 @@ fn ranked_target_kind(target: &RankedLocateTarget) -> NodeKind {
     match target {
         RankedLocateTarget::Symbol(symbol) => symbol.kind,
         RankedLocateTarget::Text(target) => target.kind,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ranked_text_candidate(
+        path: &str,
+        score: i32,
+        signals: LocateReasonSignals,
+    ) -> RankedLocateCandidate {
+        RankedLocateCandidate {
+            target: RankedLocateTarget::Text(SessionHandleTarget {
+                id: NodeId::new(TEXT_FRAGMENT_CRATE_NAME, path, NodeKind::Function),
+                lineage_id: None,
+                handle_category: SessionHandleCategory::TextFragment,
+                name: path.to_string(),
+                kind: NodeKind::Function,
+                file_path: Some("/repo/src/lib.rs".to_string()),
+                query: None,
+                why_short: "ranked candidate".to_string(),
+                start_line: Some(1),
+                end_line: Some(1),
+                start_column: None,
+                end_column: None,
+            }),
+            score,
+            why_short: "ranked candidate".to_string(),
+            why_not_top: None,
+            selection_reason: "selection".to_string(),
+            signals,
+        }
+    }
+
+    #[test]
+    fn close_alternative_explanation_calls_out_task_scope_advantage() {
+        let mut ranked = vec![
+            ranked_text_candidate(
+                "demo::task_alpha_handler",
+                420,
+                LocateReasonSignals {
+                    task_scope_strength: 2,
+                    matched_tokens: 2,
+                    total_tokens: 2,
+                    code_bias: true,
+                    ..LocateReasonSignals::default()
+                },
+            ),
+            ranked_text_candidate(
+                "demo::alpha_handler",
+                282,
+                LocateReasonSignals {
+                    matched_tokens: 2,
+                    total_tokens: 2,
+                    code_bias: true,
+                    ..LocateReasonSignals::default()
+                },
+            ),
+        ];
+
+        annotate_close_alternative_explanations(&mut ranked);
+
+        assert!(ranked[0].why_not_top.is_none());
+        assert!(ranked[1]
+            .why_not_top
+            .as_deref()
+            .is_some_and(|reason| reason.contains("requested task scope")));
     }
 }
 

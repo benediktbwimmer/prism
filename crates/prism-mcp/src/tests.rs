@@ -5232,7 +5232,7 @@ return {
 
     let mutate = &result.result["mutateSummary"];
     assert_eq!(mutate["toolName"], "prism_mutate");
-    assert_eq!(mutate["actionCount"], 18);
+    assert_eq!(mutate["actionCount"], 19);
     assert_eq!(mutate["exampleAction"], "validation_feedback");
     assert_eq!(
         mutate["examplePrismSaid"],
@@ -5977,8 +5977,8 @@ fn compact_locate_optional_task_id_biases_ranking_toward_task_scope() {
     fs::write(
         root.join("src/lib.rs"),
         r#"
-pub fn task_alpha() {}
-pub fn other_alpha() {}
+pub fn task_alpha_handler() {}
+pub fn alpha_handler() {}
 "#,
     )
     .unwrap();
@@ -6006,7 +6006,7 @@ pub fn other_alpha() {}
                     "anchors": [{
                         "type": "node",
                         "crateName": "demo",
-                        "path": "demo::task_alpha",
+                        "path": "demo::task_alpha_handler",
                         "kind": "function"
                     }]
                 }),
@@ -6020,7 +6020,7 @@ pub fn other_alpha() {}
         .compact_locate(
             Arc::clone(&session),
             PrismLocateArgs {
-                query: "alpha".to_string(),
+                query: "alpha handler".to_string(),
                 path: None,
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Edit),
@@ -6031,11 +6031,19 @@ pub fn other_alpha() {}
         )
         .expect("locate should succeed");
 
-    assert_eq!(locate.candidates[0].path, "demo::task_alpha");
+    assert_eq!(locate.candidates[0].path, "demo::task_alpha_handler");
     assert!(locate
         .selection_reason
         .as_deref()
         .is_some_and(|reason| reason.contains("requested task scope")));
+    assert!(locate.candidates[0].why_not_top.is_none());
+    if let Some(reason) = locate
+        .candidates
+        .get(1)
+        .and_then(|candidate| candidate.why_not_top.as_deref())
+    {
+        assert!(reason.contains("requested task scope"));
+    }
 }
 
 #[test]

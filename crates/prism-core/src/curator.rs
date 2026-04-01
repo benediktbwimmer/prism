@@ -12,6 +12,7 @@ use prism_ir::{new_prefixed_id, EventId};
 use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store};
 
+use crate::checkpoint_materializer::CheckpointMaterializerHandle;
 use crate::curator_support::{
     build_curator_context, curator_job_for_observed, curator_trigger_for_outcome,
     next_curator_sequence,
@@ -23,6 +24,7 @@ use crate::workspace_runtime_state::WorkspacePublishedGeneration;
 pub(crate) struct CuratorHandle {
     pub(crate) state: Arc<Mutex<CuratorQueueState>>,
     store: Arc<Mutex<SqliteStore>>,
+    checkpoint_materializer: Option<CheckpointMaterializerHandle>,
     tx: Option<mpsc::Sender<CuratorMessage>>,
     handle: Option<thread::JoinHandle<()>>,
 }
@@ -30,6 +32,7 @@ pub(crate) struct CuratorHandle {
 #[derive(Clone)]
 pub(crate) struct CuratorHandleRef {
     state: Arc<Mutex<CuratorQueueState>>,
+    checkpoint_materializer: Option<CheckpointMaterializerHandle>,
     tx: Option<mpsc::Sender<CuratorMessage>>,
 }
 
@@ -56,6 +59,7 @@ impl CuratorHandle {
         published_generation: Arc<RwLock<WorkspacePublishedGeneration>>,
         store: Arc<Mutex<SqliteStore>>,
         context_store: Arc<Mutex<SqliteStore>>,
+        checkpoint_materializer: Option<CheckpointMaterializerHandle>,
         refresh_lock: Arc<Mutex<()>>,
     ) -> Self {
         let state = Arc::new(Mutex::new(CuratorQueueState::default()));
@@ -66,6 +70,7 @@ impl CuratorHandle {
         let worker_context_store = Arc::clone(&context_store);
         let worker_published_generation = Arc::clone(&published_generation);
         let worker_refresh_lock = Arc::clone(&refresh_lock);
+        let worker_checkpoint_materializer = checkpoint_materializer.clone();
         let worker_backend = backend.clone();
         let handle = thread::spawn(move || loop {
             let item = match rx.recv() {
@@ -76,6 +81,7 @@ impl CuratorHandle {
             update_curator_record(
                 &worker_state,
                 &worker_store,
+                worker_checkpoint_materializer.as_ref(),
                 &worker_refresh_lock,
                 &item.id,
                 CuratorJobStatus::Running,
@@ -104,6 +110,7 @@ impl CuratorHandle {
                 update_curator_record(
                     &worker_state,
                     &worker_store,
+                    worker_checkpoint_materializer.as_ref(),
                     &worker_refresh_lock,
                     &item.id,
                     CuratorJobStatus::Failed,
@@ -126,6 +133,7 @@ impl CuratorHandle {
                     update_curator_record(
                         &worker_state,
                         &worker_store,
+                        worker_checkpoint_materializer.as_ref(),
                         &worker_refresh_lock,
                         &item.id,
                         CuratorJobStatus::Completed,
@@ -148,6 +156,7 @@ impl CuratorHandle {
                     update_curator_record(
                         &worker_state,
                         &worker_store,
+                        worker_checkpoint_materializer.as_ref(),
                         &worker_refresh_lock,
                         &item.id,
                         status,
@@ -161,6 +170,7 @@ impl CuratorHandle {
         Self {
             state,
             store,
+            checkpoint_materializer,
             tx: Some(tx),
             handle: Some(handle),
         }
@@ -213,10 +223,11 @@ impl CuratorHandleRef {
             error: None,
         };
         state.snapshot.records.push(record);
-        store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
-            curator_snapshot: Some(state.snapshot.clone()),
-            ..AuxiliaryPersistBatch::default()
-        })?;
+        persist_curator_snapshot(
+            self.checkpoint_materializer.as_ref(),
+            store,
+            state.snapshot.clone(),
+        )?;
         drop(state);
 
         if let Some(tx) = &self.tx {
@@ -234,6 +245,7 @@ impl From<&CuratorHandle> for CuratorHandleRef {
     fn from(value: &CuratorHandle) -> Self {
         Self {
             state: Arc::clone(&value.state),
+            checkpoint_materializer: value.checkpoint_materializer.clone(),
             tx: value.tx.clone(),
         }
     }
@@ -242,6 +254,7 @@ impl From<&CuratorHandle> for CuratorHandleRef {
 pub(crate) fn update_curator_record(
     state: &Arc<Mutex<CuratorQueueState>>,
     store: &Arc<Mutex<SqliteStore>>,
+    checkpoint_materializer: Option<&CheckpointMaterializerHandle>,
     refresh_lock: &Arc<Mutex<()>>,
     id: &CuratorJobId,
     status: CuratorJobStatus,
@@ -286,10 +299,23 @@ pub(crate) fn update_curator_record(
                 record.error = Some(error);
             }
         }
-        let _ = store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
-            curator_snapshot: Some(state.snapshot.clone()),
+        let _ =
+            persist_curator_snapshot(checkpoint_materializer, &mut store, state.snapshot.clone());
+    }
+}
+
+fn persist_curator_snapshot(
+    checkpoint_materializer: Option<&CheckpointMaterializerHandle>,
+    store: &mut SqliteStore,
+    snapshot: CuratorSnapshot,
+) -> Result<()> {
+    if let Some(materializer) = checkpoint_materializer {
+        materializer.enqueue_curator_snapshot(snapshot)
+    } else {
+        store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+            curator_snapshot: Some(snapshot),
             ..AuxiliaryPersistBatch::default()
-        });
+        })
     }
 }
 

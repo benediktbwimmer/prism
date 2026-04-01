@@ -11,13 +11,14 @@ use prism_coordination::{
     coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
     CoordinationSnapshot,
 };
+use prism_curator::CuratorSnapshot;
 use prism_ir::LineageEvent;
 use prism_memory::{EpisodicMemorySnapshot, OutcomeMemorySnapshot};
 use prism_projections::{CoChangeDelta, ProjectionIndex, ProjectionSnapshot, ValidationDelta};
 use prism_store::WorkspaceTreeSnapshot;
 use prism_store::{
-    CoordinationCheckpointStore, CoordinationJournal, Graph, GraphSnapshot, MaterializationStore,
-    SqliteStore,
+    AuxiliaryPersistBatch, CoordinationCheckpointStore, CoordinationJournal, Graph, GraphSnapshot,
+    MaterializationStore, SqliteStore,
 };
 use tracing::warn;
 
@@ -51,6 +52,7 @@ struct PendingMaterializations {
     episodic_snapshot: Option<EpisodicMemorySnapshot>,
     episodic_reanchor_events: Vec<LineageEvent>,
     inference_snapshot: Option<InferenceSnapshot>,
+    curator_snapshot: Option<CuratorSnapshot>,
     workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
 }
 
@@ -64,6 +66,7 @@ enum CheckpointMaterializerMessage {
     EpisodicSnapshot(EpisodicMemorySnapshot),
     EpisodicReanchorEvents(Vec<LineageEvent>),
     InferenceSnapshot(InferenceSnapshot),
+    CuratorSnapshot(CuratorSnapshot),
     WorkspaceTreeSnapshot(WorkspaceTreeSnapshot),
     Flush(SyncSender<Result<()>>),
     Stop,
@@ -114,6 +117,9 @@ impl CheckpointMaterializerHandle {
                     CheckpointMaterializerMessage::InferenceSnapshot(snapshot) => {
                         pending.inference_snapshot = Some(snapshot);
                     }
+                    CheckpointMaterializerMessage::CuratorSnapshot(snapshot) => {
+                        pending.curator_snapshot = Some(snapshot);
+                    }
                     CheckpointMaterializerMessage::WorkspaceTreeSnapshot(snapshot) => {
                         pending.workspace_tree_snapshot = Some(snapshot);
                     }
@@ -160,6 +166,9 @@ impl CheckpointMaterializerHandle {
                         }
                         Ok(CheckpointMaterializerMessage::InferenceSnapshot(snapshot)) => {
                             pending.inference_snapshot = Some(snapshot);
+                        }
+                        Ok(CheckpointMaterializerMessage::CuratorSnapshot(snapshot)) => {
+                            pending.curator_snapshot = Some(snapshot);
                         }
                         Ok(CheckpointMaterializerMessage::WorkspaceTreeSnapshot(snapshot)) => {
                             pending.workspace_tree_snapshot = Some(snapshot);
@@ -287,6 +296,14 @@ impl CheckpointMaterializerHandle {
             .map_err(|_| anyhow!("checkpoint materializer dropped inference snapshot flush"))
     }
 
+    pub(crate) fn enqueue_curator_snapshot(&self, snapshot: CuratorSnapshot) -> Result<()> {
+        let Some(tx) = &self.tx else {
+            return Err(anyhow!("checkpoint materializer is unavailable"));
+        };
+        tx.send(CheckpointMaterializerMessage::CuratorSnapshot(snapshot))
+            .map_err(|_| anyhow!("checkpoint materializer dropped curator snapshot flush"))
+    }
+
     pub(crate) fn enqueue_workspace_tree_snapshot(
         &self,
         snapshot: WorkspaceTreeSnapshot,
@@ -346,6 +363,7 @@ fn flush_pending_materializations_result(
     let episodic_snapshot = pending.episodic_snapshot.take();
     let episodic_reanchor_events = std::mem::take(&mut pending.episodic_reanchor_events);
     let inference_snapshot = pending.inference_snapshot.take();
+    let curator_snapshot = pending.curator_snapshot.take();
     let workspace_tree_snapshot = pending.workspace_tree_snapshot.take();
     if co_change_deltas.is_empty()
         && validation_deltas.is_empty()
@@ -356,6 +374,7 @@ fn flush_pending_materializations_result(
         && episodic_snapshot.is_none()
         && episodic_reanchor_events.is_empty()
         && inference_snapshot.is_none()
+        && curator_snapshot.is_none()
         && workspace_tree_snapshot.is_none()
     {
         return Ok(());
@@ -387,20 +406,33 @@ fn flush_pending_materializations_result(
     } else if !co_change_deltas.is_empty() || !validation_deltas.is_empty() {
         store.apply_projection_deltas(&co_change_deltas, &validation_deltas)?;
     }
-    if let Some(snapshot) = outcome_snapshot {
-        store.save_outcome_snapshot(&snapshot)?;
-    }
-    if let Some(snapshot) = episodic_snapshot {
-        let snapshot = reanchor_episodic_snapshot(snapshot, &episodic_reanchor_events)?;
-        store.save_episodic_snapshot(&snapshot)?;
+    let episodic_snapshot = if let Some(snapshot) = episodic_snapshot {
+        Some(reanchor_episodic_snapshot(
+            snapshot,
+            &episodic_reanchor_events,
+        )?)
     } else if !episodic_reanchor_events.is_empty() {
-        if let Some(snapshot) = store.load_episodic_snapshot()? {
-            let snapshot = reanchor_episodic_snapshot(snapshot, &episodic_reanchor_events)?;
-            store.save_episodic_snapshot(&snapshot)?;
-        }
-    }
-    if let Some(snapshot) = inference_snapshot {
-        store.save_inference_snapshot(&snapshot)?;
+        store
+            .load_episodic_snapshot()?
+            .map(|snapshot| reanchor_episodic_snapshot(snapshot, &episodic_reanchor_events))
+            .transpose()?
+    } else {
+        None
+    };
+    if outcome_snapshot.is_some()
+        || episodic_snapshot.is_some()
+        || inference_snapshot.is_some()
+        || curator_snapshot.is_some()
+        || !validation_deltas.is_empty()
+    {
+        store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+            outcome_snapshot,
+            validation_deltas,
+            episodic_snapshot,
+            inference_snapshot,
+            curator_snapshot,
+            ..AuxiliaryPersistBatch::default()
+        })?;
     }
     if let Some(snapshot) = workspace_tree_snapshot {
         store.save_workspace_tree_snapshot(&snapshot)?;

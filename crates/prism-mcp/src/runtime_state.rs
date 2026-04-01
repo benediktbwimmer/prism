@@ -273,6 +273,7 @@ fn update_runtime_state(root: &Path, update: impl FnOnce(&mut RuntimeState)) -> 
     let path = default_runtime_state_path(root)?;
     let mut state = read_runtime_state(root)?.unwrap_or_default();
     update(&mut state);
+    prune_dead_processes(&mut state.processes);
     dedupe_processes(&mut state.processes);
     trim_events(&mut state.events);
     write_runtime_state(&path, &state)
@@ -339,6 +340,25 @@ fn dedupe_processes(processes: &mut Vec<RuntimeProcessRecord>) {
     processes.retain(|process| seen.insert((process.pid, process.kind.clone())));
 }
 
+pub(crate) fn process_is_live(pid: u32) -> bool {
+    if pid == 0 {
+        return false;
+    }
+    let rc = unsafe { libc::kill(pid as libc::pid_t, 0) };
+    if rc == 0 {
+        return true;
+    }
+    match std::io::Error::last_os_error().raw_os_error() {
+        Some(code) if code == libc::EPERM => true,
+        Some(code) if code == libc::ESRCH => false,
+        _ => false,
+    }
+}
+
+fn prune_dead_processes(processes: &mut Vec<RuntimeProcessRecord>) {
+    processes.retain(|process| process_is_live(process.pid));
+}
+
 #[cfg(test)]
 mod tests {
     use std::env;
@@ -347,8 +367,8 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
-        default_runtime_state_path, read_runtime_state, record_daemon_ready, record_process_start,
-        runtime_state_temp_path,
+        default_runtime_state_path, process_is_live, read_runtime_state, record_daemon_ready,
+        record_process_start, runtime_state_temp_path, RuntimeProcessRecord, RuntimeState,
     };
     use crate::{PrismMcpCli, PrismMcpMode};
 
@@ -426,6 +446,70 @@ mod tests {
             .find(|process| process.pid == std::process::id() && process.kind == "daemon")
             .expect("daemon process should be recorded");
         assert_eq!(daemon.restart_nonce.as_deref(), Some("restart-1"));
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn process_is_live_recognizes_current_process() {
+        assert!(process_is_live(std::process::id()));
+    }
+
+    #[test]
+    fn record_process_start_prunes_dead_runtime_process_records() {
+        let root = test_dir("prune-dead-processes");
+        let path = default_runtime_state_path(&root).unwrap();
+        let stale_pid = 999_999_u32;
+        fs::write(
+            &path,
+            serde_json::to_vec(&RuntimeState {
+                processes: vec![RuntimeProcessRecord {
+                    pid: stale_pid,
+                    kind: "daemon".to_string(),
+                    started_at: 1,
+                    health_path: Some("/healthz".to_string()),
+                    http_uri: Some("http://127.0.0.1:41000/mcp".to_string()),
+                    upstream_uri: None,
+                    restart_nonce: Some("old".to_string()),
+                }],
+                events: Vec::new(),
+            })
+            .unwrap(),
+        )
+        .unwrap();
+
+        let cli = PrismMcpCli {
+            root: root.clone(),
+            mode: PrismMcpMode::Daemon,
+            no_coordination: false,
+            internal_developer: false,
+            enable_coordination: Vec::new(),
+            disable_coordination: Vec::new(),
+            enable_query_view: Vec::new(),
+            disable_query_view: Vec::new(),
+            daemon_log: None,
+            shared_runtime_sqlite: None,
+            shared_runtime_uri: None,
+            restart_nonce: Some("restart-2".to_string()),
+            daemon_start_timeout_ms: None,
+            http_bind: "127.0.0.1:0".to_string(),
+            http_path: "/mcp".to_string(),
+            health_path: "/healthz".to_string(),
+            http_uri_file: None,
+            upstream_uri: None,
+            daemonize: false,
+        };
+
+        record_process_start(&cli, &root).unwrap();
+
+        let state = read_runtime_state(&root).unwrap().unwrap();
+        assert!(state
+            .processes
+            .iter()
+            .all(|process| process.pid != stale_pid));
+        assert!(state
+            .processes
+            .iter()
+            .any(|process| process.pid == std::process::id() && process.kind == "daemon"));
         fs::remove_dir_all(root).ok();
     }
 }

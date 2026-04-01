@@ -119,13 +119,18 @@ const TEXT_FRAGMENT_CRATE_NAME: &str = "__prism_text__";
 const TEXT_LOCATE_LIMIT_MULTIPLIER: usize = 4;
 const TEXT_FRAGMENT_RELATED_LIMIT: usize = 3;
 const LOCATE_SELECTION_REASON_MAX_CHARS: usize = 220;
+const LOCATE_WHY_NOT_TOP_MAX_CHARS: usize = 220;
+const LOCATE_WHY_NOT_TOP_LIMIT: usize = 2;
+const LOCATE_CLOSE_ALTERNATIVE_MAX_GAP: i32 = 220;
 
 #[derive(Debug, Clone)]
 struct RankedLocateCandidate {
     target: RankedLocateTarget,
     score: i32,
     why_short: String,
+    why_not_top: Option<String>,
     selection_reason: String,
+    signals: LocateReasonSignals,
 }
 
 #[derive(Debug, Clone)]
@@ -139,6 +144,20 @@ struct LocateIntentProfile {
     code_bias: i32,
     docs_bias: i32,
     test_penalty: i32,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct LocateReasonSignals {
+    ownership_boundary: bool,
+    exact_identifier: bool,
+    exact_query_match: bool,
+    exact_text_hit: bool,
+    path_scope: bool,
+    task_scope_strength: u8,
+    matched_tokens: usize,
+    total_tokens: usize,
+    code_bias: bool,
+    docs_bias: bool,
 }
 
 #[derive(Debug)]
@@ -271,6 +290,7 @@ fn compact_target_view(
         path: symbol.id.path.clone(),
         name: symbol.name.clone(),
         why_short,
+        why_not_top: None,
         file_path: symbol.file_path.clone(),
     }
 }
@@ -287,6 +307,7 @@ fn compact_target_from_session_target(
         path: target.id.path.to_string(),
         name: target.name.clone(),
         why_short: target.why_short.clone(),
+        why_not_top: None,
         file_path: target.file_path.clone(),
     }
 }
@@ -296,8 +317,9 @@ fn compact_ranked_target_view(
     target: &RankedLocateTarget,
     query: Option<&str>,
     why_override: Option<String>,
+    why_not_top: Option<String>,
 ) -> AgentTargetHandleView {
-    match target {
+    let mut view = match target {
         RankedLocateTarget::Symbol(symbol) => {
             compact_target_view(session, symbol, query, why_override)
         }
@@ -308,7 +330,10 @@ fn compact_ranked_target_view(
             }
             compact_target_from_session_target(session, &target)
         }
-    }
+    };
+    view.why_not_top =
+        why_not_top.map(|reason| clamp_string(&reason, LOCATE_WHY_NOT_TOP_MAX_CHARS));
+    view
 }
 
 fn trim_leading_section_ordinal(text: &str) -> &str {
@@ -730,6 +755,7 @@ mod tests {
             path: format!("demo::module_{index}::very_long_function_name_for_budget_tests"),
             name: format!("very_long_function_name_for_budget_tests_{index}"),
             why_short: "Matched ranking hint from a compact budget regression test.".to_string(),
+            why_not_top: None,
             file_path: file_path.map(ToString::to_string),
         }
     }

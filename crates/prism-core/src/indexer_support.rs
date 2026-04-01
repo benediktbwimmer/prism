@@ -107,16 +107,17 @@ pub(crate) fn build_workspace_session(
         );
     }
     let fs_snapshot = Arc::new(Mutex::new(workspace_tree_snapshot));
+    let checkpoint_materializer =
+        CheckpointMaterializerHandle::new(root.clone(), Arc::clone(&store));
     let load_curator_snapshot_ms = 0_u128;
     let curator = CuratorHandle::new(
         backend,
         Arc::clone(&published_generation),
         Arc::clone(&store),
         Arc::new(Mutex::new(curator_store)),
+        Some(checkpoint_materializer.clone()),
         Arc::clone(&refresh_lock),
     );
-    let checkpoint_materializer =
-        CheckpointMaterializerHandle::new(root.clone(), Arc::clone(&store));
     let watch_started = Instant::now();
     let watch = Some(spawn_fs_watch(
         root.clone(),

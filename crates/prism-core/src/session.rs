@@ -2295,10 +2295,14 @@ impl WorkspaceSession {
         proposal_state.task = task;
         proposal_state.note = note;
         proposal_state.output = output;
-        store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
-            curator_snapshot: Some(state.snapshot.clone()),
-            ..AuxiliaryPersistBatch::default()
-        })?;
+        if let Some(materializer) = self.checkpoint_materializer.as_ref() {
+            materializer.enqueue_curator_snapshot(state.snapshot.clone())?;
+        } else {
+            store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+                curator_snapshot: Some(state.snapshot.clone()),
+                ..AuxiliaryPersistBatch::default()
+            })?;
+        }
         Ok(())
     }
 

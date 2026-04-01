@@ -65,6 +65,8 @@ pub struct AgentTargetHandleView {
     pub name: String,
     pub why_short: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub why_not_top: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub file_path: Option<String>,
 }
 

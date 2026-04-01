@@ -24,7 +24,7 @@ use serde_json::{Map, Value};
 use crate::daemon_log;
 use crate::mcp_call_log::McpCallLogStore;
 use crate::runtime_state::{
-    read_runtime_state, RuntimeEventRecord, RuntimeProcessRecord, RuntimeState,
+    process_is_live, read_runtime_state, RuntimeEventRecord, RuntimeProcessRecord, RuntimeState,
 };
 use crate::workspace_diagnostics::WorkspaceDiagnosticsConfig;
 use crate::{QueryHost, RuntimeLogArgs, RuntimeTimelineArgs};
@@ -839,6 +839,7 @@ fn runtime_state_processes(
 ) -> Result<Vec<McpProcess>> {
     Ok(state_processes
         .iter()
+        .filter(|record| process_is_live(record.pid))
         .filter_map(|record| runtime_process_from_record(root, record))
         .collect())
 }
@@ -1291,5 +1292,32 @@ mod tests {
             bridge_state(&bridges[3], &connected).map(bridge_state_label),
             Some("orphaned".to_string())
         );
+    }
+
+    #[test]
+    fn runtime_state_processes_filter_out_dead_runtime_records() {
+        let root = Path::new("/tmp/prism-runtime-status-test");
+        let live = RuntimeProcessRecord {
+            pid: std::process::id(),
+            kind: "daemon".to_string(),
+            started_at: 1,
+            health_path: Some("/healthz".to_string()),
+            http_uri: Some("http://127.0.0.1:52695/mcp".to_string()),
+            upstream_uri: None,
+            restart_nonce: Some("live".to_string()),
+        };
+        let dead = RuntimeProcessRecord {
+            pid: 999_999,
+            kind: "daemon".to_string(),
+            started_at: 1,
+            health_path: Some("/healthz".to_string()),
+            http_uri: Some("http://127.0.0.1:42695/mcp".to_string()),
+            upstream_uri: None,
+            restart_nonce: Some("dead".to_string()),
+        };
+
+        let processes = runtime_state_processes(root, &[live, dead]).unwrap();
+        assert_eq!(processes.len(), 1);
+        assert_eq!(processes[0].pid, std::process::id());
     }
 }
