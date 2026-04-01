@@ -126,7 +126,68 @@ fn collapse_whitespace(value: &str) -> String {
 }
 
 fn normalize_path(path: &str) -> String {
-    path.replace('\\', "/")
+    let path = path.replace('\\', "/");
+    if path.is_empty() {
+        return path;
+    }
+    if is_uri_like(&path) {
+        return path;
+    }
+    let (prefix, absolute, remainder) = split_path_prefix(&path);
+    let mut segments = Vec::<&str>::new();
+    for segment in remainder.split('/') {
+        if segment.is_empty() || segment == "." {
+            continue;
+        }
+        if segment == ".." {
+            if segments.last().is_some_and(|last| *last != "..") {
+                segments.pop();
+                continue;
+            }
+            if !absolute {
+                segments.push(segment);
+            }
+            continue;
+        }
+        segments.push(segment);
+    }
+    if prefix.is_empty() {
+        return segments.join("/");
+    }
+    if segments.is_empty() {
+        return prefix;
+    }
+    if prefix.ends_with('/') {
+        format!("{prefix}{}", segments.join("/"))
+    } else {
+        format!("{prefix}/{}", segments.join("/"))
+    }
+}
+
+fn split_path_prefix(path: &str) -> (String, bool, &str) {
+    if let Some(remainder) = path.strip_prefix("//") {
+        return ("//".to_string(), true, remainder);
+    }
+    if let Some(remainder) = path.strip_prefix('/') {
+        return ("/".to_string(), true, remainder);
+    }
+    let bytes = path.as_bytes();
+    if bytes.len() >= 3 && bytes[1] == b':' && bytes[2] == b'/' {
+        return (path[..3].to_string(), true, &path[3..]);
+    }
+    if bytes.len() >= 2 && bytes[1] == b':' {
+        return (path[..2].to_string(), false, &path[2..]);
+    }
+    (String::new(), false, path)
+}
+
+fn is_uri_like(path: &str) -> bool {
+    let Some((scheme, _rest)) = path.split_once("://") else {
+        return false;
+    };
+    let mut chars = scheme.chars();
+    matches!(chars.next(), Some(ch) if ch.is_ascii_alphabetic())
+        && chars.all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '+' | '-' | '.'))
 }
 
 fn is_absolute_like(path: &str) -> bool {
@@ -211,6 +272,10 @@ mod tests {
             workspace_scoped_path(Some(root), "/Users/bene/code/prism/Cargo.toml"),
             "/Users/bene/code/prism/Cargo.toml"
         );
+        assert_eq!(
+            workspace_scoped_path(Some(root), "./crates/../Cargo.toml"),
+            "/Users/bene/code/prism/Cargo.toml"
+        );
     }
 
     #[test]
@@ -218,6 +283,10 @@ mod tests {
         let root = Path::new("/Users/bene/code/prism");
         assert_eq!(
             workspace_display_path(Some(root), &root.join("src/lib.rs")),
+            "src/lib.rs"
+        );
+        assert_eq!(
+            workspace_display_path(Some(root), &root.join("src/./nested/../lib.rs")),
             "src/lib.rs"
         );
     }
@@ -229,6 +298,16 @@ mod tests {
             workspace_display_path(Some(root), Path::new("/tmp/elsewhere.rs")),
             "/tmp/elsewhere.rs"
         );
+    }
+
+    #[test]
+    fn same_workspace_file_accepts_dot_segment_variants() {
+        let root = Path::new("/Users/bene/code/prism");
+        assert!(same_workspace_file(
+            Some(root),
+            "src/lib.rs",
+            "/Users/bene/code/prism/src/./nested/../lib.rs"
+        ));
     }
 
     #[test]

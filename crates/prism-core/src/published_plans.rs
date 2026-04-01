@@ -199,13 +199,6 @@ impl PublishedPlanProjection {
             .cloned()
     }
 
-    fn execution_overlays_for(&self, plan_id: &PlanId) -> Vec<PlanExecutionOverlay> {
-        self.execution_overlays
-            .get(plan_id.0.as_str())
-            .cloned()
-            .unwrap_or_default()
-    }
-
     fn next_log_sequence_for(&self, plan_id: &PlanId) -> u64 {
         self.next_log_sequence
             .get(plan_id.0.as_str())
@@ -229,25 +222,7 @@ pub(crate) fn sync_repo_published_plans(
         root,
         snapshot,
         snapshot_plan_graphs(snapshot),
-        snapshot
-            .tasks
-            .iter()
-            .cloned()
-            .fold(
-                BTreeMap::<String, Vec<CoordinationTask>>::new(),
-                |mut map, task| {
-                    map.entry(task.plan.0.to_string()).or_default().push(task);
-                    map
-                },
-            )
-            .into_iter()
-            .map(|(plan_id, tasks)| {
-                (
-                    plan_id,
-                    normalize_execution_overlays(execution_overlays_from_tasks(&tasks)),
-                )
-            })
-            .collect::<BTreeMap<_, _>>(),
+        BTreeMap::new(),
         |_operation, _duration, _args, _success, _error| {},
     )
 }
@@ -271,7 +246,7 @@ pub(crate) fn sync_repo_published_plan_state_observed<O>(
     root: &Path,
     snapshot: &CoordinationSnapshot,
     mut graphs: Vec<PlanGraph>,
-    overlays_by_plan: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    _overlays_by_plan: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     mut observe_phase: O,
 ) -> Result<()>
 where
@@ -336,11 +311,6 @@ where
                     .cloned()
                     .unwrap_or_default(),
             };
-            let overlays = overlays_by_plan
-                .get(plan_key.as_str())
-                .cloned()
-                .unwrap_or_default();
-            let overlays = sanitize_published_execution_overlays(overlays);
 
             let relative_log_path = relative_plan_log_path(header.status, &header.id);
             let full_log_path = root.join(&relative_log_path);
@@ -355,21 +325,15 @@ where
             }
 
             let previous_record = existing_projection.record(&graph.id);
-            let previous_overlays = existing_projection.execution_overlays_for(&graph.id);
             let starting_sequence = existing_projection.next_log_sequence_for(&graph.id);
-            let events = if previous_record.is_none()
-                && previous_overlays.is_empty()
-                && !full_log_path.exists()
-            {
-                published_plan_events(starting_sequence, &header, &graph, &overlays)
+            let events = if previous_record.is_none() && !full_log_path.exists() {
+                published_plan_events(starting_sequence, &header, &graph)
             } else {
                 append_plan_delta_events(
                     starting_sequence,
                     previous_record.as_ref(),
-                    &previous_overlays,
                     &header,
                     &graph,
-                    &overlays,
                 )
             };
             if !events.is_empty() {
@@ -749,10 +713,9 @@ fn published_plan_events(
     starting_sequence: u64,
     header: &PublishedPlanHeader,
     graph: &PlanGraph,
-    overlays: &[PlanExecutionOverlay],
 ) -> Vec<PublishedPlanEvent> {
     let mut sequence = starting_sequence;
-    let mut events = Vec::with_capacity(graph.nodes.len() + graph.edges.len() + overlays.len() + 1);
+    let mut events = Vec::with_capacity(graph.nodes.len() + graph.edges.len() + 1);
     events.push(PublishedPlanEvent {
         event_id: next_published_event_id(&header.id, &mut sequence),
         kind: PublishedPlanEventKind::PlanCreated,
@@ -783,26 +746,14 @@ fn published_plan_events(
             payload: PublishedPlanPayload::Edge { edge },
         });
     }
-    for execution in sorted_overlays(overlays) {
-        events.push(PublishedPlanEvent {
-            event_id: next_published_event_id(&header.id, &mut sequence),
-            kind: PublishedPlanEventKind::ExecutionUpdated,
-            plan_id: header.id.clone(),
-            node_id: Some(execution.node_id.clone()),
-            edge_id: None,
-            payload: PublishedPlanPayload::Execution { execution },
-        });
-    }
     events
 }
 
 fn append_plan_delta_events(
     starting_sequence: u64,
     previous_record: Option<&PublishedPlanRecord>,
-    previous_overlays: &[PlanExecutionOverlay],
     header: &PublishedPlanHeader,
     graph: &PlanGraph,
-    overlays: &[PlanExecutionOverlay],
 ) -> Vec<PublishedPlanEvent> {
     let mut sequence = starting_sequence;
     let mut events = Vec::new();
@@ -944,47 +895,6 @@ fn append_plan_delta_events(
         }
     }
 
-    let previous_overlays = previous_overlays
-        .iter()
-        .cloned()
-        .map(|overlay| (overlay.node_id.0.to_string(), overlay))
-        .collect::<BTreeMap<_, _>>();
-    let current_overlays = overlays
-        .iter()
-        .cloned()
-        .map(|overlay| (overlay.node_id.0.to_string(), overlay))
-        .collect::<BTreeMap<_, _>>();
-    let overlay_node_ids = previous_overlays
-        .keys()
-        .chain(current_overlays.keys())
-        .cloned()
-        .collect::<BTreeSet<_>>();
-    for node_id in overlay_node_ids {
-        let previous = previous_overlays.get(node_id.as_str());
-        let current = current_overlays.get(node_id.as_str());
-        if previous == current {
-            continue;
-        }
-        events.push(PublishedPlanEvent {
-            event_id: next_published_event_id(&header.id, &mut sequence),
-            kind: PublishedPlanEventKind::ExecutionUpdated,
-            plan_id: header.id.clone(),
-            node_id: Some(PlanNodeId::new(node_id.clone())),
-            edge_id: None,
-            payload: PublishedPlanPayload::Execution {
-                execution: current.cloned().unwrap_or(PlanExecutionOverlay {
-                    node_id: PlanNodeId::new(node_id),
-                    pending_handoff_to: None,
-                    session: None,
-                    worktree_id: None,
-                    branch_ref: None,
-                    effective_assignee: None,
-                    awaiting_handoff_from: None,
-                }),
-            },
-        });
-    }
-
     events
 }
 
@@ -1004,24 +914,6 @@ fn normalize_execution_overlays(overlays: Vec<PlanExecutionOverlay>) -> Vec<Plan
         .collect::<Vec<_>>();
     overlays.sort_by(|left, right| left.node_id.0.cmp(&right.node_id.0));
     overlays
-}
-
-fn sanitize_published_execution_overlays(
-    overlays: Vec<PlanExecutionOverlay>,
-) -> Vec<PlanExecutionOverlay> {
-    normalize_execution_overlays(
-        overlays
-            .into_iter()
-            .map(|mut overlay| {
-                overlay.session = None;
-                overlay.worktree_id = None;
-                overlay.branch_ref = None;
-                overlay.effective_assignee = None;
-                overlay.awaiting_handoff_from = None;
-                overlay
-            })
-            .collect(),
-    )
 }
 
 fn execution_overlays_by_plan(
@@ -1057,12 +949,6 @@ fn sorted_edges(edges: &[PlanEdge]) -> Vec<PlanEdge> {
     let mut edges = edges.to_vec();
     edges.sort_by(|left, right| left.id.0.cmp(&right.id.0));
     edges
-}
-
-fn sorted_overlays(overlays: &[PlanExecutionOverlay]) -> Vec<PlanExecutionOverlay> {
-    let mut overlays = overlays.to_vec();
-    overlays.sort_by(|left, right| left.node_id.0.cmp(&right.node_id.0));
-    overlays
 }
 
 fn legacy_header_from_plan(plan: &Plan) -> PublishedPlanHeader {

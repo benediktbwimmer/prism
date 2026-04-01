@@ -36,6 +36,7 @@ pub(crate) struct WorkspaceRuntimeBinding {
     loaded_inference_revision: Arc<AtomicU64>,
     loaded_coordination_revision: Arc<AtomicU64>,
     engine: Arc<Mutex<WorkspaceRuntimeEngine>>,
+    prepared_delta: Arc<Mutex<Option<crate::workspace_runtime::PreparedWorkspaceRuntimeDelta>>>,
     runtime: Arc<WorkspaceRuntime>,
     diagnostics: Arc<WorkspaceDiagnosticsRuntime>,
 }
@@ -52,6 +53,7 @@ impl WorkspaceRuntimeBinding {
         let context = WorkspaceRuntimeContext::from_root(workspace.root());
         let sync_lock = shared_workspace_runtime_sync_lock(context.root());
         let engine = Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(context.clone())));
+        let prepared_delta = Arc::new(Mutex::new(None));
         let loaded_workspace_revision = workspace.loaded_workspace_revision_handle();
         let loaded_episodic_revision = Arc::new(AtomicU64::new(0));
         let loaded_inference_revision = Arc::new(AtomicU64::new(0));
@@ -69,6 +71,7 @@ impl WorkspaceRuntimeBinding {
             loaded_inference_revision: Arc::clone(&loaded_inference_revision),
             loaded_coordination_revision: Arc::clone(&loaded_coordination_revision),
             runtime_engine: Arc::clone(&engine),
+            prepared_delta: Arc::clone(&prepared_delta),
         };
         let runtime = Arc::new(WorkspaceRuntime::spawn(config.clone()));
         let diagnostics = Arc::new(WorkspaceDiagnosticsRuntime::spawn(
@@ -102,6 +105,7 @@ impl WorkspaceRuntimeBinding {
             loaded_inference_revision,
             loaded_coordination_revision,
             engine,
+            prepared_delta,
             runtime,
             diagnostics,
         }
@@ -154,6 +158,7 @@ impl WorkspaceRuntimeBinding {
             loaded_inference_revision: Arc::clone(&self.loaded_inference_revision),
             loaded_coordination_revision: Arc::clone(&self.loaded_coordination_revision),
             runtime_engine: Arc::clone(&self.engine),
+            prepared_delta: Arc::clone(&self.prepared_delta),
         }
     }
 

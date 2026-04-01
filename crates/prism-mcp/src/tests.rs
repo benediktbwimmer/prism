@@ -6094,6 +6094,13 @@ pub fn locate_query_tokens() {}
         locate.candidates[0].path,
         "demo::compact_tools::locate_intent_profile"
     );
+    assert!(locate
+        .selection_reason
+        .as_deref()
+        .is_some_and(|reason| reason.contains("Exact identifier `locate_intent_profile`")));
+    assert!(locate.selection_reason.as_deref().is_some_and(|reason| {
+        reason.contains("significant query terms") && reason.contains("Matched")
+    }));
 }
 
 #[test]
@@ -6790,7 +6797,7 @@ pub fn beta() {
             Arc::clone(&session),
             PrismOpenArgs {
                 handle: None,
-                path: Some("src/lib.rs".to_string()),
+                path: Some("./src/./nested/../lib.rs".to_string()),
                 mode: Some(PrismOpenModeInput::Raw),
                 line: Some(3),
                 before_lines: Some(0),
@@ -6807,6 +6814,7 @@ pub fn beta() {
     assert!(open.handle.starts_with("handle:"));
     assert!(open.text.contains("pub fn beta()"));
     assert!(open.text.contains("let value = 42;"));
+    assert!(open.file_path.ends_with("/src/lib.rs"));
 
     let reopened = host
         .compact_open(
@@ -7920,18 +7928,18 @@ return {
 
     assert!(envelope.result["inspectFirst"]
         .as_str()
-        .is_some_and(
-            |value| value.starts_with("demo::compact_tools") && !value.contains("::tests::")
-        ));
+        .is_some_and(is_docs_like_semantic_path));
     assert!(envelope.result["supportingRead"]
         .as_str()
-        .is_some_and(|value| value.starts_with("demo::compact_tools::")));
+        .is_some_and(|value| value.starts_with("demo::compact_tools")));
     assert!(envelope.result["likelyTest"]
         .as_str()
         .is_some_and(|value| value.contains("compact")));
     assert!(envelope.result["nextAction"]
         .as_str()
-        .is_some_and(|value| value.contains("Inspect")));
+        .is_some_and(
+            |value| value.contains("doc or spec section") && value.contains("supporting owner")
+        ));
 }
 
 #[test]
@@ -8012,8 +8020,17 @@ fn compact_concept_followthrough_falls_back_when_live_members_are_empty() {
     assert!(open
         .promoted_handle
         .as_ref()
-        .is_some_and(|handle| handle.path.starts_with("demo::compact_tools")
-            && !handle.path.contains("::tests::")));
+        .is_some_and(|handle| is_docs_like_semantic_path(&handle.path)));
+    assert!(open
+        .related_handles
+        .as_ref()
+        .and_then(|handles| handles.first())
+        .is_some_and(|handle| handle.path.starts_with("demo::compact_tools")));
+    assert!(
+        open.next_action.as_deref().is_some_and(
+            |value| value.contains("doc or spec section") && value.contains("code owner")
+        )
+    );
 
     let workset = host
         .compact_workset(
@@ -8024,11 +8041,20 @@ fn compact_concept_followthrough_falls_back_when_live_members_are_empty() {
             },
         )
         .expect("compact workset should fall back to follow-through targets");
-    assert!(workset.primary.path.starts_with("demo::compact_tools"));
+    assert!(is_docs_like_semantic_path(&workset.primary.path));
     assert!(workset
         .supporting_reads
         .iter()
-        .any(|candidate| candidate.path.starts_with("demo::compact_tools::")));
+        .any(|candidate| candidate.path.starts_with("demo::compact_tools")));
+    assert!(
+        workset.next_action.as_deref().is_some_and(
+            |value| value.contains("doc or spec section") && value.contains("code owner")
+        )
+    );
+}
+
+fn is_docs_like_semantic_path(value: &str) -> bool {
+    value.contains("docs/") || value.contains("document::docs::")
 }
 
 #[test]
@@ -10749,6 +10775,9 @@ pub fn main() {
         .unwrap();
     let locate = first_tool_content_json(client.receive().await.unwrap());
     assert_eq!(locate["status"], "ok");
+    assert!(locate["selectionReason"]
+        .as_str()
+        .is_some_and(|reason| reason.contains("Top candidate won because")));
 
     client
         .send(call_tool_request(
@@ -18853,6 +18882,12 @@ fn session_resource_surfaces_detached_current_task_context() {
         .context_summary
         .contains("leftover session context"));
     assert!(current_task.next_action.contains("start_task"));
+    let repair = current_task
+        .repair_action
+        .expect("detached task should surface a repair action");
+    assert_eq!(repair.tool, "prism_session");
+    assert_eq!(repair.input["action"], "configure");
+    assert_eq!(repair.input["input"]["clearCurrentTask"], true);
 }
 
 #[test]
@@ -18977,6 +19012,11 @@ fn session_resource_surfaces_stale_current_task_context() {
         .context_summary
         .contains("stale coordination revision"));
     assert!(current_task.next_action.contains("Refresh this task"));
+    let repair = current_task
+        .repair_action
+        .expect("stale task should surface a repair action");
+    assert_eq!(repair.tool, "prism_task_brief");
+    assert_eq!(repair.input["taskId"], task_id.0.to_string());
 }
 
 #[test]

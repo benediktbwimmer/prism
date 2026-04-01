@@ -83,7 +83,11 @@ impl QueryHost {
                         mode,
                         &target,
                         false,
-                        &compact_concept_open_next_action(&selection.packet),
+                        &compact_concept_open_next_action(
+                            &selection.packet,
+                            &selection.primary,
+                            related_handles.as_deref(),
+                        ),
                         Some(selection.primary),
                         related_handles,
                         suggested_actions,
@@ -145,7 +149,7 @@ fn compact_open_symbol_result(
     mode: AgentOpenMode,
     target: &SessionHandleTarget,
     remapped: bool,
-    _next_action: &str,
+    next_action: &str,
     promoted_handle: Option<AgentTargetHandleView>,
     related_handles: Option<Vec<AgentTargetHandleView>>,
     suggested_actions: Vec<AgentSuggestedActionView>,
@@ -158,7 +162,7 @@ fn compact_open_symbol_result(
         .clone()
         .ok_or_else(|| anyhow!("target `{}` has no workspace file path", target.id.path))?;
     let _ = host.ensure_workspace_paths_deep([PathBuf::from(&file_path)])?;
-    let base_next_action = compact_open_next_action(target);
+    let base_next_action = next_action;
 
     match mode {
         AgentOpenMode::Focus => {
@@ -567,6 +571,15 @@ fn compact_open_adaptive_next_action(
         }
         return "Edit slice hit compact limits for a large or mixed-purpose target. Use prism_workset for decomposition-aware follow-through, or prism_expand `neighbors` to narrow the edit scope.".to_string();
     }
+    if (is_spec_like_kind(target.kind) || target.file_path.as_deref().is_some_and(is_docs_path))
+        && base_next_action.contains("doc or spec section")
+        && base_next_action.contains("code owner")
+    {
+        return format!(
+            "Open hit compact limits for a large or mixed-purpose target. Continue with {}",
+            base_next_action
+        );
+    }
     if let Some(related) = related_handles.and_then(|handles| handles.first()) {
         return format!(
             "Open hit compact limits for a large or mixed-purpose target. Use prism_open on related handle `{}`, or continue with {}",
@@ -579,7 +592,22 @@ fn compact_open_adaptive_next_action(
     )
 }
 
-fn compact_concept_open_next_action(packet: &prism_query::ConceptPacket) -> String {
+fn compact_concept_open_next_action(
+    packet: &prism_query::ConceptPacket,
+    primary: &AgentTargetHandleView,
+    related_handles: Option<&[AgentTargetHandleView]>,
+) -> String {
+    if matches!(
+        primary.kind,
+        prism_ir::NodeKind::MarkdownHeading | prism_ir::NodeKind::Document
+    ) {
+        if let Some(next_owner) = related_handles.and_then(|handles| handles.first()) {
+            return format!(
+                "Read this doc or spec section first, then open `{}` to continue into the code owner path.",
+                next_owner.path
+            );
+        }
+    }
     if packet
         .decode_lenses
         .iter()
@@ -620,15 +648,15 @@ pub(super) fn budgeted_open_result(mut result: AgentOpenResultView) -> Result<Ag
             result.suggested_actions.pop();
             continue;
         }
-        if result.promoted_handle.is_some() {
-            result.promoted_handle = None;
-            continue;
-        }
         if let Some(related_handles) = result.related_handles.as_mut() {
             related_handles.pop();
             if related_handles.is_empty() {
                 result.related_handles = None;
             }
+            continue;
+        }
+        if result.promoted_handle.is_some() {
+            result.promoted_handle = None;
             continue;
         }
         break;

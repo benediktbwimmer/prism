@@ -83,6 +83,8 @@ pub struct AgentLocateResultView {
     pub status: AgentLocateStatus,
     pub truncated: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub selection_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub narrowing_hint: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_preview: Option<AgentTextPreviewView>,

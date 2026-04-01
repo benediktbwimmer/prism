@@ -53,13 +53,16 @@ impl QueryHost {
                 let mut diagnostics = execution.diagnostics();
                 diagnostics.extend(locate_text_diagnostics(&ranked, applied));
                 let resolved_confidently = locate_resolved_confidently(&ranked, &diagnostics);
+                let selection_reason = ranked
+                    .first()
+                    .map(|candidate| candidate.selection_reason.clone());
                 let top_preview = if args.include_top_preview.unwrap_or(false) {
                     if let Some(candidate) = ranked.first() {
                         let preview_handle = compact_ranked_target_view(
                             &session,
                             &candidate.target,
                             Some(args.query.as_str()),
-                            Some(candidate.why.clone()),
+                            Some(candidate.why_short.clone()),
                         );
                         compact_preview_for_ranked_target(
                             host,
@@ -80,13 +83,14 @@ impl QueryHost {
                             &session,
                             &candidate.target,
                             Some(args.query.as_str()),
-                            Some(candidate.why),
+                            Some(candidate.why_short),
                         )
                     })
                     .collect::<Vec<_>>();
                 Ok((
                     build_locate_result(
                         candidates,
+                        selection_reason,
                         diagnostics.clone(),
                         resolved_confidently,
                         top_preview,
@@ -223,6 +227,7 @@ fn locate_intent_defaults(
 
 fn build_locate_result(
     candidates: Vec<AgentTargetHandleView>,
+    selection_reason: Option<String>,
     diagnostics: Vec<QueryDiagnostic>,
     resolved_confidently: bool,
     top_preview: Option<AgentTextPreviewView>,
@@ -247,6 +252,7 @@ fn build_locate_result(
         truncated: diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "result_truncated"),
+        selection_reason,
         narrowing_hint: matches!(status, AgentLocateStatus::Ambiguous)
             .then(|| diagnostics.iter().find_map(next_action_hint))
             .flatten(),
@@ -503,16 +509,18 @@ fn rank_locate_candidate(
     }
 
     score -= index as i32;
+    let why_short = clamp_string(
+        &reasons
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "Locate ranked this as a strong first-hop target.".to_string()),
+        MAX_WHY_SHORT_CHARS,
+    );
     RankedLocateCandidate {
         target: RankedLocateTarget::Symbol(symbol),
         score,
-        why: clamp_string(
-            &reasons
-                .into_iter()
-                .next()
-                .unwrap_or_else(|| "Locate ranked this as a strong first-hop target.".to_string()),
-            MAX_WHY_SHORT_CHARS,
-        ),
+        selection_reason: locate_selection_reason(&reasons),
+        why_short,
     }
 }
 
@@ -610,15 +618,85 @@ fn rank_text_locate_candidate(
     }
 
     score -= index as i32;
+    let why_short = clamp_string(
+        &reasons
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "Exact text hit looked like the best first-hop read.".to_string()),
+        MAX_WHY_SHORT_CHARS,
+    );
     RankedLocateCandidate {
         target: RankedLocateTarget::Text(candidate.target),
         score,
-        why: clamp_string(
-            &reasons.into_iter().next().unwrap_or_else(|| {
-                "Exact text hit looked like the best first-hop read.".to_string()
-            }),
-            MAX_WHY_SHORT_CHARS,
-        ),
+        selection_reason: locate_selection_reason(&reasons),
+        why_short,
+    }
+}
+
+fn locate_selection_reason(reasons: &[String]) -> String {
+    let normalized = reasons
+        .iter()
+        .map(|reason| reason.trim())
+        .filter(|reason| !reason.is_empty())
+        .collect::<Vec<_>>();
+    let mut unique = Vec::<&str>::new();
+
+    if let Some(reason) = normalized
+        .iter()
+        .copied()
+        .find(|reason| matches!(locate_selection_reason_bucket(reason), 0))
+    {
+        unique.push(reason);
+    }
+    if let Some(reason) = normalized
+        .iter()
+        .copied()
+        .find(|reason| matches!(locate_selection_reason_bucket(reason), 1))
+        .filter(|reason| !unique.iter().any(|existing| *existing == *reason))
+    {
+        unique.push(reason);
+    }
+    if let Some(reason) = normalized
+        .iter()
+        .copied()
+        .find(|reason| matches!(locate_selection_reason_bucket(reason), 2))
+        .filter(|reason| !unique.iter().any(|existing| *existing == *reason))
+    {
+        unique.push(reason);
+    }
+    for reason in normalized {
+        if unique.iter().any(|existing| *existing == reason) {
+            continue;
+        }
+        unique.push(reason);
+        if unique.len() == 3 {
+            break;
+        }
+    }
+    clamp_string(
+        &if unique.is_empty() {
+            "Top candidate won the compact locate ranking.".to_string()
+        } else {
+            format!("Top candidate won because {}.", unique.join(" "))
+        },
+        LOCATE_SELECTION_REASON_MAX_CHARS,
+    )
+}
+
+fn locate_selection_reason_bucket(reason: &str) -> u8 {
+    if reason.starts_with("Exact identifier")
+        || reason.starts_with("Exact query matched")
+        || reason.starts_with("Exact text hit")
+        || reason.starts_with("Ownership-style query favored")
+        || reason.starts_with("Matched the requested path scope")
+    {
+        0
+    } else if reason.starts_with("Matched all ") || reason.starts_with("Matched ") {
+        1
+    } else if reason.starts_with("Locate intent favored") {
+        2
+    } else {
+        3
     }
 }
 
@@ -693,14 +771,16 @@ fn locate_resolved_confidently(
     let top = &ranked[0];
     let runner_up = ranked.get(1).map(|candidate| candidate.score).unwrap_or(0);
     let score_gap = top.score - runner_up;
-    if top.why.starts_with("Ownership-style query favored") {
+    if top.why_short.starts_with("Ownership-style query favored") {
         return score_gap >= 24;
     }
     score_gap >= 60
-        && (top.why.starts_with("Exact identifier")
-            || top.why.starts_with("Exact query matched")
-            || top.why.starts_with("Matched the requested path scope")
-            || top.why.starts_with("Ownership-style query favored"))
+        && (top.why_short.starts_with("Exact identifier")
+            || top.why_short.starts_with("Exact query matched")
+            || top
+                .why_short
+                .starts_with("Matched the requested path scope")
+            || top.why_short.starts_with("Ownership-style query favored"))
 }
 
 fn locate_diversity_bonus(

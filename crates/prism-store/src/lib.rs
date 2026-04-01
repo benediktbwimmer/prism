@@ -6,7 +6,9 @@ mod persistence;
 mod sqlite;
 mod store;
 
-pub use graph::{FileRecord, FileState, FileUpdate, Graph, GraphSnapshot};
+pub use graph::{
+    DependencyInvalidationKeys, FileRecord, FileState, FileUpdate, Graph, GraphSnapshot,
+};
 pub use memory_store::MemoryStore;
 pub use persistence::{
     ColdQueryStore, CoordinationCheckpointStore, CoordinationJournal, EventJournalStore,

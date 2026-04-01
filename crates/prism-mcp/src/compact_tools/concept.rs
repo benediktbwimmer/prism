@@ -319,12 +319,16 @@ pub(super) fn compact_concept_workset_result(
     let suggested_actions =
         compact_concept_member_followups(&selection.packet, &selection.primary.handle);
     budgeted_workset_result_with_followups(
-        selection.primary,
-        selection.supporting_reads,
+        selection.primary.clone(),
+        selection.supporting_reads.clone(),
         selection.likely_tests,
         selection.packet.summary.clone(),
         false,
-        Some(compact_concept_workset_next_action(&selection.packet)),
+        Some(compact_concept_workset_next_action(
+            &selection.packet,
+            &selection.primary,
+            selection.supporting_reads.first(),
+        )),
         suggested_actions,
     )
 }
@@ -365,13 +369,23 @@ pub(super) fn compact_concept_selection(
     }
     let fallback_primary =
         compact_optional_handle_for_id(session, prism, fallback.inspect_first.as_ref())?;
-    let primary = core_members
-        .into_iter()
-        .next()
-        .or_else(|| supporting_reads.first().cloned())
-        .or_else(|| likely_tests.first().cloned())
-        .or(fallback_primary)
-        .ok_or_else(|| anyhow!("concept `{}` has no reusable members", packet.handle))?;
+    let has_explicit_members = !packet.core_members.is_empty()
+        || !packet.supporting_members.is_empty()
+        || !packet.likely_tests.is_empty();
+    let primary = if has_explicit_members {
+        core_members
+            .into_iter()
+            .next()
+            .or_else(|| supporting_reads.first().cloned())
+            .or_else(|| likely_tests.first().cloned())
+            .or(fallback_primary)
+    } else {
+        fallback_primary
+            .clone()
+            .or_else(|| supporting_reads.first().cloned())
+            .or_else(|| likely_tests.first().cloned())
+    }
+    .ok_or_else(|| anyhow!("concept `{}` has no reusable members", packet.handle))?;
     supporting_reads.retain(|candidate| candidate.handle != primary.handle);
     likely_tests.retain(|candidate| candidate.handle != primary.handle);
     Ok(CompactConceptSelection {
@@ -467,7 +481,22 @@ fn compact_concept_member_followups(
     dedupe_suggested_actions(actions)
 }
 
-fn compact_concept_workset_next_action(packet: &ConceptPacket) -> String {
+fn compact_concept_workset_next_action(
+    packet: &ConceptPacket,
+    primary: &AgentTargetHandleView,
+    first_supporting_read: Option<&AgentTargetHandleView>,
+) -> String {
+    if matches!(
+        primary.kind,
+        prism_ir::NodeKind::MarkdownHeading | prism_ir::NodeKind::Document
+    ) {
+        if let Some(next_owner) = first_supporting_read {
+            return format!(
+                "Use prism_open on the doc or spec section first, then open `{}` to continue into the code owner path.",
+                next_owner.path
+            );
+        }
+    }
     if packet
         .decode_lenses
         .iter()

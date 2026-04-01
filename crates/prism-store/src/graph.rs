@@ -51,6 +51,24 @@ pub struct FileUpdate {
     pub changes: Vec<GraphChange>,
     pub requires_index_rebuild: bool,
     pub requires_edge_resolution: bool,
+    pub dependency_invalidation_keys: DependencyInvalidationKeys,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DependencyInvalidationKeys {
+    pub symbol_names: HashSet<String>,
+    pub symbol_paths: HashSet<String>,
+}
+
+impl DependencyInvalidationKeys {
+    pub fn is_empty(&self) -> bool {
+        self.symbol_names.is_empty() && self.symbol_paths.is_empty()
+    }
+
+    pub fn extend_from(&mut self, other: &Self) {
+        self.symbol_names.extend(other.symbol_names.iter().cloned());
+        self.symbol_paths.extend(other.symbol_paths.iter().cloned());
+    }
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -82,6 +100,10 @@ pub struct Graph {
     unresolved_intent_target_index: HashMap<String, HashSet<PathBuf>>,
     #[serde(skip)]
     derived_edge_incidence: HashMap<NodeId, usize>,
+    #[serde(skip)]
+    file_dependency_index: HashMap<PathBuf, HashSet<PathBuf>>,
+    #[serde(skip)]
+    file_reverse_dependency_index: HashMap<PathBuf, HashSet<PathBuf>>,
     next_file_id: u32,
 }
 
@@ -118,6 +140,8 @@ impl Graph {
             unresolved_impl_target_index: HashMap::new(),
             unresolved_intent_target_index: HashMap::new(),
             derived_edge_incidence: HashMap::new(),
+            file_dependency_index: HashMap::new(),
+            file_reverse_dependency_index: HashMap::new(),
             next_file_id: snapshot.next_file_id,
         };
 
@@ -355,6 +379,7 @@ impl Graph {
             meta,
             trigger,
         );
+        let dependency_invalidation_keys = dependency_invalidation_keys_for_observed(&observed);
         let changes = self.compute_file_changes(previous.as_ref(), &nodes, reanchors);
         let can_update_in_place = previous_path.unwrap_or(path) == path
             && previous_state
@@ -393,6 +418,7 @@ impl Graph {
                 changes,
                 requires_index_rebuild: false,
                 requires_edge_resolution: false,
+                dependency_invalidation_keys,
             };
         }
         self.remove_file_nodes(baseline_path);
@@ -433,6 +459,7 @@ impl Graph {
             changes,
             requires_index_rebuild: false,
             requires_edge_resolution: true,
+            dependency_invalidation_keys,
         }
     }
 
@@ -469,6 +496,7 @@ impl Graph {
                     .entry(edge.target.clone())
                     .or_default() += 1;
             }
+            self.index_file_dependency_for_edge(&edge);
             self.edges.push(edge);
             appended += 1;
         }
@@ -523,6 +551,24 @@ impl Graph {
 
     pub fn files_with_unresolved_intent_target(&self, target: &str) -> HashSet<PathBuf> {
         indexed_paths(&self.unresolved_intent_target_index, target)
+    }
+
+    pub fn neighboring_files_for_path(&self, path: &Path) -> HashSet<PathBuf> {
+        let mut neighbors = HashSet::new();
+        if let Some(outgoing) = self.file_dependency_index.get(path) {
+            neighbors.extend(outgoing.iter().cloned());
+        }
+        if let Some(incoming) = self.file_reverse_dependency_index.get(path) {
+            neighbors.extend(incoming.iter().cloned());
+        }
+        neighbors
+    }
+
+    pub fn reverse_dependent_files_for_path(&self, path: &Path) -> HashSet<PathBuf> {
+        self.file_reverse_dependency_index
+            .get(path)
+            .cloned()
+            .unwrap_or_default()
     }
 
     pub fn edges_from(&self, id: &NodeId, kind: Option<EdgeKind>) -> Vec<&Edge> {
@@ -702,6 +748,7 @@ impl Graph {
             meta,
             trigger,
         );
+        let dependency_invalidation_keys = dependency_invalidation_keys_for_observed(&observed);
         self.remove_file_nodes(path);
         if let Some(file_id) = self.path_to_file.remove(path) {
             self.file_paths.remove(&file_id);
@@ -715,6 +762,7 @@ impl Graph {
             changes,
             requires_index_rebuild: false,
             requires_edge_resolution: true,
+            dependency_invalidation_keys,
         }
     }
 
@@ -854,8 +902,11 @@ impl Graph {
         self.adjacency.clear();
         self.reverse_adjacency.clear();
         self.derived_edge_incidence.clear();
+        self.file_dependency_index.clear();
+        self.file_reverse_dependency_index.clear();
 
-        for (index, edge) in self.edges.iter().enumerate() {
+        for index in 0..self.edges.len() {
+            let edge = self.edges[index].clone();
             self.adjacency
                 .entry(edge.source.clone())
                 .or_default()
@@ -874,7 +925,34 @@ impl Graph {
                     .entry(edge.target.clone())
                     .or_default() += 1;
             }
+            self.index_file_dependency_for_edge(&edge);
         }
+    }
+
+    fn index_file_dependency_for_edge(&mut self, edge: &Edge) {
+        let Some(source) = self.nodes.get(&edge.source) else {
+            return;
+        };
+        let Some(target) = self.nodes.get(&edge.target) else {
+            return;
+        };
+        if source.file == target.file {
+            return;
+        }
+        let Some(source_path) = self.file_path(source.file).cloned() else {
+            return;
+        };
+        let Some(target_path) = self.file_path(target.file).cloned() else {
+            return;
+        };
+        self.file_dependency_index
+            .entry(source_path.clone())
+            .or_default()
+            .insert(target_path.clone());
+        self.file_reverse_dependency_index
+            .entry(target_path)
+            .or_default()
+            .insert(source_path);
     }
 
     fn rebuild_node_indexes(&mut self) {
@@ -1256,6 +1334,33 @@ fn unindex_path(index: &mut HashMap<String, HashSet<PathBuf>>, key: &str, path: 
 
 fn indexed_paths(index: &HashMap<String, HashSet<PathBuf>>, key: &str) -> HashSet<PathBuf> {
     index.get(key).cloned().unwrap_or_default()
+}
+
+fn dependency_invalidation_keys_for_observed(
+    observed: &ObservedChangeSet,
+) -> DependencyInvalidationKeys {
+    let mut keys = DependencyInvalidationKeys::default();
+    for node in &observed.added {
+        add_dependency_invalidation_node(&mut keys, &node.node);
+    }
+    for node in &observed.removed {
+        add_dependency_invalidation_node(&mut keys, &node.node);
+    }
+    for (before, after) in &observed.updated {
+        if before.node.id != after.node.id
+            || before.node.name != after.node.name
+            || before.node.kind != after.node.kind
+        {
+            add_dependency_invalidation_node(&mut keys, &before.node);
+            add_dependency_invalidation_node(&mut keys, &after.node);
+        }
+    }
+    keys
+}
+
+fn add_dependency_invalidation_node(keys: &mut DependencyInvalidationKeys, node: &Node) {
+    keys.symbol_names.insert(node.name.to_string());
+    keys.symbol_paths.insert(node.id.path.to_string());
 }
 
 fn unindex_vec_value<T: PartialEq>(index: &mut HashMap<String, Vec<T>>, key: &str, value: &T) {

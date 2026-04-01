@@ -20,6 +20,14 @@ pub(crate) struct SessionLimitsView {
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct SessionRepairActionView {
+    pub(crate) tool: String,
+    pub(crate) input: Value,
+    pub(crate) label: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct SessionTaskView {
     pub(crate) task_id: String,
     pub(crate) description: Option<String>,
@@ -28,6 +36,7 @@ pub(crate) struct SessionTaskView {
     pub(crate) context_status: String,
     pub(crate) context_summary: String,
     pub(crate) next_action: String,
+    pub(crate) repair_action: Option<SessionRepairActionView>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]

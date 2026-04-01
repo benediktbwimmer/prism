@@ -118,12 +118,14 @@ const LOCATE_SECONDARY_KIND_DIVERSITY_BONUS: i32 = 7;
 const TEXT_FRAGMENT_CRATE_NAME: &str = "__prism_text__";
 const TEXT_LOCATE_LIMIT_MULTIPLIER: usize = 4;
 const TEXT_FRAGMENT_RELATED_LIMIT: usize = 3;
+const LOCATE_SELECTION_REASON_MAX_CHARS: usize = 220;
 
 #[derive(Debug, Clone)]
 struct RankedLocateCandidate {
     target: RankedLocateTarget,
     score: i32,
-    why: String,
+    why_short: String,
+    selection_reason: String,
 }
 
 #[derive(Debug, Clone)]

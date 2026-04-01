@@ -220,6 +220,126 @@ fn extend_edges_updates_adjacency_and_derived_incidence_incrementally() {
 }
 
 #[test]
+fn extend_edges_updates_file_reverse_dependency_indexes_incrementally() {
+    let mut graph = Graph::new();
+    let callee_path = Path::new("src/callee.rs");
+    let caller_path = Path::new("src/caller.rs");
+
+    let callee_file = graph.ensure_file(callee_path);
+    let caller_file = graph.ensure_file(caller_path);
+    let callee = Node {
+        file: callee_file,
+        ..node("callee")
+    };
+    let caller = Node {
+        file: caller_file,
+        ..node("caller")
+    };
+
+    graph.upsert_file(
+        callee_path,
+        1,
+        vec![callee.clone()],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+    graph.upsert_file(
+        caller_path,
+        1,
+        vec![caller.clone()],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+
+    graph.extend_edges(std::iter::once(Edge {
+        kind: EdgeKind::Calls,
+        source: caller.id.clone(),
+        target: callee.id.clone(),
+        origin: EdgeOrigin::Inferred,
+        confidence: 1.0,
+    }));
+
+    assert!(graph
+        .neighboring_files_for_path(caller_path)
+        .contains(&callee_path.to_path_buf()));
+    assert!(graph
+        .reverse_dependent_files_for_path(callee_path)
+        .contains(&caller_path.to_path_buf()));
+}
+
+#[test]
+fn file_update_emits_dependency_invalidation_keys_for_symbol_renames() {
+    let path = Path::new("src/lib.rs");
+    let mut graph = Graph::new();
+    let alpha = node("alpha");
+
+    graph.upsert_file(
+        path,
+        1,
+        vec![alpha.clone()],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+
+    let update = graph.upsert_file_from_with_observed_without_rebuild(
+        None,
+        path,
+        2,
+        ParseDepth::Deep,
+        vec![Node {
+            id: NodeId::new("demo", "demo::beta", NodeKind::Function),
+            name: "beta".into(),
+            ..alpha.clone()
+        }],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        &[],
+        EventMeta {
+            id: EventId::new("observed:rename".to_string()),
+            ts: 1,
+            actor: EventActor::System,
+            correlation: None,
+            causation: None,
+        },
+        prism_ir::ChangeTrigger::ManualReindex,
+    );
+
+    assert!(update.requires_edge_resolution);
+    assert!(update
+        .dependency_invalidation_keys
+        .symbol_names
+        .contains("alpha"));
+    assert!(update
+        .dependency_invalidation_keys
+        .symbol_names
+        .contains("beta"));
+    assert!(update
+        .dependency_invalidation_keys
+        .symbol_paths
+        .contains("demo::alpha"));
+    assert!(update
+        .dependency_invalidation_keys
+        .symbol_paths
+        .contains("demo::beta"));
+}
+
+#[test]
 fn structurally_unchanged_file_update_does_not_require_index_rebuild() {
     let path = Path::new("src/lib.rs");
     let mut graph = Graph::new();

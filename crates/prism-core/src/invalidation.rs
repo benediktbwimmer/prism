@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 use prism_ir::{NodeId, ObservedChangeSet};
-use prism_store::Graph;
+use prism_store::{DependencyInvalidationKeys, Graph};
 
 #[derive(Debug, Clone, Default)]
 pub(crate) struct RefreshInvalidationScope {
@@ -38,50 +38,36 @@ pub(crate) fn observed_changes_require_dependent_edge_resolution(
     })
 }
 
-pub(crate) fn edge_resolution_paths_for_observed_changes(
+pub(crate) fn edge_resolution_paths_for_dependency_keys(
     graph: &Graph,
     dependency_paths: &HashSet<PathBuf>,
-    observed_changes: &[ObservedChangeSet],
+    dependency_invalidation_keys: &DependencyInvalidationKeys,
 ) -> HashSet<PathBuf> {
     let mut expanded = dependency_paths.clone();
-    for observed in observed_changes {
-        for node in &observed.added {
-            add_unresolved_dependents_for_node(graph, &node.node, &mut expanded);
-        }
-        for (before, after) in &observed.updated {
-            if before.node.id != after.node.id
-                || before.node.name != after.node.name
-                || before.node.kind != after.node.kind
-            {
-                add_unresolved_dependents_for_node(graph, &after.node, &mut expanded);
-            }
+    for name in &dependency_invalidation_keys.symbol_names {
+        expanded.extend(graph.files_with_unresolved_call_name(name));
+        expanded.extend(graph.files_with_unresolved_import_name(name));
+        expanded.extend(graph.files_with_unresolved_impl_name(name));
+        expanded.extend(graph.files_with_unresolved_intent_target(name));
+    }
+    for candidate in &dependency_invalidation_keys.symbol_paths {
+        expanded.extend(graph.files_with_unresolved_call_target_path(candidate));
+        for suffix in namespace_suffixes(candidate) {
+            expanded.extend(graph.files_with_unresolved_import_path(&suffix));
+            expanded.extend(graph.files_with_unresolved_impl_target(&suffix));
+            expanded.extend(graph.files_with_unresolved_intent_target(&suffix));
         }
     }
     expanded
 }
 
-fn expand_dependency_paths(graph: &Graph, refresh_scope: &HashSet<PathBuf>) -> HashSet<PathBuf> {
+pub(crate) fn expand_dependency_paths(
+    graph: &Graph,
+    refresh_scope: &HashSet<PathBuf>,
+) -> HashSet<PathBuf> {
     let mut expanded = refresh_scope.clone();
     for path in refresh_scope {
-        let Some(file_state) = graph.file_state(path) else {
-            continue;
-        };
-        for node in &file_state.nodes {
-            for edge in graph.edges_from(&node.id, None) {
-                if let Some(target) = graph.node(&edge.target) {
-                    if let Some(target_path) = graph.file_path(target.file) {
-                        expanded.insert(target_path.clone());
-                    }
-                }
-            }
-            for edge in graph.edges_to(&node.id, None) {
-                if let Some(source) = graph.node(&edge.source) {
-                    if let Some(source_path) = graph.file_path(source.file) {
-                        expanded.insert(source_path.clone());
-                    }
-                }
-            }
-        }
+        expanded.extend(graph.reverse_dependent_files_for_path(path));
     }
     expanded
 }
@@ -151,21 +137,4 @@ fn namespace_suffixes(path: &str) -> Vec<String> {
     (0..parts.len())
         .map(|index| parts[index..].join("::"))
         .collect()
-}
-
-fn add_unresolved_dependents_for_node(
-    graph: &Graph,
-    node: &prism_ir::Node,
-    expanded: &mut HashSet<PathBuf>,
-) {
-    expanded.extend(graph.files_with_unresolved_call_name(node.name.as_str()));
-    expanded.extend(graph.files_with_unresolved_import_name(node.name.as_str()));
-    expanded.extend(graph.files_with_unresolved_impl_name(node.name.as_str()));
-    expanded.extend(graph.files_with_unresolved_intent_target(node.name.as_str()));
-    expanded.extend(graph.files_with_unresolved_call_target_path(node.id.path.as_str()));
-    for suffix in namespace_suffixes(node.id.path.as_str()) {
-        expanded.extend(graph.files_with_unresolved_import_path(&suffix));
-        expanded.extend(graph.files_with_unresolved_impl_target(&suffix));
-        expanded.extend(graph.files_with_unresolved_intent_target(&suffix));
-    }
 }

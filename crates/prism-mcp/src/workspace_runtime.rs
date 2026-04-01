@@ -49,6 +49,7 @@ pub(crate) struct WorkspaceRuntimeConfig {
     pub(crate) loaded_inference_revision: Arc<AtomicU64>,
     pub(crate) loaded_coordination_revision: Arc<AtomicU64>,
     pub(crate) runtime_engine: Arc<Mutex<WorkspaceRuntimeEngine>>,
+    pub(crate) prepared_delta: Arc<Mutex<Option<PreparedWorkspaceRuntimeDelta>>>,
 }
 
 pub(crate) struct WorkspaceRuntime {
@@ -177,6 +178,7 @@ impl ReloadMaterialization {
 struct WorkspaceRuntimeCommandOutcome {
     report: WorkspaceRefreshReport,
     follow_up_commands: Vec<WorkspaceRuntimeCommand>,
+    published_generation: bool,
 }
 
 impl WorkspaceRuntimeCommandOutcome {
@@ -184,6 +186,7 @@ impl WorkspaceRuntimeCommandOutcome {
         Self {
             report,
             follow_up_commands: Vec::new(),
+            published_generation: true,
         }
     }
 
@@ -194,8 +197,27 @@ impl WorkspaceRuntimeCommandOutcome {
         Self {
             report,
             follow_up_commands,
+            published_generation: true,
         }
     }
+
+    fn prepared(
+        report: WorkspaceRefreshReport,
+        follow_up_commands: Vec<WorkspaceRuntimeCommand>,
+    ) -> Self {
+        Self {
+            report,
+            follow_up_commands,
+            published_generation: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct PreparedWorkspaceRuntimeDelta {
+    report: WorkspaceRefreshReport,
+    revisions: WorkspaceSnapshotRevisions,
+    file_deltas: Vec<WorkspaceFileDelta>,
 }
 
 impl WorkspaceRuntime {
@@ -285,18 +307,22 @@ impl WorkspaceRuntime {
                     .retry_active_command();
                 continue;
             }
-            let _ = refresh_cached_runtime_status_for_config(
-                &crate::workspace_diagnostics::WorkspaceDiagnosticsConfig {
-                    workspace: Arc::clone(&config.workspace),
-                    loaded_workspace_revision: Arc::clone(&config.loaded_workspace_revision),
-                    loaded_episodic_revision: Arc::clone(&config.loaded_episodic_revision),
-                    loaded_inference_revision: Arc::clone(&config.loaded_inference_revision),
-                    loaded_coordination_revision: Arc::clone(&config.loaded_coordination_revision),
-                    runtime_engine: Arc::clone(&config.runtime_engine),
-                    diagnostics_state: Arc::clone(&config.diagnostics_state),
-                    mcp_call_log_store: Arc::clone(&config.mcp_call_log_store),
-                },
-            );
+            if outcome.published_generation {
+                let _ = refresh_cached_runtime_status_for_config(
+                    &crate::workspace_diagnostics::WorkspaceDiagnosticsConfig {
+                        workspace: Arc::clone(&config.workspace),
+                        loaded_workspace_revision: Arc::clone(&config.loaded_workspace_revision),
+                        loaded_episodic_revision: Arc::clone(&config.loaded_episodic_revision),
+                        loaded_inference_revision: Arc::clone(&config.loaded_inference_revision),
+                        loaded_coordination_revision: Arc::clone(
+                            &config.loaded_coordination_revision,
+                        ),
+                        runtime_engine: Arc::clone(&config.runtime_engine),
+                        diagnostics_state: Arc::clone(&config.diagnostics_state),
+                        mcp_call_log_store: Arc::clone(&config.mcp_call_log_store),
+                    },
+                );
+            }
             config
                 .runtime_engine
                 .lock()
@@ -370,6 +396,9 @@ fn run_workspace_runtime_command(
     match command.kind {
         WorkspaceRuntimeCommandKind::PreparePaths => {
             run_workspace_prepare_paths_command(config, command.paths.as_slice())
+        }
+        WorkspaceRuntimeCommandKind::ApplyPreparedDelta => {
+            apply_prepared_workspace_delta_command(config)
         }
         WorkspaceRuntimeCommandKind::SettleDomain(domain) => {
             sync_workspace_settle_domain(config, domain).map(WorkspaceRuntimeCommandOutcome::new)
@@ -966,7 +995,7 @@ fn run_workspace_prepare_paths_command(
     let workspace_reloaded = refresh_path == "full";
     if refresh_path == "deferred" {
         let duration_ms = started.elapsed().as_millis();
-        return Ok(WorkspaceRuntimeCommandOutcome::new(
+        return Ok(WorkspaceRuntimeCommandOutcome::prepared(
             dirty_workspace_deferred_report(
                 config,
                 true,
@@ -977,6 +1006,7 @@ fn run_workspace_prepare_paths_command(
                     ..WorkspaceRefreshMetrics::default()
                 },
             ),
+            Vec::new(),
         ));
     }
     config.loaded_workspace_revision.store(
@@ -1000,87 +1030,124 @@ fn run_workspace_prepare_paths_command(
         full_rebuild_count: u64::from(workspace_reloaded),
         workspace_reloaded,
     };
+    let report = WorkspaceRefreshReport {
+        refresh_path,
+        runtime_sync_used: true,
+        deferred: false,
+        episodic_reloaded: false,
+        inference_reloaded: false,
+        coordination_reloaded: false,
+        metrics,
+    };
+    *config
+        .prepared_delta
+        .lock()
+        .expect("workspace runtime prepared delta lock poisoned") =
+        Some(PreparedWorkspaceRuntimeDelta {
+            report,
+            revisions,
+            file_deltas: file_deltas_from_observed(
+                config.workspace.as_ref(),
+                &refresh_outcome.observed,
+            ),
+        });
+    Ok(WorkspaceRuntimeCommandOutcome::prepared(
+        report,
+        vec![WorkspaceRuntimeCommand::new(
+            WorkspaceRuntimeCommandKind::ApplyPreparedDelta,
+            WorkspaceRuntimeQueueClass::FollowUpMutation,
+            WorkspaceRuntimeCoalescingKey::WorktreeContext,
+        )],
+    ))
+}
+
+fn apply_prepared_workspace_delta_command(
+    config: &WorkspaceRuntimeConfig,
+) -> Result<WorkspaceRuntimeCommandOutcome> {
+    let prepared = config
+        .prepared_delta
+        .lock()
+        .expect("workspace runtime prepared delta lock poisoned")
+        .take();
+    let Some(prepared) = prepared else {
+        return Ok(WorkspaceRuntimeCommandOutcome::new(
+            WorkspaceRefreshReport::none(),
+        ));
+    };
     publish_runtime_generation(
         config,
-        &revisions,
-        refresh_path,
-        file_deltas_from_observed(config.workspace.as_ref(), &refresh_outcome.observed),
+        &prepared.revisions,
+        prepared.report.refresh_path,
+        prepared.file_deltas,
     );
+    let duration_ms = u128::from(prepared.report.metrics.lock_hold_ms);
     log_refresh_workspace(
-        refresh_path,
+        prepared.report.refresh_path,
         config.loaded_workspace_revision.load(Ordering::Relaxed),
         config.loaded_episodic_revision.load(Ordering::Relaxed),
         config.loaded_inference_revision.load(Ordering::Relaxed),
         config.loaded_coordination_revision.load(Ordering::Relaxed),
         config.workspace.as_ref(),
-        false,
-        false,
-        false,
+        prepared.report.episodic_reloaded,
+        prepared.report.inference_reloaded,
+        prepared.report.coordination_reloaded,
         duration_ms,
-        metrics,
+        prepared.report.metrics,
     );
     config.dashboard_state.publish_value(
         "runtime.refreshed",
         json!({
-            "refreshPath": refresh_path,
+            "refreshPath": prepared.report.refresh_path,
             "durationMs": duration_ms,
-            "coordinationReloaded": false,
-            "deferred": false,
-            "episodicReloaded": false,
+            "coordinationReloaded": prepared.report.coordination_reloaded,
+            "deferred": prepared.report.deferred,
+            "episodicReloaded": prepared.report.episodic_reloaded,
             "fsAppliedRevision": config.workspace.applied_fs_revision(),
             "fsDirty": config.workspace.observed_fs_revision() != config.workspace.applied_fs_revision(),
             "fsObservedRevision": config.workspace.observed_fs_revision(),
-            "lockWaitMs": metrics.lock_wait_ms,
-            "lockHoldMs": metrics.lock_hold_ms,
-            "fsRefreshMs": metrics.fs_refresh_ms,
-            "snapshotRevisionsMs": metrics.snapshot_revisions_ms,
-            "loadEpisodicMs": 0,
-            "loadInferenceMs": 0,
-            "loadCoordinationMs": 0,
-            "loadedBytes": 0,
-            "replayVolume": 0,
-            "fullRebuildCount": metrics.full_rebuild_count,
-            "inferenceReloaded": false,
+            "lockWaitMs": prepared.report.metrics.lock_wait_ms,
+            "lockHoldMs": prepared.report.metrics.lock_hold_ms,
+            "fsRefreshMs": prepared.report.metrics.fs_refresh_ms,
+            "snapshotRevisionsMs": prepared.report.metrics.snapshot_revisions_ms,
+            "loadEpisodicMs": prepared.report.metrics.load_episodic_ms,
+            "loadInferenceMs": prepared.report.metrics.load_inference_ms,
+            "loadCoordinationMs": prepared.report.metrics.load_coordination_ms,
+            "loadedBytes": prepared.report.metrics.loaded_bytes,
+            "replayVolume": prepared.report.metrics.replay_volume,
+            "fullRebuildCount": prepared.report.metrics.full_rebuild_count,
+            "inferenceReloaded": prepared.report.inference_reloaded,
             "loadedCoordinationRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
             "loadedEpisodicRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
             "loadedInferenceRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
             "loadedWorkspaceRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
             "materialization": {
                 "workspace": {
-                    "currentRevision": revisions.workspace,
+                    "currentRevision": prepared.revisions.workspace,
                     "loadedRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_workspace_revision.load(Ordering::Relaxed), revisions.workspace),
+                    "status": revision_status(config.loaded_workspace_revision.load(Ordering::Relaxed), prepared.revisions.workspace),
                 },
                 "episodic": {
-                    "currentRevision": revisions.episodic,
+                    "currentRevision": prepared.revisions.episodic,
                     "loadedRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_episodic_revision.load(Ordering::Relaxed), revisions.episodic),
+                    "status": revision_status(config.loaded_episodic_revision.load(Ordering::Relaxed), prepared.revisions.episodic),
                 },
                 "inference": {
-                    "currentRevision": revisions.inference,
+                    "currentRevision": prepared.revisions.inference,
                     "loadedRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_inference_revision.load(Ordering::Relaxed), revisions.inference),
+                    "status": revision_status(config.loaded_inference_revision.load(Ordering::Relaxed), prepared.revisions.inference),
                 },
                 "coordination": {
-                    "currentRevision": revisions.coordination,
+                    "currentRevision": prepared.revisions.coordination,
                     "loadedRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_coordination_revision.load(Ordering::Relaxed), revisions.coordination),
+                    "status": revision_status(config.loaded_coordination_revision.load(Ordering::Relaxed), prepared.revisions.coordination),
                 }
             },
-            "workspaceReloaded": workspace_reloaded,
+            "workspaceReloaded": prepared.report.metrics.workspace_reloaded,
         }),
     );
     Ok(WorkspaceRuntimeCommandOutcome::with_follow_up_commands(
-        WorkspaceRefreshReport {
-            refresh_path,
-            runtime_sync_used: true,
-            deferred: false,
-            episodic_reloaded: false,
-            inference_reloaded: false,
-            coordination_reloaded: false,
-            metrics,
-        },
-        follow_up_runtime_commands(config, &revisions, refresh_path),
+        prepared.report,
+        follow_up_runtime_commands(config, &prepared.revisions, prepared.report.refresh_path),
     ))
 }
 
@@ -1537,6 +1604,34 @@ fn changed_paths_from_file_deltas(file_deltas: &[WorkspaceFileDelta]) -> Vec<Pat
     paths.into_iter().collect()
 }
 
+fn file_facts_from_workspace(
+    workspace: &WorkspaceSession,
+) -> BTreeMap<PathBuf, WorkspaceFileSemanticFacts> {
+    let prism = workspace.prism();
+    prism
+        .graph()
+        .file_records()
+        .map(|(path, record)| {
+            (
+                path.clone(),
+                WorkspaceFileSemanticFacts {
+                    path: path.clone(),
+                    file_id: record.file_id,
+                    source_hash: record.hash,
+                    parse_depth: record.parse_depth,
+                    node_count: record.nodes.len(),
+                    edge_count: record.edges.len(),
+                    fingerprint_count: record.fingerprints.len(),
+                    unresolved_call_count: record.unresolved_calls.len(),
+                    unresolved_import_count: record.unresolved_imports.len(),
+                    unresolved_impl_count: record.unresolved_impls.len(),
+                    unresolved_intent_count: record.unresolved_intents.len(),
+                },
+            )
+        })
+        .collect()
+}
+
 fn publish_runtime_generation(
     config: &WorkspaceRuntimeConfig,
     revisions: &WorkspaceSnapshotRevisions,
@@ -1545,11 +1640,16 @@ fn publish_runtime_generation(
 ) {
     let domain_states = runtime_domain_states(config, revisions, refresh_path);
     let changed_paths = changed_paths_from_file_deltas(&file_deltas);
-    let _ = config
+    let mut engine = config
         .runtime_engine
         .lock()
-        .expect("workspace runtime engine lock poisoned")
-        .record_commit(changed_paths, file_deltas, domain_states);
+        .expect("workspace runtime engine lock poisoned");
+    if file_deltas.is_empty()
+        && (refresh_path == "hydrate" || engine.current_file_facts().is_empty())
+    {
+        engine.replace_current_file_facts(file_facts_from_workspace(config.workspace.as_ref()));
+    }
+    let _ = engine.record_commit(changed_paths, file_deltas, domain_states);
 }
 
 impl QueryHost {
@@ -1688,6 +1788,7 @@ mod tests {
             runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
                 WorkspaceRuntimeContext::from_root(&root),
             ))),
+            prepared_delta: Arc::new(Mutex::new(None)),
         };
 
         let report = dirty_workspace_deferred_report(
@@ -1755,6 +1856,7 @@ mod tests {
             runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
                 WorkspaceRuntimeContext::from_root(&root),
             ))),
+            prepared_delta: Arc::new(Mutex::new(None)),
         };
 
         std::fs::create_dir_all(root.join("docs")).unwrap();
@@ -1815,6 +1917,7 @@ mod tests {
             runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
                 WorkspaceRuntimeContext::from_root(&root),
             ))),
+            prepared_delta: Arc::new(Mutex::new(None)),
         };
 
         workspace
@@ -1885,6 +1988,7 @@ mod tests {
             runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
                 WorkspaceRuntimeContext::from_root(&root),
             ))),
+            prepared_delta: Arc::new(Mutex::new(None)),
         };
 
         workspace
@@ -1910,16 +2014,32 @@ mod tests {
             outcome
                 .follow_up_commands
                 .iter()
+                .any(|command| command.kind == WorkspaceRuntimeCommandKind::ApplyPreparedDelta),
+            "scoped prepare should enqueue an explicit apply step"
+        );
+        let apply = run_workspace_runtime_command(
+            &config,
+            &WorkspaceRuntimeCommand::new(
+                WorkspaceRuntimeCommandKind::ApplyPreparedDelta,
+                WorkspaceRuntimeQueueClass::FollowUpMutation,
+                WorkspaceRuntimeCoalescingKey::WorktreeContext,
+            ),
+        )
+        .unwrap();
+        assert!(
+            apply
+                .follow_up_commands
+                .iter()
                 .any(|command| command.queue_class == WorkspaceRuntimeQueueClass::Settle),
-            "scoped prepare should enqueue settle work for stale auxiliary domains"
+            "apply should enqueue settle work for stale auxiliary domains"
         );
         assert!(
-            outcome
+            apply
                 .follow_up_commands
                 .iter()
                 .any(|command| command.queue_class
                     == WorkspaceRuntimeQueueClass::CheckpointMaterialization),
-            "scoped prepare should enqueue checkpoint materialization follow-up work"
+            "apply should enqueue checkpoint materialization follow-up work"
         );
 
         let _ = std::fs::remove_dir_all(root);
@@ -1959,6 +2079,7 @@ mod tests {
             runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
                 WorkspaceRuntimeContext::from_root(&root),
             ))),
+            prepared_delta: Arc::new(Mutex::new(None)),
         };
 
         workspace
@@ -2022,6 +2143,7 @@ mod tests {
                 workspace.coordination_revision().unwrap_or(0),
             )),
             runtime_engine: Arc::clone(&runtime_engine),
+            prepared_delta: Arc::new(Mutex::new(None)),
         };
 
         std::fs::write(
@@ -2037,6 +2159,24 @@ mod tests {
             outcome.report.refresh_path,
             "incremental" | "rescan" | "full"
         ));
+        assert!(
+            runtime_engine
+                .lock()
+                .expect("workspace runtime engine lock poisoned")
+                .recent_deltas()
+                .is_empty(),
+            "prepare phase should not publish the generation before apply"
+        );
+        let apply = run_workspace_runtime_command(
+            &config,
+            &WorkspaceRuntimeCommand::new(
+                WorkspaceRuntimeCommandKind::ApplyPreparedDelta,
+                WorkspaceRuntimeQueueClass::FollowUpMutation,
+                WorkspaceRuntimeCoalescingKey::WorktreeContext,
+            ),
+        )
+        .unwrap();
+        assert!(!apply.report.deferred);
 
         let recent_deltas = runtime_engine
             .lock()
@@ -2047,10 +2187,76 @@ mod tests {
             .and_then(|delta| delta.file_deltas.first())
             .and_then(|delta| delta.current_facts.as_ref())
             .expect("committed delta should carry current file facts");
-        assert_eq!(facts.path.file_name().and_then(|name| name.to_str()), Some("lib.rs"));
+        assert_eq!(
+            facts.path.file_name().and_then(|name| name.to_str()),
+            Some("lib.rs")
+        );
         assert!(facts.source_hash > 0);
         assert!(facts.node_count > 0);
         assert!(facts.fingerprint_count > 0);
+        let engine = runtime_engine
+            .lock()
+            .expect("workspace runtime engine lock poisoned");
+        let live_facts = engine
+            .file_facts(facts.path.as_path())
+            .expect("engine should retain current file facts");
+        assert_eq!(live_facts.source_hash, facts.source_hash);
+        assert_eq!(live_facts.node_count, facts.node_count);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn hydrate_persisted_workspace_state_seeds_engine_file_facts() {
+        let root = temp_workspace();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+        let workspace = Arc::new(index_workspace_session(&root).unwrap());
+        let runtime_engine = Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
+            WorkspaceRuntimeContext::from_root(&root),
+        )));
+        let config = WorkspaceRuntimeConfig {
+            workspace: Arc::clone(&workspace),
+            notes: Arc::new(SessionMemory::new()),
+            inferred_edges: Arc::new(InferenceStore::new()),
+            dashboard_state: Arc::new(DashboardState::default()),
+            diagnostics_state: Arc::new(DiagnosticsState::default()),
+            mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            sync_lock: Arc::new(Mutex::new(())),
+            loaded_workspace_revision: Arc::new(AtomicU64::new(
+                workspace.loaded_workspace_revision(),
+            )),
+            loaded_episodic_revision: Arc::new(AtomicU64::new(
+                workspace.episodic_revision().unwrap_or(0),
+            )),
+            loaded_inference_revision: Arc::new(AtomicU64::new(
+                workspace.inference_revision().unwrap_or(0),
+            )),
+            loaded_coordination_revision: Arc::new(AtomicU64::new(
+                workspace.coordination_revision().unwrap_or(0),
+            )),
+            runtime_engine: Arc::clone(&runtime_engine),
+            prepared_delta: Arc::new(Mutex::new(None)),
+        };
+
+        hydrate_persisted_workspace_state(&config).unwrap();
+
+        let engine = runtime_engine
+            .lock()
+            .expect("workspace runtime engine lock poisoned");
+        let facts = engine
+            .current_file_facts()
+            .values()
+            .find(|facts| facts.path.file_name().and_then(|name| name.to_str()) == Some("lib.rs"))
+            .expect("hydrate should seed current file facts");
+        assert!(facts.source_hash > 0);
+        assert!(facts.node_count > 0);
 
         let _ = std::fs::remove_dir_all(root);
     }

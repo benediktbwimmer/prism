@@ -3076,6 +3076,10 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
         log_contents.contains("\"kind\":\"node_added\""),
         "published plan logs should append native node events"
     );
+    assert!(
+        !log_contents.contains("\"kind\":\"execution_updated\""),
+        "published plan logs should not persist runtime execution overlay events"
+    );
 
     drop(session);
     fs::remove_file(
@@ -4229,6 +4233,107 @@ fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
 }
 
 #[test]
+fn repo_published_plan_logs_skip_runtime_handoff_deltas() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let (plan_id, task_id) = session
+        .mutate_coordination(|prism| {
+            let base_revision = prism.workspace_revision();
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:runtime-overlay-plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:runtime-overlay-plan")),
+                    causation: None,
+                },
+                "Skip runtime-only handoff deltas".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            let task = prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:runtime-overlay-task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:runtime-overlay-plan")),
+                    causation: None,
+                },
+                prism_coordination::TaskCreateInput {
+                    plan_id: plan_id.clone(),
+                    title: "Keep published logs structural".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: Some(prism_ir::AgentId::new("agent:a")),
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision,
+                },
+            )?;
+            Ok((plan_id, task.id))
+        })
+        .unwrap();
+
+    let log_path = root
+        .join(".prism")
+        .join("plans")
+        .join("active")
+        .join(format!("{}.jsonl", plan_id.0));
+    let initial_lines = fs::read_to_string(&log_path).unwrap().lines().count();
+    assert_eq!(initial_lines, 2, "initial publish should write plan + node");
+
+    session
+        .mutate_coordination(|prism| {
+            prism.request_native_handoff(
+                EventMeta {
+                    id: EventId::new("coordination:runtime-overlay-handoff"),
+                    ts: 3,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:runtime-overlay-plan")),
+                    causation: None,
+                },
+                HandoffInput {
+                    task_id: task_id.clone(),
+                    to_agent: Some(prism_ir::AgentId::new("agent:b")),
+                    summary: "Shift runtime ownership only".into(),
+                    base_revision: prism.workspace_revision(),
+                },
+                prism.workspace_revision(),
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let log_contents = fs::read_to_string(&log_path).unwrap();
+    let updated_lines = log_contents.lines().count();
+    assert_eq!(
+        updated_lines, 3,
+        "handoff should only publish the task-backed node delta, not a separate execution overlay event"
+    );
+    assert!(
+        !log_contents.contains("\"kind\":\"execution_updated\""),
+        "published plan logs should not emit execution overlay events for handoffs"
+    );
+    assert!(
+        !log_contents.contains("pending_handoff_to"),
+        "published plan logs should not serialize runtime handoff overlay fields"
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn repo_published_plans_archive_transition_emits_archive_event_and_moves_log() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -5101,6 +5206,110 @@ fn body_only_updates_do_not_require_dependent_edge_resolution() {
     };
 
     assert!(!crate::invalidation::observed_changes_require_dependent_edge_resolution(&[observed]));
+}
+
+#[test]
+fn renamed_symbols_expand_dependents_from_emitted_dependency_keys() {
+    use std::collections::HashMap;
+    use std::path::{Path, PathBuf};
+
+    use prism_ir::{
+        ChangeTrigger, EventActor, EventId, EventMeta, FileId, Language, Node, NodeId, NodeKind,
+        Span,
+    };
+    use prism_parser::{ParseDepth, UnresolvedCall};
+    use prism_store::Graph;
+
+    fn function(file: FileId, name: &str) -> Node {
+        Node {
+            id: NodeId::new("demo", format!("demo::{name}"), NodeKind::Function),
+            name: name.into(),
+            kind: NodeKind::Function,
+            file,
+            span: Span::line(1),
+            language: Language::Rust,
+        }
+    }
+
+    fn unresolved_call(caller: &Node, module_path: &str, name: &str) -> UnresolvedCall {
+        UnresolvedCall {
+            caller: caller.id.clone(),
+            name: name.into(),
+            span: Span::line(1),
+            module_path: module_path.into(),
+        }
+    }
+
+    let changed = PathBuf::from("src/a.rs");
+    let caller_path = PathBuf::from("src/lib.rs");
+    let mut graph = Graph::new();
+
+    let changed_file = graph.ensure_file(Path::new(&changed));
+    let caller_file = graph.ensure_file(Path::new(&caller_path));
+
+    let alpha = function(changed_file, "alpha");
+    let caller = function(caller_file, "caller");
+
+    graph.upsert_file(
+        Path::new(&changed),
+        1,
+        vec![alpha.clone()],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+    graph.upsert_file(
+        Path::new(&caller_path),
+        1,
+        vec![caller.clone()],
+        Vec::new(),
+        HashMap::new(),
+        vec![unresolved_call(&caller, "demo", "alpha")],
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+
+    let update = graph.upsert_file_from_with_observed_without_rebuild(
+        None,
+        Path::new(&changed),
+        2,
+        ParseDepth::Deep,
+        vec![Node {
+            id: NodeId::new("demo", "demo::beta", NodeKind::Function),
+            name: "beta".into(),
+            ..alpha.clone()
+        }],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        &[],
+        EventMeta {
+            id: EventId::new("evt:rename".to_string()),
+            ts: 1,
+            actor: EventActor::System,
+            correlation: None,
+            causation: None,
+        },
+        ChangeTrigger::ManualReindex,
+    );
+
+    let dependency_paths =
+        crate::invalidation::expand_dependency_paths(&graph, &HashSet::from([changed.clone()]));
+    let edge_paths = crate::invalidation::edge_resolution_paths_for_dependency_keys(
+        &graph,
+        &dependency_paths,
+        &update.dependency_invalidation_keys,
+    );
+
+    assert!(edge_paths.contains(&changed));
+    assert!(edge_paths.contains(&caller_path));
 }
 
 #[test]

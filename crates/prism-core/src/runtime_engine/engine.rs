@@ -3,8 +3,9 @@ use std::path::PathBuf;
 
 use super::context::WorkspaceRuntimeContext;
 use super::generation::{
-    RuntimeDomain, RuntimeDomainState, WorkspaceFileDelta, WorkspaceGenerationId,
-    WorkspacePublishedGeneration, WorkspaceRuntimeDeltaBatch, WorkspaceRuntimeDeltaSequence,
+    RuntimeDomain, RuntimeDomainState, WorkspaceFileDelta, WorkspaceFileSemanticFacts,
+    WorkspaceGenerationId, WorkspacePublishedGeneration, WorkspaceRuntimeDeltaBatch,
+    WorkspaceRuntimeDeltaSequence,
 };
 use super::queue::{
     WorkspaceRuntimeCoalescingKey, WorkspaceRuntimeCommand, WorkspaceRuntimeCommandKind,
@@ -15,6 +16,7 @@ use super::queue::{
 pub struct WorkspaceRuntimeEngine {
     context: WorkspaceRuntimeContext,
     published_generation: WorkspacePublishedGeneration,
+    current_file_facts: BTreeMap<PathBuf, WorkspaceFileSemanticFacts>,
     next_generation_id: WorkspaceGenerationId,
     next_delta_sequence: WorkspaceRuntimeDeltaSequence,
     recent_deltas: VecDeque<WorkspaceRuntimeDeltaBatch>,
@@ -29,6 +31,7 @@ impl WorkspaceRuntimeEngine {
         Self {
             published_generation: WorkspacePublishedGeneration::initial(context.clone()),
             context,
+            current_file_facts: BTreeMap::new(),
             next_generation_id: WorkspaceGenerationId(1),
             next_delta_sequence: WorkspaceRuntimeDeltaSequence(1),
             recent_deltas: VecDeque::with_capacity(Self::RECENT_DELTA_LIMIT),
@@ -47,6 +50,21 @@ impl WorkspaceRuntimeEngine {
 
     pub fn published_generation_snapshot(&self) -> WorkspacePublishedGeneration {
         self.published_generation.clone()
+    }
+
+    pub fn current_file_facts(&self) -> &BTreeMap<PathBuf, WorkspaceFileSemanticFacts> {
+        &self.current_file_facts
+    }
+
+    pub fn file_facts(&self, path: &std::path::Path) -> Option<&WorkspaceFileSemanticFacts> {
+        self.current_file_facts.get(path)
+    }
+
+    pub fn replace_current_file_facts(
+        &mut self,
+        facts: BTreeMap<PathBuf, WorkspaceFileSemanticFacts>,
+    ) {
+        self.current_file_facts = facts;
     }
 
     pub fn recent_deltas(&self) -> Vec<WorkspaceRuntimeDeltaBatch> {
@@ -155,6 +173,7 @@ impl WorkspaceRuntimeEngine {
         file_deltas: Vec<WorkspaceFileDelta>,
         domain_states: BTreeMap<RuntimeDomain, RuntimeDomainState>,
     ) -> WorkspaceRuntimeDeltaBatch {
+        self.apply_file_deltas(&file_deltas);
         let parent_generation = self.published_generation.id;
         let committed_generation = self.next_generation_id;
         let delta_sequence = self.next_delta_sequence;
@@ -180,6 +199,32 @@ impl WorkspaceRuntimeEngine {
         }
         self.recent_deltas.push_back(batch.clone());
         batch
+    }
+
+    fn apply_file_deltas(&mut self, file_deltas: &[WorkspaceFileDelta]) {
+        for delta in file_deltas {
+            let previous_facts = delta
+                .previous_path
+                .as_ref()
+                .and_then(|path| self.current_file_facts.get(path).cloned());
+            if let Some(previous_path) = &delta.previous_path {
+                let path_changed = delta.current_path.as_ref() != Some(previous_path);
+                if path_changed || delta.current_facts.is_none() {
+                    self.current_file_facts.remove(previous_path);
+                }
+            }
+            if let Some(current_facts) = &delta.current_facts {
+                self.current_file_facts
+                    .insert(current_facts.path.clone(), current_facts.clone());
+            } else if let (Some(current_path), Some(previous_facts)) =
+                (&delta.current_path, previous_facts)
+            {
+                let mut carried_facts = previous_facts;
+                carried_facts.path = current_path.clone();
+                self.current_file_facts
+                    .insert(current_path.clone(), carried_facts);
+            }
+        }
     }
 }
 
@@ -302,6 +347,107 @@ mod tests {
         assert_eq!(engine.published_generation().parent_id.unwrap().0, 1);
         assert_eq!(engine.published_generation().committed_delta.unwrap().0, 2);
         assert_eq!(engine.recent_deltas().len(), 2);
+        let current_facts = engine
+            .file_facts(PathBuf::from("src/main.rs").as_path())
+            .expect("renamed file facts should be tracked");
+        assert_eq!(current_facts.file_id, FileId(1));
+        assert!(engine
+            .file_facts(PathBuf::from("src/lib.rs").as_path())
+            .is_none());
+    }
+
+    #[test]
+    fn runtime_engine_maintains_current_file_facts_across_add_update_and_delete() {
+        let root = std::env::current_dir().expect("cwd");
+        let context = WorkspaceRuntimeContext::from_root(&root);
+        let mut engine = WorkspaceRuntimeEngine::new(context);
+        let mut domain_states = BTreeMap::new();
+        domain_states.insert(
+            RuntimeDomain::FileFacts,
+            RuntimeDomainState::new(
+                RuntimeFreshnessState::Current,
+                RuntimeMaterializationDepth::Deep,
+            ),
+        );
+
+        let initial_facts = WorkspaceFileSemanticFacts {
+            path: PathBuf::from("src/lib.rs"),
+            file_id: FileId(7),
+            source_hash: 11,
+            parse_depth: ParseDepth::Deep,
+            node_count: 2,
+            edge_count: 1,
+            fingerprint_count: 2,
+            unresolved_call_count: 0,
+            unresolved_import_count: 0,
+            unresolved_impl_count: 0,
+            unresolved_intent_count: 0,
+        };
+        engine.record_commit(
+            vec![initial_facts.path.clone()],
+            vec![WorkspaceFileDelta {
+                previous_path: None,
+                current_path: Some(initial_facts.path.clone()),
+                file_count: 1,
+                added_nodes: 2,
+                removed_nodes: 0,
+                updated_nodes: 0,
+                edge_added: 1,
+                edge_removed: 0,
+                current_facts: Some(initial_facts.clone()),
+            }],
+            domain_states.clone(),
+        );
+        assert_eq!(
+            engine.file_facts(initial_facts.path.as_path()),
+            Some(&initial_facts)
+        );
+
+        let updated_facts = WorkspaceFileSemanticFacts {
+            source_hash: 17,
+            node_count: 3,
+            edge_count: 2,
+            fingerprint_count: 3,
+            unresolved_call_count: 1,
+            ..initial_facts.clone()
+        };
+        engine.record_commit(
+            vec![updated_facts.path.clone()],
+            vec![WorkspaceFileDelta {
+                previous_path: Some(updated_facts.path.clone()),
+                current_path: Some(updated_facts.path.clone()),
+                file_count: 1,
+                added_nodes: 1,
+                removed_nodes: 0,
+                updated_nodes: 1,
+                edge_added: 1,
+                edge_removed: 0,
+                current_facts: Some(updated_facts.clone()),
+            }],
+            domain_states.clone(),
+        );
+        assert_eq!(
+            engine.file_facts(updated_facts.path.as_path()),
+            Some(&updated_facts)
+        );
+
+        engine.record_commit(
+            vec![updated_facts.path.clone()],
+            vec![WorkspaceFileDelta {
+                previous_path: Some(updated_facts.path.clone()),
+                current_path: None,
+                file_count: 1,
+                added_nodes: 0,
+                removed_nodes: 3,
+                updated_nodes: 0,
+                edge_added: 0,
+                edge_removed: 2,
+                current_facts: None,
+            }],
+            domain_states,
+        );
+        assert!(engine.file_facts(updated_facts.path.as_path()).is_none());
+        assert!(engine.current_file_facts().is_empty());
     }
 
     #[test]

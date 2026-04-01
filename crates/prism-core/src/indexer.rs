@@ -14,7 +14,7 @@ use crate::indexer_support::{
     resolve_graph_edges, ResolveGraphEdgesStats,
 };
 use crate::invalidation::{
-    edge_resolution_paths_for_observed_changes, observed_changes_require_dependent_edge_resolution,
+    edge_resolution_paths_for_dependency_keys, observed_changes_require_dependent_edge_resolution,
     RefreshInvalidationScope,
 };
 use crate::layout::{discover_layout, sync_root_nodes, PackageInfo, WorkspaceLayout};
@@ -52,7 +52,9 @@ use prism_projections::{
     MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
 };
 use prism_query::Prism;
-use prism_store::{Graph, IndexPersistBatch, SqliteStore, Store, WorkspaceTreeSnapshot};
+use prism_store::{
+    DependencyInvalidationKeys, Graph, IndexPersistBatch, SqliteStore, Store, WorkspaceTreeSnapshot,
+};
 use tracing::{info, warn};
 
 const SLOW_FILE_PHASE_THRESHOLD_MS: u128 = 200;
@@ -699,6 +701,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         let mut validation_deltas = Vec::<ValidationDelta>::new();
         let mut requires_graph_index_rebuild = false;
         let mut requires_edge_resolution = false;
+        let mut dependency_invalidation_keys = DependencyInvalidationKeys::default();
         let mut upserted_paths = Vec::<PathBuf>::new();
         let mut removed_paths = Vec::<PathBuf>::new();
         let refresh_scope =
@@ -823,6 +826,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             );
             requires_graph_index_rebuild |= update.requires_index_rebuild;
             requires_edge_resolution |= update.requires_edge_resolution;
+            dependency_invalidation_keys.extend_from(&update.dependency_invalidation_keys);
             let upsert_ms = upsert_started.elapsed().as_millis();
             parsed_file_count += 1;
             let new_lineage_events = self.history.apply(&update.observed);
@@ -1088,14 +1092,15 @@ impl<S: Store> WorkspaceIndexer<S> {
         );
 
         let expand_dependency_edge_resolution = requires_edge_resolution
+            && !dependency_invalidation_keys.is_empty()
             && observed_changes_require_dependent_edge_resolution(&observed_changes);
         let resolved_edge_scope = if requires_edge_resolution {
             invalidation_scope.as_ref().map(|scope| {
                 if expand_dependency_edge_resolution {
-                    edge_resolution_paths_for_observed_changes(
+                    edge_resolution_paths_for_dependency_keys(
                         &self.graph,
                         &scope.dependency_paths,
-                        &observed_changes,
+                        &dependency_invalidation_keys,
                     )
                 } else {
                     scope.direct_paths.clone()

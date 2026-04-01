@@ -455,6 +455,7 @@ fn concept_curation_hints_view_from_packet(
     let next_action = concept_packet_next_action(
         packet,
         inspect_first.as_ref(),
+        supporting_read.as_ref(),
         likely_test.as_ref(),
         verbosity,
     );
@@ -469,41 +470,90 @@ fn concept_curation_hints_view_from_packet(
 fn concept_packet_next_action(
     packet: &ConceptPacket,
     inspect_first: Option<&NodeIdView>,
+    supporting_read: Option<&NodeIdView>,
     likely_test: Option<&NodeIdView>,
     verbosity: ConceptVerbosity,
 ) -> String {
     let inspect_target = inspect_first.map(|node| format!("`{}`", node.path));
+    let supporting_target = supporting_read.map(|node| format!("`{}`", node.path));
     let likely_test = likely_test.map(|node| format!("`{}`", node.path));
     let validation_lens = packet
         .decode_lenses
         .iter()
         .any(|lens| matches!(lens, ConceptDecodeLens::Validation));
+    let inspect_is_doc = inspect_first.is_some_and(|node| {
+        matches!(
+            node.kind,
+            prism_ir::NodeKind::MarkdownHeading | prism_ir::NodeKind::Document
+        )
+    });
 
-    match (inspect_target, likely_test, validation_lens, verbosity) {
-        (Some(target), Some(test), _, ConceptVerbosity::Summary) => format!(
+    match (
+        inspect_target,
+        supporting_target,
+        likely_test,
+        validation_lens,
+        verbosity,
+        inspect_is_doc,
+    ) {
+        (Some(target), Some(support), Some(test), _, ConceptVerbosity::Summary, true) => format!(
+            "Inspect doc or spec section {target} first, follow it into supporting owner {support}, verify with likely test {test}, then retry with `verbosity: \"full\"` if you need the remaining members."
+        ),
+        (Some(target), Some(support), Some(test), _, _, true) => format!(
+            "Inspect doc or spec section {target} first, follow it into supporting owner {support}, then verify with likely test {test}."
+        ),
+        (Some(target), Some(support), None, true, ConceptVerbosity::Summary, true) => format!(
+            "Inspect doc or spec section {target} first, follow it into supporting owner {support}, then use `prism.decodeConcept({{ handle: \"{}\", lens: \"validation\" }})` or retry with `verbosity: \"full\"`.",
+            packet.handle
+        ),
+        (Some(target), Some(support), None, true, _, true) => format!(
+            "Inspect doc or spec section {target} first, then follow it into supporting owner {support} and use `prism.decodeConcept({{ handle: \"{}\", lens: \"validation\" }})` for broader validation context.",
+            packet.handle
+        ),
+        (Some(target), Some(support), _, false, ConceptVerbosity::Summary, true) => format!(
+            "Inspect doc or spec section {target} first, follow it into supporting owner {support}, then retry with `verbosity: \"full\"` if you need the remaining members or tests."
+        ),
+        (Some(target), Some(support), _, false, _, true) => format!(
+            "Inspect doc or spec section {target} first, then follow it into supporting owner {support}."
+        ),
+        (Some(target), Some(support), None, true, ConceptVerbosity::Summary, false) => format!(
+            "Inspect {target} first, then follow it into supporting member {support} and use `prism.decodeConcept({{ handle: \"{}\", lens: \"validation\" }})` or retry with `verbosity: \"full\"`.",
+            packet.handle
+        ),
+        (Some(target), Some(support), None, true, _, false) => format!(
+            "Inspect {target} first, then follow it into supporting member {support} and use `prism.decodeConcept({{ handle: \"{}\", lens: \"validation\" }})` for broader validation context.",
+            packet.handle
+        ),
+        (Some(target), Some(support), None, false, ConceptVerbosity::Summary, false) => format!(
+            "Inspect {target} first, then follow it into supporting member {support}, and retry with `verbosity: \"full\"` if you need the remaining members or tests."
+        ),
+        (Some(target), Some(support), None, false, _, false) => format!(
+            "Inspect {target} first, then follow it into supporting member {support}."
+        ),
+        (Some(target), _, Some(test), _, ConceptVerbosity::Summary, _) => format!(
             "Inspect {target} first, verify it with likely test {test}, then retry with `verbosity: \"full\"` if you need the remaining members."
         ),
-        (Some(target), Some(test), _, _) => {
+        (Some(target), _, Some(test), _, _, _) => {
             format!("Inspect {target} first, then verify it with likely test {test}.")
         }
-        (Some(target), None, true, ConceptVerbosity::Summary) => format!(
+        (Some(target), None, None, true, ConceptVerbosity::Summary, _) => format!(
             "Inspect {target} first, then use `prism.decodeConcept({{ handle: \"{}\", lens: \"validation\" }})` for broader validation context or retry with `verbosity: \"full\"`.",
             packet.handle
         ),
-        (Some(target), None, true, _) => format!(
+        (Some(target), None, None, true, _, _) => format!(
             "Inspect {target} first, then use `prism.decodeConcept({{ handle: \"{}\", lens: \"validation\" }})` for broader validation context.",
             packet.handle
         ),
-        (Some(target), None, false, ConceptVerbosity::Summary) => format!(
+        (Some(target), None, None, false, ConceptVerbosity::Summary, _) => format!(
             "Inspect {target} first, then retry with `verbosity: \"full\"` if you need the remaining members or tests."
         ),
-        (Some(target), None, false, _) => {
+        (Some(target), None, None, false, _, _) => {
             format!("Inspect {target} first, then expand outward from the remaining concept members.")
         }
-        (None, Some(test), _, _) => format!(
+        (None, _, Some(test), _, _, _) => format!(
             "Start with likely test {test}, then add or refresh stronger concept member bindings before relying on this packet."
         ),
-        (None, None, _, _) => {
+        (None, _, None, _, _, _) => {
             "Retry with `verbosity: \"full\"` or refresh the concept bindings so the packet exposes a concrete member to inspect.".to_string()
         }
     }

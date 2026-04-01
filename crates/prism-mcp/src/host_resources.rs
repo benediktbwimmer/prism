@@ -30,9 +30,9 @@ use crate::{
     EventResourcePayload, FeatureFlagsView, FileResourcePayload, InferredEdgeRecordView,
     LineageResourcePayload, MemoryResourcePayload, PlansQueryArgs, PlansResourcePayload,
     QueryExecution, QueryHost, ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload,
-    SessionLimitsView, SessionResourcePayload, SessionState, SessionTaskView, SessionView,
-    SymbolResourcePayload, TaskResourcePayload, VocabularyResourcePayload,
-    DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    SessionLimitsView, SessionRepairActionView, SessionResourcePayload, SessionState,
+    SessionTaskView, SessionView, SymbolResourcePayload, TaskResourcePayload,
+    VocabularyResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
     DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
 };
 
@@ -1084,7 +1084,7 @@ pub(crate) fn session_task_view(
             )
         })
         .unwrap_or_default();
-    let (context_status, context_summary, next_action) = session_task_context_summary(
+    let context = session_task_context_summary(
         task,
         replay_event_count,
         coordination_task.is_some(),
@@ -1096,10 +1096,18 @@ pub(crate) fn session_task_view(
         description: task.description.clone(),
         tags: task.tags.clone(),
         coordination_task_id,
-        context_status: context_status.to_string(),
-        context_summary,
-        next_action,
+        context_status: context.status.to_string(),
+        context_summary: context.summary,
+        next_action: context.next_action,
+        repair_action: context.repair_action,
     }
+}
+
+struct SessionTaskContextSummary {
+    status: &'static str,
+    summary: String,
+    next_action: String,
+    repair_action: Option<SessionRepairActionView>,
 }
 
 fn session_task_context_summary(
@@ -1107,32 +1115,52 @@ fn session_task_context_summary(
     replay_event_count: usize,
     has_coordination_task: bool,
     blockers: &[prism_coordination::TaskBlocker],
-) -> (&'static str, String, String) {
+) -> SessionTaskContextSummary {
     if blockers
         .iter()
         .any(|blocker| blocker.kind == prism_coordination::BlockerKind::StaleRevision)
     {
-        return (
-            "stale",
-            "Current task is bound to a stale coordination revision and may reflect older workspace state."
+        let repair_action =
+            task.coordination_task_id
+                .as_ref()
+                .map(|task_id| SessionRepairActionView {
+                    tool: "prism_task_brief".to_string(),
+                    input: json!({ "taskId": task_id }),
+                    label: "Inspect live blockers for this stale coordination task.".to_string(),
+                });
+        return SessionTaskContextSummary {
+            status: "stale",
+            summary: "Current task is bound to a stale coordination revision and may reflect older workspace state."
                 .to_string(),
-            "Refresh this task against the current workspace revision, then rerun prism_task_brief or prism.blockers(taskId).".to_string(),
-        );
+            next_action: "Refresh this task against the current workspace revision, then rerun prism_task_brief or prism.blockers(taskId).".to_string(),
+            repair_action,
+        };
     }
     if let Some(blocker) = blockers.first() {
-        return (
-            "blocked",
-            format!("Current task is blocked: {}", blocker.summary),
-            "Inspect the current task blockers before continuing; use prism.blockers(taskId) or prism_task_brief for full coordination detail.".to_string(),
-        );
+        return SessionTaskContextSummary {
+            status: "blocked",
+            summary: format!("Current task is blocked: {}", blocker.summary),
+            next_action: "Inspect the current task blockers before continuing; use prism.blockers(taskId) or prism_task_brief for full coordination detail.".to_string(),
+            repair_action: None,
+        };
     }
     if replay_event_count == 0 && !has_coordination_task {
-        return (
-            "detached",
-            "Current task has no recorded replay history or live coordination binding and may be leftover session context."
+        return SessionTaskContextSummary {
+            status: "detached",
+            summary: "Current task has no recorded replay history or live coordination binding and may be leftover session context."
                 .to_string(),
-            "Clear the current task if you are changing scope, or start a fresh one with prism_session action `start_task`.".to_string(),
-        );
+            next_action: "Clear the current task if you are changing scope, or start a fresh one with prism_session action `start_task`.".to_string(),
+            repair_action: Some(SessionRepairActionView {
+                tool: "prism_session".to_string(),
+                input: json!({
+                    "action": "configure",
+                    "input": {
+                        "clearCurrentTask": true
+                    }
+                }),
+                label: "Clear the leftover current-task session binding.".to_string(),
+            }),
+        };
     }
     if replay_event_count == 0
         && task
@@ -1140,16 +1168,26 @@ fn session_task_context_summary(
             .as_ref()
             .is_some_and(|_| !has_coordination_task)
     {
-        return (
-            "detached",
-            "Current task still references a coordination task that is no longer present in the live workspace context."
+        return SessionTaskContextSummary {
+            status: "detached",
+            summary: "Current task still references a coordination task that is no longer present in the live workspace context."
                 .to_string(),
-            "Rebind the session to a live coordination task, or clear the current task before starting new work.".to_string(),
-        );
+            next_action: "Rebind the session to a live coordination task, or clear the current task before starting new work.".to_string(),
+            repair_action: Some(SessionRepairActionView {
+                tool: "prism_session".to_string(),
+                input: json!({
+                    "action": "configure",
+                    "input": {
+                        "clearCurrentTask": true
+                    }
+                }),
+                label: "Clear the stale coordination-task session binding.".to_string(),
+            }),
+        };
     }
-    (
-        "active",
-        if has_coordination_task {
+    SessionTaskContextSummary {
+        status: "active",
+        summary: if has_coordination_task {
             "Current task is bound to live coordination state.".to_string()
         } else if replay_event_count > 0 {
             format!(
@@ -1160,8 +1198,9 @@ fn session_task_context_summary(
         } else {
             "Current task is active in this session.".to_string()
         },
-        "Continue with the current task, or open its task replay / task brief before switching scope.".to_string(),
-    )
+        next_action: "Continue with the current task, or open its task replay / task brief before switching scope.".to_string(),
+        repair_action: None,
+    }
 }
 
 pub(crate) fn contract_kind_label(kind: &crate::ContractKindView) -> &'static str {

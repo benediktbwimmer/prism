@@ -29,25 +29,58 @@ pub(crate) fn concept_followthrough_targets(
 ) -> ConceptFollowthroughTargets {
     let general = search_followthrough_candidates(prism, packet, false);
     let tests = search_followthrough_candidates(prism, packet, true);
+    let governing_doc = preferred_doc_candidate(&general).map(|candidate| candidate.node.clone());
+    let strongest_code = preferred_code_candidate(&general).map(|candidate| candidate.node.clone());
 
-    let inspect_first = general
-        .iter()
-        .find(|candidate| !is_test_like_node(&candidate.node))
-        .or_else(|| general.first())
-        .map(|candidate| candidate.node.clone());
+    let inspect_first = governing_doc
+        .clone()
+        .or_else(|| strongest_code.clone())
+        .or_else(|| {
+            general
+                .iter()
+                .find(|candidate| !is_test_like_node(&candidate.node))
+                .or_else(|| general.first())
+                .map(|candidate| candidate.node.clone())
+        });
     let mut seen = HashSet::<String>::new();
     if let Some(primary) = inspect_first.as_ref() {
         seen.insert(primary.path.to_string());
     }
 
-    let mut supporting_reads = general
-        .iter()
-        .filter(|candidate| Some(&candidate.node) != inspect_first.as_ref())
-        .filter(|candidate| !is_test_like_node(&candidate.node))
-        .filter(|candidate| seen.insert(candidate.node.path.to_string()))
-        .take(FOLLOWTHROUGH_SUPPORTING_LIMIT)
-        .map(|candidate| candidate.node.clone())
-        .collect::<Vec<_>>();
+    let mut supporting_reads = Vec::<NodeId>::new();
+    if inspect_first.as_ref().is_some_and(is_docs_like_node) {
+        if let Some(code) = strongest_code.as_ref() {
+            if Some(code) != inspect_first.as_ref() && seen.insert(code.path.to_string()) {
+                supporting_reads.push(code.clone());
+            }
+        }
+        for candidate in general
+            .iter()
+            .filter(|candidate| is_docs_like_node(&candidate.node))
+        {
+            if Some(&candidate.node) == inspect_first.as_ref()
+                || !seen.insert(candidate.node.path.to_string())
+            {
+                continue;
+            }
+            supporting_reads.push(candidate.node.clone());
+            if supporting_reads.len() >= FOLLOWTHROUGH_SUPPORTING_LIMIT {
+                break;
+            }
+        }
+    }
+    for candidate in general {
+        if supporting_reads.len() >= FOLLOWTHROUGH_SUPPORTING_LIMIT {
+            break;
+        }
+        if Some(&candidate.node) == inspect_first.as_ref()
+            || is_test_like_node(&candidate.node)
+            || !seen.insert(candidate.node.path.to_string())
+        {
+            continue;
+        }
+        supporting_reads.push(candidate.node);
+    }
     if supporting_reads.is_empty() {
         if let Some(primary) = inspect_first.as_ref() {
             if let Ok(neighbors) = next_reads(prism, primary, FOLLOWTHROUGH_SEARCH_LIMIT) {
@@ -77,6 +110,25 @@ pub(crate) fn concept_followthrough_targets(
         supporting_reads,
         likely_tests,
     }
+}
+
+fn preferred_doc_candidate(candidates: &[ScoredNode]) -> Option<&ScoredNode> {
+    candidates
+        .iter()
+        .filter(|candidate| is_docs_like_node(&candidate.node))
+        .max_by_key(|candidate| {
+            (
+                doc_continuity_priority(&candidate.node),
+                candidate.score,
+                std::cmp::Reverse(candidate.node.path.as_str()),
+            )
+        })
+}
+
+fn preferred_code_candidate(candidates: &[ScoredNode]) -> Option<&ScoredNode> {
+    candidates.iter().find(|candidate| {
+        !is_test_like_node(&candidate.node) && is_code_like_kind(candidate.node.kind)
+    })
 }
 
 fn search_followthrough_candidates(
@@ -109,6 +161,13 @@ fn search_followthrough_candidates(
             upsert_scored(&mut scored, node, score);
         }
     }
+    if !prefer_tests
+        && !scored
+            .values()
+            .any(|candidate| is_docs_like_node(&candidate.node))
+    {
+        supplement_doc_candidates(prism, packet, &concept_tokens, &mut scored);
+    }
 
     let mut results = scored.into_values().collect::<Vec<_>>();
     results.sort_by(|left, right| {
@@ -118,6 +177,32 @@ fn search_followthrough_candidates(
             .then_with(|| left.node.path.cmp(&right.node.path))
     });
     results
+}
+
+fn supplement_doc_candidates(
+    prism: &Prism,
+    packet: &ConceptPacket,
+    concept_tokens: &HashSet<String>,
+    scored: &mut HashMap<String, ScoredNode>,
+) {
+    for (priority, token) in concept_doc_tokens(packet).into_iter().enumerate() {
+        for kind in [NodeKind::MarkdownHeading, NodeKind::Document] {
+            for symbol in prism.search(
+                &token,
+                FOLLOWTHROUGH_SEARCH_LIMIT,
+                Some(kind),
+                Some("docs/"),
+            ) {
+                let node = symbol.id().clone();
+                let mut score = followthrough_score(&node, concept_tokens, &token, priority, false);
+                score += 24;
+                if score <= 0 {
+                    continue;
+                }
+                upsert_scored(scored, node, score);
+            }
+        }
+    }
 }
 
 fn upsert_scored(scored: &mut HashMap<String, ScoredNode>, node: NodeId, score: i32) {
@@ -177,6 +262,23 @@ fn concept_tokens(packet: &ConceptPacket) -> HashSet<String> {
     ))
     .into_iter()
     .collect()
+}
+
+fn concept_doc_tokens(packet: &ConceptPacket) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut seen = HashSet::<String>::new();
+    for term in std::iter::once(packet.canonical_name.as_str())
+        .chain(packet.aliases.iter().map(String::as_str))
+        .chain(std::iter::once(packet.summary.as_str()))
+    {
+        for token in normalized_tokens(term) {
+            if token.len() < 4 || !seen.insert(token.clone()) {
+                continue;
+            }
+            tokens.push(token);
+        }
+    }
+    tokens
 }
 
 fn followthrough_score(
@@ -253,6 +355,23 @@ fn is_code_like_kind(kind: NodeKind) -> bool {
             | NodeKind::Field
             | NodeKind::TypeAlias
     )
+}
+
+fn is_docs_like_node(node: &NodeId) -> bool {
+    matches!(node.kind, NodeKind::MarkdownHeading | NodeKind::Document)
+}
+
+fn doc_continuity_priority(node: &NodeId) -> u8 {
+    let path = node.path.to_ascii_lowercase();
+    if path.contains("governance") {
+        3
+    } else if matches!(node.kind, NodeKind::MarkdownHeading) {
+        2
+    } else if path.contains("spec") {
+        1
+    } else {
+        0
+    }
 }
 
 fn is_test_like_node(node: &NodeId) -> bool {
