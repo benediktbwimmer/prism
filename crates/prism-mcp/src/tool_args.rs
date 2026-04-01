@@ -867,6 +867,7 @@ pub(crate) struct PrismOpenArgs {
     #[schemars(
         description = "Open mode: `focus` for a bounded local block, `edit` for an edit-oriented slice, or `raw` for the literal file window covering the target span. Path-based opens support `raw`, and also support `edit` when `line` is provided so PRISM can center an edit-ready window."
     )]
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) mode: Option<PrismOpenModeInput>,
     #[schemars(
         description = "Optional 1-based focus line for exact-path opens. When present, PRISM returns a bounded window around this line."
@@ -974,6 +975,7 @@ pub(crate) struct PrismConceptArgs {
     #[schemars(
         description = "Optional concept-packet density. Use `summary` for the lightest packet, `standard` for compact orientation, or `full` for the complete concept payload."
     )]
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) verbosity: Option<PrismConceptVerbosityInput>,
     #[schemars(
         description = "When true, include lineage-backed binding metadata aligned with the concept member lists."
@@ -1148,6 +1150,7 @@ pub(crate) struct PrismConceptMutationArgs {
     #[schemars(
         description = "Concept persistence scope. `local` stays runtime-only, `session` persists in the workspace store, and `repo` exports to committed repo knowledge."
     )]
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) scope: Option<ConceptScopeInput>,
     #[schemars(description = "Optional concept handles this published concept supersedes.")]
     pub(crate) supersedes: Option<Vec<String>>,
@@ -1170,6 +1173,7 @@ pub(crate) struct ContractGuaranteeInput {
     pub(crate) id: Option<String>,
     pub(crate) statement: String,
     pub(crate) scope: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) strength: Option<ContractGuaranteeStrengthInput>,
     pub(crate) evidence_refs: Option<Vec<String>>,
 }
@@ -1210,6 +1214,7 @@ pub(crate) struct PrismContractMutationArgs {
     #[schemars(description = "Optional aliases for the contract.")]
     pub(crate) aliases: Option<Vec<String>>,
     #[schemars(description = "Contract type such as `interface` or `dependency_boundary`.")]
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) kind: Option<ContractKindInput>,
     #[schemars(description = "Provider or governed surface making the promise.")]
     pub(crate) subject: Option<ContractTargetInput>,
@@ -1222,16 +1227,20 @@ pub(crate) struct PrismContractMutationArgs {
     #[schemars(description = "Validation links that support the contract.")]
     pub(crate) validations: Option<Vec<ContractValidationInput>>,
     #[schemars(description = "Stability signal such as internal, public, or migrating.")]
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) stability: Option<ContractStabilityInput>,
     #[schemars(description = "Compatibility guidance for additive, risky, or breaking edits.")]
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) compatibility: Option<ContractCompatibilityInput>,
     #[schemars(description = "Anchored supporting evidence lines or summaries.")]
     pub(crate) evidence: Option<Vec<String>>,
     #[schemars(description = "Contract lifecycle status.")]
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) status: Option<ContractStatusInput>,
     #[schemars(
         description = "Contract persistence scope. `local` stays runtime-only, `session` persists in the workspace store, and `repo` exports to committed repo knowledge."
     )]
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) scope: Option<ConceptScopeInput>,
     #[schemars(description = "Optional handles this published contract supersedes.")]
     pub(crate) supersedes: Option<Vec<String>>,
@@ -1250,6 +1259,7 @@ pub(crate) struct PrismConceptRelationMutationArgs {
     pub(crate) kind: ConceptRelationKindInput,
     pub(crate) confidence: Option<f32>,
     pub(crate) evidence: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) scope: Option<ConceptScopeInput>,
     #[serde(alias = "task_id")]
     pub(crate) task_id: Option<String>,
@@ -1366,6 +1376,7 @@ pub(crate) struct PrismOutcomeArgs {
     pub(crate) kind: OutcomeKindInput,
     pub(crate) anchors: Vec<AnchorRefInput>,
     pub(crate) summary: String,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) result: Option<OutcomeResultInput>,
     pub(crate) evidence: Option<Vec<OutcomeEvidenceInput>>,
     #[serde(alias = "task_id")]
@@ -1377,9 +1388,11 @@ pub(crate) struct PrismOutcomeArgs {
 pub(crate) struct MemoryStorePayload {
     pub(crate) anchors: Vec<AnchorRefInput>,
     pub(crate) kind: MemoryKindInput,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) scope: Option<MemoryScopeInput>,
     pub(crate) content: String,
     pub(crate) trust: Option<f32>,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) source: Option<MemorySourceInput>,
     pub(crate) metadata: Option<Value>,
     pub(crate) promoted_from: Option<Vec<String>>,
@@ -1741,6 +1754,7 @@ pub(crate) struct PrismInferEdgeArgs {
     pub(crate) target: NodeIdInput,
     pub(crate) kind: String,
     pub(crate) confidence: f32,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) scope: Option<InferredEdgeScopeInput>,
     pub(crate) evidence: Option<Vec<String>>,
     #[serde(alias = "task_id")]
@@ -2274,6 +2288,7 @@ pub(crate) struct PendingReviewsArgs {
 pub(crate) struct SimulateClaimArgs {
     pub(crate) anchors: Vec<AnchorRefInput>,
     pub(crate) capability: CapabilityInput,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) mode: Option<ClaimModeInput>,
     #[serde(alias = "task_id")]
     pub(crate) task_id: Option<String>,
@@ -2554,6 +2569,7 @@ impl_vocab_deserialize!(
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PlanCreatePayload {
     pub(crate) goal: String,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) status: Option<PlanStatusInput>,
     pub(crate) policy: Option<CoordinationPolicyPayload>,
 }
@@ -2562,6 +2578,7 @@ pub(crate) struct PlanCreatePayload {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PlanUpdatePayload {
     pub(crate) plan_id: String,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) status: Option<PlanStatusInput>,
     pub(crate) goal: Option<String>,
     pub(crate) policy: Option<CoordinationPolicyPayload>,
@@ -2576,6 +2593,7 @@ pub(crate) struct PlanArchivePayload {
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CoordinationPolicyPayload {
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) default_claim_mode: Option<ClaimModeInput>,
     pub(crate) max_parallel_editors_per_anchor: Option<u16>,
     pub(crate) require_review_for_completion: Option<bool>,
@@ -2606,6 +2624,7 @@ pub(crate) struct AcceptanceCriterionPayload {
     pub(crate) label: String,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
     pub(crate) required_checks: Option<Vec<ValidationRefPayload>>,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) evidence_policy: Option<AcceptanceEvidencePolicyInput>,
 }
 
@@ -2614,6 +2633,7 @@ pub(crate) struct AcceptanceCriterionPayload {
 pub(crate) struct TaskCreatePayload {
     pub(crate) plan_id: String,
     pub(crate) title: String,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) status: Option<CoordinationTaskStatusInput>,
     pub(crate) assignee: Option<String>,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
@@ -2631,7 +2651,9 @@ pub(crate) struct WorkflowUpdatePayload {
         alias = "node_id"
     )]
     pub(crate) id: String,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) kind: Option<PlanNodeKindInput>,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) status: Option<WorkflowStatusInput>,
     pub(crate) assignee: Option<SparsePatchInput<String>>,
     pub(crate) is_abstract: Option<bool>,
@@ -2651,9 +2673,11 @@ pub(crate) struct WorkflowUpdatePayload {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PlanNodeCreatePayload {
     pub(crate) plan_id: String,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) kind: Option<PlanNodeKindInput>,
     pub(crate) title: String,
     pub(crate) summary: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) status: Option<PlanNodeStatusInput>,
     pub(crate) assignee: Option<String>,
     pub(crate) is_abstract: Option<bool>,
@@ -2711,6 +2735,7 @@ pub(crate) struct HandoffAcceptPayload {
 pub(crate) struct ClaimAcquirePayload {
     pub(crate) anchors: Vec<AnchorRefInput>,
     pub(crate) capability: CapabilityInput,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) mode: Option<ClaimModeInput>,
     pub(crate) ttl_seconds: Option<u64>,
     pub(crate) agent: Option<String>,
@@ -2810,6 +2835,7 @@ pub(crate) struct PrismCuratorPromoteEdgeArgs {
     pub(crate) job_id: String,
     #[serde(alias = "proposal_index")]
     pub(crate) proposal_index: usize,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) scope: Option<InferredEdgeScopeInput>,
     pub(crate) note: Option<String>,
     #[serde(alias = "task_id")]
@@ -2819,7 +2845,9 @@ pub(crate) struct PrismCuratorPromoteEdgeArgs {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismCuratorApplyProposalOptionsArgs {
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) edge_scope: Option<InferredEdgeScopeInput>,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) concept_scope: Option<ConceptScopeInput>,
     pub(crate) memory_trust: Option<f32>,
 }
@@ -2856,6 +2884,7 @@ pub(crate) struct PrismCuratorPromoteConceptArgs {
     pub(crate) job_id: String,
     #[serde(alias = "proposal_index")]
     pub(crate) proposal_index: usize,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) scope: Option<ConceptScopeInput>,
     pub(crate) note: Option<String>,
     #[serde(alias = "task_id")]

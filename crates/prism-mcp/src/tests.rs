@@ -6051,6 +6051,47 @@ pub fn alpha_handler() {}
 }
 
 #[test]
+fn compact_locate_surfaces_frontend_text_hits_for_ui_queries_without_parser_coverage() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("www/dashboard/src")).unwrap();
+    fs::write(
+        root.join("www/dashboard/src/App.tsx"),
+        r#"
+export function App() {
+  return <section aria-label="validation feedback panel">Validation feedback panel</section>;
+}
+"#,
+    )
+    .unwrap();
+
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "validation feedback panel".to_string(),
+                path: None,
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Inspect),
+                task_id: None,
+                limit: Some(3),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+
+    assert!(locate
+        .candidates
+        .first()
+        .is_some_and(|candidate| candidate.path.contains("www/dashboard/src/App.tsx")));
+    assert!(locate
+        .candidates
+        .first()
+        .is_some_and(|candidate| candidate.why_short.contains("Exact text hit")));
+}
+
+#[test]
 fn prism_open_accepts_snake_case_field_aliases() {
     let args: PrismOpenArgs = serde_json::from_value(json!({
         "path": "docs/SPEC.md",
@@ -6064,6 +6105,17 @@ fn prism_open_accepts_snake_case_field_aliases() {
     assert_eq!(args.before_lines, Some(2));
     assert_eq!(args.after_lines, Some(4));
     assert_eq!(args.max_chars, Some(300));
+}
+
+#[test]
+fn prism_open_treats_empty_mode_as_omitted() {
+    let args: PrismOpenArgs = serde_json::from_value(json!({
+        "path": "docs/SPEC.md",
+        "mode": "",
+    }))
+    .expect("empty open mode should deserialize as omitted");
+
+    assert!(args.mode.is_none());
 }
 
 #[test]
@@ -6094,6 +6146,30 @@ fn prism_concept_treats_empty_lens_as_omitted() {
     .expect("empty concept lens should deserialize as omitted");
 
     assert!(args.lens.is_none());
+}
+
+#[test]
+fn prism_concept_treats_empty_verbosity_as_omitted() {
+    let args: PrismConceptArgs = serde_json::from_value(json!({
+        "query": "runtime",
+        "verbosity": "",
+    }))
+    .expect("empty concept verbosity should deserialize as omitted");
+
+    assert!(args.verbosity.is_none());
+}
+
+#[test]
+fn workflow_update_payload_treats_empty_optional_enums_as_omitted() {
+    let payload: WorkflowUpdatePayload = serde_json::from_value(json!({
+        "id": "coord-task:demo",
+        "kind": "",
+        "status": "",
+    }))
+    .expect("empty workflow update enums should deserialize as omitted");
+
+    assert!(payload.kind.is_none());
+    assert!(payload.status.is_none());
 }
 
 #[test]
@@ -8404,13 +8480,10 @@ This section mentions the open and workset follow-through path in prose, but it 
             && (workset.primary.path.starts_with("demo::open_flow")
                 || workset.primary.path.starts_with("demo::workset_flow"))
     );
-    assert!(workset
-        .supporting_reads
-        .iter()
-        .any(|candidate| {
-            candidate.path.starts_with("demo::open_flow")
-                || candidate.path.starts_with("demo::workset_flow")
-        }));
+    assert!(workset.supporting_reads.iter().any(|candidate| {
+        candidate.path.starts_with("demo::open_flow")
+            || candidate.path.starts_with("demo::workset_flow")
+    }));
     assert!(workset
         .supporting_reads
         .iter()
@@ -10991,7 +11064,7 @@ fn compact_spec_followups_surface_governing_sections_before_owner_hops() {
     assert!(workset
         .next_action
         .as_deref()
-        .is_some_and(|text| text.contains("governing section")));
+        .is_some_and(|text| text.contains("governing section or adjacent spec")));
 
     let open = host
         .compact_open(
@@ -11015,7 +11088,7 @@ fn compact_spec_followups_surface_governing_sections_before_owner_hops() {
     assert!(open
         .next_action
         .as_deref()
-        .is_some_and(|text| text.contains("governing section")));
+        .is_some_and(|text| text.contains("governing section or adjacent spec")));
 }
 
 #[test]
@@ -11124,7 +11197,7 @@ return spec ? {{
 }
 
 #[test]
-fn compact_open_for_product_surface_spec_headings_prefers_identifier_owners() {
+fn compact_open_for_product_surface_spec_headings_prefers_doc_followthrough_before_owners() {
     let root = temp_workspace();
     write_compact_default_tools_workspace(&root);
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
@@ -11163,12 +11236,8 @@ fn compact_open_for_product_surface_spec_headings_prefers_identifier_owners() {
     assert!(open
         .related_handles
         .as_ref()
-        .is_some_and(|targets| targets.iter().any(|target| {
-            target.path.contains("prism_locate")
-                || target.path.contains("prism_open")
-                || target.path.contains("prism_workset")
-                || target.path.contains("prism_expand")
-        })));
+        .and_then(|targets| targets.first())
+        .is_some_and(|target| target.path.contains("docs/GOVERNANCE.md:3")));
     assert!(open.related_handles.as_ref().is_some_and(|targets| {
         targets
             .iter()

@@ -48,7 +48,7 @@ use prism_ir::{
 use prism_memory::OutcomeMemory;
 use prism_parser::{LanguageAdapter, ParseDepth, ParseResult};
 use prism_projections::{
-    co_change_deltas_for_events, CoChangeDelta, ProjectionIndex, ValidationDelta,
+    co_change_delta_batch_for_events, CoChangeDelta, ProjectionIndex, ValidationDelta,
     MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
 };
 use prism_query::Prism;
@@ -60,14 +60,16 @@ use tracing::{info, warn};
 const SLOW_FILE_PHASE_THRESHOLD_MS: u128 = 200;
 const SMALL_REPO_DEEP_PARSE_FILE_LIMIT: usize = 64;
 
-fn distinct_lineage_count(events: &[LineageEvent]) -> usize {
-    let mut lineages = events
-        .iter()
-        .map(|event| event.lineage.clone())
-        .collect::<Vec<_>>();
-    lineages.sort_by(|left, right| left.0.cmp(&right.0));
-    lineages.dedup();
-    lineages.len()
+fn log_truncated_co_change_fallback(root: &Path, path: &Path, event_count: usize, distinct: usize) {
+    warn!(
+        root = %root.display(),
+        path = %path.display(),
+        lineage_event_count = event_count,
+        distinct_lineage_count = distinct,
+        sampled_lineage_count = MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
+        max_co_change_lineages_per_changeset = MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
+        "sampling symbol-level co-change deltas for oversized change set"
+    );
 }
 
 pub struct WorkspaceIndexer<S: Store> {
@@ -830,22 +832,17 @@ impl<S: Store> WorkspaceIndexer<S> {
             let upsert_ms = upsert_started.elapsed().as_millis();
             parsed_file_count += 1;
             let new_lineage_events = self.history.apply(&update.observed);
-            let distinct_lineages = distinct_lineage_count(&new_lineage_events);
-            let change_set_deltas = co_change_deltas_for_events(&new_lineage_events);
-            if change_set_deltas.is_empty()
-                && distinct_lineages > MAX_CO_CHANGE_LINEAGES_PER_CHANGESET
-            {
-                warn!(
-                    root = %self.root.display(),
-                    path = %parsed_job.pending.path.display(),
-                    lineage_event_count = new_lineage_events.len(),
-                    distinct_lineage_count = distinct_lineages,
-                    max_co_change_lineages_per_changeset = MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
-                    "skipping symbol-level co-change deltas for oversized change set"
+            let change_set_deltas = co_change_delta_batch_for_events(&new_lineage_events);
+            if change_set_deltas.truncated {
+                log_truncated_co_change_fallback(
+                    &self.root,
+                    &parsed_job.pending.path,
+                    new_lineage_events.len(),
+                    change_set_deltas.distinct_lineage_count,
                 );
             }
             self.projections.apply_lineage_events(&new_lineage_events);
-            co_change_deltas.extend(change_set_deltas);
+            co_change_deltas.extend(change_set_deltas.deltas);
             self.outcomes.apply_lineage(&new_lineage_events)?;
             all_lineage_events.extend(new_lineage_events.iter().cloned());
             if let Some(RecordedPatchOutcome {
@@ -966,22 +963,17 @@ impl<S: Store> WorkspaceIndexer<S> {
                 requires_graph_index_rebuild |= update.requires_index_rebuild;
                 requires_edge_resolution |= update.requires_edge_resolution;
                 let new_lineage_events = self.history.apply(&update.observed);
-                let distinct_lineages = distinct_lineage_count(&new_lineage_events);
-                let change_set_deltas = co_change_deltas_for_events(&new_lineage_events);
-                if change_set_deltas.is_empty()
-                    && distinct_lineages > MAX_CO_CHANGE_LINEAGES_PER_CHANGESET
-                {
-                    warn!(
-                        root = %self.root.display(),
-                        path = %tracked.display(),
-                        lineage_event_count = new_lineage_events.len(),
-                        distinct_lineage_count = distinct_lineages,
-                        max_co_change_lineages_per_changeset = MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
-                        "skipping symbol-level co-change deltas for oversized change set"
+                let change_set_deltas = co_change_delta_batch_for_events(&new_lineage_events);
+                if change_set_deltas.truncated {
+                    log_truncated_co_change_fallback(
+                        &self.root,
+                        &tracked,
+                        new_lineage_events.len(),
+                        change_set_deltas.distinct_lineage_count,
                     );
                 }
                 self.projections.apply_lineage_events(&new_lineage_events);
-                co_change_deltas.extend(change_set_deltas);
+                co_change_deltas.extend(change_set_deltas.deltas);
                 self.outcomes.apply_lineage(&new_lineage_events)?;
                 all_lineage_events.extend(new_lineage_events.iter().cloned());
                 if let Some(RecordedPatchOutcome {
@@ -1484,21 +1476,17 @@ impl<S: Store> WorkspaceIndexer<S> {
         upserted_paths: &mut Vec<PathBuf>,
     ) -> Result<()> {
         let new_lineage_events = self.history.apply(&update.observed);
-        let distinct_lineages = distinct_lineage_count(&new_lineage_events);
-        let change_set_deltas = co_change_deltas_for_events(&new_lineage_events);
-        if change_set_deltas.is_empty() && distinct_lineages > MAX_CO_CHANGE_LINEAGES_PER_CHANGESET
-        {
-            warn!(
-                root = %self.root.display(),
-                path = %path.display(),
-                lineage_event_count = new_lineage_events.len(),
-                distinct_lineage_count = distinct_lineages,
-                max_co_change_lineages_per_changeset = MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
-                "skipping symbol-level co-change deltas for oversized change set"
+        let change_set_deltas = co_change_delta_batch_for_events(&new_lineage_events);
+        if change_set_deltas.truncated {
+            log_truncated_co_change_fallback(
+                &self.root,
+                path,
+                new_lineage_events.len(),
+                change_set_deltas.distinct_lineage_count,
             );
         }
         self.projections.apply_lineage_events(&new_lineage_events);
-        co_change_deltas.extend(change_set_deltas);
+        co_change_deltas.extend(change_set_deltas.deltas);
         self.outcomes.apply_lineage(&new_lineage_events)?;
         all_lineage_events.extend(new_lineage_events.iter().cloned());
         if let Some(RecordedPatchOutcome {

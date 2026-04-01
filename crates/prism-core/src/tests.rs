@@ -4838,11 +4838,8 @@ fn recovery_rebuild_from_shared_runtime_journals_without_checkpoint_flush() {
         .load_coordination_plan_state()
         .unwrap()
         .expect("shared runtime coordination state should replay");
-    assert!(state
-        .snapshot
-        .plans
-        .iter()
-        .any(|plan| plan.id == plan_id && plan.goal == "Recover coordination from shared-runtime journal"));
+    assert!(state.snapshot.plans.iter().any(|plan| plan.id == plan_id
+        && plan.goal == "Recover coordination from shared-runtime journal"));
 
     let _ = fs::remove_dir_all(root);
     let _ = fs::remove_dir_all(shared_runtime_root);

@@ -238,6 +238,40 @@ fn should_include_text_hits(args: &PrismLocateArgs) -> bool {
         || query.contains('[')
         || query.contains(']')
         || locate_identifier_terms(query).len() == 1
+        || looks_like_ui_query(query)
+            && args.task_intent.as_ref().is_some_and(|intent| {
+                matches!(
+                    intent,
+                    PrismLocateTaskIntentInput::Inspect
+                        | PrismLocateTaskIntentInput::Edit
+                        | PrismLocateTaskIntentInput::Explain
+                )
+            })
+}
+
+fn looks_like_ui_query(query: &str) -> bool {
+    let terms = locate_query_tokens(&normalize_locate_text(query));
+    (2..=5).contains(&terms.len())
+        && terms.iter().any(|term| {
+            matches!(
+                term.as_str(),
+                "component"
+                    | "page"
+                    | "panel"
+                    | "view"
+                    | "modal"
+                    | "form"
+                    | "button"
+                    | "dashboard"
+                    | "screen"
+                    | "layout"
+                    | "sidebar"
+                    | "header"
+                    | "footer"
+                    | "hook"
+                    | "props"
+            )
+        })
 }
 
 pub(super) fn locate_text_diagnostics(

@@ -443,6 +443,7 @@ fn actor_key(actor: &EventActor) -> String {
         EventActor::User => "User".to_string(),
         EventActor::Agent => "Agent".to_string(),
         EventActor::System => "System".to_string(),
+        EventActor::Principal(actor) => actor.scoped_id(),
         EventActor::CI => "CI".to_string(),
         EventActor::GitAuthor { name, email } => {
             format!("GitAuthor:{}:{}", name, email.as_deref().unwrap_or(""))

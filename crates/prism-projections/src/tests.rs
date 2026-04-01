@@ -8,8 +8,8 @@ use prism_memory::{
 };
 
 use crate::projections::{
-    co_change_deltas_for_events, ProjectionIndex, MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
-    MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE,
+    co_change_delta_batch_for_events, co_change_deltas_for_events, ProjectionIndex,
+    MAX_CO_CHANGE_LINEAGES_PER_CHANGESET, MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE,
 };
 use crate::{
     ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptPacket,
@@ -331,7 +331,7 @@ fn co_change_neighbors_are_pruned_to_top_k() {
 }
 
 #[test]
-fn co_change_deltas_skip_bulk_changesets_above_guardrail() {
+fn co_change_deltas_sample_bulk_changesets_above_guardrail() {
     let events = (0..(MAX_CO_CHANGE_LINEAGES_PER_CHANGESET + 1))
         .map(|index| LineageEvent {
             meta: EventMeta {
@@ -350,7 +350,21 @@ fn co_change_deltas_skip_bulk_changesets_above_guardrail() {
         })
         .collect::<Vec<_>>();
 
-    assert!(co_change_deltas_for_events(&events).is_empty());
+    let batch = co_change_delta_batch_for_events(&events);
+    assert!(batch.truncated);
+    assert_eq!(
+        batch.distinct_lineage_count,
+        MAX_CO_CHANGE_LINEAGES_PER_CHANGESET + 1
+    );
+    assert_eq!(
+        batch.sampled_lineage_count,
+        MAX_CO_CHANGE_LINEAGES_PER_CHANGESET
+    );
+    assert_eq!(
+        batch.deltas.len(),
+        MAX_CO_CHANGE_LINEAGES_PER_CHANGESET * (MAX_CO_CHANGE_LINEAGES_PER_CHANGESET - 1)
+    );
+    assert!(!co_change_deltas_for_events(&events).is_empty());
 }
 
 #[test]

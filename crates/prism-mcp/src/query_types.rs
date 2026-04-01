@@ -424,6 +424,20 @@ pub(crate) fn parse_event_actor(value: &str) -> Result<EventActor> {
         "system" => Ok(EventActor::System),
         "ci" => Ok(EventActor::CI),
         _ => {
+            if let Some(rest) = trimmed.strip_prefix("principal:") {
+                let (authority_id, principal_id) = rest
+                    .split_once(':')
+                    .ok_or_else(|| anyhow!("principal actor must include authority and id"))?;
+                if authority_id.trim().is_empty() || principal_id.trim().is_empty() {
+                    return Err(anyhow!("principal actor must include authority and id"));
+                }
+                return Ok(EventActor::Principal(prism_ir::PrincipalActor {
+                    authority_id: prism_ir::PrincipalAuthorityId::new(authority_id.trim()),
+                    principal_id: prism_ir::PrincipalId::new(principal_id.trim()),
+                    kind: None,
+                    name: None,
+                }));
+            }
             let Some(rest) = trimmed.strip_prefix("git:") else {
                 return Err(anyhow!("unknown event actor `{trimmed}`"));
             };
@@ -439,6 +453,34 @@ pub(crate) fn parse_event_actor(value: &str) -> Result<EventActor> {
                 email: email.filter(|value| !value.is_empty()).map(Into::into),
             })
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_event_actor;
+    use prism_ir::{EventActor, PrincipalAuthorityId, PrincipalId};
+
+    #[test]
+    fn parse_event_actor_accepts_principal_scoped_id() {
+        let actor = parse_event_actor("principal:local-daemon:agent-7").unwrap();
+        assert_eq!(
+            actor,
+            EventActor::Principal(prism_ir::PrincipalActor {
+                authority_id: PrincipalAuthorityId::new("local-daemon"),
+                principal_id: PrincipalId::new("agent-7"),
+                kind: None,
+                name: None,
+            })
+        );
+    }
+
+    #[test]
+    fn parse_event_actor_rejects_incomplete_principal_scoped_id() {
+        let error = parse_event_actor("principal:missing-id").unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("principal actor must include authority and id"));
     }
 }
 

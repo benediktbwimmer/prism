@@ -28,6 +28,14 @@ pub const MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE: usize = 32;
 // 128 distinct lineages already implies 16,256 directed deltas.
 pub const MAX_CO_CHANGE_LINEAGES_PER_CHANGESET: usize = 128;
 
+#[derive(Debug, Clone)]
+pub struct CoChangeDeltaBatch {
+    pub deltas: Vec<CoChangeDelta>,
+    pub distinct_lineage_count: usize,
+    pub sampled_lineage_count: usize,
+    pub truncated: bool,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct ProjectionIndex {
     co_change_by_lineage: HashMap<LineageId, Vec<CoChangeRecord>>,
@@ -1026,11 +1034,9 @@ fn candidate_rank_for_health(candidate: &NodeId, original: &NodeId) -> (u8, u8, 
     )
 }
 
-pub fn co_change_deltas_for_events(events: &[LineageEvent]) -> Vec<CoChangeDelta> {
-    let Some(lineages) = distinct_change_set_lineages(events) else {
-        return Vec::new();
-    };
-
+pub fn co_change_delta_batch_for_events(events: &[LineageEvent]) -> CoChangeDeltaBatch {
+    let lineage_selection = distinct_change_set_lineages(events);
+    let lineages = lineage_selection.lineages;
     let mut deltas = Vec::new();
     for (index, left) in lineages.iter().enumerate() {
         for right in lineages.iter().skip(index + 1) {
@@ -1046,7 +1052,16 @@ pub fn co_change_deltas_for_events(events: &[LineageEvent]) -> Vec<CoChangeDelta
             });
         }
     }
-    deltas
+    CoChangeDeltaBatch {
+        deltas,
+        distinct_lineage_count: lineage_selection.total_distinct_lineages,
+        sampled_lineage_count: lineages.len(),
+        truncated: lineage_selection.truncated,
+    }
+}
+
+pub fn co_change_deltas_for_events(events: &[LineageEvent]) -> Vec<CoChangeDelta> {
+    co_change_delta_batch_for_events(events).deltas
 }
 
 fn co_change_by_lineage_from_history_events(
@@ -1068,9 +1083,10 @@ fn co_change_by_lineage_from_history_events(
 
     let mut counts = HashMap::<LineageId, HashMap<LineageId, u32>>::new();
     for lineages in change_sets.into_values() {
-        let Some(lineages) = distinct_sorted_lineages(lineages) else {
+        let lineages = distinct_sorted_lineages(lineages).lineages;
+        if lineages.len() < 2 {
             continue;
-        };
+        }
         for (index, left) in lineages.iter().enumerate() {
             for right in lineages.iter().skip(index + 1) {
                 *counts
@@ -1099,14 +1115,46 @@ fn co_change_by_lineage_from_history_events(
         .collect()
 }
 
-fn distinct_change_set_lineages(events: &[LineageEvent]) -> Option<Vec<LineageId>> {
+fn distinct_change_set_lineages(events: &[LineageEvent]) -> DistinctLineageSelection {
     distinct_sorted_lineages(events.iter().map(|event| event.lineage.clone()).collect())
 }
 
-fn distinct_sorted_lineages(mut lineages: Vec<LineageId>) -> Option<Vec<LineageId>> {
+#[derive(Debug, Clone)]
+struct DistinctLineageSelection {
+    lineages: Vec<LineageId>,
+    total_distinct_lineages: usize,
+    truncated: bool,
+}
+
+fn distinct_sorted_lineages(mut lineages: Vec<LineageId>) -> DistinctLineageSelection {
     lineages.sort_by(|left, right| left.0.cmp(&right.0));
     lineages.dedup();
-    (lineages.len() <= MAX_CO_CHANGE_LINEAGES_PER_CHANGESET).then_some(lineages)
+    let total_distinct_lineages = lineages.len();
+    if total_distinct_lineages <= MAX_CO_CHANGE_LINEAGES_PER_CHANGESET {
+        return DistinctLineageSelection {
+            lineages,
+            total_distinct_lineages,
+            truncated: false,
+        };
+    }
+
+    let mut sampled = Vec::with_capacity(MAX_CO_CHANGE_LINEAGES_PER_CHANGESET);
+    let last_index = total_distinct_lineages - 1;
+    let last_slot = MAX_CO_CHANGE_LINEAGES_PER_CHANGESET - 1;
+    for slot in 0..MAX_CO_CHANGE_LINEAGES_PER_CHANGESET {
+        let index = if last_slot == 0 {
+            0
+        } else {
+            slot * last_index / last_slot
+        };
+        sampled.push(lineages[index].clone());
+    }
+
+    DistinctLineageSelection {
+        lineages: sampled,
+        total_distinct_lineages,
+        truncated: true,
+    }
 }
 
 pub fn validation_deltas_for_event<F>(

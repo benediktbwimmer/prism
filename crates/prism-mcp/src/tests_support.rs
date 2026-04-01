@@ -422,6 +422,11 @@ pub(crate) fn write_compact_default_tools_workspace(root: &Path) {
     )
     .unwrap();
     fs::write(
+        root.join("docs/IMPLEMENTATION_SPEC.md"),
+        "# Implementation Spec\n\n## Compact Default Tools Runtime Flow\n\nThis adjacent spec explains how `prism_locate`, `prism_open`, `prism_workset`, and `prism_expand` should preserve the same compact handle flow through runtime execution.\n",
+    )
+    .unwrap();
+    fs::write(
         root.join("src/lib.rs"),
         "mod server_surface;\nmod compact_tools;\n",
     )

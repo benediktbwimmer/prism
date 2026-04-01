@@ -9,9 +9,9 @@ use prism_ir::{EdgeKind, LineageId, NodeId, NodeKind};
 use prism_js::{
     AgentExpandKind, AgentExpandResultView, AgentGatherResultView, AgentHandleCategoryView,
     AgentLocateResultView, AgentLocateStatus, AgentOpenMode, AgentOpenResultView,
-    AgentResultFreshnessView, AgentTargetHandleView, AgentTextPreviewView,
-    AgentWorksetResultView, ConfidenceLabel, QueryDiagnostic, SourceExcerptView,
-    SourceLocationView, SourceSliceView, SymbolView, TextSearchMatchView,
+    AgentResultFreshnessView, AgentTargetHandleView, AgentTextPreviewView, AgentWorksetResultView,
+    ConfidenceLabel, QueryDiagnostic, SourceExcerptView, SourceLocationView, SourceSliceView,
+    SymbolView, TextSearchMatchView,
 };
 use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions};
 use serde_json::{json, Value};

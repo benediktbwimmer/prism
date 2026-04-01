@@ -1,6 +1,8 @@
 use prism_ir::{AnchorRef, NodeId};
 use prism_js::AgentSuggestedActionView;
 use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
 
 use super::concept::compact_concept_workset_result;
 use super::suggested_actions::{
@@ -10,7 +12,7 @@ use super::text_fragments::{
     compact_text_fragment_likely_tests, compact_text_fragment_supporting_reads, read_text_fragment,
 };
 use super::*;
-use crate::compact_followups::workspace_scoped_path;
+use crate::compact_followups::{workspace_display_path, workspace_scoped_path};
 use crate::{
     concept_resolution_is_ambiguous, resolve_concepts_for_task_context, weak_concept_match_reason,
 };
@@ -100,7 +102,7 @@ pub(super) fn budgeted_workset_result(
     let has_likely_tests = !likely_tests.is_empty();
     let next_action = Some(compact_workset_next_action(
         target,
-        supporting_reads.first(),
+        &supporting_reads,
         has_likely_tests,
     ));
     let suggested_actions = compact_workset_suggested_actions(
@@ -312,12 +314,41 @@ pub(super) fn is_docs_like_handle_view(target: &AgentTargetHandleView) -> bool {
     is_docs_like_kind(target.kind) || target.file_path.as_deref().is_some_and(is_docs_path)
 }
 
+fn doc_path_is_governance(path: &str) -> bool {
+    path.to_ascii_lowercase().contains("governance")
+}
+
+fn doc_path_is_adjacent_spec(path: &str) -> bool {
+    let path = path.to_ascii_lowercase();
+    !path.contains("governance")
+        && ["spec", "design", "adr", "guide"]
+            .into_iter()
+            .any(|term| path.contains(term))
+}
+
+pub(super) fn is_governance_handle_view(target: &AgentTargetHandleView) -> bool {
+    doc_path_is_governance(&target.path) || target.name.to_ascii_lowercase().contains("governance")
+}
+
+pub(super) fn is_adjacent_spec_handle_view(target: &AgentTargetHandleView) -> bool {
+    if !is_docs_like_handle_view(target) || is_governance_handle_view(target) {
+        return false;
+    }
+    let name = target.name.to_ascii_lowercase();
+    doc_path_is_adjacent_spec(&target.path)
+        || ["spec", "design", "adr", "guide"]
+            .into_iter()
+            .any(|term| name.contains(term))
+}
+
 fn compact_workset_next_action(
     target: &SessionHandleTarget,
-    first_supporting_read: Option<&AgentTargetHandleView>,
+    supporting_reads: &[AgentTargetHandleView],
     has_likely_tests: bool,
 ) -> String {
+    let first_supporting_read = supporting_reads.first();
     let has_supporting_followup = first_supporting_read.is_some();
+    let has_adjacent_spec_followup = supporting_reads.iter().any(is_adjacent_spec_handle_view);
     if is_text_fragment_target(target) {
         if has_supporting_followup {
             "Use prism_open on the first supporting slice; if you need more room, reopen it in edit mode, or prism_expand `neighbors`.".to_string()
@@ -337,8 +368,14 @@ fn compact_workset_next_action(
     } else if is_spec_like_kind(target.kind)
         || target.file_path.as_deref().is_some_and(is_docs_path)
     {
-        if first_supporting_read.is_some_and(is_docs_like_handle_view) {
+        if first_supporting_read.is_some_and(is_governance_handle_view)
+            && has_adjacent_spec_followup
+        {
+            "Use prism_open on the first governing section or adjacent spec, or prism_expand `drift`.".to_string()
+        } else if first_supporting_read.is_some_and(is_governance_handle_view) {
             "Use prism_open on the first governing section, or prism_expand `drift`.".to_string()
+        } else if first_supporting_read.is_some_and(is_adjacent_spec_handle_view) {
+            "Use prism_open on the first adjacent spec, or prism_expand `drift`.".to_string()
         } else if has_supporting_followup {
             "Use prism_open on the first owner, or prism_expand `drift`.".to_string()
         } else {
@@ -1607,6 +1644,17 @@ fn ranked_spec_doc_section_followups(
             }
         }
     }
+    for candidate in sibling_adjacent_doc_followups(host, current_file_path.as_ref())? {
+        let key = candidate.target.id.path.to_string();
+        if let Some(existing) = seen.get(&key).copied() {
+            if candidate.score > ranked[existing].score {
+                ranked[existing] = candidate;
+            }
+        } else {
+            seen.insert(key, ranked.len());
+            ranked.push(candidate);
+        }
+    }
 
     ranked.sort_by(|left, right| {
         right
@@ -1640,6 +1688,37 @@ fn spec_doc_followup_queries(
     Ok(queries)
 }
 
+fn sibling_adjacent_doc_followups(
+    host: &QueryHost,
+    current_file_path: &str,
+) -> Result<Vec<RankedDocSectionFollowup>> {
+    let Some(parent) = Path::new(current_file_path).parent() else {
+        return Ok(Vec::new());
+    };
+    let mut ranked = Vec::new();
+    for entry in fs::read_dir(parent)? {
+        let entry = entry?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let Some(extension) = path.extension().and_then(|ext| ext.to_str()) else {
+            continue;
+        };
+        if !extension.eq_ignore_ascii_case("md") || path == Path::new(current_file_path) {
+            continue;
+        }
+        let display_path = workspace_display_path(host.workspace_root(), &path);
+        if !(doc_path_is_governance(&display_path) || doc_path_is_adjacent_spec(&display_path)) {
+            continue;
+        }
+        if let Some(candidate) = adjacent_doc_section_target(host, &display_path)? {
+            ranked.push(candidate);
+        }
+    }
+    Ok(ranked)
+}
+
 fn push_unique_spec_doc_query(queries: &mut Vec<String>, query: Option<&str>) {
     let Some(query) = query.map(str::trim).filter(|value| !value.is_empty()) else {
         return;
@@ -1647,6 +1726,83 @@ fn push_unique_spec_doc_query(queries: &mut Vec<String>, query: Option<&str>) {
     if !queries.iter().any(|existing| existing == query) {
         queries.push(query.to_string());
     }
+}
+
+fn adjacent_doc_section_target(
+    host: &QueryHost,
+    path: &str,
+) -> Result<Option<RankedDocSectionFollowup>> {
+    let excerpt = file_read(
+        host,
+        FileReadArgs {
+            path: path.to_string(),
+            start_line: Some(1),
+            end_line: Some(SPEC_DOC_SECTION_CONTEXT_BEFORE + SPEC_DOC_SECTION_CONTEXT_AFTER),
+            max_chars: Some(RAW_OPEN_MAX_CHARS),
+        },
+    )?;
+    let lines = excerpt.text.lines().collect::<Vec<_>>();
+    let heading = lines
+        .iter()
+        .enumerate()
+        .find_map(|(index, line)| {
+            let trimmed = line.trim_start();
+            trimmed
+                .starts_with("##")
+                .then_some((index, trimmed.trim_start_matches('#').trim().to_string()))
+        })
+        .or_else(|| {
+            lines.iter().enumerate().find_map(|(index, line)| {
+                let trimmed = line.trim_start();
+                trimmed
+                    .starts_with('#')
+                    .then_some((index, trimmed.trim_start_matches('#').trim().to_string()))
+            })
+        });
+    let Some((heading_index, heading_text)) = heading else {
+        return Ok(None);
+    };
+    let heading_line = excerpt.start_line + heading_index;
+    let section_end_line = lines
+        .iter()
+        .enumerate()
+        .skip(heading_index + 1)
+        .find_map(|(index, line)| {
+            line.trim_start()
+                .starts_with('#')
+                .then_some(excerpt.start_line + index - 1)
+        })
+        .unwrap_or_else(|| excerpt.end_line.min(heading_line.saturating_add(12)));
+    let why_short = if doc_path_is_governance(path) {
+        "Sibling governance section in the same docs area."
+    } else {
+        "Sibling adjacent spec in the same docs area."
+    };
+    Ok(Some(RankedDocSectionFollowup {
+        score: if doc_path_is_governance(path) {
+            360
+        } else {
+            300
+        } - heading_line.min(40) as i32,
+        target: SessionHandleTarget {
+            id: NodeId::new(
+                TEXT_FRAGMENT_CRATE_NAME,
+                format!("{path}:{heading_line}"),
+                NodeKind::Document,
+            ),
+            lineage_id: None,
+            handle_category: crate::session_state::SessionHandleCategory::TextFragment,
+            name: heading_text.clone(),
+            kind: NodeKind::Document,
+            file_path: Some(path.to_string()),
+            query: Some(heading_text),
+            why_short: clamp_string(why_short, MAX_WHY_SHORT_CHARS),
+            start_line: Some(heading_line),
+            end_line: Some(section_end_line.max(heading_line)),
+            start_column: None,
+            end_column: None,
+        },
+    }))
 }
 
 fn spec_doc_section_target(
@@ -1765,6 +1921,14 @@ fn spec_doc_section_score(
         })
         .count() as i32;
     score += overlap * 28;
+    if file_path.contains("governance") {
+        score += 56;
+    } else if ["spec", "design", "adr", "guide"]
+        .into_iter()
+        .any(|term| file_path.contains(term))
+    {
+        score += 28;
+    }
     score - heading_line.min(80) as i32
 }
 

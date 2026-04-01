@@ -627,6 +627,10 @@ fn rank_text_locate_candidate(
     } else if matched_tokens > 0 {
         score += (matched_tokens as i32) * 10;
     }
+    if matched_tokens > 0 && frontend_like_path(&file_raw) && ui_oriented_tokens(tokens) {
+        score += 26;
+        reasons.push("Frontend-like path matched a UI-oriented query.".to_string());
+    }
     if path_scope.is_some_and(|scope| {
         locate_path_scope_matches(scope, candidate.target.file_path.as_deref())
     }) {
@@ -896,6 +900,50 @@ fn semantic_result_matches_text_query(symbol: &SymbolView, query_normalized: &st
         || label.contains(query_normalized)
         || query_normalized.ends_with(label.as_str())
         || path_tail == *query_normalized
+}
+
+fn frontend_like_path(path: &str) -> bool {
+    [
+        ".tsx",
+        ".jsx",
+        ".ts",
+        ".js",
+        ".css",
+        ".scss",
+        ".html",
+        "/components/",
+        "/pages/",
+        "/app/",
+        "/dashboard/",
+        "/web/",
+        "/www/",
+        "/frontend/",
+    ]
+    .into_iter()
+    .any(|fragment| path.contains(fragment))
+}
+
+fn ui_oriented_tokens(tokens: &[String]) -> bool {
+    tokens.iter().any(|term| {
+        matches!(
+            term.as_str(),
+            "component"
+                | "page"
+                | "panel"
+                | "view"
+                | "modal"
+                | "form"
+                | "button"
+                | "dashboard"
+                | "screen"
+                | "layout"
+                | "sidebar"
+                | "header"
+                | "footer"
+                | "hook"
+                | "props"
+        )
+    })
 }
 
 fn select_locate_candidates(

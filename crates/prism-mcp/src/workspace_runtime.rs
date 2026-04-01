@@ -3012,8 +3012,10 @@ mod tests {
             .expect("alpha should be indexed")
             .id()
             .clone();
-        let mut entry =
-            prism_memory::MemoryEntry::new(prism_memory::MemoryKind::Structural, "hydrate replay memory");
+        let mut entry = prism_memory::MemoryEntry::new(
+            prism_memory::MemoryKind::Structural,
+            "hydrate replay memory",
+        );
         entry.id = prism_memory::MemoryId("memory:hydrate-replay".to_string());
         entry.anchors = vec![prism_ir::AnchorRef::Node(alpha)];
         entry.scope = prism_memory::MemoryScope::Session;
@@ -3030,9 +3032,8 @@ mod tests {
             .unwrap();
         drop(session);
 
-        let workspace = Arc::new(
-            prism_core::index_workspace_session_with_options(&root, options).unwrap(),
-        );
+        let workspace =
+            Arc::new(prism_core::index_workspace_session_with_options(&root, options).unwrap());
         let runtime_engine = Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
             WorkspaceRuntimeContext::from_root(&root),
         )));

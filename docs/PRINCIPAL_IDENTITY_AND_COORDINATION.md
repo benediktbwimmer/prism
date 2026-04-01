@@ -368,6 +368,16 @@ The lease system must remain correct even if:
 - one subagent stays active while another subagent sharing the same ambient context stalls
 - there is a long idle period without authenticated mutation traffic
 
+Because PRISM cannot assume that clients implement reliable background timers, the lease model
+should not depend on agents free-running heartbeat intervals from local time perception alone.
+
+Instead, task-scoped read surfaces may conditionally emit an explicit next-action instruction such
+as "call `prism_mutate` with action `heartbeat_lease` before doing anything else" when the server
+judges that a lease refresh is due soon or due now.
+
+That instruction is advisory workflow guidance, not an implicit lease refresh. The read remains
+unauthenticated and must not itself change live lease state.
+
 ### 6.4 Reclaiming stale work must be explicit
 
 When a lease becomes stale or expired, PRISM should not silently pretend continuity.
@@ -616,9 +626,15 @@ The following points were previously open questions and are now resolved for the
 - Lease refresh is narrow:
   - one mutation refreshes only the specific task or claim lease it touches
   - activity on Task A must not keep a stale lease on Task B alive
-- A lightweight authenticated `heartbeat_lease` mutation is a valid future extension for long silent
-  work, but the first implementation must not depend on agents using it correctly or on agents having
-  a reliable sense of time.
+- A lightweight authenticated `heartbeat_lease` mutation should exist for long silent work.
+- PRISM should not require agents to infer heartbeat timing from wall-clock intuition alone.
+- When a task-scoped read surface sees that a lease refresh is due, it may return an explicit
+  immediate next action instructing the agent to call `prism_mutate` with action `heartbeat_lease`
+  before continuing other work.
+- Those result-payload instructions must be conditional and server-authored; they are hints that
+  trigger an authenticated mutation, not a read-path lease refresh.
+- `prism://instructions` should explicitly teach agents that these heartbeat prompts may appear and
+  that, when present, they should satisfy them before continuing normal task work.
 
 ### 12.4 Resume versus reclaim policy
 
@@ -710,6 +726,9 @@ The following points were previously open questions and are now resolved for the
 - Missing-credential mutations should fail loudly and descriptively.
 - Instructions and surrounding tooling should clearly state how agents obtain and pass mutation
   credentials.
+- The same instructions should also tell agents that task-scoped reads may occasionally return a
+  server-authored instruction to send `heartbeat_lease` immediately, and that this should take
+  precedence over other next steps.
 
 ### 12.11 Remaining future policy space
 
