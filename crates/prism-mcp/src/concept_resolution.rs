@@ -118,7 +118,10 @@ fn task_context_for_resolution(
             .coordination_task(&CoordinationTaskId::new(coord_task_id.clone()))
             .map(|task| {
                 let mut description = task.title;
-                if let Some(summary) = task.summary.as_deref().filter(|summary| !summary.is_empty())
+                if let Some(summary) = task
+                    .summary
+                    .as_deref()
+                    .filter(|summary| !summary.is_empty())
                 {
                     description.push(' ');
                     description.push_str(summary);

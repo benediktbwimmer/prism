@@ -4586,7 +4586,7 @@ pub fn runtime_status_contract_test() {}
             PrismWorksetArgs {
                 handle: None,
                 query: Some("runtime_status".to_string()),
-            task_id: None,
+                task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -6098,6 +6098,31 @@ pub fn runtime_validation() {}
 
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
     let session = test_session(&host);
+    let plan = host
+        .store_coordination(
+            session.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Route runtime validation work" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            session.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Runtime validation",
+                    "summary": "Follow the runtime validation path."
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
     host.store_concept(
         session.as_ref(),
         PrismConceptMutationArgs {
@@ -6118,7 +6143,7 @@ pub fn runtime_validation() {}
             decode_lenses: None,
             scope: None,
             confidence: Some(0.95),
-            task_id: Some("task:general-validation".to_string()),
+            task_id: Some("coord-task:general-validation".to_string()),
             supersedes: None,
             retirement_reason: None,
         },
@@ -6144,7 +6169,7 @@ pub fn runtime_validation() {}
             decode_lenses: None,
             scope: None,
             confidence: Some(0.80),
-            task_id: Some("task:runtime-validation".to_string()),
+            task_id: Some(task_id.clone()),
             supersedes: None,
             retirement_reason: None,
         },
@@ -6157,7 +6182,7 @@ pub fn runtime_validation() {}
             PrismConceptArgs {
                 handle: None,
                 query: Some("validation".to_string()),
-                task_id: Some("task:runtime-validation".to_string()),
+                task_id: Some(task_id),
                 lens: None,
                 verbosity: None,
                 include_binding_metadata: None,
@@ -7187,7 +7212,7 @@ def helper():
             PrismWorksetArgs {
                 handle: Some(locate.candidates[0].handle.clone()),
                 query: None,
-            task_id: None,
+                task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -7259,7 +7284,7 @@ fn edit_target_smoke_test() {
             PrismWorksetArgs {
                 handle: Some(locate.candidates[0].handle.clone()),
                 query: None,
-            task_id: None,
+                task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -7922,7 +7947,7 @@ pub fn validation_recipe_test() {}
             PrismWorksetArgs {
                 handle: Some("concept://custom_validation".to_string()),
                 query: None,
-            task_id: None,
+                task_id: None,
             },
         )
         .expect("workset should accept concept handles");
@@ -8238,7 +8263,7 @@ fn compact_concept_followthrough_falls_back_when_live_members_are_empty() {
             PrismWorksetArgs {
                 handle: Some("concept://compact_tools".to_string()),
                 query: None,
-            task_id: None,
+                task_id: None,
             },
         )
         .expect("compact workset should fall back to follow-through targets");
@@ -8252,6 +8277,127 @@ fn compact_concept_followthrough_falls_back_when_live_members_are_empty() {
             |value| value.contains("doc or spec section") && value.contains("code owner")
         )
     );
+}
+
+#[test]
+fn compact_concept_followthrough_prefers_code_when_doc_hit_is_only_body_match() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod open_flow;
+pub mod workset_flow;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/open_flow.rs"),
+        r#"
+pub fn open_followthrough_target() {}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/workset_flow.rs"),
+        r#"
+pub fn workset_followthrough_target() {}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md"),
+        r#"
+# Principal Identity
+
+## Remove the current prism_session tool as a coordination mechanism
+
+This section mentions the open and workset follow-through path in prose, but it is not the owner of that implementation.
+"#,
+    )
+    .unwrap();
+
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+    host.current_prism()
+        .replace_curated_concepts(vec![ConceptPacket {
+            handle: "concept://open_and_workset_followthrough".to_string(),
+            canonical_name: "open and workset follow-through".to_string(),
+            summary: "Compact-tool open/workset path that resolves handle targets and bounded follow-through reads.".to_string(),
+            aliases: vec!["compact open/workset".to_string(), "follow-through reads".to_string()],
+            confidence: 0.93,
+            core_members: Vec::new(),
+            core_member_lineages: Vec::new(),
+            supporting_members: Vec::new(),
+            supporting_member_lineages: Vec::new(),
+            likely_tests: Vec::new(),
+            likely_test_lineages: Vec::new(),
+            evidence: vec![
+                "open.rs resolves handle targets and workset.rs assembles bounded follow-through reads."
+                    .to_string(),
+            ],
+            risk_hint: None,
+            decode_lenses: vec![
+                ConceptDecodeLens::Open,
+                ConceptDecodeLens::Workset,
+                ConceptDecodeLens::Validation,
+            ],
+            scope: ConceptScope::Session,
+            provenance: ConceptProvenance {
+                origin: "test".to_string(),
+                kind: "seed".to_string(),
+                task_id: None,
+            },
+            publication: None,
+        }]);
+    let open = host
+        .compact_open(
+            Arc::clone(&session),
+            PrismOpenArgs {
+                handle: Some("concept://open_and_workset_followthrough".to_string()),
+                path: None,
+                mode: Some(PrismOpenModeInput::Focus),
+                line: None,
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
+            },
+        )
+        .expect("compact open should prefer the code owner");
+    assert!(open.promoted_handle.as_ref().is_some_and(|handle| {
+        !is_docs_like_semantic_path(&handle.path)
+            && (handle.path.starts_with("demo::open_flow")
+                || handle.path.starts_with("demo::workset_flow"))
+    }));
+    assert!(open
+        .next_action
+        .as_deref()
+        .is_some_and(|value| { !value.contains("doc or spec section") }));
+
+    let workset = host
+        .compact_workset(
+            Arc::clone(&session),
+            PrismWorksetArgs {
+                handle: Some("concept://open_and_workset_followthrough".to_string()),
+                query: None,
+                task_id: None,
+            },
+        )
+        .expect("compact workset should prefer the code owner");
+    assert!(
+        !is_docs_like_semantic_path(&workset.primary.path)
+            && (workset.primary.path.starts_with("demo::open_flow")
+                || workset.primary.path.starts_with("demo::workset_flow"))
+    );
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .any(|candidate| candidate.path.starts_with("demo::workset_flow")));
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .all(|candidate| !is_docs_like_semantic_path(&candidate.path)));
 }
 
 fn is_docs_like_semantic_path(value: &str) -> bool {
@@ -9040,7 +9186,7 @@ fn compact_fragment_followups_surface_semantic_config_targets() {
             PrismWorksetArgs {
                 handle: Some(handle.clone()),
                 query: None,
-            task_id: None,
+                task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -9241,7 +9387,7 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
             PrismWorksetArgs {
                 handle: Some(semantic_handle.clone()),
                 query: None,
-            task_id: None,
+                task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -9468,7 +9614,7 @@ pub fn memory_system_test() {}
             PrismWorksetArgs {
                 handle: None,
                 query: Some("memory system".to_string()),
-            task_id: None,
+                task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -10635,7 +10781,7 @@ fn compact_workset_for_spec_targets_surfaces_drift_reads_and_gap_summary() {
             PrismWorksetArgs {
                 handle: Some(locate.candidates[0].handle.clone()),
                 query: None,
-            task_id: None,
+                task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -10681,7 +10827,7 @@ fn compact_workset_for_spec_targets_prefers_owner_paths_over_text_adjacent_helpe
             PrismWorksetArgs {
                 handle: Some(locate.candidates[0].handle.clone()),
                 query: None,
-            task_id: None,
+                task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -10751,7 +10897,7 @@ fn compact_workset_for_product_surface_spec_headings_lifts_body_identifiers() {
             PrismWorksetArgs {
                 handle: Some(locate.candidates[0].handle.clone()),
                 query: None,
-            task_id: None,
+                task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -10810,7 +10956,7 @@ fn compact_spec_followups_surface_governing_sections_before_owner_hops() {
             PrismWorksetArgs {
                 handle: Some(locate.candidates[0].handle.clone()),
                 query: None,
-            task_id: None,
+                task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -15993,7 +16139,7 @@ fn queries_defer_request_path_refresh_when_runtime_sync_is_busy() {
         .expect("workspace runtime binding should exist");
     let _sync_guard = binding
         .sync_lock()
-        .lock()
+        .write()
         .expect("workspace runtime sync lock should be available");
 
     let started = Instant::now();
@@ -16076,13 +16222,13 @@ return prism.symbol("alpha")?.id.path ?? null;
 }
 
 fn hold_runtime_sync_lock_for(
-    sync_lock: Arc<std::sync::Mutex<()>>,
+    sync_lock: Arc<std::sync::RwLock<()>>,
     duration: Duration,
 ) -> thread::JoinHandle<()> {
     let (ready_tx, ready_rx) = mpsc::channel();
     let handle = thread::spawn(move || {
         let _guard = sync_lock
-            .lock()
+            .write()
             .expect("workspace runtime sync lock should be available");
         ready_tx
             .send(())
@@ -16254,7 +16400,7 @@ fn coordination_mutations_wait_for_runtime_sync_and_then_succeed() {
 }
 
 #[test]
-fn claim_mutations_return_busy_after_runtime_sync_wait_timeout() {
+fn claim_mutations_queue_runtime_refresh_instead_of_returning_busy() {
     let root = temp_workspace();
     let server = PrismMcpServer::with_session_and_features(
         index_workspace_session(&root).unwrap(),
@@ -16299,7 +16445,7 @@ fn claim_mutations_return_busy_after_runtime_sync_wait_timeout() {
     let release =
         hold_runtime_sync_lock_for(Arc::clone(binding.sync_lock()), Duration::from_millis(1700));
     let started = Instant::now();
-    let error = server
+    let result = server
         .host
         .store_claim(
             test_session(&server.host).as_ref(),
@@ -16319,18 +16465,18 @@ fn claim_mutations_return_busy_after_runtime_sync_wait_timeout() {
                 task_id: None,
             },
         )
-        .expect_err("claim mutation should return busy after the runtime sync wait times out");
+        .expect("claim mutation should queue runtime refresh instead of returning busy");
     release.join().expect("lock holder thread should finish");
 
     assert!(
         started.elapsed() >= Duration::from_millis(1000),
-        "claim mutation should have waited before returning busy"
+        "claim mutation should still wait briefly before deferring runtime refresh"
     );
     assert!(
         started.elapsed() < Duration::from_millis(2200),
         "claim mutation spent too long waiting on the runtime sync lock"
     );
-    assert!(error.to_string().contains("request admission busy"));
+    assert!(!result.rejected);
 }
 
 #[test]

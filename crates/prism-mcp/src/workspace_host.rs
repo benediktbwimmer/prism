@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicU64;
-use std::sync::{Arc, Mutex, OnceLock, Weak};
+use std::sync::{Arc, Mutex, OnceLock, RwLock, Weak};
 
 use prism_agent::InferenceStore;
 use prism_core::runtime_engine::{
@@ -18,7 +18,7 @@ use crate::workspace_runtime::{
     hydrate_persisted_workspace_state, WorkspaceRuntime, WorkspaceRuntimeConfig,
 };
 
-static WORKSPACE_RUNTIME_SYNC_LOCKS: OnceLock<Mutex<HashMap<PathBuf, Weak<Mutex<()>>>>> =
+static WORKSPACE_RUNTIME_SYNC_LOCKS: OnceLock<Mutex<HashMap<PathBuf, Weak<RwLock<()>>>>> =
     OnceLock::new();
 
 #[derive(Clone)]
@@ -30,7 +30,7 @@ pub(crate) struct WorkspaceRuntimeBinding {
     dashboard_state: Arc<DashboardState>,
     diagnostics_state: Arc<DiagnosticsState>,
     mcp_call_log_store: Arc<McpCallLogStore>,
-    sync_lock: Arc<Mutex<()>>,
+    sync_lock: Arc<RwLock<()>>,
     loaded_workspace_revision: Arc<AtomicU64>,
     loaded_episodic_revision: Arc<AtomicU64>,
     loaded_inference_revision: Arc<AtomicU64>,
@@ -124,7 +124,7 @@ impl WorkspaceRuntimeBinding {
     }
 
     #[cfg(test)]
-    pub(crate) fn sync_lock(&self) -> &Arc<Mutex<()>> {
+    pub(crate) fn sync_lock(&self) -> &Arc<RwLock<()>> {
         &self.sync_lock
     }
 
@@ -217,7 +217,7 @@ impl WorkspaceRuntimeHost {
     }
 }
 
-fn shared_workspace_runtime_sync_lock(root: &Path) -> Arc<Mutex<()>> {
+fn shared_workspace_runtime_sync_lock(root: &Path) -> Arc<RwLock<()>> {
     let locks = WORKSPACE_RUNTIME_SYNC_LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
     let mut locks = locks
         .lock()
@@ -225,7 +225,7 @@ fn shared_workspace_runtime_sync_lock(root: &Path) -> Arc<Mutex<()>> {
     if let Some(existing) = locks.get(root).and_then(Weak::upgrade) {
         return existing;
     }
-    let lock = Arc::new(Mutex::new(()));
+    let lock = Arc::new(RwLock::new(()));
     locks.insert(root.to_path_buf(), Arc::downgrade(&lock));
     lock
 }

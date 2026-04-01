@@ -12,8 +12,7 @@ use super::text_fragments::{
 use super::*;
 use crate::compact_followups::workspace_scoped_path;
 use crate::{
-    concept_resolution_is_ambiguous, resolve_concepts_for_task_context,
-    weak_concept_match_reason,
+    concept_resolution_is_ambiguous, resolve_concepts_for_task_context, weak_concept_match_reason,
 };
 
 impl QueryHost {

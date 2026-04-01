@@ -29,8 +29,9 @@ pub(crate) fn concept_followthrough_targets(
 ) -> ConceptFollowthroughTargets {
     let general = search_followthrough_candidates(prism, packet, false);
     let tests = search_followthrough_candidates(prism, packet, true);
-    let governing_doc = preferred_doc_candidate(&general).map(|candidate| candidate.node.clone());
     let strongest_code = preferred_code_candidate(&general).map(|candidate| candidate.node.clone());
+    let governing_doc = preferred_doc_candidate(&general, strongest_code.as_ref())
+        .map(|candidate| candidate.node.clone());
 
     let inspect_first = governing_doc
         .clone()
@@ -112,10 +113,23 @@ pub(crate) fn concept_followthrough_targets(
     }
 }
 
-fn preferred_doc_candidate(candidates: &[ScoredNode]) -> Option<&ScoredNode> {
+fn preferred_doc_candidate<'a>(
+    candidates: &'a [ScoredNode],
+    strongest_code: Option<&NodeId>,
+) -> Option<&'a ScoredNode> {
+    let strongest_code_score = strongest_code.and_then(|node| {
+        candidates
+            .iter()
+            .find(|candidate| &candidate.node == node)
+            .map(|candidate| candidate.score)
+    });
     candidates
         .iter()
         .filter(|candidate| is_docs_like_node(&candidate.node))
+        .filter(|candidate| {
+            let priority = doc_continuity_priority(&candidate.node);
+            priority >= 3 || strongest_code_score.is_none_or(|score| candidate.score >= score)
+        })
         .max_by_key(|candidate| {
             (
                 doc_continuity_priority(&candidate.node),
@@ -168,6 +182,13 @@ fn search_followthrough_candidates(
     {
         supplement_doc_candidates(prism, packet, &concept_tokens, &mut scored);
     }
+    if !prefer_tests
+        && !scored.values().any(|candidate| {
+            !is_test_like_node(&candidate.node) && is_code_like_kind(candidate.node.kind)
+        })
+    {
+        supplement_code_candidates(prism, packet, &concept_tokens, &mut scored);
+    }
 
     let mut results = scored.into_values().collect::<Vec<_>>();
     results.sort_by(|left, right| {
@@ -201,6 +222,29 @@ fn supplement_doc_candidates(
                 }
                 upsert_scored(scored, node, score);
             }
+        }
+    }
+}
+
+fn supplement_code_candidates(
+    prism: &Prism,
+    packet: &ConceptPacket,
+    concept_tokens: &HashSet<String>,
+    scored: &mut HashMap<String, ScoredNode>,
+) {
+    for (priority, token) in concept_doc_tokens(packet).into_iter().enumerate() {
+        for symbol in prism.search(&token, FOLLOWTHROUGH_SEARCH_LIMIT, None, None) {
+            let node = symbol.id().clone();
+            if is_docs_like_node(&node) || is_test_like_node(&node) || !is_code_like_kind(node.kind)
+            {
+                continue;
+            }
+            let mut score = followthrough_score(&node, concept_tokens, &token, priority, false);
+            score += 18;
+            if score <= 0 {
+                continue;
+            }
+            upsert_scored(scored, node, score);
         }
     }
 }
@@ -299,6 +343,9 @@ fn followthrough_score(
         .filter(|token| path_tokens.contains(*token))
         .count() as i32;
     let exact_phrase = path_contains_phrase(node.path.as_str(), query);
+    if overlap == 0 && query_overlap == 0 && !exact_phrase {
+        return 0;
+    }
     let test_like = is_test_like_node(node);
     let code_like = is_code_like_kind(node.kind);
 

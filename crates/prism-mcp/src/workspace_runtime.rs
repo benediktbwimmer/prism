@@ -1,8 +1,8 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError, SyncSender, TrySendError};
-use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
+use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -16,8 +16,7 @@ use prism_core::runtime_engine::{
     WorkspaceRuntimePathRequest, WorkspaceRuntimeQueueClass, WorkspaceRuntimeQueueSnapshot,
 };
 use prism_core::{
-    AdmissionBusyError, FsRefreshStatus, WorkspaceRefreshWork, WorkspaceSession,
-    WorkspaceSnapshotRevisions,
+    FsRefreshStatus, WorkspaceRefreshWork, WorkspaceSession, WorkspaceSnapshotRevisions,
 };
 use prism_ir::ObservedChangeSet;
 use prism_memory::{EpisodicMemorySnapshot, SessionMemory};
@@ -32,6 +31,7 @@ use crate::{
 };
 
 const BACKGROUND_REFRESH_INTERVAL: Duration = Duration::from_millis(250);
+const BACKGROUND_LANE_RETRY_INTERVAL: Duration = Duration::from_millis(10);
 const MUTATION_RUNTIME_SYNC_WAIT_TIMEOUT: Duration = Duration::from_millis(1500);
 const MUTATION_RUNTIME_SYNC_RETRY_INTERVAL: Duration = Duration::from_millis(10);
 
@@ -43,7 +43,7 @@ pub(crate) struct WorkspaceRuntimeConfig {
     pub(crate) dashboard_state: Arc<DashboardState>,
     pub(crate) diagnostics_state: Arc<DiagnosticsState>,
     pub(crate) mcp_call_log_store: Arc<McpCallLogStore>,
-    pub(crate) sync_lock: Arc<Mutex<()>>,
+    pub(crate) sync_lock: Arc<RwLock<()>>,
     pub(crate) loaded_workspace_revision: Arc<AtomicU64>,
     pub(crate) loaded_episodic_revision: Arc<AtomicU64>,
     pub(crate) loaded_inference_revision: Arc<AtomicU64>,
@@ -55,6 +55,18 @@ pub(crate) struct WorkspaceRuntimeConfig {
 pub(crate) struct WorkspaceRuntime {
     engine: Arc<Mutex<WorkspaceRuntimeEngine>>,
     wake: SyncSender<()>,
+    stop: mpsc::Sender<()>,
+    handle: Mutex<Option<JoinHandle<()>>>,
+    background_workers: Vec<BackgroundRuntimeLaneWorker>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum BackgroundRuntimeLane {
+    Settle(RuntimeDomain),
+    Checkpoint,
+}
+
+struct BackgroundRuntimeLaneWorker {
     stop: mpsc::Sender<()>,
     handle: Mutex<Option<JoinHandle<()>>>,
 }
@@ -225,6 +237,8 @@ impl WorkspaceRuntime {
         let engine = Arc::clone(&config.runtime_engine);
         let (wake_tx, wake_rx) = mpsc::sync_channel::<()>(1);
         let (stop_tx, stop_rx) = mpsc::channel::<()>();
+        let (background_senders, background_workers) =
+            spawn_background_runtime_lanes(config.clone(), wake_tx.clone());
         let handle = thread::spawn(move || loop {
             if stop_rx.try_recv().is_ok() {
                 break;
@@ -263,6 +277,37 @@ impl WorkspaceRuntime {
             let Some(command) = command else {
                 continue;
             };
+            if let Some(lane) = background_lane_for_command(&command) {
+                let sender = background_senders
+                    .get(&lane)
+                    .expect("background runtime lane should exist");
+                match sender.try_send(command.clone()) {
+                    Ok(()) => {
+                        config
+                            .runtime_engine
+                            .lock()
+                            .expect("workspace runtime engine lock poisoned")
+                            .finish_active_command();
+                        continue;
+                    }
+                    Err(TrySendError::Full(_)) => {
+                        config
+                            .runtime_engine
+                            .lock()
+                            .expect("workspace runtime engine lock poisoned")
+                            .retry_active_command();
+                        thread::sleep(BACKGROUND_LANE_RETRY_INTERVAL);
+                        continue;
+                    }
+                    Err(TrySendError::Disconnected(_)) => {
+                        error!(
+                            root = %config.workspace.root().display(),
+                            lane = ?lane,
+                            "background runtime lane disconnected"
+                        );
+                    }
+                }
+            }
             if command_is_stale_against_generation(
                 &command,
                 &config
@@ -349,6 +394,7 @@ impl WorkspaceRuntime {
             wake: wake_tx,
             stop: stop_tx,
             handle: Mutex::new(Some(handle)),
+            background_workers,
         }
     }
 
@@ -388,7 +434,7 @@ fn sync_workspace_runtime_materialization(
     let lock_wait_started = Instant::now();
     let guard = config
         .sync_lock
-        .lock()
+        .write()
         .expect("workspace runtime sync lock poisoned");
     sync_workspace_runtime_checkpoint_with_guard(config, guard, elapsed_ms(lock_wait_started))
 }
@@ -404,7 +450,147 @@ impl Drop for WorkspaceRuntime {
         {
             let _ = handle.join();
         }
+        for worker in &self.background_workers {
+            let _ = worker.stop.send(());
+            if let Some(handle) = worker
+                .handle
+                .lock()
+                .expect("background runtime lane handle lock poisoned")
+                .take()
+            {
+                let _ = handle.join();
+            }
+        }
     }
+}
+
+fn spawn_background_runtime_lanes(
+    config: WorkspaceRuntimeConfig,
+    wake: SyncSender<()>,
+) -> (
+    HashMap<BackgroundRuntimeLane, SyncSender<WorkspaceRuntimeCommand>>,
+    Vec<BackgroundRuntimeLaneWorker>,
+) {
+    let mut senders = HashMap::new();
+    let mut workers = Vec::new();
+    for lane in [
+        BackgroundRuntimeLane::Settle(RuntimeDomain::MemoryReanchor),
+        BackgroundRuntimeLane::Settle(RuntimeDomain::Projections),
+        BackgroundRuntimeLane::Settle(RuntimeDomain::Coordination),
+        BackgroundRuntimeLane::Checkpoint,
+    ] {
+        let (tx, rx) = mpsc::sync_channel::<WorkspaceRuntimeCommand>(1);
+        let (stop_tx, stop_rx) = mpsc::channel::<()>();
+        let lane_config = config.clone();
+        let lane_wake = wake.clone();
+        let handle = thread::spawn(move || loop {
+            if stop_rx.try_recv().is_ok() {
+                break;
+            }
+            let command = match rx.recv_timeout(BACKGROUND_REFRESH_INTERVAL) {
+                Ok(command) => command,
+                Err(RecvTimeoutError::Timeout) => continue,
+                Err(RecvTimeoutError::Disconnected) => break,
+            };
+            if stop_rx.try_recv().is_ok() {
+                break;
+            }
+            if command_is_stale_against_generation(
+                &command,
+                &lane_config
+                    .runtime_engine
+                    .lock()
+                    .expect("workspace runtime engine lock poisoned")
+                    .published_generation_snapshot(),
+            ) {
+                continue;
+            }
+            let result = run_workspace_runtime_command(&lane_config, &command);
+            match result {
+                Ok(outcome) => {
+                    if outcome.report.deferred {
+                        let _ = lane_config
+                            .runtime_engine
+                            .lock()
+                            .expect("workspace runtime engine lock poisoned")
+                            .enqueue_command(command.clone());
+                    } else {
+                        if outcome.published_generation {
+                            let _ = refresh_cached_runtime_status_for_config(
+                                &crate::workspace_diagnostics::WorkspaceDiagnosticsConfig {
+                                    workspace: Arc::clone(&lane_config.workspace),
+                                    loaded_workspace_revision: Arc::clone(
+                                        &lane_config.loaded_workspace_revision,
+                                    ),
+                                    loaded_episodic_revision: Arc::clone(
+                                        &lane_config.loaded_episodic_revision,
+                                    ),
+                                    loaded_inference_revision: Arc::clone(
+                                        &lane_config.loaded_inference_revision,
+                                    ),
+                                    loaded_coordination_revision: Arc::clone(
+                                        &lane_config.loaded_coordination_revision,
+                                    ),
+                                    runtime_engine: Arc::clone(&lane_config.runtime_engine),
+                                    diagnostics_state: Arc::clone(&lane_config.diagnostics_state),
+                                    mcp_call_log_store: Arc::clone(&lane_config.mcp_call_log_store),
+                                },
+                            );
+                        }
+                        let mut engine = lane_config
+                            .runtime_engine
+                            .lock()
+                            .expect("workspace runtime engine lock poisoned");
+                        for follow_up in outcome.follow_up_commands {
+                            let _ = engine.enqueue_command(follow_up);
+                        }
+                    }
+                }
+                Err(error) => {
+                    if is_transient_sqlite_lock(&error) {
+                        let _ = lane_config
+                            .runtime_engine
+                            .lock()
+                            .expect("workspace runtime engine lock poisoned")
+                            .enqueue_command(command.clone());
+                        lane_config
+                            .workspace
+                            .record_runtime_refresh_observation_with_work(
+                                "deferred",
+                                0,
+                                WorkspaceRefreshWork::default(),
+                            );
+                        debug!(
+                            root = %lane_config.workspace.root().display(),
+                            lane = ?lane,
+                            error = %error,
+                            "prism-mcp background runtime lane deferred by sqlite lock contention"
+                        );
+                    } else {
+                        error!(
+                            root = %lane_config.workspace.root().display(),
+                            lane = ?lane,
+                            error = %error,
+                            error_chain = %crate::logging::format_error_chain(&error),
+                            "prism-mcp background runtime lane failed"
+                        );
+                    }
+                }
+            }
+            match lane_wake.try_send(()) {
+                Ok(()) | Err(TrySendError::Full(())) => {}
+                Err(TrySendError::Disconnected(())) => {
+                    debug!("workspace runtime wake channel disconnected");
+                }
+            }
+        });
+        senders.insert(lane, tx);
+        workers.push(BackgroundRuntimeLaneWorker {
+            stop: stop_tx,
+            handle: Mutex::new(Some(handle)),
+        });
+    }
+    (senders, workers)
 }
 
 fn run_workspace_runtime_command(
@@ -438,20 +624,32 @@ fn command_is_stale_against_generation(
             .is_some_and(|target| target < generation.id)
 }
 
+fn background_lane_for_command(command: &WorkspaceRuntimeCommand) -> Option<BackgroundRuntimeLane> {
+    match command.kind {
+        WorkspaceRuntimeCommandKind::SettleDomain(domain) => {
+            Some(BackgroundRuntimeLane::Settle(domain))
+        }
+        WorkspaceRuntimeCommandKind::MaterializeCheckpoint => {
+            Some(BackgroundRuntimeLane::Checkpoint)
+        }
+        _ => None,
+    }
+}
+
 pub(crate) fn sync_workspace_runtime(
     config: &WorkspaceRuntimeConfig,
 ) -> Result<WorkspaceRefreshReport> {
     let lock_wait_started = Instant::now();
     let guard = config
         .sync_lock
-        .lock()
+        .write()
         .expect("workspace runtime sync lock poisoned");
     sync_workspace_runtime_with_guard(config, guard, elapsed_ms(lock_wait_started))
 }
 
 fn sync_workspace_runtime_with_guard(
     config: &WorkspaceRuntimeConfig,
-    _guard: MutexGuard<'_, ()>,
+    _guard: RwLockWriteGuard<'_, ()>,
     lock_wait_ms: u64,
 ) -> Result<WorkspaceRefreshReport> {
     let started = Instant::now();
@@ -638,7 +836,7 @@ fn sync_workspace_runtime_with_guard(
 
 fn sync_workspace_runtime_for_read_with_guard(
     config: &WorkspaceRuntimeConfig,
-    _guard: MutexGuard<'_, ()>,
+    _guard: RwLockReadGuard<'_, ()>,
     lock_wait_ms: u64,
 ) -> Result<WorkspaceRefreshReport> {
     if config.workspace.needs_refresh() {
@@ -799,7 +997,7 @@ pub(crate) fn hydrate_persisted_workspace_state(config: &WorkspaceRuntimeConfig)
 fn try_sync_workspace_runtime_for_read(
     config: &WorkspaceRuntimeConfig,
 ) -> Result<Option<WorkspaceRefreshReport>> {
-    match config.sync_lock.try_lock() {
+    match config.sync_lock.try_read() {
         Ok(guard) => sync_workspace_runtime_for_read_with_guard(config, guard, 0).map(Some),
         Err(TryLockError::WouldBlock) => Ok(None),
         Err(TryLockError::Poisoned(_)) => {
@@ -813,7 +1011,7 @@ fn try_sync_workspace_runtime_for_mutation(
 ) -> Result<Option<WorkspaceRefreshReport>> {
     let wait_started = Instant::now();
     loop {
-        match config.sync_lock.try_lock() {
+        match config.sync_lock.try_read() {
             Ok(guard) => {
                 return sync_workspace_runtime_for_read_with_guard(
                     config,
@@ -843,7 +1041,7 @@ pub(crate) fn sync_persisted_workspace_state(
     let lock_wait_started = Instant::now();
     let _guard = config
         .sync_lock
-        .lock()
+        .write()
         .expect("workspace runtime sync lock poisoned");
     let lock_wait_ms = elapsed_ms(lock_wait_started);
     let started = Instant::now();
@@ -1019,7 +1217,7 @@ fn run_workspace_prepare_paths_command(
     let lock_wait_started = Instant::now();
     let _guard = config
         .sync_lock
-        .lock()
+        .write()
         .expect("workspace runtime sync lock poisoned");
     let lock_wait_ms = elapsed_ms(lock_wait_started);
     let dirty_paths = if path_requests.is_empty() {
@@ -1269,7 +1467,7 @@ fn sync_workspace_settle_domain(
     let lock_wait_started = Instant::now();
     let _guard = config
         .sync_lock
-        .lock()
+        .read()
         .expect("workspace runtime sync lock poisoned");
     let lock_wait_ms = elapsed_ms(lock_wait_started);
     if config.workspace.needs_refresh() {
@@ -1753,7 +1951,7 @@ fn publish_runtime_generation(
 
 fn sync_workspace_runtime_checkpoint_with_guard(
     config: &WorkspaceRuntimeConfig,
-    _guard: MutexGuard<'_, ()>,
+    _guard: RwLockWriteGuard<'_, ()>,
     lock_wait_ms: u64,
 ) -> Result<WorkspaceRefreshReport> {
     if config.workspace.needs_refresh() {
@@ -1936,12 +2134,11 @@ impl QueryHost {
         let Some(report) = try_sync_workspace_runtime_for_mutation(&config)? else {
             runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
             diagnostics.request_refresh();
-            workspace.record_runtime_refresh_observation_with_work(
-                "deferred",
-                0,
-                WorkspaceRefreshWork::default(),
-            );
-            return Err(AdmissionBusyError::runtime_sync("refreshWorkspaceForMutation").into());
+            return Ok(dirty_workspace_deferred_report(
+                &config,
+                true,
+                WorkspaceRefreshMetrics::default(),
+            ));
         };
         if report.coordination_reloaded {
             let _ = self.publish_dashboard_coordination_update();
@@ -1990,7 +2187,7 @@ mod tests {
             dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
-            sync_lock: Arc::new(Mutex::new(())),
+            sync_lock: Arc::new(RwLock::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
             )),
@@ -2058,7 +2255,7 @@ mod tests {
             dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
-            sync_lock: Arc::new(Mutex::new(())),
+            sync_lock: Arc::new(RwLock::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
             )),
@@ -2121,7 +2318,7 @@ mod tests {
             dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
-            sync_lock: Arc::new(Mutex::new(())),
+            sync_lock: Arc::new(RwLock::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
             )),
@@ -2197,7 +2394,7 @@ mod tests {
             dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
-            sync_lock: Arc::new(Mutex::new(())),
+            sync_lock: Arc::new(RwLock::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
             )),
@@ -2317,7 +2514,7 @@ mod tests {
             dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
-            sync_lock: Arc::new(Mutex::new(())),
+            sync_lock: Arc::new(RwLock::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
             )),
@@ -2370,6 +2567,84 @@ mod tests {
     }
 
     #[test]
+    fn settle_domains_do_not_block_on_other_shared_runtime_readers() {
+        let root = temp_workspace();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+        let workspace = Arc::new(index_workspace_session(&root).unwrap());
+        let initial_episodic_revision = workspace.episodic_revision().unwrap_or(0);
+        let sync_lock = Arc::new(RwLock::new(()));
+        let config = WorkspaceRuntimeConfig {
+            workspace: Arc::clone(&workspace),
+            notes: Arc::new(SessionMemory::new()),
+            inferred_edges: Arc::new(InferenceStore::new()),
+            dashboard_state: Arc::new(DashboardState::default()),
+            diagnostics_state: Arc::new(DiagnosticsState::default()),
+            mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            sync_lock: Arc::clone(&sync_lock),
+            loaded_workspace_revision: Arc::new(AtomicU64::new(
+                workspace.loaded_workspace_revision(),
+            )),
+            loaded_episodic_revision: Arc::new(AtomicU64::new(initial_episodic_revision)),
+            loaded_inference_revision: Arc::new(AtomicU64::new(
+                workspace.inference_revision().unwrap_or(0),
+            )),
+            loaded_coordination_revision: Arc::new(AtomicU64::new(
+                workspace.coordination_revision().unwrap_or(0),
+            )),
+            runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
+                WorkspaceRuntimeContext::from_root(&root),
+            ))),
+            prepared_delta: Arc::new(Mutex::new(None)),
+        };
+
+        workspace
+            .persist_episodic(&EpisodicMemorySnapshot {
+                entries: vec![MemoryEntry::new(
+                    MemoryKind::Structural,
+                    "shared settle readers should overlap",
+                )],
+            })
+            .unwrap();
+        let persisted_revision = workspace.episodic_revision().unwrap();
+        config
+            .loaded_episodic_revision
+            .store(persisted_revision.saturating_add(1), Ordering::Relaxed);
+
+        let (ready_tx, ready_rx) = mpsc::channel();
+        let lock_clone = Arc::clone(&sync_lock);
+        let reader = thread::spawn(move || {
+            let _guard = lock_clone
+                .read()
+                .expect("shared runtime read lock should be available");
+            ready_tx.send(()).expect("reader should report readiness");
+            thread::sleep(Duration::from_millis(150));
+        });
+        ready_rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("reader should acquire shared lock");
+
+        let started = Instant::now();
+        let report = sync_workspace_settle_domain(&config, RuntimeDomain::MemoryReanchor).unwrap();
+        let elapsed = started.elapsed();
+        reader.join().expect("reader thread should finish");
+
+        assert_eq!(report.refresh_path, "settle");
+        assert!(
+            elapsed < Duration::from_millis(100),
+            "settle domain should share the runtime read gate with other settle readers"
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn checkpoint_materialization_command_clears_pending_checkpoint_domain() {
         let root = temp_workspace();
         std::fs::create_dir_all(root.join("src")).unwrap();
@@ -2395,7 +2670,7 @@ mod tests {
             dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
-            sync_lock: Arc::new(Mutex::new(())),
+            sync_lock: Arc::new(RwLock::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
             )),
@@ -2425,6 +2700,77 @@ mod tests {
             .get(&RuntimeDomain::Checkpoint)
             .expect("checkpoint domain state should be published");
         assert_eq!(checkpoint.freshness, RuntimeFreshnessState::Current);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn checkpoint_materialization_waits_for_shared_runtime_readers() {
+        let root = temp_workspace();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+        let workspace = Arc::new(index_workspace_session(&root).unwrap());
+        let sync_lock = Arc::new(RwLock::new(()));
+        let runtime_engine = Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
+            WorkspaceRuntimeContext::from_root(&root),
+        )));
+        runtime_engine
+            .lock()
+            .expect("workspace runtime engine lock poisoned")
+            .set_checkpoint_pending(true);
+        let config = WorkspaceRuntimeConfig {
+            workspace: Arc::clone(&workspace),
+            notes: Arc::new(SessionMemory::new()),
+            inferred_edges: Arc::new(InferenceStore::new()),
+            dashboard_state: Arc::new(DashboardState::default()),
+            diagnostics_state: Arc::new(DiagnosticsState::default()),
+            mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            sync_lock: Arc::clone(&sync_lock),
+            loaded_workspace_revision: Arc::new(AtomicU64::new(
+                workspace.loaded_workspace_revision(),
+            )),
+            loaded_episodic_revision: Arc::new(AtomicU64::new(
+                workspace.episodic_revision().unwrap_or(0),
+            )),
+            loaded_inference_revision: Arc::new(AtomicU64::new(
+                workspace.inference_revision().unwrap_or(0),
+            )),
+            loaded_coordination_revision: Arc::new(AtomicU64::new(
+                workspace.coordination_revision().unwrap_or(0),
+            )),
+            runtime_engine: Arc::clone(&runtime_engine),
+            prepared_delta: Arc::new(Mutex::new(None)),
+        };
+
+        let (ready_tx, ready_rx) = mpsc::channel();
+        let lock_clone = Arc::clone(&sync_lock);
+        let reader = thread::spawn(move || {
+            let _guard = lock_clone
+                .read()
+                .expect("shared runtime read lock should be available");
+            ready_tx.send(()).expect("reader should report readiness");
+            thread::sleep(Duration::from_millis(150));
+        });
+        ready_rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("reader should acquire shared lock");
+
+        let started = Instant::now();
+        let report = sync_workspace_runtime_materialization(&config).unwrap();
+        let elapsed = started.elapsed();
+        reader.join().expect("reader thread should finish");
+
+        assert_eq!(report.refresh_path, "checkpoint");
+        assert!(
+            elapsed >= Duration::from_millis(100),
+            "checkpoint materialization should keep exclusive writer admission"
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -2496,7 +2842,7 @@ mod tests {
             dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
-            sync_lock: Arc::new(Mutex::new(())),
+            sync_lock: Arc::new(RwLock::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
             )),
@@ -2602,7 +2948,7 @@ mod tests {
             dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
-            sync_lock: Arc::new(Mutex::new(())),
+            sync_lock: Arc::new(RwLock::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
             )),

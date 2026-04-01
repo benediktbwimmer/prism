@@ -518,9 +518,7 @@ fn rank_locate_candidate(
         };
         reasons.push(match task_match {
             TaskMatch::ExactNode => "Matched the exact requested task scope.".to_string(),
-            TaskMatch::SameLineage => {
-                "Matched the requested task's current lineage.".to_string()
-            }
+            TaskMatch::SameLineage => "Matched the requested task's current lineage.".to_string(),
         });
     }
     if profile.test_penalty > 0 && is_test_like_symbol(&symbol) {

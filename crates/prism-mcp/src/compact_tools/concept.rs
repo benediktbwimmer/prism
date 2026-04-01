@@ -108,16 +108,12 @@ fn resolve_concept_packet(
                 reasons: vec!["handle exact match".to_string()],
             })
             .ok_or_else(|| anyhow!("no concept packet matched `{handle}`")),
-        (None, Some(query)) => resolve_concepts_for_task_context(
-            prism,
-            session,
-            args.task_id.as_deref(),
-            query,
-            1,
-        )
-            .into_iter()
-            .next()
-            .ok_or_else(|| anyhow!("no concept packet matched `{query}`")),
+        (None, Some(query)) => {
+            resolve_concepts_for_task_context(prism, session, args.task_id.as_deref(), query, 1)
+                .into_iter()
+                .next()
+                .ok_or_else(|| anyhow!("no concept packet matched `{query}`"))
+        }
         (None, None) => Err(anyhow!("prism_concept requires `handle` or `query`")),
     }
 }
@@ -268,8 +264,8 @@ fn resolve_concept_alternates(
     let Some(query) = args.query.as_deref() else {
         return Ok(Vec::new());
     };
-        let resolutions =
-            resolve_concepts_for_task_context(prism, session, args.task_id.as_deref(), query, 3);
+    let resolutions =
+        resolve_concepts_for_task_context(prism, session, args.task_id.as_deref(), query, 3);
     if !concept_resolution_is_ambiguous(&resolutions) {
         return Ok(Vec::new());
     }

@@ -218,15 +218,10 @@ where
     let Some(value) = Option::<Value>::deserialize(deserializer)? else {
         return Ok(None);
     };
-    if value
-        .as_str()
-        .is_some_and(|raw| raw.trim().is_empty())
-    {
+    if value.as_str().is_some_and(|raw| raw.trim().is_empty()) {
         return Ok(None);
     }
-    T::deserialize(value)
-        .map(Some)
-        .map_err(de::Error::custom)
+    T::deserialize(value).map(Some).map_err(de::Error::custom)
 }
 
 fn invalid_tool_validation(

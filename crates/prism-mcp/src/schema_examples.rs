@@ -56,6 +56,7 @@ pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
         "prism_locate" => Some(json!({
             "query": "session",
             "taskIntent": "edit",
+            "taskId": "coord-task:12",
             "limit": 3,
         })),
         "prism_gather" => Some(json!({
@@ -72,6 +73,7 @@ pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
         })),
         "prism_workset" => Some(json!({
             "handle": "handle:1",
+            "taskId": "coord-task:12",
         })),
         "prism_expand" => Some(json!({
             "handle": "handle:1",
@@ -82,6 +84,7 @@ pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
         })),
         "prism_concept" => Some(json!({
             "query": "validation pipeline",
+            "taskId": "coord-task:12",
             "lens": "validation",
             "verbosity": "summary",
         })),
