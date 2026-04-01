@@ -1611,9 +1611,9 @@ fn migrate_worktree_cache_moves_local_state_out_of_shared_runtime_db() {
 }
 
 #[test]
-fn migrate_worktree_cache_copies_outcome_compat_state_from_shared_runtime() {
-    let shared_path = temp_sqlite_path("prism-store-shared-outcome-compat");
-    let local_path = temp_sqlite_path("prism-store-local-outcome-compat");
+fn migrate_worktree_cache_rebuilds_local_outcome_projection_from_shared_runtime() {
+    let shared_path = temp_sqlite_path("prism-store-shared-outcome-projection");
+    let local_path = temp_sqlite_path("prism-store-local-outcome-projection");
     let mut shared = SqliteStore::open(&shared_path).unwrap();
     let event = prism_memory::OutcomeEvent {
         meta: EventMeta {
@@ -1639,8 +1639,13 @@ fn migrate_worktree_cache_copies_outcome_compat_state_from_shared_runtime() {
     let local = SqliteStore::open(&local_path).unwrap();
     let shared = SqliteStore::open(&shared_path).unwrap();
     assert_eq!(
-        local.load_task_replay(&TaskId::new("task:migration")).unwrap().events,
-        vec![event.clone()]
+        local
+            .load_projection_outcome_event_ids(&OutcomeRecallQuery {
+                anchors: vec![prism_ir::AnchorRef::Lineage(LineageId::new("lineage:outcome"))],
+                ..OutcomeRecallQuery::default()
+            })
+            .unwrap(),
+        vec![event.meta.id.clone()]
     );
     assert_eq!(
         shared.load_task_replay(&TaskId::new("task:migration")).unwrap().events,

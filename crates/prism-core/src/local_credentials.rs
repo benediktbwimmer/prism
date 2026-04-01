@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 const CREDENTIALS_FILE_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub(crate) struct CredentialsFile {
+pub struct CredentialsFile {
     pub version: u32,
     #[serde(default)]
     pub active_profile: Option<String>,
@@ -16,7 +16,7 @@ pub(crate) struct CredentialsFile {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub(crate) struct CredentialProfile {
+pub struct CredentialProfile {
     pub profile: String,
     pub authority_id: String,
     pub principal_id: String,
@@ -25,7 +25,7 @@ pub(crate) struct CredentialProfile {
 }
 
 impl CredentialsFile {
-    pub(crate) fn load(path: &Path) -> Result<Self> {
+    pub fn load(path: &Path) -> Result<Self> {
         if !path.exists() {
             return Ok(Self {
                 version: CREDENTIALS_FILE_VERSION,
@@ -40,7 +40,7 @@ impl CredentialsFile {
         Ok(file)
     }
 
-    pub(crate) fn save(&self, path: &Path) -> Result<()> {
+    pub fn save(&self, path: &Path) -> Result<()> {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
@@ -48,7 +48,7 @@ impl CredentialsFile {
         Ok(())
     }
 
-    pub(crate) fn upsert_profile(
+    pub fn upsert_profile(
         &mut self,
         profile: CredentialProfile,
         set_active: bool,
@@ -72,36 +72,55 @@ impl CredentialsFile {
         &self.profiles[existing_index.unwrap_or(self.profiles.len() - 1)]
     }
 
-    pub(crate) fn set_active_by_selector(
+    pub fn find_by_selector(
+        &self,
+        profile: Option<&str>,
+        principal_id: Option<&str>,
+        credential_id: Option<&str>,
+    ) -> Result<&CredentialProfile> {
+        self.profiles
+            .iter()
+            .find(|candidate| {
+                profile.is_some_and(|value| candidate.profile == value)
+                    || principal_id.is_some_and(|value| candidate.principal_id == value)
+                    || credential_id.is_some_and(|value| candidate.credential_id == value)
+            })
+            .or_else(|| {
+                if profile.is_none() && principal_id.is_none() && credential_id.is_none() {
+                    self.active_profile.as_deref().and_then(|active| {
+                        self.profiles
+                            .iter()
+                            .find(|candidate| candidate.profile == active)
+                    })
+                } else {
+                    None
+                }
+            })
+            .or_else(|| {
+                (profile.is_none()
+                    && principal_id.is_none()
+                    && credential_id.is_none()
+                    && self.profiles.len() == 1)
+                    .then(|| &self.profiles[0])
+            })
+            .ok_or_else(|| anyhow!("no stored credential matched the requested selector"))
+    }
+
+    pub fn set_active_by_selector(
         &mut self,
         profile: Option<&str>,
         principal_id: Option<&str>,
         credential_id: Option<&str>,
     ) -> Result<&CredentialProfile> {
-        let selected_index = if let Some(profile) = profile {
-            self.profiles
-                .iter()
-                .position(|candidate| candidate.profile == profile)
-        } else if let Some(credential_id) = credential_id {
-            self.profiles
-                .iter()
-                .position(|candidate| candidate.credential_id == credential_id)
-        } else if let Some(principal_id) = principal_id {
-            self.profiles
-                .iter()
-                .position(|candidate| candidate.principal_id == principal_id)
-        } else if let Some(active_profile) = self.active_profile.as_deref() {
-            self.profiles
-                .iter()
-                .position(|candidate| candidate.profile == active_profile)
-        } else if self.profiles.len() == 1 {
-            Some(0)
-        } else {
-            None
-        }
-        .ok_or_else(|| anyhow!("no stored credential matched the requested selector"))?;
-        self.active_profile = Some(self.profiles[selected_index].profile.clone());
-        Ok(&self.profiles[selected_index])
+        let selected_profile = self
+            .find_by_selector(profile, principal_id, credential_id)?
+            .profile
+            .clone();
+        self.active_profile = Some(selected_profile.clone());
+        self.profiles
+            .iter()
+            .find(|candidate| candidate.profile == selected_profile)
+            .ok_or_else(|| anyhow!("selected profile disappeared from the credentials file"))
     }
 }
 
@@ -110,10 +129,10 @@ mod tests {
     use super::{CredentialProfile, CredentialsFile};
 
     #[test]
-    fn set_active_by_principal_selects_matching_profile() {
-        let mut file = CredentialsFile {
+    fn find_by_principal_selects_matching_profile_without_mutating_active() {
+        let file = CredentialsFile {
             version: 1,
-            active_profile: None,
+            active_profile: Some("owner".to_string()),
             profiles: vec![
                 CredentialProfile {
                     profile: "owner".to_string(),
@@ -133,10 +152,10 @@ mod tests {
         };
 
         let selected = file
-            .set_active_by_selector(None, Some("principal:worker"), None)
+            .find_by_selector(None, Some("principal:worker"), None)
             .unwrap();
 
         assert_eq!(selected.profile, "worker");
-        assert_eq!(file.active_profile.as_deref(), Some("worker"));
+        assert_eq!(file.active_profile.as_deref(), Some("owner"));
     }
 }

@@ -24,6 +24,7 @@ use std::sync::OnceLock;
 use tracing::{debug, info, Level};
 
 mod ambiguity;
+mod bridge_auth;
 mod capabilities_resource;
 mod change_views;
 mod common;

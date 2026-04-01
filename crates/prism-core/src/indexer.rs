@@ -46,7 +46,7 @@ use prism_ir::{
     ChangeTrigger, Edge, EdgeKind, EdgeOrigin, LineageEvent, ObservedChangeSet,
     PlanExecutionOverlay, PlanGraph,
 };
-use prism_memory::OutcomeMemory;
+use prism_memory::{OutcomeMemory, OutcomeMemorySnapshot};
 use prism_parser::{LanguageAdapter, ParseDepth, ParseResult};
 use prism_projections::{
     co_change_delta_batch_for_events, CoChangeDelta, ProjectionIndex, ValidationDelta,
@@ -54,7 +54,8 @@ use prism_projections::{
 };
 use prism_query::Prism;
 use prism_store::{
-    DependencyInvalidationKeys, Graph, IndexPersistBatch, SqliteStore, Store, WorkspaceTreeSnapshot,
+    ColdQueryStore, DependencyInvalidationKeys, Graph, IndexPersistBatch, SqliteStore, Store,
+    WorkspaceTreeSnapshot,
 };
 use tracing::{info, warn};
 
@@ -158,6 +159,13 @@ impl WorkspaceIndexer<SqliteStore> {
             } else {
                 None
             };
+            indexer.outcomes = if local_projection_snapshot.is_some() || shared_projection_snapshot.is_some() {
+                shared_store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
+            } else {
+                shared_store.load_outcome_snapshot()?
+            }
+            .map(OutcomeMemory::from_snapshot)
+            .unwrap_or_else(OutcomeMemory::new);
             indexer.projections = merged_projection_index(
                 base_local_projection_snapshot,
                 base_shared_projection_snapshot,
@@ -1193,14 +1201,19 @@ impl<S: Store> WorkspaceIndexer<S> {
                 workspace_tree_snapshot.clone()
             },
         };
+        let mut local_batch = batch.clone();
+        if self.shared_runtime_store.is_some() {
+            local_batch.outcome_snapshot = OutcomeMemorySnapshot { events: Vec::new() };
+            local_batch.outcome_events.clear();
+        }
         let skip_persist = self.had_prior_snapshot
             && self.had_projection_snapshot
-            && batch.upserted_paths.is_empty()
-            && batch.in_place_upserted_paths.is_empty()
-            && batch.removed_paths.is_empty()
-            && batch.co_change_deltas.is_empty()
-            && batch.validation_deltas.is_empty()
-            && batch.projection_snapshot.is_none();
+            && local_batch.upserted_paths.is_empty()
+            && local_batch.in_place_upserted_paths.is_empty()
+            && local_batch.removed_paths.is_empty()
+            && local_batch.co_change_deltas.is_empty()
+            && local_batch.validation_deltas.is_empty()
+            && local_batch.projection_snapshot.is_none();
         let persist_ms = if skip_persist {
             info!(
                 root = %self.root.display(),
@@ -1212,7 +1225,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             0
         } else {
             let persist_started = Instant::now();
-            self.store.commit_index_persist_batch(&self.graph, &batch)?;
+            self.store.commit_index_persist_batch(&self.graph, &local_batch)?;
             let persist_ms = persist_started.elapsed().as_millis();
             info!(
                 root = %self.root.display(),
@@ -1228,6 +1241,16 @@ impl<S: Store> WorkspaceIndexer<S> {
             );
             persist_ms
         };
+        if let Some(shared_runtime_store) = self.shared_runtime_store.as_mut() {
+            if !batch.outcome_events.is_empty() {
+                prism_store::EventJournalStore::append_outcome_events(
+                    shared_runtime_store,
+                    &batch.outcome_events,
+                    &[],
+                )?;
+                self.store.append_local_outcome_projection(&batch.outcome_events)?;
+            }
+        }
         if let Some(materializer) = deferred_materializer {
             let materialize_started = Instant::now();
             let graph_result = materializer.enqueue_graph_snapshot(self.graph.snapshot());

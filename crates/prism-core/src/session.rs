@@ -716,13 +716,18 @@ impl WorkspaceSession {
             .prism_arc()
     }
 
-    pub(crate) fn attach_cold_query_backends(prism: &Prism, store: &Arc<Mutex<SqliteStore>>) {
+    pub(crate) fn attach_cold_query_backends(
+        prism: &Prism,
+        store: &Arc<Mutex<SqliteStore>>,
+        shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
+    ) {
         prism.set_history_backend(Some(Arc::new(StoreHistoryReadBackend::new(Arc::clone(
             store,
         )))));
-        prism.set_outcome_backend(Some(Arc::new(StoreOutcomeReadBackend::new(Arc::clone(
-            store,
-        )))));
+        prism.set_outcome_backend(Some(Arc::new(StoreOutcomeReadBackend::new(
+            Arc::clone(store),
+            shared_runtime_store.map(Arc::clone),
+        ))));
     }
 
     fn publish_runtime_state(
@@ -739,7 +744,11 @@ impl WorkspaceSession {
             },
             coordination_context,
         );
-        Self::attach_cold_query_backends(next.prism_arc().as_ref(), &self.cold_query_store);
+        Self::attach_cold_query_backends(
+            next.prism_arc().as_ref(),
+            &self.cold_query_store,
+            self.shared_runtime_store.as_ref(),
+        );
         *self
             .runtime_state
             .lock()
@@ -1119,18 +1128,32 @@ impl WorkspaceSession {
         let prism = self.prism_arc();
         let persist_started = Instant::now();
         let snapshot = prism.outcome_snapshot();
-        let result = self
-            .checkpoint_materializer
-            .as_ref()
-            .map(|materializer| materializer.enqueue_outcome_snapshot(snapshot.clone()))
-            .unwrap_or_else(|| {
-                let mut store = Self::lock_store_for_mutation(
-                    &self.store,
-                    "mutation.waitWorkspaceStoreLock",
-                    "persistOutcomes",
-                );
-                store.save_outcome_snapshot(&snapshot)
-            });
+        let result = if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            self.shared_runtime_materializer
+                .as_ref()
+                .map(|materializer| materializer.enqueue_outcome_snapshot(snapshot.clone()))
+                .unwrap_or_else(|| {
+                    let mut store = shared_runtime_store
+                        .lock()
+                        .expect("shared runtime store lock poisoned");
+                    prism_store::MaterializationStore::save_outcome_snapshot(
+                        &mut *store,
+                        &snapshot,
+                    )
+                })
+        } else {
+            self.checkpoint_materializer
+                .as_ref()
+                .map(|materializer| materializer.enqueue_outcome_snapshot(snapshot.clone()))
+                .unwrap_or_else(|| {
+                    let mut store = Self::lock_store_for_mutation(
+                        &self.store,
+                        "mutation.waitWorkspaceStoreLock",
+                        "persistOutcomes",
+                    );
+                    store.save_outcome_snapshot(&snapshot)
+                })
+        };
         mutation_trace::record_phase(
             "mutation.persistOutcomesSchedule",
             json!({}),
@@ -1139,6 +1162,28 @@ impl WorkspaceSession {
             result.as_ref().err().map(ToString::to_string),
         );
         result
+    }
+
+    fn append_outcome_event_to_persistent_stores(
+        &self,
+        store: &mut SqliteStore,
+        event: &OutcomeEvent,
+    ) -> Result<()> {
+        if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            let mut shared_store = shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned");
+            prism_store::EventJournalStore::append_outcome_events(
+                &mut *shared_store,
+                std::slice::from_ref(event),
+                &[],
+            )?;
+            store.append_local_outcome_projection(std::slice::from_ref(event))?;
+            Ok(())
+        } else {
+            store.append_outcome_events(std::slice::from_ref(event), &[])?;
+            Ok(())
+        }
     }
 
     pub fn persist_history(&self) -> Result<()> {
@@ -1257,14 +1302,31 @@ impl WorkspaceSession {
             .map(HistoryStore::from_snapshot)
             .unwrap_or_else(HistoryStore::new);
         history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
-        let outcomes =
+        let outcomes = if shared_runtime_aliases_workspace_store {
             if local_projection_snapshot.is_some() || shared_projection_snapshot.is_some() {
                 store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
             } else {
                 store.load_outcome_snapshot()?
             }
-            .map(OutcomeMemory::from_snapshot)
-            .unwrap_or_else(OutcomeMemory::new);
+        } else if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            let mut shared_store = shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned");
+            if local_projection_snapshot.is_some() || shared_projection_snapshot.is_some() {
+                prism_store::ColdQueryStore::load_recent_outcome_snapshot(
+                    &mut *shared_store,
+                    HOT_OUTCOME_HYDRATION_LIMIT,
+                )?
+            } else {
+                prism_store::ColdQueryStore::load_outcome_snapshot(&mut *shared_store)?
+            }
+        } else if local_projection_snapshot.is_some() || shared_projection_snapshot.is_some() {
+            store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
+        } else {
+            store.load_outcome_snapshot()?
+        }
+        .map(OutcomeMemory::from_snapshot)
+        .unwrap_or_else(OutcomeMemory::new);
         let plan_state = if self.coordination_enabled {
             if let Some(shared_runtime_store) = self.shared_runtime_store() {
                 shared_runtime_store
@@ -2717,7 +2779,7 @@ impl WorkspaceSession {
             "appendOutcomeWithAuxiliary",
         );
         let persist_started = Instant::now();
-        let event_result = store.append_outcome_events(&[persisted_event], &[]);
+        let event_result = self.append_outcome_event_to_persistent_stores(&mut store, &persisted_event);
         let memory_result = if event_result.is_ok() && !memory_events.is_empty() {
             store.append_memory_events(&memory_events).map(|_| ())
         } else {
@@ -2833,7 +2895,8 @@ impl WorkspaceSession {
             "appendOutcome",
         );
         let persist_started = Instant::now();
-        let persist_result = store.append_outcome_events(&[persisted_event], &[]);
+        let persist_result =
+            self.append_outcome_event_to_persistent_stores(&mut store, &persisted_event);
         mutation_trace::record_phase(
             "mutation.appendOutcomePersist",
             json!({}),

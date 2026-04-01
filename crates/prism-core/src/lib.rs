@@ -11,6 +11,7 @@ mod indexer;
 mod indexer_support;
 mod invalidation;
 mod layout;
+mod local_credentials;
 mod materialization;
 mod memory_events;
 mod memory_refresh;
@@ -49,6 +50,7 @@ use session_bootstrap::hydrate_workspace_session_with_options as bootstrap_works
 pub use admission::AdmissionBusyError;
 pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;
+pub use local_credentials::{CredentialProfile, CredentialsFile};
 pub use materialization::{
     WorkspaceBoundaryRegion, WorkspaceMaterializationCoverage, WorkspaceMaterializationSummary,
 };

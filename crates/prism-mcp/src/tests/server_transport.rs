@@ -13,8 +13,10 @@ use crate::tests_support::{
     call_tool_request, demo_node, first_tool_content_json, initialize_client,
     initialized_notification, list_tools_request, read_resource_request, response_json,
     server_with_node, server_with_node_and_features, spawn_http_upstream, temp_workspace,
-    test_session,
+    test_session, workspace_session_with_owner_credential,
 };
+use prism_core::{CredentialProfile, CredentialsFile, SharedRuntimeBackend};
+use prism_ir::CredentialId;
 use prism_ir::{Language, Node, NodeId, NodeKind, Span};
 use prism_store::Graph;
 
@@ -214,6 +216,304 @@ async fn stdio_proxy_reconnects_after_upstream_restart_from_uri_file() {
     let _ = proxy_task.await;
     second_upstream_task.abort();
     let _ = second_upstream_task.await;
+}
+
+#[tokio::test]
+async fn stdio_proxy_can_adopt_local_profile_and_mutate_without_explicit_credential() {
+    let root = temp_workspace();
+    let (workspace, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("owner credential should authenticate");
+    let credentials_path = root.join("bridge-credentials.toml");
+    let mut credentials = CredentialsFile {
+        version: 1,
+        ..CredentialsFile::default()
+    };
+    credentials.upsert_profile(
+        CredentialProfile {
+            profile: "agent-a".to_string(),
+            authority_id: authenticated.principal.authority_id.0.to_string(),
+            principal_id: authenticated.principal.principal_id.0.to_string(),
+            credential_id: credential.credential_id.clone(),
+            principal_token: credential.principal_token.clone(),
+        },
+        true,
+    );
+    credentials
+        .save(&credentials_path)
+        .expect("bridge credentials should save");
+
+    let upstream = PrismMcpServer::with_session_and_features(workspace, PrismMcpFeatures::full());
+    let (upstream_uri, upstream_task) = spawn_http_upstream(upstream).await;
+    let proxy = crate::proxy_server::ProxyMcpServer::connect_with_credentials_path(
+        credentials_path,
+        upstream_uri.clone(),
+        crate::daemon_mode::BridgeUpstreamSource::Fixed(upstream_uri),
+    )
+    .await
+    .expect("proxy should connect to upstream");
+    let (client_transport, server_transport) = tokio::io::duplex(64 * 1024);
+    let proxy_task = tokio::spawn(async move {
+        proxy
+            .serve_transport(server_transport)
+            .await
+            .expect("proxy should serve the local bridge");
+    });
+
+    let client = ().serve(client_transport).await.expect("client should connect through proxy");
+
+    let unbound_error = client
+        .call_tool(
+            CallToolRequestParams::new("prism_mutate").with_arguments(serde_json::Map::from_iter([
+                ("action".to_string(), json!("validation_feedback")),
+                (
+                    "input".to_string(),
+                    json!({
+                        "context": "Bridge auth smoke test.",
+                        "prismSaid": "A bridge-bound mutation should work without an explicit credential.",
+                        "actuallyTrue": "The bridge injected the locally stored credential after adoption.",
+                        "category": "coordination",
+                        "verdict": "helpful",
+                        "correctedManually": false,
+                    }),
+                ),
+            ])),
+        )
+        .await
+        .expect_err("unbound bridge should reject credential-less mutations");
+    assert!(
+        unbound_error.to_string().contains("bridge_auth_required"),
+        "{}",
+        unbound_error
+    );
+
+    let adopt = client
+        .call_tool(
+            CallToolRequestParams::new("prism_bridge_adopt").with_arguments(
+                serde_json::Map::from_iter([("profile".to_string(), json!("agent-a"))]),
+            ),
+        )
+        .await
+        .expect("bridge adopt should succeed");
+    let adopt_payload = adopt
+        .structured_content
+        .expect("bridge adopt should return structured content");
+    assert_eq!(adopt_payload["status"], "bound");
+    assert_eq!(adopt_payload["profile"], "agent-a");
+
+    let mutation = client
+        .call_tool(
+            CallToolRequestParams::new("prism_mutate").with_arguments(serde_json::Map::from_iter([
+                ("action".to_string(), json!("validation_feedback")),
+                (
+                    "input".to_string(),
+                    json!({
+                        "context": "Bridge auth smoke test.",
+                        "prismSaid": "A bridge-bound mutation should work without an explicit credential.",
+                        "actuallyTrue": "The bridge injected the locally stored credential after adoption.",
+                        "category": "coordination",
+                        "verdict": "helpful",
+                        "correctedManually": false,
+                    }),
+                ),
+            ])),
+        )
+        .await
+        .expect("bound bridge should inject credentials for prism_mutate");
+    let mutation_payload = mutation
+        .structured_content
+        .expect("mutation result should be structured");
+    assert_eq!(mutation_payload["action"], "validation_feedback");
+
+    let bridge_auth = client
+        .read_resource(ReadResourceRequestParams::new("prism://bridge/auth"))
+        .await
+        .expect("bridge auth resource should be readable");
+    let bridge_auth_text = match &bridge_auth.contents[0] {
+        rmcp::model::ResourceContents::TextResourceContents { text, .. } => text.as_str(),
+        other => panic!("expected textual bridge auth resource, got {other:?}"),
+    };
+    let bridge_auth_payload =
+        serde_json::from_str::<Value>(bridge_auth_text).expect("bridge auth resource should be valid json");
+    assert_eq!(bridge_auth_payload["status"], "bound");
+    assert_eq!(bridge_auth_payload["profile"], "agent-a");
+
+    client.cancel().await.unwrap();
+    proxy_task.abort();
+    let _ = proxy_task.await;
+    upstream_task.abort();
+    let _ = upstream_task.await;
+}
+
+#[tokio::test]
+async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
+    let root = temp_workspace();
+    let shared_runtime_root = temp_workspace();
+    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+    let workspace = prism_core::index_workspace_session_with_options(
+        &root,
+        prism_core::WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: SharedRuntimeBackend::Sqlite {
+                path: shared_runtime_sqlite.clone(),
+            },
+            hydrate_persisted_projections: false,
+        },
+    )
+    .expect("workspace session should index");
+    let issued = workspace
+        .bootstrap_owner_principal(prism_core::BootstrapOwnerInput {
+            authority_id: None,
+            name: "Test Owner".to_string(),
+            role: Some("test_owner".to_string()),
+        })
+        .expect("owner bootstrap should succeed");
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &issued.credential.credential_id,
+            &issued.principal_token,
+        )
+        .expect("owner credential should authenticate");
+    let credentials_path = root.join("bridge-credentials.toml");
+    let mut credentials = CredentialsFile {
+        version: 1,
+        ..CredentialsFile::default()
+    };
+    credentials.upsert_profile(
+        CredentialProfile {
+            profile: "agent-a".to_string(),
+            authority_id: authenticated.principal.authority_id.0.to_string(),
+            principal_id: authenticated.principal.principal_id.0.to_string(),
+            credential_id: issued.credential.credential_id.0.to_string(),
+            principal_token: issued.principal_token.clone(),
+        },
+        true,
+    );
+    credentials
+        .save(&credentials_path)
+        .expect("bridge credentials should save");
+
+    let uri_file = root.join("bridge-uri.txt");
+    let first_upstream = PrismMcpServer::with_session_and_features(workspace, PrismMcpFeatures::full());
+    let (first_uri, first_upstream_task) = spawn_http_upstream(first_upstream).await;
+    fs::write(&uri_file, format!("{first_uri}\n")).expect("uri file should be written");
+
+    let proxy = crate::proxy_server::ProxyMcpServer::connect_with_credentials_path(
+        credentials_path,
+        first_uri.clone(),
+        crate::daemon_mode::BridgeUpstreamSource::HttpUriFile(uri_file.clone()),
+    )
+    .await
+    .expect("proxy should connect to upstream");
+    let (client_transport, server_transport) = tokio::io::duplex(64 * 1024);
+    let proxy_task = tokio::spawn(async move {
+        proxy
+            .serve_transport(server_transport)
+            .await
+            .expect("proxy should serve the local bridge");
+    });
+    let client = ().serve(client_transport).await.expect("client should connect through proxy");
+
+    client
+        .call_tool(
+            CallToolRequestParams::new("prism_bridge_adopt").with_arguments(
+                serde_json::Map::from_iter([("profile".to_string(), json!("agent-a"))]),
+            ),
+        )
+        .await
+        .expect("bridge adopt should succeed");
+
+    client
+        .call_tool(
+            CallToolRequestParams::new("prism_mutate").with_arguments(serde_json::Map::from_iter([
+                ("action".to_string(), json!("validation_feedback")),
+                (
+                    "input".to_string(),
+                    json!({
+                        "context": "Bridge restart smoke test.",
+                        "prismSaid": "The bridge should reconnect after a daemon restart.",
+                        "actuallyTrue": "The bridge kept its bound principal and resumed mutation forwarding after the daemon came back.",
+                        "category": "freshness",
+                        "verdict": "helpful",
+                        "correctedManually": false,
+                    }),
+                ),
+            ])),
+        )
+        .await
+        .expect("initial mutation should succeed");
+
+    first_upstream_task.abort();
+    let _ = first_upstream_task.await;
+
+    tokio::time::sleep(Duration::from_secs(8)).await;
+
+    let reloaded = prism_core::hydrate_workspace_session_with_options(
+        &root,
+        prism_core::WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: SharedRuntimeBackend::Sqlite {
+                path: shared_runtime_sqlite.clone(),
+            },
+            hydrate_persisted_projections: false,
+        },
+    )
+    .expect("workspace session should hydrate after restart");
+    reloaded
+        .authenticate_principal_credential(
+            &issued.credential.credential_id,
+            &issued.principal_token,
+        )
+        .expect("reloaded workspace should still authenticate the bridge-bound credential");
+
+    let second_upstream = PrismMcpServer::from_workspace_with_features_and_shared_runtime(
+        &root,
+        PrismMcpFeatures::full(),
+        SharedRuntimeBackend::Sqlite {
+            path: shared_runtime_sqlite.clone(),
+        },
+    )
+    .expect("replacement workspace-backed server should build");
+    let (second_uri, second_upstream_task) = spawn_http_upstream(second_upstream).await;
+    fs::write(&uri_file, format!("{second_uri}\n")).expect("uri file should be updated");
+
+    let mutation = tokio::time::timeout(
+        Duration::from_secs(20),
+        client.call_tool(
+            CallToolRequestParams::new("prism_mutate").with_arguments(serde_json::Map::from_iter([
+                ("action".to_string(), json!("validation_feedback")),
+                (
+                    "input".to_string(),
+                    json!({
+                        "context": "Bridge restart smoke test.",
+                        "prismSaid": "The bridge should reconnect after a daemon restart.",
+                        "actuallyTrue": "The bridge kept its bound principal and resumed mutation forwarding after the daemon came back.",
+                        "category": "freshness",
+                        "verdict": "helpful",
+                        "correctedManually": false,
+                    }),
+                ),
+            ])),
+        ),
+    )
+    .await
+    .expect("mutation should survive a long daemon restart gap")
+    .expect("bound bridge should reconnect and inject credentials after restart");
+    let mutation_payload = mutation
+        .structured_content
+        .expect("mutation result should be structured after reconnect");
+    assert_eq!(mutation_payload["action"], "validation_feedback");
+
+    client.cancel().await.unwrap();
+    proxy_task.abort();
+    let _ = proxy_task.await;
+    second_upstream_task.abort();
+    let _ = second_upstream_task.await;
+    let _ = fs::remove_dir_all(shared_runtime_root);
 }
 
 #[test]

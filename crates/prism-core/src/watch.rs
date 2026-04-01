@@ -508,7 +508,11 @@ fn refresh_prism_snapshot_with_guard(
             &observed,
         )?;
     }
-    WorkspaceSession::attach_cold_query_backends(next.prism_arc().as_ref(), cold_query_store);
+    WorkspaceSession::attach_cold_query_backends(
+        next.prism_arc().as_ref(),
+        cold_query_store,
+        shared_runtime_store,
+    );
     *runtime_state
         .lock()
         .expect("workspace runtime state lock poisoned") = next_state;
@@ -586,7 +590,11 @@ fn sync_published_plan_authority_with_guard(
         runtime_state.replace_coordination_runtime(snapshot, plan_graphs, execution_overlays);
         runtime_state.publish_generation(workspace_revision, coordination_context)
     };
-    WorkspaceSession::attach_cold_query_backends(next.prism_arc().as_ref(), cold_query_store);
+    WorkspaceSession::attach_cold_query_backends(
+        next.prism_arc().as_ref(),
+        cold_query_store,
+        shared_runtime_store,
+    );
     *published_generation
         .write()
         .expect("workspace published generation lock poisoned") = next;

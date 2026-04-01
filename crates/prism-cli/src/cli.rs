@@ -186,6 +186,8 @@ pub enum TaskCommand {
 pub enum PrincipalCommand {
     Mint {
         #[arg(long)]
+        profile: Option<String>,
+        #[arg(long)]
         kind: String,
         #[arg(long)]
         name: String,

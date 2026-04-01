@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use std::future::Future;
+use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
 use rmcp::{
@@ -14,11 +15,12 @@ use rmcp::{
 use tokio::sync::Mutex as AsyncMutex;
 use tracing::{info, warn};
 
+use crate::bridge_auth::{BridgeAuthContext, BRIDGE_ADOPT_TOOL_NAME, BRIDGE_AUTH_URI};
 use crate::daemon_mode::BridgeUpstreamSource;
 
 const DEFAULT_BRIDGE_RECONNECT_BASE_DELAY: Duration = Duration::from_millis(100);
 const DEFAULT_BRIDGE_RECONNECT_MAX_DELAY: Duration = Duration::from_secs(2);
-const DEFAULT_BRIDGE_RECONNECT_ATTEMPTS: usize = 6;
+const DEFAULT_BRIDGE_RECONNECT_TIMEOUT: Duration = Duration::from_secs(180);
 
 #[derive(Debug)]
 struct ProxyActivityTracker {
@@ -62,12 +64,54 @@ pub(crate) struct ProxyMcpServer {
     server_info: Mutex<ServerInfo>,
     tool_cache: RwLock<HashMap<String, Tool>>,
     activity: Arc<ProxyActivityTracker>,
+    bridge_auth: BridgeAuthContext,
 }
 
 impl ProxyMcpServer {
+    #[cfg(test)]
     pub(crate) async fn connect_with_source(
         upstream_uri: String,
         upstream_source: BridgeUpstreamSource,
+    ) -> Result<Self> {
+        Self::connect_with_bridge_auth(
+            upstream_uri,
+            upstream_source,
+            BridgeAuthContext::disabled(),
+        )
+        .await
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn connect_with_credentials_path(
+        credentials_path: std::path::PathBuf,
+        upstream_uri: String,
+        upstream_source: BridgeUpstreamSource,
+    ) -> Result<Self> {
+        Self::connect_with_bridge_auth(
+            upstream_uri,
+            upstream_source,
+            BridgeAuthContext::from_credentials_path(credentials_path),
+        )
+        .await
+    }
+
+    pub(crate) async fn connect_with_source_for_root(
+        root: &Path,
+        upstream_uri: String,
+        upstream_source: BridgeUpstreamSource,
+    ) -> Result<Self> {
+        Self::connect_with_bridge_auth(
+            upstream_uri,
+            upstream_source,
+            BridgeAuthContext::for_root(root)?,
+        )
+        .await
+    }
+
+    async fn connect_with_bridge_auth(
+        upstream_uri: String,
+        upstream_source: BridgeUpstreamSource,
+        bridge_auth: BridgeAuthContext,
     ) -> Result<Self> {
         let (connection, server_info, tools) = Self::open_upstream(&upstream_uri).await?;
         Ok(Self {
@@ -82,6 +126,7 @@ impl ProxyMcpServer {
                     .collect(),
             ),
             activity: Arc::new(ProxyActivityTracker::new()),
+            bridge_auth,
         })
     }
 
@@ -166,9 +211,12 @@ impl ProxyMcpServer {
             }
         }
 
+        let started = Instant::now();
+        let mut attempt = 0usize;
         let mut delay = DEFAULT_BRIDGE_RECONNECT_BASE_DELAY;
         let mut last_error = None;
-        for attempt in 1..=DEFAULT_BRIDGE_RECONNECT_ATTEMPTS {
+        while started.elapsed() < DEFAULT_BRIDGE_RECONNECT_TIMEOUT {
+            attempt += 1;
             let upstream_uri = match self.upstream_source.read_uri() {
                 Ok(uri) => uri,
                 Err(error) => {
@@ -280,10 +328,16 @@ impl ProxyMcpServer {
 
 impl ServerHandler for ProxyMcpServer {
     fn get_info(&self) -> ServerInfo {
-        match self.server_info.lock() {
+        let mut info = match self.server_info.lock() {
             Ok(info) => info.clone(),
             Err(poisoned) => poisoned.into_inner().clone(),
-        }
+        };
+        let suffix = self.bridge_auth.bridge_instructions_suffix();
+        info.instructions = Some(match info.instructions.take() {
+            Some(existing) if !existing.trim().is_empty() => format!("{existing}\n\n{suffix}"),
+            _ => suffix.to_string(),
+        });
+        info
     }
 
     async fn list_resources(
@@ -292,10 +346,12 @@ impl ServerHandler for ProxyMcpServer {
         _: RequestContext<RoleServer>,
     ) -> Result<ListResourcesResult, McpError> {
         let _request = self.activity.begin_request();
-        self.call_upstream(request, "resources/list", |peer, request| async move {
+        let mut result = self.call_upstream(request, "resources/list", |peer, request| async move {
             peer.list_resources(request).await
         })
-        .await
+        .await?;
+        result.resources.push(self.bridge_auth.bridge_auth_resource());
+        Ok(result)
     }
 
     async fn list_resource_templates(
@@ -318,6 +374,11 @@ impl ServerHandler for ProxyMcpServer {
         _: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResult, McpError> {
         let _request = self.activity.begin_request();
+        if request.uri == BRIDGE_AUTH_URI {
+            return Ok(ReadResourceResult::new(vec![
+                self.bridge_auth.bridge_auth_resource_contents()
+            ]));
+        }
         self.call_upstream(request, "resources/read", |peer, request| async move {
             peer.read_resource(request).await
         })
@@ -330,6 +391,16 @@ impl ServerHandler for ProxyMcpServer {
         _: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
         let _request = self.activity.begin_request();
+        if request.name.as_ref() == BRIDGE_ADOPT_TOOL_NAME {
+            return self.bridge_auth.handle_adopt(request.arguments);
+        }
+        let request = if request.name.as_ref() == "prism_mutate" {
+            let mut request = request;
+            request.arguments = self.bridge_auth.inject_mutation_credential(request.arguments)?;
+            request
+        } else {
+            request
+        };
         self.call_upstream(request, "tools/call", |peer, request| async move {
             peer.call_tool(request).await
         })
@@ -342,20 +413,36 @@ impl ServerHandler for ProxyMcpServer {
         _: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, McpError> {
         let _request = self.activity.begin_request();
-        let result = self
+        let mut result = self
             .call_upstream(request, "tools/list", |peer, request| async move {
                 peer.list_tools(request).await
             })
             .await?;
+        for tool in &mut result.tools {
+            if tool.name.as_ref() == "prism_mutate" {
+                *tool = self.bridge_auth.patch_mutation_tool(tool.clone());
+            }
+        }
+        result.tools.push(self.bridge_auth.bridge_adopt_tool());
         self.update_tool_cache(&result.tools);
         Ok(result)
     }
 
     fn get_tool(&self, name: &str) -> Option<Tool> {
+        if name == BRIDGE_ADOPT_TOOL_NAME {
+            return Some(self.bridge_auth.bridge_adopt_tool());
+        }
         self.tool_cache
             .read()
             .ok()
             .and_then(|cache| cache.get(name).cloned())
+            .map(|tool| {
+                if name == "prism_mutate" {
+                    self.bridge_auth.patch_mutation_tool(tool)
+                } else {
+                    tool
+                }
+            })
     }
 }
 

@@ -2152,8 +2152,8 @@ fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
-    let plan = host
-        .store_coordination(
+    let plan = retry_on_transient_sqlite_lock(|| {
+        host.store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
@@ -2161,11 +2161,12 @@ fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     let plan_id = plan.state["id"].as_str().unwrap().to_string();
 
-    let task = host
-        .store_coordination(
+    let task = retry_on_transient_sqlite_lock(|| {
+        host.store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::TaskCreate,
@@ -2182,11 +2183,12 @@ fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     let task_id = task.state["id"].as_str().unwrap().to_string();
 
-    let rejected_plan = host
-        .store_coordination(
+    let rejected_plan = retry_on_transient_sqlite_lock(|| {
+        host.store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanUpdate,
@@ -2197,28 +2199,31 @@ fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     assert!(rejected_plan.rejected);
     assert!(rejected_plan
         .violations
         .iter()
         .any(|violation| violation.code == "incomplete_plan_tasks"));
 
-    host.store_coordination(
-        test_session(&host).as_ref(),
-        PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::Update,
-            payload: json!({
-                "id": task_id.clone(),
-                "status": "completed"
-            }),
-            task_id: None,
-        },
-    )
+    retry_on_transient_sqlite_lock(|| {
+        host.store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Update,
+                payload: json!({
+                    "id": task_id.clone(),
+                    "status": "completed"
+                }),
+                task_id: None,
+            },
+        )
+    })
     .unwrap();
 
-    let completed_plan = host
-        .store_coordination(
+    let completed_plan = retry_on_transient_sqlite_lock(|| {
+        host.store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanUpdate,
@@ -2229,12 +2234,13 @@ fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     assert!(!completed_plan.rejected);
     assert_eq!(completed_plan.state["status"], "Completed");
 
-    let rejected_claim = host
-        .store_claim(
+    let rejected_claim = retry_on_transient_sqlite_lock(|| {
+        host.store_claim(
             test_session(&host).as_ref(),
             PrismClaimArgs {
                 action: ClaimActionInput::Acquire,
@@ -2252,7 +2258,8 @@ fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     assert!(rejected_claim.rejected);
     assert!(rejected_claim
         .violations
@@ -2330,8 +2337,8 @@ fn mcp_plan_update_accepts_archived_status_and_archived_plan_rejects_new_claims(
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
-    let plan = host
-        .store_coordination(
+    let plan = retry_on_transient_sqlite_lock(|| {
+        host.store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
@@ -2339,11 +2346,12 @@ fn mcp_plan_update_accepts_archived_status_and_archived_plan_rejects_new_claims(
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     let plan_id = plan.state["id"].as_str().unwrap().to_string();
 
-    let task = host
-        .store_coordination(
+    let task = retry_on_transient_sqlite_lock(|| {
+        host.store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::TaskCreate,
@@ -2360,11 +2368,12 @@ fn mcp_plan_update_accepts_archived_status_and_archived_plan_rejects_new_claims(
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     let task_id = task.state["id"].as_str().unwrap().to_string();
 
-    let abandoned = host
-        .store_coordination(
+    let abandoned = retry_on_transient_sqlite_lock(|| {
+        host.store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanUpdate,
@@ -2375,12 +2384,13 @@ fn mcp_plan_update_accepts_archived_status_and_archived_plan_rejects_new_claims(
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     assert!(!abandoned.rejected);
     assert_eq!(abandoned.state["status"], "Abandoned");
 
-    let archived = host
-        .store_coordination(
+    let archived = retry_on_transient_sqlite_lock(|| {
+        host.store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanUpdate,
@@ -2391,12 +2401,13 @@ fn mcp_plan_update_accepts_archived_status_and_archived_plan_rejects_new_claims(
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     assert!(!archived.rejected);
     assert_eq!(archived.state["status"], "Archived");
 
-    let rejected_claim = host
-        .store_claim(
+    let rejected_claim = retry_on_transient_sqlite_lock(|| {
+        host.store_claim(
             test_session(&host).as_ref(),
             PrismClaimArgs {
                 action: ClaimActionInput::Acquire,
@@ -2414,7 +2425,8 @@ fn mcp_plan_update_accepts_archived_status_and_archived_plan_rejects_new_claims(
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     assert!(rejected_claim.rejected);
     assert!(rejected_claim
         .violations

@@ -1,11 +1,12 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use prism_memory::{EpisodicMemorySnapshot, MemoryScope};
+use prism_memory::{EpisodicMemorySnapshot, MemoryScope, OutcomeEvent};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{de::DeserializeOwned, Serialize};
 use tracing::info;
 
+use super::outcome_events::{append_local_projection_tx, LOCAL_OUTCOME_PROJECTION_LIMIT};
 use super::{configure_connection, schema};
 
 const ATTACHED_SHARED_DB: &str = "shared_runtime";
@@ -34,12 +35,6 @@ const LOCAL_METADATA_KEYS: &[&str] = &[
     "history:legacy_co_change_retired",
     "revision:inference",
 ];
-const OUTCOME_COMPAT_METADATA_KEYS: &[&str] = &[
-    "revision:outcome",
-    "outcomes:anchor_index_backfilled",
-    "outcomes:hot_patch_payloads_compacted",
-];
-
 #[derive(Default)]
 struct MigrationStats {
     copied_local_rows: usize,
@@ -49,8 +44,7 @@ struct MigrationStats {
     copied_local_memory_entries: usize,
     copied_local_concepts: usize,
     copied_local_relations: usize,
-    copied_outcome_events: usize,
-    copied_outcome_anchors: usize,
+    rebuilt_local_outcome_projection_rows: usize,
     scrubbed_local_rows: usize,
     scrubbed_local_snapshots: usize,
     scrubbed_local_metadata: usize,
@@ -58,6 +52,7 @@ struct MigrationStats {
     scrubbed_local_memory_entries: usize,
     scrubbed_local_concepts: usize,
     scrubbed_local_relations: usize,
+    scrubbed_shared_outcome_anchors: usize,
 }
 
 pub fn migrate_worktree_cache_from_shared_runtime(
@@ -94,7 +89,7 @@ pub fn migrate_worktree_cache_from_shared_runtime(
     let shared_has_local_state = database_has_local_semantic_state(&tx, ATTACHED_SHARED_DB)?;
     let local_has_local_state = database_has_local_semantic_state(&tx, "main")?;
     let shared_has_outcomes = database_has_outcome_state(&tx, ATTACHED_SHARED_DB)?;
-    let local_has_outcomes = database_has_outcome_state(&tx, "main")?;
+    let local_has_outcome_projection = database_has_local_outcome_projection(&tx, "main")?;
 
     let mut stats = MigrationStats::default();
     let copied_local_state = if shared_has_local_state && !local_has_local_state {
@@ -104,14 +99,18 @@ pub fn migrate_worktree_cache_from_shared_runtime(
         false
     };
 
-    if shared_has_outcomes && !local_has_outcomes {
-        copy_outcome_compat_state(&tx, &mut stats)?;
+    if shared_has_outcomes && !local_has_outcome_projection {
+        rebuild_local_outcome_projection(&tx, &mut stats)?;
     }
 
     if shared_has_local_state
         && (copied_local_state || database_has_local_semantic_state(&tx, "main")?)
     {
         scrub_shared_local_state(&tx, &mut stats)?;
+    }
+    if shared_has_outcomes && database_has_local_outcome_projection(&tx, "main")? {
+        stats.scrubbed_shared_outcome_anchors +=
+            delete_all_rows(&tx, ATTACHED_SHARED_DB, "outcome_event_anchor")?;
     }
 
     tx.commit()?;
@@ -122,7 +121,7 @@ pub fn migrate_worktree_cache_from_shared_runtime(
         || stats.copied_local_metadata > 0
         || stats.copied_local_memory_events > 0
         || stats.copied_local_concepts > 0
-        || stats.copied_outcome_events > 0
+        || stats.rebuilt_local_outcome_projection_rows > 0
         || stats.scrubbed_local_rows > 0
         || stats.scrubbed_local_snapshots > 0
         || stats.scrubbed_local_memory_events > 0
@@ -138,8 +137,7 @@ pub fn migrate_worktree_cache_from_shared_runtime(
             copied_local_memory_entries = stats.copied_local_memory_entries,
             copied_local_concepts = stats.copied_local_concepts,
             copied_local_relations = stats.copied_local_relations,
-            copied_outcome_events = stats.copied_outcome_events,
-            copied_outcome_anchors = stats.copied_outcome_anchors,
+            rebuilt_local_outcome_projection_rows = stats.rebuilt_local_outcome_projection_rows,
             scrubbed_local_rows = stats.scrubbed_local_rows,
             scrubbed_local_snapshots = stats.scrubbed_local_snapshots,
             scrubbed_local_metadata = stats.scrubbed_local_metadata,
@@ -147,6 +145,7 @@ pub fn migrate_worktree_cache_from_shared_runtime(
             scrubbed_local_memory_entries = stats.scrubbed_local_memory_entries,
             scrubbed_local_concepts = stats.scrubbed_local_concepts,
             scrubbed_local_relations = stats.scrubbed_local_relations,
+            scrubbed_shared_outcome_anchors = stats.scrubbed_shared_outcome_anchors,
             "migrated worktree-local cache state out of shared runtime db"
         );
     }
@@ -201,15 +200,12 @@ fn copy_local_state(conn: &Connection, stats: &mut MigrationStats) -> Result<()>
     Ok(())
 }
 
-fn copy_outcome_compat_state(conn: &Connection, stats: &mut MigrationStats) -> Result<()> {
-    stats.copied_outcome_events += copy_table(conn, ATTACHED_SHARED_DB, "main", "outcome_event_log")?;
-    stats.copied_outcome_anchors += copy_table(conn, ATTACHED_SHARED_DB, "main", "outcome_event_anchor")?;
-    stats.copied_local_snapshots +=
-        copy_snapshot_if_present(conn, ATTACHED_SHARED_DB, "main", "outcomes")?;
-    for key in OUTCOME_COMPAT_METADATA_KEYS {
-        stats.copied_local_metadata +=
-            copy_metadata_if_present(conn, ATTACHED_SHARED_DB, "main", key)?;
-    }
+fn rebuild_local_outcome_projection(
+    conn: &rusqlite::Transaction<'_>,
+    stats: &mut MigrationStats,
+) -> Result<()> {
+    let recent = load_recent_shared_outcome_events(conn, LOCAL_OUTCOME_PROJECTION_LIMIT)?;
+    stats.rebuilt_local_outcome_projection_rows += append_local_projection_tx(conn, &recent)?;
     Ok(())
 }
 
@@ -296,6 +292,11 @@ fn database_has_outcome_state(conn: &Connection, db: &str) -> Result<bool> {
     Ok(table_has_rows(conn, db, "outcome_event_log")? || snapshot_exists(conn, db, "outcomes")?)
 }
 
+fn database_has_local_outcome_projection(conn: &Connection, db: &str) -> Result<bool> {
+    Ok(table_has_rows(conn, db, "outcome_event_local")?
+        || table_has_rows(conn, db, "outcome_event_anchor")?)
+}
+
 fn copy_split_episodic_snapshot(conn: &Connection) -> Result<usize> {
     let Some(snapshot) = load_snapshot::<EpisodicMemorySnapshot>(conn, ATTACHED_SHARED_DB, "episodic")?
     else {
@@ -316,6 +317,32 @@ fn copy_split_episodic_snapshot(conn: &Connection) -> Result<usize> {
         &EpisodicMemorySnapshot { entries: local_entries },
     )?;
     Ok(1)
+}
+
+fn load_recent_shared_outcome_events(
+    conn: &rusqlite::Transaction<'_>,
+    limit: usize,
+) -> Result<Vec<OutcomeEvent>> {
+    if limit == 0 {
+        return Ok(Vec::new());
+    }
+    let sql = format!(
+        "SELECT payload FROM {ATTACHED_SHARED_DB}.outcome_event_log
+         ORDER BY ts DESC, sequence DESC
+         LIMIT ?1"
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params![i64::try_from(limit)?], |row| {
+        row.get::<_, String>(0)
+    })?;
+    let mut events = Vec::new();
+    for row in rows {
+        events.push(
+            serde_json::from_str::<OutcomeEvent>(&row?)
+                .context("failed to decode shared outcome event payload during migration")?,
+        );
+    }
+    Ok(events)
 }
 
 fn scrub_shared_episodic_snapshot(conn: &Connection) -> Result<usize> {

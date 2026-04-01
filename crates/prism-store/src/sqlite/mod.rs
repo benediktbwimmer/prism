@@ -36,7 +36,8 @@ use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
 use prism_agent::InferredEdgeRecord;
-use prism_memory::{EpisodicMemorySnapshot, OutcomeMemorySnapshot};
+use prism_ir::EventId;
+use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent, OutcomeMemorySnapshot, OutcomeRecallQuery};
 use prism_projections::{ConceptPacket, ConceptRelation, ConceptRelationKind};
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension, Transaction};
 use tracing::info;
@@ -108,6 +109,103 @@ impl SqliteStore {
 
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    pub fn append_local_outcome_projection(&mut self, events: &[OutcomeEvent]) -> Result<usize> {
+        if events.is_empty() {
+            return Ok(0);
+        }
+        let tx = self.conn.transaction()?;
+        let inserted = outcome_events::append_local_projection_tx(&tx, events)?;
+        tx.commit()?;
+        Ok(inserted)
+    }
+
+    pub fn load_projection_outcome_event_ids(
+        &self,
+        query: &OutcomeRecallQuery,
+    ) -> Result<Vec<EventId>> {
+        outcome_events::load_projection_event_ids(&self.conn, query)
+    }
+
+    pub fn load_outcome_events_by_ids(&self, event_ids: &[EventId]) -> Result<Vec<OutcomeEvent>> {
+        outcome_events::load_events_by_ids(&self.conn, event_ids)
+    }
+
+    pub fn load_outcomes_by_payload_scan(
+        &self,
+        query: &OutcomeRecallQuery,
+        exclude: &HashSet<EventId>,
+    ) -> Result<Vec<OutcomeEvent>> {
+        outcome_events::load_outcomes_by_payload_scan(&self.conn, query, exclude)
+    }
+
+    pub fn append_shared_outcome_events(
+        &mut self,
+        events: &[OutcomeEvent],
+        validation_deltas: &[prism_projections::ValidationDelta],
+    ) -> Result<usize> {
+        if events.is_empty() && validation_deltas.is_empty() {
+            return Ok(0);
+        }
+        let outcome_cache = self.outcome_snapshot_cache.clone();
+        let tx = self.conn.transaction()?;
+        let outcome_revision_before = metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?;
+        let mut tracked_outcome_snapshot = if events.is_empty() {
+            None
+        } else {
+            cached_snapshot_for_revision(&outcome_cache, outcome_revision_before)
+        };
+        let inserted = outcome_events::append_shared_events_tx(&tx, events)?;
+        let outcome_revision = if inserted > 0 {
+            bump_metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?
+        } else {
+            outcome_revision_before
+        };
+        if inserted > 0 {
+            if let Some(current) = tracked_outcome_snapshot.take() {
+                tracked_outcome_snapshot =
+                    Some(crate::outcome_projection::apply_events(current, events));
+            }
+        }
+        if inserted > 0 {
+            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        }
+        tx.commit()?;
+        if let Some(snapshot) = tracked_outcome_snapshot {
+            self.update_outcome_snapshot_cache(outcome_revision, snapshot);
+        }
+        Ok(inserted)
+    }
+
+    pub fn save_shared_outcome_snapshot(
+        &mut self,
+        snapshot: &OutcomeMemorySnapshot,
+    ) -> Result<()> {
+        let outcome_cache = self.outcome_snapshot_cache.clone();
+        let tx = self.conn.transaction()?;
+        let (_, current) = current_outcome_snapshot_tx(&tx, &outcome_cache)?;
+        let delta = crate::outcome_projection::append_only_delta(current.as_ref(), snapshot);
+        let changed = if delta.is_empty() {
+            false
+        } else {
+            outcome_events::append_shared_events_tx(&tx, &delta)? > 0
+        };
+        let outcome_revision = if changed {
+            let revision = bump_metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?;
+            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+            revision
+        } else {
+            metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?
+        };
+        tx.commit()?;
+        let merged = if changed {
+            crate::outcome_projection::merge_snapshot(current, snapshot)
+        } else {
+            current
+        };
+        self.update_outcome_snapshot_cache(outcome_revision, merged);
+        Ok(())
     }
 
     fn open_internal(path: &Path, run_open_maintenance: bool) -> Result<Self> {
@@ -489,7 +587,15 @@ impl Store for SqliteStore {
         let outcome_cache = self.outcome_snapshot_cache.clone();
         let tx = self.conn.transaction()?;
         let (_, current) = current_outcome_snapshot_tx(&tx, &outcome_cache)?;
-        let changed = outcome_events::save_snapshot_delta_tx(&tx, current.as_ref(), snapshot)?;
+        let delta = crate::outcome_projection::append_only_delta(current.as_ref(), snapshot);
+        let changed = if delta.is_empty() {
+            false
+        } else {
+            outcome_events::append_events_tx(&tx, &delta)? > 0
+        };
+        if !delta.is_empty() {
+            outcome_events::append_local_projection_tx(&tx, &delta)?;
+        }
         let outcome_revision = if changed {
             let revision = bump_metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?;
             bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
@@ -524,6 +630,9 @@ impl Store for SqliteStore {
             cached_snapshot_for_revision(&outcome_cache, outcome_revision_before)
         };
         let inserted = outcome_events::append_events_tx(&tx, events)?;
+        if inserted > 0 {
+            outcome_events::append_local_projection_tx(&tx, events)?;
+        }
         let outcome_revision = if inserted > 0 {
             bump_metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?
         } else {
@@ -544,6 +653,13 @@ impl Store for SqliteStore {
             self.update_outcome_snapshot_cache(outcome_revision, snapshot);
         }
         Ok(inserted)
+    }
+
+    fn append_local_outcome_projection(
+        &mut self,
+        events: &[prism_memory::OutcomeEvent],
+    ) -> Result<usize> {
+        SqliteStore::append_local_outcome_projection(self, events)
     }
 
     fn apply_validation_deltas(
@@ -567,8 +683,15 @@ impl Store for SqliteStore {
         let outcome_cache = self.outcome_snapshot_cache.clone();
         let tx = self.conn.transaction()?;
         let (_, current) = current_outcome_snapshot_tx(&tx, &outcome_cache)?;
-        let outcome_changed =
-            outcome_events::save_snapshot_delta_tx(&tx, current.as_ref(), snapshot)?;
+        let delta = crate::outcome_projection::append_only_delta(current.as_ref(), snapshot);
+        let outcome_changed = if delta.is_empty() {
+            false
+        } else {
+            outcome_events::append_events_tx(&tx, &delta)? > 0
+        };
+        if !delta.is_empty() {
+            outcome_events::append_local_projection_tx(&tx, &delta)?;
+        }
         let outcome_revision = if outcome_changed {
             bump_metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?
         } else {

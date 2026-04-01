@@ -165,6 +165,22 @@ fn current_schema_sql() -> &'static str {
         CREATE INDEX IF NOT EXISTS idx_outcome_event_log_ts_sequence
             ON outcome_event_log(ts DESC, sequence DESC);
 
+        CREATE TABLE IF NOT EXISTS outcome_event_local (
+            sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id TEXT NOT NULL UNIQUE,
+            ts INTEGER NOT NULL,
+            task_id TEXT,
+            kind TEXT NOT NULL,
+            result TEXT NOT NULL,
+            actor TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_outcome_event_local_ts_sequence
+            ON outcome_event_local(ts DESC, sequence DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_outcome_event_local_task_ts_sequence
+            ON outcome_event_local(task_id, ts DESC, sequence DESC);
+
         CREATE TABLE IF NOT EXISTS outcome_event_anchor (
             event_id TEXT NOT NULL,
             anchor_kind TEXT NOT NULL,
@@ -313,6 +329,7 @@ fn reset_schema(conn: &Connection) -> Result<()> {
         DROP TABLE IF EXISTS memory_entry_log;
         DROP TABLE IF EXISTS memory_event_log;
         DROP TABLE IF EXISTS outcome_event_log;
+        DROP TABLE IF EXISTS outcome_event_local;
         DROP TABLE IF EXISTS history_node_lineages;
         DROP TABLE IF EXISTS history_events;
         DROP TABLE IF EXISTS history_co_change;

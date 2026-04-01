@@ -96,6 +96,7 @@ pub(crate) fn build_workspace_session(
             .prism_arc()
             .as_ref(),
         &cold_query_store,
+        shared_runtime_store.as_ref(),
     );
     let refresh_lock = Arc::new(Mutex::new(()));
     let refresh_state = Arc::new(WorkspaceRefreshState::new());

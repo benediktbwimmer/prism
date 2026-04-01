@@ -1,7 +1,9 @@
 use std::path::Path;
+use std::collections::HashSet;
 
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use anyhow::{bail, Result};
+use prism_ir::EventId;
 use prism_store::{
     AuxiliaryPersistBatch, ColdQueryStore, CoordinationCheckpointStore,
     CoordinationEventStream, CoordinationJournal, CoordinationPersistBatch,
@@ -102,6 +104,25 @@ impl SharedRuntimeStore {
             }
         }
     }
+
+    pub(crate) fn load_outcome_events_by_ids(
+        &mut self,
+        event_ids: &[EventId],
+    ) -> Result<Vec<prism_memory::OutcomeEvent>> {
+        match self {
+            Self::Sqlite(store) => store.load_outcome_events_by_ids(event_ids),
+        }
+    }
+
+    pub(crate) fn load_outcomes_by_payload_scan(
+        &mut self,
+        query: &prism_memory::OutcomeRecallQuery,
+        exclude: &HashSet<EventId>,
+    ) -> Result<Vec<prism_memory::OutcomeEvent>> {
+        match self {
+            Self::Sqlite(store) => store.load_outcomes_by_payload_scan(query, exclude),
+        }
+    }
 }
 
 impl ColdQueryStore for SharedRuntimeStore {
@@ -188,7 +209,7 @@ impl EventJournalStore for SharedRuntimeStore {
         validation_deltas: &[prism_projections::ValidationDelta],
     ) -> Result<usize> {
         match self {
-            Self::Sqlite(store) => <SqliteStore as Store>::append_outcome_events(store, events, validation_deltas),
+            Self::Sqlite(store) => store.append_shared_outcome_events(events, validation_deltas),
         }
     }
 
@@ -238,7 +259,7 @@ impl MaterializationStore for SharedRuntimeStore {
         snapshot: &prism_memory::OutcomeMemorySnapshot,
     ) -> Result<()> {
         match self {
-            Self::Sqlite(store) => <SqliteStore as Store>::save_outcome_snapshot(store, snapshot),
+            Self::Sqlite(store) => store.save_shared_outcome_snapshot(snapshot),
         }
     }
 
@@ -247,10 +268,9 @@ impl MaterializationStore for SharedRuntimeStore {
         snapshot: &prism_memory::OutcomeMemorySnapshot,
         deltas: &[prism_projections::ValidationDelta],
     ) -> Result<()> {
+        let _ = deltas;
         match self {
-            Self::Sqlite(store) => {
-                <SqliteStore as Store>::save_outcome_snapshot_with_validation_deltas(store, snapshot, deltas)
-            }
+            Self::Sqlite(store) => store.save_shared_outcome_snapshot(snapshot),
         }
     }
 

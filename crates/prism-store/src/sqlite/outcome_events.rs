@@ -16,6 +16,7 @@ const MAX_HOT_PATCH_CHANGED_SYMBOLS: usize = 256;
 const PATCH_PAYLOADS_COMPACTED_KEY: &str = "outcomes:hot_patch_payloads_compacted";
 const OUTCOME_ANCHOR_INDEX_BACKFILLED_KEY: &str = "outcomes:anchor_index_backfilled";
 const MIN_VACUUM_RECLAIM_BYTES: u64 = 64 * 1024 * 1024;
+pub(crate) const LOCAL_OUTCOME_PROJECTION_LIMIT: usize = 4096;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub(super) struct PatchPayloadCompaction {
@@ -142,6 +143,148 @@ pub(super) fn load_outcomes(
     Ok(events)
 }
 
+pub(super) fn load_projection_event_ids(
+    conn: &Connection,
+    query: &OutcomeRecallQuery,
+) -> Result<Vec<EventId>> {
+    let mut sql = String::from("SELECT DISTINCT l.event_id FROM outcome_event_local l");
+    let mut params = Vec::<SqlValue>::new();
+    if !query.anchors.is_empty() {
+        sql.push_str(" JOIN outcome_event_anchor a ON a.event_id = l.event_id WHERE (");
+        for (index, anchor) in query.anchors.iter().enumerate() {
+            if index > 0 {
+                sql.push_str(" OR ");
+            }
+            sql.push_str("(a.anchor_kind = ? AND a.anchor_value = ?)");
+            let (kind, value) = anchor_key(anchor);
+            params.push(SqlValue::from(kind.to_string()));
+            params.push(SqlValue::from(value));
+        }
+        sql.push(')');
+    } else {
+        sql.push_str(" WHERE 1 = 1");
+    }
+    if let Some(task) = query.task.as_ref() {
+        sql.push_str(" AND l.task_id = ?");
+        params.push(SqlValue::from(task.0.to_string()));
+    }
+    if let Some(kinds) = query.kinds.as_ref() {
+        sql.push_str(" AND l.kind IN (");
+        for (index, kind) in kinds.iter().enumerate() {
+            if index > 0 {
+                sql.push_str(", ");
+            }
+            sql.push('?');
+            params.push(SqlValue::from(outcome_kind_key(kind.clone())));
+        }
+        sql.push(')');
+    }
+    if let Some(result) = query.result {
+        sql.push_str(" AND l.result = ?");
+        params.push(SqlValue::from(outcome_result_key(result)));
+    }
+    if let Some(since) = query.since {
+        sql.push_str(" AND l.ts >= ?");
+        params.push(SqlValue::from(i64::try_from(since)?));
+    }
+    if let Some(actor) = query.actor.as_ref() {
+        sql.push_str(" AND l.actor = ?");
+        params.push(SqlValue::from(actor_key(actor)));
+    }
+    sql.push_str(" ORDER BY l.ts DESC, l.sequence DESC");
+    if query.limit > 0 {
+        sql.push_str(" LIMIT ?");
+        params.push(SqlValue::from(i64::try_from(query.limit)?));
+    }
+
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params_from_iter(params.iter()), |row| {
+        row.get::<_, String>(0)
+    })?;
+    let mut ids = Vec::new();
+    for row in rows {
+        ids.push(EventId::new(row?));
+    }
+    Ok(ids)
+}
+
+pub(super) fn load_events_by_ids(
+    conn: &Connection,
+    event_ids: &[EventId],
+) -> Result<Vec<OutcomeEvent>> {
+    if event_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let placeholders = std::iter::repeat_n("?", event_ids.len())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "SELECT payload FROM outcome_event_log WHERE event_id IN ({placeholders})"
+    );
+    let params = event_ids
+        .iter()
+        .map(|event_id| SqlValue::from(event_id.0.to_string()))
+        .collect::<Vec<_>>();
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params_from_iter(params.iter()), |row| {
+        row.get::<_, String>(0)
+    })?;
+    decode_event_rows(rows)
+}
+
+pub(super) fn load_outcomes_by_payload_scan(
+    conn: &Connection,
+    query: &OutcomeRecallQuery,
+    exclude: &std::collections::HashSet<EventId>,
+) -> Result<Vec<OutcomeEvent>> {
+    let mut sql = String::from("SELECT payload FROM outcome_event_log WHERE 1 = 1");
+    let mut params = Vec::<SqlValue>::new();
+    if let Some(task) = query.task.as_ref() {
+        sql.push_str(" AND json_extract(payload, '$.meta.correlation') = ?");
+        params.push(SqlValue::from(task.0.to_string()));
+    }
+    if let Some(kinds) = query.kinds.as_ref() {
+        sql.push_str(" AND json_extract(payload, '$.kind') IN (");
+        for (index, kind) in kinds.iter().enumerate() {
+            if index > 0 {
+                sql.push_str(", ");
+            }
+            sql.push('?');
+            params.push(SqlValue::from(outcome_kind_key(kind.clone())));
+        }
+        sql.push(')');
+    }
+    if let Some(result) = query.result {
+        sql.push_str(" AND json_extract(payload, '$.result') = ?");
+        params.push(SqlValue::from(outcome_result_key(result)));
+    }
+    if let Some(since) = query.since {
+        sql.push_str(" AND ts >= ?");
+        params.push(SqlValue::from(i64::try_from(since)?));
+    }
+    sql.push_str(" ORDER BY ts DESC, sequence DESC");
+
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params_from_iter(params.iter()), |row| {
+        row.get::<_, String>(0)
+    })?;
+    let mut events = Vec::new();
+    for mut event in decode_event_rows(rows)? {
+        if exclude.contains(&event.meta.id) {
+            continue;
+        }
+        if !matches_outcome_query(&event, query) {
+            continue;
+        }
+        compact_hot_patch_metadata(&mut event);
+        events.push(event);
+        if query.limit > 0 && events.len() >= query.limit {
+            break;
+        }
+    }
+    Ok(events)
+}
+
 pub(super) fn load_event(conn: &Connection, event_id: &EventId) -> Result<Option<OutcomeEvent>> {
     let raw = conn
         .query_row(
@@ -172,6 +315,21 @@ pub(super) fn save_snapshot_delta_tx(
 }
 
 pub(super) fn append_events_tx(tx: &Transaction<'_>, events: &[OutcomeEvent]) -> Result<usize> {
+    append_events_inner_tx(tx, events, true)
+}
+
+pub(super) fn append_shared_events_tx(
+    tx: &Transaction<'_>,
+    events: &[OutcomeEvent],
+) -> Result<usize> {
+    append_events_inner_tx(tx, events, false)
+}
+
+fn append_events_inner_tx(
+    tx: &Transaction<'_>,
+    events: &[OutcomeEvent],
+    include_anchors: bool,
+) -> Result<usize> {
     let mut inserted = 0;
     for event in events {
         let ts = i64::try_from(event.meta.ts)
@@ -185,8 +343,41 @@ pub(super) fn append_events_tx(tx: &Transaction<'_>, events: &[OutcomeEvent]) ->
                 serde_json::to_string(event)?
             ],
         )?;
-        append_anchor_rows_tx(tx, event)?;
+        if include_anchors {
+            append_anchor_rows_tx(tx, event)?;
+        }
     }
+    Ok(inserted)
+}
+
+pub(super) fn append_local_projection_tx(
+    tx: &Transaction<'_>,
+    events: &[OutcomeEvent],
+) -> Result<usize> {
+    if events.is_empty() {
+        return Ok(0);
+    }
+    let mut inserted = 0;
+    {
+        let mut stmt = tx.prepare_cached(
+            "INSERT OR IGNORE INTO outcome_event_local(event_id, ts, task_id, kind, result, actor)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        )?;
+        for event in events {
+            let ts = i64::try_from(event.meta.ts)
+                .with_context(|| "outcome event timestamp exceeds sqlite integer range")?;
+            inserted += stmt.execute(params![
+                event.meta.id.0.as_str(),
+                ts,
+                event_task_id(event),
+                outcome_kind_key(event.kind.clone()),
+                outcome_result_key(event.result),
+                actor_key(&event.meta.actor),
+            ])?;
+            append_anchor_rows_tx(tx, event)?;
+        }
+    }
+    compact_local_projection_tx(tx, LOCAL_OUTCOME_PROJECTION_LIMIT)?;
     Ok(inserted)
 }
 
@@ -379,6 +570,45 @@ fn append_anchor_rows_tx(tx: &Transaction<'_>, event: &OutcomeEvent) -> Result<(
     Ok(())
 }
 
+fn compact_local_projection_tx(tx: &Transaction<'_>, keep_limit: usize) -> Result<usize> {
+    if keep_limit == 0 {
+        let removed = tx.execute("DELETE FROM outcome_event_anchor", [])?;
+        tx.execute("DELETE FROM outcome_event_local", [])?;
+        return Ok(removed);
+    }
+    let stale_ids = {
+        let mut stmt = tx.prepare(
+            "SELECT event_id
+             FROM outcome_event_local
+             WHERE sequence NOT IN (
+                SELECT sequence
+                FROM outcome_event_local
+                ORDER BY ts DESC, sequence DESC
+                LIMIT ?1
+             )",
+        )?;
+        let rows = stmt.query_map(params![i64::try_from(keep_limit)?], |row| {
+            row.get::<_, String>(0)
+        })?;
+        let mut ids = Vec::new();
+        for row in rows {
+            ids.push(row?);
+        }
+        ids
+    };
+    if stale_ids.is_empty() {
+        return Ok(0);
+    }
+    let mut deleted = 0;
+    let mut anchor_stmt = tx.prepare_cached("DELETE FROM outcome_event_anchor WHERE event_id = ?1")?;
+    let mut local_stmt = tx.prepare_cached("DELETE FROM outcome_event_local WHERE event_id = ?1")?;
+    for event_id in stale_ids {
+        deleted += anchor_stmt.execute(params![event_id.as_str()])?;
+        local_stmt.execute(params![event_id.as_str()])?;
+    }
+    Ok(deleted)
+}
+
 fn compact_hot_patch_metadata(event: &mut OutcomeEvent) {
     if event.kind != OutcomeKind::PatchApplied {
         return;
@@ -449,6 +679,52 @@ fn actor_key(actor: &EventActor) -> String {
             format!("GitAuthor:{}:{}", name, email.as_deref().unwrap_or(""))
         }
     }
+}
+
+fn matches_outcome_query(event: &OutcomeEvent, query: &OutcomeRecallQuery) -> bool {
+    if !query.anchors.is_empty()
+        && !query
+            .anchors
+            .iter()
+            .any(|anchor| event.anchors.iter().any(|candidate| anchor_key(candidate) == anchor_key(anchor)))
+    {
+        return false;
+    }
+    if query
+        .task
+        .as_ref()
+        .is_some_and(|task| event.meta.correlation.as_ref() != Some(task))
+    {
+        return false;
+    }
+    if query
+        .kinds
+        .as_ref()
+        .is_some_and(|kinds| !kinds.contains(&event.kind))
+    {
+        return false;
+    }
+    if query.result.is_some_and(|result| event.result != result) {
+        return false;
+    }
+    if query
+        .since
+        .is_some_and(|since| event.meta.ts < since)
+    {
+        return false;
+    }
+    if query
+        .actor
+        .as_ref()
+        .is_some_and(|actor| actor_key(&event.meta.actor) != actor_key(actor))
+    {
+        return false;
+    }
+    true
+}
+
+fn event_task_id(event: &OutcomeEvent) -> Option<String> {
+    event.meta.correlation.as_ref().map(|task| task.0.to_string())
 }
 
 fn changed_file_summary_values(changed_symbols: &[Value]) -> Vec<Value> {

@@ -170,6 +170,9 @@ pub trait Store {
         events: &[OutcomeEvent],
         validation_deltas: &[ValidationDelta],
     ) -> Result<usize>;
+    fn append_local_outcome_projection(&mut self, events: &[OutcomeEvent]) -> Result<usize> {
+        self.append_outcome_events(events, &[])
+    }
     fn apply_validation_deltas(&mut self, deltas: &[ValidationDelta]) -> Result<()>;
     fn save_outcome_snapshot_with_validation_deltas(
         &mut self,
@@ -308,6 +311,10 @@ impl<T: Store + ?Sized> Store for MutexGuard<'_, T> {
         validation_deltas: &[ValidationDelta],
     ) -> Result<usize> {
         Store::append_outcome_events(&mut **self, events, validation_deltas)
+    }
+
+    fn append_local_outcome_projection(&mut self, events: &[OutcomeEvent]) -> Result<usize> {
+        Store::append_local_outcome_projection(&mut **self, events)
     }
 
     fn apply_validation_deltas(&mut self, deltas: &[ValidationDelta]) -> Result<()> {

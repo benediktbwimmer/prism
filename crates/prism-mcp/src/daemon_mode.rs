@@ -227,7 +227,9 @@ async fn run_bridge(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         );
     }
     let connect_started = Instant::now();
-    let proxy = ProxyMcpServer::connect_with_source(upstream.uri.clone(), upstream_source).await?;
+    let proxy =
+        ProxyMcpServer::connect_with_source_for_root(root, upstream.uri.clone(), upstream_source)
+            .await?;
     if let Err(error) = runtime_state::record_bridge_connected_with_latency(
         root,
         &upstream.uri,

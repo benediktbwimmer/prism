@@ -18,7 +18,7 @@ use serde_json::{json, Value};
 
 use super::*;
 use prism_core::{
-    index_workspace_session_with_options, BootstrapOwnerInput, SharedRuntimeBackend,
+    default_workspace_shared_runtime, index_workspace_session_with_options, BootstrapOwnerInput,
     WorkspaceSessionOptions,
 };
 use prism_ir::new_sortable_token;
@@ -67,9 +67,8 @@ pub(crate) fn workspace_session_with_owner_credential(
         root,
         WorkspaceSessionOptions {
             coordination: true,
-            shared_runtime: SharedRuntimeBackend::Sqlite {
-                path: root.join("shared-runtime.db"),
-            },
+            shared_runtime: default_workspace_shared_runtime(root)
+                .expect("default shared runtime should resolve"),
             hydrate_persisted_projections: false,
         },
     )

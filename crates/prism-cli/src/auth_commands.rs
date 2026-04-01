@@ -2,13 +2,13 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use prism_core::{
-    hydrate_workspace_session_with_options, BootstrapOwnerInput, MintPrincipalRequest, PrismPaths,
-    SharedRuntimeBackend, WorkspaceSession, WorkspaceSessionOptions,
+    hydrate_workspace_session_with_options, BootstrapOwnerInput, CredentialProfile,
+    CredentialsFile, MintPrincipalRequest, PrismPaths, SharedRuntimeBackend, WorkspaceSession,
+    WorkspaceSessionOptions,
 };
 use prism_ir::{CredentialId, PrincipalAuthorityId, PrincipalId, PrincipalKind};
 use serde_json::Value;
 
-use crate::auth_storage::{CredentialProfile, CredentialsFile};
 use crate::cli::{AuthCommand, PrincipalCommand};
 use crate::parsing::{parse_credential_capability, parse_principal_kind};
 
@@ -26,7 +26,7 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
                 role,
             })?;
             let mut credentials = CredentialsFile::load(&credentials_path)?;
-            let stored = store_issued_credential(&mut credentials, &issued, true);
+            let stored = store_issued_credential(&mut credentials, &issued, None, true);
             credentials.save(&credentials_path)?;
             println!("initialized principal registry");
             print_issued_credential(&stored, &issued);
@@ -63,6 +63,7 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
 pub(crate) fn handle_principal_command(root: &Path, command: PrincipalCommand) -> Result<()> {
     match command {
         PrincipalCommand::Mint {
+            profile,
             kind,
             name,
             role,
@@ -99,7 +100,12 @@ pub(crate) fn handle_principal_command(root: &Path, command: PrincipalCommand) -
                     profile: parse_metadata_json(metadata_json.as_deref())?,
                 },
             )?;
-            let stored = store_issued_credential(&mut credentials_file, &issued, true);
+            let stored = store_issued_credential(
+                &mut credentials_file,
+                &issued,
+                profile.as_deref(),
+                true,
+            );
             credentials_file.save(&credentials_path)?;
             println!("minted principal");
             print_issued_credential(&stored, &issued);
@@ -142,12 +148,16 @@ fn parse_metadata_json(value: Option<&str>) -> Result<Value> {
 fn store_issued_credential(
     credentials: &mut CredentialsFile,
     issued: &prism_core::MintedPrincipalCredential,
+    profile: Option<&str>,
     set_active: bool,
 ) -> CredentialProfile {
     credentials
         .upsert_profile(
             CredentialProfile {
-                profile: issued.principal.principal_id.0.to_string(),
+                profile: profile
+                    .filter(|value| !value.trim().is_empty())
+                    .unwrap_or(issued.principal.principal_id.0.as_str())
+                    .to_string(),
                 authority_id: issued.principal.authority_id.0.to_string(),
                 principal_id: issued.principal.principal_id.0.to_string(),
                 credential_id: issued.credential.credential_id.0.to_string(),
