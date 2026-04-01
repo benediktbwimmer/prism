@@ -503,22 +503,56 @@ fn merge_published_plans_into_snapshot(
     mut snapshot: CoordinationSnapshot,
     published_snapshot: CoordinationSnapshot,
 ) -> CoordinationSnapshot {
-    let existing_plan_ids = snapshot
+    let published_plan_ids = published_snapshot
         .plans
         .iter()
         .map(|plan| plan.id.0.to_string())
         .collect::<BTreeSet<_>>();
-    snapshot.plans.extend(
-        published_snapshot
-            .plans
-            .into_iter()
-            .filter(|plan| !existing_plan_ids.contains(plan.id.0.as_str())),
-    );
+    let task_backed_plan_ids = published_snapshot
+        .plans
+        .iter()
+        .filter(|plan| plan.kind == prism_ir::PlanKind::TaskExecution)
+        .map(|plan| plan.id.0.to_string())
+        .collect::<BTreeSet<_>>();
+    let runtime_scope_by_task = snapshot
+        .tasks
+        .iter()
+        .map(|task| {
+            (
+                task.id.clone(),
+                (
+                    task.pending_handoff_to.clone(),
+                    task.session.clone(),
+                    task.worktree_id.clone(),
+                    task.branch_ref.clone(),
+                ),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    snapshot
+        .plans
+        .retain(|plan| !published_plan_ids.contains(plan.id.0.as_str()));
+    snapshot
+        .tasks
+        .retain(|task| !task_backed_plan_ids.contains(task.plan.0.as_str()));
+    snapshot.plans.extend(published_snapshot.plans);
     snapshot.tasks.extend(
         published_snapshot
             .tasks
             .into_iter()
-            .filter(|task| !existing_plan_ids.contains(task.plan.0.as_str())),
+            .filter(|task| task_backed_plan_ids.contains(task.plan.0.as_str()))
+            .filter(|task| task.id.0.starts_with("coord-task:"))
+            .map(|mut task| {
+                if let Some((pending_handoff_to, session, worktree_id, branch_ref)) =
+                    runtime_scope_by_task.get(&task.id)
+                {
+                    task.pending_handoff_to = pending_handoff_to.clone();
+                    task.session = session.clone();
+                    task.worktree_id = worktree_id.clone();
+                    task.branch_ref = branch_ref.clone();
+                }
+                task
+            }),
     );
     snapshot
         .plans

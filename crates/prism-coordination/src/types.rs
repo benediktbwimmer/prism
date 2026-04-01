@@ -1,9 +1,9 @@
 use prism_ir::{
     AgentId, AnchorRef, ArtifactId, ArtifactStatus, BlockerCause, Capability, ClaimId, ClaimMode,
     ClaimStatus, ConflictOverlapKind, ConflictSeverity, CoordinationEventKind, CoordinationTaskId,
-    CoordinationTaskStatus, EventId, EventMeta, PlanBinding, PlanId, PlanKind, PlanNodeKind,
-    PlanScope, PlanStatus, ReviewId, ReviewVerdict, SessionId, Timestamp, ValidationRef,
-    WorkspaceRevision,
+    CoordinationTaskStatus, EventId, EventMeta, LeaseRenewalMode, PlanBinding, PlanId, PlanKind,
+    PlanNodeKind, PlanScope, PlanStatus, PrincipalActor, ReviewId, ReviewVerdict, SessionId,
+    Timestamp, ValidationRef, WorkspaceRevision,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -21,6 +21,28 @@ fn default_plan_node_kind() -> PlanNodeKind {
     PlanNodeKind::Edit
 }
 
+fn default_lease_stale_after_seconds() -> u64 {
+    30 * 60
+}
+
+fn default_lease_expires_after_seconds() -> u64 {
+    2 * 60 * 60
+}
+
+fn default_lease_renewal_mode() -> LeaseRenewalMode {
+    LeaseRenewalMode::Strict
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LeaseHolder {
+    #[serde(default)]
+    pub principal: Option<PrincipalActor>,
+    #[serde(default)]
+    pub session_id: Option<SessionId>,
+    #[serde(default)]
+    pub agent_id: Option<AgentId>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CoordinationPolicy {
     pub default_claim_mode: ClaimMode,
@@ -31,6 +53,12 @@ pub struct CoordinationPolicy {
     pub stale_after_graph_change: bool,
     #[serde(default)]
     pub review_required_above_risk_score: Option<f32>,
+    #[serde(default = "default_lease_stale_after_seconds")]
+    pub lease_stale_after_seconds: u64,
+    #[serde(default = "default_lease_expires_after_seconds")]
+    pub lease_expires_after_seconds: u64,
+    #[serde(default = "default_lease_renewal_mode")]
+    pub lease_renewal_mode: LeaseRenewalMode,
 }
 
 impl Default for CoordinationPolicy {
@@ -42,6 +70,9 @@ impl Default for CoordinationPolicy {
             require_validation_for_completion: false,
             stale_after_graph_change: true,
             review_required_above_risk_score: None,
+            lease_stale_after_seconds: default_lease_stale_after_seconds(),
+            lease_expires_after_seconds: default_lease_expires_after_seconds(),
+            lease_renewal_mode: default_lease_renewal_mode(),
         }
     }
 }
@@ -90,6 +121,16 @@ pub struct CoordinationTask {
     pub pending_handoff_to: Option<AgentId>,
     pub session: Option<SessionId>,
     #[serde(default)]
+    pub lease_holder: Option<LeaseHolder>,
+    #[serde(default)]
+    pub lease_started_at: Option<Timestamp>,
+    #[serde(default)]
+    pub lease_refreshed_at: Option<Timestamp>,
+    #[serde(default)]
+    pub lease_stale_at: Option<Timestamp>,
+    #[serde(default)]
+    pub lease_expires_at: Option<Timestamp>,
+    #[serde(default)]
     pub worktree_id: Option<String>,
     #[serde(default)]
     pub branch_ref: Option<String>,
@@ -117,6 +158,8 @@ pub struct WorkClaim {
     pub holder: SessionId,
     pub agent: Option<AgentId>,
     #[serde(default)]
+    pub lease_holder: Option<LeaseHolder>,
+    #[serde(default)]
     pub worktree_id: Option<String>,
     #[serde(default)]
     pub branch_ref: Option<String>,
@@ -125,6 +168,10 @@ pub struct WorkClaim {
     pub capability: Capability,
     pub mode: ClaimMode,
     pub since: Timestamp,
+    #[serde(default)]
+    pub refreshed_at: Option<Timestamp>,
+    #[serde(default)]
+    pub stale_at: Option<Timestamp>,
     pub expires_at: Timestamp,
     pub status: ClaimStatus,
     pub base_revision: WorkspaceRevision,
@@ -161,6 +208,9 @@ pub enum PolicyViolationCode {
     AgentIdentityRequired,
     HandoffPending,
     HandoffTargetMismatch,
+    TaskLeaseHeldByOther,
+    TaskResumeRequired,
+    TaskReclaimRequired,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -340,6 +390,22 @@ pub struct HandoffInput {
 
 #[derive(Debug, Clone)]
 pub struct HandoffAcceptInput {
+    pub task_id: CoordinationTaskId,
+    pub agent: Option<AgentId>,
+    pub worktree_id: Option<String>,
+    pub branch_ref: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TaskResumeInput {
+    pub task_id: CoordinationTaskId,
+    pub agent: Option<AgentId>,
+    pub worktree_id: Option<String>,
+    pub branch_ref: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TaskReclaimInput {
     pub task_id: CoordinationTaskId,
     pub agent: Option<AgentId>,
     pub worktree_id: Option<String>,

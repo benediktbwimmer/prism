@@ -2108,6 +2108,81 @@ fn sqlite_store_apply_projection_deltas_materializes_without_bumping_workspace_r
 }
 
 #[test]
+fn sqlite_store_load_projection_knowledge_snapshot_omits_co_change_and_validation_rows() {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let path =
+        std::env::temp_dir().join(format!("prism-store-load-projection-knowledge-{nanos}.db"));
+    let mut store = SqliteStore::open(&path).unwrap();
+    let snapshot = ProjectionSnapshot {
+        co_change_by_lineage: vec![(
+            prism_ir::LineageId::new("lineage:alpha"),
+            vec![CoChangeRecord {
+                lineage: prism_ir::LineageId::new("lineage:beta"),
+                count: 7,
+            }],
+        )],
+        validation_by_lineage: vec![(
+            prism_ir::LineageId::new("lineage:alpha"),
+            vec![ValidationCheck {
+                label: "test:smoke".to_string(),
+                score: 4.0,
+                last_seen: 99,
+            }],
+        )],
+        curated_concepts: vec![prism_projections::ConceptPacket {
+            handle: "concept://alpha".to_string(),
+            canonical_name: "alpha".to_string(),
+            summary: "alpha concept".to_string(),
+            aliases: Vec::new(),
+            confidence: 0.9,
+            core_members: Vec::new(),
+            core_member_lineages: Vec::new(),
+            supporting_members: Vec::new(),
+            supporting_member_lineages: Vec::new(),
+            evidence: Vec::new(),
+            likely_tests: Vec::new(),
+            likely_test_lineages: Vec::new(),
+            risk_hint: None,
+            decode_lenses: Vec::new(),
+            scope: ConceptScope::Local,
+            provenance: ConceptProvenance {
+                origin: "test".to_string(),
+                kind: "projection_knowledge_snapshot".to_string(),
+                task_id: None,
+            },
+            publication: None,
+        }],
+        concept_relations: vec![ConceptRelation {
+            source_handle: "concept://alpha".to_string(),
+            target_handle: "concept://beta".to_string(),
+            kind: ConceptRelationKind::OftenUsedWith,
+            scope: ConceptScope::Local,
+            evidence: Vec::new(),
+            confidence: 0.8,
+            provenance: ConceptProvenance {
+                origin: "test".to_string(),
+                kind: "projection_knowledge_snapshot".to_string(),
+                task_id: None,
+            },
+        }],
+    };
+    store.save_projection_snapshot(&snapshot).unwrap();
+
+    assert_eq!(
+        store.load_projection_knowledge_snapshot().unwrap(),
+        Some(ProjectionSnapshot {
+            co_change_by_lineage: Vec::new(),
+            validation_by_lineage: Vec::new(),
+            curated_concepts: snapshot.curated_concepts,
+            concept_relations: snapshot.concept_relations,
+        })
+    );
+}
+
+#[test]
 fn sqlite_store_checkpoint_snapshots_do_not_bump_workspace_revision() {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)

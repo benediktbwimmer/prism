@@ -11,19 +11,20 @@ use crate::helpers::{
     claim_matches_worktree_scope, conflict_between, dedupe_conflicts, editor_capacity_conflicts,
     expire_claims_locked, plan_policy_for_task, simulate_conflicts, task_matches_worktree_scope,
 };
+use crate::lease::claim_blocks_new_work;
 use crate::mutations::{
     accept_handoff_mutation, acquire_claim_mutation, create_plan_mutation, create_task_mutation,
-    handoff_mutation, propose_artifact_mutation, release_claim_mutation, renew_claim_mutation,
-    review_artifact_mutation, supersede_artifact_mutation, update_plan_mutation,
-    update_task_mutation,
+    handoff_mutation, propose_artifact_mutation, reclaim_task_mutation, release_claim_mutation,
+    renew_claim_mutation, resume_task_mutation, review_artifact_mutation,
+    supersede_artifact_mutation, update_plan_mutation, update_task_mutation,
 };
 use crate::state::CoordinationState;
 use crate::types::{
     Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
     ClaimAcquireInput, CoordinationConflict, CoordinationEvent, CoordinationSnapshot,
     CoordinationTask, HandoffAcceptInput, HandoffInput, Plan, PlanCreateInput, PlanUpdateInput,
-    PolicyViolation, PolicyViolationRecord, TaskBlocker, TaskCreateInput, TaskUpdateInput,
-    WorkClaim,
+    PolicyViolation, PolicyViolationRecord, TaskBlocker, TaskCreateInput, TaskReclaimInput,
+    TaskResumeInput, TaskUpdateInput, WorkClaim,
 };
 
 pub struct CoordinationRuntimeState {
@@ -113,6 +114,22 @@ impl CoordinationRuntimeState {
         acquire_claim_mutation(&mut self.state, meta, session_id, input)
     }
 
+    pub fn resume_task(
+        &mut self,
+        meta: EventMeta,
+        input: TaskResumeInput,
+    ) -> Result<CoordinationTask> {
+        resume_task_mutation(&mut self.state, meta, input)
+    }
+
+    pub fn reclaim_task(
+        &mut self,
+        meta: EventMeta,
+        input: TaskReclaimInput,
+    ) -> Result<CoordinationTask> {
+        reclaim_task_mutation(&mut self.state, meta, input)
+    }
+
     pub fn renew_claim(
         &mut self,
         meta: EventMeta,
@@ -200,7 +217,7 @@ impl CoordinationRuntimeState {
             .state
             .claims
             .values()
-            .filter(|claim| claim_is_active(claim, now))
+            .filter(|claim| claim_blocks_new_work(claim, now))
             .filter(|claim| claim_matches_worktree_scope(claim, worktree_id))
             .filter(|claim| anchors_overlap(&claim.anchors, anchors))
             .cloned()
@@ -251,7 +268,7 @@ impl CoordinationRuntimeState {
             self.state
                 .claims
                 .values()
-                .filter(|claim| claim_is_active(claim, now))
+                .filter(|claim| claim_blocks_new_work(claim, now))
                 .filter(|claim| claim_matches_worktree_scope(claim, worktree_id)),
             anchors,
             capability,

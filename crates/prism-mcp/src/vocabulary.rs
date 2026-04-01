@@ -186,6 +186,16 @@ const COORDINATION_MUTATION_KINDS: &[VocabularyValueSpec] = &[
         description: "Request a task handoff.",
     },
     VocabularyValueSpec {
+        value: "resume",
+        aliases: &[],
+        description: "Resume a stale or expired task lease held by the same principal.",
+    },
+    VocabularyValueSpec {
+        value: "reclaim",
+        aliases: &[],
+        description: "Reclaim a stale or expired task lease from another principal.",
+    },
+    VocabularyValueSpec {
         value: "handoff_accept",
         aliases: &[],
         description: "Accept a task handoff.",

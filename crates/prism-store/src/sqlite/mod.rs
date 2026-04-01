@@ -647,6 +647,12 @@ impl Store for SqliteStore {
         projections::load_projection_snapshot_rows(&self.conn)
     }
 
+    fn load_projection_knowledge_snapshot(
+        &mut self,
+    ) -> Result<Option<prism_projections::ProjectionSnapshot>> {
+        projections::load_projection_knowledge_rows(&self.conn)
+    }
+
     fn save_projection_snapshot(
         &mut self,
         snapshot: &prism_projections::ProjectionSnapshot,

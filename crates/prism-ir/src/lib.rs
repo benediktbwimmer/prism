@@ -15,7 +15,7 @@ pub use anchor::AnchorRef;
 pub use change::{ChangeTrigger, GraphChange, ObservedChangeSet, ObservedNode};
 pub use coordination::{
     ArtifactStatus, Capability, ClaimMode, ClaimStatus, ConflictOverlapKind, ConflictSeverity,
-    CoordinationEventKind, CoordinationTaskStatus, PlanStatus, ReviewVerdict,
+    CoordinationEventKind, CoordinationTaskStatus, LeaseRenewalMode, PlanStatus, ReviewVerdict,
 };
 pub use durable_ids::{new_prefixed_id, new_slugged_id, new_sortable_token, slugify_id_fragment};
 pub use events::{EventActor, EventExecutionContext, EventMeta};

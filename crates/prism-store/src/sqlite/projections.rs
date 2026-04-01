@@ -138,6 +138,64 @@ pub(super) fn load_projection_snapshot_rows(
     }))
 }
 
+pub(super) fn load_projection_knowledge_rows(
+    conn: &Connection,
+) -> Result<Option<prism_projections::ProjectionSnapshot>> {
+    let started = Instant::now();
+
+    let mut curated_concepts = Vec::<prism_projections::ConceptPacket>::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT payload
+             FROM projection_curated_concept
+             ORDER BY handle",
+        )?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        for row in rows {
+            curated_concepts.push(serde_json::from_str(&row?)?);
+        }
+    }
+
+    let mut concept_relations = Vec::<prism_projections::ConceptRelation>::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT payload
+             FROM projection_concept_relation
+             ORDER BY source_handle, target_handle, kind",
+        )?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        for row in rows {
+            concept_relations.push(serde_json::from_str(&row?)?);
+        }
+    }
+
+    if curated_concepts.is_empty() && concept_relations.is_empty() {
+        info!(
+            total_ms = started.elapsed().as_millis(),
+            "loaded prism projection knowledge snapshot: none"
+        );
+        return Ok(None);
+    }
+
+    let curated_count = curated_concepts.len();
+    let relation_count = concept_relations.len();
+    curated_concepts.sort_by(|left, right| left.handle.cmp(&right.handle));
+
+    info!(
+        curated_count,
+        relation_count,
+        total_ms = started.elapsed().as_millis(),
+        "loaded prism projection knowledge snapshot"
+    );
+
+    Ok(Some(prism_projections::ProjectionSnapshot {
+        co_change_by_lineage: Vec::new(),
+        validation_by_lineage: Vec::new(),
+        curated_concepts,
+        concept_relations,
+    }))
+}
+
 pub(super) fn save_projection_snapshot_tx(
     tx: &Transaction<'_>,
     snapshot: &prism_projections::ProjectionSnapshot,

@@ -153,6 +153,75 @@ return {{
 }
 
 #[test]
+fn coordination_resume_mutation_dispatches_through_authenticated_host() {
+    let root = temp_workspace();
+    let (workspace, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &prism_ir::CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    let host = host_with_session_internal(workspace);
+
+    let trace = host.begin_mutation_run(test_session(&host).as_ref(), "coordination");
+    let plan = host
+        .store_coordination_traced_authenticated(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Resume stale task",
+                    "status": "active"
+                }),
+                task_id: None,
+            },
+            &trace,
+            Some(&authenticated),
+        )
+        .expect("plan create should succeed");
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let trace = host.begin_mutation_run(test_session(&host).as_ref(), "coordination");
+    let task = host
+        .store_coordination_traced_authenticated(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "title": "Long-running edit",
+                    "assignee": "agent-a"
+                }),
+                task_id: None,
+            },
+            &trace,
+            Some(&authenticated),
+        )
+        .expect("task create should succeed");
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    let trace = host.begin_mutation_run(test_session(&host).as_ref(), "coordination");
+    let error = host
+        .store_coordination_traced_authenticated(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Resume,
+                payload: json!({
+                    "taskId": task_id.clone()
+                }),
+                task_id: None,
+            },
+            &trace,
+            Some(&authenticated),
+        )
+        .unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("does not have a stale or expired lease to resume"));
+}
+
+#[test]
 fn coordination_workflow_helpers_summarize_inbox_context_and_claim_preview() {
     let root = temp_workspace();
     let writer = QueryHost::with_session(index_workspace_session(&root).unwrap());

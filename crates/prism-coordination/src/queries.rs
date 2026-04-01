@@ -8,6 +8,7 @@ use crate::helpers::{
     anchors_overlap, claim_is_active, conflict_between, dedupe_conflicts,
     editor_capacity_conflicts, plan_policy_for_task, simulate_conflicts,
 };
+use crate::lease::claim_blocks_new_work;
 use crate::state::CoordinationStore;
 use crate::types::{
     Artifact, CoordinationConflict, CoordinationEvent, CoordinationTask, Plan, PolicyViolation,
@@ -90,7 +91,7 @@ impl CoordinationStore {
         let relevant = state
             .claims
             .values()
-            .filter(|claim| claim_is_active(claim, now))
+            .filter(|claim| claim_blocks_new_work(claim, now))
             .filter(|claim| anchors_overlap(&claim.anchors, anchors))
             .cloned()
             .collect::<Vec<_>>();
@@ -124,7 +125,7 @@ impl CoordinationStore {
             state
                 .claims
                 .values()
-                .filter(|claim| claim_is_active(claim, now)),
+                .filter(|claim| claim_blocks_new_work(claim, now)),
             anchors,
             capability,
             mode,

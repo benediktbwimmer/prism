@@ -117,11 +117,15 @@ impl WorkspaceIndexer<SqliteStore> {
     ) -> Result<Self> {
         let root = root.as_ref().canonicalize()?;
         cleanup_legacy_cache(&root)?;
-        let store = SqliteStore::open(cache_path(&root)?)?;
+        let workspace_store_path = cache_path(&root)?;
+        let store = SqliteStore::open(&workspace_store_path)?;
         let mut indexer = Self::with_store_and_options(root.clone(), store, options.clone())?;
+        let shared_runtime_aliases_workspace_store = options
+            .shared_runtime
+            .aliases_sqlite_path(&workspace_store_path);
         let mut shared_runtime_store = SharedRuntimeStore::open(&options.shared_runtime)?;
         if let Some(shared_store) = shared_runtime_store.as_mut() {
-            if options.coordination {
+            if options.coordination && !shared_runtime_aliases_workspace_store {
                 let plan_state =
                     shared_store.load_hydrated_coordination_plan_state_for_root(&root)?;
                 indexer.coordination_snapshot = plan_state
@@ -137,7 +141,11 @@ impl WorkspaceIndexer<SqliteStore> {
                     .unwrap_or_default();
             }
             let local_projection_snapshot = indexer.store.load_projection_snapshot()?;
-            let shared_projection_snapshot = shared_store.load_projection_snapshot()?;
+            let shared_projection_snapshot = if shared_runtime_aliases_workspace_store {
+                None
+            } else {
+                shared_store.load_projection_knowledge_snapshot()?
+            };
             indexer.projections = merged_projection_index(
                 if options.hydrate_persisted_projections {
                     local_projection_snapshot.clone()

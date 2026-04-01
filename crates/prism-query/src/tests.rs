@@ -1170,7 +1170,7 @@ fn coordination_queries_expand_into_neighboring_symbols() {
 }
 
 #[test]
-fn task_execution_plan_graph_projects_task_backed_nodes_from_coordination() {
+fn task_execution_plan_graph_prefers_published_authored_fields_for_task_backed_nodes() {
     let graph = Graph::new();
     let history = HistoryStore::new();
     let outcomes = OutcomeMemory::new();
@@ -1336,16 +1336,16 @@ fn task_execution_plan_graph_projects_task_backed_nodes_from_coordination() {
         .iter()
         .find(|node| node.id == node_a)
         .expect("task-backed node a should be projected");
-    assert_eq!(runtime_node_a.title, "Task A");
+    assert_eq!(runtime_node_a.title, "Native Task A");
     assert_eq!(runtime_node_a.kind, PlanNodeKind::Edit);
     let runtime_node_b = runtime_graph
         .nodes
         .iter()
         .find(|node| node.id == node_b)
         .expect("task-backed node b should be projected");
-    assert_eq!(runtime_node_b.title, "Task B");
-    assert_eq!(runtime_node_b.kind, PlanNodeKind::Edit);
-    assert_eq!(runtime_node_b.status, PlanNodeStatus::Ready);
+    assert_eq!(runtime_node_b.title, "Native Task B");
+    assert_eq!(runtime_node_b.kind, PlanNodeKind::Validate);
+    assert_eq!(runtime_node_b.status, PlanNodeStatus::Waiting);
     let runtime_execution = prism.plan_execution(&plan_id);
     assert_eq!(runtime_execution.len(), 1);
     assert_eq!(
@@ -1474,6 +1474,7 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
         id: prism_ir::ClaimId::new("claim:runtime"),
         holder: SessionId::new("session:runtime"),
         agent: Some(prism_ir::AgentId::new("agent-runtime")),
+        lease_holder: None,
         worktree_id: None,
         branch_ref: None,
         task: Some(task_id.clone()),
@@ -1481,6 +1482,8 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
         capability: prism_ir::Capability::Edit,
         mode: prism_ir::ClaimMode::SoftExclusive,
         since: 3,
+        refreshed_at: None,
+        stale_at: None,
         expires_at: 30,
         status: prism_ir::ClaimStatus::Active,
         base_revision: WorkspaceRevision::default(),
@@ -1801,8 +1804,8 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
         .iter()
         .find(|node| node.id == node_a)
         .expect("task a node");
-    assert!(!task_a_node.is_abstract);
-    assert!(task_a_node.acceptance.is_empty());
+    assert!(task_a_node.is_abstract);
+    assert_eq!(task_a_node.acceptance.len(), 1);
 }
 
 #[test]
@@ -1837,6 +1840,7 @@ fn claim_reads_and_simulation_respect_worktree_scope() {
         id: prism_ir::ClaimId::new("claim:a"),
         holder: SessionId::new("session:a"),
         agent: None,
+        lease_holder: None,
         worktree_id: Some("worktree:a".into()),
         branch_ref: Some("refs/heads/a".into()),
         task: None,
@@ -1844,6 +1848,8 @@ fn claim_reads_and_simulation_respect_worktree_scope() {
         capability: prism_ir::Capability::Edit,
         mode: prism_ir::ClaimMode::HardExclusive,
         since: 1,
+        refreshed_at: None,
+        stale_at: None,
         expires_at: 100,
         status: prism_ir::ClaimStatus::Active,
         base_revision: WorkspaceRevision::default(),
@@ -1852,6 +1858,7 @@ fn claim_reads_and_simulation_respect_worktree_scope() {
         id: prism_ir::ClaimId::new("claim:b"),
         holder: SessionId::new("session:b"),
         agent: None,
+        lease_holder: None,
         worktree_id: Some("worktree:b".into()),
         branch_ref: Some("refs/heads/b".into()),
         task: None,
@@ -1859,6 +1866,8 @@ fn claim_reads_and_simulation_respect_worktree_scope() {
         capability: prism_ir::Capability::Edit,
         mode: prism_ir::ClaimMode::HardExclusive,
         since: 1,
+        refreshed_at: None,
+        stale_at: None,
         expires_at: 100,
         status: prism_ir::ClaimStatus::Active,
         base_revision: WorkspaceRevision::default(),
@@ -5394,7 +5403,7 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
 }
 
 #[test]
-fn task_backed_native_graph_blockers_follow_coordination_validation_fields() {
+fn task_backed_native_graph_blockers_follow_published_validation_fields() {
     let graph = Graph::new();
     let history = HistoryStore::new();
     let outcomes = OutcomeMemory::new();
@@ -5410,7 +5419,7 @@ fn task_backed_native_graph_blockers_follow_coordination_validation_fields() {
                 execution_context: None,
             },
             PlanCreateInput {
-                goal: "Use coordination validations for task-backed nodes".into(),
+                goal: "Use published validations for task-backed nodes".into(),
                 status: None,
                 policy: Some(CoordinationPolicy {
                     require_validation_for_completion: true,
@@ -5486,7 +5495,7 @@ fn task_backed_native_graph_blockers_follow_coordination_validation_fields() {
     let native_graph = prism_ir::PlanGraph {
         id: plan_id.clone(),
         scope: prism_ir::PlanScope::Repo,
-        kind: prism_ir::PlanKind::Migration,
+        kind: prism_ir::PlanKind::TaskExecution,
         title: "Task-backed migration graph".into(),
         goal: "Task-backed migration graph".into(),
         status: prism_ir::PlanStatus::Active,
@@ -5531,10 +5540,10 @@ fn task_backed_native_graph_blockers_follow_coordination_validation_fields() {
     let validation_blocker = blockers
         .iter()
         .find(|blocker| blocker.kind == PlanNodeBlockerKind::ValidationRequired)
-        .expect("task-backed node should report coordination-owned validation blockers");
+        .expect("task-backed node should report published validation blockers");
     assert_eq!(
         validation_blocker.validation_checks,
-        vec!["validation:task-owned"]
+        vec!["validation:native-only"]
     );
     assert!(validation_blocker.causes.iter().any(|cause| cause.source
         == prism_ir::BlockerCauseSource::PlanPolicy
@@ -5542,7 +5551,7 @@ fn task_backed_native_graph_blockers_follow_coordination_validation_fields() {
     assert!(!validation_blocker
         .validation_checks
         .iter()
-        .any(|check| check == "validation:native-only"));
+        .any(|check| check == "validation:task-owned"));
     assert_eq!(
         prism
             .plan_summary(&plan_id)

@@ -1,7 +1,9 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock, TryLockError};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Result};
 use prism_agent::{InferenceSnapshot, InferredEdgeRecord};
@@ -30,7 +32,6 @@ use prism_projections::{
 use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, Graph, SqliteStore, Store, WorkspaceTreeSnapshot};
 use serde_json::{json, Value};
-use std::time::{Duration, Instant};
 use tracing::info;
 
 pub use prism_store::SnapshotRevisions as WorkspaceSnapshotRevisions;
@@ -73,12 +74,15 @@ use crate::shared_runtime::{
 };
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::shared_runtime_store::SharedRuntimeStore;
-use crate::util::{current_timestamp, current_timestamp_millis};
+use crate::util::{cache_path, current_timestamp, current_timestamp_millis, repo_plans_dir};
 use crate::validation_feedback::{
     append_validation_feedback, load_validation_feedback, ValidationFeedbackEntry,
     ValidationFeedbackRecord,
 };
-use crate::watch::{refresh_prism_snapshot, try_refresh_prism_snapshot, WatchHandle, WatchMessage};
+use crate::watch::{
+    refresh_prism_snapshot, sync_published_plan_authority_if_changed, try_refresh_prism_snapshot,
+    try_sync_published_plan_authority_if_changed, WatchHandle, WatchMessage,
+};
 use crate::workspace_identity::coordination_persist_context_for_root;
 use crate::workspace_runtime_state::{WorkspacePublishedGeneration, WorkspaceRuntimeState};
 use crate::workspace_tree::{
@@ -153,11 +157,25 @@ pub(crate) struct WorkspaceRefreshState {
     observed_fs_revision: AtomicU64,
     applied_fs_revision: AtomicU64,
     last_fallback_check_ms: AtomicU64,
+    last_published_plan_fallback_check_ms: AtomicU64,
     dirty_paths: Mutex<HashMap<PathBuf, u64>>,
+    published_plan_fingerprint: Mutex<Option<PublishedPlanAuthorityFingerprint>>,
     last_refresh: Mutex<Option<WorkspaceLastRefresh>>,
 }
 
 const FALLBACK_FINGERPRINT_INTERVAL_MS: u64 = 250;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PublishedPlanAuthorityFingerprint {
+    entries: Vec<PublishedPlanAuthorityFingerprintEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct PublishedPlanAuthorityFingerprintEntry {
+    relative_path: PathBuf,
+    len: u64,
+    modified_ms: u128,
+}
 
 impl WorkspaceRefreshState {
     pub(crate) fn new() -> Self {
@@ -165,7 +183,9 @@ impl WorkspaceRefreshState {
             observed_fs_revision: AtomicU64::new(0),
             applied_fs_revision: AtomicU64::new(0),
             last_fallback_check_ms: AtomicU64::new(0),
+            last_published_plan_fallback_check_ms: AtomicU64::new(0),
             dirty_paths: Mutex::new(HashMap::new()),
+            published_plan_fingerprint: Mutex::new(None),
             last_refresh: Mutex::new(None),
         }
     }
@@ -390,6 +410,99 @@ impl WorkspaceRefreshState {
         let last = self.last_fallback_check_ms.load(Ordering::Relaxed);
         now_ms.saturating_sub(last) >= FALLBACK_FINGERPRINT_INTERVAL_MS
     }
+
+    pub(crate) fn should_run_published_plan_fallback_check(&self, now_ms: u64) -> bool {
+        loop {
+            let last = self
+                .last_published_plan_fallback_check_ms
+                .load(Ordering::Relaxed);
+            if now_ms.saturating_sub(last) < FALLBACK_FINGERPRINT_INTERVAL_MS {
+                return false;
+            }
+            if self
+                .last_published_plan_fallback_check_ms
+                .compare_exchange(last, now_ms, Ordering::Relaxed, Ordering::Relaxed)
+                .is_ok()
+            {
+                return true;
+            }
+        }
+    }
+
+    pub(crate) fn update_published_plan_fingerprint(
+        &self,
+        next: PublishedPlanAuthorityFingerprint,
+    ) -> bool {
+        let mut fingerprint = self
+            .published_plan_fingerprint
+            .lock()
+            .expect("published plan fingerprint lock poisoned");
+        let changed = fingerprint
+            .as_ref()
+            .is_some_and(|existing| existing != &next);
+        *fingerprint = Some(next);
+        changed
+    }
+
+    pub(crate) fn seed_published_plan_fingerprint(&self, next: PublishedPlanAuthorityFingerprint) {
+        *self
+            .published_plan_fingerprint
+            .lock()
+            .expect("published plan fingerprint lock poisoned") = Some(next);
+    }
+}
+
+pub(crate) fn published_plan_authority_fingerprint(
+    root: &Path,
+) -> Result<PublishedPlanAuthorityFingerprint> {
+    let plans_dir = repo_plans_dir(root);
+    let mut entries = Vec::new();
+    collect_published_plan_fingerprint_entries(&plans_dir, &plans_dir, &mut entries)?;
+    entries.sort();
+    Ok(PublishedPlanAuthorityFingerprint { entries })
+}
+
+fn collect_published_plan_fingerprint_entries(
+    base: &Path,
+    current: &Path,
+    entries: &mut Vec<PublishedPlanAuthorityFingerprintEntry>,
+) -> Result<()> {
+    if !current.exists() {
+        return Ok(());
+    }
+
+    for dir_entry in fs::read_dir(current)? {
+        let dir_entry = dir_entry?;
+        let path = dir_entry.path();
+        let file_type = dir_entry.file_type()?;
+        if file_type.is_dir() {
+            collect_published_plan_fingerprint_entries(base, &path, entries)?;
+            continue;
+        }
+        if !file_type.is_file() {
+            continue;
+        }
+        let metadata = dir_entry.metadata()?;
+        entries.push(PublishedPlanAuthorityFingerprintEntry {
+            relative_path: path
+                .strip_prefix(base)
+                .unwrap_or(path.as_path())
+                .to_path_buf(),
+            len: metadata.len(),
+            modified_ms: metadata
+                .modified()
+                .ok()
+                .and_then(system_time_to_millis)
+                .unwrap_or_default(),
+        });
+    }
+    Ok(())
+}
+
+fn system_time_to_millis(ts: SystemTime) -> Option<u128> {
+    ts.duration_since(UNIX_EPOCH)
+        .ok()
+        .map(|duration| duration.as_millis())
 }
 
 pub struct WorkspaceSession {
@@ -666,11 +779,12 @@ impl WorkspaceSession {
         &self,
         dirty_paths_override: Option<Vec<PathBuf>>,
     ) -> Result<WorkspaceFsRefreshOutcome> {
-        if !self.refresh_state.needs_refresh()
-            && !self
-                .refresh_state
-                .should_run_fallback_check(current_timestamp_millis())
-        {
+        let now_ms = current_timestamp_millis();
+        let fs_fallback_due = self.refresh_state.should_run_fallback_check(now_ms);
+        let published_plan_fallback_due = self
+            .refresh_state
+            .should_run_published_plan_fallback_check(now_ms);
+        if !self.refresh_state.needs_refresh() && !fs_fallback_due && !published_plan_fallback_due {
             return Ok(WorkspaceFsRefreshOutcome {
                 status: FsRefreshStatus::Clean,
                 observed: Vec::new(),
@@ -689,6 +803,9 @@ impl WorkspaceSession {
                 .clone();
             let plan = plan_full_refresh(&self.root, &known_snapshot)?;
             if !self.refresh_state.needs_refresh() && plan.delta.is_empty() {
+                if published_plan_fallback_due {
+                    let _ = self.sync_published_plan_authority_if_changed()?;
+                }
                 return Ok(WorkspaceFsRefreshOutcome {
                     status: FsRefreshStatus::Clean,
                     observed: Vec::new(),
@@ -696,6 +813,9 @@ impl WorkspaceSession {
             }
             self.refresh_with_trigger(ChangeTrigger::FsWatch, Some(plan.next_snapshot), None)?
         };
+        if published_plan_fallback_due {
+            let _ = self.sync_published_plan_authority_if_changed()?;
+        }
         let status = match refreshed.mode {
             None => FsRefreshStatus::Clean,
             Some(WorkspaceRefreshMode::Incremental) => FsRefreshStatus::Incremental,
@@ -710,11 +830,12 @@ impl WorkspaceSession {
 
     pub fn refresh_fs_nonblocking(&self) -> Result<FsRefreshStatus> {
         let needs_refresh = self.refresh_state.needs_refresh();
-        if !needs_refresh
-            && !self
-                .refresh_state
-                .should_run_fallback_check(current_timestamp_millis())
-        {
+        let now_ms = current_timestamp_millis();
+        let fs_fallback_due = self.refresh_state.should_run_fallback_check(now_ms);
+        let published_plan_fallback_due = self
+            .refresh_state
+            .should_run_published_plan_fallback_check(now_ms);
+        if !needs_refresh && !fs_fallback_due && !published_plan_fallback_due {
             return Ok(FsRefreshStatus::Clean);
         }
         let dirty_paths = self.refresh_state.dirty_paths_snapshot();
@@ -723,6 +844,9 @@ impl WorkspaceSession {
             None,
             (!dirty_paths.is_empty()).then_some(dirty_paths.clone()),
         )?;
+        if published_plan_fallback_due {
+            let _ = self.try_sync_published_plan_authority_if_changed()?;
+        }
         match refreshed {
             Some(result) => Ok(match result.mode {
                 None => FsRefreshStatus::Clean,
@@ -769,6 +893,42 @@ impl WorkspaceSession {
     pub fn is_fallback_check_due_now(&self) -> bool {
         self.refresh_state
             .fallback_check_due(current_timestamp_millis())
+    }
+
+    fn record_published_plan_authority_fingerprint(&self) -> Result<()> {
+        self.refresh_state
+            .seed_published_plan_fingerprint(published_plan_authority_fingerprint(&self.root)?);
+        Ok(())
+    }
+
+    fn sync_published_plan_authority_if_changed(&self) -> Result<bool> {
+        sync_published_plan_authority_if_changed(
+            &self.root,
+            &self.published_generation,
+            &self.runtime_state,
+            &self.store,
+            &self.cold_query_store,
+            self.shared_runtime_store.as_ref(),
+            &self.refresh_lock,
+            &self.refresh_state,
+            &self.loaded_workspace_revision,
+            self.coordination_enabled,
+        )
+    }
+
+    fn try_sync_published_plan_authority_if_changed(&self) -> Result<bool> {
+        try_sync_published_plan_authority_if_changed(
+            &self.root,
+            &self.published_generation,
+            &self.runtime_state,
+            &self.store,
+            &self.cold_query_store,
+            self.shared_runtime_store.as_ref(),
+            &self.refresh_lock,
+            &self.refresh_state,
+            &self.loaded_workspace_revision,
+            self.coordination_enabled,
+        )
     }
 
     pub fn workspace_materialization_summary(&self) -> WorkspaceMaterializationSummary {
@@ -1077,15 +1237,19 @@ impl WorkspaceSession {
         sync_root_nodes(&mut graph, &layout);
         resolve_graph_edges(&mut graph, None);
         let local_projection_snapshot = store.load_projection_snapshot()?;
-        let shared_projection_snapshot =
-            if let Some(shared_runtime_store) = self.shared_runtime_store() {
-                shared_runtime_store
-                    .lock()
-                    .expect("shared runtime store lock poisoned")
-                    .load_projection_snapshot()?
-            } else {
-                None
-            };
+        let shared_runtime_aliases_workspace_store = self
+            .shared_runtime
+            .aliases_sqlite_path(&cache_path(&self.root)?);
+        let shared_projection_snapshot = if shared_runtime_aliases_workspace_store {
+            None
+        } else if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned")
+                .load_projection_knowledge_snapshot()?
+        } else {
+            None
+        };
         let mut history = store
             .load_history_snapshot_with_options(
                 local_projection_snapshot.is_none() && shared_projection_snapshot.is_none(),
@@ -1885,6 +2049,7 @@ impl WorkspaceSession {
                     .map(|state| state.execution_overlays.clone())
                     .unwrap_or_default(),
             );
+        self.record_published_plan_authority_fingerprint()?;
         Ok(state)
     }
 
@@ -1896,7 +2061,7 @@ impl WorkspaceSession {
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
-        if let Some(shared_runtime_store) = self.shared_runtime_store() {
+        let result = if let Some(shared_runtime_store) = self.shared_runtime_store() {
             shared_runtime_store
                 .lock()
                 .expect("shared runtime store lock poisoned")
@@ -1906,7 +2071,9 @@ impl WorkspaceSession {
                 .lock()
                 .expect("workspace store lock poisoned")
                 .persist_coordination_snapshot_for_root(&self.root, snapshot)
-        }
+        };
+        result?;
+        self.record_published_plan_authority_fingerprint()
     }
 
     pub fn persist_current_coordination(&self) -> Result<()> {
@@ -1985,7 +2152,8 @@ impl WorkspaceSession {
             enqueue_result.is_ok(),
             enqueue_result.as_ref().err().map(ToString::to_string),
         );
-        enqueue_result
+        enqueue_result?;
+        self.record_published_plan_authority_fingerprint()
     }
 
     pub fn mutate_coordination<T, F>(&self, mutate: F) -> Result<T>
@@ -2088,12 +2256,14 @@ impl WorkspaceSession {
                 plan_graphs.clone(),
                 execution_overlays.clone(),
             );
+        let mut did_persist = false;
         if let Some(shared_runtime_store) = self.shared_runtime_store() {
             let mut store = shared_runtime_store
                 .lock()
                 .expect("coordination store lock poisoned");
             let should_persist = !appended_events.is_empty() || snapshot != before;
             if should_persist {
+                did_persist = true;
                 let persist_started = Instant::now();
                 let persist_result = store
                     .persist_coordination_authoritative_mutation_state_for_root_with_session_observed(
@@ -2147,6 +2317,7 @@ impl WorkspaceSession {
             let mut store = self.store.lock().expect("coordination store lock poisoned");
             let should_persist = !appended_events.is_empty() || snapshot != before;
             if should_persist {
+                did_persist = true;
                 let persist_started = Instant::now();
                 let persist_result = store
                     .persist_coordination_authoritative_mutation_state_for_root_with_session_observed(
@@ -2196,6 +2367,9 @@ impl WorkspaceSession {
                 );
                 enqueue_result?;
             }
+        }
+        if did_persist && result.is_ok() {
+            self.record_published_plan_authority_fingerprint()?;
         }
         result
     }

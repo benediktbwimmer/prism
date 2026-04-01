@@ -248,6 +248,20 @@ impl Store for MemoryStore {
         Ok(self.projection_snapshot.clone())
     }
 
+    fn load_projection_knowledge_snapshot(
+        &mut self,
+    ) -> anyhow::Result<Option<prism_projections::ProjectionSnapshot>> {
+        Ok(self
+            .projection_snapshot
+            .clone()
+            .map(|snapshot| prism_projections::ProjectionSnapshot {
+                co_change_by_lineage: Vec::new(),
+                validation_by_lineage: Vec::new(),
+                curated_concepts: snapshot.curated_concepts,
+                concept_relations: snapshot.concept_relations,
+            }))
+    }
+
     fn save_projection_snapshot(
         &mut self,
         snapshot: &prism_projections::ProjectionSnapshot,

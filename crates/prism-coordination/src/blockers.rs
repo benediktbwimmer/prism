@@ -3,7 +3,8 @@ use prism_ir::{
     CoordinationTaskStatus, SessionId, Timestamp, WorkspaceRevision,
 };
 
-use crate::helpers::{claim_is_active, dedupe_conflicts, dedupe_strings, simulate_conflicts};
+use crate::helpers::{dedupe_conflicts, dedupe_strings, simulate_conflicts};
+use crate::lease::claim_blocks_new_work;
 use crate::state::CoordinationState;
 use crate::state::CoordinationStore;
 use crate::types::{BlockerKind, CoordinationTask, TaskBlocker, TaskCompletionContext};
@@ -315,7 +316,7 @@ pub(crate) fn claim_blockers(
         state
             .claims
             .values()
-            .filter(|claim| claim_is_active(claim, now)),
+            .filter(|claim| claim_blocks_new_work(claim, now)),
         &task.anchors,
         Capability::Edit,
         state

@@ -219,6 +219,11 @@ fn task_from_plan_node(
         session: execution
             .as_ref()
             .and_then(|overlay| overlay.session.clone()),
+        lease_holder: None,
+        lease_started_at: None,
+        lease_refreshed_at: None,
+        lease_stale_at: None,
+        lease_expires_at: None,
         worktree_id: execution
             .as_ref()
             .and_then(|overlay| overlay.worktree_id.clone()),

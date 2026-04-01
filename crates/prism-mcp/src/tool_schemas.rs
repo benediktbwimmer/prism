@@ -18,7 +18,8 @@ use crate::{
     PlanEdgeCreatePayload, PlanEdgeDeletePayload, PlanNodeCreatePayload, PlanUpdatePayload,
     PrismConceptArgs, PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMutationArgs,
     PrismOpenArgs, PrismQueryArgs, PrismSessionArgs, PrismTaskBriefArgs, PrismWorksetArgs,
-    ResourceLinkView, TaskCreatePayload, WorkflowUpdatePayload, TOOL_SCHEMAS_URI,
+    ResourceLinkView, TaskCreatePayload, TaskReclaimPayload, TaskResumePayload,
+    WorkflowUpdatePayload, TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -664,6 +665,16 @@ fn action_payload_schema(tool_name: &str, action: &str) -> Option<Value> {
                 (
                     "handoff",
                     described_schema::<HandoffPayload>("Payload when `input.kind` is `handoff`."),
+                ),
+                (
+                    "resume",
+                    described_schema::<TaskResumePayload>("Payload when `input.kind` is `resume`."),
+                ),
+                (
+                    "reclaim",
+                    described_schema::<TaskReclaimPayload>(
+                        "Payload when `input.kind` is `reclaim`.",
+                    ),
                 ),
                 (
                     "handoff_accept",

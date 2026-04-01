@@ -47,6 +47,14 @@ pub enum ClaimStatus {
     Contended,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum LeaseRenewalMode {
+    #[default]
+    Strict,
+    Assisted,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum ConflictSeverity {
     Info,
@@ -88,6 +96,8 @@ pub enum CoordinationEventKind {
     TaskStatusChanged,
     TaskBlocked,
     TaskUnblocked,
+    TaskResumed,
+    TaskReclaimed,
     ClaimAcquired,
     ClaimRenewed,
     ClaimReleased,

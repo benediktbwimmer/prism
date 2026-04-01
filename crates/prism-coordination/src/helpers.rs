@@ -8,6 +8,7 @@ use prism_ir::{
 };
 use serde_json::{json, Value};
 
+use crate::lease::{claim_blocks_new_work, claim_is_live};
 use crate::state::CoordinationState;
 use crate::types::{
     AcceptanceCriterion, Artifact, BlockerKind, CoordinationConflict, CoordinationEvent,
@@ -213,7 +214,7 @@ pub(crate) fn editor_capacity_conflicts(
     let candidates = state
         .claims
         .values()
-        .filter(|claim| claim_is_active(claim, now))
+        .filter(|claim| claim_blocks_new_work(claim, now))
         .filter(|claim| claim_matches_worktree_scope(claim, worktree_id))
         .filter(|claim| matches!(claim.capability, Capability::Edit | Capability::Merge))
         .filter(|claim| &claim.holder != session_id)
@@ -312,7 +313,7 @@ pub(crate) fn missing_validations_for_artifact(artifact: &Artifact) -> Vec<Strin
 }
 
 pub(crate) fn claim_is_active(claim: &WorkClaim, now: Timestamp) -> bool {
-    matches!(claim.status, ClaimStatus::Active | ClaimStatus::Contended) && claim.expires_at >= now
+    claim_is_live(claim, now)
 }
 
 pub(crate) fn claim_matches_worktree_scope(claim: &WorkClaim, worktree_id: Option<&str>) -> bool {

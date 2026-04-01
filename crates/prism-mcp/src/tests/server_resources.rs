@@ -436,7 +436,7 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
         action_schema_payload["properties"]["payload"]["oneOf"]
             .as_array()
             .map(|variants| variants.len()),
-        Some(10)
+        Some(12)
     );
     assert!(action_schema_payload["examples"]
         .as_array()

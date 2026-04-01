@@ -10,11 +10,15 @@ use serde_json::{json, Value};
 
 use crate::blockers::{completion_blockers, completion_policy_blockers};
 use crate::helpers::{
-    claim_is_active, claim_matches_worktree_scope, dedupe_anchors, dedupe_conflicts,
-    dedupe_event_ids, dedupe_ids, dedupe_strings, derived_event_meta, editor_capacity_conflicts,
-    expire_claims_locked, missing_validations_for_artifact, normalize_acceptance,
-    plan_policy_for_task, plan_status_is_closed, policy_violation, policy_violation_from_blocker,
-    record_rejection, simulate_conflicts, validate_plan_transition, validate_task_transition,
+    claim_matches_worktree_scope, dedupe_anchors, dedupe_conflicts, dedupe_event_ids, dedupe_ids,
+    dedupe_strings, derived_event_meta, editor_capacity_conflicts, expire_claims_locked,
+    missing_validations_for_artifact, normalize_acceptance, plan_policy_for_task,
+    plan_status_is_closed, policy_violation, policy_violation_from_blocker, record_rejection,
+    simulate_conflicts, validate_plan_transition, validate_task_transition,
+};
+use crate::lease::{
+    claim_lease_state, clear_task_lease, current_claim_holder, current_task_holder,
+    refresh_claim_lease, refresh_task_lease, same_holder, task_lease_state, LeaseState,
 };
 use crate::state::CoordinationState;
 use crate::state::CoordinationStore;
@@ -22,7 +26,7 @@ use crate::types::{
     Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
     ClaimAcquireInput, CoordinationEvent, CoordinationTask, HandoffAcceptInput, HandoffInput, Plan,
     PlanCreateInput, PlanUpdateInput, PolicyViolation, PolicyViolationCode, TaskCreateInput,
-    TaskUpdateInput, WorkClaim,
+    TaskReclaimInput, TaskResumeInput, TaskUpdateInput, WorkClaim,
 };
 
 fn push_patch_op(patch: &mut serde_json::Map<String, Value>, field: &str, op: &str) {
@@ -38,6 +42,81 @@ fn insert_serialized<T: Serialize>(map: &mut serde_json::Map<String, Value>, key
         key.to_string(),
         serde_json::to_value(value).expect("coordination metadata serialization should succeed"),
     );
+}
+
+fn lease_holder_details(holder: Option<&crate::types::LeaseHolder>) -> Value {
+    holder
+        .and_then(|holder| serde_json::to_value(holder).ok())
+        .unwrap_or(Value::Null)
+}
+
+fn enforce_task_lease_for_standard_mutation(
+    state: &mut CoordinationState,
+    meta: &EventMeta,
+    task: &CoordinationTask,
+    summary: &str,
+) -> Result<()> {
+    let lease_state = task_lease_state(task, meta.ts);
+    if matches!(lease_state, LeaseState::Unleased) {
+        return Ok(());
+    }
+    let Some(lease_holder) = task.lease_holder.as_ref() else {
+        return Ok(());
+    };
+    let current_holder = current_task_holder(meta, task);
+    if matches!(lease_state, LeaseState::Active) && same_holder(lease_holder, &current_holder) {
+        return Ok(());
+    }
+
+    let (code, violation_summary) = match lease_state {
+        LeaseState::Active => (
+            PolicyViolationCode::TaskLeaseHeldByOther,
+            format!(
+                "coordination task `{}` is actively leased by another principal and cannot be mutated",
+                task.id.0
+            ),
+        ),
+        LeaseState::Stale | LeaseState::Expired if same_holder(lease_holder, &current_holder) => (
+            PolicyViolationCode::TaskResumeRequired,
+            format!(
+                "coordination task `{}` has a {:?} lease and must be resumed before it can be mutated",
+                task.id.0, lease_state
+            ),
+        ),
+        LeaseState::Stale | LeaseState::Expired => (
+            PolicyViolationCode::TaskReclaimRequired,
+            format!(
+                "coordination task `{}` has a {:?} lease owned by another principal and must be reclaimed before it can be mutated",
+                task.id.0, lease_state
+            ),
+        ),
+        LeaseState::Unleased => return Ok(()),
+    };
+    let violations = vec![policy_violation(
+        code,
+        violation_summary,
+        Some(task.plan.clone()),
+        Some(task.id.clone()),
+        None,
+        None,
+        json!({
+            "leaseState": format!("{lease_state:?}").to_ascii_lowercase(),
+            "leaseHolder": lease_holder_details(Some(lease_holder)),
+            "currentHolder": lease_holder_details(Some(&current_holder)),
+            "leaseStaleAt": task.lease_stale_at,
+            "leaseExpiresAt": task.lease_expires_at,
+        }),
+    )];
+    Err(rejection_error(
+        state,
+        meta,
+        summary,
+        Some(task.plan.clone()),
+        Some(task.id.clone()),
+        None,
+        None,
+        violations,
+    ))
 }
 
 fn rejection_error(
@@ -104,7 +183,7 @@ fn plan_completion_violations(
     let active_claim_violations = state
         .claims
         .values()
-        .filter(|claim| claim_is_active(claim, now))
+        .filter(|claim| matches!(claim_lease_state(claim, now), LeaseState::Active))
         .filter(|claim| {
             claim
                 .task
@@ -233,8 +312,9 @@ pub(crate) fn acquire_claim_mutation(
             ));
         }
     }
-    let policy = plan_policy_for_task(state, input.task_id.as_ref())?;
+    let policy = plan_policy_for_task(state, input.task_id.as_ref())?.cloned();
     if policy
+        .as_ref()
         .map(|policy| policy.stale_after_graph_change)
         .unwrap_or(false)
         && input.base_revision.graph_version < input.current_revision.graph_version
@@ -267,17 +347,18 @@ pub(crate) fn acquire_claim_mutation(
     }
     let mode = input
         .mode
-        .or_else(|| policy.map(|policy| policy.default_claim_mode))
+        .or_else(|| policy.as_ref().map(|policy| policy.default_claim_mode))
         .unwrap_or(ClaimMode::Advisory);
     let mut conflicts = simulate_conflicts(
         state
             .claims
             .values()
-            .filter(|claim| claim_matches_worktree_scope(claim, input.worktree_id.as_deref())),
+            .filter(|claim| claim_matches_worktree_scope(claim, input.worktree_id.as_deref()))
+            .filter(|claim| matches!(claim_lease_state(claim, meta.ts), LeaseState::Active)),
         &anchors,
         input.capability,
         mode,
-        policy,
+        policy.as_ref(),
         input.task_id.as_ref(),
         input.base_revision.clone(),
         &session_id,
@@ -288,7 +369,7 @@ pub(crate) fn acquire_claim_mutation(
         input.capability,
         input.task_id.as_ref(),
         &session_id,
-        policy,
+        policy.as_ref(),
         meta.ts,
         input.worktree_id.as_deref(),
     ));
@@ -341,10 +422,11 @@ pub(crate) fn acquire_claim_mutation(
     }
     state.next_claim += 1;
     let id = ClaimId::new(new_prefixed_id("claim"));
-    let claim = WorkClaim {
+    let mut claim = WorkClaim {
         id: id.clone(),
         holder: session_id,
         agent: input.agent,
+        lease_holder: None,
         worktree_id: input.worktree_id,
         branch_ref: input.branch_ref,
         task: input.task_id,
@@ -352,7 +434,9 @@ pub(crate) fn acquire_claim_mutation(
         capability: input.capability,
         mode,
         since: meta.ts,
-        expires_at: meta.ts.saturating_add(input.ttl_seconds.unwrap_or(900)),
+        refreshed_at: None,
+        stale_at: None,
+        expires_at: meta.ts,
         status: if conflicts.is_empty() {
             prism_ir::ClaimStatus::Active
         } else {
@@ -360,6 +444,13 @@ pub(crate) fn acquire_claim_mutation(
         },
         base_revision: input.base_revision,
     };
+    refresh_claim_lease(
+        &mut claim,
+        &meta,
+        meta.ts,
+        policy.as_ref(),
+        input.ttl_seconds,
+    );
     state.claims.insert(id.clone(), claim.clone());
     state.events.push(CoordinationEvent {
         meta: meta.clone(),
@@ -416,7 +507,13 @@ pub(crate) fn renew_claim_mutation(
         .as_ref()
         .and_then(|task_id| state.tasks.get(task_id))
         .map(|task| task.plan.clone());
-    if &claim_snapshot.holder != session_id {
+    let current_holder = current_claim_holder(&meta, session_id, &claim_snapshot);
+    if claim_snapshot
+        .lease_holder
+        .as_ref()
+        .is_some_and(|lease_holder| !same_holder(lease_holder, &current_holder))
+        || (claim_snapshot.lease_holder.is_none() && &claim_snapshot.holder != session_id)
+    {
         let violations = vec![policy_violation(
             PolicyViolationCode::ClaimNotOwned,
             format!(
@@ -440,15 +537,16 @@ pub(crate) fn renew_claim_mutation(
             violations,
         ));
     }
-    if claim_snapshot.status == prism_ir::ClaimStatus::Expired {
-        return Err(anyhow!("claim `{}` has expired", claim_id.0));
-    }
+    let claim_policy = plan_policy_for_task(state, claim_snapshot.task.as_ref())?.cloned();
     let claim = state
         .claims
         .get_mut(claim_id)
         .ok_or_else(|| anyhow!("unknown claim `{}`", claim_id.0))?;
-    claim.expires_at = meta.ts.saturating_add(ttl_seconds.unwrap_or(900));
+    if claim.status == prism_ir::ClaimStatus::Released {
+        return Err(anyhow!("claim `{}` has already been released", claim_id.0));
+    }
     claim.status = prism_ir::ClaimStatus::Active;
+    refresh_claim_lease(claim, &meta, meta.ts, claim_policy.as_ref(), ttl_seconds);
     let claim = claim.clone();
     state.events.push(CoordinationEvent {
         meta,
@@ -483,7 +581,13 @@ pub(crate) fn release_claim_mutation(
         .as_ref()
         .and_then(|task_id| state.tasks.get(task_id))
         .map(|task| task.plan.clone());
-    if &claim_snapshot.holder != session_id {
+    let current_holder = current_claim_holder(&meta, session_id, &claim_snapshot);
+    if claim_snapshot
+        .lease_holder
+        .as_ref()
+        .is_some_and(|lease_holder| !same_holder(lease_holder, &current_holder))
+        || (claim_snapshot.lease_holder.is_none() && &claim_snapshot.holder != session_id)
+    {
         let violations = vec![policy_violation(
             PolicyViolationCode::ClaimNotOwned,
             format!(
@@ -507,13 +611,13 @@ pub(crate) fn release_claim_mutation(
             violations,
         ));
     }
-    if claim_snapshot.status == prism_ir::ClaimStatus::Expired {
-        return Err(anyhow!("claim `{}` has expired", claim_id.0));
-    }
     let claim = state
         .claims
         .get_mut(claim_id)
         .ok_or_else(|| anyhow!("unknown claim `{}`", claim_id.0))?;
+    if claim.status == prism_ir::ClaimStatus::Released {
+        return Err(anyhow!("claim `{}` has already been released", claim_id.0));
+    }
     claim.status = prism_ir::ClaimStatus::Released;
     let claim = claim.clone();
     let event_meta = meta.clone();
@@ -1153,7 +1257,7 @@ pub(crate) fn create_task_mutation(
     let id = CoordinationTaskId::new(new_prefixed_id("coord-task"));
     let is_root = input.depends_on.is_empty();
     let anchors = dedupe_anchors(input.anchors);
-    let task = CoordinationTask {
+    let mut task = CoordinationTask {
         id: id.clone(),
         plan: input.plan_id.clone(),
         kind: PlanNodeKind::Edit,
@@ -1163,6 +1267,11 @@ pub(crate) fn create_task_mutation(
         assignee: input.assignee,
         pending_handoff_to: None,
         session: input.session,
+        lease_holder: None,
+        lease_started_at: None,
+        lease_refreshed_at: None,
+        lease_stale_at: None,
+        lease_expires_at: None,
         worktree_id: input.worktree_id,
         branch_ref: input.branch_ref,
         anchors: anchors.clone(),
@@ -1179,6 +1288,9 @@ pub(crate) fn create_task_mutation(
         tags: Vec::new(),
         metadata: Value::Null,
     };
+    if !matches!(task.status, CoordinationTaskStatus::Proposed) {
+        refresh_task_lease(&mut task, &meta, meta.ts, &plan.policy);
+    }
     if is_root {
         let plan = state
             .plans
@@ -1308,7 +1420,6 @@ pub(crate) fn update_task_mutation(
     if input.tags.is_some() {
         push_patch_op(&mut patch, "tags", "set");
     }
-    let patch = patch_metadata(patch);
     let completion_context = input.completion_context.clone();
     let next_dependencies = input.depends_on.clone().map(dedupe_ids);
     let next_acceptance = input.acceptance.clone().map(normalize_acceptance);
@@ -1344,6 +1455,12 @@ pub(crate) fn update_task_mutation(
             violations,
         ));
     }
+    enforce_task_lease_for_standard_mutation(
+        state,
+        &meta,
+        &previous,
+        "coordination task update rejected",
+    )?;
     let stale_writes_enforced = state
         .plans
         .get(&previous.plan)
@@ -1597,6 +1714,14 @@ pub(crate) fn update_task_mutation(
         if task.bindings.anchors.is_empty() && !task.anchors.is_empty() {
             task.bindings.anchors = task.anchors.clone();
         }
+        if matches!(
+            task.status,
+            CoordinationTaskStatus::Completed | CoordinationTaskStatus::Abandoned
+        ) {
+            clear_task_lease(task);
+        } else {
+            refresh_task_lease(task, &meta, meta.ts, &plan.policy);
+        }
         task_snapshot = task.clone();
     }
     if let Some(next_root) = root_membership_change {
@@ -1650,6 +1775,62 @@ pub(crate) fn update_task_mutation(
         ));
     }
     let task = task_snapshot;
+    if previous.lease_holder != task.lease_holder {
+        push_patch_op(
+            &mut patch,
+            "leaseHolder",
+            if task.lease_holder.is_some() {
+                "set"
+            } else {
+                "clear"
+            },
+        );
+    }
+    if previous.lease_started_at != task.lease_started_at {
+        push_patch_op(
+            &mut patch,
+            "leaseStartedAt",
+            if task.lease_started_at.is_some() {
+                "set"
+            } else {
+                "clear"
+            },
+        );
+    }
+    if previous.lease_refreshed_at != task.lease_refreshed_at {
+        push_patch_op(
+            &mut patch,
+            "leaseRefreshedAt",
+            if task.lease_refreshed_at.is_some() {
+                "set"
+            } else {
+                "clear"
+            },
+        );
+    }
+    if previous.lease_stale_at != task.lease_stale_at {
+        push_patch_op(
+            &mut patch,
+            "leaseStaleAt",
+            if task.lease_stale_at.is_some() {
+                "set"
+            } else {
+                "clear"
+            },
+        );
+    }
+    if previous.lease_expires_at != task.lease_expires_at {
+        push_patch_op(
+            &mut patch,
+            "leaseExpiresAt",
+            if task.lease_expires_at.is_some() {
+                "set"
+            } else {
+                "clear"
+            },
+        );
+    }
+    let patch = patch_metadata(patch);
     let kind = if previous.assignee != task.assignee {
         CoordinationEventKind::TaskAssigned
     } else if status_changed && task.status == CoordinationTaskStatus::Blocked {
@@ -1738,6 +1919,25 @@ pub(crate) fn update_task_mutation(
     if update_tags {
         insert_serialized(&mut patch_values, "tags", task.tags.clone());
     }
+    if previous.lease_holder != task.lease_holder {
+        insert_serialized(&mut patch_values, "leaseHolder", task.lease_holder.clone());
+    }
+    if previous.lease_started_at != task.lease_started_at {
+        insert_serialized(&mut patch_values, "leaseStartedAt", task.lease_started_at);
+    }
+    if previous.lease_refreshed_at != task.lease_refreshed_at {
+        insert_serialized(
+            &mut patch_values,
+            "leaseRefreshedAt",
+            task.lease_refreshed_at,
+        );
+    }
+    if previous.lease_stale_at != task.lease_stale_at {
+        insert_serialized(&mut patch_values, "leaseStaleAt", task.lease_stale_at);
+    }
+    if previous.lease_expires_at != task.lease_expires_at {
+        insert_serialized(&mut patch_values, "leaseExpiresAt", task.lease_expires_at);
+    }
     if !patch_values.is_empty() {
         metadata.insert("patchValues".to_string(), Value::Object(patch_values));
     }
@@ -1796,6 +1996,17 @@ pub(crate) fn handoff_mutation(
             ));
         }
     }
+    let task_for_lease = state
+        .tasks
+        .get(&input.task_id)
+        .cloned()
+        .expect("task validated above");
+    enforce_task_lease_for_standard_mutation(
+        state,
+        &meta,
+        &task_for_lease,
+        "coordination handoff rejected",
+    )?;
     if input.base_revision.graph_version < current_revision.graph_version {
         let violations = vec![policy_violation(
             PolicyViolationCode::StaleRevision,
@@ -1864,6 +2075,7 @@ pub(crate) fn handoff_mutation(
         .tasks
         .get_mut(&input.task_id)
         .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
+    let previous = task.clone();
     let target_agent = input.to_agent.clone();
     if let Some(agent) = target_agent.clone() {
         task.pending_handoff_to = Some(agent.clone());
@@ -1876,6 +2088,7 @@ pub(crate) fn handoff_mutation(
         task.status = CoordinationTaskStatus::Ready;
         task.pending_handoff_to = None;
     }
+    clear_task_lease(task);
     task.base_revision = input.base_revision.clone();
     let task = task.clone();
     let mut patch = serde_json::Map::new();
@@ -1890,6 +2103,21 @@ pub(crate) fn handoff_mutation(
         },
     );
     push_patch_op(&mut patch, "baseRevision", "set");
+    if previous.lease_holder != task.lease_holder {
+        push_patch_op(&mut patch, "leaseHolder", "clear");
+    }
+    if previous.lease_started_at != task.lease_started_at {
+        push_patch_op(&mut patch, "leaseStartedAt", "clear");
+    }
+    if previous.lease_refreshed_at != task.lease_refreshed_at {
+        push_patch_op(&mut patch, "leaseRefreshedAt", "clear");
+    }
+    if previous.lease_stale_at != task.lease_stale_at {
+        push_patch_op(&mut patch, "leaseStaleAt", "clear");
+    }
+    if previous.lease_expires_at != task.lease_expires_at {
+        push_patch_op(&mut patch, "leaseExpiresAt", "clear");
+    }
     if target_agent.is_none() {
         push_patch_op(&mut patch, "assignee", "clear");
         push_patch_op(&mut patch, "session", "clear");
@@ -1908,6 +2136,25 @@ pub(crate) fn handoff_mutation(
         "baseRevision",
         task.base_revision.clone(),
     );
+    if previous.lease_holder != task.lease_holder {
+        insert_serialized(&mut patch_values, "leaseHolder", task.lease_holder.clone());
+    }
+    if previous.lease_started_at != task.lease_started_at {
+        insert_serialized(&mut patch_values, "leaseStartedAt", task.lease_started_at);
+    }
+    if previous.lease_refreshed_at != task.lease_refreshed_at {
+        insert_serialized(
+            &mut patch_values,
+            "leaseRefreshedAt",
+            task.lease_refreshed_at,
+        );
+    }
+    if previous.lease_stale_at != task.lease_stale_at {
+        insert_serialized(&mut patch_values, "leaseStaleAt", task.lease_stale_at);
+    }
+    if previous.lease_expires_at != task.lease_expires_at {
+        insert_serialized(&mut patch_values, "leaseExpiresAt", task.lease_expires_at);
+    }
     if target_agent.is_none() {
         insert_serialized(&mut patch_values, "assignee", task.assignee.clone());
         insert_serialized(&mut patch_values, "session", task.session.clone());
@@ -2054,6 +2301,7 @@ pub(crate) fn accept_handoff_mutation(
     task.worktree_id = input.worktree_id;
     task.branch_ref = input.branch_ref;
     task.status = CoordinationTaskStatus::Ready;
+    refresh_task_lease(task, &meta, meta.ts, &plan.policy);
     let task = task.clone();
     let mut patch = serde_json::Map::new();
     push_patch_op(&mut patch, "assignee", "set");
@@ -2078,6 +2326,11 @@ pub(crate) fn accept_handoff_mutation(
         },
     );
     push_patch_op(&mut patch, "status", "set");
+    push_patch_op(&mut patch, "leaseHolder", "set");
+    push_patch_op(&mut patch, "leaseStartedAt", "set");
+    push_patch_op(&mut patch, "leaseRefreshedAt", "set");
+    push_patch_op(&mut patch, "leaseStaleAt", "set");
+    push_patch_op(&mut patch, "leaseExpiresAt", "set");
     let mut patch_values = serde_json::Map::new();
     insert_serialized(&mut patch_values, "assignee", task.assignee.clone());
     insert_serialized(
@@ -2089,6 +2342,15 @@ pub(crate) fn accept_handoff_mutation(
     insert_serialized(&mut patch_values, "worktreeId", task.worktree_id.clone());
     insert_serialized(&mut patch_values, "branchRef", task.branch_ref.clone());
     insert_serialized(&mut patch_values, "status", task.status);
+    insert_serialized(&mut patch_values, "leaseHolder", task.lease_holder.clone());
+    insert_serialized(&mut patch_values, "leaseStartedAt", task.lease_started_at);
+    insert_serialized(
+        &mut patch_values,
+        "leaseRefreshedAt",
+        task.lease_refreshed_at,
+    );
+    insert_serialized(&mut patch_values, "leaseStaleAt", task.lease_stale_at);
+    insert_serialized(&mut patch_values, "leaseExpiresAt", task.lease_expires_at);
     state.events.push(CoordinationEvent {
         meta: derived_event_meta(&meta, "accepted"),
         kind: CoordinationEventKind::HandoffAccepted,
@@ -2100,6 +2362,378 @@ pub(crate) fn accept_handoff_mutation(
         review: None,
         metadata: json!({
             "agent": target.0.to_string(),
+            "patch": Value::Object(patch),
+            "patchValues": Value::Object(patch_values),
+        }),
+    });
+    Ok(task)
+}
+
+pub(crate) fn resume_task_mutation(
+    state: &mut CoordinationState,
+    meta: EventMeta,
+    input: TaskResumeInput,
+) -> Result<CoordinationTask> {
+    let previous = state
+        .tasks
+        .get(&input.task_id)
+        .cloned()
+        .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
+    let Some(plan) = state.plans.get(&previous.plan).cloned() else {
+        return Err(anyhow!("unknown plan `{}`", previous.plan.0));
+    };
+    if previous.pending_handoff_to.is_some() {
+        let violations = vec![policy_violation(
+            PolicyViolationCode::HandoffPending,
+            format!(
+                "coordination task `{}` has a pending handoff and cannot be resumed",
+                previous.id.0
+            ),
+            Some(previous.plan.clone()),
+            Some(previous.id.clone()),
+            None,
+            None,
+            Value::Null,
+        )];
+        return Err(rejection_error(
+            state,
+            &meta,
+            "coordination task resume rejected",
+            Some(previous.plan.clone()),
+            Some(previous.id.clone()),
+            None,
+            None,
+            violations,
+        ));
+    }
+    let lease_state = task_lease_state(&previous, meta.ts);
+    if !matches!(lease_state, LeaseState::Stale | LeaseState::Expired) {
+        return Err(anyhow!(
+            "coordination task `{}` does not have a stale or expired lease to resume",
+            previous.id.0
+        ));
+    }
+    let current_holder = current_task_holder(&meta, &previous);
+    if previous
+        .lease_holder
+        .as_ref()
+        .is_none_or(|lease_holder| !same_holder(lease_holder, &current_holder))
+    {
+        let violations = vec![policy_violation(
+            PolicyViolationCode::TaskResumeRequired,
+            format!(
+                "coordination task `{}` cannot be resumed by a different principal",
+                previous.id.0
+            ),
+            Some(previous.plan.clone()),
+            Some(previous.id.clone()),
+            None,
+            None,
+            json!({
+                "leaseState": format!("{lease_state:?}").to_ascii_lowercase(),
+                "leaseHolder": lease_holder_details(previous.lease_holder.as_ref()),
+                "currentHolder": lease_holder_details(Some(&current_holder)),
+            }),
+        )];
+        return Err(rejection_error(
+            state,
+            &meta,
+            "coordination task resume rejected",
+            Some(previous.plan.clone()),
+            Some(previous.id.clone()),
+            None,
+            None,
+            violations,
+        ));
+    }
+
+    let task = state
+        .tasks
+        .get_mut(&input.task_id)
+        .expect("task validated above");
+    if let Some(agent) = input.agent {
+        task.assignee = Some(agent);
+    }
+    task.session = current_holder.session_id.clone();
+    task.worktree_id = input.worktree_id;
+    task.branch_ref = input.branch_ref;
+    refresh_task_lease(task, &meta, meta.ts, &plan.policy);
+    let task = task.clone();
+
+    let mut patch = serde_json::Map::new();
+    if previous.assignee != task.assignee {
+        push_patch_op(
+            &mut patch,
+            "assignee",
+            if task.assignee.is_some() {
+                "set"
+            } else {
+                "clear"
+            },
+        );
+    }
+    if previous.session != task.session {
+        push_patch_op(
+            &mut patch,
+            "session",
+            if task.session.is_some() {
+                "set"
+            } else {
+                "clear"
+            },
+        );
+    }
+    if previous.worktree_id != task.worktree_id {
+        push_patch_op(
+            &mut patch,
+            "worktreeId",
+            if task.worktree_id.is_some() {
+                "set"
+            } else {
+                "clear"
+            },
+        );
+    }
+    if previous.branch_ref != task.branch_ref {
+        push_patch_op(
+            &mut patch,
+            "branchRef",
+            if task.branch_ref.is_some() {
+                "set"
+            } else {
+                "clear"
+            },
+        );
+    }
+    push_patch_op(&mut patch, "leaseHolder", "set");
+    push_patch_op(&mut patch, "leaseStartedAt", "set");
+    push_patch_op(&mut patch, "leaseRefreshedAt", "set");
+    push_patch_op(&mut patch, "leaseStaleAt", "set");
+    push_patch_op(&mut patch, "leaseExpiresAt", "set");
+
+    let mut patch_values = serde_json::Map::new();
+    if previous.assignee != task.assignee {
+        insert_serialized(&mut patch_values, "assignee", task.assignee.clone());
+    }
+    if previous.session != task.session {
+        insert_serialized(&mut patch_values, "session", task.session.clone());
+    }
+    if previous.worktree_id != task.worktree_id {
+        insert_serialized(&mut patch_values, "worktreeId", task.worktree_id.clone());
+    }
+    if previous.branch_ref != task.branch_ref {
+        insert_serialized(&mut patch_values, "branchRef", task.branch_ref.clone());
+    }
+    insert_serialized(&mut patch_values, "leaseHolder", task.lease_holder.clone());
+    insert_serialized(&mut patch_values, "leaseStartedAt", task.lease_started_at);
+    insert_serialized(
+        &mut patch_values,
+        "leaseRefreshedAt",
+        task.lease_refreshed_at,
+    );
+    insert_serialized(&mut patch_values, "leaseStaleAt", task.lease_stale_at);
+    insert_serialized(&mut patch_values, "leaseExpiresAt", task.lease_expires_at);
+
+    state.events.push(CoordinationEvent {
+        meta: meta.clone(),
+        kind: CoordinationEventKind::TaskResumed,
+        summary: format!("task `{}` resumed", task.id.0),
+        plan: Some(task.plan.clone()),
+        task: Some(task.id.clone()),
+        claim: None,
+        artifact: None,
+        review: None,
+        metadata: json!({
+            "leaseState": format!("{lease_state:?}").to_ascii_lowercase(),
+            "patch": Value::Object(patch),
+            "patchValues": Value::Object(patch_values),
+        }),
+    });
+    Ok(task)
+}
+
+pub(crate) fn reclaim_task_mutation(
+    state: &mut CoordinationState,
+    meta: EventMeta,
+    input: TaskReclaimInput,
+) -> Result<CoordinationTask> {
+    let previous = state
+        .tasks
+        .get(&input.task_id)
+        .cloned()
+        .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
+    let Some(plan) = state.plans.get(&previous.plan).cloned() else {
+        return Err(anyhow!("unknown plan `{}`", previous.plan.0));
+    };
+    let lease_state = task_lease_state(&previous, meta.ts);
+    if !matches!(lease_state, LeaseState::Stale | LeaseState::Expired) {
+        return Err(anyhow!(
+            "coordination task `{}` does not have a stale or expired lease to reclaim",
+            previous.id.0
+        ));
+    }
+    let current_holder = current_task_holder(&meta, &previous);
+    if previous
+        .lease_holder
+        .as_ref()
+        .is_some_and(|lease_holder| same_holder(lease_holder, &current_holder))
+    {
+        let violations = vec![policy_violation(
+            PolicyViolationCode::TaskReclaimRequired,
+            format!(
+                "coordination task `{}` is still owned by the same principal and should be resumed instead of reclaimed",
+                previous.id.0
+            ),
+            Some(previous.plan.clone()),
+            Some(previous.id.clone()),
+            None,
+            None,
+            json!({
+                "leaseState": format!("{lease_state:?}").to_ascii_lowercase(),
+                "leaseHolder": lease_holder_details(previous.lease_holder.as_ref()),
+                "currentHolder": lease_holder_details(Some(&current_holder)),
+            }),
+        )];
+        return Err(rejection_error(
+            state,
+            &meta,
+            "coordination task reclaim rejected",
+            Some(previous.plan.clone()),
+            Some(previous.id.clone()),
+            None,
+            None,
+            violations,
+        ));
+    }
+
+    let task = state
+        .tasks
+        .get_mut(&input.task_id)
+        .expect("task validated above");
+    if let Some(agent) = input.agent {
+        task.assignee = Some(agent);
+    }
+    task.session = current_holder.session_id.clone();
+    task.worktree_id = input.worktree_id;
+    task.branch_ref = input.branch_ref;
+    if task.pending_handoff_to.is_some() {
+        task.pending_handoff_to = None;
+        if task.status == CoordinationTaskStatus::Blocked {
+            task.status = CoordinationTaskStatus::Ready;
+        }
+    }
+    refresh_task_lease(task, &meta, meta.ts, &plan.policy);
+    let task = task.clone();
+
+    let mut patch = serde_json::Map::new();
+    if previous.assignee != task.assignee {
+        push_patch_op(
+            &mut patch,
+            "assignee",
+            if task.assignee.is_some() {
+                "set"
+            } else {
+                "clear"
+            },
+        );
+    }
+    if previous.pending_handoff_to != task.pending_handoff_to {
+        push_patch_op(
+            &mut patch,
+            "pendingHandoffTo",
+            if task.pending_handoff_to.is_some() {
+                "set"
+            } else {
+                "clear"
+            },
+        );
+    }
+    if previous.session != task.session {
+        push_patch_op(
+            &mut patch,
+            "session",
+            if task.session.is_some() {
+                "set"
+            } else {
+                "clear"
+            },
+        );
+    }
+    if previous.worktree_id != task.worktree_id {
+        push_patch_op(
+            &mut patch,
+            "worktreeId",
+            if task.worktree_id.is_some() {
+                "set"
+            } else {
+                "clear"
+            },
+        );
+    }
+    if previous.branch_ref != task.branch_ref {
+        push_patch_op(
+            &mut patch,
+            "branchRef",
+            if task.branch_ref.is_some() {
+                "set"
+            } else {
+                "clear"
+            },
+        );
+    }
+    if previous.status != task.status {
+        push_patch_op(&mut patch, "status", "set");
+    }
+    push_patch_op(&mut patch, "leaseHolder", "set");
+    push_patch_op(&mut patch, "leaseStartedAt", "set");
+    push_patch_op(&mut patch, "leaseRefreshedAt", "set");
+    push_patch_op(&mut patch, "leaseStaleAt", "set");
+    push_patch_op(&mut patch, "leaseExpiresAt", "set");
+
+    let mut patch_values = serde_json::Map::new();
+    if previous.assignee != task.assignee {
+        insert_serialized(&mut patch_values, "assignee", task.assignee.clone());
+    }
+    if previous.pending_handoff_to != task.pending_handoff_to {
+        insert_serialized(
+            &mut patch_values,
+            "pendingHandoffTo",
+            task.pending_handoff_to.clone(),
+        );
+    }
+    if previous.session != task.session {
+        insert_serialized(&mut patch_values, "session", task.session.clone());
+    }
+    if previous.worktree_id != task.worktree_id {
+        insert_serialized(&mut patch_values, "worktreeId", task.worktree_id.clone());
+    }
+    if previous.branch_ref != task.branch_ref {
+        insert_serialized(&mut patch_values, "branchRef", task.branch_ref.clone());
+    }
+    if previous.status != task.status {
+        insert_serialized(&mut patch_values, "status", task.status);
+    }
+    insert_serialized(&mut patch_values, "leaseHolder", task.lease_holder.clone());
+    insert_serialized(&mut patch_values, "leaseStartedAt", task.lease_started_at);
+    insert_serialized(
+        &mut patch_values,
+        "leaseRefreshedAt",
+        task.lease_refreshed_at,
+    );
+    insert_serialized(&mut patch_values, "leaseStaleAt", task.lease_stale_at);
+    insert_serialized(&mut patch_values, "leaseExpiresAt", task.lease_expires_at);
+
+    state.events.push(CoordinationEvent {
+        meta: meta.clone(),
+        kind: CoordinationEventKind::TaskReclaimed,
+        summary: format!("task `{}` reclaimed", task.id.0),
+        plan: Some(task.plan.clone()),
+        task: Some(task.id.clone()),
+        claim: None,
+        artifact: None,
+        review: None,
+        metadata: json!({
+            "leaseState": format!("{lease_state:?}").to_ascii_lowercase(),
             "patch": Value::Object(patch),
             "patchValues": Value::Object(patch_values),
         }),
@@ -2173,6 +2807,26 @@ impl CoordinationStore {
             .write()
             .expect("coordination store lock poisoned");
         accept_handoff_mutation(&mut state, meta, input)
+    }
+
+    pub fn resume_task(&self, meta: EventMeta, input: TaskResumeInput) -> Result<CoordinationTask> {
+        let mut state = self
+            .state
+            .write()
+            .expect("coordination store lock poisoned");
+        resume_task_mutation(&mut state, meta, input)
+    }
+
+    pub fn reclaim_task(
+        &self,
+        meta: EventMeta,
+        input: TaskReclaimInput,
+    ) -> Result<CoordinationTask> {
+        let mut state = self
+            .state
+            .write()
+            .expect("coordination store lock poisoned");
+        reclaim_task_mutation(&mut state, meta, input)
     }
 
     pub fn acquire_claim(

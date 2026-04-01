@@ -13,6 +13,35 @@ fn meta(id: &str, ts: u64) -> EventMeta {
     }
 }
 
+fn principal_meta(
+    id: &str,
+    ts: u64,
+    authority: &str,
+    principal: &str,
+    session_id: &str,
+) -> EventMeta {
+    EventMeta {
+        id: prism_ir::EventId::new(id),
+        ts,
+        actor: EventActor::Principal(prism_ir::PrincipalActor {
+            authority_id: prism_ir::PrincipalAuthorityId::new(authority),
+            principal_id: prism_ir::PrincipalId::new(principal),
+            kind: Some(prism_ir::PrincipalKind::Agent),
+            name: Some(principal.to_string()),
+        }),
+        correlation: None,
+        causation: None,
+        execution_context: Some(prism_ir::EventExecutionContext {
+            repo_id: None,
+            worktree_id: None,
+            branch_ref: None,
+            session_id: Some(session_id.to_string()),
+            instance_id: None,
+            credential_id: None,
+        }),
+    }
+}
+
 fn revision() -> prism_ir::WorkspaceRevision {
     prism_ir::WorkspaceRevision {
         graph_version: 1,
@@ -107,6 +136,339 @@ fn claim_conflicts_block_hard_exclusive_overlap() {
         .unwrap();
     assert!(second.0.is_none());
     assert_eq!(second.1[0].severity, prism_ir::ConflictSeverity::Block);
+}
+
+#[test]
+fn expired_task_requires_resume_for_same_principal() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            principal_meta("event:plan", 1, "local", "agent:a", "session:a"),
+            PlanCreateInput {
+                goal: "Resume expired task".to_string(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            principal_meta("event:task", 2, "local", "agent:a", "session:a"),
+            TaskCreateInput {
+                plan_id,
+                title: "Continue work".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+
+    let error = store
+        .update_task(
+            principal_meta("event:update", 8000, "local", "agent:a", "session:a"),
+            TaskUpdateInput {
+                task_id: task_id.clone(),
+                kind: None,
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                summary: None,
+                anchors: None,
+                bindings: None,
+                depends_on: None,
+                acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
+                base_revision: None,
+                priority: None,
+                tags: None,
+                completion_context: None,
+            },
+            revision(),
+            8000,
+        )
+        .unwrap_err();
+    assert!(error.to_string().contains("must be resumed"));
+
+    let resumed = store
+        .resume_task(
+            principal_meta("event:resume", 8000, "local", "agent:a", "session:a"),
+            TaskResumeInput {
+                task_id: task_id.clone(),
+                agent: Some(prism_ir::AgentId::new("agent:a")),
+                worktree_id: Some("worktree:a".to_string()),
+                branch_ref: Some("refs/heads/a".to_string()),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        resumed.assignee.as_ref().map(|agent| agent.0.as_str()),
+        Some("agent:a")
+    );
+    assert_eq!(resumed.worktree_id.as_deref(), Some("worktree:a"));
+
+    let updated = store
+        .update_task(
+            principal_meta(
+                "event:update:after-resume",
+                8001,
+                "local",
+                "agent:a",
+                "session:a",
+            ),
+            TaskUpdateInput {
+                task_id,
+                kind: None,
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                summary: None,
+                anchors: None,
+                bindings: None,
+                depends_on: None,
+                acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
+                base_revision: None,
+                priority: None,
+                tags: None,
+                completion_context: None,
+            },
+            revision(),
+            8001,
+        )
+        .unwrap();
+    assert_eq!(updated.status, prism_ir::CoordinationTaskStatus::Ready);
+}
+
+#[test]
+fn stale_task_requires_reclaim_for_different_principal() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            principal_meta("event:plan", 1, "local", "agent:a", "session:a"),
+            PlanCreateInput {
+                goal: "Reclaim stale task".to_string(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            principal_meta("event:task", 2, "local", "agent:a", "session:a"),
+            TaskCreateInput {
+                plan_id,
+                title: "Take over later".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+
+    let error = store
+        .update_task(
+            principal_meta("event:update", 1905, "local", "agent:b", "session:b"),
+            TaskUpdateInput {
+                task_id: task_id.clone(),
+                kind: None,
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                summary: None,
+                anchors: None,
+                bindings: None,
+                depends_on: None,
+                acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
+                base_revision: None,
+                priority: None,
+                tags: None,
+                completion_context: None,
+            },
+            revision(),
+            1905,
+        )
+        .unwrap_err();
+    assert!(error.to_string().contains("must be reclaimed"));
+
+    let reclaimed = store
+        .reclaim_task(
+            principal_meta("event:reclaim", 1905, "local", "agent:b", "session:b"),
+            TaskReclaimInput {
+                task_id: task_id.clone(),
+                agent: Some(prism_ir::AgentId::new("agent:b")),
+                worktree_id: Some("worktree:b".to_string()),
+                branch_ref: Some("refs/heads/b".to_string()),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        reclaimed.assignee.as_ref().map(|agent| agent.0.as_str()),
+        Some("agent:b")
+    );
+    assert_eq!(
+        reclaimed.session.as_ref().map(|session| session.0.as_str()),
+        Some("session:b")
+    );
+    assert_eq!(reclaimed.worktree_id.as_deref(), Some("worktree:b"));
+}
+
+#[test]
+fn expired_claim_can_be_renewed_by_same_principal() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            principal_meta("event:plan", 1, "local", "agent:a", "session:a"),
+            PlanCreateInput {
+                goal: "Renew expired claim".to_string(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, task) = store
+        .create_task(
+            principal_meta("event:task", 2, "local", "agent:a", "session:a"),
+            TaskCreateInput {
+                plan_id,
+                title: "Hold edit claim".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+    let (claim_id, _, _) = store
+        .acquire_claim(
+            principal_meta("event:claim", 3, "local", "agent:a", "session:a"),
+            prism_ir::SessionId::new("session:a"),
+            ClaimAcquireInput {
+                task_id: Some(task_id),
+                anchors: task.anchors.clone(),
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::HardExclusive),
+                ttl_seconds: None,
+                base_revision: revision(),
+                current_revision: revision(),
+                agent: Some(prism_ir::AgentId::new("agent:a")),
+                worktree_id: None,
+                branch_ref: None,
+            },
+        )
+        .unwrap();
+
+    let renewed = store
+        .renew_claim(
+            principal_meta("event:renew", 8000, "local", "agent:a", "session:a"),
+            &prism_ir::SessionId::new("session:a"),
+            &claim_id.expect("claim id"),
+            None,
+        )
+        .unwrap();
+    assert_eq!(renewed.status, prism_ir::ClaimStatus::Active);
+    assert!(renewed.expires_at > 8000);
+}
+
+#[test]
+fn stale_claim_no_longer_blocks_new_acquire() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            principal_meta("event:plan", 1, "local", "agent:a", "session:a"),
+            PlanCreateInput {
+                goal: "Allow takeover after stale claim".to_string(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, task) = store
+        .create_task(
+            principal_meta("event:task", 2, "local", "agent:a", "session:a"),
+            TaskCreateInput {
+                plan_id,
+                title: "Edit alpha".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+    store
+        .acquire_claim(
+            principal_meta("event:claim:a", 3, "local", "agent:a", "session:a"),
+            prism_ir::SessionId::new("session:a"),
+            ClaimAcquireInput {
+                task_id: Some(task_id),
+                anchors: task.anchors.clone(),
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::HardExclusive),
+                ttl_seconds: None,
+                base_revision: revision(),
+                current_revision: revision(),
+                agent: Some(prism_ir::AgentId::new("agent:a")),
+                worktree_id: None,
+                branch_ref: None,
+            },
+        )
+        .unwrap();
+
+    let second = store
+        .acquire_claim(
+            principal_meta("event:claim:b", 1905, "local", "agent:b", "session:b"),
+            prism_ir::SessionId::new("session:b"),
+            ClaimAcquireInput {
+                task_id: None,
+                anchors: task.anchors.clone(),
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::HardExclusive),
+                ttl_seconds: None,
+                base_revision: revision(),
+                current_revision: revision(),
+                agent: Some(prism_ir::AgentId::new("agent:b")),
+                worktree_id: None,
+                branch_ref: None,
+            },
+        )
+        .unwrap();
+    assert!(second.0.is_some());
 }
 
 #[test]
@@ -2249,6 +2611,11 @@ fn snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata() 
         assignee: Some(prism_ir::AgentId::new("agent:a")),
         pending_handoff_to: None,
         session: Some(prism_ir::SessionId::new("session:a")),
+        lease_holder: None,
+        lease_started_at: None,
+        lease_refreshed_at: None,
+        lease_stale_at: None,
+        lease_expires_at: None,
         worktree_id: None,
         branch_ref: None,
         anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],

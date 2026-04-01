@@ -36,6 +36,7 @@ mod validation_feedback;
 mod watch;
 mod workspace_identity;
 mod workspace_runtime_state;
+mod workspace_session_defaults;
 mod workspace_tree;
 
 use std::sync::Arc;
@@ -65,6 +66,9 @@ pub use validation_feedback::{
     ValidationFeedbackCategory, ValidationFeedbackEntry, ValidationFeedbackRecord,
     ValidationFeedbackVerdict,
 };
+pub use workspace_session_defaults::{
+    default_workspace_session_options, default_workspace_shared_runtime,
+};
 
 #[derive(Debug, Clone)]
 pub struct WorkspaceSessionOptions {
@@ -90,11 +94,13 @@ pub fn index_workspace(root: impl AsRef<std::path::Path>) -> Result<Prism> {
 }
 
 pub fn index_workspace_session(root: impl AsRef<std::path::Path>) -> Result<WorkspaceSession> {
-    index_workspace_session_with_options(root, WorkspaceSessionOptions::default())
+    let root = root.as_ref();
+    index_workspace_session_with_options(root, default_workspace_session_options(root)?)
 }
 
 pub fn hydrate_workspace_session(root: impl AsRef<std::path::Path>) -> Result<WorkspaceSession> {
-    hydrate_workspace_session_with_options(root, WorkspaceSessionOptions::default())
+    let root = root.as_ref();
+    hydrate_workspace_session_with_options(root, default_workspace_session_options(root)?)
 }
 
 pub fn hydrate_workspace_session_with_options(
@@ -118,10 +124,11 @@ pub fn index_workspace_session_with_curator(
     root: impl AsRef<std::path::Path>,
     backend: Arc<dyn CuratorBackend>,
 ) -> Result<WorkspaceSession> {
+    let root = root.as_ref();
     index_workspace_session_with_curator_and_options(
         root,
         backend,
-        WorkspaceSessionOptions::default(),
+        default_workspace_session_options(root)?,
     )
 }
 

@@ -40,11 +40,11 @@ use prism_store::{Graph, MemoryStore, SqliteStore, Store};
 use serde_json::json;
 
 use super::{
-    hydrate_workspace_session_with_options, index_workspace, index_workspace_session,
-    index_workspace_session_with_curator, index_workspace_session_with_options,
-    BootstrapOwnerInput, MintPrincipalRequest, PrismDocSyncStatus, PrismPaths,
-    SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
-    ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
+    hydrate_workspace_session, hydrate_workspace_session_with_options, index_workspace,
+    index_workspace_session, index_workspace_session_with_curator,
+    index_workspace_session_with_options, BootstrapOwnerInput, MintPrincipalRequest,
+    PrismDocSyncStatus, PrismPaths, SharedRuntimeBackend, ValidationFeedbackCategory,
+    ValidationFeedbackRecord, ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
 };
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator_support::build_curator_context;
@@ -2243,6 +2243,56 @@ fn bootstrap_owner_and_mint_child_principal_round_trip_through_shared_runtime_re
 }
 
 #[test]
+fn default_workspace_session_uses_repo_shared_runtime_registry() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+    let prism_home = temp_workspace();
+    let _home = PrismHomeEnvGuard::set(&prism_home);
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let snapshot = PrincipalRegistrySnapshot {
+        principals: vec![PrincipalProfile {
+            authority_id: PrincipalAuthorityId("authority:test".into()),
+            principal_id: PrincipalId("principal:default-runtime".into()),
+            kind: PrincipalKind::Human,
+            name: "Default Runtime".to_string(),
+            role: Some("owner".to_string()),
+            status: PrincipalStatus::Active,
+            created_at: 101,
+            updated_at: 102,
+            parent_principal_id: None,
+            profile: json!({ "source": "default" }),
+        }],
+        credentials: vec![CredentialRecord {
+            credential_id: CredentialId("credential:default-runtime".into()),
+            authority_id: PrincipalAuthorityId("authority:test".into()),
+            principal_id: PrincipalId("principal:default-runtime".into()),
+            token_verifier: "verifier:default-runtime".to_string(),
+            capabilities: vec![CredentialCapability::All],
+            status: CredentialStatus::Active,
+            created_at: 103,
+            last_used_at: Some(104),
+            revoked_at: None,
+        }],
+    };
+    session.persist_principal_registry(&snapshot).unwrap();
+    drop(session);
+
+    let reloaded = hydrate_workspace_session(&root).unwrap();
+    assert_eq!(reloaded.load_principal_registry().unwrap(), Some(snapshot));
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(prism_home);
+}
+
+#[test]
 fn repo_concept_event_patch_trace_round_trips_through_jsonl() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -3529,7 +3579,7 @@ fn repo_published_plan_state_merges_snapshot_and_published_views() {
 }
 
 #[test]
-fn replayed_coordination_snapshot_stays_authoritative_over_published_plan_exports() {
+fn published_plan_exports_override_replayed_task_backed_authored_fields() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -3592,11 +3642,11 @@ fn replayed_coordination_snapshot_stays_authoritative_over_published_plan_export
         .unwrap()
         .replace(
             "Keep replay authoritative",
-            "Stale published export should not win",
+            "Stale published export should now win",
         )
         .replace(
             "Ignore stale export artifacts",
-            "Projection mutation should not override replay",
+            "Published task title should now win",
         );
     fs::write(&log_path, stale_export).unwrap();
 
@@ -3607,13 +3657,99 @@ fn replayed_coordination_snapshot_stays_authoritative_over_published_plan_export
         .load_coordination_plan_state()
         .unwrap()
         .expect("replayed coordination plan state");
+    assert!(state.snapshot.plans.iter().any(|plan| {
+        plan.id == plan_id && plan.goal == "Stale published export should now win"
+    }));
+    assert!(state.snapshot.tasks.iter().any(|task| {
+        task.id == task_id
+            && task.plan == plan_id
+            && task.title == "Published task title should now win"
+    }));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn refresh_fs_rehydrates_external_published_plan_edits_without_source_changes() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let (plan_id, task_id) = session
+        .mutate_coordination(|prism| {
+            let base_revision = prism.workspace_revision();
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:published-authority-live-plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:published-authority-live-plan")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Original authored goal".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            let task = prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:published-authority-live-task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:published-authority-live-plan")),
+                    causation: None,
+                    execution_context: None,
+                },
+                prism_coordination::TaskCreateInput {
+                    plan_id: plan_id.clone(),
+                    title: "Original authored title".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision,
+                },
+            )?;
+            Ok((plan_id, task.id))
+        })
+        .unwrap();
+
+    let log_path = root
+        .join(".prism")
+        .join("plans")
+        .join("active")
+        .join(format!("{}.jsonl", plan_id.0));
+    let edited = fs::read_to_string(&log_path)
+        .unwrap()
+        .replace("Original authored goal", "Externally edited goal")
+        .replace("Original authored title", "Externally edited title");
+    fs::write(&log_path, edited).unwrap();
+
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    let outcome = session.refresh_fs_with_status().unwrap();
+    assert_eq!(outcome.status, crate::session::FsRefreshStatus::Clean);
+
+    let state = session
+        .load_coordination_plan_state()
+        .unwrap()
+        .expect("live coordination plan state");
     assert!(state
         .snapshot
         .plans
         .iter()
-        .any(|plan| { plan.id == plan_id && plan.goal == "Keep replay authoritative" }));
+        .any(|plan| plan.id == plan_id && plan.goal == "Externally edited goal"));
     assert!(state.snapshot.tasks.iter().any(|task| {
-        task.id == task_id && task.plan == plan_id && task.title == "Ignore stale export artifacts"
+        task.id == task_id && task.plan == plan_id && task.title == "Externally edited title"
     }));
 
     let _ = fs::remove_dir_all(root);

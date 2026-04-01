@@ -499,6 +499,18 @@ fn validate_coordination_payload(
             &required_fields,
         )
         .map(|_| ()),
+        CoordinationMutationKindInput::Resume => deserialize_or_issue::<TaskResumePayload>(
+            args.payload,
+            Some("input.payload"),
+            &required_fields,
+        )
+        .map(|_| ()),
+        CoordinationMutationKindInput::Reclaim => deserialize_or_issue::<TaskReclaimPayload>(
+            args.payload,
+            Some("input.payload"),
+            &required_fields,
+        )
+        .map(|_| ()),
         CoordinationMutationKindInput::HandoffAccept => {
             deserialize_or_issue::<HandoffAcceptPayload>(
                 args.payload,
@@ -652,6 +664,8 @@ fn coordination_kind_tag(kind: &CoordinationMutationKindInput) -> &'static str {
         CoordinationMutationKindInput::PlanEdgeCreate => "plan_edge_create",
         CoordinationMutationKindInput::PlanEdgeDelete => "plan_edge_delete",
         CoordinationMutationKindInput::Handoff => "handoff",
+        CoordinationMutationKindInput::Resume => "resume",
+        CoordinationMutationKindInput::Reclaim => "reclaim",
         CoordinationMutationKindInput::HandoffAccept => "handoff_accept",
     }
 }
@@ -2031,6 +2045,8 @@ pub(crate) enum CoordinationMutationKindInput {
     PlanEdgeCreate,
     PlanEdgeDelete,
     Handoff,
+    Resume,
+    Reclaim,
     HandoffAccept,
 }
 
@@ -2049,6 +2065,8 @@ impl_vocab_deserialize!(
         "planedgecreate" => PlanEdgeCreate,
         "planedgedelete" => PlanEdgeDelete,
         "handoff" => Handoff,
+        "resume" => Resume,
+        "reclaim" => Reclaim,
         "handoffaccept" => HandoffAccept
     }
 );
@@ -2106,6 +2124,8 @@ enum PrismCoordinationArgsWirePayload {
     PlanEdgeCreate(PlanEdgeCreatePayload),
     PlanEdgeDelete(PlanEdgeDeletePayload),
     Handoff(HandoffPayload),
+    Resume(TaskResumePayload),
+    Reclaim(TaskReclaimPayload),
     HandoffAccept(HandoffAcceptPayload),
 }
 
@@ -2167,6 +2187,8 @@ impl<'de> Deserialize<'de> for PrismCoordinationArgs {
                 CoordinationMutationKindInput::PlanEdgeDelete
             }
             PrismCoordinationArgsWirePayload::Handoff(_) => CoordinationMutationKindInput::Handoff,
+            PrismCoordinationArgsWirePayload::Resume(_) => CoordinationMutationKindInput::Resume,
+            PrismCoordinationArgsWirePayload::Reclaim(_) => CoordinationMutationKindInput::Reclaim,
             PrismCoordinationArgsWirePayload::HandoffAccept(_) => {
                 CoordinationMutationKindInput::HandoffAccept
             }
@@ -2418,6 +2440,24 @@ impl_vocab_deserialize!(
         "advisory" => Advisory,
         "softexclusive" => SoftExclusive,
         "hardexclusive" => HardExclusive
+    }
+);
+
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum LeaseRenewalModeInput {
+    Strict,
+    Assisted,
+}
+
+impl_vocab_deserialize!(
+    LeaseRenewalModeInput,
+    "leaseRenewalMode",
+    "lease renewal mode",
+    r#"{"leaseRenewalMode":"strict"}"#,
+    {
+        "strict" => Strict,
+        "assisted" => Assisted
     }
 );
 
@@ -2683,6 +2723,10 @@ pub(crate) struct CoordinationPolicyPayload {
     pub(crate) require_validation_for_completion: Option<bool>,
     pub(crate) stale_after_graph_change: Option<bool>,
     pub(crate) review_required_above_risk_score: Option<f32>,
+    pub(crate) lease_stale_after_seconds: Option<u64>,
+    pub(crate) lease_expires_after_seconds: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
+    pub(crate) lease_renewal_mode: Option<LeaseRenewalModeInput>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -2809,6 +2853,20 @@ pub(crate) struct HandoffPayload {
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct HandoffAcceptPayload {
+    pub(crate) task_id: String,
+    pub(crate) agent: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TaskResumePayload {
+    pub(crate) task_id: String,
+    pub(crate) agent: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TaskReclaimPayload {
     pub(crate) task_id: String,
     pub(crate) agent: Option<String>,
 }

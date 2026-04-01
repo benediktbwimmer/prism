@@ -88,6 +88,8 @@ pub fn rehydrate_coordination_snapshot(mut snapshot: CoordinationSnapshot) -> Co
             | CoordinationEventKind::TaskBlocked
             | CoordinationEventKind::TaskUnblocked
             | CoordinationEventKind::TaskStatusChanged
+            | CoordinationEventKind::TaskResumed
+            | CoordinationEventKind::TaskReclaimed
             | CoordinationEventKind::HandoffRequested
             | CoordinationEventKind::HandoffAccepted => {
                 if let Some(task_id) = event.task.as_ref() {
@@ -252,6 +254,41 @@ fn apply_task_patch(task: &mut CoordinationTask, metadata: &Value) {
             task.session = session;
         }
     }
+    if patch_is_set(metadata, "leaseHolder") || patch_is_clear(metadata, "leaseHolder") {
+        if let Some(lease_holder) =
+            metadata_optional_path(metadata, &["patchValues", "leaseHolder"])
+        {
+            task.lease_holder = lease_holder;
+        }
+    }
+    if patch_is_set(metadata, "leaseStartedAt") || patch_is_clear(metadata, "leaseStartedAt") {
+        if let Some(lease_started_at) =
+            metadata_optional_path(metadata, &["patchValues", "leaseStartedAt"])
+        {
+            task.lease_started_at = lease_started_at;
+        }
+    }
+    if patch_is_set(metadata, "leaseRefreshedAt") || patch_is_clear(metadata, "leaseRefreshedAt") {
+        if let Some(lease_refreshed_at) =
+            metadata_optional_path(metadata, &["patchValues", "leaseRefreshedAt"])
+        {
+            task.lease_refreshed_at = lease_refreshed_at;
+        }
+    }
+    if patch_is_set(metadata, "leaseStaleAt") || patch_is_clear(metadata, "leaseStaleAt") {
+        if let Some(lease_stale_at) =
+            metadata_optional_path(metadata, &["patchValues", "leaseStaleAt"])
+        {
+            task.lease_stale_at = lease_stale_at;
+        }
+    }
+    if patch_is_set(metadata, "leaseExpiresAt") || patch_is_clear(metadata, "leaseExpiresAt") {
+        if let Some(lease_expires_at) =
+            metadata_optional_path(metadata, &["patchValues", "leaseExpiresAt"])
+        {
+            task.lease_expires_at = lease_expires_at;
+        }
+    }
     if patch_is_set(metadata, "worktreeId") || patch_is_clear(metadata, "worktreeId") {
         if let Some(worktree_id) = metadata_optional_path(metadata, &["patchValues", "worktreeId"])
         {
@@ -357,6 +394,21 @@ fn merge_stored_task_metadata(task: &mut CoordinationTask, stored: CoordinationT
     }
     if !stored.metadata.is_null() {
         task.metadata = stored.metadata;
+    }
+    if stored.lease_holder.is_some() {
+        task.lease_holder = stored.lease_holder;
+    }
+    if stored.lease_started_at.is_some() {
+        task.lease_started_at = stored.lease_started_at;
+    }
+    if stored.lease_refreshed_at.is_some() {
+        task.lease_refreshed_at = stored.lease_refreshed_at;
+    }
+    if stored.lease_stale_at.is_some() {
+        task.lease_stale_at = stored.lease_stale_at;
+    }
+    if stored.lease_expires_at.is_some() {
+        task.lease_expires_at = stored.lease_expires_at;
     }
 }
 

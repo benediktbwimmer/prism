@@ -25,7 +25,8 @@ use anyhow::{anyhow, Result};
 use prism_coordination::{
     Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
     CoordinationConflict, CoordinationRuntimeState, CoordinationSnapshot, CoordinationTask,
-    HandoffAcceptInput, HandoffInput, TaskCreateInput, TaskUpdateInput, WorkClaim,
+    HandoffAcceptInput, HandoffInput, TaskCreateInput, TaskReclaimInput, TaskResumeInput,
+    TaskUpdateInput, WorkClaim,
 };
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
@@ -191,16 +192,19 @@ impl Prism {
         plan_graphs: Vec<PlanGraph>,
         execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     ) -> Self {
+        let native_plans = NativePlanRuntimeState::from_snapshot_with_graphs_and_overlays(
+            &coordination,
+            plan_graphs,
+            execution_overlays,
+        );
+        let coordination = native_plans
+            .apply_task_execution_authored_fields_to_coordination_snapshot(coordination);
         Self::with_shared_history_outcomes_coordination_projections_and_native_plans(
             graph,
             history,
             outcomes,
             projections,
-            NativePlanRuntimeState::from_snapshot_with_graphs_and_overlays(
-                &coordination,
-                plan_graphs,
-                execution_overlays,
-            ),
+            native_plans,
             CoordinationRuntimeState::from_snapshot(coordination),
         )
     }
@@ -397,16 +401,18 @@ impl Prism {
         plan_graphs: Vec<PlanGraph>,
         execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     ) {
-        let continuity_runtime = CoordinationRuntimeState::from_snapshot(snapshot.clone());
+        let native_plans = NativePlanRuntimeState::from_snapshot_with_graphs_and_overlays(
+            &snapshot,
+            plan_graphs,
+            execution_overlays,
+        );
+        let continuity_runtime = CoordinationRuntimeState::from_snapshot(
+            native_plans.apply_task_execution_authored_fields_to_coordination_snapshot(snapshot),
+        );
         *self
             .plan_runtime
             .write()
-            .expect("plan runtime lock poisoned") =
-            NativePlanRuntimeState::from_snapshot_with_graphs_and_overlays(
-                &snapshot,
-                plan_graphs,
-                execution_overlays,
-            );
+            .expect("plan runtime lock poisoned") = native_plans;
         *self
             .continuity_runtime
             .write()
@@ -607,6 +613,56 @@ impl Prism {
         }
         let (before_snapshot, snapshot, result) =
             self.mutate_live_coordination_runtime(|runtime| runtime.accept_handoff(meta, input));
+        match result {
+            Ok(task) => self
+                .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
+                    plan_runtime.update_task_from_coordination(&task)?;
+                    Ok(task.clone())
+                })
+                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone())),
+            Err(error) => {
+                self.persist_coordination_snapshot(snapshot)?;
+                Err(error)
+            }
+        }
+    }
+
+    pub fn resume_native_task(
+        &self,
+        meta: EventMeta,
+        mut input: TaskResumeInput,
+    ) -> Result<CoordinationTask> {
+        if let Some(context) = self.coordination_context() {
+            input.worktree_id = Some(context.worktree_id);
+            input.branch_ref = context.branch_ref;
+        }
+        let (before_snapshot, snapshot, result) =
+            self.mutate_live_coordination_runtime(|runtime| runtime.resume_task(meta, input));
+        match result {
+            Ok(task) => self
+                .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
+                    plan_runtime.update_task_from_coordination(&task)?;
+                    Ok(task.clone())
+                })
+                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone())),
+            Err(error) => {
+                self.persist_coordination_snapshot(snapshot)?;
+                Err(error)
+            }
+        }
+    }
+
+    pub fn reclaim_native_task(
+        &self,
+        meta: EventMeta,
+        mut input: TaskReclaimInput,
+    ) -> Result<CoordinationTask> {
+        if let Some(context) = self.coordination_context() {
+            input.worktree_id = Some(context.worktree_id);
+            input.branch_ref = context.branch_ref;
+        }
+        let (before_snapshot, snapshot, result) =
+            self.mutate_live_coordination_runtime(|runtime| runtime.reclaim_task(meta, input));
         match result {
             Ok(task) => self
                 .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {

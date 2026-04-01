@@ -2,8 +2,8 @@ use anyhow::{anyhow, Result};
 use clap::{ArgAction, ValueEnum};
 use prism_agent::InferenceStore;
 use prism_core::{
-    hydrate_workspace_session_with_options, SharedRuntimeBackend, WorkspaceSession,
-    WorkspaceSessionOptions,
+    default_workspace_shared_runtime, hydrate_workspace_session_with_options, SharedRuntimeBackend,
+    WorkspaceSession, WorkspaceSessionOptions,
 };
 use prism_ir::TaskId;
 use prism_js::{api_reference_markdown, CuratorJobView, API_REFERENCE_URI};
@@ -232,14 +232,14 @@ pub struct PrismMcpCli {
 }
 
 impl PrismMcpCli {
-    pub fn shared_runtime_backend(&self) -> Result<SharedRuntimeBackend> {
+    pub fn shared_runtime_backend(&self, root: &Path) -> Result<SharedRuntimeBackend> {
         match (&self.shared_runtime_sqlite, &self.shared_runtime_uri) {
             (Some(_), Some(_)) => Err(anyhow!(
                 "shared runtime backend must be configured with either --shared-runtime-sqlite or --shared-runtime-uri, not both"
             )),
             (Some(path), None) => Ok(SharedRuntimeBackend::Sqlite { path: path.clone() }),
             (None, Some(uri)) => Ok(SharedRuntimeBackend::Remote { uri: uri.clone() }),
-            (None, None) => Ok(SharedRuntimeBackend::Disabled),
+            (None, None) => default_workspace_shared_runtime(root),
         }
     }
 
@@ -400,9 +400,9 @@ impl PrismMcpServer {
 
     pub fn from_workspace(root: impl AsRef<Path>) -> Result<Self> {
         Self::from_workspace_with_features_and_shared_runtime(
-            root,
+            root.as_ref(),
             PrismMcpFeatures::default(),
-            SharedRuntimeBackend::Disabled,
+            default_workspace_shared_runtime(root.as_ref())?,
         )
     }
 
@@ -411,9 +411,9 @@ impl PrismMcpServer {
         features: PrismMcpFeatures,
     ) -> Result<Self> {
         Self::from_workspace_with_features_and_shared_runtime(
-            root,
+            root.as_ref(),
             features,
-            SharedRuntimeBackend::Disabled,
+            default_workspace_shared_runtime(root.as_ref())?,
         )
     }
 

@@ -27,7 +27,20 @@ impl SharedRuntimeBackend {
         }
     }
 
+    pub fn aliases_sqlite_path(&self, other: &Path) -> bool {
+        match self {
+            SharedRuntimeBackend::Sqlite { path } => {
+                normalized_path(path) == normalized_path(other)
+            }
+            SharedRuntimeBackend::Disabled | SharedRuntimeBackend::Remote { .. } => false,
+        }
+    }
+
     pub fn is_enabled(&self) -> bool {
         !matches!(self, SharedRuntimeBackend::Disabled)
     }
+}
+
+fn normalized_path(path: &Path) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
 }

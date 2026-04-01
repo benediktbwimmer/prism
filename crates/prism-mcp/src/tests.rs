@@ -13,8 +13,9 @@ use prism_agent::{InferenceSnapshot, InferredEdgeScope};
 use prism_coordination::{CoordinationPolicy, CoordinationStore, PlanCreateInput, TaskCreateInput};
 use prism_core::{
     hydrate_workspace_session_with_options, index_workspace_session,
-    index_workspace_session_with_curator, PrismPaths, ValidationFeedbackCategory,
-    ValidationFeedbackRecord, ValidationFeedbackVerdict, WorkspaceSessionOptions,
+    index_workspace_session_with_curator, PrismPaths, SharedRuntimeBackend,
+    ValidationFeedbackCategory, ValidationFeedbackRecord, ValidationFeedbackVerdict,
+    WorkspaceSessionOptions,
 };
 use prism_curator::{
     CandidateConcept, CandidateConceptOperation, CandidateEdge, CandidateMemory,
@@ -50,6 +51,23 @@ fn cli_no_coordination_flag_disables_coordination_features() {
     assert!(!features.coordination.workflow);
     assert!(!features.coordination.claims);
     assert!(!features.coordination.artifacts);
+}
+
+#[test]
+fn cli_defaults_shared_runtime_backend_to_repo_sqlite() {
+    let root = temp_workspace();
+    let cli = PrismMcpCli::parse_from(["prism-mcp"]);
+    let expected = PrismPaths::for_workspace_root(&root)
+        .unwrap()
+        .shared_runtime_db_path()
+        .unwrap();
+
+    assert_eq!(
+        cli.shared_runtime_backend(&root).unwrap(),
+        SharedRuntimeBackend::Sqlite { path: expected }
+    );
+
+    let _ = fs::remove_dir_all(root);
 }
 
 #[test]
@@ -205,6 +223,7 @@ fn plan_node_mutations_return_graph_native_views() {
         )
         .unwrap();
     let plan_id = plan.state["id"].as_str().unwrap().to_string();
+    let native_plan_id = "plan:native-review".to_string();
     host.current_prism()
         .replace_curated_concepts(vec![ConceptPacket {
             handle: "concept://native_plan_runtime".to_string(),
@@ -302,7 +321,7 @@ fn plan_node_mutations_return_graph_native_views() {
     prism.replace_coordination_snapshot_and_plan_graphs(
         prism.coordination_snapshot(),
         vec![prism_ir::PlanGraph {
-            id: prism_ir::PlanId::new(plan_id.clone()),
+            id: prism_ir::PlanId::new(native_plan_id.clone()),
             scope: prism_ir::PlanScope::Repo,
             kind: prism_ir::PlanKind::Migration,
             title: "Standalone native review graph".into(),
@@ -319,7 +338,7 @@ fn plan_node_mutations_return_graph_native_views() {
             nodes: vec![
                 prism_ir::PlanNode {
                     id: prism_ir::PlanNodeId::new(dependency_id.clone()),
-                    plan_id: prism_ir::PlanId::new(plan_id.clone()),
+                    plan_id: prism_ir::PlanId::new(native_plan_id.clone()),
                     kind: prism_ir::PlanNodeKind::Review,
                     title: "Review main".into(),
                     summary: None,
@@ -336,7 +355,7 @@ fn plan_node_mutations_return_graph_native_views() {
                 },
                 prism_ir::PlanNode {
                     id: prism_ir::PlanNodeId::new(node_id.clone()),
-                    plan_id: prism_ir::PlanId::new(plan_id.clone()),
+                    plan_id: prism_ir::PlanId::new(native_plan_id.clone()),
                     kind: prism_ir::PlanNodeKind::Validate,
                     title: "Edit main".into(),
                     summary: Some("Gather validation evidence".into()),
@@ -439,7 +458,7 @@ fn plan_node_mutations_return_graph_native_views() {
 
     let graph = host
         .current_prism()
-        .plan_graph(&PlanId::new(plan_id))
+        .plan_graph(&PlanId::new(native_plan_id))
         .expect("plan graph");
     assert!(graph.edges.iter().any(|edge| edge.from.0 == node_id
         && edge.to.0 == dependency_id
@@ -626,20 +645,7 @@ fn native_plan_node_completion_rejects_missing_review_and_validation() {
 fn coordination_update_routes_plain_ids_to_native_plan_nodes() {
     let host = host_with_node(demo_node());
 
-    let plan = host
-        .store_coordination(
-            test_session(&host).as_ref(),
-            PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "goal": "Unify workflow updates"
-                }),
-                task_id: None,
-            },
-        )
-        .unwrap();
-    let plan_id = plan.state["id"].as_str().unwrap().to_string();
-
+    let plan_id = "plan:native-update".to_string();
     let node_id = "plan-node:native-update".to_string();
     let prism = host.current_prism();
     prism.replace_coordination_snapshot_and_plan_graphs(
@@ -2297,10 +2303,6 @@ fn mcp_plan_update_rehydrates_stale_coordination_runtime_before_mutating() {
         );
 
     let prism = host.current_prism();
-    assert!(
-        prism.coordination_plan(&plan_id).is_none(),
-        "continuity runtime should be stale for this regression setup"
-    );
     assert!(
         prism.plan_graph(&plan_id).is_some(),
         "plan runtime should still have the published plan graph"
@@ -4364,7 +4366,7 @@ return {{
 }
 
 #[test]
-fn task_backed_query_surfaces_ignore_native_plan_only_validation_fields() {
+fn task_backed_query_surfaces_follow_published_plan_validation_fields() {
     let host = host_with_node(demo_node());
 
     let plan = host
@@ -4373,7 +4375,7 @@ fn task_backed_query_surfaces_ignore_native_plan_only_validation_fields() {
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
                 payload: json!({
-                    "goal": "Keep task-backed query surfaces task-owned",
+                    "goal": "Keep task-backed query surfaces published-owned",
                     "policy": {
                         "requireValidationForCompletion": true
                     }
@@ -4420,7 +4422,7 @@ fn task_backed_query_surfaces_ignore_native_plan_only_validation_fields() {
     let native_graph = prism_ir::PlanGraph {
         id: plan_id.clone(),
         scope: prism_ir::PlanScope::Repo,
-        kind: prism_ir::PlanKind::Migration,
+        kind: prism_ir::PlanKind::TaskExecution,
         title: "Task-backed native graph".into(),
         goal: "Task-backed native graph".into(),
         status: prism_ir::PlanStatus::Active,
@@ -4478,23 +4480,23 @@ return {{
             ),
             QueryLanguage::Ts,
         )
-        .expect("task-backed query surfaces should prefer coordination-owned fields");
+        .expect("task-backed query surfaces should prefer published plan fields");
 
-    assert!(envelope.result["taskRecipe"]["checks"]
-        .as_array()
-        .is_some_and(|items| items.iter().any(|item| item == task_owned_check)));
-    assert!(envelope.result["taskRisk"]["missingValidations"]
-        .as_array()
-        .is_some_and(|items| items.iter().any(|item| item == task_owned_check)));
     assert!(!envelope.result["taskRecipe"]["checks"]
         .as_array()
-        .is_some_and(|items| items.iter().any(|item| item == native_only_check)));
+        .is_some_and(|items| items.iter().any(|item| item == task_owned_check)));
     assert!(!envelope.result["taskRisk"]["missingValidations"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item == task_owned_check)));
+    assert!(envelope.result["taskRecipe"]["checks"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item == native_only_check)));
+    assert!(envelope.result["taskRisk"]["missingValidations"]
         .as_array()
         .is_some_and(|items| items.iter().any(|item| item == native_only_check)));
     assert!(!envelope.result["validationPlan"]["fast"]
         .as_array()
-        .is_some_and(|items| items.iter().any(|item| item["label"] == native_only_check)));
+        .is_some_and(|items| items.iter().any(|item| item["label"] == task_owned_check)));
 
     let brief = host
         .compact_task_brief(
@@ -4503,15 +4505,15 @@ return {{
                 task_id: task_id.clone(),
             },
         )
-        .expect("task brief should stay aligned with coordination-owned validation fields");
+        .expect("task brief should stay aligned with published validation fields");
     assert!(brief
         .likely_validations
         .iter()
-        .any(|check| check == task_owned_check));
+        .any(|check| check == native_only_check));
     assert!(!brief
         .likely_validations
         .iter()
-        .any(|check| check == native_only_check));
+        .any(|check| check == task_owned_check));
 }
 
 #[test]
@@ -5328,7 +5330,7 @@ return {
     let payload_variants = coordination["payloadVariants"]
         .as_array()
         .expect("payload variants");
-    assert_eq!(payload_variants.len(), 10);
+    assert_eq!(payload_variants.len(), 12);
     let task_create_variant = payload_variants
         .iter()
         .find(|variant| variant["tag"] == "task_create")
@@ -5712,7 +5714,7 @@ fn prism_mutate_schema_expands_payload_shapes_for_structured_actions() {
         coordination_payload.schema["oneOf"]
             .as_array()
             .map(|variants| variants.len()),
-        Some(10)
+        Some(12)
     );
     let coordination_nested = coordination_payload
         .nested_fields

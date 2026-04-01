@@ -3,8 +3,9 @@ use prism_agent::InferredEdgeScope;
 use prism_coordination::{AcceptanceCriterion, CoordinationPolicy};
 use prism_ir::{
     AcceptanceEvidencePolicy, AnchorRef, Capability, ClaimMode, CoordinationTaskStatus, EdgeKind,
-    EventActor, NodeId, NodeKind, PlanAcceptanceCriterion, PlanBinding, PlanEdgeKind, PlanNodeKind,
-    PlanNodeStatus, PlanScope, PlanStatus, ReviewVerdict, ValidationRef,
+    EventActor, LeaseRenewalMode, NodeId, NodeKind, PlanAcceptanceCriterion, PlanBinding,
+    PlanEdgeKind, PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus, ReviewVerdict,
+    ValidationRef,
 };
 use prism_memory::{
     MemoryEventKind, MemoryKind, MemoryScope, OutcomeEvidence, OutcomeKind, OutcomeResult,
@@ -17,9 +18,10 @@ use crate::tool_args::ValidationRefPayload;
 use crate::{
     vocabulary_error, AcceptanceCriterionPayload, AcceptanceEvidencePolicyInput, AnchorRefInput,
     CapabilityInput, ClaimModeInput, CoordinationPolicyPayload, CoordinationTaskStatusInput,
-    InferredEdgeScopeInput, MemoryKindInput, MemorySourceInput, NodeIdInput, OutcomeEvidenceInput,
-    OutcomeKindInput, OutcomeResultInput, PlanBindingPayload, PlanEdgeKindInput, PlanNodeKindInput,
-    PlanNodeStatusInput, PlanStatusInput, ReviewVerdictInput, TaskCompletionContextPayload,
+    InferredEdgeScopeInput, LeaseRenewalModeInput, MemoryKindInput, MemorySourceInput, NodeIdInput,
+    OutcomeEvidenceInput, OutcomeKindInput, OutcomeResultInput, PlanBindingPayload,
+    PlanEdgeKindInput, PlanNodeKindInput, PlanNodeStatusInput, PlanStatusInput, ReviewVerdictInput,
+    TaskCompletionContextPayload,
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -818,6 +820,18 @@ pub(crate) fn convert_policy(
     }
     if let Some(value) = payload.review_required_above_risk_score {
         policy.review_required_above_risk_score = Some(value);
+    }
+    if let Some(value) = payload.lease_stale_after_seconds {
+        policy.lease_stale_after_seconds = value;
+    }
+    if let Some(value) = payload.lease_expires_after_seconds {
+        policy.lease_expires_after_seconds = value;
+    }
+    if let Some(value) = payload.lease_renewal_mode {
+        policy.lease_renewal_mode = match value {
+            LeaseRenewalModeInput::Strict => LeaseRenewalMode::Strict,
+            LeaseRenewalModeInput::Assisted => LeaseRenewalMode::Assisted,
+        };
     }
     Ok(Some(policy))
 }

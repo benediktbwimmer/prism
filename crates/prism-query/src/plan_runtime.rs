@@ -34,7 +34,6 @@ impl NativePlanRuntimeState {
         graphs: Vec<PlanGraph>,
         execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     ) -> Self {
-        let graphs = reconcile_plan_graphs_with_coordination(snapshot, graphs);
         let policies = snapshot
             .plans
             .iter()
@@ -136,6 +135,104 @@ impl NativePlanRuntimeState {
         }
         snapshot.plans = plan_snapshot.plans;
         snapshot.tasks = plan_snapshot.tasks;
+        snapshot.next_plan = snapshot.next_plan.max(self.next_plan);
+        snapshot.next_task = snapshot.next_task.max(self.next_task);
+        snapshot
+    }
+
+    pub(crate) fn apply_task_execution_authored_fields_to_coordination_snapshot(
+        &self,
+        mut snapshot: CoordinationSnapshot,
+    ) -> CoordinationSnapshot {
+        let task_runtime_scope = snapshot
+            .tasks
+            .iter()
+            .map(|task| {
+                (
+                    task.id.clone(),
+                    (
+                        task.pending_handoff_to.clone(),
+                        task.session.clone(),
+                        task.worktree_id.clone(),
+                        task.branch_ref.clone(),
+                    ),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+        let task_execution_graphs = self
+            .graphs
+            .values()
+            .filter(|graph| graph.kind == PlanKind::TaskExecution)
+            .cloned()
+            .map(|mut graph| {
+                let task_backed_node_ids = graph
+                    .nodes
+                    .iter()
+                    .filter(|node| is_task_backed_plan_node_id(node.id.0.as_str()))
+                    .map(|node| node.id.clone())
+                    .collect::<BTreeSet<_>>();
+                graph
+                    .nodes
+                    .retain(|node| task_backed_node_ids.contains(&node.id));
+                graph.edges.retain(|edge| {
+                    task_backed_node_ids.contains(&edge.from)
+                        && task_backed_node_ids.contains(&edge.to)
+                });
+                graph
+                    .root_nodes
+                    .retain(|node_id| task_backed_node_ids.contains(node_id));
+                graph
+            })
+            .filter(|graph| !graph.nodes.is_empty())
+            .collect::<Vec<_>>();
+        if task_execution_graphs.is_empty() {
+            return snapshot;
+        }
+        let task_execution_plan_ids = task_execution_graphs
+            .iter()
+            .map(|graph| graph.id.0.to_string())
+            .collect::<BTreeSet<_>>();
+        let task_execution_overlays = self
+            .execution_overlays
+            .iter()
+            .filter(|(plan_id, _)| task_execution_plan_ids.contains(plan_id.as_str()))
+            .map(|(plan_id, overlays)| (plan_id.clone(), overlays.clone()))
+            .collect::<BTreeMap<_, _>>();
+        let mut plan_snapshot = coordination_snapshot_from_plan_graphs(
+            &task_execution_graphs,
+            &task_execution_overlays,
+        );
+        for plan in &mut plan_snapshot.plans {
+            if let Some(policy) = self.policies.get(plan.id.0.as_str()) {
+                plan.policy = policy.clone();
+            }
+        }
+        snapshot
+            .plans
+            .retain(|plan| !task_execution_plan_ids.contains(plan.id.0.as_str()));
+        snapshot
+            .tasks
+            .retain(|task| !task_execution_plan_ids.contains(task.plan.0.as_str()));
+        snapshot.plans.extend(plan_snapshot.plans);
+        snapshot
+            .tasks
+            .extend(plan_snapshot.tasks.into_iter().map(|mut task| {
+                if let Some((pending_handoff_to, session, worktree_id, branch_ref)) =
+                    task_runtime_scope.get(&task.id)
+                {
+                    task.pending_handoff_to = pending_handoff_to.clone();
+                    task.session = session.clone();
+                    task.worktree_id = worktree_id.clone();
+                    task.branch_ref = branch_ref.clone();
+                }
+                task
+            }));
+        snapshot
+            .plans
+            .sort_by(|left, right| left.id.0.cmp(&right.id.0));
+        snapshot
+            .tasks
+            .sort_by(|left, right| left.id.0.cmp(&right.id.0));
         snapshot.next_plan = snapshot.next_plan.max(self.next_plan);
         snapshot.next_task = snapshot.next_task.max(self.next_task);
         snapshot
@@ -611,67 +708,6 @@ fn execution_overlays_by_plan(
         .collect()
 }
 
-fn reconcile_plan_graphs_with_coordination(
-    snapshot: &CoordinationSnapshot,
-    graphs: Vec<PlanGraph>,
-) -> Vec<PlanGraph> {
-    let mut tasks_by_plan = BTreeMap::<String, Vec<CoordinationTask>>::new();
-    for task in &snapshot.tasks {
-        tasks_by_plan
-            .entry(task.plan.0.to_string())
-            .or_default()
-            .push(task.clone());
-    }
-    graphs
-        .into_iter()
-        .map(|graph| {
-            if graph.kind != PlanKind::TaskExecution {
-                return graph;
-            }
-            let plan_id = graph.id.0.to_string();
-            reconcile_task_execution_graph(
-                graph,
-                tasks_by_plan.remove(plan_id.as_str()).unwrap_or_default(),
-            )
-        })
-        .collect()
-}
-
-fn reconcile_task_execution_graph(
-    mut graph: PlanGraph,
-    mut tasks: Vec<CoordinationTask>,
-) -> PlanGraph {
-    tasks.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    let task_node_ids = tasks
-        .iter()
-        .map(|task| task.id.0.as_str())
-        .collect::<BTreeSet<_>>();
-
-    let mut nodes = graph
-        .nodes
-        .into_iter()
-        .filter(|node| !task_node_ids.contains(node.id.0.as_str()))
-        .collect::<Vec<_>>();
-    nodes.extend(tasks.iter().map(plan_node_from_coordination_task));
-    nodes.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    graph.nodes = nodes;
-
-    let mut edges = graph
-        .edges
-        .into_iter()
-        .filter(|edge| {
-            !(edge.kind == PlanEdgeKind::DependsOn && task_node_ids.contains(edge.from.0.as_str()))
-        })
-        .collect::<Vec<_>>();
-    edges.extend(tasks.iter().flat_map(task_dependency_edges));
-    edges.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    edges.dedup_by(|left, right| left.id == right.id);
-    graph.edges = edges;
-
-    recompute_root_nodes(&mut graph);
-    graph
-}
-
 fn plan_acceptance_from_coordination(criterion: AcceptanceCriterion) -> PlanAcceptanceCriterion {
     PlanAcceptanceCriterion {
         label: criterion.label,
@@ -1107,26 +1143,12 @@ fn sync_dependency_edges(
     }
 }
 
-fn task_dependency_edges(task: &CoordinationTask) -> Vec<PlanEdge> {
-    task.depends_on
-        .iter()
-        .map(|dependency| PlanEdge {
-            id: dependency_edge_id(
-                &plan_node_id_from_task_id(task.id.clone()),
-                dependency.0.as_str(),
-            ),
-            plan_id: task.plan.clone(),
-            from: plan_node_id_from_task_id(task.id.clone()),
-            to: plan_node_id_from_task_id(dependency.clone()),
-            kind: PlanEdgeKind::DependsOn,
-            summary: None,
-            metadata: Value::Null,
-        })
-        .collect()
-}
-
 fn plan_node_id_from_task_id(task_id: CoordinationTaskId) -> PlanNodeId {
     PlanNodeId::new(task_id.0)
+}
+
+fn is_task_backed_plan_node_id(id: &str) -> bool {
+    id.starts_with("coord-task:")
 }
 
 fn map_coordination_task_status(status: prism_ir::CoordinationTaskStatus) -> PlanNodeStatus {

@@ -275,6 +275,14 @@ impl Store for SharedRuntimeStore {
         }
     }
 
+    fn load_projection_knowledge_snapshot(
+        &mut self,
+    ) -> Result<Option<prism_projections::ProjectionSnapshot>> {
+        match self {
+            Self::Sqlite(store) => store.load_projection_knowledge_snapshot(),
+        }
+    }
+
     fn save_projection_snapshot(
         &mut self,
         snapshot: &prism_projections::ProjectionSnapshot,

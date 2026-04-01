@@ -15,10 +15,14 @@ use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::{error, warn};
 
 use crate::checkpoint_materializer::CheckpointMaterializerHandle;
+use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator::{enqueue_curator_for_observed_locked, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
 use crate::layout::discover_layout;
-use crate::session::{WorkspaceRefreshResult, WorkspaceRefreshState, WorkspaceSession};
+use crate::session::{
+    published_plan_authority_fingerprint, WorkspaceRefreshResult, WorkspaceRefreshState,
+    WorkspaceSession,
+};
 use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::shared_runtime_store::SharedRuntimeStore;
@@ -96,7 +100,8 @@ pub(crate) fn spawn_fs_watch(
                 continue;
             };
             let mut dirty_paths = relevant_watch_paths(&root, &event);
-            if dirty_paths.is_empty() {
+            let mut published_plan_paths = relevant_published_plan_watch_paths(&root, &event);
+            if dirty_paths.is_empty() && published_plan_paths.is_empty() {
                 continue;
             }
 
@@ -104,44 +109,72 @@ pub(crate) fn spawn_fs_watch(
                 match next {
                     WatchMessage::Fs(Ok(next)) => {
                         let next_paths = relevant_watch_paths(&root, &next);
-                        if next_paths.is_empty() {
-                            continue;
+                        if !next_paths.is_empty() {
+                            dirty_paths.extend(next_paths);
                         }
-                        dirty_paths.extend(next_paths);
+                        let next_published_plan_paths =
+                            relevant_published_plan_watch_paths(&root, &next);
+                        if !next_published_plan_paths.is_empty() {
+                            published_plan_paths.extend(next_published_plan_paths);
+                        }
                     }
                     WatchMessage::Fs(Err(_)) => continue,
                     WatchMessage::Stop => return,
                 };
             }
 
-            refresh_state.mark_fs_dirty_paths(dirty_paths.iter().cloned());
+            if !dirty_paths.is_empty() {
+                refresh_state.mark_fs_dirty_paths(dirty_paths.iter().cloned());
 
-            if let Err(error) = refresh_prism_snapshot(
-                &root,
-                &published_generation,
-                &runtime_state,
-                &store,
-                &cold_query_store,
-                shared_runtime_store.as_ref(),
-                shared_runtime_sqlite.as_deref(),
-                &refresh_lock,
-                &refresh_state,
-                &loaded_workspace_revision,
-                &fs_snapshot,
-                checkpoint_materializer.clone(),
-                shared_runtime_materializer.clone(),
-                coordination_enabled,
-                curator.as_ref(),
-                ChangeTrigger::FsWatch,
-                None,
-                Some(dirty_paths),
-            ) {
-                error!(
-                    root = %root.display(),
-                    error = %error,
-                    error_chain = %format_error_chain(&error),
-                    "prism fs watch refresh failed"
-                );
+                if let Err(error) = refresh_prism_snapshot(
+                    &root,
+                    &published_generation,
+                    &runtime_state,
+                    &store,
+                    &cold_query_store,
+                    shared_runtime_store.as_ref(),
+                    shared_runtime_sqlite.as_deref(),
+                    &refresh_lock,
+                    &refresh_state,
+                    &loaded_workspace_revision,
+                    &fs_snapshot,
+                    checkpoint_materializer.clone(),
+                    shared_runtime_materializer.clone(),
+                    coordination_enabled,
+                    curator.as_ref(),
+                    ChangeTrigger::FsWatch,
+                    None,
+                    Some(dirty_paths),
+                ) {
+                    error!(
+                        root = %root.display(),
+                        error = %error,
+                        error_chain = %format_error_chain(&error),
+                        "prism fs watch refresh failed"
+                    );
+                }
+            }
+
+            if !published_plan_paths.is_empty() {
+                if let Err(error) = sync_published_plan_authority_if_changed(
+                    &root,
+                    &published_generation,
+                    &runtime_state,
+                    &store,
+                    &cold_query_store,
+                    shared_runtime_store.as_ref(),
+                    &refresh_lock,
+                    &refresh_state,
+                    &loaded_workspace_revision,
+                    coordination_enabled,
+                ) {
+                    error!(
+                        root = %root.display(),
+                        error = %error,
+                        error_chain = %format_error_chain(&error),
+                        "published plan authority reload failed"
+                    );
+                }
             }
         }
     });
@@ -243,6 +276,72 @@ pub(crate) fn try_refresh_prism_snapshot(
         guard,
     )?;
     Ok(Some(observed))
+}
+
+pub(crate) fn sync_published_plan_authority_if_changed(
+    root: &Path,
+    published_generation: &Arc<RwLock<WorkspacePublishedGeneration>>,
+    runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
+    store: &Arc<Mutex<SqliteStore>>,
+    cold_query_store: &Arc<Mutex<SqliteStore>>,
+    shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
+    refresh_lock: &Arc<Mutex<()>>,
+    refresh_state: &Arc<WorkspaceRefreshState>,
+    loaded_workspace_revision: &Arc<AtomicU64>,
+    coordination_enabled: bool,
+) -> Result<bool> {
+    let fingerprint = published_plan_authority_fingerprint(root)?;
+    if !refresh_state.update_published_plan_fingerprint(fingerprint) {
+        return Ok(false);
+    }
+    let guard = refresh_lock
+        .lock()
+        .expect("workspace refresh lock poisoned");
+    sync_published_plan_authority_with_guard(
+        root,
+        published_generation,
+        runtime_state,
+        store,
+        cold_query_store,
+        shared_runtime_store,
+        refresh_state,
+        loaded_workspace_revision,
+        coordination_enabled,
+        guard,
+    )
+}
+
+pub(crate) fn try_sync_published_plan_authority_if_changed(
+    root: &Path,
+    published_generation: &Arc<RwLock<WorkspacePublishedGeneration>>,
+    runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
+    store: &Arc<Mutex<SqliteStore>>,
+    cold_query_store: &Arc<Mutex<SqliteStore>>,
+    shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
+    refresh_lock: &Arc<Mutex<()>>,
+    refresh_state: &Arc<WorkspaceRefreshState>,
+    loaded_workspace_revision: &Arc<AtomicU64>,
+    coordination_enabled: bool,
+) -> Result<bool> {
+    let fingerprint = published_plan_authority_fingerprint(root)?;
+    if !refresh_state.update_published_plan_fingerprint(fingerprint) {
+        return Ok(false);
+    }
+    let Ok(guard) = refresh_lock.try_lock() else {
+        return Ok(false);
+    };
+    sync_published_plan_authority_with_guard(
+        root,
+        published_generation,
+        runtime_state,
+        store,
+        cold_query_store,
+        shared_runtime_store,
+        refresh_state,
+        loaded_workspace_revision,
+        coordination_enabled,
+        guard,
+    )
 }
 
 fn refresh_prism_snapshot_with_guard(
@@ -430,6 +529,75 @@ fn refresh_prism_snapshot_with_guard(
     })
 }
 
+fn sync_published_plan_authority_with_guard(
+    root: &Path,
+    published_generation: &Arc<RwLock<WorkspacePublishedGeneration>>,
+    runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
+    store: &Arc<Mutex<SqliteStore>>,
+    cold_query_store: &Arc<Mutex<SqliteStore>>,
+    shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
+    refresh_state: &Arc<WorkspaceRefreshState>,
+    loaded_workspace_revision: &Arc<AtomicU64>,
+    coordination_enabled: bool,
+    _guard: MutexGuard<'_, ()>,
+) -> Result<bool> {
+    if !coordination_enabled {
+        return Ok(false);
+    }
+    let started = Instant::now();
+    let state = if let Some(shared_runtime_store) = shared_runtime_store {
+        shared_runtime_store
+            .lock()
+            .expect("shared runtime store lock poisoned")
+            .load_hydrated_coordination_plan_state_for_root(root)?
+    } else {
+        store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .load_hydrated_coordination_plan_state_for_root(root)?
+    };
+    let snapshot = state
+        .as_ref()
+        .map(|state| state.snapshot.clone())
+        .unwrap_or_default();
+    let plan_graphs = state
+        .as_ref()
+        .map(|state| state.plan_graphs.clone())
+        .unwrap_or_default();
+    let execution_overlays = state
+        .as_ref()
+        .map(|state| state.execution_overlays.clone())
+        .unwrap_or_default();
+    let current_prism = published_generation
+        .read()
+        .expect("workspace published generation lock poisoned")
+        .prism_arc();
+    let workspace_revision = current_prism.workspace_revision();
+    let coordination_context = current_prism.coordination_context();
+    current_prism.replace_coordination_snapshot_and_plan_graphs(
+        snapshot.clone(),
+        plan_graphs.clone(),
+        execution_overlays.clone(),
+    );
+    let next = {
+        let mut runtime_state = runtime_state
+            .lock()
+            .expect("workspace runtime state lock poisoned");
+        runtime_state.replace_coordination_runtime(snapshot, plan_graphs, execution_overlays);
+        runtime_state.publish_generation(workspace_revision, coordination_context)
+    };
+    WorkspaceSession::attach_cold_query_backends(next.prism_arc().as_ref(), cold_query_store);
+    *published_generation
+        .write()
+        .expect("workspace published generation lock poisoned") = next;
+    refresh_state.record_runtime_refresh_observation(
+        "published_plan_authority_reload",
+        started.elapsed().as_millis() as u64,
+        loaded_workspace_revision.load(Ordering::Relaxed),
+    );
+    Ok(true)
+}
+
 fn can_scope_watch_refresh(root: &Path, dirty_paths: &[PathBuf]) -> bool {
     dirty_paths.iter().all(|path| path.starts_with(root))
 }
@@ -443,6 +611,19 @@ fn relevant_watch_paths(root: &Path, event: &Event) -> Vec<PathBuf> {
                 return Some(path.clone());
             };
             (!is_ignored_watch_relative_path(relative)).then(|| path.clone())
+        })
+        .collect()
+}
+
+fn relevant_published_plan_watch_paths(root: &Path, event: &Event) -> Vec<PathBuf> {
+    event
+        .paths
+        .iter()
+        .filter_map(|path| {
+            let Ok(relative) = path.strip_prefix(root) else {
+                return None;
+            };
+            is_published_plan_watch_relative_path(relative).then(|| path.clone())
         })
         .collect()
 }
@@ -473,6 +654,17 @@ fn is_ignored_watch_relative_path(relative: &Path) -> bool {
     )
 }
 
+fn is_published_plan_watch_relative_path(relative: &Path) -> bool {
+    let components = relative
+        .components()
+        .map(|component| component.as_os_str().to_string_lossy().into_owned())
+        .collect::<Vec<_>>();
+    matches!(
+        components.as_slice(),
+        [first, second, ..] if first == ".prism" && second == "plans"
+    )
+}
+
 fn format_error_chain(error: &anyhow::Error) -> String {
     error
         .chain()
@@ -483,7 +675,11 @@ fn format_error_chain(error: &anyhow::Error) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{can_scope_watch_refresh, is_ignored_watch_relative_path, relevant_watch_paths};
+    use super::{
+        can_scope_watch_refresh, is_ignored_watch_relative_path,
+        is_published_plan_watch_relative_path, relevant_published_plan_watch_paths,
+        relevant_watch_paths,
+    };
     use notify::{
         event::{EventAttributes, ModifyKind},
         Event, EventKind,
@@ -510,6 +706,9 @@ mod tests {
         assert!(is_ignored_watch_relative_path(
             PathBuf::from("node_modules/pkg/index.json").as_path()
         ));
+        assert!(is_ignored_watch_relative_path(
+            PathBuf::from(".prism/plans/active/plan:1.jsonl").as_path()
+        ));
         assert!(!is_ignored_watch_relative_path(
             PathBuf::from("crates/prism-core/src/watch.rs").as_path()
         ));
@@ -521,6 +720,7 @@ mod tests {
         let event = Event {
             kind: EventKind::Modify(ModifyKind::Any),
             paths: vec![
+                root.join(".prism/plans/active/plan:1.jsonl"),
                 root.join("benchmarks/results/local/prism/workspaces/demo/repo/src/lib.rs"),
                 root.join("crates/prism-core/src/watch.rs"),
             ],
@@ -529,6 +729,34 @@ mod tests {
 
         let paths = relevant_watch_paths(&root, &event);
         assert_eq!(paths, vec![root.join("crates/prism-core/src/watch.rs")]);
+    }
+
+    #[test]
+    fn published_plan_watch_paths_are_routed_separately() {
+        let root = PathBuf::from("/workspace/prism");
+        let event = Event {
+            kind: EventKind::Modify(ModifyKind::Any),
+            paths: vec![
+                root.join(".prism/plans/index.jsonl"),
+                root.join(".prism/plans/active/plan:1.jsonl"),
+                root.join("crates/prism-core/src/watch.rs"),
+            ],
+            attrs: EventAttributes::new(),
+        };
+
+        assert!(is_published_plan_watch_relative_path(
+            PathBuf::from(".prism/plans/active/plan:1.jsonl").as_path()
+        ));
+        assert!(!is_published_plan_watch_relative_path(
+            PathBuf::from(".prism/validation_feedback.jsonl").as_path()
+        ));
+        assert_eq!(
+            relevant_published_plan_watch_paths(&root, &event),
+            vec![
+                root.join(".prism/plans/index.jsonl"),
+                root.join(".prism/plans/active/plan:1.jsonl"),
+            ]
+        );
     }
 
     #[test]

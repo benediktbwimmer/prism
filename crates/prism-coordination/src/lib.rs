@@ -2,6 +2,7 @@ mod blockers;
 mod compat;
 mod event_replay;
 mod helpers;
+mod lease;
 mod mutations;
 mod queries;
 mod queue_read_model;
@@ -20,7 +21,7 @@ pub use crate::types::{
     CoordinationEvent, CoordinationPolicy, CoordinationSnapshot, CoordinationTask,
     HandoffAcceptInput, HandoffInput, Plan, PlanCreateInput, PlanUpdateInput, PolicyViolation,
     PolicyViolationCode, PolicyViolationRecord, TaskBlocker, TaskCompletionContext,
-    TaskCreateInput, TaskUpdateInput, WorkClaim,
+    TaskCreateInput, TaskReclaimInput, TaskResumeInput, TaskUpdateInput, WorkClaim,
 };
 pub use compat::{
     coordination_snapshot_from_plan_graphs, execution_overlays_from_tasks,

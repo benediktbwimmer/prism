@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use prism_coordination::{
-    HandoffAcceptInput, HandoffInput, PolicyViolation, TaskCreateInput, TaskUpdateInput,
+    HandoffAcceptInput, HandoffInput, PolicyViolation, TaskCreateInput, TaskReclaimInput,
+    TaskResumeInput, TaskUpdateInput,
 };
 use prism_core::{
     AdmissionBusyError, AuthenticatedPrincipal, ValidationFeedbackCategory,
@@ -64,9 +65,10 @@ use crate::{
     PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs, PrismSessionRepairArgs,
     PrismValidationFeedbackArgs, QueryHost, SessionRepairMutationResult,
     SessionRepairOperationInput, SessionRepairOperationSchema, SessionState, SparsePatch,
-    SparsePatchInput, TaskCreatePayload, ValidationFeedbackCategoryInput,
-    ValidationFeedbackMutationResult, ValidationFeedbackVerdictInput, WorkflowStatusInput,
-    WorkflowUpdatePayload, DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+    SparsePatchInput, TaskCreatePayload, TaskReclaimPayload, TaskResumePayload,
+    ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
+    ValidationFeedbackVerdictInput, WorkflowStatusInput, WorkflowUpdatePayload,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
 
 #[derive(Default)]
@@ -1920,6 +1922,54 @@ impl QueryHost {
                         base_revision: prism.workspace_revision(),
                     },
                     prism.workspace_revision(),
+                )?;
+                Ok(serde_json::to_value(coordination_task_view(task))?)
+            }
+            CoordinationMutationKindInput::Resume => {
+                let payload: TaskResumePayload = serde_json::from_value(args.payload)?;
+                let session_agent = session.current_agent();
+                if let (Some(expected), Some(current)) =
+                    (payload.agent.as_ref(), session_agent.as_ref())
+                {
+                    if expected != &current.0 {
+                        return Err(anyhow!(
+                            "task resume agent `{expected}` does not match current session agent `{}`",
+                            current.0
+                        ));
+                    }
+                }
+                let task = prism.resume_native_task(
+                    meta,
+                    TaskResumeInput {
+                        task_id: CoordinationTaskId::new(payload.task_id),
+                        agent: session_agent,
+                        worktree_id: None,
+                        branch_ref: None,
+                    },
+                )?;
+                Ok(serde_json::to_value(coordination_task_view(task))?)
+            }
+            CoordinationMutationKindInput::Reclaim => {
+                let payload: TaskReclaimPayload = serde_json::from_value(args.payload)?;
+                let session_agent = session.current_agent();
+                if let (Some(expected), Some(current)) =
+                    (payload.agent.as_ref(), session_agent.as_ref())
+                {
+                    if expected != &current.0 {
+                        return Err(anyhow!(
+                            "task reclaim agent `{expected}` does not match current session agent `{}`",
+                            current.0
+                        ));
+                    }
+                }
+                let task = prism.reclaim_native_task(
+                    meta,
+                    TaskReclaimInput {
+                        task_id: CoordinationTaskId::new(payload.task_id),
+                        agent: session_agent,
+                        worktree_id: None,
+                        branch_ref: None,
+                    },
                 )?;
                 Ok(serde_json::to_value(coordination_task_view(task))?)
             }

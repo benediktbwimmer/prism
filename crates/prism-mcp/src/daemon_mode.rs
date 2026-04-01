@@ -45,7 +45,7 @@ pub async fn serve_with_mode(cli: PrismMcpCli) -> Result<()> {
             let server = PrismMcpServer::from_workspace_with_features_and_shared_runtime(
                 &root,
                 cli.features(),
-                cli.shared_runtime_backend()?,
+                cli.shared_runtime_backend(&root)?,
             )?;
             server.serve_stdio().await
         }
@@ -70,7 +70,7 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
     let server = PrismMcpServer::from_workspace_with_features_and_shared_runtime(
         root,
         cli.features(),
-        cli.shared_runtime_backend()?,
+        cli.shared_runtime_backend(root)?,
     )?;
     info!(
         mode = "daemon",

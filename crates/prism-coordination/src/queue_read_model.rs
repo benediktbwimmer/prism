@@ -71,6 +71,8 @@ pub fn coordination_queue_read_model_from_seed(
             | prism_ir::CoordinationEventKind::TaskBlocked
             | prism_ir::CoordinationEventKind::TaskUnblocked
             | prism_ir::CoordinationEventKind::TaskStatusChanged
+            | prism_ir::CoordinationEventKind::TaskResumed
+            | prism_ir::CoordinationEventKind::TaskReclaimed
             | prism_ir::CoordinationEventKind::HandoffRequested
             | prism_ir::CoordinationEventKind::HandoffAccepted => {
                 refresh_pending_handoff_task(
