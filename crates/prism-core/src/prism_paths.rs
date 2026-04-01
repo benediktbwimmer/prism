@@ -5,6 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
+use prism_store::migrate_worktree_cache_from_shared_runtime;
 use serde::{Deserialize, Serialize};
 
 use crate::util::current_timestamp_millis;
@@ -139,6 +140,10 @@ impl PrismPaths {
             &self.repo_prism_dir.join("backups"),
             "cache.db",
             "state.db",
+        )?;
+        migrate_worktree_cache_from_shared_runtime(
+            &self.worktree_cache_db_path,
+            &self.shared_runtime_db_path,
         )?;
         Ok(self.worktree_cache_db_path.clone())
     }

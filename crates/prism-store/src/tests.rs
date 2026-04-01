@@ -12,21 +12,21 @@ use prism_ir::{
     PrincipalKind, PrincipalProfile, PrincipalRegistrySnapshot, PrincipalStatus, Span, TaskId,
 };
 use prism_memory::{
-    EpisodicMemorySnapshot, MemoryEntry, MemoryId, MemoryKind, MemorySource, OutcomeMemorySnapshot,
-    OutcomeRecallQuery,
+    EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryId, MemoryKind,
+    MemorySource, OutcomeMemorySnapshot, OutcomeRecallQuery,
 };
 use prism_parser::ParseDepth;
 use prism_projections::{
-    CoChangeDelta, CoChangeRecord, ConceptProvenance, ConceptRelation, ConceptRelationKind,
-    ConceptScope, ProjectionSnapshot, ValidationCheck, ValidationDelta,
+    CoChangeDelta, CoChangeRecord, ConceptPacket, ConceptProvenance, ConceptRelation,
+    ConceptRelationKind, ConceptScope, ProjectionSnapshot, ValidationCheck, ValidationDelta,
     MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE,
 };
 use rusqlite::Connection;
 
 use crate::{
-    AuxiliaryPersistBatch, CoordinationPersistBatch, CoordinationPersistContext, Graph,
-    IndexPersistBatch, MemoryStore, SqliteStore, Store, WorkspaceTreeDirectoryFingerprint,
-    WorkspaceTreeFileFingerprint, WorkspaceTreeSnapshot,
+    migrate_worktree_cache_from_shared_runtime, AuxiliaryPersistBatch, CoordinationPersistBatch,
+    CoordinationPersistContext, Graph, IndexPersistBatch, MemoryStore, SqliteStore, Store,
+    WorkspaceTreeDirectoryFingerprint, WorkspaceTreeFileFingerprint, WorkspaceTreeSnapshot,
 };
 
 fn node(name: &str) -> Node {
@@ -1317,6 +1317,348 @@ fn sqlite_store_persists_projections_in_dedicated_tables() {
     drop(store);
     let _ = std::fs::remove_file(path);
 }
+
+#[test]
+fn migrate_worktree_cache_moves_local_state_out_of_shared_runtime_db() {
+    let shared_path = temp_sqlite_path("prism-store-shared-runtime-migration");
+    let local_path = temp_sqlite_path("prism-store-worktree-cache-migration");
+    let mut shared = SqliteStore::open(&shared_path).unwrap();
+
+    let source_path = PathBuf::from("src/lib.rs");
+    let mut graph = Graph::new();
+    let alpha = node("alpha");
+    let lineage = LineageId::new("lineage:alpha");
+    graph.upsert_file_from(
+        None,
+        &source_path,
+        1,
+        ParseDepth::Deep,
+        vec![alpha.clone()],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        &[],
+    );
+    shared
+        .commit_index_persist_batch(
+            &graph,
+            &IndexPersistBatch {
+                upserted_paths: vec![source_path.clone()],
+                in_place_upserted_paths: Vec::new(),
+                removed_paths: Vec::new(),
+                history_snapshot: HistorySnapshot {
+                    node_to_lineage: vec![(alpha.id.clone(), lineage.clone())],
+                    events: vec![LineageEvent {
+                        meta: EventMeta {
+                            id: EventId::new("event:lineage:migration"),
+                            ts: 7,
+                            actor: EventActor::Agent,
+                            correlation: None,
+                            causation: None,
+                            execution_context: None,
+                        },
+                        lineage: lineage.clone(),
+                        kind: prism_ir::LineageEventKind::Updated,
+                        before: vec![alpha.id.clone()],
+                        after: vec![alpha.id.clone()],
+                        confidence: 1.0,
+                        evidence: vec![prism_ir::LineageEvidence::ExactNodeId],
+                    }],
+                    tombstones: Vec::new(),
+                    next_lineage: 2,
+                    next_event: 8,
+                },
+                history_delta: None,
+                outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+                outcome_events: Vec::new(),
+                defer_graph_materialization: false,
+                co_change_deltas: vec![CoChangeDelta {
+                    source_lineage: lineage.clone(),
+                    target_lineage: LineageId::new("lineage:beta"),
+                    count_delta: 1,
+                }],
+                validation_deltas: vec![ValidationDelta {
+                    lineage: lineage.clone(),
+                    label: "test:migration".to_string(),
+                    score_delta: 1.0,
+                    last_seen: 7,
+                }],
+                projection_snapshot: Some(ProjectionSnapshot {
+                    co_change_by_lineage: Vec::new(),
+                    validation_by_lineage: Vec::new(),
+                    curated_concepts: vec![
+                        ConceptPacket {
+                            handle: "concept://local-alpha".to_string(),
+                            canonical_name: "local-alpha".to_string(),
+                            summary: "local concept".to_string(),
+                            aliases: Vec::new(),
+                            confidence: 0.9,
+                            core_members: Vec::new(),
+                            core_member_lineages: Vec::new(),
+                            supporting_members: Vec::new(),
+                            supporting_member_lineages: Vec::new(),
+                            likely_tests: Vec::new(),
+                            likely_test_lineages: Vec::new(),
+                            evidence: Vec::new(),
+                            risk_hint: None,
+                            decode_lenses: Vec::new(),
+                            scope: ConceptScope::Local,
+                            provenance: ConceptProvenance {
+                                origin: "test".to_string(),
+                                kind: "migration".to_string(),
+                                task_id: None,
+                            },
+                            publication: None,
+                        },
+                        ConceptPacket {
+                            handle: "concept://session-alpha".to_string(),
+                            canonical_name: "session-alpha".to_string(),
+                            summary: "session concept".to_string(),
+                            aliases: Vec::new(),
+                            confidence: 0.8,
+                            core_members: Vec::new(),
+                            core_member_lineages: Vec::new(),
+                            supporting_members: Vec::new(),
+                            supporting_member_lineages: Vec::new(),
+                            likely_tests: Vec::new(),
+                            likely_test_lineages: Vec::new(),
+                            evidence: Vec::new(),
+                            risk_hint: None,
+                            decode_lenses: Vec::new(),
+                            scope: ConceptScope::Session,
+                            provenance: ConceptProvenance {
+                                origin: "test".to_string(),
+                                kind: "migration".to_string(),
+                                task_id: None,
+                            },
+                            publication: None,
+                        },
+                    ],
+                    concept_relations: vec![
+                        ConceptRelation {
+                            source_handle: "concept://local-alpha".to_string(),
+                            target_handle: "concept://local-beta".to_string(),
+                            kind: ConceptRelationKind::OftenUsedWith,
+                            scope: ConceptScope::Local,
+                            evidence: Vec::new(),
+                            confidence: 0.8,
+                            provenance: ConceptProvenance {
+                                origin: "test".to_string(),
+                                kind: "migration".to_string(),
+                                task_id: None,
+                            },
+                        },
+                        ConceptRelation {
+                            source_handle: "concept://session-alpha".to_string(),
+                            target_handle: "concept://session-beta".to_string(),
+                            kind: ConceptRelationKind::OftenUsedWith,
+                            scope: ConceptScope::Session,
+                            evidence: Vec::new(),
+                            confidence: 0.7,
+                            provenance: ConceptProvenance {
+                                origin: "test".to_string(),
+                                kind: "migration".to_string(),
+                                task_id: None,
+                            },
+                        },
+                    ],
+                }),
+                workspace_tree_snapshot: Some(WorkspaceTreeSnapshot {
+                    root_hash: 9,
+                    files: HashMap::from([(
+                        source_path.clone(),
+                        WorkspaceTreeFileFingerprint {
+                            len: 12,
+                            modified_ns: Some(1),
+                            changed_ns: Some(2),
+                            content_hash: 3,
+                        },
+                    )])
+                    .into_iter()
+                    .collect(),
+                    directories: HashMap::from([(
+                        PathBuf::from("src"),
+                        WorkspaceTreeDirectoryFingerprint {
+                            aggregate_hash: 4,
+                            file_count: 1,
+                            modified_ns: Some(5),
+                            changed_ns: Some(6),
+                        },
+                    )])
+                    .into_iter()
+                    .collect(),
+                }),
+            },
+        )
+        .unwrap();
+    shared
+        .save_curator_snapshot(&prism_curator::CuratorSnapshot {
+            records: Vec::new(),
+        })
+        .unwrap();
+    shared
+        .save_inference_snapshot(&InferenceSnapshot {
+            records: vec![InferredEdgeRecord {
+                id: EdgeId("edge:migration".to_string()),
+                edge: Edge {
+                    kind: EdgeKind::Calls,
+                    source: alpha.id.clone(),
+                    target: alpha.id.clone(),
+                    origin: EdgeOrigin::Inferred,
+                    confidence: 0.8,
+                },
+                scope: InferredEdgeScope::Persisted,
+                task: None,
+                evidence: vec!["test".to_string()],
+            }],
+        })
+        .unwrap();
+
+    let local_entry = MemoryEntry {
+        id: MemoryId("episodic:local".to_string()),
+        anchors: Vec::new(),
+        kind: MemoryKind::Episodic,
+        scope: prism_memory::MemoryScope::Local,
+        content: "local memory".to_string(),
+        metadata: serde_json::Value::Null,
+        created_at: 11,
+        source: MemorySource::Agent,
+        trust: 0.7,
+    };
+    let session_entry = MemoryEntry {
+        id: MemoryId("episodic:session".to_string()),
+        anchors: Vec::new(),
+        kind: MemoryKind::Episodic,
+        scope: prism_memory::MemoryScope::Session,
+        content: "session memory".to_string(),
+        metadata: serde_json::Value::Null,
+        created_at: 12,
+        source: MemorySource::Agent,
+        trust: 0.8,
+    };
+    let local_event = MemoryEvent::from_entry(
+        MemoryEventKind::Stored,
+        local_entry.clone(),
+        None,
+        Vec::new(),
+        Vec::new(),
+    );
+    let session_event = MemoryEvent::from_entry(
+        MemoryEventKind::Stored,
+        session_entry.clone(),
+        None,
+        Vec::new(),
+        Vec::new(),
+    );
+    shared
+        .append_memory_events(&[local_event.clone(), session_event.clone()])
+        .unwrap();
+    shared
+        .save_episodic_snapshot(&EpisodicMemorySnapshot {
+            entries: vec![local_entry.clone(), session_entry.clone()],
+        })
+        .unwrap();
+    drop(shared);
+
+    migrate_worktree_cache_from_shared_runtime(&local_path, &shared_path).unwrap();
+
+    let mut local = SqliteStore::open(&local_path).unwrap();
+    let mut shared = SqliteStore::open(&shared_path).unwrap();
+
+    assert!(local.load_graph().unwrap().is_some());
+    assert!(local.load_history_snapshot().unwrap().is_some());
+    assert!(local.load_workspace_tree_snapshot().unwrap().is_some());
+    assert!(local.load_curator_snapshot().unwrap().is_some());
+    assert!(local.load_inference_snapshot().unwrap().is_some());
+    assert_eq!(
+        local.load_memory_events().unwrap(),
+        vec![local_event]
+    );
+    assert_eq!(
+        local.load_episodic_snapshot().unwrap().unwrap().entries,
+        vec![local_entry]
+    );
+    let local_projection = local.load_projection_snapshot().unwrap().unwrap();
+    assert_eq!(local_projection.curated_concepts.len(), 1);
+    assert_eq!(local_projection.curated_concepts[0].scope, ConceptScope::Local);
+    assert_eq!(local_projection.concept_relations.len(), 1);
+    assert_eq!(local_projection.concept_relations[0].scope, ConceptScope::Local);
+
+    assert!(shared.load_graph().unwrap().is_none());
+    assert!(shared.load_history_snapshot().unwrap().is_none());
+    assert!(shared.load_workspace_tree_snapshot().unwrap().is_none());
+    assert!(shared.load_curator_snapshot().unwrap().is_none());
+    assert!(shared.load_inference_snapshot().unwrap().is_none());
+    assert_eq!(
+        shared.load_memory_events().unwrap(),
+        vec![session_event]
+    );
+    assert_eq!(
+        shared.load_episodic_snapshot().unwrap().unwrap().entries,
+        vec![session_entry]
+    );
+    let shared_projection = shared.load_projection_knowledge_snapshot().unwrap().unwrap();
+    assert_eq!(shared_projection.curated_concepts.len(), 1);
+    assert_eq!(shared_projection.curated_concepts[0].scope, ConceptScope::Session);
+    assert_eq!(shared_projection.concept_relations.len(), 1);
+    assert_eq!(shared_projection.concept_relations[0].scope, ConceptScope::Session);
+
+    let _ = std::fs::remove_file(local_path);
+    let _ = std::fs::remove_file(shared_path);
+}
+
+#[test]
+fn migrate_worktree_cache_copies_outcome_compat_state_from_shared_runtime() {
+    let shared_path = temp_sqlite_path("prism-store-shared-outcome-compat");
+    let local_path = temp_sqlite_path("prism-store-local-outcome-compat");
+    let mut shared = SqliteStore::open(&shared_path).unwrap();
+    let event = prism_memory::OutcomeEvent {
+        meta: EventMeta {
+            id: EventId::new("outcome:migration"),
+            ts: 17,
+            actor: EventActor::Agent,
+            correlation: Some(TaskId::new("task:migration")),
+            causation: None,
+            execution_context: None,
+        },
+        anchors: vec![prism_ir::AnchorRef::Lineage(LineageId::new("lineage:outcome"))],
+        kind: prism_memory::OutcomeKind::FailureObserved,
+        result: prism_memory::OutcomeResult::Failure,
+        summary: "migrated outcome".to_string(),
+        evidence: Vec::new(),
+        metadata: serde_json::Value::Null,
+    };
+    shared.append_outcome_events(&[event.clone()], &[]).unwrap();
+    drop(shared);
+
+    migrate_worktree_cache_from_shared_runtime(&local_path, &shared_path).unwrap();
+
+    let local = SqliteStore::open(&local_path).unwrap();
+    let shared = SqliteStore::open(&shared_path).unwrap();
+    assert_eq!(
+        local.load_task_replay(&TaskId::new("task:migration")).unwrap().events,
+        vec![event.clone()]
+    );
+    assert_eq!(
+        shared.load_task_replay(&TaskId::new("task:migration")).unwrap().events,
+        vec![event]
+    );
+
+    let _ = std::fs::remove_file(local_path);
+    let _ = std::fs::remove_file(shared_path);
+}
+
+fn temp_sqlite_path(prefix: &str) -> PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    std::env::temp_dir().join(format!("{prefix}-{nanos}.db"))
+}
+
 
 #[test]
 fn sqlite_store_round_trips_workspace_tree_snapshot() {

@@ -14,7 +14,7 @@ pub use persistence::{
     ColdQueryStore, CoordinationCheckpointStore, CoordinationJournal, EventJournalStore,
     MaterializationStore,
 };
-pub use sqlite::{SnapshotRevisions, SqliteStore};
+pub use sqlite::{migrate_worktree_cache_from_shared_runtime, SnapshotRevisions, SqliteStore};
 pub use store::{
     AuxiliaryPersistBatch, CoordinationEventStream, CoordinationPersistBatch,
     CoordinationPersistContext, CoordinationPersistResult, IndexPersistBatch, Store,

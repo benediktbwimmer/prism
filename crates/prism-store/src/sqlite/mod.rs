@@ -6,6 +6,7 @@ mod graph_io;
 mod history_io;
 mod inference_records;
 mod memory_entries;
+mod migration;
 mod outcome_events;
 mod projections;
 mod schema;
@@ -85,6 +86,8 @@ pub struct SqliteStore {
     outcome_snapshot_cache: Option<CachedSnapshot<OutcomeMemorySnapshot>>,
     episodic_snapshot_cache: Option<CachedSnapshot<EpisodicMemorySnapshot>>,
 }
+
+pub use migration::migrate_worktree_cache_from_shared_runtime;
 
 impl SqliteStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
