@@ -8426,6 +8426,41 @@ def helper():
 }
 
 #[test]
+fn compact_gather_for_docs_prefers_defining_heading_over_earlier_mentions() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn helper() {}\n").unwrap();
+    fs::write(
+        root.join("docs/PRISM_CROSS_REPO_FUTURE_DESIGN.md"),
+        "# PRISM Cross-Repo Future\n\n## 3. Design goals\n\n- cross-repo contracts\n- cross-repo plans\n- promoted cross-repo memories\n\n### 8.3 Cross-repo plans\n\nCross-repo plans are one of the highest-upside future directions.\n",
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let gather = host
+        .compact_gather(
+            Arc::clone(&session),
+            PrismGatherArgs {
+                query: "Cross-repo plans".to_string(),
+                path: Some("docs/PRISM_CROSS_REPO_FUTURE_DESIGN.md".to_string()),
+                glob: None,
+                limit: Some(1),
+            },
+        )
+        .expect("gather should succeed");
+
+    assert_eq!(gather.matches.len(), 1);
+    assert!(gather.matches[0].text.contains("### 8.3 Cross-repo plans"));
+    let promoted = gather.matches[0]
+        .promoted_handle
+        .as_ref()
+        .expect("markdown gather should promote a heading handle");
+    assert_eq!(promoted.kind, NodeKind::MarkdownHeading);
+    assert!(promoted.path.contains("8_3_cross_repo_plans"));
+}
+
+#[test]
 fn compact_locate_promotes_numbered_markdown_headings_to_semantic_handles() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("docs")).unwrap();
@@ -12488,18 +12523,16 @@ fn query_replay_cases_cover_real_failures_and_repo_queries() {
 #[test]
 fn prism_runtime_views_surface_status_logs_and_timeline() {
     let root = temp_workspace();
-    let prism_dir = root.join(".prism");
-    fs::create_dir_all(&prism_dir).unwrap();
+    let session = index_workspace_session(&root).unwrap();
+    let prism_paths = PrismPaths::for_workspace_root(session.root()).unwrap();
+    let uri_file = prism_paths.mcp_http_uri_path().unwrap();
+    let log_path = prism_paths.mcp_daemon_log_path().unwrap();
 
     let addr = "127.0.0.1:9";
 
+    fs::write(&uri_file, format!("http://{addr}/mcp\n")).unwrap();
     fs::write(
-        prism_dir.join("prism-mcp-http-uri"),
-        format!("http://{addr}/mcp\n"),
-    )
-    .unwrap();
-    fs::write(
-        prism_dir.join("prism-mcp-daemon.log"),
+        &log_path,
         [
             json!({
                 "timestamp": "2026-03-26T15:12:35Z",
@@ -12545,7 +12578,7 @@ fn prism_runtime_views_surface_status_logs_and_timeline() {
     )
     .unwrap();
 
-    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+    let host = host_with_session_internal(session);
     let result = host
         .execute(
             test_session(&host),
@@ -12581,10 +12614,10 @@ return {
         status["uri"].as_str().unwrap_or_default(),
         format!("http://{addr}/mcp")
     );
-    assert!(status["logPath"]
-        .as_str()
-        .unwrap_or_default()
-        .ends_with(".prism/prism-mcp-daemon.log"));
+    assert_eq!(
+        status["logPath"].as_str().unwrap_or_default(),
+        log_path.display().to_string()
+    );
     assert!(status["cachePath"]
         .as_str()
         .unwrap_or_default()
@@ -12617,18 +12650,18 @@ return {
 #[test]
 fn prism_connection_info_surfaces_direct_daemon_endpoint_without_internal_mode() {
     let root = temp_workspace();
-    let prism_dir = root.join(".prism");
-    fs::create_dir_all(&prism_dir).unwrap();
+    let session = index_workspace_session(&root).unwrap();
+    let prism_paths = PrismPaths::for_workspace_root(session.root()).unwrap();
     let addr = "127.0.0.1:9";
 
     fs::write(
-        prism_dir.join("prism-mcp-http-uri"),
+        prism_paths.mcp_http_uri_path().unwrap(),
         format!("http://{addr}/mcp\n"),
     )
     .unwrap();
-    fs::write(prism_dir.join("prism-mcp-daemon.log"), "").unwrap();
+    fs::write(prism_paths.mcp_daemon_log_path().unwrap(), "").unwrap();
 
-    let host = host_with_session(index_workspace_session(&root).unwrap());
+    let host = host_with_session(session);
     let result = host
         .execute(
             test_session(&host),
@@ -12653,16 +12686,15 @@ fn prism_connection_info_surfaces_direct_daemon_endpoint_without_internal_mode()
 #[test]
 fn prism_runtime_views_prefer_structured_runtime_state() {
     let root = temp_workspace();
-    let prism_dir = root.join(".prism");
-    fs::create_dir_all(&prism_dir).unwrap();
+    let prism_paths = PrismPaths::for_workspace_root(&root).unwrap();
     let addr = "127.0.0.1:9";
 
     fs::write(
-        prism_dir.join("prism-mcp-http-uri"),
+        prism_paths.mcp_http_uri_path().unwrap(),
         format!("http://{addr}/mcp\n"),
     )
     .unwrap();
-    fs::write(prism_dir.join("prism-mcp-daemon.log"), "").unwrap();
+    fs::write(prism_paths.mcp_daemon_log_path().unwrap(), "").unwrap();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
     let workspace = host.workspace_session().expect("workspace-backed host");
     let source_path = root.join("src/lib.rs");
@@ -12674,7 +12706,7 @@ fn prism_runtime_views_prefer_structured_runtime_state() {
         .last_refresh()
         .expect("workspace refresh should record live refresh metadata");
     fs::write(
-        prism_dir.join("prism-mcp-runtime.json"),
+        prism_paths.mcp_runtime_state_path().unwrap(),
         json!({
             "processes": [
                 {
@@ -12808,19 +12840,18 @@ return {
 #[test]
 fn prism_runtime_views_do_not_source_freshness_from_runtime_state_refresh_events() {
     let root = temp_workspace();
-    let prism_dir = root.join(".prism");
-    fs::create_dir_all(&prism_dir).unwrap();
+    let prism_paths = PrismPaths::for_workspace_root(&root).unwrap();
     let addr = "127.0.0.1:9";
 
     fs::write(
-        prism_dir.join("prism-mcp-http-uri"),
+        prism_paths.mcp_http_uri_path().unwrap(),
         format!("http://{addr}/mcp\n"),
     )
     .unwrap();
-    fs::write(prism_dir.join("prism-mcp-daemon.log"), "").unwrap();
+    fs::write(prism_paths.mcp_daemon_log_path().unwrap(), "").unwrap();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
     fs::write(
-        prism_dir.join("prism-mcp-runtime.json"),
+        prism_paths.mcp_runtime_state_path().unwrap(),
         json!({
             "processes": [],
             "events": [
@@ -12959,20 +12990,17 @@ fn prism_runtime_views_surface_startup_recovery_work() {
 fn prism_runtime_views_ignore_invalid_runtime_state_sidecar() {
     let root = temp_workspace();
     fs::write(root.join(".gitignore"), ".prism/\n").unwrap();
-    fs::create_dir_all(root.join(".prism")).unwrap();
+    let session = index_workspace_session(&root).unwrap();
+    let prism_paths = PrismPaths::for_workspace_root(session.root()).unwrap();
+    fs::write(prism_paths.mcp_runtime_state_path().unwrap(), "{ invalid").unwrap();
+    fs::write(prism_paths.mcp_daemon_log_path().unwrap(), "").unwrap();
     fs::write(
-        root.join(".prism").join("prism-mcp-runtime.json"),
-        "{ invalid",
-    )
-    .unwrap();
-    fs::write(root.join(".prism").join("prism-mcp-daemon.log"), "").unwrap();
-    fs::write(
-        root.join(".prism").join("prism-mcp-http-uri"),
+        prism_paths.mcp_http_uri_path().unwrap(),
         "http://127.0.0.1:9/mcp",
     )
     .unwrap();
 
-    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+    let host = host_with_session_internal(session);
     let result = host
         .execute(
             test_session(&host),

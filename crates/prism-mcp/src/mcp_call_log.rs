@@ -7,6 +7,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
+use prism_core::PrismPaths;
 use prism_ir::{new_prefixed_id, new_sortable_token};
 use prism_js::{
     McpCallLogEntryView, McpCallPayloadSummaryView, McpCallStatsBucketView, McpCallStatsView,
@@ -341,7 +342,9 @@ impl McpCallFilter {
 }
 
 pub(crate) fn default_mcp_call_log_path(root: &Path) -> PathBuf {
-    root.join(".prism").join("prism-mcp-call-log.jsonl")
+    PrismPaths::for_workspace_root(root)
+        .and_then(|paths| paths.mcp_call_log_path())
+        .unwrap_or_else(|_| root.join(".prism").join("prism-mcp-call-log.jsonl"))
 }
 
 pub(crate) fn summarize_query(query_text: &str, kind: &str) -> String {
@@ -1232,7 +1235,10 @@ mod tests {
         let root = Path::new("/tmp/prism-mcp-log-tests");
         assert_eq!(
             default_mcp_call_log_path(root),
-            root.join(".prism").join("prism-mcp-call-log.jsonl")
+            PrismPaths::for_workspace_root(root)
+                .unwrap()
+                .mcp_call_log_path()
+                .unwrap()
         );
     }
 }

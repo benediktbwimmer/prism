@@ -174,6 +174,30 @@ impl ReloadMaterialization {
     }
 }
 
+struct WorkspaceRuntimeCommandOutcome {
+    report: WorkspaceRefreshReport,
+    follow_up_commands: Vec<WorkspaceRuntimeCommand>,
+}
+
+impl WorkspaceRuntimeCommandOutcome {
+    fn new(report: WorkspaceRefreshReport) -> Self {
+        Self {
+            report,
+            follow_up_commands: Vec::new(),
+        }
+    }
+
+    fn with_follow_up_commands(
+        report: WorkspaceRefreshReport,
+        follow_up_commands: Vec<WorkspaceRuntimeCommand>,
+    ) -> Self {
+        Self {
+            report,
+            follow_up_commands,
+        }
+    }
+}
+
 impl WorkspaceRuntime {
     pub(crate) fn spawn(config: WorkspaceRuntimeConfig) -> Self {
         let engine = Arc::clone(&config.runtime_engine);
@@ -224,7 +248,7 @@ impl WorkspaceRuntime {
                         .runtime_engine
                         .lock()
                         .expect("workspace runtime engine lock poisoned")
-                        .finish_active_command();
+                        .retry_active_command();
                     config
                         .workspace
                         .record_runtime_refresh_observation_with_work(
@@ -252,6 +276,15 @@ impl WorkspaceRuntime {
                 );
                 continue;
             }
+            let outcome = sync_result.expect("success handled above");
+            if outcome.report.deferred {
+                config
+                    .runtime_engine
+                    .lock()
+                    .expect("workspace runtime engine lock poisoned")
+                    .retry_active_command();
+                continue;
+            }
             let _ = refresh_cached_runtime_status_for_config(
                 &crate::workspace_diagnostics::WorkspaceDiagnosticsConfig {
                     workspace: Arc::clone(&config.workspace),
@@ -268,7 +301,7 @@ impl WorkspaceRuntime {
                 .runtime_engine
                 .lock()
                 .expect("workspace runtime engine lock poisoned")
-                .finish_active_command();
+                .complete_active_command(outcome.follow_up_commands);
         });
         Self {
             engine,
@@ -333,15 +366,18 @@ impl Drop for WorkspaceRuntime {
 fn run_workspace_runtime_command(
     config: &WorkspaceRuntimeConfig,
     command: &WorkspaceRuntimeCommand,
-) -> Result<WorkspaceRefreshReport> {
+) -> Result<WorkspaceRuntimeCommandOutcome> {
     match command.kind {
         WorkspaceRuntimeCommandKind::PreparePaths => {
-            sync_workspace_prepare_paths(config, command.paths.as_slice())
+            run_workspace_prepare_paths_command(config, command.paths.as_slice())
+        }
+        WorkspaceRuntimeCommandKind::SettleDomain(domain) => {
+            sync_workspace_settle_domain(config, domain).map(WorkspaceRuntimeCommandOutcome::new)
         }
         WorkspaceRuntimeCommandKind::MaterializeCheckpoint => {
-            sync_workspace_runtime_materialization(config)
+            sync_workspace_runtime_materialization(config).map(WorkspaceRuntimeCommandOutcome::new)
         }
-        _ => sync_workspace_runtime(config),
+        _ => sync_workspace_runtime(config).map(WorkspaceRuntimeCommandOutcome::new),
     }
 }
 
@@ -904,10 +940,10 @@ pub(crate) fn sync_persisted_workspace_state(
     })
 }
 
-fn sync_workspace_prepare_paths(
+fn run_workspace_prepare_paths_command(
     config: &WorkspaceRuntimeConfig,
     dirty_paths: &[PathBuf],
-) -> Result<WorkspaceRefreshReport> {
+) -> Result<WorkspaceRuntimeCommandOutcome> {
     let lock_wait_started = Instant::now();
     let _guard = config
         .sync_lock
@@ -930,15 +966,17 @@ fn sync_workspace_prepare_paths(
     let workspace_reloaded = refresh_path == "full";
     if refresh_path == "deferred" {
         let duration_ms = started.elapsed().as_millis();
-        return Ok(dirty_workspace_deferred_report(
-            config,
-            true,
-            WorkspaceRefreshMetrics {
-                lock_wait_ms,
-                lock_hold_ms: u64::try_from(duration_ms).unwrap_or(u64::MAX),
-                fs_refresh_ms,
-                ..WorkspaceRefreshMetrics::default()
-            },
+        return Ok(WorkspaceRuntimeCommandOutcome::new(
+            dirty_workspace_deferred_report(
+                config,
+                true,
+                WorkspaceRefreshMetrics {
+                    lock_wait_ms,
+                    lock_hold_ms: u64::try_from(duration_ms).unwrap_or(u64::MAX),
+                    fs_refresh_ms,
+                    ..WorkspaceRefreshMetrics::default()
+                },
+            ),
         ));
     }
     config.loaded_workspace_revision.store(
@@ -1032,13 +1070,209 @@ fn sync_workspace_prepare_paths(
             "workspaceReloaded": workspace_reloaded,
         }),
     );
+    Ok(WorkspaceRuntimeCommandOutcome::with_follow_up_commands(
+        WorkspaceRefreshReport {
+            refresh_path,
+            runtime_sync_used: true,
+            deferred: false,
+            episodic_reloaded: false,
+            inference_reloaded: false,
+            coordination_reloaded: false,
+            metrics,
+        },
+        follow_up_runtime_commands(config, &revisions, refresh_path),
+    ))
+}
+
+fn follow_up_runtime_commands(
+    config: &WorkspaceRuntimeConfig,
+    revisions: &WorkspaceSnapshotRevisions,
+    refresh_path: &str,
+) -> Vec<WorkspaceRuntimeCommand> {
+    let mut commands = Vec::new();
+    if config.loaded_episodic_revision.load(Ordering::Relaxed) != revisions.episodic {
+        commands.push(WorkspaceRuntimeCommand::new(
+            WorkspaceRuntimeCommandKind::SettleDomain(RuntimeDomain::MemoryReanchor),
+            WorkspaceRuntimeQueueClass::Settle,
+            WorkspaceRuntimeCoalescingKey::Domain(RuntimeDomain::MemoryReanchor),
+        ));
+    }
+    if config.loaded_inference_revision.load(Ordering::Relaxed) != revisions.inference {
+        commands.push(WorkspaceRuntimeCommand::new(
+            WorkspaceRuntimeCommandKind::SettleDomain(RuntimeDomain::Projections),
+            WorkspaceRuntimeQueueClass::Settle,
+            WorkspaceRuntimeCoalescingKey::Domain(RuntimeDomain::Projections),
+        ));
+    }
+    if config.loaded_coordination_revision.load(Ordering::Relaxed) != revisions.coordination {
+        commands.push(WorkspaceRuntimeCommand::new(
+            WorkspaceRuntimeCommandKind::SettleDomain(RuntimeDomain::Coordination),
+            WorkspaceRuntimeQueueClass::Settle,
+            WorkspaceRuntimeCoalescingKey::Domain(RuntimeDomain::Coordination),
+        ));
+    }
+    if refresh_path != "none" {
+        commands.push(WorkspaceRuntimeCommand::new(
+            WorkspaceRuntimeCommandKind::MaterializeCheckpoint,
+            WorkspaceRuntimeQueueClass::CheckpointMaterialization,
+            WorkspaceRuntimeCoalescingKey::WorktreeContext,
+        ));
+    }
+    commands
+}
+
+fn sync_workspace_settle_domain(
+    config: &WorkspaceRuntimeConfig,
+    domain: RuntimeDomain,
+) -> Result<WorkspaceRefreshReport> {
+    let lock_wait_started = Instant::now();
+    let _guard = config
+        .sync_lock
+        .lock()
+        .expect("workspace runtime sync lock poisoned");
+    let lock_wait_ms = elapsed_ms(lock_wait_started);
+    if config.workspace.needs_refresh() {
+        return Ok(dirty_workspace_deferred_report(
+            config,
+            true,
+            WorkspaceRefreshMetrics {
+                lock_wait_ms,
+                ..WorkspaceRefreshMetrics::default()
+            },
+        ));
+    }
+
+    let started = Instant::now();
+    let revisions_started = Instant::now();
+    let revisions = config.workspace.snapshot_revisions_for_runtime()?;
+    let snapshot_revisions_ms = elapsed_ms(revisions_started);
+
+    let (
+        episodic_reload,
+        inference_reload,
+        coordination_reload,
+        load_episodic_ms,
+        load_inference_ms,
+        load_coordination_ms,
+    ) = match domain {
+        RuntimeDomain::MemoryReanchor => {
+            let reload_started = Instant::now();
+            let reload = reload_episodic_snapshot_if_needed(config, revisions.episodic)?;
+            (reload, None, None, elapsed_ms(reload_started), 0, 0)
+        }
+        RuntimeDomain::Projections => {
+            let reload_started = Instant::now();
+            let reload = reload_inference_snapshot_if_needed(config, revisions.inference)?;
+            (None, reload, None, 0, elapsed_ms(reload_started), 0)
+        }
+        RuntimeDomain::Coordination => {
+            let reload_started = Instant::now();
+            let reload = reload_coordination_snapshot_if_needed(config, revisions.coordination)?;
+            (None, None, reload, 0, 0, elapsed_ms(reload_started))
+        }
+        _ => (None, None, None, 0, 0, 0),
+    };
+
+    let episodic_reloaded = episodic_reload.is_some();
+    let inference_reloaded = inference_reload.is_some();
+    let coordination_reloaded = coordination_reload.is_some();
+    let reload_materialization = episodic_reload
+        .unwrap_or_default()
+        .add(inference_reload.unwrap_or_default())
+        .add(coordination_reload.unwrap_or_default());
+    let duration_ms = started.elapsed().as_millis();
+    let metrics = WorkspaceRefreshMetrics {
+        lock_wait_ms,
+        lock_hold_ms: u64::try_from(duration_ms).unwrap_or(u64::MAX),
+        fs_refresh_ms: 0,
+        snapshot_revisions_ms,
+        load_episodic_ms,
+        load_inference_ms,
+        load_coordination_ms,
+        loaded_bytes: reload_materialization.loaded_bytes,
+        replay_volume: reload_materialization.replay_volume,
+        full_rebuild_count: 0,
+        workspace_reloaded: false,
+    };
+    let refresh_path = if episodic_reloaded || inference_reloaded || coordination_reloaded {
+        "settle"
+    } else {
+        "none"
+    };
+    if refresh_path != "none" {
+        publish_runtime_generation(config, &revisions, refresh_path, Vec::new());
+    }
+    log_refresh_workspace(
+        refresh_path,
+        config.loaded_workspace_revision.load(Ordering::Relaxed),
+        config.loaded_episodic_revision.load(Ordering::Relaxed),
+        config.loaded_inference_revision.load(Ordering::Relaxed),
+        config.loaded_coordination_revision.load(Ordering::Relaxed),
+        config.workspace.as_ref(),
+        episodic_reloaded,
+        inference_reloaded,
+        coordination_reloaded,
+        duration_ms,
+        metrics,
+    );
+    config.dashboard_state.publish_value(
+        "runtime.refreshed",
+        json!({
+            "refreshPath": refresh_path,
+            "durationMs": duration_ms,
+            "coordinationReloaded": coordination_reloaded,
+            "deferred": false,
+            "episodicReloaded": episodic_reloaded,
+            "fsAppliedRevision": config.workspace.applied_fs_revision(),
+            "fsDirty": config.workspace.observed_fs_revision() != config.workspace.applied_fs_revision(),
+            "fsObservedRevision": config.workspace.observed_fs_revision(),
+            "lockWaitMs": metrics.lock_wait_ms,
+            "lockHoldMs": metrics.lock_hold_ms,
+            "fsRefreshMs": 0,
+            "snapshotRevisionsMs": metrics.snapshot_revisions_ms,
+            "loadEpisodicMs": metrics.load_episodic_ms,
+            "loadInferenceMs": metrics.load_inference_ms,
+            "loadCoordinationMs": metrics.load_coordination_ms,
+            "loadedBytes": metrics.loaded_bytes,
+            "replayVolume": metrics.replay_volume,
+            "fullRebuildCount": 0,
+            "inferenceReloaded": inference_reloaded,
+            "loadedCoordinationRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
+            "loadedEpisodicRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
+            "loadedInferenceRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
+            "loadedWorkspaceRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
+            "materialization": {
+                "workspace": {
+                    "currentRevision": revisions.workspace,
+                    "loadedRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
+                    "status": revision_status(config.loaded_workspace_revision.load(Ordering::Relaxed), revisions.workspace),
+                },
+                "episodic": {
+                    "currentRevision": revisions.episodic,
+                    "loadedRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
+                    "status": revision_status(config.loaded_episodic_revision.load(Ordering::Relaxed), revisions.episodic),
+                },
+                "inference": {
+                    "currentRevision": revisions.inference,
+                    "loadedRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
+                    "status": revision_status(config.loaded_inference_revision.load(Ordering::Relaxed), revisions.inference),
+                },
+                "coordination": {
+                    "currentRevision": revisions.coordination,
+                    "loadedRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
+                    "status": revision_status(config.loaded_coordination_revision.load(Ordering::Relaxed), revisions.coordination),
+                }
+            },
+            "workspaceReloaded": false,
+        }),
+    );
     Ok(WorkspaceRefreshReport {
         refresh_path,
         runtime_sync_used: true,
         deferred: false,
-        episodic_reloaded: false,
-        inference_reloaded: false,
-        coordination_reloaded: false,
+        episodic_reloaded,
+        inference_reloaded,
+        coordination_reloaded,
         metrics,
     })
 }
@@ -1573,7 +1807,8 @@ mod tests {
         let scoped_path = root.join("src/lib.rs");
         thread::sleep(Duration::from_millis(300));
 
-        let report = sync_workspace_prepare_paths(&config, &[scoped_path]).unwrap();
+        let outcome = run_workspace_prepare_paths_command(&config, &[scoped_path]).unwrap();
+        let report = outcome.report;
 
         assert!(matches!(
             report.refresh_path,
@@ -1588,6 +1823,142 @@ mod tests {
         assert!(
             workspace.episodic_revision().unwrap() > initial_episodic_revision,
             "persisted episodic revision should advance independently of scoped prepare"
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn scoped_prepare_paths_return_follow_up_settle_and_checkpoint_work() {
+        let root = temp_workspace();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+        let workspace = Arc::new(index_workspace_session(&root).unwrap());
+        let config = WorkspaceRuntimeConfig {
+            workspace: Arc::clone(&workspace),
+            notes: Arc::new(SessionMemory::new()),
+            inferred_edges: Arc::new(InferenceStore::new()),
+            dashboard_state: Arc::new(DashboardState::default()),
+            diagnostics_state: Arc::new(DiagnosticsState::default()),
+            mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            sync_lock: Arc::new(Mutex::new(())),
+            loaded_workspace_revision: Arc::new(AtomicU64::new(
+                workspace.loaded_workspace_revision(),
+            )),
+            loaded_episodic_revision: Arc::new(AtomicU64::new(
+                workspace.episodic_revision().unwrap_or(0),
+            )),
+            loaded_inference_revision: Arc::new(AtomicU64::new(
+                workspace.inference_revision().unwrap_or(0),
+            )),
+            loaded_coordination_revision: Arc::new(AtomicU64::new(
+                workspace.coordination_revision().unwrap_or(0),
+            )),
+            runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
+                WorkspaceRuntimeContext::from_root(&root),
+            ))),
+        };
+
+        workspace
+            .persist_episodic(&EpisodicMemorySnapshot {
+                entries: vec![MemoryEntry::new(
+                    MemoryKind::Structural,
+                    "queued settle should reload this episodic snapshot",
+                )],
+            })
+            .unwrap();
+        std::fs::write(root.join("src/lib.rs"), "pub fn alpha() { let _x = 1; }\n").unwrap();
+        thread::sleep(Duration::from_millis(300));
+
+        let scoped_path = root.join("src/lib.rs");
+        let outcome = run_workspace_prepare_paths_command(&config, &[scoped_path]).unwrap();
+        let report = outcome.report;
+
+        assert!(matches!(
+            report.refresh_path,
+            "incremental" | "rescan" | "full"
+        ));
+        assert!(
+            outcome
+                .follow_up_commands
+                .iter()
+                .any(|command| command.queue_class == WorkspaceRuntimeQueueClass::Settle),
+            "scoped prepare should enqueue settle work for stale auxiliary domains"
+        );
+        assert!(
+            outcome
+                .follow_up_commands
+                .iter()
+                .any(|command| command.queue_class
+                    == WorkspaceRuntimeQueueClass::CheckpointMaterialization),
+            "scoped prepare should enqueue checkpoint materialization follow-up work"
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn settle_domain_reload_advances_loaded_episodic_revision() {
+        let root = temp_workspace();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+        let workspace = Arc::new(index_workspace_session(&root).unwrap());
+        let initial_episodic_revision = workspace.episodic_revision().unwrap_or(0);
+        let config = WorkspaceRuntimeConfig {
+            workspace: Arc::clone(&workspace),
+            notes: Arc::new(SessionMemory::new()),
+            inferred_edges: Arc::new(InferenceStore::new()),
+            dashboard_state: Arc::new(DashboardState::default()),
+            diagnostics_state: Arc::new(DiagnosticsState::default()),
+            mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            sync_lock: Arc::new(Mutex::new(())),
+            loaded_workspace_revision: Arc::new(AtomicU64::new(
+                workspace.loaded_workspace_revision(),
+            )),
+            loaded_episodic_revision: Arc::new(AtomicU64::new(initial_episodic_revision)),
+            loaded_inference_revision: Arc::new(AtomicU64::new(
+                workspace.inference_revision().unwrap_or(0),
+            )),
+            loaded_coordination_revision: Arc::new(AtomicU64::new(
+                workspace.coordination_revision().unwrap_or(0),
+            )),
+            runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
+                WorkspaceRuntimeContext::from_root(&root),
+            ))),
+        };
+
+        workspace
+            .persist_episodic(&EpisodicMemorySnapshot {
+                entries: vec![MemoryEntry::new(
+                    MemoryKind::Structural,
+                    "domain settle should advance episodic revision",
+                )],
+            })
+            .unwrap();
+        let persisted_revision = workspace.episodic_revision().unwrap();
+        config
+            .loaded_episodic_revision
+            .store(persisted_revision.saturating_add(1), Ordering::Relaxed);
+
+        let report = sync_workspace_settle_domain(&config, RuntimeDomain::MemoryReanchor).unwrap();
+
+        assert_eq!(report.refresh_path, "settle");
+        assert!(report.episodic_reloaded);
+        assert_eq!(
+            config.loaded_episodic_revision.load(Ordering::Relaxed),
+            persisted_revision
         );
 
         let _ = std::fs::remove_dir_all(root);

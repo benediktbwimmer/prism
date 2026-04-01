@@ -260,19 +260,21 @@ impl PrismMcpCli {
         features
     }
 
-    fn http_uri_file_path(&self, root: &Path) -> PathBuf {
-        self.http_uri_file
-            .clone()
-            .unwrap_or_else(|| daemon_mode::default_http_uri_file_path(root))
+    fn http_uri_file_path(&self, root: &Path) -> Result<PathBuf> {
+        match &self.http_uri_file {
+            Some(path) => Ok(path.clone()),
+            None => daemon_mode::default_http_uri_file_path(root),
+        }
     }
 
-    fn log_path(&self, root: &Path) -> PathBuf {
-        self.daemon_log
-            .clone()
-            .unwrap_or_else(|| daemon_mode::default_log_path(root))
+    fn log_path(&self, root: &Path) -> Result<PathBuf> {
+        match &self.daemon_log {
+            Some(path) => Ok(path.clone()),
+            None => daemon_mode::default_log_path(root),
+        }
     }
 
-    fn daemon_spawn_args(&self, root: &Path) -> Vec<String> {
+    fn daemon_spawn_args(&self, root: &Path) -> Result<Vec<String>> {
         let mut args = vec![
             "--mode".to_string(),
             "daemon".to_string(),
@@ -329,9 +331,9 @@ impl PrismMcpCli {
         args.push("--health-path".to_string());
         args.push(self.health_path.clone());
         args.push("--http-uri-file".to_string());
-        args.push(self.http_uri_file_path(root).display().to_string());
+        args.push(self.http_uri_file_path(root)?.display().to_string());
         args.push("--daemon-log".to_string());
-        args.push(self.log_path(root).display().to_string());
+        args.push(self.log_path(root)?.display().to_string());
         if let Some(path) = &self.shared_runtime_sqlite {
             args.push("--shared-runtime-sqlite".to_string());
             args.push(path.display().to_string());
@@ -344,7 +346,7 @@ impl PrismMcpCli {
             args.push("--restart-nonce".to_string());
             args.push(restart_nonce.clone());
         }
-        args
+        Ok(args)
     }
 }
 

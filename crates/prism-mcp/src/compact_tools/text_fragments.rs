@@ -955,6 +955,7 @@ fn gather_text_matches(
     args: &PrismGatherArgs,
 ) -> Result<(Vec<AgentOpenResultView>, bool)> {
     let requested = compact_gather_limit(args.limit);
+    let raw_limit = compact_gather_search_limit(args, requested, session.limits().max_result_nodes);
     let outcome = search_text(
         host,
         SearchTextArgs {
@@ -963,18 +964,23 @@ fn gather_text_matches(
             case_sensitive: Some(false),
             path: args.path.clone(),
             glob: args.glob.clone(),
-            limit: Some(requested.saturating_add(1)),
+            limit: Some(raw_limit),
             context_lines: Some(0),
         },
         session.limits().max_result_nodes,
     )?;
-    let truncated = outcome.results.len() > requested;
-    let matches = outcome
+    let mut candidates = outcome
         .results
         .into_iter()
+        .map(|matched| text_candidate_from_match(session, &args.query, matched))
+        .collect::<Vec<_>>();
+    rank_gather_candidates(&mut candidates, &args.query);
+    let truncated = outcome.limit_hit || candidates.len() > requested;
+    let matches = candidates
+        .into_iter()
         .take(requested)
-        .map(|matched| {
-            let target = text_candidate_from_match(session, &args.query, matched).target;
+        .map(|candidate| {
+            let target = candidate.target;
             let handle = session.intern_target_handle(target.clone());
             compact_gather_match_result(host, session, &handle, &target)
         })
@@ -1017,4 +1023,77 @@ fn compact_gather_limit(limit: Option<usize>) -> usize {
     limit
         .unwrap_or(DEFAULT_GATHER_LIMIT)
         .clamp(1, MAX_GATHER_LIMIT)
+}
+
+fn compact_gather_search_limit(
+    args: &PrismGatherArgs,
+    requested: usize,
+    max_result_nodes: usize,
+) -> usize {
+    let mut limit = requested.saturating_add(1);
+    if args
+        .path
+        .as_deref()
+        .is_some_and(|path| path.ends_with(".md") || is_docs_path(path))
+        || args
+            .glob
+            .as_deref()
+            .is_some_and(|glob| glob.contains("docs") || glob.ends_with(".md"))
+    {
+        limit = requested.saturating_mul(12).max(limit);
+    }
+    limit.clamp(requested.saturating_add(1), max_result_nodes.max(1))
+}
+
+fn rank_gather_candidates(candidates: &mut [TextSearchCandidate], query: &str) {
+    candidates.sort_by(|left, right| {
+        gather_candidate_sort_key(right, query).cmp(&gather_candidate_sort_key(left, query))
+    });
+}
+
+fn gather_candidate_sort_key(
+    candidate: &TextSearchCandidate,
+    query: &str,
+) -> (i32, std::cmp::Reverse<usize>) {
+    let target = &candidate.target;
+    let mut score = 0;
+    if target
+        .file_path
+        .as_deref()
+        .is_some_and(|path| path.ends_with(".md") || is_docs_path(path))
+    {
+        score += markdown_gather_match_score(&candidate.matched_text, query);
+    }
+    (
+        score,
+        std::cmp::Reverse(target.start_line.unwrap_or(usize::MAX)),
+    )
+}
+
+fn markdown_gather_match_score(text: &str, query: &str) -> i32 {
+    let Some(line) = first_non_empty_line(text) else {
+        return 0;
+    };
+    let stripped = line.trim_start();
+    if !stripped.starts_with('#') {
+        return 0;
+    }
+    let heading = stripped.trim_start_matches('#').trim();
+    let normalized_query = normalize_locate_text(query);
+    let normalized_heading = normalize_locate_text(heading);
+    let normalized_heading_without_ordinal =
+        normalize_locate_text(trim_leading_section_ordinal(heading));
+    if normalized_heading_without_ordinal == normalized_query {
+        return 300;
+    }
+    if normalized_heading == normalized_query {
+        return 280;
+    }
+    if normalized_heading_without_ordinal.contains(normalized_query.as_str()) {
+        return 240;
+    }
+    if normalized_heading.contains(normalized_query.as_str()) {
+        return 220;
+    }
+    100
 }

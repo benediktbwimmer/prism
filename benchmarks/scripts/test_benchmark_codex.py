@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from benchmark_codex import (
     _compose_prompt,
+    _daemon_log_path,
     _parse_exec_jsonl,
     _parse_workspace_refresh_metrics,
 )
@@ -127,9 +128,8 @@ class BenchmarkCodexTests(unittest.TestCase):
     def test_parse_workspace_refresh_metrics_sums_internal_breakdown(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace_dir = Path(temp_dir)
-            prism_dir = workspace_dir / ".prism"
-            prism_dir.mkdir()
-            log_path = prism_dir / "prism-mcp-daemon.log"
+            log_path = _daemon_log_path(workspace_dir)
+            log_path.parent.mkdir(parents=True, exist_ok=True)
             log_path.write_text(
                 "\n".join(
                     [

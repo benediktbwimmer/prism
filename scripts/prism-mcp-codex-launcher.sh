@@ -5,12 +5,33 @@ set -euo pipefail
 ROOT="/Users/bene/code/prism"
 CLI_BIN="$ROOT/target/release/prism-cli"
 BIN="$ROOT/target/release/prism-mcp"
-URI_FILE="$ROOT/.prism/prism-mcp-http-uri"
-LOG="$ROOT/.prism/prism-mcp-daemon.log"
 HTTP_PATH="/mcp"
 HEALTH_PATH="/healthz"
 
-mkdir -p "$ROOT/.prism"
+resolve_status_path() {
+  python3 - "$CLI_BIN" "$ROOT" "$1" <<'PY'
+import subprocess
+import sys
+
+cli_bin, root, field = sys.argv[1:4]
+output = subprocess.check_output(
+    [cli_bin, "--root", root, "mcp", "status"],
+    text=True,
+)
+for line in output.splitlines():
+    if not line.startswith(field + ": "):
+        continue
+    value = line.split(": ", 1)[1]
+    if field == "log_path":
+        value = value.split(" (", 1)[0]
+    print(value)
+    raise SystemExit(0)
+raise SystemExit(1)
+PY
+}
+
+URI_FILE="$(resolve_status_path uri_file)"
+LOG="$(resolve_status_path log_path)"
 
 is_daemon_ready() {
   python3 - "$URI_FILE" "$HEALTH_PATH" <<'PY'

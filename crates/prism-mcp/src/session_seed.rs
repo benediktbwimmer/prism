@@ -3,12 +3,11 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
+use prism_core::PrismPaths;
 use prism_ir::{AgentId, TaskId};
 use prism_query::QueryLimits;
 
 use crate::SessionState;
-
-const SESSION_SEED_FILE_NAME: &str = "prism-mcp-session-seed.json";
 const SESSION_SEED_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -73,7 +72,7 @@ impl From<PersistedQueryLimits> for QueryLimits {
 }
 
 pub(crate) fn load_session_seed(root: &Path) -> Result<Option<PersistedSessionSeed>> {
-    let path = session_seed_path(root);
+    let path = session_seed_path(root)?;
     match fs::read_to_string(&path) {
         Ok(contents) => {
             let seed: PersistedSessionSeed = serde_json::from_str(&contents)
@@ -88,7 +87,7 @@ pub(crate) fn load_session_seed(root: &Path) -> Result<Option<PersistedSessionSe
 }
 
 pub(crate) fn persist_session_seed(root: &Path, session: &SessionState) -> Result<()> {
-    let path = session_seed_path(root);
+    let path = session_seed_path(root)?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).with_context(|| {
             format!(
@@ -118,6 +117,6 @@ pub(crate) fn restore_session_seed(session: &SessionState, seed: &PersistedSessi
     }
 }
 
-fn session_seed_path(root: &Path) -> PathBuf {
-    root.join(".prism").join(SESSION_SEED_FILE_NAME)
+fn session_seed_path(root: &Path) -> Result<PathBuf> {
+    PrismPaths::for_workspace_root(root)?.mcp_session_seed_path()
 }

@@ -294,6 +294,8 @@ fn reanchors_persisted_memory_snapshot_from_lineage_events() {
 
 #[test]
 fn reloads_graph_from_disk_cache() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -325,6 +327,8 @@ fn reloads_graph_from_disk_cache() {
 
 #[test]
 fn migrates_legacy_repo_local_cache_db_to_state_db() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::create_dir_all(root.join(".prism")).unwrap();

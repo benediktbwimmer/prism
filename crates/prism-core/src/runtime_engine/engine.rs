@@ -120,7 +120,23 @@ impl WorkspaceRuntimeEngine {
     }
 
     pub fn finish_active_command(&mut self) {
+        self.complete_active_command(std::iter::empty());
+    }
+
+    pub fn complete_active_command<I>(&mut self, follow_up_commands: I)
+    where
+        I: IntoIterator<Item = WorkspaceRuntimeCommand>,
+    {
         self.active_command = None;
+        for command in follow_up_commands {
+            let _ = self.enqueue_command(command);
+        }
+    }
+
+    pub fn retry_active_command(&mut self) {
+        if let Some(command) = self.active_command.take() {
+            let _ = self.enqueue_command(command);
+        }
     }
 
     pub fn has_pending_command_kind(&self, kind: WorkspaceRuntimeCommandKind) -> bool {
@@ -303,5 +319,53 @@ mod tests {
         assert!(engine.has_pending_command_kind(WorkspaceRuntimeCommandKind::PreparePaths));
         engine.finish_active_command();
         assert!(!engine.has_pending_command_kind(WorkspaceRuntimeCommandKind::PreparePaths));
+    }
+
+    #[test]
+    fn runtime_engine_completion_enqueues_follow_up_commands() {
+        let root = std::env::current_dir().expect("cwd");
+        let context = WorkspaceRuntimeContext::from_root(&root);
+        let mut engine = WorkspaceRuntimeEngine::new(context);
+        assert!(engine.enqueue_command(WorkspaceRuntimeCommand::with_paths(
+            WorkspaceRuntimeCommandKind::PreparePaths,
+            WorkspaceRuntimeQueueClass::FastPrepare,
+            WorkspaceRuntimeCoalescingKey::WorktreeContext,
+            vec![PathBuf::from("src/lib.rs")],
+        )));
+        let _active = engine
+            .start_next_command()
+            .expect("queued command should start");
+        engine.complete_active_command([WorkspaceRuntimeCommand::new(
+            WorkspaceRuntimeCommandKind::SettleDomain(RuntimeDomain::MemoryReanchor),
+            WorkspaceRuntimeQueueClass::Settle,
+            WorkspaceRuntimeCoalescingKey::Domain(RuntimeDomain::MemoryReanchor),
+        )]);
+        let snapshot = engine.queue_snapshot();
+        assert_eq!(snapshot.total_depth, 1);
+        assert_eq!(
+            snapshot.queued[0].queue_class,
+            WorkspaceRuntimeQueueClass::Settle
+        );
+    }
+
+    #[test]
+    fn runtime_engine_retries_active_command_after_transient_failure() {
+        let root = std::env::current_dir().expect("cwd");
+        let context = WorkspaceRuntimeContext::from_root(&root);
+        let mut engine = WorkspaceRuntimeEngine::new(context);
+        assert!(engine.begin_ad_hoc_command(WorkspaceRuntimeCommand::new(
+            WorkspaceRuntimeCommandKind::MaterializeCheckpoint,
+            WorkspaceRuntimeQueueClass::CheckpointMaterialization,
+            WorkspaceRuntimeCoalescingKey::WorktreeContext,
+        )));
+        engine.retry_active_command();
+        let snapshot = engine.queue_snapshot();
+        assert!(snapshot.active.is_none());
+        assert_eq!(snapshot.total_depth, 1);
+        assert_eq!(
+            snapshot.queued[0].queue_class,
+            WorkspaceRuntimeQueueClass::CheckpointMaterialization
+        );
+        assert!(engine.has_pending_command_kind(WorkspaceRuntimeCommandKind::MaterializeCheckpoint));
     }
 }

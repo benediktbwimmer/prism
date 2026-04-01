@@ -391,6 +391,14 @@ These plans should be able to bind to:
 - repo-scoped or project-scoped artifacts
 - coordination state in the runtime backend
 
+The important implementation rule is that a cross-repo plan node should not pretend to be one
+global repo-less task. It should be a project-scoped execution object that can:
+
+- reference project-scoped concepts, contracts, and acceptance criteria
+- bind to zero or more repo-local anchors
+- fan out into repo-local work items, validations, or review artifacts when execution begins
+- aggregate progress from those repo-local bindings back into one project-scoped execution view
+
 ### 8.4 Cross-repo memories
 
 Project-scoped memories should capture durable lessons that belong to the system rather than a single repo.
@@ -445,7 +453,67 @@ That lets PRISM support the normal lifecycle:
 - test and refine relation
 - publish relation when stable enough to be part of durable system knowledge
 
-### 9.4 Do not flatten everything into one global graph root
+### 9.4 Canonical cross-repo reference model
+
+The hardest implementation problem is not storage. It is reference stability across decoupled repos
+and branches.
+
+Project-published artifacts therefore need a first-class reference object for repo-local anchors.
+
+A good initial shape is:
+
+```text
+CrossRepoAnchorRef {
+  project_id
+  repo_id
+  anchor_kind
+  logical_anchor
+  lineage_id?
+  path_hint?
+  branch_hint?
+  commit_hint?
+}
+```
+
+Where:
+
+- `repo_id` identifies the member repo that owns the anchor
+- `anchor_kind` distinguishes symbol, file, concept, contract, validation, or plan targets
+- `logical_anchor` is the semantic identity to resolve first
+- `lineage_id` is used when PRISM already has a durable lineage handle
+- `path_hint` helps localize resolution and explain drift
+- `branch_hint` or `commit_hint` are optional diagnostics, not the primary identity
+
+The key rule is:
+
+- prefer semantic identity first
+- use path and revision as hints
+- never make a project artifact depend only on raw line numbers in another repo
+
+### 9.5 Resolution contract for cross-repo anchors
+
+Cross-repo anchor resolution should be explicit and degradable.
+
+The runtime should be able to resolve a `CrossRepoAnchorRef` into states such as:
+
+- `exact`
+- `remapped`
+- `stale`
+- `missing`
+- `ambiguous`
+
+That matters because project and member repos will drift independently in normal development.
+
+The UX contract should be:
+
+- project-published truth remains readable even when some bindings drift
+- unresolved bindings are reported clearly instead of silently disappearing
+- plan readiness, validation, and claim logic can treat stale bindings as blockers when policy
+  requires it
+- rebinding is an explicit runtime or promotion-time action, not an invisible mutation of
+  published history
+
+### 9.6 Do not flatten everything into one global graph root
 
 The graph should feel unified to the query surface, but not lose scope discipline internally.
 
@@ -492,12 +560,42 @@ Cross-repo coordination should follow the same principles PRISM already uses ins
 
 The shared runtime backend should support:
 
-- project-scoped claims and leases
+- project-scoped execution leases
 - cross-repo handoffs
 - blockers spanning repos
 - project-scoped review artifacts
 - multi-repo execution overlays
 - cross-repo task assignment and reclaim semantics
+
+### 11.1 Separate project execution ownership from repo anchor ownership
+
+PRISM should not collapse project coordination authority and repo-local anchor ownership into one
+scope.
+
+The clean split is:
+
+- project scope owns execution leases for project plan nodes and cross-repo work packets
+- repo scope owns concrete claims on repo-local files, symbols, validations, and artifacts
+
+That means a project-scoped task may coordinate work across many repos, but each repo-local edit
+claim still belongs to the repo that owns the anchor.
+
+This preserves scope discipline and avoids inventing a muddy global lock namespace.
+
+### 11.2 Project nodes can aggregate repo-local claims
+
+A project-scoped execution node should be able to point at:
+
+- zero or more repo-local claims
+- zero or more repo-local validation runs
+- zero or more repo-local review artifacts
+
+The project layer then answers questions such as:
+
+- which repo-local claims are active under this cross-repo task
+- which downstream repos are blocked
+- whether the project node can advance
+- whether stale repo-local bindings should trigger reclaim or replan behavior
 
 The project repo is not the place for high-churn live lease state.
 
@@ -577,16 +675,59 @@ A simple first version of the project repo should look familiar.
       index.jsonl
       active/
       archived/
+  workspace.prism.toml
 ```
 
 Optional future additions may include:
 
-- a project membership manifest
 - project-level repo descriptors
 - system ownership manifests
 - import or benchmark metadata that is safe to publish
 
 The important rule is to keep the project repo focused on **published system knowledge**, not on logs, caches, or runtime state.
+
+### 13.1 Published membership manifest plus local checkout bindings
+
+Project membership should be modeled in two places, with different responsibilities.
+
+Published in the project repo:
+
+- `workspace.prism.toml` is the canonical declaration of project membership
+- it lists member repos and stable descriptors for them
+- it defines the published project identity
+
+Stored in local runtime state:
+
+- machine-local bindings from those repo descriptors to actual checkout paths
+- local discovery metadata such as `last_seen`, branch, health, and resolution failures
+- temporary or incomplete bindings while a machine only has some repos checked out
+
+The project repo should answer "what belongs to this project?"
+
+The local runtime should answer "where are those repos on this machine right now?"
+
+### 13.2 Suggested manifest shape
+
+The exact TOML schema can evolve, but the first version should stay small and explicit.
+
+```toml
+[project]
+id = "project:search-platform"
+name = "Search Platform"
+
+[[repos]]
+repo_id = "repo:service-api"
+remote = "git@github.com:org/service-api.git"
+role = "producer"
+
+[[repos]]
+repo_id = "repo:typescript-sdk"
+remote = "git@github.com:org/typescript-sdk.git"
+role = "consumer"
+```
+
+The manifest should not try to mirror runtime truth such as local checkout paths, active leases, or
+freshness state.
 
 ---
 
@@ -614,12 +755,25 @@ The relation, concept, or plan is curated:
 - named cleanly
 - stripped of ephemeral noise
 - checked for whether it belongs at repo or project scope
+- checked for whether each anchor binding is exact, remapped, stale, missing, or ambiguous
 
-### 14.3 Promote
+### 14.3 Bind and validate
+
+Before promotion, the runtime should validate the cross-repo bindings explicitly.
+
+That means:
+
+- resolve each referenced repo descriptor to a member repo
+- resolve each `CrossRepoAnchorRef`
+- record resolution state for each binding
+- reject or downgrade promotion when policy requires exact bindings and the runtime only has stale
+  or ambiguous ones
+
+### 14.4 Promote
 
 If it is stable enough to be part of durable system knowledge, it is promoted into the project repo.
 
-### 14.4 Reproject
+### 14.5 Reproject
 
 Once published, it becomes the base for:
 
@@ -680,13 +834,22 @@ Add first-class support in the data model for:
 
 No mandatory project repo yet.
 
+Concrete outcomes for this phase:
+
+- add `project_id` to runtime context, persistence context, and event metadata where scope matters
+- define project-scoped ids and entity kinds
+- add a local representation for project membership and checkout bindings
+- keep all cross-repo behavior runtime-only until the identity model is stable
+
 ### Phase 2 — runtime-only cross-repo coordination
 
 Support project-scoped runtime coordination in the shared backend:
 
 - cross-repo plans in runtime form
-- project-scoped claims, handoffs, and overlays
+- project-scoped execution leases, handoffs, and overlays
 - discovered cross-repo relations in unpublished state
+- repo-local claims attached under project execution nodes
+- cross-repo anchor resolution with explicit resolution states
 
 This proves the behavior before published project truth exists.
 
@@ -698,6 +861,7 @@ Introduce the project git repo and promotion flows for:
 - project contracts
 - project plans
 - project memories
+- `workspace.prism.toml` as the published membership manifest
 
 ### Phase 4 — integrated query and promotion workflows
 
@@ -707,6 +871,13 @@ Unify project queries across:
 - member repo truth
 - runtime overlays
 - worktree-local freshness
+
+At this point, PRISM should be able to:
+
+- explain why a cross-repo binding is stale or ambiguous
+- show project execution state and linked repo-local claims together
+- promote runtime-discovered relations into published project artifacts
+- degrade gracefully when only part of the project is checked out locally
 
 ### Phase 5 — remote shared backend
 
@@ -744,13 +915,19 @@ Filesystem placement is helpful, but `project_id`, `repo_id`, and `worktree_id` 
 
 These questions do not block the direction, but they should be answered before implementation hardens.
 
-- How should a repo declare or discover project membership?
-- Should project membership be published in the project repo, local runtime state, or both?
-- What is the canonical reference syntax from project-published artifacts to repo-published anchors?
 - When should a relation stay runtime-only versus being promoted to project truth?
 - Should project-scoped concepts and contracts use the exact same artifact schema as repo-scoped ones, or an extended variant?
 - How much cross-repo projection should be eagerly materialized versus computed on demand?
 - Should project scope initially support exactly one project per repo, or allow many-to-many later?
+
+Questions with a recommended default answer now:
+
+- Project membership should be published in the project repo and resolved into machine-local checkout
+  bindings in runtime state.
+- The canonical cross-repo reference syntax should be a repo-qualified semantic anchor reference,
+  not raw file-line pointers.
+- Project scope should own execution leases, while repo scope should continue to own concrete anchor
+  claims.
 
 ---
 

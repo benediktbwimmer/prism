@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
-use prism_core::WorkspaceSession;
+use prism_core::{PrismPaths, WorkspaceSession};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -42,12 +42,12 @@ pub(crate) struct RuntimeEventRecord {
     pub(crate) fields: Value,
 }
 
-pub(crate) fn default_runtime_state_path(root: &Path) -> PathBuf {
-    root.join(".prism").join("prism-mcp-runtime.json")
+pub(crate) fn default_runtime_state_path(root: &Path) -> Result<PathBuf> {
+    PrismPaths::for_workspace_root(root)?.mcp_runtime_state_path()
 }
 
 pub(crate) fn read_runtime_state(root: &Path) -> Result<Option<RuntimeState>> {
-    let path = default_runtime_state_path(root);
+    let path = default_runtime_state_path(root)?;
     if !path.exists() {
         return Ok(None);
     }
@@ -270,7 +270,7 @@ pub(crate) fn record_workspace_refresh(
 }
 
 fn update_runtime_state(root: &Path, update: impl FnOnce(&mut RuntimeState)) -> Result<()> {
-    let path = default_runtime_state_path(root);
+    let path = default_runtime_state_path(root)?;
     let mut state = read_runtime_state(root)?.unwrap_or_default();
     update(&mut state);
     dedupe_processes(&mut state.processes);
@@ -347,7 +347,8 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
-        read_runtime_state, record_daemon_ready, record_process_start, runtime_state_temp_path,
+        default_runtime_state_path, read_runtime_state, record_daemon_ready, record_process_start,
+        runtime_state_temp_path,
     };
     use crate::{PrismMcpCli, PrismMcpMode};
 
@@ -367,9 +368,8 @@ mod tests {
     #[test]
     fn invalid_runtime_state_is_treated_as_missing_state() {
         let root = test_dir("invalid-state");
-        let prism_dir = root.join(".prism");
-        fs::create_dir_all(&prism_dir).unwrap();
-        fs::write(prism_dir.join("prism-mcp-runtime.json"), "{ invalid").unwrap();
+        let path = default_runtime_state_path(&root).unwrap();
+        fs::write(path, "{ invalid").unwrap();
 
         let state = read_runtime_state(&root).unwrap();
         assert!(state.is_none());

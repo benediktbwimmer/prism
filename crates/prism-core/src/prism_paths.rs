@@ -119,6 +119,9 @@ impl PrismPaths {
 
     pub fn mcp_http_uri_path(&self) -> Result<PathBuf> {
         self.ensure_home_metadata()?;
+        fs::create_dir_all(&self.worktree_mcp_state_dir).with_context(|| {
+            format!("failed to create {}", self.worktree_mcp_state_dir.display())
+        })?;
         let path = self.worktree_mcp_state_dir.join("prism-mcp-http-uri");
         migrate_legacy_file(&path, &self.repo_prism_dir.join("prism-mcp-http-uri"))?;
         Ok(path)
@@ -126,6 +129,9 @@ impl PrismPaths {
 
     pub fn mcp_runtime_state_path(&self) -> Result<PathBuf> {
         self.ensure_home_metadata()?;
+        fs::create_dir_all(&self.worktree_mcp_state_dir).with_context(|| {
+            format!("failed to create {}", self.worktree_mcp_state_dir.display())
+        })?;
         let path = self.worktree_mcp_state_dir.join("prism-mcp-runtime.json");
         migrate_legacy_file(&path, &self.repo_prism_dir.join("prism-mcp-runtime.json"))?;
         Ok(path)
@@ -133,6 +139,9 @@ impl PrismPaths {
 
     pub fn mcp_session_seed_path(&self) -> Result<PathBuf> {
         self.ensure_home_metadata()?;
+        fs::create_dir_all(&self.worktree_mcp_state_dir).with_context(|| {
+            format!("failed to create {}", self.worktree_mcp_state_dir.display())
+        })?;
         let path = self.worktree_mcp_state_dir.join(SESSION_SEED_FILE_NAME);
         migrate_legacy_file(&path, &self.repo_prism_dir.join(SESSION_SEED_FILE_NAME))?;
         Ok(path)
@@ -140,6 +149,9 @@ impl PrismPaths {
 
     pub fn mcp_startup_marker_path(&self) -> Result<PathBuf> {
         self.ensure_home_metadata()?;
+        fs::create_dir_all(&self.worktree_mcp_state_dir).with_context(|| {
+            format!("failed to create {}", self.worktree_mcp_state_dir.display())
+        })?;
         let path = self.worktree_mcp_state_dir.join("prism-mcp-startup");
         migrate_legacy_file(&path, &self.repo_prism_dir.join("prism-mcp-startup"))?;
         Ok(path)
@@ -147,6 +159,9 @@ impl PrismPaths {
 
     pub fn mcp_daemon_log_path(&self) -> Result<PathBuf> {
         self.ensure_home_metadata()?;
+        fs::create_dir_all(&self.worktree_mcp_logs_dir).with_context(|| {
+            format!("failed to create {}", self.worktree_mcp_logs_dir.display())
+        })?;
         let path = self.worktree_mcp_logs_dir.join("prism-mcp-daemon.log");
         migrate_legacy_file(&path, &self.repo_prism_dir.join("prism-mcp-daemon.log"))?;
         Ok(path)
@@ -154,6 +169,9 @@ impl PrismPaths {
 
     pub fn mcp_call_log_path(&self) -> Result<PathBuf> {
         self.ensure_home_metadata()?;
+        fs::create_dir_all(&self.worktree_mcp_logs_dir).with_context(|| {
+            format!("failed to create {}", self.worktree_mcp_logs_dir.display())
+        })?;
         let path = self.worktree_mcp_logs_dir.join("prism-mcp-call-log.jsonl");
         migrate_legacy_file(&path, &self.repo_prism_dir.join("prism-mcp-call-log.jsonl"))?;
         Ok(path)

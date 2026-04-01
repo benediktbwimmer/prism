@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
 use axum::{middleware, routing::get, Router};
+use prism_core::PrismPaths;
 use rmcp::transport::{
     streamable_http_server::session::local::LocalSessionManager, StreamableHttpServerConfig,
     StreamableHttpService,
@@ -29,12 +30,12 @@ const STABLE_HTTP_PORT_ATTEMPTS: u16 = 128;
 const PREFERRED_STABLE_HTTP_BIND_WAIT: Duration = Duration::from_secs(3);
 const PREFERRED_STABLE_HTTP_BIND_POLL: Duration = Duration::from_millis(50);
 
-pub(crate) fn default_http_uri_file_path(root: &Path) -> PathBuf {
-    root.join(".prism").join("prism-mcp-http-uri")
+pub(crate) fn default_http_uri_file_path(root: &Path) -> Result<PathBuf> {
+    PrismPaths::for_workspace_root(root)?.mcp_http_uri_path()
 }
 
-pub(crate) fn default_log_path(root: &Path) -> PathBuf {
-    root.join(".prism").join("prism-mcp-daemon.log")
+pub(crate) fn default_log_path(root: &Path) -> Result<PathBuf> {
+    PrismPaths::for_workspace_root(root)?.mcp_daemon_log_path()
 }
 
 pub async fn serve_with_mode(cli: PrismMcpCli) -> Result<()> {
@@ -60,7 +61,7 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
     let health_path = normalize_route_path(&cli.health_path);
     let addr = listener.local_addr()?;
     let http_uri = format!("http://{addr}{mcp_path}");
-    let uri_file_path = cli.http_uri_file_path(root);
+    let uri_file_path = cli.http_uri_file_path(root)?;
     write_http_uri_file(&uri_file_path, &http_uri)?;
     let _uri_guard = HttpUriFileGuard {
         path: uri_file_path,
@@ -204,7 +205,7 @@ async fn bind_preferred_stable_listener(preferred: &str) -> Result<Option<TcpLis
 async fn run_bridge(cli: &PrismMcpCli, root: &Path) -> Result<()> {
     let resolution_started = Instant::now();
     let upstream = resolve_upstream_uri(cli, root).await?;
-    let upstream_source = BridgeUpstreamSource::from_cli(cli, root);
+    let upstream_source = BridgeUpstreamSource::from_cli(cli, root)?;
     info!(
         mode = "bridge",
         root = %root.display(),
@@ -255,10 +256,10 @@ pub(crate) enum BridgeUpstreamSource {
 }
 
 impl BridgeUpstreamSource {
-    pub(crate) fn from_cli(cli: &PrismMcpCli, root: &Path) -> Self {
+    pub(crate) fn from_cli(cli: &PrismMcpCli, root: &Path) -> Result<Self> {
         match &cli.upstream_uri {
-            Some(uri) => Self::Fixed(uri.clone()),
-            None => Self::HttpUriFile(cli.http_uri_file_path(root)),
+            Some(uri) => Ok(Self::Fixed(uri.clone())),
+            None => Ok(Self::HttpUriFile(cli.http_uri_file_path(root)?)),
         }
     }
 
@@ -350,13 +351,13 @@ async fn ensure_daemon_running(cli: &PrismMcpCli, root: &Path) -> Result<Upstrea
 
     Err(anyhow!(
         "timed out waiting for PRISM MCP HTTP daemon URI file at {}. Check {} for daemon startup logs.",
-        cli.http_uri_file_path(root).display(),
-        cli.log_path(root).display()
+        cli.http_uri_file_path(root)?.display(),
+        cli.log_path(root)?.display()
     ))
 }
 
 fn spawn_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
-    let log_path = cli.log_path(root);
+    let log_path = cli.log_path(root)?;
     if let Some(parent) = log_path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -365,7 +366,7 @@ fn spawn_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         root = %root.display(),
         log_path = %log_path.display(),
         executable = %current_exe.display(),
-        args = ?cli.daemon_spawn_args(root),
+        args = ?cli.daemon_spawn_args(root)?,
         "spawning detached prism-mcp daemon"
     );
     let mut command = Command::new("/bin/sh");
@@ -386,7 +387,7 @@ exec "$exe" "$@" </dev/null >/dev/null 2>/dev/null
         .arg("prism-mcp-daemon-launcher")
         .arg(&log_path)
         .arg(&current_exe)
-        .args(cli.daemon_spawn_args(root))
+        .args(cli.daemon_spawn_args(root)?)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
@@ -438,7 +439,7 @@ async fn first_healthy_daemon_uri(cli: &PrismMcpCli, root: &Path) -> Result<Opti
 
 fn daemon_uri_candidates(cli: &PrismMcpCli, root: &Path) -> Result<Vec<String>> {
     let mut candidates = Vec::new();
-    if let Some(uri) = read_http_uri_file(&cli.http_uri_file_path(root))? {
+    if let Some(uri) = read_http_uri_file(&cli.http_uri_file_path(root)?)? {
         candidates.push(uri);
     }
     if let Some(state) = runtime_state::read_runtime_state(root)? {
@@ -573,6 +574,7 @@ mod tests {
         PREFERRED_STABLE_HTTP_BIND_POLL,
     };
     use crate::{PrismMcpCli, PrismMcpMode};
+    use prism_core::PrismPaths;
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -617,9 +619,10 @@ mod tests {
     #[test]
     fn uri_guard_only_removes_matching_uri_file() {
         let root = temp_root("uri-guard");
-        let prism_dir = root.join(".prism");
-        fs::create_dir_all(&prism_dir).unwrap();
-        let uri_path = prism_dir.join("prism-mcp-http-uri");
+        let uri_path = PrismPaths::for_workspace_root(&root)
+            .unwrap()
+            .mcp_http_uri_path()
+            .unwrap();
         fs::write(&uri_path, "http://127.0.0.1:41000/mcp\n").unwrap();
 
         {

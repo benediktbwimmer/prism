@@ -1121,8 +1121,8 @@ impl RuntimePaths {
     fn for_root(root: &Path) -> Result<Self> {
         let prism_paths = PrismPaths::for_workspace_root(root)?;
         Ok(Self {
-            uri_file: root.join(".prism").join("prism-mcp-http-uri"),
-            log_path: root.join(".prism").join("prism-mcp-daemon.log"),
+            uri_file: prism_paths.mcp_http_uri_path()?,
+            log_path: prism_paths.mcp_daemon_log_path()?,
             cache_path: prism_paths.shared_runtime_db_path()?,
         })
     }

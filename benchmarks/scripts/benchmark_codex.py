@@ -435,6 +435,19 @@ def _parse_exec_jsonl(stdout: str) -> dict[str, Any]:
 
 
 def _daemon_log_path(workspace_dir: Path) -> Path:
+    cli_bin = ROOT / "target/release/prism-cli"
+    if cli_bin.exists():
+        try:
+            output = subprocess.check_output(
+                [str(cli_bin), "--root", str(workspace_dir), "mcp", "status"],
+                text=True,
+            )
+            for line in output.splitlines():
+                if not line.startswith("log_path: "):
+                    continue
+                return Path(line.split(": ", 1)[1].split(" (", 1)[0])
+        except (OSError, subprocess.CalledProcessError):
+            pass
     return workspace_dir / ".prism" / "prism-mcp-daemon.log"
 
 

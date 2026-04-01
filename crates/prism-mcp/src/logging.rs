@@ -1,8 +1,9 @@
 use std::env;
 use std::io::{self, IsTerminal};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Error, Result};
+use prism_core::PrismPaths;
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
@@ -12,7 +13,8 @@ use crate::{PrismMcpCli, PrismMcpMode};
 
 pub fn init_logging(cli: &PrismMcpCli) -> Result<()> {
     let root = cli.root.canonicalize().unwrap_or_else(|_| cli.root.clone());
-    let log_writer = daemon_log::make_writer(cli.log_path(&root))?;
+    let log_path = cli.log_path(&root)?;
+    let log_writer = daemon_log::make_writer(log_path)?;
     let env_filter = env_filter(default_filter(cli.mode))?;
     let use_json = match env::var("PRISM_LOG_FORMAT") {
         Ok(value) if value.eq_ignore_ascii_case("json") => true,
@@ -61,6 +63,16 @@ pub fn log_process_start(cli: &PrismMcpCli, root: &Path) {
             "failed to update prism runtime state on process start"
         );
     }
+    let uri_file = cli.http_uri_file_path(root).unwrap_or_else(|_| {
+        fallback_sidecar_path(root, "prism-mcp-http-uri", |paths| {
+            paths.mcp_http_uri_path()
+        })
+    });
+    let log_path = cli.log_path(root).unwrap_or_else(|_| {
+        fallback_sidecar_path(root, "prism-mcp-daemon.log", |paths| {
+            paths.mcp_daemon_log_path()
+        })
+    });
     info!(
         mode = %mode_name(cli.mode),
         root = %root.display(),
@@ -68,10 +80,20 @@ pub fn log_process_start(cli: &PrismMcpCli, root: &Path) {
         http_bind = %cli.http_bind,
         http_path = %cli.http_path,
         health_path = %cli.health_path,
-        uri_file = %cli.http_uri_file_path(root).display(),
-        log_path = %cli.log_path(root).display(),
+        uri_file = %uri_file.display(),
+        log_path = %log_path.display(),
         "starting prism-mcp"
     );
+}
+
+fn fallback_sidecar_path(
+    root: &Path,
+    file_name: &str,
+    resolve: impl FnOnce(&PrismPaths) -> Result<PathBuf>,
+) -> PathBuf {
+    PrismPaths::for_workspace_root(root)
+        .and_then(|paths| resolve(&paths))
+        .unwrap_or_else(|_| root.join(".prism").join(file_name))
 }
 
 pub fn log_top_level_error(cli: &PrismMcpCli, root: &Path, error_value: &Error) {
