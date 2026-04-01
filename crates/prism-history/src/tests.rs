@@ -36,6 +36,7 @@ fn change_set(added: Vec<ObservedNode>, removed: Vec<ObservedNode>) -> ObservedC
             actor: EventActor::System,
             correlation: None,
             causation: None,
+            execution_context: None,
         },
         trigger: ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],

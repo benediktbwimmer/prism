@@ -101,6 +101,8 @@ pub(super) fn backfill_event_log_if_needed(conn: &Connection) -> Result<()> {
                 task_id: extract_task_id_from_entry(&entry),
                 promoted_from: Vec::new(),
                 supersedes: Vec::new(),
+                actor: None,
+                execution_context: None,
             };
             append_events_tx(&tx, &[event])?;
         }
@@ -124,6 +126,8 @@ pub(super) fn backfill_event_log_if_needed(conn: &Connection) -> Result<()> {
             task_id: extract_task_id_from_entry(&entry),
             promoted_from: Vec::new(),
             supersedes: Vec::new(),
+            actor: None,
+            execution_context: None,
         };
         append_events_tx(&tx, &[event])?;
     }

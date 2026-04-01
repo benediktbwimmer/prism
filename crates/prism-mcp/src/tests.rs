@@ -23,8 +23,8 @@ use prism_curator::{
 };
 use prism_history::HistoryStore;
 use prism_ir::{
-    AnchorRef, ChangeTrigger, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId, Language,
-    Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, PlanEdgeKind, PlanId, Span,
+    AnchorRef, ChangeTrigger, CredentialId, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId,
+    Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, PlanEdgeKind, PlanId, Span,
     SymbolFingerprint, TaskId,
 };
 use prism_js::{AnchorRefView, ContractKindView, ContractStabilityView, ContractStatusView};
@@ -2267,6 +2267,7 @@ fn mcp_plan_update_rehydrates_stale_coordination_runtime_before_mutating() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:published-runtime-split")),
                     causation: None,
+                    execution_context: None,
                 },
                 "Mutation should rehydrate current published plans".into(),
                 None,
@@ -2622,6 +2623,7 @@ fn curator_reads_flow_through_prism_query_and_edge_promotion_is_explicit() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:alpha")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha)],
             kind: OutcomeKind::FixValidated,
@@ -2722,6 +2724,7 @@ fn curator_memory_promotion_persists_and_recall_sees_promoted_entry() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:curator-memory")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha)],
             kind: OutcomeKind::FixValidated,
@@ -2862,6 +2865,7 @@ pub fn beta_route() {}
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:curator-concept")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha)],
             kind: OutcomeKind::FixValidated,
@@ -2983,6 +2987,7 @@ pub fn beta_route() {}
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:curator-apply-concept")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha)],
             kind: OutcomeKind::FixValidated,
@@ -3086,6 +3091,7 @@ fn curator_apply_proposal_routes_risk_summary_through_memory_promotion() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:alpha-risk-generic")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha)],
             kind: OutcomeKind::FailureObserved,
@@ -3103,6 +3109,7 @@ fn curator_apply_proposal_routes_risk_summary_through_memory_promotion() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:alpha-risk-generic")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(NodeId::new(
                 "demo",
@@ -3124,6 +3131,7 @@ fn curator_apply_proposal_routes_risk_summary_through_memory_promotion() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:alpha-risk-generic")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(NodeId::new(
                 "demo",
@@ -3359,6 +3367,7 @@ fn semantic_curator_memory_promotion_persists_and_is_recallable() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:semantic-memory")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha)],
             kind: OutcomeKind::FailureObserved,
@@ -3376,6 +3385,7 @@ fn semantic_curator_memory_promotion_persists_and_is_recallable() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:semantic-memory")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(NodeId::new(
                 "demo",
@@ -4649,6 +4659,7 @@ fn curator_proposals_query_flattens_pending_proposals_across_jobs() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:alpha")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha)],
             kind: OutcomeKind::FixValidated,
@@ -4736,6 +4747,7 @@ fn promoted_curator_knowledge_feeds_validation_and_risk_queries() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:alpha-risk")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha.clone())],
             kind: OutcomeKind::FailureObserved,
@@ -4753,6 +4765,7 @@ fn promoted_curator_knowledge_feeds_validation_and_risk_queries() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:alpha-risk")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha.clone())],
             kind: OutcomeKind::FixValidated,
@@ -4770,6 +4783,7 @@ fn promoted_curator_knowledge_feeds_validation_and_risk_queries() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:alpha-risk")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha.clone())],
             kind: OutcomeKind::FailureObserved,
@@ -5148,6 +5162,7 @@ fn curator_rejection_is_a_distinct_mutation() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:alpha")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha)],
             kind: OutcomeKind::FixValidated,
@@ -10020,6 +10035,7 @@ fn compact_expand_lineage_returns_compact_recent_history() {
                 actor: EventActor::System,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             trigger: ChangeTrigger::ManualReindex,
             files: vec![file_id],
@@ -10143,6 +10159,7 @@ fn compact_expand_diff_returns_compact_recent_patch_summaries() {
                     actor: EventActor::System,
                     correlation: None,
                     causation: None,
+                    execution_context: None,
                 },
                 anchors: vec![AnchorRef::File(file_id), AnchorRef::Node(alpha_id.clone())],
                 kind: OutcomeKind::PatchApplied,
@@ -10294,6 +10311,7 @@ fn compact_expand_perception_lenses_surface_impact_timeline_and_memory() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:alpha")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha_id.clone())],
             kind: OutcomeKind::FailureObserved,
@@ -10311,6 +10329,7 @@ fn compact_expand_perception_lenses_surface_impact_timeline_and_memory() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:alpha")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![
                 AnchorRef::File(source_file),
@@ -10342,6 +10361,7 @@ fn compact_expand_perception_lenses_surface_impact_timeline_and_memory() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:alpha")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha_id.clone())],
             kind: OutcomeKind::FixValidated,
@@ -10659,6 +10679,7 @@ fn compact_task_brief_prefers_refresh_for_stale_current_task() {
             actor: EventActor::System,
             correlation: None,
             causation: None,
+            execution_context: None,
         },
         trigger: ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
@@ -10703,6 +10724,7 @@ fn compact_task_brief_prefers_refresh_for_stale_current_task() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Refresh stale task".into(),
@@ -10722,6 +10744,7 @@ fn compact_task_brief_prefers_refresh_for_stale_current_task() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id,
@@ -12159,6 +12182,7 @@ fn lineage_targets_remap_stale_symbol_ids_to_current_edit_slices() {
             actor: EventActor::System,
             correlation: None,
             causation: None,
+            execution_context: None,
         },
         trigger: prism_ir::ChangeTrigger::ManualReindex,
         files: vec![file_id],
@@ -13924,6 +13948,7 @@ fn prism_change_views_surface_recent_files_symbols_and_task_changes() {
                 actor: EventActor::System,
                 correlation: Some(task_id.clone()),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::File(file_id), AnchorRef::Node(alpha_id.clone())],
             kind: OutcomeKind::PatchApplied,
@@ -14622,6 +14647,7 @@ fn read_and_edit_context_queries_return_semantic_bundles() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:validation-context")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(spec_id)],
             kind: OutcomeKind::FailureObserved,
@@ -15079,6 +15105,7 @@ fn exposes_blast_radius_and_related_failures() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:alpha")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha.clone())],
             kind: OutcomeKind::FailureObserved,
@@ -15143,6 +15170,7 @@ fn exposes_validation_recipe() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:alpha")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha.clone())],
             kind: OutcomeKind::FailureObserved,
@@ -15209,6 +15237,7 @@ fn exposes_co_change_neighbors() {
             actor: EventActor::System,
             correlation: None,
             causation: None,
+            execution_context: None,
         },
         trigger: prism_ir::ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
@@ -15878,6 +15907,74 @@ fn validation_feedback_mutation_persists_to_workspace_log() {
 }
 
 #[test]
+fn authenticated_outcome_mutation_records_principal_actor_and_execution_context() {
+    let root = temp_workspace();
+    let (workspace, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    let host = QueryHost::with_session(workspace);
+
+    let result = host
+        .store_outcome_without_refresh_authenticated(
+            test_session(&host).as_ref(),
+            PrismOutcomeArgs {
+                kind: OutcomeKindInput::NoteAdded,
+                anchors: vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::alpha".to_string(),
+                    kind: "function".to_string(),
+                }],
+                summary: "Authenticated repo-memory mutation.".to_string(),
+                result: Some(OutcomeResultInput::Success),
+                evidence: None,
+                task_id: Some("task:authenticated-outcome".to_string()),
+            },
+            Some(&authenticated),
+        )
+        .expect("authenticated outcome should persist");
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let replay = reloaded
+        .prism()
+        .resume_task(&TaskId::new("task:authenticated-outcome"));
+    let event = replay
+        .events
+        .into_iter()
+        .find(|event| event.meta.id.0 == result.event_id)
+        .expect("persisted outcome event should be replayable");
+    let principal = match event.meta.actor {
+        EventActor::Principal(principal) => principal,
+        actor => panic!("expected principal actor, got {actor:?}"),
+    };
+    assert_eq!(
+        principal.principal_id.0,
+        authenticated.principal.principal_id.0
+    );
+    assert_eq!(
+        principal.authority_id.0,
+        authenticated.principal.authority_id.0
+    );
+    let context = event
+        .meta
+        .execution_context
+        .expect("authenticated outcome should record execution context");
+    assert_eq!(
+        context.credential_id,
+        Some(authenticated.credential.credential_id.clone())
+    );
+    assert_eq!(
+        context.session_id,
+        Some(test_session(&host).session_id().0.to_string())
+    );
+    assert!(context.repo_id.is_some());
+    assert!(context.worktree_id.is_some());
+}
+
+#[test]
 fn validation_feedback_mutation_allows_workspace_level_feedback_without_anchors() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
@@ -15912,6 +16009,69 @@ fn validation_feedback_mutation_allows_workspace_level_feedback_without_anchors(
     assert_eq!(entries.len(), 1);
     assert!(entries[0].anchors.is_empty());
     assert_eq!(entries[0].metadata["tool"], "prism_locate");
+}
+
+#[test]
+fn authenticated_validation_feedback_records_principal_actor_and_execution_context() {
+    let root = temp_workspace();
+    let (workspace, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    let host = QueryHost::with_session(workspace);
+
+    host.store_validation_feedback_without_refresh_authenticated(
+        test_session(&host).as_ref(),
+        PrismValidationFeedbackArgs {
+            anchors: None,
+            context: "authenticated dogfood".to_string(),
+            prism_said: "actor provenance is omitted".to_string(),
+            actually_true: "authenticated feedback should carry principal provenance".to_string(),
+            category: ValidationFeedbackCategoryInput::Coordination,
+            verdict: ValidationFeedbackVerdictInput::Helpful,
+            corrected_manually: Some(false),
+            correction: None,
+            metadata: None,
+            task_id: Some("task:authenticated-feedback".to_string()),
+        },
+        Some(&authenticated),
+    )
+    .expect("authenticated validation feedback should persist");
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let entries = reloaded.validation_feedback(Some(5)).unwrap();
+    let entry = entries
+        .into_iter()
+        .find(|entry| entry.task_id.as_deref() == Some("task:authenticated-feedback"))
+        .expect("persisted validation feedback entry should be queryable");
+    let principal = match entry.actor.expect("actor should be recorded") {
+        EventActor::Principal(principal) => principal,
+        actor => panic!("expected principal actor, got {actor:?}"),
+    };
+    assert_eq!(
+        principal.principal_id.0,
+        authenticated.principal.principal_id.0
+    );
+    assert_eq!(
+        principal.authority_id.0,
+        authenticated.principal.authority_id.0
+    );
+    let context = entry
+        .execution_context
+        .expect("execution context should be recorded");
+    assert_eq!(
+        context.credential_id,
+        Some(authenticated.credential.credential_id.clone())
+    );
+    assert_eq!(
+        context.session_id,
+        Some(test_session(&host).session_id().0.to_string())
+    );
+    assert!(context.repo_id.is_some());
+    assert!(context.worktree_id.is_some());
 }
 
 #[test]
@@ -16017,6 +16177,8 @@ fn validation_feedback_query_reads_internal_feedback_stream() {
     workspace
         .append_validation_feedback(ValidationFeedbackRecord {
             task_id: Some("task:feedback".to_string()),
+            actor: None,
+            execution_context: None,
             context: "session behavioral-owner dogfood".to_string(),
             anchors: vec![AnchorRef::Node(NodeId::new(
                 "demo",
@@ -19023,6 +19185,7 @@ fn memory_outcomes_support_filtered_history_queries() {
                 actor: EventActor::System,
                 correlation: Some(TaskId::new("task:alpha")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha.clone())],
             kind: OutcomeKind::FailureObserved,
@@ -19040,6 +19203,7 @@ fn memory_outcomes_support_filtered_history_queries() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:alpha")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha.clone())],
             kind: OutcomeKind::FailureObserved,
@@ -19186,6 +19350,7 @@ fn task_journal_query_reports_missing_validation_and_related_memory() {
                 actor: EventActor::Agent,
                 correlation: Some(task_id.clone()),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(main_id.clone())],
             kind: OutcomeKind::PlanCreated,
@@ -19203,6 +19368,7 @@ fn task_journal_query_reports_missing_validation_and_related_memory() {
                 actor: EventActor::Agent,
                 correlation: Some(task_id.clone()),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(main_id.clone())],
             kind: OutcomeKind::PatchApplied,
@@ -19517,6 +19683,7 @@ fn session_resource_surfaces_stale_current_task_context() {
             actor: EventActor::System,
             correlation: None,
             causation: None,
+            execution_context: None,
         },
         trigger: ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
@@ -19561,6 +19728,7 @@ fn session_resource_surfaces_stale_current_task_context() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Refresh stale task".into(),
@@ -19580,6 +19748,7 @@ fn session_resource_surfaces_stale_current_task_context() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id,

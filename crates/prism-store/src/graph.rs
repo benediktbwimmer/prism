@@ -1546,6 +1546,7 @@ fn default_event_meta() -> EventMeta {
         actor: EventActor::System,
         correlation: None,
         causation: None,
+        execution_context: None,
     }
 }
 

@@ -16,6 +16,7 @@ pub(crate) fn default_outcome_meta(prefix: &str) -> EventMeta {
         actor: EventActor::System,
         correlation: None,
         causation: None,
+        execution_context: None,
     }
 }
 
@@ -200,6 +201,7 @@ impl<S: prism_store::Store> WorkspaceIndexer<S> {
                 actor: EventActor::System,
                 correlation: observed.meta.correlation.clone(),
                 causation: Some(observed.meta.id.clone()),
+                execution_context: observed.meta.execution_context.clone(),
             },
             anchors: dedupe_anchors(anchors),
             kind: OutcomeKind::PatchApplied,

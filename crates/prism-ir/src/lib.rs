@@ -18,7 +18,7 @@ pub use coordination::{
     CoordinationEventKind, CoordinationTaskStatus, PlanStatus, ReviewVerdict,
 };
 pub use durable_ids::{new_prefixed_id, new_slugged_id, new_sortable_token, slugify_id_fragment};
-pub use events::{EventActor, EventMeta};
+pub use events::{EventActor, EventExecutionContext, EventMeta};
 pub use graph::{Edge, EdgeKind, EdgeOrigin, Node, NodeId, NodeKind, Skeleton, Subgraph};
 pub use history::{LineageEvent, LineageEventKind, LineageEvidence};
 pub use identity::{

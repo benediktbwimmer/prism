@@ -383,6 +383,7 @@ pub(crate) fn acquire_claim_mutation(
                 actor: meta.actor,
                 correlation: meta.correlation.clone(),
                 causation: Some(meta.id.clone()),
+                execution_context: meta.execution_context.clone(),
             },
             kind: CoordinationEventKind::ClaimContended,
             summary: "claim acquired with contention".to_string(),

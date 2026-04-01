@@ -5,7 +5,7 @@ use std::path::Path;
 use std::str::FromStr;
 
 use anyhow::{Context, Result};
-use prism_ir::{new_prefixed_id, AnchorRef};
+use prism_ir::{new_prefixed_id, AnchorRef, EventActor, EventExecutionContext};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -99,6 +99,10 @@ pub struct ValidationFeedbackEntry {
     pub id: String,
     pub recorded_at: u64,
     pub task_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor: Option<EventActor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_context: Option<EventExecutionContext>,
     pub context: String,
     pub anchors: Vec<AnchorRef>,
     pub prism_said: String,
@@ -113,6 +117,8 @@ pub struct ValidationFeedbackEntry {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ValidationFeedbackRecord {
     pub task_id: Option<String>,
+    pub actor: Option<EventActor>,
+    pub execution_context: Option<EventExecutionContext>,
     pub context: String,
     pub anchors: Vec<AnchorRef>,
     pub prism_said: String,
@@ -130,6 +136,8 @@ impl ValidationFeedbackRecord {
             id: next_feedback_id(),
             recorded_at: current_timestamp(),
             task_id: self.task_id,
+            actor: self.actor,
+            execution_context: self.execution_context,
             context: self.context,
             anchors: self.anchors,
             prism_said: self.prism_said,

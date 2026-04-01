@@ -1,5 +1,8 @@
 use anyhow::Result;
-use prism_ir::{new_prefixed_id, AnchorRef, EventMeta, LineageEvent, TaskId, Timestamp};
+use prism_ir::{
+    new_prefixed_id, AnchorRef, EventActor, EventExecutionContext, EventMeta, LineageEvent, TaskId,
+    Timestamp,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -89,6 +92,10 @@ pub struct MemoryEvent {
     pub task_id: Option<String>,
     pub promoted_from: Vec<MemoryId>,
     pub supersedes: Vec<MemoryId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor: Option<EventActor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_context: Option<EventExecutionContext>,
 }
 
 impl MemoryEvent {
@@ -109,6 +116,8 @@ impl MemoryEvent {
             task_id,
             promoted_from,
             supersedes,
+            actor: None,
+            execution_context: None,
         }
     }
 }

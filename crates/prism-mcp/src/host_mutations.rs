@@ -3,8 +3,8 @@ use prism_coordination::{
     HandoffAcceptInput, HandoffInput, PolicyViolation, TaskCreateInput, TaskUpdateInput,
 };
 use prism_core::{
-    AdmissionBusyError, ValidationFeedbackCategory, ValidationFeedbackRecord,
-    ValidationFeedbackVerdict,
+    AdmissionBusyError, AuthenticatedPrincipal, ValidationFeedbackCategory,
+    ValidationFeedbackRecord, ValidationFeedbackVerdict,
 };
 use prism_curator::{
     CandidateConcept, CandidateConceptOperation, CuratorJobId, CuratorProposal,
@@ -12,7 +12,7 @@ use prism_curator::{
 };
 use prism_ir::{
     new_prefixed_id, AgentId, AnchorRef, ArtifactId, ClaimId, CoordinationTaskId, Edge, EdgeOrigin,
-    EventActor, EventId, EventMeta, PlanEdge, PlanEdgeId, PlanEdgeKind, PlanId, PlanNodeId, TaskId,
+    EventId, EventMeta, PlanEdge, PlanEdgeId, PlanEdgeKind, PlanId, PlanNodeId, TaskId,
 };
 use prism_js::{CuratorProposalRecordView, TaskJournalView};
 use prism_memory::{
@@ -30,6 +30,7 @@ use prism_query::{
 use serde_json::{json, Value};
 
 use crate::dashboard_events::MutationRun;
+use crate::MutationProvenance;
 use crate::{
     artifact_view, claim_view, concept_packet_view, concept_relation_view, conflict_view,
     contract_packet_view, convert_acceptance, convert_anchors, convert_capability,
@@ -142,6 +143,18 @@ fn coordination_audit_since(prism: &Prism, before_len: usize) -> CoordinationAud
         }
     }
     audit
+}
+
+fn mutation_provenance(
+    host: &QueryHost,
+    session: &SessionState,
+    authenticated: Option<&AuthenticatedPrincipal>,
+) -> MutationProvenance {
+    let workspace = host.workspace_session_ref();
+    authenticated.map_or_else(
+        || MutationProvenance::fallback(workspace, session),
+        |authenticated| MutationProvenance::authenticated(workspace, session, authenticated),
+    )
 }
 
 fn current_plan_node_state(prism: &Prism, plan_id: &PlanId, node_id: &str) -> Result<Value> {
@@ -349,13 +362,12 @@ impl QueryHost {
                 )
             };
         let event = OutcomeEvent {
-            meta: EventMeta {
-                id: session.next_event_id("outcome"),
-                ts: current_timestamp(),
-                actor: EventActor::Agent,
-                correlation: Some(task.clone()),
-                causation: None,
-            },
+            meta: mutation_provenance(self, session, None).event_meta(
+                session.next_event_id("outcome"),
+                Some(task.clone()),
+                None,
+                current_timestamp(),
+            ),
             anchors: Vec::new(),
             kind: prism_memory::OutcomeKind::PlanCreated,
             result: prism_memory::OutcomeResult::Success,
@@ -461,7 +473,7 @@ impl QueryHost {
         entry.trust = disposition.trust();
         entry.metadata = task_journal_memory_metadata(Value::Null, &task, disposition.label());
         let memory_id = session.notes.store(entry)?;
-        let memory_event = session
+        let mut memory_event = session
             .notes
             .entry(&memory_id)
             .map(|entry| {
@@ -474,15 +486,15 @@ impl QueryHost {
                 )
             })
             .ok_or_else(|| anyhow!("stored memory `{}` could not be reloaded", memory_id.0))?;
+        mutation_provenance(self, session, None).stamp_memory_event(&mut memory_event);
 
         let event = OutcomeEvent {
-            meta: EventMeta {
-                id: session.next_event_id("outcome"),
-                ts: current_timestamp(),
-                actor: EventActor::Agent,
-                correlation: Some(task.clone()),
-                causation: None,
-            },
+            meta: mutation_provenance(self, session, None).event_meta(
+                session.next_event_id("outcome"),
+                Some(task.clone()),
+                None,
+                current_timestamp(),
+            ),
             anchors,
             kind: OutcomeKind::NoteAdded,
             result: disposition.outcome_result(),
@@ -544,13 +556,23 @@ impl QueryHost {
         session: &SessionState,
         args: PrismOutcomeArgs,
     ) -> Result<EventMutationResult> {
-        self.store_outcome_without_refresh(session, args)
+        self.store_outcome_without_refresh_authenticated(session, args, None)
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn store_outcome_without_refresh(
         &self,
         session: &SessionState,
         args: PrismOutcomeArgs,
+    ) -> Result<EventMutationResult> {
+        self.store_outcome_without_refresh_authenticated(session, args, None)
+    }
+
+    pub(crate) fn store_outcome_without_refresh_authenticated(
+        &self,
+        session: &SessionState,
+        args: PrismOutcomeArgs,
+        authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<EventMutationResult> {
         let prism = self.current_prism();
         let anchors = prism.anchors_for(&convert_anchors(
@@ -559,14 +581,14 @@ impl QueryHost {
             args.anchors,
         )?);
         let task_id = session.task_for_mutation(args.task_id.map(TaskId::new));
+        let provenance = mutation_provenance(self, session, authenticated);
         let event = OutcomeEvent {
-            meta: EventMeta {
-                id: session.next_event_id("outcome"),
-                ts: current_timestamp(),
-                actor: EventActor::Agent,
-                correlation: Some(task_id.clone()),
-                causation: None,
-            },
+            meta: provenance.event_meta(
+                session.next_event_id("outcome"),
+                Some(task_id.clone()),
+                None,
+                current_timestamp(),
+            ),
             anchors,
             kind: convert_outcome_kind(args.kind),
             result: args
@@ -604,13 +626,23 @@ impl QueryHost {
         session: &SessionState,
         args: PrismMemoryArgs,
     ) -> Result<MemoryMutationResult> {
-        self.store_memory_without_refresh(session, args)
+        self.store_memory_without_refresh_authenticated(session, args, None)
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn store_memory_without_refresh(
         &self,
         session: &SessionState,
         args: PrismMemoryArgs,
+    ) -> Result<MemoryMutationResult> {
+        self.store_memory_without_refresh_authenticated(session, args, None)
+    }
+
+    pub(crate) fn store_memory_without_refresh_authenticated(
+        &self,
+        session: &SessionState,
+        args: PrismMemoryArgs,
+        authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<MemoryMutationResult> {
         let task_id = session.task_for_mutation(args.task_id.map(TaskId::new));
         match args.action {
@@ -618,11 +650,13 @@ impl QueryHost {
                 session,
                 task_id,
                 serde_json::from_value::<MemoryStorePayload>(args.payload)?,
+                authenticated,
             ),
             MemoryMutationActionInput::Retire => self.retire_memory_payload(
                 session,
                 task_id,
                 serde_json::from_value::<MemoryRetirePayload>(args.payload)?,
+                authenticated,
             ),
         }
     }
@@ -632,6 +666,7 @@ impl QueryHost {
         session: &SessionState,
         task_id: TaskId,
         payload: MemoryStorePayload,
+        authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<MemoryMutationResult> {
         let prism = self.current_prism();
         let anchors = prism.anchors_for(&convert_anchors(
@@ -681,13 +716,16 @@ impl QueryHost {
             if let Some(workspace) = self.workspace_session() {
                 let action =
                     memory_event_kind_for_store(promoted_from.as_slice(), supersedes.as_slice());
-                workspace.append_memory_event(MemoryEvent::from_entry(
+                let mut memory_event = MemoryEvent::from_entry(
                     action,
                     stored_entry.clone(),
                     Some(task_id.0.to_string()),
                     promoted_from,
                     supersedes,
-                ))?;
+                );
+                mutation_provenance(self, session, authenticated)
+                    .stamp_memory_event(&mut memory_event);
+                workspace.append_memory_event(memory_event)?;
                 if stored_entry.scope == MemoryScope::Repo {
                     self.reload_episodic_snapshot(workspace)?;
                 } else {
@@ -709,13 +747,12 @@ impl QueryHost {
                 });
             }
             let note_event = OutcomeEvent {
-                meta: EventMeta {
-                    id: session.next_event_id("outcome"),
-                    ts: current_timestamp(),
-                    actor: EventActor::Agent,
-                    correlation: Some(task_id.clone()),
-                    causation: None,
-                },
+                meta: mutation_provenance(self, session, authenticated).event_meta(
+                    session.next_event_id("outcome"),
+                    Some(task_id.clone()),
+                    None,
+                    current_timestamp(),
+                ),
                 anchors: note_anchors,
                 kind: prism_memory::OutcomeKind::NoteAdded,
                 result: prism_memory::OutcomeResult::Success,
@@ -746,6 +783,7 @@ impl QueryHost {
         session: &SessionState,
         task_id: TaskId,
         payload: MemoryRetirePayload,
+        authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<MemoryMutationResult> {
         let workspace = self.workspace_session().ok_or_else(|| {
             anyhow!("retiring repo-published memory requires a workspace-backed session")
@@ -776,13 +814,15 @@ impl QueryHost {
             current_timestamp(),
             &payload.retirement_reason,
         );
-        workspace.append_memory_event(MemoryEvent::from_entry(
+        let mut memory_event = MemoryEvent::from_entry(
             MemoryEventKind::Retired,
             retired_entry,
             Some(task_id.0.to_string()),
             Vec::new(),
             Vec::new(),
-        ))?;
+        );
+        mutation_provenance(self, session, authenticated).stamp_memory_event(&mut memory_event);
+        workspace.append_memory_event(memory_event)?;
         self.reload_episodic_snapshot(workspace)?;
         Ok(MemoryMutationResult {
             memory_id: payload.memory_id,
@@ -796,13 +836,23 @@ impl QueryHost {
         session: &SessionState,
         args: PrismConceptMutationArgs,
     ) -> Result<ConceptMutationResult> {
-        self.store_concept_without_refresh(session, args)
+        self.store_concept_without_refresh_authenticated(session, args, None)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn store_concept_without_refresh(
         &self,
         session: &SessionState,
         args: PrismConceptMutationArgs,
+    ) -> Result<ConceptMutationResult> {
+        self.store_concept_without_refresh_authenticated(session, args, None)
+    }
+
+    pub(crate) fn store_concept_without_refresh_authenticated(
+        &self,
+        session: &SessionState,
+        args: PrismConceptMutationArgs,
+        authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<ConceptMutationResult> {
         let workspace = self.workspace_session().ok_or_else(|| {
             anyhow!("concept promotion requires a workspace-backed PRISM session")
@@ -823,10 +873,12 @@ impl QueryHost {
             }
         };
         let patch = concept_event_patch(&args, &operation, &packet)?;
-        let event = ConceptEvent {
+        let mut event = ConceptEvent {
             id: next_concept_event_id(),
             recorded_at,
             task_id: Some(task_id.0.to_string()),
+            actor: None,
+            execution_context: None,
             action: match operation {
                 ConceptMutationOperationInput::Promote => ConceptEventAction::Promote,
                 ConceptMutationOperationInput::Update => ConceptEventAction::Update,
@@ -835,6 +887,7 @@ impl QueryHost {
             patch,
             concept: packet.clone(),
         };
+        mutation_provenance(self, session, authenticated).stamp_concept_event(&mut event);
         workspace.append_concept_event(event.clone())?;
         self.sync_workspace_revision(workspace)?;
         Ok(ConceptMutationResult {
@@ -851,13 +904,23 @@ impl QueryHost {
         session: &SessionState,
         args: PrismContractMutationArgs,
     ) -> Result<ContractMutationResult> {
-        self.store_contract_without_refresh(session, args)
+        self.store_contract_without_refresh_authenticated(session, args, None)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn store_contract_without_refresh(
         &self,
         session: &SessionState,
         args: PrismContractMutationArgs,
+    ) -> Result<ContractMutationResult> {
+        self.store_contract_without_refresh_authenticated(session, args, None)
+    }
+
+    pub(crate) fn store_contract_without_refresh_authenticated(
+        &self,
+        session: &SessionState,
+        args: PrismContractMutationArgs,
+        authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<ContractMutationResult> {
         let workspace = self.workspace_session().ok_or_else(|| {
             anyhow!("contract mutations require a workspace-backed PRISM session")
@@ -916,10 +979,12 @@ impl QueryHost {
             }
         };
         let patch = contract_event_patch(&args, &operation, &packet)?;
-        let event = ContractEvent {
+        let mut event = ContractEvent {
             id: next_contract_event_id(),
             recorded_at,
             task_id: Some(task_id.0.to_string()),
+            actor: None,
+            execution_context: None,
             action: match operation {
                 ContractMutationOperationInput::Promote => ContractEventAction::Promote,
                 ContractMutationOperationInput::Update => ContractEventAction::Update,
@@ -938,6 +1003,7 @@ impl QueryHost {
             patch,
             contract: packet.clone(),
         };
+        mutation_provenance(self, session, authenticated).stamp_contract_event(&mut event);
         workspace.append_contract_event(event.clone())?;
         self.sync_workspace_revision(workspace)?;
         Ok(ContractMutationResult {
@@ -948,10 +1014,20 @@ impl QueryHost {
         })
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn store_concept_relation(
         &self,
         session: &SessionState,
         args: PrismConceptRelationMutationArgs,
+    ) -> Result<ConceptRelationMutationResult> {
+        self.store_concept_relation_authenticated(session, args, None)
+    }
+
+    pub(crate) fn store_concept_relation_authenticated(
+        &self,
+        session: &SessionState,
+        args: PrismConceptRelationMutationArgs,
+        authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<ConceptRelationMutationResult> {
         let workspace = self.workspace_session().ok_or_else(|| {
             anyhow!("concept relation mutations require a workspace-backed PRISM session")
@@ -959,16 +1035,19 @@ impl QueryHost {
         let prism = self.current_prism();
         let task_id = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
         let relation = build_concept_relation(prism.as_ref(), &task_id, &args)?;
-        let event = ConceptRelationEvent {
+        let mut event = ConceptRelationEvent {
             id: next_concept_relation_event_id(),
             recorded_at: current_timestamp(),
             task_id: Some(task_id.0.to_string()),
+            actor: None,
+            execution_context: None,
             action: match args.operation {
                 ConceptRelationMutationOperationInput::Upsert => ConceptRelationEventAction::Upsert,
                 ConceptRelationMutationOperationInput::Retire => ConceptRelationEventAction::Retire,
             },
             relation: relation.clone(),
         };
+        mutation_provenance(self, session, authenticated).stamp_concept_relation_event(&mut event);
         workspace.append_concept_relation_event(event.clone())?;
         self.sync_workspace_revision(workspace)?;
         let focus_handle = relation.source_handle.clone();
@@ -985,13 +1064,23 @@ impl QueryHost {
         session: &SessionState,
         args: PrismValidationFeedbackArgs,
     ) -> Result<ValidationFeedbackMutationResult> {
-        self.store_validation_feedback_without_refresh(session, args)
+        self.store_validation_feedback_without_refresh_authenticated(session, args, None)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn store_validation_feedback_without_refresh(
         &self,
         session: &SessionState,
         args: PrismValidationFeedbackArgs,
+    ) -> Result<ValidationFeedbackMutationResult> {
+        self.store_validation_feedback_without_refresh_authenticated(session, args, None)
+    }
+
+    pub(crate) fn store_validation_feedback_without_refresh_authenticated(
+        &self,
+        session: &SessionState,
+        args: PrismValidationFeedbackArgs,
+        authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<ValidationFeedbackMutationResult> {
         let prism = self.current_prism();
         let task_id = session.task_for_mutation(args.task_id.map(TaskId::new));
@@ -1003,8 +1092,10 @@ impl QueryHost {
         let workspace = self.workspace_session().ok_or_else(|| {
             anyhow!("validation feedback logging requires a workspace-backed PRISM session")
         })?;
-        let entry = workspace.append_validation_feedback(ValidationFeedbackRecord {
+        let mut record = ValidationFeedbackRecord {
             task_id: Some(task_id.0.to_string()),
+            actor: None,
+            execution_context: None,
             context: args.context,
             anchors,
             prism_said: args.prism_said,
@@ -1014,7 +1105,10 @@ impl QueryHost {
             corrected_manually: args.corrected_manually.unwrap_or(false),
             correction: args.correction,
             metadata: args.metadata.unwrap_or(Value::Null),
-        })?;
+        };
+        mutation_provenance(self, session, authenticated)
+            .stamp_validation_feedback_record(&mut record);
+        let entry = workspace.append_validation_feedback(record)?;
         Ok(ValidationFeedbackMutationResult {
             entry_id: entry.id,
             task_id: task_id.0.to_string(),
@@ -1067,23 +1161,35 @@ impl QueryHost {
         session: &SessionState,
         args: PrismCoordinationArgs,
     ) -> Result<CoordinationMutationResult> {
-        self.store_coordination_with_trace(session, args, None)
+        self.store_coordination_with_trace_authenticated(session, args, None, None)
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn store_coordination_traced(
         &self,
         session: &SessionState,
         args: PrismCoordinationArgs,
         trace: &MutationRun,
     ) -> Result<CoordinationMutationResult> {
-        self.store_coordination_with_trace(session, args, Some(trace))
+        self.store_coordination_with_trace_authenticated(session, args, Some(trace), None)
     }
 
-    fn store_coordination_with_trace(
+    pub(crate) fn store_coordination_traced_authenticated(
+        &self,
+        session: &SessionState,
+        args: PrismCoordinationArgs,
+        trace: &MutationRun,
+        authenticated: Option<&AuthenticatedPrincipal>,
+    ) -> Result<CoordinationMutationResult> {
+        self.store_coordination_with_trace_authenticated(session, args, Some(trace), authenticated)
+    }
+
+    fn store_coordination_with_trace_authenticated(
         &self,
         session: &SessionState,
         args: PrismCoordinationArgs,
         trace: Option<&MutationRun>,
+        authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<CoordinationMutationResult> {
         self.ensure_tool_enabled("prism_coordination", "coordination workflow mutations")?;
         if let Some(workspace) = self.workspace_session() {
@@ -1165,13 +1271,12 @@ impl QueryHost {
         let before_events = prism.coordination_events().len();
         let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
         let event_id = session.next_event_id("coordination");
-        let meta = EventMeta {
-            id: event_id.clone(),
-            ts: current_timestamp(),
-            actor: EventActor::Agent,
-            correlation: Some(task),
-            causation: None,
-        };
+        let meta = mutation_provenance(self, session, authenticated).event_meta(
+            event_id.clone(),
+            Some(task),
+            None,
+            current_timestamp(),
+        );
         if let Some(workspace) = self.workspace_session() {
             let result = if let Some(trace) = trace {
                 match workspace.mutate_coordination_with_session_wait_observed(
@@ -1317,10 +1422,20 @@ impl QueryHost {
         })
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn store_claim(
         &self,
         session: &SessionState,
         args: PrismClaimArgs,
+    ) -> Result<ClaimMutationResult> {
+        self.store_claim_authenticated(session, args, None)
+    }
+
+    pub(crate) fn store_claim_authenticated(
+        &self,
+        session: &SessionState,
+        args: PrismClaimArgs,
+        authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<ClaimMutationResult> {
         self.ensure_tool_enabled("prism_claim", "coordination claim mutations")?;
         if let Some(workspace) = self.workspace_session() {
@@ -1330,13 +1445,12 @@ impl QueryHost {
         let prism = self.current_prism();
         let before_events = prism.coordination_events().len();
         let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
-        let meta = EventMeta {
-            id: session.next_event_id("coordination"),
-            ts: current_timestamp(),
-            actor: EventActor::Agent,
-            correlation: Some(task),
-            causation: None,
-        };
+        let meta = mutation_provenance(self, session, authenticated).event_meta(
+            session.next_event_id("coordination"),
+            Some(task),
+            None,
+            current_timestamp(),
+        );
         if let Some(workspace) = self.workspace_session() {
             match workspace.mutate_coordination_with_session_wait_observed(
                 Some(&session.session_id()),
@@ -1397,10 +1511,20 @@ impl QueryHost {
         }
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn store_artifact(
         &self,
         session: &SessionState,
         args: PrismArtifactArgs,
+    ) -> Result<ArtifactMutationResult> {
+        self.store_artifact_authenticated(session, args, None)
+    }
+
+    pub(crate) fn store_artifact_authenticated(
+        &self,
+        session: &SessionState,
+        args: PrismArtifactArgs,
+        authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<ArtifactMutationResult> {
         self.ensure_tool_enabled("prism_artifact", "coordination artifact mutations")?;
         if let Some(workspace) = self.workspace_session() {
@@ -1410,13 +1534,12 @@ impl QueryHost {
         let prism = self.current_prism();
         let before_events = prism.coordination_events().len();
         let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
-        let meta = EventMeta {
-            id: session.next_event_id("coordination"),
-            ts: current_timestamp(),
-            actor: EventActor::Agent,
-            correlation: Some(task),
-            causation: None,
-        };
+        let meta = mutation_provenance(self, session, authenticated).event_meta(
+            session.next_event_id("coordination"),
+            Some(task),
+            None,
+            current_timestamp(),
+        );
         if let Some(workspace) = self.workspace_session() {
             match workspace.mutate_coordination_with_session_wait_observed(
                 Some(&session.session_id()),
@@ -2130,10 +2253,20 @@ impl QueryHost {
         })
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn promote_curator_concept(
         &self,
         session: &SessionState,
         args: PrismCuratorPromoteConceptArgs,
+    ) -> Result<CuratorProposalDecisionResult> {
+        self.promote_curator_concept_authenticated(session, args, None)
+    }
+
+    pub(crate) fn promote_curator_concept_authenticated(
+        &self,
+        session: &SessionState,
+        args: PrismCuratorPromoteConceptArgs,
+        authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<CuratorProposalDecisionResult> {
         let workspace = self
             .workspace_session()
@@ -2177,14 +2310,17 @@ impl QueryHost {
             kind: "curator_concept_candidate".to_string(),
             task_id: Some(task_id.0.to_string()),
         };
-        let event = ConceptEvent {
+        let mut event = ConceptEvent {
             id: next_concept_event_id(),
             recorded_at,
             task_id: Some(task_id.0.to_string()),
+            actor: None,
+            execution_context: None,
             action: ConceptEventAction::Promote,
             patch: None,
             concept: packet.clone(),
         };
+        mutation_provenance(self, session, authenticated).stamp_concept_event(&mut event);
         workspace.append_concept_event(event)?;
         self.sync_workspace_revision(workspace)?;
         let detail = args.note.clone();
@@ -2222,10 +2358,20 @@ impl QueryHost {
         })
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn apply_curator_proposal(
         &self,
         session: &SessionState,
         args: PrismCuratorApplyProposalArgs,
+    ) -> Result<CuratorProposalDecisionResult> {
+        self.apply_curator_proposal_authenticated(session, args, None)
+    }
+
+    pub(crate) fn apply_curator_proposal_authenticated(
+        &self,
+        session: &SessionState,
+        args: PrismCuratorApplyProposalArgs,
+        authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<CuratorProposalDecisionResult> {
         let workspace = self
             .workspace_session()
@@ -2263,7 +2409,7 @@ impl QueryHost {
                     task_id: args.task_id,
                 },
             ),
-            CuratorProposal::ConceptCandidate(_) => self.promote_curator_concept(
+            CuratorProposal::ConceptCandidate(_) => self.promote_curator_concept_authenticated(
                 session,
                 PrismCuratorPromoteConceptArgs {
                     job_id: args.job_id,
@@ -2274,11 +2420,12 @@ impl QueryHost {
                     note: args.note,
                     task_id: args.task_id,
                 },
+                authenticated,
             ),
             CuratorProposal::StructuralMemory(_)
             | CuratorProposal::SemanticMemory(_)
             | CuratorProposal::RiskSummary(_)
-            | CuratorProposal::ValidationRecipe(_) => self.promote_curator_memory(
+            | CuratorProposal::ValidationRecipe(_) => self.promote_curator_memory_authenticated(
                 session,
                 PrismCuratorPromoteMemoryArgs {
                     job_id: args.job_id,
@@ -2287,14 +2434,25 @@ impl QueryHost {
                     note: args.note,
                     task_id: args.task_id,
                 },
+                authenticated,
             ),
         }
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn promote_curator_memory(
         &self,
         session: &SessionState,
         args: PrismCuratorPromoteMemoryArgs,
+    ) -> Result<CuratorProposalDecisionResult> {
+        self.promote_curator_memory_authenticated(session, args, None)
+    }
+
+    pub(crate) fn promote_curator_memory_authenticated(
+        &self,
+        session: &SessionState,
+        args: PrismCuratorPromoteMemoryArgs,
+        authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<CuratorProposalDecisionResult> {
         let workspace = self
             .workspace_session()
@@ -2465,22 +2623,23 @@ impl QueryHost {
             .notes
             .entry(&memory_id)
             .ok_or_else(|| anyhow!("promoted memory `{}` could not be reloaded", memory_id.0))?;
-        workspace.append_memory_event(MemoryEvent::from_entry(
+        let mut memory_event = MemoryEvent::from_entry(
             MemoryEventKind::Promoted,
             stored_entry.clone(),
             Some(task.0.to_string()),
             promoted_from,
             Vec::new(),
-        ))?;
+        );
+        mutation_provenance(self, session, authenticated).stamp_memory_event(&mut memory_event);
+        workspace.append_memory_event(memory_event)?;
         self.reload_episodic_snapshot(workspace)?;
         let note_event = OutcomeEvent {
-            meta: EventMeta {
-                id: session.next_event_id("outcome"),
-                ts: current_timestamp(),
-                actor: EventActor::System,
-                correlation: Some(task.clone()),
-                causation: None,
-            },
+            meta: mutation_provenance(self, session, authenticated).event_meta(
+                session.next_event_id("outcome"),
+                Some(task.clone()),
+                None,
+                current_timestamp(),
+            ),
             anchors: memory_anchors,
             kind: prism_memory::OutcomeKind::NoteAdded,
             result: prism_memory::OutcomeResult::Success,
@@ -2537,10 +2696,20 @@ impl QueryHost {
         })
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn reject_curator_proposal(
         &self,
         session: &SessionState,
         args: PrismCuratorRejectProposalArgs,
+    ) -> Result<CuratorProposalDecisionResult> {
+        self.reject_curator_proposal_authenticated(session, args, None)
+    }
+
+    pub(crate) fn reject_curator_proposal_authenticated(
+        &self,
+        session: &SessionState,
+        args: PrismCuratorRejectProposalArgs,
+        _authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<CuratorProposalDecisionResult> {
         let workspace = self
             .workspace_session()

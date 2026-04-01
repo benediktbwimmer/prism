@@ -104,6 +104,7 @@ fn lineage_views_expose_summaries_and_evidence_details() {
             actor: EventActor::System,
             correlation: None,
             causation: None,
+            execution_context: None,
         },
         trigger: ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],

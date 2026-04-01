@@ -155,6 +155,7 @@ pub(crate) fn derived_event_meta(meta: &EventMeta, suffix: &str) -> EventMeta {
         actor: meta.actor.clone(),
         correlation: meta.correlation.clone(),
         causation: Some(meta.id.clone()),
+        execution_context: meta.execution_context.clone(),
     }
 }
 

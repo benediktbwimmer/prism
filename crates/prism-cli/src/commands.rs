@@ -413,6 +413,8 @@ fn handle_feedback_command(
             }
             let entry = session.append_validation_feedback(ValidationFeedbackRecord {
                 task_id,
+                actor: None,
+                execution_context: None,
                 context,
                 anchors,
                 prism_said,
@@ -493,6 +495,7 @@ fn handle_task_command(
                     actor: EventActor::User,
                     correlation: Some(TaskId::new(id.clone())),
                     causation: None,
+                    execution_context: None,
                 },
                 anchors: prism.anchors_for(&[AnchorRef::Node(symbol.id().clone())]),
                 kind: OutcomeKind::PatchApplied,
@@ -538,6 +541,7 @@ fn handle_outcome_command(
                     actor: EventActor::User,
                     correlation: task.map(TaskId::new),
                     causation: None,
+                    execution_context: None,
                 },
                 anchors,
                 kind: parse_outcome_kind(&kind)?,

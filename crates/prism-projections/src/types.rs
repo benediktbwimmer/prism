@@ -1,4 +1,4 @@
-use prism_ir::{AnchorRef, LineageId, NodeId};
+use prism_ir::{AnchorRef, EventActor, EventExecutionContext, LineageId, NodeId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -363,6 +363,10 @@ pub struct ConceptEvent {
     pub id: String,
     pub recorded_at: u64,
     pub task_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor: Option<EventActor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_context: Option<EventExecutionContext>,
     pub action: ConceptEventAction,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub patch: Option<ConceptEventPatch>,
@@ -427,6 +431,10 @@ pub struct ContractEvent {
     pub id: String,
     pub recorded_at: u64,
     pub task_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor: Option<EventActor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_context: Option<EventExecutionContext>,
     pub action: ContractEventAction,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub patch: Option<ContractEventPatch>,
@@ -472,6 +480,10 @@ pub struct ConceptRelationEvent {
     pub id: String,
     pub recorded_at: u64,
     pub task_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor: Option<EventActor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_context: Option<EventExecutionContext>,
     pub action: ConceptRelationEventAction,
     pub relation: ConceptRelation,
 }

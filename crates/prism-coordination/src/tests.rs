@@ -9,6 +9,7 @@ fn meta(id: &str, ts: u64) -> EventMeta {
         actor: EventActor::Agent,
         correlation: None,
         causation: None,
+        execution_context: None,
     }
 }
 

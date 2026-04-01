@@ -378,6 +378,32 @@ judges that a lease refresh is due soon or due now.
 That instruction is advisory workflow guidance, not an implicit lease refresh. The read remains
 unauthenticated and must not itself change live lease state.
 
+### 6.3.1 Optional assisted watcher renewal may exist as an explicit trust policy
+
+PRISM may additionally support an opt-in assisted lease-renewal policy for local deployments that
+choose to trust worktree-local filesystem activity as a liveness proxy.
+
+That policy must be treated as an explicit trust downgrade relative to strict mode:
+
+- it is off by default
+- it is enabled only through explicit local configuration such as an environment variable or
+  per-workspace config
+- it does not make filesystem activity into proof of agent identity
+- it only authorizes PRISM to treat trusted local worktree activity as sufficient reason to send an
+  authenticated `heartbeat_lease` mutation automatically
+
+The assisted policy should be bounded and narrow:
+
+- it applies only when exactly one principal is bound to the worktree
+- it applies only when exactly one renewable lease is active for that worktree
+- it disables immediately on ambiguity, contention, reclaim, handoff, or owner change
+- it may extend a lease only for a bounded window since the last explicit authenticated mutation by
+  that principal
+
+This preserves the main lease invariant: raw ambient reads and transport activity still do not
+refresh leases, and watcher assistance remains a local opt-in convenience rather than an
+authoritative identity signal.
+
 ### 6.4 Reclaiming stale work must be explicit
 
 When a lease becomes stale or expired, PRISM should not silently pretend continuity.
@@ -617,6 +643,14 @@ The following points were previously open questions and are now resolved for the
 
 ### 12.3 Lease policy
 
+- Lease renewal policy should support two modes:
+  - `strict`
+    - default mode
+    - only explicit authenticated mutations renew leases
+  - `assisted`
+    - optional local trust policy
+    - allows watcher-triggered authenticated `heartbeat_lease` renewal under the bounded guardrails
+      below
 - Default lease timings:
   - `stale` after 30 minutes with no authenticated mutation touching that specific lease
   - `expired` after 2 hours
@@ -633,6 +667,11 @@ The following points were previously open questions and are now resolved for the
   before continuing other work.
 - Those result-payload instructions must be conditional and server-authored; they are hints that
   trigger an authenticated mutation, not a read-path lease refresh.
+- Assisted mode is an explicit local trust policy, not an identity proof:
+  - it is opt-in and off by default
+  - it is allowed only for one-principal, one-lease worktrees
+  - it is bounded by time since the last explicit authenticated mutation from that principal
+  - it should record renewal provenance such as `explicit` versus `watcher_auto`
 - `prism://instructions` should explicitly teach agents that these heartbeat prompts may appear and
   that, when present, they should satisfy them before continuing normal task work.
 
@@ -709,6 +748,7 @@ The following points were previously open questions and are now resolved for the
 - Day-one first-class views should expose at least:
   - active lease holder by `principal_id` and `name`
   - assigned principal by `principal_id` and `name`
+  - current lease renewal policy when it is not `strict`
 - These must appear in the core task and plan read surfaces such as task briefs and plan summaries.
 - Eager projections should include:
   - active lease holder
@@ -735,7 +775,7 @@ The following points were previously open questions and are now resolved for the
 The core design questions are now settled. Future work may still refine:
 
 - additional actor and execution-context snapshot fields beyond the initial minimum
-- optional `heartbeat_lease` ergonomics
+- optional `heartbeat_lease` ergonomics beyond the initial `strict` and bounded `assisted` modes
 - stronger human credential storage such as OS keychain integration
 - richer query and UI surfaces for lineage and provenance exploration
 
@@ -750,8 +790,11 @@ When implementation starts, the safest sequence is:
 3. Add mutation-envelope authentication and coarse credential capabilities for authoritative writes.
 4. Record canonical provenance plus non-authoritative execution context in mutation events.
 5. Introduce explicit lease lifecycle and stale/reclaim semantics.
-6. Add projections and query surfaces for authorship, identity history, and principal introspection.
-7. Add CLI principal mint/show/lineage flows and child-principal minting for multi-agent orchestration.
+6. Add strict heartbeat guidance first, then bounded assisted watcher renewal as an explicit opt-in
+   trust policy.
+7. Add projections and query surfaces for authorship, identity history, principal introspection,
+   and active lease policy state.
+8. Add CLI principal mint/show/lineage flows and child-principal minting for multi-agent orchestration.
 
 This order minimizes the risk of building ad hoc ownership semantics before the identity substrate is
 stable.

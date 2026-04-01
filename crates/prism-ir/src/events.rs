@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 
-use crate::{EventId, PrincipalActor, TaskId, Timestamp};
+use crate::{CredentialId, EventId, PrincipalActor, TaskId, Timestamp};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct EventMeta {
@@ -11,6 +11,24 @@ pub struct EventMeta {
     pub actor: EventActor,
     pub correlation: Option<TaskId>,
     pub causation: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_context: Option<EventExecutionContext>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct EventExecutionContext {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repo_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub worktree_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instance_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credential_id: Option<CredentialId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

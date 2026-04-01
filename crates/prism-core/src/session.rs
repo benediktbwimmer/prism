@@ -14,8 +14,9 @@ use prism_curator::{
 };
 use prism_history::HistoryStore;
 use prism_ir::{
-    ChangeTrigger, EventId, LineageEvent, LineageId, ObservedChangeSet, PlanExecutionOverlay,
-    PlanGraph, PrincipalRegistrySnapshot, SessionId, TaskId,
+    ChangeTrigger, CredentialId, EventExecutionContext, EventId, LineageEvent, LineageId,
+    ObservedChangeSet, PlanExecutionOverlay, PlanGraph, PrincipalRegistrySnapshot, SessionId,
+    TaskId,
 };
 use prism_memory::OutcomeMemory;
 use prism_memory::{
@@ -1521,6 +1522,22 @@ impl WorkspaceSession {
             .lock()
             .expect("shared runtime store lock poisoned")
             .save_principal_registry_snapshot(snapshot)
+    }
+
+    pub fn event_execution_context(
+        &self,
+        session_id: Option<&SessionId>,
+        credential_id: Option<&CredentialId>,
+    ) -> EventExecutionContext {
+        let context = coordination_persist_context_for_root(&self.root, session_id);
+        EventExecutionContext {
+            repo_id: Some(context.repo_id),
+            worktree_id: Some(context.worktree_id),
+            branch_ref: context.branch_ref,
+            session_id: context.session_id,
+            instance_id: context.instance_id,
+            credential_id: credential_id.cloned(),
+        }
     }
 
     pub fn append_concept_event(&self, event: ConceptEvent) -> Result<()> {

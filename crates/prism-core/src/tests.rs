@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -54,6 +54,7 @@ use crate::workspace_tree::build_workspace_tree_snapshot;
 
 static NEXT_TEMP_WORKSPACE: AtomicU64 = AtomicU64::new(0);
 static PRISM_HOME_ENV_LOCK: Mutex<()> = Mutex::new(());
+static BACKGROUND_WORKER_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 struct PrismHomeEnvGuard {
     _guard: crate::prism_paths::TestPrismHomeOverrideGuard,
@@ -65,6 +66,12 @@ impl PrismHomeEnvGuard {
             _guard: crate::prism_paths::set_test_prism_home_override(path),
         }
     }
+}
+
+fn background_worker_test_guard() -> MutexGuard<'static, ()> {
+    BACKGROUND_WORKER_TEST_LOCK
+        .lock()
+        .expect("background worker test lock poisoned")
 }
 
 #[test]
@@ -210,6 +217,7 @@ fn workspace_indexer_rebuilds_missing_derived_edges_from_persisted_file_state() 
 
 #[test]
 fn hydrated_workspace_session_marks_background_refresh_pending() {
+    let _guard = background_worker_test_guard();
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -264,6 +272,7 @@ fn reanchors_persisted_memory_snapshot_from_lineage_events() {
                 actor: EventActor::System,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             lineage: lineage.clone(),
             kind: LineageEventKind::Renamed,
@@ -473,6 +482,8 @@ fn validation_feedback_persists_across_workspace_reloads() {
     let entry = session
         .append_validation_feedback(ValidationFeedbackRecord {
             task_id: Some("task:feedback".to_string()),
+            actor: None,
+            execution_context: None,
             context: "blast-radius check for alpha".to_string(),
             anchors: vec![AnchorRef::Node(alpha.clone())],
             prism_said: "Prism only surfaced alpha".to_string(),
@@ -532,6 +543,8 @@ fn validation_feedback_writes_do_not_wait_for_refresh_lock() {
     let entry = session
         .append_validation_feedback(ValidationFeedbackRecord {
             task_id: Some("task:feedback".to_string()),
+            actor: None,
+            execution_context: None,
             context: "feedback should not block on refresh".to_string(),
             anchors: Vec::new(),
             prism_said: "mutation blocked behind refresh".to_string(),
@@ -574,6 +587,7 @@ fn try_append_outcome_defers_when_refresh_is_in_progress() {
             actor: EventActor::Agent,
             correlation: Some(TaskId::new("task:busy".to_string())),
             causation: None,
+            execution_context: None,
         },
         anchors: Vec::new(),
         kind: OutcomeKind::PlanCreated,
@@ -936,6 +950,7 @@ fn fs_watch_refreshes_session_after_external_edit() {
 
 #[test]
 fn fs_watch_refresh_enqueues_curator_with_patch_outcomes_and_projection_context() {
+    let _guard = background_worker_test_guard();
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -1167,6 +1182,7 @@ fn reload_preserves_lineage_patch_outcomes_memory_and_projections_after_rename()
                 actor: EventActor::User,
                 correlation: Some(TaskId::new("task:renamed-alpha")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(renamed_alpha.clone())],
             kind: OutcomeKind::FailureObserved,
@@ -1273,6 +1289,7 @@ fn reload_bounds_hot_outcomes_but_queries_cold_outcomes_from_store() {
                     actor: EventActor::Agent,
                     correlation: None,
                     causation: None,
+                    execution_context: None,
                 },
                 anchors: vec![AnchorRef::Node(alpha.clone())],
                 kind: if idx == 0 {
@@ -1380,6 +1397,7 @@ fn reload_bounds_hot_outcomes_from_authoritative_journal_without_checkpoint_flus
                     actor: EventActor::Agent,
                     correlation: None,
                     causation: None,
+                    execution_context: None,
                 },
                 anchors: vec![AnchorRef::Node(alpha.clone())],
                 kind: if idx == 0 {
@@ -1434,6 +1452,7 @@ fn reload_bounds_hot_outcomes_from_authoritative_journal_without_checkpoint_flus
 
 #[test]
 fn persist_outcomes_flushes_checkpoint_materialization() {
+    let _guard = background_worker_test_guard();
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -1462,6 +1481,7 @@ fn persist_outcomes_flushes_checkpoint_materialization() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha.clone())],
             kind: OutcomeKind::FailureObserved,
@@ -1518,6 +1538,7 @@ fn workspace_session_load_methods_prefer_hot_outcomes_over_unpersisted_store_sta
             actor: EventActor::Agent,
             correlation: Some(task_id.clone()),
             causation: None,
+            execution_context: None,
         },
         anchors: vec![AnchorRef::Node(alpha.clone())],
         kind: OutcomeKind::FailureObserved,
@@ -1538,6 +1559,7 @@ fn workspace_session_load_methods_prefer_hot_outcomes_over_unpersisted_store_sta
             actor: EventActor::Agent,
             correlation: Some(task_id.clone()),
             causation: None,
+            execution_context: None,
         },
         anchors: vec![AnchorRef::Node(alpha.clone())],
         kind: OutcomeKind::FailureObserved,
@@ -1647,6 +1669,7 @@ fn reload_queries_cold_lineage_history_from_store() {
             actor: EventActor::Agent,
             correlation: None,
             causation: None,
+            execution_context: None,
         },
         lineage: lineage.clone(),
         kind: prism_ir::LineageEventKind::Updated,
@@ -1801,6 +1824,8 @@ fn repo_concept_events_round_trip_through_committed_jsonl_and_reload() {
             id: "concept-event:repo-test".to_string(),
             recorded_at: 17,
             task_id: Some("task:repo-concept".to_string()),
+            actor: None,
+            execution_context: None,
             action: ConceptEventAction::Promote,
             patch: None,
             concept: ConceptPacket {
@@ -1918,6 +1943,8 @@ fn shared_runtime_sqlite_shares_session_memory_and_concepts_across_workspaces() 
             id: "concept-event:shared-runtime".to_string(),
             recorded_at: 23,
             task_id: Some("task:shared-runtime".to_string()),
+            actor: None,
+            execution_context: None,
             action: ConceptEventAction::Promote,
             patch: None,
             concept: ConceptPacket {
@@ -2248,6 +2275,8 @@ fn repo_concept_event_patch_trace_round_trips_through_jsonl() {
             id: "concept-event:repo-patch".to_string(),
             recorded_at: 19,
             task_id: Some("task:repo-concept-patch".to_string()),
+            actor: None,
+            execution_context: None,
             action: ConceptEventAction::Update,
             patch: Some(ConceptEventPatch {
                 set_fields: vec!["summary".to_string()],
@@ -2354,6 +2383,8 @@ fn repo_concept_events_auto_sync_prism_doc() {
             id: "concept-event:repo-prism-doc".to_string(),
             recorded_at: 31,
             task_id: Some("task:repo-prism-doc".to_string()),
+            actor: None,
+            execution_context: None,
             action: ConceptEventAction::Promote,
             patch: None,
             concept: ConceptPacket {
@@ -2471,6 +2502,8 @@ fn repo_concept_relations_auto_sync_prism_doc() {
                 id: format!("concept-event:{canonical_name}"),
                 recorded_at: 37,
                 task_id: Some("task:repo-prism-relations".to_string()),
+                actor: None,
+                execution_context: None,
                 action: ConceptEventAction::Promote,
                 patch: None,
                 concept: ConceptPacket {
@@ -2512,6 +2545,8 @@ fn repo_concept_relations_auto_sync_prism_doc() {
             id: "concept-relation:alpha-beta".to_string(),
             recorded_at: 41,
             task_id: Some("task:repo-prism-relations".to_string()),
+            actor: None,
+            execution_context: None,
             action: ConceptRelationEventAction::Upsert,
             relation: ConceptRelation {
                 source_handle: "concept://alpha_flow".to_string(),
@@ -2570,6 +2605,8 @@ fn repo_contract_events_auto_sync_prism_doc() {
             id: "contract-event:repo-prism-doc".to_string(),
             recorded_at: 43,
             task_id: Some("task:repo-contract-prism-doc".to_string()),
+            actor: None,
+            execution_context: None,
             action: ContractEventAction::Promote,
             patch: None,
             contract: ContractPacket {
@@ -2683,6 +2720,8 @@ fn repo_contract_events_round_trip_through_committed_jsonl_and_reload() {
             id: "contract-event:repo-test".to_string(),
             recorded_at: 29,
             task_id: Some("task:repo-contract".to_string()),
+            actor: None,
+            execution_context: None,
             action: ContractEventAction::Promote,
             patch: None,
             contract: ContractPacket {
@@ -2787,6 +2826,8 @@ fn repo_concepts_rebind_members_through_lineage_after_rename_and_reload() {
             id: "concept-event:repo-rebind".to_string(),
             recorded_at: 21,
             task_id: Some("task:repo-concept-rebind".to_string()),
+            actor: None,
+            execution_context: None,
             action: ConceptEventAction::Promote,
             patch: None,
             concept: ConceptPacket {
@@ -2924,6 +2965,7 @@ fn reload_preserves_coordination_claim_resolution_through_rename() {
                     actor: EventActor::User,
                     correlation: Some(TaskId::new("task:coordination-rename")),
                     causation: None,
+                    execution_context: None,
                 },
                 "Coordinate rename follow-up".into(),
                 None,
@@ -2936,6 +2978,7 @@ fn reload_preserves_coordination_claim_resolution_through_rename() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:coordination-rename")),
                     causation: None,
+                    execution_context: None,
                 },
                 prism_coordination::TaskCreateInput {
                     plan_id: plan_id.clone(),
@@ -2960,6 +3003,7 @@ fn reload_preserves_coordination_claim_resolution_through_rename() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:coordination-rename")),
                     causation: None,
+                    execution_context: None,
                 },
                 holder.clone(),
                 prism_coordination::ClaimAcquireInput {
@@ -3104,6 +3148,7 @@ fn reloaded_native_plan_bindings_hydrate_through_lineage_without_republishing_ru
                     actor: EventActor::User,
                     correlation: Some(TaskId::new("task:binding-hydration")),
                     causation: None,
+                    execution_context: None,
                 },
                 "Reload native bindings".into(),
                 None,
@@ -3215,6 +3260,7 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:published-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 "Ship published plan hydration".into(),
                 None,
@@ -3227,6 +3273,7 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:published-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 prism_coordination::TaskCreateInput {
                     plan_id: plan_id.clone(),
@@ -3323,6 +3370,7 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:published-merge-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 "Published plan should stay mutable".into(),
                 None,
@@ -3335,6 +3383,7 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:published-merge-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 prism_coordination::TaskCreateInput {
                     plan_id: plan_id.clone(),
@@ -3368,6 +3417,7 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:snapshot-plan")),
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Persisted snapshot should remain authoritative".into(),
@@ -3384,6 +3434,7 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:snapshot-plan")),
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: snapshot_plan_id.clone(),
@@ -3447,6 +3498,7 @@ fn repo_published_plan_state_merges_snapshot_and_published_views() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:plan-state-merge-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 "Published plan must exist in both runtimes".into(),
                 None,
@@ -3498,6 +3550,7 @@ fn replayed_coordination_snapshot_stays_authoritative_over_published_plan_export
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:authoritative-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 "Keep replay authoritative".into(),
                 None,
@@ -3510,6 +3563,7 @@ fn replayed_coordination_snapshot_stays_authoritative_over_published_plan_export
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:authoritative-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 prism_coordination::TaskCreateInput {
                     plan_id: plan_id.clone(),
@@ -3585,6 +3639,7 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:persistence-backend")),
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Exercise backend-neutral coordination persistence".into(),
@@ -3601,6 +3656,7 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:persistence-backend")),
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -3701,6 +3757,7 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:incremental-plan")),
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Exercise incremental read-model persistence".into(),
@@ -3717,6 +3774,7 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:incremental-plan")),
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -3752,6 +3810,7 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:incremental-plan")),
                 causation: None,
+                execution_context: None,
             },
             TaskUpdateInput {
                 task_id: task_id.clone(),
@@ -3789,6 +3848,7 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:incremental-plan")),
                 causation: None,
+                execution_context: None,
             },
             HandoffInput {
                 task_id: task_id.clone(),
@@ -3813,6 +3873,7 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:incremental-plan")),
                 causation: None,
+                execution_context: None,
             },
             SessionId::new("session:b"),
             ClaimAcquireInput {
@@ -3843,6 +3904,7 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:incremental-plan")),
                 causation: None,
+                execution_context: None,
             },
             ArtifactProposeInput {
                 task_id: task_id.clone(),
@@ -3922,6 +3984,7 @@ fn coordination_session_materializes_read_models_off_request_path() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:async-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 "Exercise async coordination materialization".into(),
                 None,
@@ -3934,6 +3997,7 @@ fn coordination_session_materializes_read_models_off_request_path() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:async-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 TaskCreateInput {
                     plan_id,
@@ -3998,6 +4062,7 @@ fn coordination_session_materializes_read_models_off_request_path() {
 
 #[test]
 fn coordination_journal_recovers_after_restart_without_read_model_flush() {
+    let _guard = background_worker_test_guard();
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -4017,6 +4082,7 @@ fn coordination_journal_recovers_after_restart_without_read_model_flush() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:restart-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 "Recover coordination state from authoritative journal".into(),
                 None,
@@ -4029,6 +4095,7 @@ fn coordination_journal_recovers_after_restart_without_read_model_flush() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:restart-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 TaskCreateInput {
                     plan_id,
@@ -4094,6 +4161,7 @@ fn authoritative_coordination_load_prefers_event_log_over_stale_snapshot_row() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:event-backed-load")),
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Prefer event-backed continuity load".into(),
@@ -4110,6 +4178,7 @@ fn authoritative_coordination_load_prefers_event_log_over_stale_snapshot_row() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:event-backed-load")),
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id,
@@ -4134,6 +4203,7 @@ fn authoritative_coordination_load_prefers_event_log_over_stale_snapshot_row() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:event-backed-load")),
                 causation: None,
+                execution_context: None,
             },
             prism_ir::SessionId::new("session:event-backed"),
             prism_coordination::ClaimAcquireInput {
@@ -4159,6 +4229,7 @@ fn authoritative_coordination_load_prefers_event_log_over_stale_snapshot_row() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:event-backed-load")),
                 causation: None,
+                execution_context: None,
             },
             prism_coordination::ArtifactProposeInput {
                 task_id: task_id.clone(),
@@ -4183,6 +4254,7 @@ fn authoritative_coordination_load_prefers_event_log_over_stale_snapshot_row() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:event-backed-load")),
                 causation: None,
+                execution_context: None,
             },
             prism_coordination::ArtifactReviewInput {
                 artifact_id: artifact_id.clone(),
@@ -4234,6 +4306,7 @@ fn coordination_persistence_compacts_large_event_suffixes_into_optional_baseline
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:coordination-compaction")),
                     causation: None,
+                    execution_context: None,
                 },
                 kind: CoordinationEventKind::PlanCreated,
                 summary: format!("event {index}"),
@@ -4337,6 +4410,7 @@ fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:append-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 "Append published plan deltas".into(),
                 None,
@@ -4349,6 +4423,7 @@ fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:append-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 prism_coordination::TaskCreateInput {
                     plan_id: plan_id.clone(),
@@ -4385,6 +4460,7 @@ fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:append-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 prism_coordination::TaskUpdateInput {
                     task_id: task_id.clone(),
@@ -4445,6 +4521,7 @@ fn repo_published_plan_logs_skip_runtime_handoff_deltas() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:runtime-overlay-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 "Skip runtime-only handoff deltas".into(),
                 None,
@@ -4457,6 +4534,7 @@ fn repo_published_plan_logs_skip_runtime_handoff_deltas() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:runtime-overlay-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 prism_coordination::TaskCreateInput {
                     plan_id: plan_id.clone(),
@@ -4493,6 +4571,7 @@ fn repo_published_plan_logs_skip_runtime_handoff_deltas() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:runtime-overlay-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 HandoffInput {
                     task_id: task_id.clone(),
@@ -4545,6 +4624,7 @@ fn repo_published_plans_archive_transition_emits_archive_event_and_moves_log() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:archive-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 "Archive published plan logs explicitly".into(),
                 None,
@@ -4573,6 +4653,7 @@ fn repo_published_plans_archive_transition_emits_archive_event_and_moves_log() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:archive-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 &plan_id,
                 Some(prism_ir::PlanStatus::Abandoned),
@@ -4604,6 +4685,7 @@ fn repo_published_plans_archive_transition_emits_archive_event_and_moves_log() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:archive-plan")),
                     causation: None,
+                    execution_context: None,
                 },
                 &plan_id,
                 Some(prism_ir::PlanStatus::Archived),
@@ -4948,6 +5030,7 @@ fn recovery_rebuild_from_shared_runtime_journals_without_checkpoint_flush() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:shared-runtime-recovery")),
                     causation: None,
+                    execution_context: None,
                 },
                 "Recover coordination from shared-runtime journal".into(),
                 None,
@@ -5018,6 +5101,7 @@ fn coordination_mutations_use_live_runtime_state_without_forcing_persisted_reloa
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:live-runtime-plan")),
                 causation: None,
+                execution_context: None,
             },
             "Use live runtime coordination state".into(),
             None,
@@ -5574,6 +5658,7 @@ fn body_only_updates_do_not_require_dependent_edge_resolution() {
             actor: EventActor::System,
             correlation: None,
             causation: None,
+            execution_context: None,
         },
         trigger: ChangeTrigger::FsWatch,
         files: vec![FileId(1)],
@@ -5686,6 +5771,7 @@ fn renamed_symbols_expand_dependents_from_emitted_dependency_keys() {
             actor: EventActor::System,
             correlation: None,
             causation: None,
+            execution_context: None,
         },
         ChangeTrigger::ManualReindex,
     );
@@ -5825,6 +5911,7 @@ fn curator_context_loads_lineage_history_from_store_when_hot_history_is_empty() 
             actor: EventActor::Agent,
             correlation: None,
             causation: None,
+            execution_context: None,
         },
         lineage: lineage.clone(),
         kind: LineageEventKind::Updated,
@@ -5895,6 +5982,7 @@ fn curator_context_loads_outcomes_from_locked_store_without_backend_reentry() {
             actor: EventActor::Agent,
             correlation: None,
             causation: None,
+            execution_context: None,
         },
         anchors: vec![AnchorRef::Node(node.id.clone())],
         kind: OutcomeKind::FixValidated,
@@ -6018,6 +6106,7 @@ fn index_workspace_tracks_unsupported_text_files_for_file_anchors() {
 
 #[test]
 fn appended_outcome_flushes_projection_materialization_off_request_path() {
+    let _guard = background_worker_test_guard();
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -6044,6 +6133,7 @@ fn appended_outcome_flushes_projection_materialization_off_request_path() {
                 actor: EventActor::User,
                 correlation: Some(TaskId::new("task:test")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha.clone())],
             kind: OutcomeKind::FailureObserved,
@@ -6277,6 +6367,7 @@ fn workspace_session_can_disable_coordination_entirely() {
                     actor: EventActor::User,
                     correlation: Some(TaskId::new("task:test")),
                     causation: None,
+                    execution_context: None,
                 },
                 "Coordinate alpha".into(),
                 None,
@@ -6312,6 +6403,7 @@ fn workspace_session_can_disable_coordination_entirely() {
 
 #[test]
 fn curator_backend_processes_and_persists_task_boundary_jobs() {
+    let _guard = background_worker_test_guard();
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -6362,6 +6454,7 @@ fn curator_backend_processes_and_persists_task_boundary_jobs() {
                 actor: EventActor::User,
                 correlation: Some(TaskId::new("task:alpha")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha)],
             kind: OutcomeKind::FixValidated,
@@ -6439,6 +6532,7 @@ fn default_curator_synthesizes_memory_proposals_without_backend() {
                     actor: EventActor::Agent,
                     correlation: Some(TaskId::new("task:alpha")),
                     causation: None,
+                    execution_context: None,
                 },
                 anchors: vec![AnchorRef::Node(alpha.clone())],
                 kind: OutcomeKind::FailureObserved,

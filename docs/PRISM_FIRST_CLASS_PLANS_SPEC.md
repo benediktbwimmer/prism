@@ -714,16 +714,18 @@ For `PlanKind::TaskExecution`, a node id that is also a `CoordinationTaskId` is 
 
 Task-backed ids follow these rules:
 
-- the coordination task is the authoritative owner of node fields such as `kind`, `title`, `summary`, `status`, `bindings`, `acceptance`, `validation_refs`, `is_abstract`, `priority`, `tags`, `base_revision`, and task assignee or handoff state
-- hydrated plan graphs may project those fields into `PlanNode` views, but that projection is read-only compatibility state, not a second mutable authority
-- compatibility mutations that target a task-backed id must route through coordination-task update semantics instead of mutating a separate native plan-node layer
-- blocker, validation, risk, and task-brief surfaces must resolve task-backed ids from coordination-task authority first and only fall back to native plan-node logic when no coordination task owns the id
+- the published plan log in `.prism/plans/**` is the authoritative owner of authored node fields such as `kind`, `title`, `summary`, `status`, `bindings`, `acceptance`, `validation_refs`, `is_abstract`, `priority`, `tags`, and `base_revision`
+- coordination runtime remains authoritative for live workflow continuity that is not published plan authorship, such as leases, claims, handoffs, reviews, artifacts, and execution overlays
+- hydrated plan graphs and coordination task views may project authored node fields from the published plan log into hot memory, but those projections are serving state, not a second mutable authority
+- compatibility mutations that target a task-backed id must still route through coordination-task update semantics, but those semantics must publish authored field changes back into the plan log instead of inventing a separate authoritative store for the same fields
+- external edits to published plan files must be observed and rehydrated so hot memory and coordination-facing task views converge back to repo-published truth
+- blocker, validation, risk, and task-brief surfaces should resolve authored task-backed fields from the hydrated published plan authority, while continuing to layer runtime continuity state from coordination overlays
 
 Standalone native plan nodes remain first-class authored state when they are not backed by a coordination task.
 
 This is the intended split:
 
-- `TaskExecution` plans use coordination tasks as the source of truth for task-backed nodes and use native plan state for graph structure, non-task authored nodes, and authored edges
+- `TaskExecution` plans use published plan state as the source of truth for task-backed authored node fields, while coordination owns live continuity overlays and uses compatibility mutations to write authored changes back into the published plan log
 - non-`TaskExecution` plans may continue to use standalone native plan nodes as the authored node authority
 
 The new system is not a replacement of coordination. It is coordination elevated into a first-class graph substrate.

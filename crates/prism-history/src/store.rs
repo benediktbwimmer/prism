@@ -220,6 +220,7 @@ impl HistoryStore {
                 actor: change_set.meta.actor.clone(),
                 correlation: change_set.meta.correlation.clone(),
                 causation: Some(change_set.meta.id.clone()),
+                execution_context: change_set.meta.execution_context.clone(),
             },
             lineage,
             kind,

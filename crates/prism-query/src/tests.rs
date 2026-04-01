@@ -685,6 +685,7 @@ fn outcome_queries_expand_node_to_lineage() {
             actor: EventActor::System,
             correlation: None,
             causation: None,
+            execution_context: None,
         },
         trigger: prism_ir::ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
@@ -728,6 +729,7 @@ fn outcome_queries_expand_node_to_lineage() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:rename")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Lineage(lineage)],
             kind: OutcomeKind::FailureObserved,
@@ -773,6 +775,7 @@ fn outcome_query_filters_expand_node_focus_with_additional_filters() {
                 actor: EventActor::System,
                 correlation: Some(task.clone()),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha.clone())],
             kind: OutcomeKind::FailureObserved,
@@ -790,6 +793,7 @@ fn outcome_query_filters_expand_node_focus_with_additional_filters() {
                 actor: EventActor::Agent,
                 correlation: Some(task.clone()),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha.clone())],
             kind: OutcomeKind::FailureObserved,
@@ -856,6 +860,7 @@ fn blast_radius_includes_validations_and_neighbors() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:beta")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha.clone())],
             kind: OutcomeKind::TestRan,
@@ -913,6 +918,7 @@ fn blast_radius_uses_co_change_history_and_neighbor_validations() {
             actor: EventActor::System,
             correlation: None,
             causation: None,
+            execution_context: None,
         },
         trigger: ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
@@ -984,6 +990,7 @@ fn blast_radius_uses_co_change_history_and_neighbor_validations() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:beta")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Lineage(beta_lineage)],
             kind: OutcomeKind::FailureObserved,
@@ -1059,6 +1066,7 @@ fn coordination_queries_expand_into_neighboring_symbols() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Coordinate alpha".into(),
@@ -1075,6 +1083,7 @@ fn coordination_queries_expand_into_neighboring_symbols() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id,
@@ -1102,6 +1111,7 @@ fn coordination_queries_expand_into_neighboring_symbols() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             SessionId::new("session:a"),
             prism_coordination::ClaimAcquireInput {
@@ -1173,6 +1183,7 @@ fn task_execution_plan_graph_projects_task_backed_nodes_from_coordination() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Native plan graph".into(),
@@ -1189,6 +1200,7 @@ fn task_execution_plan_graph_projects_task_backed_nodes_from_coordination() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -1213,6 +1225,7 @@ fn task_execution_plan_graph_projects_task_backed_nodes_from_coordination() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -1356,6 +1369,7 @@ fn plans_contains_filter_matches_singular_and_plural_plan_terms() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Eliminate the remaining performance bottleneck".into(),
@@ -1400,6 +1414,7 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Continuity runtime".into(),
@@ -1416,6 +1431,7 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -1534,6 +1550,7 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Preserve native edges".into(),
@@ -1550,6 +1567,7 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -1574,6 +1592,7 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -1679,6 +1698,7 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskUpdateInput {
                 task_id: prism_ir::CoordinationTaskId::new(task_a.0.clone()),
@@ -1713,6 +1733,7 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             HandoffInput {
                 task_id: prism_ir::CoordinationTaskId::new(task_a.0.clone()),
@@ -1731,6 +1752,7 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -1899,6 +1921,7 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Scoped artifact reviews".into(),
@@ -1915,6 +1938,7 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -1994,6 +2018,7 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Scoped ready work".into(),
@@ -2025,6 +2050,7 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -2068,6 +2094,7 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             HandoffInput {
                 task_id: task.id.clone(),
@@ -2094,6 +2121,7 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             prism_coordination::HandoffAcceptInput {
                 task_id: task.id.clone(),
@@ -2137,6 +2165,7 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             anchors: Vec::new(),
             kind: OutcomeKind::TestRan,
@@ -2154,6 +2183,7 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             anchors: Vec::new(),
             kind: OutcomeKind::FixValidated,
@@ -2172,6 +2202,7 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Preserve authored node semantics".into(),
@@ -2188,6 +2219,7 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -2242,6 +2274,7 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             ArtifactProposeInput {
                 task_id: task_id.clone(),
@@ -2266,6 +2299,7 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             ArtifactProposeInput {
                 task_id,
@@ -2405,6 +2439,7 @@ fn native_plan_node_bindings_reject_runtime_handles_and_unstable_refs() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Reject unstable binding refs".into(),
@@ -2554,6 +2589,7 @@ fn native_plan_node_bindings_reject_missing_published_refs() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Reject missing published binding refs".into(),
@@ -2839,6 +2875,7 @@ fn native_plan_updates_validate_completion_and_preserve_non_dependency_edges() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Validate native plan writes".into(),
@@ -2855,6 +2892,7 @@ fn native_plan_updates_validate_completion_and_preserve_non_dependency_edges() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -2879,6 +2917,7 @@ fn native_plan_updates_validate_completion_and_preserve_non_dependency_edges() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -2975,6 +3014,7 @@ fn native_plan_updates_validate_completion_and_preserve_non_dependency_edges() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             &plan_id,
             Some(PlanStatus::Completed),
@@ -3865,6 +3905,7 @@ fn published_plan_unbound_tasks_stay_actionable_across_unrelated_graph_drift() {
             actor: EventActor::System,
             correlation: None,
             causation: None,
+            execution_context: None,
         },
         trigger: ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
@@ -3910,6 +3951,7 @@ fn published_plan_unbound_tasks_stay_actionable_across_unrelated_graph_drift() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Keep published readiness aligned".into(),
@@ -3929,6 +3971,7 @@ fn published_plan_unbound_tasks_stay_actionable_across_unrelated_graph_drift() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -3987,6 +4030,7 @@ fn replace_coordination_snapshot_and_plan_graphs_preserves_stale_policy() {
             actor: EventActor::System,
             correlation: None,
             causation: None,
+            execution_context: None,
         },
         trigger: ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
@@ -4032,6 +4076,7 @@ fn replace_coordination_snapshot_and_plan_graphs_preserves_stale_policy() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Preserve stale policy on replacement".into(),
@@ -4051,6 +4096,7 @@ fn replace_coordination_snapshot_and_plan_graphs_preserves_stale_policy() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -4113,6 +4159,7 @@ fn task_backed_plan_nodes_must_complete_through_coordination_tasks() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Complete through native node update".into(),
@@ -4132,6 +4179,7 @@ fn task_backed_plan_nodes_must_complete_through_coordination_tasks() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -4196,6 +4244,7 @@ fn task_backed_plan_nodes_must_complete_through_coordination_tasks() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             prism_coordination::ArtifactProposeInput {
                 task_id: prism_ir::CoordinationTaskId::new(task_id.0.clone()),
@@ -4226,6 +4275,7 @@ fn task_backed_plan_nodes_must_complete_through_coordination_tasks() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             prism_coordination::ArtifactReviewInput {
                 artifact_id,
@@ -4254,6 +4304,7 @@ fn task_backed_plan_nodes_must_complete_through_coordination_tasks() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskUpdateInput {
                 task_id: prism_ir::CoordinationTaskId::new(task_id.0.clone()),
@@ -4382,6 +4433,7 @@ fn native_plan_node_completion_accepts_successful_outcome_validations_without_ar
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:native-validation")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha.clone())],
             kind: OutcomeKind::TestRan,
@@ -4403,6 +4455,7 @@ fn native_plan_node_completion_accepts_successful_outcome_validations_without_ar
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:native-validation")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha.clone())],
             kind: OutcomeKind::FixValidated,
@@ -4535,6 +4588,7 @@ fn native_plan_node_completion_accepts_task_correlated_validations_without_ancho
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new(node_id.0.clone())),
                 causation: None,
+                execution_context: None,
             },
             anchors: Vec::new(),
             kind: OutcomeKind::TestRan,
@@ -4556,6 +4610,7 @@ fn native_plan_node_completion_accepts_task_correlated_validations_without_ancho
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new(node_id.0.clone())),
                 causation: None,
+                execution_context: None,
             },
             anchors: Vec::new(),
             kind: OutcomeKind::FixValidated,
@@ -4617,6 +4672,7 @@ fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Preserve graph under compatibility writes".into(),
@@ -4633,6 +4689,7 @@ fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -4657,6 +4714,7 @@ fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -4753,6 +4811,7 @@ fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             SessionId::new("session:compat"),
             prism_coordination::ClaimAcquireInput {
@@ -4784,6 +4843,7 @@ fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             prism_coordination::ArtifactProposeInput {
                 task_id: prism_ir::CoordinationTaskId::new(task_a.0.clone()),
@@ -4841,6 +4901,7 @@ fn native_plan_metadata_survives_compatibility_write_and_reload() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Persist native metadata".into(),
@@ -4857,6 +4918,7 @@ fn native_plan_metadata_survives_compatibility_write_and_reload() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -4932,6 +4994,7 @@ fn native_plan_metadata_survives_compatibility_write_and_reload() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             SessionId::new("session:metadata"),
             prism_coordination::ClaimAcquireInput {
@@ -5017,6 +5080,7 @@ fn validation_recipe_reuses_blast_radius_signal() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:validate")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha.clone())],
             kind: OutcomeKind::FailureObserved,
@@ -5057,6 +5121,7 @@ fn resume_task_returns_correlated_events() {
                 actor: EventActor::Agent,
                 correlation: Some(task.clone()),
                 causation: None,
+                execution_context: None,
             },
             anchors: Vec::new(),
             kind: OutcomeKind::PatchApplied,
@@ -5074,6 +5139,7 @@ fn resume_task_returns_correlated_events() {
                 actor: EventActor::Agent,
                 correlation: Some(task.clone()),
                 causation: Some(EventId::new("outcome:3")),
+                execution_context: None,
             },
             anchors: Vec::new(),
             kind: OutcomeKind::FixValidated,
@@ -5137,6 +5203,7 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
                 actor: EventActor::Agent,
                 correlation: Some(TaskId::new("task:risk")),
                 causation: None,
+                execution_context: None,
             },
             anchors: vec![AnchorRef::Node(alpha.clone())],
             kind: OutcomeKind::FailureObserved,
@@ -5159,6 +5226,7 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Risky edit".into(),
@@ -5179,6 +5247,7 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id,
@@ -5206,6 +5275,7 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             ArtifactProposeInput {
                 task_id: task_id.clone(),
@@ -5337,6 +5407,7 @@ fn task_backed_native_graph_blockers_follow_coordination_validation_fields() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Use coordination validations for task-backed nodes".into(),
@@ -5356,6 +5427,7 @@ fn task_backed_native_graph_blockers_follow_coordination_validation_fields() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -5380,6 +5452,7 @@ fn task_backed_native_graph_blockers_follow_coordination_validation_fields() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskUpdateInput {
                 task_id: task_id.clone(),
@@ -5537,6 +5610,7 @@ fn exposes_intent_links_and_task_intent() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Ship alpha".into(),
@@ -5553,6 +5627,7 @@ fn exposes_intent_links_and_task_intent() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id,
@@ -5642,6 +5717,7 @@ fn policy_violations_expose_rejected_coordination_mutations() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             PlanCreateInput {
                 goal: "Require review".into(),
@@ -5661,6 +5737,7 @@ fn policy_violations_expose_rejected_coordination_mutations() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
@@ -5688,6 +5765,7 @@ fn policy_violations_expose_rejected_coordination_mutations() {
                 actor: EventActor::Agent,
                 correlation: None,
                 causation: None,
+                execution_context: None,
             },
             TaskUpdateInput {
                 task_id: task_id.clone(),
