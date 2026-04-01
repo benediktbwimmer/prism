@@ -1,5 +1,6 @@
 use prism_ir::{AnchorRef, NodeId};
 use prism_js::AgentSuggestedActionView;
+use std::collections::HashMap;
 
 use super::concept::compact_concept_workset_result;
 use super::suggested_actions::{
@@ -94,10 +95,12 @@ pub(super) fn budgeted_workset_result(
     let why = compact_workset_guidance(&why, &primary, &supporting_reads, &likely_tests);
     let followup_handle =
         result_primary_followup_handle(&primary, &supporting_reads, &likely_tests);
-    let has_supporting_followup = !followup_handle
-        .as_deref()
-        .is_some_and(|handle| handle == primary.handle.as_str());
     let has_likely_tests = !likely_tests.is_empty();
+    let next_action = Some(compact_workset_next_action(
+        target,
+        supporting_reads.first(),
+        has_likely_tests,
+    ));
     let suggested_actions = compact_workset_suggested_actions(
         target,
         &primary.handle,
@@ -110,11 +113,7 @@ pub(super) fn budgeted_workset_result(
         likely_tests,
         why,
         remapped,
-        Some(compact_workset_next_action(
-            target,
-            has_supporting_followup,
-            has_likely_tests,
-        )),
+        next_action,
         suggested_actions,
     )
 }
@@ -306,11 +305,16 @@ fn compact_workset_target_label(target: &AgentTargetHandleView) -> &str {
     }
 }
 
+pub(super) fn is_docs_like_handle_view(target: &AgentTargetHandleView) -> bool {
+    is_docs_like_kind(target.kind) || target.file_path.as_deref().is_some_and(is_docs_path)
+}
+
 fn compact_workset_next_action(
     target: &SessionHandleTarget,
-    has_supporting_followup: bool,
+    first_supporting_read: Option<&AgentTargetHandleView>,
     has_likely_tests: bool,
 ) -> String {
+    let has_supporting_followup = first_supporting_read.is_some();
     if is_text_fragment_target(target) {
         if has_supporting_followup {
             "Use prism_open on the first supporting slice; if you need more room, reopen it in edit mode, or prism_expand `neighbors`.".to_string()
@@ -330,7 +334,9 @@ fn compact_workset_next_action(
     } else if is_spec_like_kind(target.kind)
         || target.file_path.as_deref().is_some_and(is_docs_path)
     {
-        if has_supporting_followup {
+        if first_supporting_read.is_some_and(is_docs_like_handle_view) {
+            "Use prism_open on the first governing section, or prism_expand `drift`.".to_string()
+        } else if has_supporting_followup {
             "Use prism_open on the first owner, or prism_expand `drift`.".to_string()
         } else {
             "Use prism_open on the primary target, or prism_expand `drift`.".to_string()
@@ -1220,6 +1226,12 @@ struct SpecIdentifierFollowup {
     exact_match: bool,
 }
 
+#[derive(Debug, Clone)]
+struct RankedDocSectionFollowup {
+    target: SessionHandleTarget,
+    score: i32,
+}
+
 pub(super) fn prioritized_spec_supporting_reads(
     host: &QueryHost,
     session: &SessionState,
@@ -1228,7 +1240,12 @@ pub(super) fn prioritized_spec_supporting_reads(
     drift: &prism_js::SpecDriftExplanationView,
     limit: usize,
 ) -> Result<Vec<AgentTargetHandleView>> {
-    Ok(ranked_spec_followups(host, prism, target, drift)?
+    let prioritized_docs = ranked_spec_doc_section_followups(host, prism, target)?
+        .into_iter()
+        .take(limit)
+        .map(|candidate| compact_target_from_session_target(session, &candidate.target))
+        .collect::<Vec<_>>();
+    let ranked_symbols = ranked_spec_followups(host, prism, target, drift)?
         .into_iter()
         .take(limit)
         .map(|candidate| {
@@ -1239,7 +1256,12 @@ pub(super) fn prioritized_spec_supporting_reads(
                 Some(candidate.why),
             )
         })
-        .collect())
+        .collect::<Vec<_>>();
+    Ok(merge_prioritized_targets(
+        prioritized_docs,
+        ranked_symbols,
+        limit,
+    ))
 }
 
 fn prioritized_spec_test_reads(
@@ -1512,6 +1534,235 @@ fn ranked_spec_followups(
             .then_with(|| left.symbol.id.path.cmp(&right.symbol.id.path))
     });
     Ok(candidates)
+}
+
+const SPEC_DOC_SECTION_QUERY_LIMIT: usize = 8;
+const SPEC_DOC_SECTION_SEARCH_LIMIT: usize = 6;
+const SPEC_DOC_SECTION_CONTEXT_BEFORE: usize = 32;
+const SPEC_DOC_SECTION_CONTEXT_AFTER: usize = 20;
+
+fn ranked_spec_doc_section_followups(
+    host: &QueryHost,
+    prism: &Prism,
+    target: &SessionHandleTarget,
+) -> Result<Vec<RankedDocSectionFollowup>> {
+    let Some(current_file_path) = target
+        .file_path
+        .as_deref()
+        .filter(|path| is_docs_path(path))
+    else {
+        return Ok(Vec::new());
+    };
+    let current_file_path = workspace_scoped_path(host.workspace_root(), current_file_path);
+    let query_tokens = target
+        .query
+        .as_deref()
+        .map(normalize_locate_text)
+        .map(|query| locate_query_tokens(&query))
+        .unwrap_or_default();
+    let identifier_terms = spec_doc_followup_queries(host, prism, target)?;
+    let mut ranked = Vec::<RankedDocSectionFollowup>::new();
+    let mut seen = HashMap::<String, usize>::new();
+
+    for (index, query) in identifier_terms.iter().enumerate() {
+        let outcome = search_text(
+            host,
+            SearchTextArgs {
+                query: query.clone(),
+                regex: Some(false),
+                case_sensitive: Some(false),
+                path: None,
+                glob: Some("docs/**".to_string()),
+                limit: Some(SPEC_DOC_SECTION_SEARCH_LIMIT),
+                context_lines: Some(0),
+            },
+            SPEC_DOC_SECTION_SEARCH_LIMIT,
+        )?;
+        for matched in outcome.results {
+            if workspace_scoped_path(host.workspace_root(), &matched.path) == current_file_path {
+                continue;
+            }
+            let Some(candidate) = spec_doc_section_target(
+                host,
+                &matched.path,
+                matched.location.start_line,
+                query,
+                &query_tokens,
+                index == 0,
+            )?
+            else {
+                continue;
+            };
+            let key = candidate.target.id.path.to_string();
+            if let Some(existing) = seen.get(&key).copied() {
+                if candidate.score > ranked[existing].score {
+                    ranked[existing] = candidate;
+                }
+            } else {
+                seen.insert(key, ranked.len());
+                ranked.push(candidate);
+            }
+        }
+    }
+
+    ranked.sort_by(|left, right| {
+        right
+            .score
+            .cmp(&left.score)
+            .then_with(|| left.target.id.path.cmp(&right.target.id.path))
+    });
+    Ok(ranked)
+}
+
+fn spec_doc_followup_queries(
+    host: &QueryHost,
+    prism: &Prism,
+    target: &SessionHandleTarget,
+) -> Result<Vec<String>> {
+    let symbol = symbol_for(prism, &target.id)?;
+    let mut queries = Vec::<String>::new();
+    push_unique_spec_doc_query(&mut queries, target.query.as_deref());
+    push_unique_spec_doc_query(&mut queries, Some(target.name.as_str()));
+    push_unique_spec_doc_query(
+        &mut queries,
+        Some(trim_leading_section_ordinal(target.name.as_str())),
+    );
+    for term in spec_body_identifier_terms(
+        &spec_identifier_source_text(host, target, &symbol.full())?,
+        SPEC_DOC_SECTION_QUERY_LIMIT,
+    ) {
+        push_unique_spec_doc_query(&mut queries, Some(term.as_str()));
+    }
+    queries.truncate(SPEC_DOC_SECTION_QUERY_LIMIT);
+    Ok(queries)
+}
+
+fn push_unique_spec_doc_query(queries: &mut Vec<String>, query: Option<&str>) {
+    let Some(query) = query.map(str::trim).filter(|value| !value.is_empty()) else {
+        return;
+    };
+    if !queries.iter().any(|existing| existing == query) {
+        queries.push(query.to_string());
+    }
+}
+
+fn spec_doc_section_target(
+    host: &QueryHost,
+    path: &str,
+    matched_line: usize,
+    query: &str,
+    query_tokens: &[String],
+    is_primary_query: bool,
+) -> Result<Option<RankedDocSectionFollowup>> {
+    let start_line = matched_line
+        .saturating_sub(SPEC_DOC_SECTION_CONTEXT_BEFORE)
+        .max(1);
+    let end_line = matched_line.saturating_add(SPEC_DOC_SECTION_CONTEXT_AFTER);
+    let excerpt = file_read(
+        host,
+        FileReadArgs {
+            path: path.to_string(),
+            start_line: Some(start_line),
+            end_line: Some(end_line),
+            max_chars: Some(RAW_OPEN_MAX_CHARS),
+        },
+    )?;
+    let lines = excerpt.text.lines().collect::<Vec<_>>();
+    let Some(heading) = lines
+        .iter()
+        .enumerate()
+        .take(matched_line.saturating_sub(start_line).saturating_add(1))
+        .rev()
+        .find_map(|(index, line)| {
+            let trimmed = line.trim_start();
+            trimmed
+                .starts_with('#')
+                .then_some((index, trimmed.trim_start_matches('#').trim().to_string()))
+        })
+    else {
+        return Ok(None);
+    };
+    let heading_line = start_line + heading.0;
+    let section_end_line = lines
+        .iter()
+        .enumerate()
+        .skip(heading.0 + 1)
+        .find_map(|(index, line)| {
+            line.trim_start()
+                .starts_with('#')
+                .then_some(start_line + index - 1)
+        })
+        .unwrap_or_else(|| excerpt.end_line.min(heading_line.saturating_add(12)));
+    let heading_query = heading.1.clone();
+    let target = SessionHandleTarget {
+        id: NodeId::new(
+            TEXT_FRAGMENT_CRATE_NAME,
+            format!("{path}:{heading_line}"),
+            NodeKind::Document,
+        ),
+        lineage_id: None,
+        handle_category: crate::session_state::SessionHandleCategory::TextFragment,
+        name: heading.1.clone(),
+        kind: NodeKind::Document,
+        file_path: Some(path.to_string()),
+        query: Some(heading_query.clone()),
+        why_short: clamp_string(
+            &format!("Sibling doc section matched `{query}`."),
+            MAX_WHY_SHORT_CHARS,
+        ),
+        start_line: Some(heading_line),
+        end_line: Some(section_end_line.max(heading_line)),
+        start_column: None,
+        end_column: None,
+    };
+    Ok(Some(RankedDocSectionFollowup {
+        score: spec_doc_section_score(
+            path,
+            &heading_query,
+            query,
+            query_tokens,
+            is_primary_query,
+            heading_line,
+        ),
+        target,
+    }))
+}
+
+fn spec_doc_section_score(
+    path: &str,
+    heading: &str,
+    query: &str,
+    query_tokens: &[String],
+    is_primary_query: bool,
+    heading_line: usize,
+) -> i32 {
+    let normalized_heading = normalize_locate_text(heading);
+    let normalized_heading_without_ordinal =
+        normalize_locate_text(trim_leading_section_ordinal(heading));
+    let normalized_query = normalize_locate_text(query);
+    let file_path = normalize_locate_text(path);
+    let mut score = if is_primary_query { 260 } else { 220 };
+    if normalized_heading_without_ordinal == normalized_query {
+        score += 140;
+    } else if normalized_heading == normalized_query {
+        score += 120;
+    } else if normalized_heading_without_ordinal.contains(normalized_query.as_str()) {
+        score += 90;
+    } else if normalized_heading.contains(normalized_query.as_str()) {
+        score += 70;
+    } else if file_path.contains(normalized_query.as_str()) {
+        score += 32;
+    }
+    let overlap = query_tokens
+        .iter()
+        .filter(|token| {
+            normalized_heading.contains(token.as_str())
+                || normalized_heading_without_ordinal.contains(token.as_str())
+                || file_path.contains(token.as_str())
+        })
+        .count() as i32;
+    score += overlap * 28;
+    score - heading_line.min(80) as i32
 }
 
 fn push_ranked_spec_symbols<'a>(

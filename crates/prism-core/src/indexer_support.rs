@@ -34,6 +34,7 @@ pub(crate) fn build_workspace_session(
     workspace_tree_snapshot: WorkspaceTreeSnapshot,
     shared_runtime: SharedRuntimeBackend,
     shared_runtime_store: Option<SqliteStore>,
+    layout: crate::layout::WorkspaceLayout,
     graph: Graph,
     history: HistoryStore,
     outcomes: OutcomeMemory,
@@ -63,6 +64,7 @@ pub(crate) fn build_workspace_session(
         .as_ref()
         .map(|store| CheckpointMaterializerHandle::new(root.clone(), Arc::clone(store)));
     let runtime_state = Arc::new(Mutex::new(WorkspaceRuntimeState::new(
+        layout,
         graph,
         history,
         outcomes,
@@ -71,11 +73,11 @@ pub(crate) fn build_workspace_session(
         plan_execution_overlays,
         projections,
     )));
-    let prism = Arc::new(
+    let published_generation = Arc::new(RwLock::new(
         runtime_state
             .lock()
             .expect("workspace runtime state lock poisoned")
-            .publish_prism(
+            .publish_generation(
                 prism_ir::WorkspaceRevision {
                     graph_version: store
                         .lock()
@@ -85,9 +87,15 @@ pub(crate) fn build_workspace_session(
                 },
                 Some(coordination_persist_context_for_root(&root, None)),
             ),
+    ));
+    WorkspaceSession::attach_cold_query_backends(
+        published_generation
+            .read()
+            .expect("workspace published generation lock poisoned")
+            .prism_arc()
+            .as_ref(),
+        &cold_query_store,
     );
-    WorkspaceSession::attach_cold_query_backends(prism.as_ref(), &cold_query_store);
-    let prism = Arc::new(RwLock::new(prism));
     let refresh_lock = Arc::new(Mutex::new(()));
     let refresh_state = Arc::new(WorkspaceRefreshState::new());
     if let Some(refresh) = initial_refresh {
@@ -102,7 +110,7 @@ pub(crate) fn build_workspace_session(
     let load_curator_snapshot_ms = 0_u128;
     let curator = CuratorHandle::new(
         backend,
-        Arc::clone(&prism),
+        Arc::clone(&published_generation),
         Arc::clone(&store),
         Arc::new(Mutex::new(curator_store)),
         Arc::clone(&refresh_lock),
@@ -112,10 +120,11 @@ pub(crate) fn build_workspace_session(
     let watch_started = Instant::now();
     let watch = Some(spawn_fs_watch(
         root.clone(),
-        Arc::clone(&prism),
+        Arc::clone(&published_generation),
         Arc::clone(&runtime_state),
         Arc::clone(&store),
         Arc::clone(&cold_query_store),
+        shared_runtime_store.as_ref().map(Arc::clone),
         shared_runtime.sqlite_path().map(Path::to_path_buf),
         Arc::clone(&refresh_lock),
         Arc::clone(&refresh_state),
@@ -127,10 +136,13 @@ pub(crate) fn build_workspace_session(
         Some(CuratorHandleRef::from(&curator)),
     )?);
     let watch_start_ms = watch_started.elapsed().as_millis();
-    let graph = prism.read().expect("workspace prism lock poisoned");
-    let node_count = graph.graph().node_count();
-    let edge_count = graph.graph().edge_count();
-    let file_count = graph.graph().file_count();
+    let graph = published_generation
+        .read()
+        .expect("workspace published generation lock poisoned");
+    let prism = graph.prism_arc();
+    let node_count = prism.graph().node_count();
+    let edge_count = prism.graph().edge_count();
+    let file_count = prism.graph().file_count();
     drop(graph);
     info!(
         root = %root.display(),
@@ -145,7 +157,7 @@ pub(crate) fn build_workspace_session(
     );
     Ok(WorkspaceSession {
         root,
-        prism,
+        published_generation,
         runtime_state,
         store,
         cold_query_store,

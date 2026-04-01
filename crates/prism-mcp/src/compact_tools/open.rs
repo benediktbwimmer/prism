@@ -13,8 +13,8 @@ use super::text_fragments::{
     read_text_fragment, text_hit_kind,
 };
 use super::workset::{
-    edit_ready_symbol_followups, is_structured_config_target, prioritized_spec_supporting_reads,
-    structured_symbol_followups,
+    edit_ready_symbol_followups, is_docs_like_handle_view, is_structured_config_target,
+    prioritized_spec_supporting_reads, structured_symbol_followups,
 };
 use super::*;
 use crate::compact_followups::workspace_scoped_path;
@@ -547,6 +547,15 @@ fn compact_open_adaptive_next_action(
     related_handles: Option<&[AgentTargetHandleView]>,
 ) -> String {
     if !truncated || is_text_fragment_target(target) {
+        if !truncated
+            && (is_spec_like_kind(target.kind)
+                || target.file_path.as_deref().is_some_and(is_docs_path))
+            && related_handles
+                .and_then(|handles| handles.first())
+                .is_some_and(is_docs_like_handle_view)
+        {
+            return "Use prism_open on the first governing section, or prism_workset for owners, or prism_expand `drift`.".to_string();
+        }
         return base_next_action.to_string();
     }
     if matches!(mode, AgentOpenMode::Edit) {
@@ -737,16 +746,16 @@ fn compact_open_suggested_actions(
         }
         (_, true) => {
             actions.push(suggested_workset_action(current_handle));
-            actions.push(suggested_expand_action(
-                current_handle,
-                AgentExpandKind::Drift,
-            ));
             if let Some(handle) = first_related {
                 actions.push(suggested_open_action(
                     handle.handle.clone(),
                     AgentOpenMode::Focus,
                 ));
             }
+            actions.push(suggested_expand_action(
+                current_handle,
+                AgentExpandKind::Drift,
+            ));
         }
         _ => {
             actions.push(suggested_workset_action(current_handle));

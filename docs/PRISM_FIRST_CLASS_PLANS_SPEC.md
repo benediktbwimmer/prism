@@ -816,6 +816,23 @@ Design guidance:
 - `kind`
 - `root_node_ids`
 - `summary`
+  - compact human-readable discovery summary text
+- `plan_summary`
+  - richer numeric counters for actionable, blocked, gated, stale, and completed state when a UI
+    or runtime consumer needs more than the compact text
+
+`prism.plan(planId)` should return exact plan metadata with at least:
+
+- `id`
+- `title`
+- `goal`
+- `status`
+- `scope`
+- `kind`
+- `revision`
+- `tags`
+- `created_from`
+- `root_node_ids`
 
 ## 11.2 Runtime query surface
 The JS/query runtime should expose richer programmatic access:

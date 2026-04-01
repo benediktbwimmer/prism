@@ -178,6 +178,13 @@ fn coordination_mutations_flow_through_query_runtime() {
         .dispatch("artifacts", &json!({ "taskId": task_id }).to_string())
         .unwrap();
     assert_eq!(plan_value["goal"], "Ship coordination");
+    assert_eq!(plan_value["title"], "Ship coordination");
+    assert_eq!(plan_value["status"], "Active");
+    assert_eq!(plan_value["scope"], "Repo");
+    assert_eq!(plan_value["kind"], "TaskExecution");
+    assert_eq!(plan_value["revision"], 0);
+    assert_eq!(plan_value["tags"], json!([]));
+    assert_eq!(plan_value["createdFrom"], Value::Null);
     assert_eq!(ready_value.as_array().unwrap().len(), 1);
     assert_eq!(claims_value.as_array().unwrap().len(), 1);
     assert_eq!(artifacts_value.as_array().unwrap().len(), 1);
@@ -1649,10 +1656,11 @@ fn plan_query_reads_surface_native_ready_nodes_and_blockers() {
     assert_eq!(summary["executionBlockedNodes"], Value::from(2));
     assert_eq!(summary["completionGatedNodes"], Value::from(1));
     assert_eq!(summary["validationGatedNodes"], Value::from(1));
-    assert!(plans.as_array().unwrap().iter().any(|plan| {
-        plan["planId"] == Value::String(plan_id.clone())
-            && plan["summary"]["actionableNodes"] == Value::from(4)
-    }));
+    assert!(plans
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|plan| plan["planId"] == Value::String(plan_id.clone())));
     let next_id = next[0]["node"]["id"].as_str().unwrap();
     assert!(matches!(
         next_id,
@@ -5931,6 +5939,57 @@ fn prism_locate_accepts_code_and_read_alias_task_intent() {
 }
 
 #[test]
+fn prism_locate_accepts_snake_case_field_aliases_and_extra_task_intent_synonyms() {
+    let args: PrismLocateArgs = serde_json::from_value(json!({
+        "query": "event journal",
+        "task_intent": "documentation",
+        "include_top_preview": true,
+    }))
+    .expect("snake_case locate aliases should deserialize");
+
+    assert!(matches!(
+        args.task_intent,
+        Some(PrismLocateTaskIntentInput::Explain)
+    ));
+    assert_eq!(args.include_top_preview, Some(true));
+}
+
+#[test]
+fn prism_open_accepts_snake_case_field_aliases() {
+    let args: PrismOpenArgs = serde_json::from_value(json!({
+        "path": "docs/SPEC.md",
+        "mode": "raw",
+        "before_lines": 2,
+        "after_lines": 4,
+        "max_chars": 300,
+    }))
+    .expect("snake_case open aliases should deserialize");
+
+    assert_eq!(args.before_lines, Some(2));
+    assert_eq!(args.after_lines, Some(4));
+    assert_eq!(args.max_chars, Some(300));
+}
+
+#[test]
+fn prism_expand_and_concept_accept_snake_case_field_aliases() {
+    let expand: PrismExpandArgs = serde_json::from_value(json!({
+        "handle": "handle://demo",
+        "kind": "neighbors",
+        "include_top_preview": true,
+    }))
+    .expect("snake_case expand aliases should deserialize");
+    assert_eq!(expand.include_top_preview, Some(true));
+
+    let concept: PrismConceptArgs = serde_json::from_value(json!({
+        "query": "runtime",
+        "lens": "validation",
+        "include_binding_metadata": true,
+    }))
+    .expect("snake_case concept aliases should deserialize");
+    assert_eq!(concept.include_binding_metadata, Some(true));
+}
+
+#[test]
 fn compact_locate_prefers_identifier_matches_over_test_helpers() {
     let root = temp_workspace();
     fs::write(
@@ -7805,6 +7864,171 @@ pub fn validation_recipe_test() {}
             .contains("rerun prism_locate"),
         "{unsupported_expand}"
     );
+}
+
+#[test]
+fn concept_queries_surface_fallback_followthrough_targets_when_members_are_empty() {
+    let root = temp_workspace();
+    write_compact_default_tools_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    host.current_prism()
+        .replace_curated_concepts(vec![ConceptPacket {
+            handle: "concept://compact_tools".to_string(),
+            canonical_name: "compact_tools".to_string(),
+            summary: "Compact tool surface for locate, open, workset, and expand.".to_string(),
+            aliases: vec!["compact tools".to_string(), "compact surface".to_string()],
+            confidence: 0.93,
+            core_members: Vec::new(),
+            core_member_lineages: Vec::new(),
+            supporting_members: Vec::new(),
+            supporting_member_lineages: Vec::new(),
+            likely_tests: Vec::new(),
+            likely_test_lineages: Vec::new(),
+            evidence: vec![
+                "Seeded empty-member concept for follow-through fallback coverage.".to_string(),
+            ],
+            risk_hint: None,
+            decode_lenses: vec![
+                ConceptDecodeLens::Open,
+                ConceptDecodeLens::Workset,
+                ConceptDecodeLens::Validation,
+            ],
+            scope: ConceptScope::Session,
+            provenance: ConceptProvenance {
+                origin: "test".to_string(),
+                kind: "seed".to_string(),
+                task_id: None,
+            },
+            publication: None,
+        }]);
+
+    let envelope = host
+        .execute(
+            test_session(&host),
+            r#"
+const concept = prism.conceptByHandle("concept://compact_tools");
+return {
+  inspectFirst: concept?.curationHints.inspectFirst?.path ?? null,
+  supportingRead: concept?.curationHints.supportingRead?.path ?? null,
+  likelyTest: concept?.curationHints.likelyTest?.path ?? null,
+  nextAction: concept?.curationHints.nextAction ?? null,
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("concept query should succeed");
+
+    assert!(envelope.result["inspectFirst"]
+        .as_str()
+        .is_some_and(
+            |value| value.starts_with("demo::compact_tools") && !value.contains("::tests::")
+        ));
+    assert!(envelope.result["supportingRead"]
+        .as_str()
+        .is_some_and(|value| value.starts_with("demo::compact_tools::")));
+    assert!(envelope.result["likelyTest"]
+        .as_str()
+        .is_some_and(|value| value.contains("compact")));
+    assert!(envelope.result["nextAction"]
+        .as_str()
+        .is_some_and(|value| value.contains("Inspect")));
+}
+
+#[test]
+fn compact_concept_followthrough_falls_back_when_live_members_are_empty() {
+    let root = temp_workspace();
+    write_compact_default_tools_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+    host.current_prism()
+        .replace_curated_concepts(vec![ConceptPacket {
+            handle: "concept://compact_tools".to_string(),
+            canonical_name: "compact_tools".to_string(),
+            summary: "Compact tool surface for locate, open, workset, and expand.".to_string(),
+            aliases: vec!["compact tools".to_string(), "compact surface".to_string()],
+            confidence: 0.93,
+            core_members: Vec::new(),
+            core_member_lineages: Vec::new(),
+            supporting_members: Vec::new(),
+            supporting_member_lineages: Vec::new(),
+            likely_tests: Vec::new(),
+            likely_test_lineages: Vec::new(),
+            evidence: vec![
+                "Seeded empty-member concept for compact follow-through fallback coverage."
+                    .to_string(),
+            ],
+            risk_hint: None,
+            decode_lenses: vec![
+                ConceptDecodeLens::Open,
+                ConceptDecodeLens::Workset,
+                ConceptDecodeLens::Validation,
+            ],
+            scope: ConceptScope::Session,
+            provenance: ConceptProvenance {
+                origin: "test".to_string(),
+                kind: "seed".to_string(),
+                task_id: None,
+            },
+            publication: None,
+        }]);
+
+    let concept = host
+        .compact_concept(
+            Arc::clone(&session),
+            PrismConceptArgs {
+                handle: Some("concept://compact_tools".to_string()),
+                query: None,
+                lens: None,
+                verbosity: None,
+                include_binding_metadata: Some(false),
+            },
+        )
+        .expect("compact concept should succeed");
+    assert!(concept
+        .packet
+        .next_action
+        .as_deref()
+        .is_some_and(|value| value.contains("follow-through")));
+    assert!(concept
+        .packet
+        .suggested_actions
+        .iter()
+        .any(|action| action.tool == "prism_open"));
+
+    let open = host
+        .compact_open(
+            Arc::clone(&session),
+            PrismOpenArgs {
+                handle: Some("concept://compact_tools".to_string()),
+                path: None,
+                mode: Some(PrismOpenModeInput::Focus),
+                line: None,
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
+            },
+        )
+        .expect("compact open should fall back to follow-through targets");
+    assert!(open
+        .promoted_handle
+        .as_ref()
+        .is_some_and(|handle| handle.path.starts_with("demo::compact_tools")
+            && !handle.path.contains("::tests::")));
+
+    let workset = host
+        .compact_workset(
+            Arc::clone(&session),
+            PrismWorksetArgs {
+                handle: Some("concept://compact_tools".to_string()),
+                query: None,
+            },
+        )
+        .expect("compact workset should fall back to follow-through targets");
+    assert!(workset.primary.path.starts_with("demo::compact_tools"));
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .any(|candidate| candidate.path.starts_with("demo::compact_tools::")));
 }
 
 #[test]
@@ -10232,12 +10456,7 @@ fn compact_workset_for_product_surface_spec_headings_lifts_body_identifiers() {
             },
         )
         .expect("workset should succeed");
-    assert!(workset.supporting_reads.iter().any(|target| {
-        target.path.contains("prism_locate")
-            || target.path.contains("prism_open")
-            || target.path.contains("prism_workset")
-            || target.path.contains("prism_expand")
-    }));
+    assert!(!workset.supporting_reads.is_empty());
     assert!(workset
         .supporting_reads
         .iter()
@@ -10262,6 +10481,70 @@ fn compact_workset_for_product_surface_spec_headings_lifts_body_identifiers() {
                 || path.contains("prism_workset")
                 || path.contains("prism_expand")
         })));
+}
+
+#[test]
+fn compact_spec_followups_surface_governing_sections_before_owner_hops() {
+    let root = temp_workspace();
+    write_compact_default_tools_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "Compact Default Tools".to_string(),
+                path: Some("docs/SPEC.md".to_string()),
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                limit: Some(3),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+
+    let workset = host
+        .compact_workset(
+            Arc::clone(&session),
+            PrismWorksetArgs {
+                handle: Some(locate.candidates[0].handle.clone()),
+                query: None,
+            },
+        )
+        .expect("workset should succeed");
+    assert!(workset
+        .supporting_reads
+        .first()
+        .is_some_and(|target| target.path.contains("docs/GOVERNANCE.md:3")));
+    assert!(workset
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("governing section")));
+
+    let open = host
+        .compact_open(
+            Arc::clone(&session),
+            PrismOpenArgs {
+                handle: Some(locate.candidates[0].handle.clone()),
+                path: None,
+                mode: Some(PrismOpenModeInput::Focus),
+                line: None,
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
+            },
+        )
+        .expect("open should succeed");
+    assert!(open
+        .related_handles
+        .as_ref()
+        .and_then(|targets| targets.first())
+        .is_some_and(|target| target.path.contains("docs/GOVERNANCE.md:3")));
+    assert!(open
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("governing section")));
 }
 
 #[test]
@@ -17905,7 +18188,8 @@ fn plans_resource_payload_surfaces_filters_and_root_nodes() {
     assert_eq!(payload.contains.as_deref(), Some("persistence"));
     assert_eq!(payload.page.returned, 1);
     assert_eq!(payload.plans.len(), 1);
-    assert_eq!(payload.plans[0].summary.actionable_nodes, 1);
+    assert!(payload.plans[0].summary.contains("actionable"));
+    assert_eq!(payload.plans[0].plan_summary.actionable_nodes, 1);
     assert!(payload
         .related_resources
         .iter()

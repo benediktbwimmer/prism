@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use prism_ir::AnchorRef;
+use prism_ir::{AnchorRef, NodeId};
 use prism_js::{
     AgentConceptPacketView, AgentConceptResultView, AgentSuggestedActionView,
     AgentTargetHandleView, AgentWorksetResultView, ConceptBindingMetadataView, ConceptDecodeView,
@@ -17,8 +17,8 @@ use super::suggested_actions::{
 use super::workset::budgeted_workset_result_with_followups;
 use super::*;
 use crate::{
-    concept_decode_lens_view, concept_packet_view, concept_relation_view,
-    concept_resolution_is_ambiguous, concept_verbosity_view, recent_patches,
+    concept_decode_lens_view, concept_followthrough_targets, concept_packet_view,
+    concept_relation_view, concept_resolution_is_ambiguous, concept_verbosity_view, recent_patches,
     resolve_concepts_for_session, scored_memory_view, symbol_views_for_ids,
     truncate_concept_relations, truncate_vec_with_omitted, validation_recipe_view_with,
     ConceptPacketTruncationStats, ConceptVerbosity,
@@ -155,10 +155,26 @@ fn agent_concept_packet_view(
         relation_evidence_omitted: relation_truncation.relation_evidence_omitted,
     }
     .into_view();
-    let primary_handle = core_members.first().map(|member| member.handle.clone());
+    let fallback = concept_followthrough_targets(prism, packet);
+    let fallback_primary =
+        if core_members.is_empty() && supporting_members.is_empty() && likely_tests.is_empty() {
+            compact_optional_handle_for_id(session, prism, fallback.inspect_first.as_ref())?
+        } else {
+            None
+        };
+    let primary_handle = core_members
+        .first()
+        .map(|member| member.handle.clone())
+        .or_else(|| {
+            fallback_primary
+                .as_ref()
+                .map(|member| member.handle.clone())
+        });
     let suggested_actions = compact_concept_suggested_actions(primary_handle.as_deref(), packet);
     let next_action = if truncation.is_some() {
         "This concept packet was trimmed for context. Open the strongest member now, or retry with `verbosity`: `full` if you need the complete packet.".to_string()
+    } else if fallback_primary.is_some() {
+        "Open the suggested follow-through target now, or decode the concept with a lens while the curated member bindings are refreshed.".to_string()
     } else {
         "Open the strongest core member or decode the concept with a lens.".to_string()
     };
@@ -279,6 +295,21 @@ pub(super) fn compact_handles_for_ids(
         .collect())
 }
 
+fn compact_optional_handle_for_id(
+    session: &SessionState,
+    prism: &Prism,
+    id: Option<&NodeId>,
+) -> Result<Option<AgentTargetHandleView>> {
+    let Some(id) = id else {
+        return Ok(None);
+    };
+    Ok(
+        compact_handles_for_ids(session, prism, std::slice::from_ref(id))?
+            .into_iter()
+            .next(),
+    )
+}
+
 pub(super) fn compact_concept_workset_result(
     session: &SessionState,
     prism: &Prism,
@@ -306,6 +337,7 @@ pub(super) fn compact_concept_selection(
     let packet = prism
         .concept_by_handle(handle)
         .ok_or_else(|| anyhow!("no concept packet matched `{handle}`"))?;
+    let fallback = concept_followthrough_targets(prism, &packet);
     let mut core_members = compact_handles_for_ids(session, prism, &packet.core_members)?;
     let mut supporting_reads = core_members.split_off(core_members.len().min(1));
     supporting_reads.extend(compact_handles_for_ids(
@@ -315,11 +347,30 @@ pub(super) fn compact_concept_selection(
     )?);
     dedupe_handle_views(&mut supporting_reads);
     let mut likely_tests = compact_handles_for_ids(session, prism, &packet.likely_tests)?;
+    if supporting_reads.is_empty() {
+        supporting_reads.extend(compact_handles_for_ids(
+            session,
+            prism,
+            &fallback.supporting_reads,
+        )?);
+        dedupe_handle_views(&mut supporting_reads);
+    }
+    if likely_tests.is_empty() {
+        likely_tests.extend(compact_handles_for_ids(
+            session,
+            prism,
+            &fallback.likely_tests,
+        )?);
+        dedupe_handle_views(&mut likely_tests);
+    }
+    let fallback_primary =
+        compact_optional_handle_for_id(session, prism, fallback.inspect_first.as_ref())?;
     let primary = core_members
         .into_iter()
         .next()
         .or_else(|| supporting_reads.first().cloned())
         .or_else(|| likely_tests.first().cloned())
+        .or(fallback_primary)
         .ok_or_else(|| anyhow!("concept `{}` has no reusable members", packet.handle))?;
     supporting_reads.retain(|candidate| candidate.handle != primary.handle);
     likely_tests.retain(|candidate| candidate.handle != primary.handle);

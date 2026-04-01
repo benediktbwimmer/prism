@@ -8,8 +8,47 @@ use prism_store::{CoordinationPersistContext, Graph};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-#[derive(Clone, Default)]
+use crate::layout::WorkspaceLayout;
+
+#[derive(Clone)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct WorkspacePublishedGeneration {
+    prism: Arc<Prism>,
+    pub(crate) workspace_revision: WorkspaceRevision,
+    pub(crate) coordination_context: Option<CoordinationPersistContext>,
+}
+
+impl WorkspacePublishedGeneration {
+    pub(crate) fn new(
+        prism: Prism,
+        workspace_revision: WorkspaceRevision,
+        coordination_context: Option<CoordinationPersistContext>,
+    ) -> Self {
+        Self {
+            prism: Arc::new(prism),
+            workspace_revision,
+            coordination_context,
+        }
+    }
+
+    pub(crate) fn prism_arc(&self) -> Arc<Prism> {
+        Arc::clone(&self.prism)
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn workspace_revision(&self) -> WorkspaceRevision {
+        self.workspace_revision.clone()
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn coordination_context(&self) -> Option<CoordinationPersistContext> {
+        self.coordination_context.clone()
+    }
+}
+
+#[derive(Clone)]
 pub(crate) struct WorkspaceRuntimeState {
+    pub(crate) layout: Arc<WorkspaceLayout>,
     pub(crate) graph: Arc<Graph>,
     pub(crate) history: Arc<HistoryStore>,
     pub(crate) outcomes: Arc<OutcomeMemory>,
@@ -21,6 +60,7 @@ pub(crate) struct WorkspaceRuntimeState {
 
 impl WorkspaceRuntimeState {
     pub(crate) fn new(
+        layout: WorkspaceLayout,
         graph: Graph,
         history: HistoryStore,
         outcomes: OutcomeMemory,
@@ -30,6 +70,7 @@ impl WorkspaceRuntimeState {
         projections: ProjectionIndex,
     ) -> Self {
         Self {
+            layout: Arc::new(layout),
             graph: Arc::new(graph),
             history: Arc::new(history),
             outcomes: Arc::new(outcomes),
@@ -40,11 +81,28 @@ impl WorkspaceRuntimeState {
         }
     }
 
-    pub(crate) fn publish_prism(
+    pub(crate) fn layout(&self) -> WorkspaceLayout {
+        Arc::as_ref(&self.layout).clone()
+    }
+
+    pub(crate) fn placeholder_with_layout(layout: WorkspaceLayout) -> Self {
+        Self::new(
+            layout,
+            Graph::default(),
+            HistoryStore::default(),
+            OutcomeMemory::default(),
+            CoordinationSnapshot::default(),
+            Vec::new(),
+            BTreeMap::new(),
+            ProjectionIndex::default(),
+        )
+    }
+
+    pub(crate) fn publish_generation(
         &self,
         workspace_revision: WorkspaceRevision,
         coordination_context: Option<CoordinationPersistContext>,
-    ) -> Prism {
+    ) -> WorkspacePublishedGeneration {
         let prism = Prism::with_shared_history_outcomes_coordination_projections_and_plan_graphs(
             Arc::clone(&self.graph),
             Arc::clone(&self.history),
@@ -54,9 +112,9 @@ impl WorkspaceRuntimeState {
             self.plan_graphs.clone(),
             self.plan_execution_overlays.clone(),
         );
-        prism.set_workspace_revision(workspace_revision);
-        prism.set_coordination_context(coordination_context);
-        prism
+        prism.set_workspace_revision(workspace_revision.clone());
+        prism.set_coordination_context(coordination_context.clone());
+        WorkspacePublishedGeneration::new(prism, workspace_revision, coordination_context)
     }
 
     pub(crate) fn replace_coordination_runtime(

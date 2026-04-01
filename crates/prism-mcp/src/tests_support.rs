@@ -417,6 +417,11 @@ pub(crate) fn write_compact_default_tools_workspace(root: &Path) {
     )
     .unwrap();
     fs::write(
+        root.join("docs/GOVERNANCE.md"),
+        "# Governance\n\n## Compact Default Tools Governance\n\nThis governing section defines how compact default tools should chain across locate, open, workset, and expand without losing reviewable follow-through.\n",
+    )
+    .unwrap();
+    fs::write(
         root.join("src/lib.rs"),
         "mod server_surface;\nmod compact_tools;\n",
     )

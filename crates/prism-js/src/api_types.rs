@@ -1377,8 +1377,14 @@ pub struct WorkspaceRevisionView {
 #[serde(rename_all = "camelCase")]
 pub struct PlanView {
     pub id: String,
+    pub title: String,
     pub goal: String,
     pub status: PlanStatus,
+    pub scope: PlanScope,
+    pub kind: PlanKind,
+    pub revision: u64,
+    pub tags: Vec<String>,
+    pub created_from: Option<String>,
     pub root_node_ids: Vec<String>,
 }
 
@@ -1392,7 +1398,8 @@ pub struct PlanListEntryView {
     pub scope: PlanScope,
     pub kind: PlanKind,
     pub root_node_ids: Vec<String>,
-    pub summary: PlanSummaryView,
+    pub summary: String,
+    pub plan_summary: PlanSummaryView,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

@@ -34,6 +34,19 @@ impl WorkspaceLayout {
             .max_by_key(|package| package.root.components().count())
             .unwrap_or(&self.packages[0])
     }
+
+    pub(crate) fn refresh_required_for_paths<'a>(
+        &self,
+        changed_paths: impl IntoIterator<Item = &'a PathBuf>,
+    ) -> bool {
+        changed_paths.into_iter().any(|path| {
+            path == &self.workspace_manifest
+                || self
+                    .packages
+                    .iter()
+                    .any(|package| path == &package.manifest_path)
+        })
+    }
 }
 
 impl PackageInfo {

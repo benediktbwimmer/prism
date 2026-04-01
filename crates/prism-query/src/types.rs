@@ -132,7 +132,8 @@ pub struct PlanListEntry {
     pub scope: PlanScope,
     pub kind: PlanKind,
     pub root_node_ids: Vec<PlanNodeId>,
-    pub summary: PlanSummary,
+    pub summary: String,
+    pub plan_summary: PlanSummary,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

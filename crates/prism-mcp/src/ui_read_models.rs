@@ -440,9 +440,9 @@ fn graph_plan_touchpoints(
             .then_with(|| {
                 right
                     .plan
-                    .summary
+                    .plan_summary
                     .in_progress_nodes
-                    .cmp(&left.plan.summary.in_progress_nodes)
+                    .cmp(&left.plan.plan_summary.in_progress_nodes)
             })
             .then_with(|| left.plan.plan_id.cmp(&right.plan.plan_id))
     });

@@ -91,6 +91,10 @@ impl SqliteStore {
         Self::open_internal(path.as_ref(), true)
     }
 
+    pub fn reopen_runtime_writer(&self) -> Result<Self> {
+        Self::open_internal(&self.path, false)
+    }
+
     pub fn open_runtime_reader(path: impl AsRef<Path>) -> Result<Self> {
         Self::open_runtime_reader_internal(path.as_ref())
     }

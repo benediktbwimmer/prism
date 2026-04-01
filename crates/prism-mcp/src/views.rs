@@ -37,8 +37,8 @@ use serde_json::Value;
 use std::path::Path;
 
 use crate::{
-    compact_followups::workspace_display_path, normalize_query_diagnostic, InferredEdgeRecordView,
-    SessionState,
+    compact_followups::workspace_display_path, concept_followthrough_targets,
+    normalize_query_diagnostic, InferredEdgeRecordView, SessionState,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -346,7 +346,7 @@ pub(crate) fn concept_packet_view(
     resolution: Option<ConceptResolution>,
 ) -> ConceptPacketView {
     let handle = packet.handle.clone();
-    let curation_hints = concept_curation_hints_view_from_packet(&packet, verbosity);
+    let curation_hints = concept_curation_hints_view_from_packet(prism, &packet, verbosity);
     let (core_members, core_members_omitted) = truncate_vec_with_omitted(
         packet.core_members.into_iter().map(node_id_view).collect(),
         verbosity.max_member_count(),
@@ -427,18 +427,31 @@ pub(crate) fn concept_packet_view(
 }
 
 fn concept_curation_hints_view_from_packet(
+    prism: &Prism,
     packet: &ConceptPacket,
     verbosity: ConceptVerbosity,
 ) -> ConceptCurationHintsView {
+    let fallback = concept_followthrough_targets(prism, packet);
     let inspect_first = packet
         .core_members
         .first()
         .cloned()
         .map(node_id_view)
         .or_else(|| packet.supporting_members.first().cloned().map(node_id_view))
-        .or_else(|| packet.likely_tests.first().cloned().map(node_id_view));
-    let supporting_read = packet.supporting_members.first().cloned().map(node_id_view);
-    let likely_test = packet.likely_tests.first().cloned().map(node_id_view);
+        .or_else(|| packet.likely_tests.first().cloned().map(node_id_view))
+        .or_else(|| fallback.inspect_first.clone().map(node_id_view));
+    let supporting_read = packet
+        .supporting_members
+        .first()
+        .cloned()
+        .map(node_id_view)
+        .or_else(|| fallback.supporting_reads.first().cloned().map(node_id_view));
+    let likely_test = packet
+        .likely_tests
+        .first()
+        .cloned()
+        .map(node_id_view)
+        .or_else(|| fallback.likely_tests.first().cloned().map(node_id_view));
     let next_action = concept_packet_next_action(
         packet,
         inspect_first.as_ref(),
@@ -1214,8 +1227,18 @@ pub(crate) fn plan_view(
 ) -> PlanView {
     PlanView {
         id: value.id.0.to_string(),
+        title: if value.title.trim().is_empty() {
+            value.goal.clone()
+        } else {
+            value.title
+        },
         goal: value.goal,
         status: value.status,
+        scope: value.scope,
+        kind: value.kind,
+        revision: value.revision,
+        tags: value.tags,
+        created_from: value.created_from,
         root_node_ids: root_node_ids
             .into_iter()
             .map(|node_id| node_id.0.to_string())
@@ -1236,7 +1259,8 @@ pub(crate) fn plan_list_entry_view(value: PlanListEntry) -> PlanListEntryView {
             .into_iter()
             .map(|node_id| node_id.0.to_string())
             .collect(),
-        summary: plan_summary_view(value.summary),
+        summary: value.summary,
+        plan_summary: plan_summary_view(value.plan_summary),
     }
 }
 

@@ -50,7 +50,8 @@ impl Prism {
                     scope: graph.scope,
                     kind: graph.kind,
                     root_node_ids: graph.root_nodes,
-                    summary,
+                    summary: plan_discovery_summary(&summary),
+                    plan_summary: summary,
                 })
             })
             .collect::<Vec<_>>();
@@ -60,9 +61,9 @@ impl Prism {
                 .cmp(&plan_status_rank(right.status))
                 .then_with(|| {
                     right
-                        .summary
+                        .plan_summary
                         .actionable_nodes
-                        .cmp(&left.summary.actionable_nodes)
+                        .cmp(&left.plan_summary.actionable_nodes)
                 })
                 .then_with(|| left.title.cmp(&right.title))
                 .then_with(|| left.plan_id.0.cmp(&right.plan_id.0))
@@ -122,4 +123,27 @@ fn plan_status_rank(status: PlanStatus) -> u8 {
         PlanStatus::Abandoned => 4,
         PlanStatus::Archived => 5,
     }
+}
+
+fn plan_discovery_summary(summary: &crate::PlanSummary) -> String {
+    let mut parts = Vec::new();
+    if summary.actionable_nodes > 0 {
+        parts.push(format!("{} actionable", summary.actionable_nodes));
+    }
+    if summary.in_progress_nodes > 0 {
+        parts.push(format!("{} in progress", summary.in_progress_nodes));
+    }
+    if summary.execution_blocked_nodes > 0 {
+        parts.push(format!("{} blocked", summary.execution_blocked_nodes));
+    }
+    if summary.completed_nodes > 0 {
+        parts.push(format!("{} completed", summary.completed_nodes));
+    }
+    if summary.abandoned_nodes > 0 {
+        parts.push(format!("{} abandoned", summary.abandoned_nodes));
+    }
+    if parts.is_empty() {
+        parts.push(format!("{} nodes", summary.total_nodes));
+    }
+    format!("{} of {} nodes", parts.join(", "), summary.total_nodes)
 }

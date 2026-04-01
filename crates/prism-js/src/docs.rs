@@ -1560,8 +1560,14 @@ type WorkspaceRevisionView = {
 
 type PlanView = {
   id: string;
+  title: string;
   goal: string;
   status: string;
+  scope: string;
+  kind: string;
+  revision: number;
+  tags: string[];
+  createdFrom?: string;
   rootNodeIds: string[];
 };
 
@@ -1573,7 +1579,8 @@ type PlanListEntryView = {
   scope: string;
   kind: string;
   rootNodeIds: string[];
-  summary: PlanSummaryView;
+  summary: string;
+  planSummary: PlanSummaryView;
 };
 
 type ValidationRefView = {

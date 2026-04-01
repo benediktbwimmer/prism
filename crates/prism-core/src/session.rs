@@ -75,7 +75,7 @@ use crate::validation_feedback::{
 };
 use crate::watch::{refresh_prism_snapshot, try_refresh_prism_snapshot, WatchHandle, WatchMessage};
 use crate::workspace_identity::coordination_persist_context_for_root;
-use crate::workspace_runtime_state::WorkspaceRuntimeState;
+use crate::workspace_runtime_state::{WorkspacePublishedGeneration, WorkspaceRuntimeState};
 use crate::workspace_tree::{
     plan_full_refresh, populate_package_regions, WorkspaceRefreshDelta, WorkspaceRefreshMode,
     WorkspaceRefreshPlan,
@@ -352,7 +352,7 @@ impl WorkspaceRefreshState {
 
 pub struct WorkspaceSession {
     pub(crate) root: PathBuf,
-    pub(crate) prism: Arc<RwLock<Arc<Prism>>>,
+    pub(crate) published_generation: Arc<RwLock<WorkspacePublishedGeneration>>,
     pub(crate) runtime_state: Arc<Mutex<WorkspaceRuntimeState>>,
     pub(crate) store: Arc<Mutex<SqliteStore>>,
     pub(crate) cold_query_store: Arc<Mutex<SqliteStore>>,
@@ -513,10 +513,10 @@ impl WorkspaceSession {
     }
 
     pub fn prism_arc(&self) -> Arc<Prism> {
-        self.prism
+        self.published_generation
             .read()
-            .expect("workspace prism lock poisoned")
-            .clone()
+            .expect("workspace published generation lock poisoned")
+            .prism_arc()
     }
 
     pub(crate) fn attach_cold_query_backends(prism: &Prism, store: &Arc<Mutex<SqliteStore>>) {
@@ -535,19 +535,22 @@ impl WorkspaceSession {
         workspace_revision: u64,
         coordination_context: Option<prism_store::CoordinationPersistContext>,
     ) {
-        let next = Arc::new(runtime_state.publish_prism(
+        let next = runtime_state.publish_generation(
             prism_ir::WorkspaceRevision {
                 graph_version: local_workspace_revision,
                 git_commit: None,
             },
             coordination_context,
-        ));
-        Self::attach_cold_query_backends(next.as_ref(), &self.cold_query_store);
+        );
+        Self::attach_cold_query_backends(next.prism_arc().as_ref(), &self.cold_query_store);
         *self
             .runtime_state
             .lock()
             .expect("workspace runtime state lock poisoned") = runtime_state;
-        *self.prism.write().expect("workspace prism lock poisoned") = next;
+        *self
+            .published_generation
+            .write()
+            .expect("workspace published generation lock poisoned") = next;
         self.loaded_workspace_revision
             .store(workspace_revision, Ordering::Relaxed);
     }
@@ -727,13 +730,42 @@ impl WorkspaceSession {
                 .runtime_state
                 .lock()
                 .expect("workspace runtime state lock poisoned");
-            std::mem::take(&mut *state)
+            let placeholder = WorkspaceRuntimeState::placeholder_with_layout(state.layout());
+            std::mem::replace(&mut *state, placeholder)
         };
         let mut runtime_state = runtime_state;
         runtime_state.overlay_live_projection_knowledge(current_prism.as_ref());
-        let mut indexer = WorkspaceIndexer::with_runtime_state_and_options(
+        let current_layout = runtime_state.layout();
+        let layout_refresh_required = current_layout.refresh_required_for_paths(deep_paths.iter());
+        let next_layout = if layout_refresh_required {
+            discover_layout(&self.root)?
+        } else {
+            current_layout.clone()
+        };
+        let reopened_store = self
+            .store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .reopen_runtime_writer()?;
+        let reopened_shared_runtime_store = self
+            .shared_runtime_store
+            .as_ref()
+            .map(|store| {
+                store
+                    .lock()
+                    .expect("shared runtime store lock poisoned")
+                    .reopen_runtime_writer()
+            })
+            .transpose()?;
+        let mut indexer = WorkspaceIndexer::with_runtime_state_stores_and_options(
             &self.root,
+            reopened_store,
+            reopened_shared_runtime_store,
             runtime_state,
+            next_layout.clone(),
+            layout_refresh_required
+                || next_layout.workspace_manifest != current_layout.workspace_manifest
+                || next_layout.packages.len() != current_layout.packages.len(),
             Some(cached_snapshot.clone()),
             self.checkpoint_materializer.clone(),
             crate::WorkspaceSessionOptions {
@@ -764,6 +796,7 @@ impl WorkspaceSession {
         );
         if let Err(error) = index_result {
             let fallback_state = WorkspaceRuntimeState::new(
+                next_layout,
                 Graph::from_snapshot(current_prism.graph().snapshot()),
                 HistoryStore::from_snapshot(current_prism.history_snapshot()),
                 OutcomeMemory::from_snapshot(current_prism.outcome_snapshot()),
@@ -1015,6 +1048,7 @@ impl WorkspaceSession {
         drop(store);
 
         let runtime_state = WorkspaceRuntimeState::new(
+            discover_layout(&self.root)?,
             graph,
             history,
             outcomes,
@@ -2413,10 +2447,11 @@ impl WorkspaceSession {
         let curator = self.curator.as_ref().map(CuratorHandleRef::from);
         refresh_prism_snapshot(
             &self.root,
-            &self.prism,
+            &self.published_generation,
             &self.runtime_state,
             &self.store,
             &self.cold_query_store,
+            self.shared_runtime_store.as_ref(),
             self.shared_runtime.sqlite_path(),
             &self.refresh_lock,
             &self.refresh_state,
@@ -2440,10 +2475,11 @@ impl WorkspaceSession {
     ) -> Result<Option<WorkspaceRefreshResult>> {
         try_refresh_prism_snapshot(
             &self.root,
-            &self.prism,
+            &self.published_generation,
             &self.runtime_state,
             &self.store,
             &self.cold_query_store,
+            self.shared_runtime_store.as_ref(),
             self.shared_runtime.sqlite_path(),
             &self.refresh_lock,
             &self.refresh_state,

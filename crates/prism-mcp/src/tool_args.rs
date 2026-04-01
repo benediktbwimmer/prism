@@ -736,17 +736,47 @@ pub(crate) struct PrismQueryArgs {
     pub(crate) language: Option<QueryLanguage>,
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, JsonSchema)]
 pub(crate) enum PrismLocateTaskIntentInput {
-    #[serde(alias = "read", alias = "code")]
     Inspect,
     Edit,
     Validate,
     Test,
-    #[serde(alias = "doc", alias = "docs", alias = "documentation", alias = "spec")]
     Explain,
 }
+
+impl_vocab_deserialize!(
+    PrismLocateTaskIntentInput,
+    "taskIntent",
+    "task intent",
+    r#"{"taskIntent":"edit"}"#,
+    {
+        "inspect" => Inspect,
+        "read" => Inspect,
+        "reader" => Inspect,
+        "code" => Inspect,
+        "implementation" => Inspect,
+        "edit" => Edit,
+        "write" => Edit,
+        "modify" => Edit,
+        "change" => Edit,
+        "validate" => Validate,
+        "validation" => Validate,
+        "verify" => Validate,
+        "test" => Test,
+        "tests" => Test,
+        "testing" => Test,
+        "explain" => Explain,
+        "explanation" => Explain,
+        "doc" => Explain,
+        "docs" => Explain,
+        "document" => Explain,
+        "documentation" => Explain,
+        "spec" => Explain,
+        "specs" => Explain,
+        "design" => Explain
+    }
+);
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -764,12 +794,14 @@ pub(crate) struct PrismLocateArgs {
     #[schemars(
         description = "Optional task intent that biases ranking toward code, docs, tests, or explanation targets. Accepts aliases such as `code` and `read` for `inspect`, plus docs-oriented aliases such as `docs` and `spec`; when omitted, docs-like `path` or `glob` filters automatically bias toward explanation targets."
     )]
+    #[serde(alias = "task_intent")]
     pub(crate) task_intent: Option<PrismLocateTaskIntentInput>,
     #[schemars(description = "Optional compact candidate count from 1 to 3.")]
     pub(crate) limit: Option<usize>,
     #[schemars(
         description = "When true, also include one bounded preview for the top-ranked candidate."
     )]
+    #[serde(alias = "include_top_preview")]
     pub(crate) include_top_preview: Option<bool>,
 }
 
@@ -820,12 +852,15 @@ pub(crate) struct PrismOpenArgs {
     #[schemars(
         description = "Optional context lines before `line` for exact-path opens. Ignored unless `line` is set."
     )]
+    #[serde(alias = "before_lines")]
     pub(crate) before_lines: Option<usize>,
     #[schemars(
         description = "Optional context lines after `line` for exact-path opens. Ignored unless `line` is set."
     )]
+    #[serde(alias = "after_lines")]
     pub(crate) after_lines: Option<usize>,
     #[schemars(description = "Optional character budget for the returned exact-path slice.")]
+    #[serde(alias = "max_chars")]
     pub(crate) max_chars: Option<usize>,
 }
 
@@ -861,6 +896,7 @@ pub(crate) struct PrismExpandArgs {
     #[schemars(
         description = "When true and kind is `neighbors`, also include one bounded preview for the top neighbor."
     )]
+    #[serde(alias = "include_top_preview")]
     pub(crate) include_top_preview: Option<bool>,
 }
 
@@ -868,6 +904,7 @@ pub(crate) struct PrismExpandArgs {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismTaskBriefArgs {
     #[schemars(description = "Coordination task id to summarize through the compact task lens.")]
+    #[serde(alias = "task_id")]
     pub(crate) task_id: String,
 }
 
@@ -907,6 +944,7 @@ pub(crate) struct PrismConceptArgs {
     #[schemars(
         description = "When true, include lineage-backed binding metadata aligned with the concept member lists."
     )]
+    #[serde(alias = "include_binding_metadata")]
     pub(crate) include_binding_metadata: Option<bool>,
 }
 

@@ -18,6 +18,7 @@ use crate::curator_support::{
 };
 use crate::patch_outcomes::dedupe_anchors;
 use crate::util::current_timestamp;
+use crate::workspace_runtime_state::WorkspacePublishedGeneration;
 
 pub(crate) struct CuratorHandle {
     pub(crate) state: Arc<Mutex<CuratorQueueState>>,
@@ -52,7 +53,7 @@ enum CuratorMessage {
 impl CuratorHandle {
     pub(crate) fn new(
         backend: Option<Arc<dyn CuratorBackend>>,
-        prism: Arc<RwLock<Arc<Prism>>>,
+        published_generation: Arc<RwLock<WorkspacePublishedGeneration>>,
         store: Arc<Mutex<SqliteStore>>,
         context_store: Arc<Mutex<SqliteStore>>,
         refresh_lock: Arc<Mutex<()>>,
@@ -63,7 +64,7 @@ impl CuratorHandle {
         let worker_state = Arc::clone(&state);
         let worker_store = Arc::clone(&store);
         let worker_context_store = Arc::clone(&context_store);
-        let worker_prism = Arc::clone(&prism);
+        let worker_published_generation = Arc::clone(&published_generation);
         let worker_refresh_lock = Arc::clone(&refresh_lock);
         let worker_backend = backend.clone();
         let handle = thread::spawn(move || loop {
@@ -83,10 +84,10 @@ impl CuratorHandle {
             );
 
             let context = {
-                let prism = worker_prism
+                let prism = worker_published_generation
                     .read()
-                    .expect("workspace prism lock poisoned")
-                    .clone();
+                    .expect("workspace published generation lock poisoned")
+                    .prism_arc();
                 let mut store = worker_context_store
                     .lock()
                     .expect("curator context store lock poisoned");

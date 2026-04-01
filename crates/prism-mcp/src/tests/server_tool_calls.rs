@@ -106,6 +106,54 @@ async fn mcp_server_accepts_flat_prism_session_shorthand_input() {
 }
 
 #[tokio::test]
+async fn mcp_server_accepts_snake_case_compact_tool_aliases() {
+    let root = temp_workspace();
+    std::fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn main() {
+    println!("hello");
+}
+"#,
+    )
+    .unwrap();
+    let server = PrismMcpServer::with_session(index_workspace_session(&root).unwrap());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_locate",
+            json!({
+                "query": "main",
+                "task_intent": "documentation",
+                "include_top_preview": true,
+                "limit": 1,
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let locate = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(locate["status"], "ok");
+    assert!(locate["topPreview"].is_object());
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn mcp_tool_call_logs_inherit_request_envelope_phases() {
     let root = temp_workspace();
     let server = PrismMcpServer::with_session(index_workspace_session(&root).unwrap());

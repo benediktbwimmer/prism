@@ -458,7 +458,14 @@ fn validation_feedback_persists_across_workspace_reloads() {
     .unwrap();
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
 
-    let session = index_workspace_session(&root).unwrap();
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            ..WorkspaceSessionOptions::default()
+        },
+    )
+    .unwrap();
     let alpha = session
         .prism()
         .symbol("alpha")
@@ -514,7 +521,14 @@ fn validation_feedback_writes_do_not_wait_for_refresh_lock() {
     .unwrap();
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
 
-    let session = index_workspace_session(&root).unwrap();
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            ..WorkspaceSessionOptions::default()
+        },
+    )
+    .unwrap();
     let _guard = session
         .refresh_lock
         .lock()
@@ -4529,7 +4543,14 @@ fn recovery_rebuild_from_persisted_state_defers_when_refresh_is_in_progress() {
     .unwrap();
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
 
-    let session = index_workspace_session(&root).unwrap();
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            shared_runtime: SharedRuntimeBackend::Disabled,
+            ..WorkspaceSessionOptions::default()
+        },
+    )
+    .unwrap();
     let _guard = session
         .refresh_lock
         .lock()
@@ -5096,13 +5117,14 @@ fn published_prism_shares_runtime_graph_backing() {
     let mut indexer = WorkspaceIndexer::with_store(&root, MemoryStore::default()).unwrap();
     indexer.index().unwrap();
     let runtime_state = indexer.into_runtime_state();
-    let prism = runtime_state.publish_prism(
-        prism_ir::WorkspaceRevision {
-            graph_version: 1,
-            git_commit: None,
-        },
-        None,
-    );
+    let workspace_revision = prism_ir::WorkspaceRevision {
+        graph_version: 1,
+        git_commit: None,
+    };
+    let published = runtime_state.publish_generation(workspace_revision.clone(), None);
+    let prism = published.prism_arc();
+    assert_eq!(published.workspace_revision(), workspace_revision);
+    assert!(published.coordination_context().is_none());
     assert!(std::ptr::eq(
         prism.graph(),
         std::sync::Arc::as_ptr(&runtime_state.graph)

@@ -200,9 +200,12 @@ impl WorkspaceIndexer<SqliteStore> {
         Ok(indexer)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn with_runtime_state_and_options(
         root: impl AsRef<Path>,
         runtime_state: WorkspaceRuntimeState,
+        layout: WorkspaceLayout,
+        refresh_runtime_roots: bool,
         workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
         checkpoint_materializer: Option<CheckpointMaterializerHandle>,
         options: WorkspaceSessionOptions,
@@ -210,14 +213,6 @@ impl WorkspaceIndexer<SqliteStore> {
         let root = root.as_ref().canonicalize()?;
         cleanup_legacy_cache(&root)?;
         let store = SqliteStore::open(cache_path(&root)?)?;
-        let mut indexer = Self::with_live_runtime_state_and_options(
-            root.clone(),
-            store,
-            runtime_state,
-            workspace_tree_snapshot,
-            checkpoint_materializer,
-            options.clone(),
-        )?;
         let shared_runtime_store = match &options.shared_runtime {
             SharedRuntimeBackend::Disabled => None,
             SharedRuntimeBackend::Sqlite { path } => Some(SqliteStore::open(path)?),
@@ -225,6 +220,42 @@ impl WorkspaceIndexer<SqliteStore> {
                 anyhow::bail!("shared runtime backend `{uri}` is not implemented yet")
             }
         };
+        Self::with_runtime_state_stores_and_options(
+            root,
+            store,
+            shared_runtime_store,
+            runtime_state,
+            layout,
+            refresh_runtime_roots,
+            workspace_tree_snapshot,
+            checkpoint_materializer,
+            options,
+        )
+    }
+
+    pub(crate) fn with_runtime_state_stores_and_options(
+        root: impl AsRef<Path>,
+        store: SqliteStore,
+        shared_runtime_store: Option<SqliteStore>,
+        runtime_state: WorkspaceRuntimeState,
+        layout: WorkspaceLayout,
+        refresh_runtime_roots: bool,
+        workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
+        checkpoint_materializer: Option<CheckpointMaterializerHandle>,
+        options: WorkspaceSessionOptions,
+    ) -> Result<Self> {
+        let root = root.as_ref().canonicalize()?;
+        cleanup_legacy_cache(&root)?;
+        let mut indexer = Self::with_live_runtime_state_and_options(
+            root.clone(),
+            store,
+            runtime_state,
+            layout,
+            refresh_runtime_roots,
+            workspace_tree_snapshot,
+            checkpoint_materializer,
+            options.clone(),
+        )?;
         indexer.shared_runtime = options.shared_runtime.clone();
         indexer.shared_runtime_store = shared_runtime_store;
         Ok(indexer)
@@ -241,6 +272,7 @@ impl WorkspaceIndexer<SqliteStore> {
             self.workspace_tree_snapshot.unwrap_or_default(),
             self.shared_runtime,
             self.shared_runtime_store,
+            self.layout,
             self.graph,
             self.history,
             self.outcomes,
@@ -346,6 +378,8 @@ impl<S: Store> WorkspaceIndexer<S> {
         root: impl AsRef<Path>,
         store: S,
         runtime_state: WorkspaceRuntimeState,
+        layout: WorkspaceLayout,
+        refresh_runtime_roots: bool,
         workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
         checkpoint_materializer: Option<CheckpointMaterializerHandle>,
         options: WorkspaceSessionOptions,
@@ -357,11 +391,9 @@ impl<S: Store> WorkspaceIndexer<S> {
             shared_runtime,
             hydrate_persisted_projections: _,
         } = options;
-        let layout_started = Instant::now();
-        let layout = discover_layout(&root)?;
-        let discover_layout_ms = layout_started.elapsed().as_millis();
         let restore_runtime_started = Instant::now();
         let WorkspaceRuntimeState {
+            layout: _cached_layout,
             mut graph,
             mut history,
             outcomes,
@@ -370,15 +402,17 @@ impl<S: Store> WorkspaceIndexer<S> {
             plan_execution_overlays,
             projections,
         } = runtime_state;
-        let workspace_id = sync_root_nodes(Arc::make_mut(&mut graph), &layout);
-        Arc::make_mut(&mut history).seed_nodes(
-            std::iter::once(workspace_id).chain(
-                layout
-                    .packages
-                    .iter()
-                    .map(|package| package.node_id.clone()),
-            ),
-        );
+        if refresh_runtime_roots {
+            let workspace_id = sync_root_nodes(Arc::make_mut(&mut graph), &layout);
+            Arc::make_mut(&mut history).seed_nodes(
+                std::iter::once(workspace_id).chain(
+                    layout
+                        .packages
+                        .iter()
+                        .map(|package| package.node_id.clone()),
+                ),
+            );
+        }
         let restore_runtime_ms = restore_runtime_started.elapsed().as_millis();
 
         info!(
@@ -387,7 +421,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             node_count = graph.node_count(),
             edge_count = graph.edge_count(),
             file_count = graph.file_count(),
-            discover_layout_ms,
+            layout_source = if refresh_runtime_roots { "rediscovered" } else { "cached" },
             restore_runtime_ms,
             total_ms = started.elapsed().as_millis(),
             "prepared prism workspace indexer from mutable runtime state"
@@ -1338,6 +1372,7 @@ impl<S: Store> WorkspaceIndexer<S> {
 
     pub(crate) fn into_runtime_state(self) -> WorkspaceRuntimeState {
         WorkspaceRuntimeState::new(
+            self.layout,
             self.graph,
             self.history,
             self.outcomes,
