@@ -37,6 +37,20 @@ pub(crate) struct BridgeBinding {
     profile: CredentialProfile,
 }
 
+#[derive(Debug, Clone)]
+struct StaleBridgeBinding {
+    profile: CredentialProfile,
+    error: String,
+}
+
+#[derive(Debug, Clone, Default)]
+enum BridgeBindingState {
+    #[default]
+    Unbound,
+    Bound(BridgeBinding),
+    Stale(StaleBridgeBinding),
+}
+
 impl BridgeBinding {
     pub(crate) fn profile_label(&self) -> &str {
         &self.profile.profile
@@ -60,11 +74,23 @@ impl BridgeBinding {
 
 #[derive(Debug, Default)]
 pub(crate) struct BridgeAuthState {
-    binding: RwLock<Option<BridgeBinding>>,
+    binding: RwLock<BridgeBindingState>,
 }
 
 impl BridgeAuthState {
     pub(crate) fn binding(&self) -> Option<BridgeBinding> {
+        match self
+            .binding
+            .read()
+            .expect("bridge auth state lock poisoned")
+            .clone()
+        {
+            BridgeBindingState::Bound(binding) => Some(binding),
+            BridgeBindingState::Unbound | BridgeBindingState::Stale(_) => None,
+        }
+    }
+
+    fn snapshot(&self) -> BridgeBindingState {
         self.binding
             .read()
             .expect("bridge auth state lock poisoned")
@@ -76,7 +102,7 @@ impl BridgeAuthState {
             .binding
             .write()
             .expect("bridge auth state lock poisoned");
-        if let Some(existing) = state.as_ref() {
+        if let BridgeBindingState::Bound(existing) = &*state {
             if existing.profile.profile == binding.profile.profile
                 && existing.profile.principal_id == binding.profile.principal_id
                 && existing.profile.credential_id == binding.profile.credential_id
@@ -93,8 +119,38 @@ impl BridgeAuthState {
                 })),
             ));
         }
-        *state = Some(binding.clone());
+        *state = BridgeBindingState::Bound(binding.clone());
         Ok(binding)
+    }
+
+    pub(crate) fn mark_stale(&self, credential_id: &str, error: &str) -> bool {
+        let mut state = self
+            .binding
+            .write()
+            .expect("bridge auth state lock poisoned");
+        match &*state {
+            BridgeBindingState::Bound(binding) if binding.credential_id() == credential_id => {
+                let stale = StaleBridgeBinding {
+                    profile: binding.profile.clone(),
+                    error: error.to_string(),
+                };
+                *state = BridgeBindingState::Stale(stale.clone());
+                true
+            }
+            BridgeBindingState::Stale(binding)
+                if binding.profile.credential_id == credential_id =>
+            {
+                let stale = StaleBridgeBinding {
+                    profile: binding.profile.clone(),
+                    error: error.to_string(),
+                };
+                *state = BridgeBindingState::Stale(stale.clone());
+                true
+            }
+            BridgeBindingState::Unbound
+            | BridgeBindingState::Bound(_)
+            | BridgeBindingState::Stale(_) => false,
+        }
     }
 }
 
@@ -110,10 +166,11 @@ pub(crate) struct BridgeAdoptArgs {
 #[serde(rename_all = "camelCase")]
 struct BridgeAuthResourcePayload {
     uri: String,
-    status: &'static str,
+    status: String,
     profile: Option<String>,
     principal_id: Option<String>,
     credential_id: Option<String>,
+    error: Option<String>,
     next_action: String,
 }
 
@@ -156,6 +213,10 @@ impl BridgeAuthContext {
 
     pub(crate) fn binding(&self) -> Option<BridgeBinding> {
         self.state.binding()
+    }
+
+    pub(crate) fn mark_binding_stale(&self, credential_id: &str, error: &str) -> bool {
+        self.state.mark_stale(credential_id, error)
     }
 
     pub(crate) fn bridge_instructions_suffix(&self) -> &'static str {
@@ -300,38 +361,68 @@ impl BridgeAuthContext {
         if arguments.contains_key("credential") {
             return Ok(Some(arguments));
         }
-        let binding = self.binding().ok_or_else(|| {
-            McpError::invalid_params(
-                "bridged prism_mutate requires a bound local principal when `credential` is omitted",
-                Some(json!({
-                    "code": "bridge_auth_required",
-                    "nextAction": "Call `prism_bridge_adopt` with your local profile label or principal id before the first authoritative mutation on this bridge.",
-                    "bridgeAuthUri": BRIDGE_AUTH_URI,
-                })),
-            )
-        })?;
+        let binding = match self.state.snapshot() {
+            BridgeBindingState::Bound(binding) => binding,
+            BridgeBindingState::Stale(binding) => {
+                return Err(McpError::invalid_params(
+                    "the bridge-bound local principal is stale and must be re-adopted before `credential` can be omitted",
+                    Some(json!({
+                        "code": "bridge_auth_stale",
+                        "profile": binding.profile.profile,
+                        "principalId": binding.profile.principal_id,
+                        "credentialId": binding.profile.credential_id,
+                        "error": binding.error,
+                        "nextAction": "Refresh the local PRISM credential with `prism auth login` or mint a fresh one, then call `prism_bridge_adopt` again on this bridge.",
+                        "bridgeAuthUri": BRIDGE_AUTH_URI,
+                    })),
+                ));
+            }
+            BridgeBindingState::Unbound => {
+                return Err(McpError::invalid_params(
+                    "bridged prism_mutate requires a bound local principal when `credential` is omitted",
+                    Some(json!({
+                        "code": "bridge_auth_required",
+                        "nextAction": "Call `prism_bridge_adopt` with your local profile label or principal id before the first authoritative mutation on this bridge.",
+                        "bridgeAuthUri": BRIDGE_AUTH_URI,
+                    })),
+                ));
+            }
+        };
         arguments.insert("credential".to_string(), binding.credential_json());
         Ok(Some(arguments))
     }
 
     fn resource_payload(&self) -> BridgeAuthResourcePayload {
-        match self.binding() {
-            Some(binding) => BridgeAuthResourcePayload {
+        match self.state.snapshot() {
+            BridgeBindingState::Bound(binding) => BridgeAuthResourcePayload {
                 uri: BRIDGE_AUTH_URI.to_string(),
-                status: "bound",
+                status: "bound".to_string(),
                 profile: Some(binding.profile_label().to_string()),
                 principal_id: Some(binding.principal_id().to_string()),
                 credential_id: Some(binding.credential_id().to_string()),
+                error: None,
                 next_action:
                     "Proceed with authoritative `prism_mutate` calls without supplying `credential` on this bridge."
                         .to_string(),
             },
-            None => BridgeAuthResourcePayload {
+            BridgeBindingState::Stale(binding) => BridgeAuthResourcePayload {
                 uri: BRIDGE_AUTH_URI.to_string(),
-                status: "unbound",
+                status: "stale".to_string(),
+                profile: Some(binding.profile.profile),
+                principal_id: Some(binding.profile.principal_id),
+                credential_id: Some(binding.profile.credential_id),
+                error: Some(binding.error),
+                next_action:
+                    "Refresh the local PRISM credential with `prism auth login` or mint a fresh one, then call `prism_bridge_adopt` again on this bridge."
+                        .to_string(),
+            },
+            BridgeBindingState::Unbound => BridgeAuthResourcePayload {
+                uri: BRIDGE_AUTH_URI.to_string(),
+                status: "unbound".to_string(),
                 profile: None,
                 principal_id: None,
                 credential_id: None,
+                error: None,
                 next_action:
                     "Call `prism_bridge_adopt` with a local profile label or principal id before the first authoritative `prism_mutate` on this bridge."
                         .to_string(),

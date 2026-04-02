@@ -14,6 +14,7 @@ use rmcp::{
     ErrorData as McpError, ServerHandler, ServiceExt,
 };
 use serde::Serialize;
+use serde_json::Value;
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::task::{self, JoinHandle};
 use tracing::{info, warn};
@@ -991,8 +992,19 @@ impl ServerHandler for ProxyMcpServer {
                 payload.message, payload.poll_after_ms
             ))]));
         }
+        let mut injected_binding_credential_id = None;
         let request = if request.name.as_ref() == "prism_mutate" {
             let mut request = request;
+            if request
+                .arguments
+                .as_ref()
+                .is_some_and(|arguments| !arguments.contains_key("credential"))
+            {
+                injected_binding_credential_id = self
+                    .bridge_auth
+                    .binding()
+                    .map(|binding| binding.credential_id().to_string());
+            }
             request.arguments = self
                 .bridge_auth
                 .inject_mutation_credential(request.arguments)?;
@@ -1000,10 +1012,17 @@ impl ServerHandler for ProxyMcpServer {
         } else {
             request
         };
-        self.call_upstream(request, "tools/call", |peer, request| async move {
-            peer.call_tool(request).await
-        })
-        .await
+        let result = self
+            .call_upstream(request, "tools/call", |peer, request| async move {
+                peer.call_tool(request).await
+            })
+            .await;
+        if let (Some(credential_id), Err(error)) =
+            (injected_binding_credential_id.as_deref(), &result)
+        {
+            self.invalidate_stale_bridge_binding(credential_id, error);
+        }
+        result
     }
 
     async fn list_tools(
@@ -1060,6 +1079,30 @@ impl ServerHandler for ProxyMcpServer {
                     tool
                 }
             })
+    }
+}
+
+impl ProxyMcpServer {
+    fn invalidate_stale_bridge_binding(&self, credential_id: &str, error: &McpError) {
+        let Some(data) = error.data.as_ref() else {
+            return;
+        };
+        if data.get("code").and_then(Value::as_str) != Some("mutation_auth_failed") {
+            return;
+        }
+        if data.get("credentialId").and_then(Value::as_str) != Some(credential_id) {
+            return;
+        }
+        if self
+            .bridge_auth
+            .mark_binding_stale(credential_id, &error.to_string())
+        {
+            warn!(
+                credential_id,
+                root = %self.root.display(),
+                "invalidated stale bridge auth binding after upstream credential rejection"
+            );
+        }
     }
 }
 

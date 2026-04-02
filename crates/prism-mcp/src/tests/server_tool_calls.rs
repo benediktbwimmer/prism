@@ -102,7 +102,7 @@ async fn mcp_server_rejects_prism_mutate_without_credential() {
                     "prismSaid": "Mutation should accept ambient session state.",
                     "actuallyTrue": "Mutation should reject calls without an explicit credential envelope.",
                     "category": "coordination",
-                    "verdict": "harmful"
+                    "verdict": "wrong"
                 }
             })
             .as_object()
