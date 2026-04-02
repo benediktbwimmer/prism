@@ -32,6 +32,40 @@ When touching code that violates this policy, move it toward the target architec
 - If a full `cargo test` suite run flakes on individual tests, rerun the failing tests in isolation.
 - When those isolated reruns pass, treat validation as successful and do not keep rerunning the full workspace suite only to chase the same non-deterministic flakes.
 
+## Multi-Worktree Workflow
+
+This repository uses multiple git worktrees for parallel agent development. Each worktree is a persistent slot, not a permanent branch. Follow trunk-based development strictly.
+
+Before starting any new task:
+
+```sh
+git fetch origin
+git checkout main
+git reset --hard origin/main
+```
+
+During a task:
+
+- Create a short-lived branch: `git checkout -b task/short-description`
+- Do the work and commit as needed.
+
+When the task is complete:
+
+```sh
+git checkout main
+git merge --squash task/short-description
+git commit -m "description of what was done"
+git push origin main
+git branch -d task/short-description
+```
+
+Rules:
+
+- Never maintain a long-lived divergent branch in a worktree.
+- Never leave uncommitted or unmerged work between tasks.
+- Sync with `main`, not with other worktrees. There is no cross-worktree merging.
+- If two agents finish simultaneously and the second push is rejected, that agent should `git pull --rebase` and resolve conflicts before pushing.
+
 ## PRISM MCP Workflow
 
 - When the PRISM MCP server is available for this repo, use it as the primary repo-awareness surface.

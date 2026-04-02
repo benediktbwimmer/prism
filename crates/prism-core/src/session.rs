@@ -51,7 +51,9 @@ use crate::contract_events::append_repo_contract_event;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
 use crate::history_backend::StoreHistoryReadBackend;
-use crate::indexer::{workspace_recovery_work, WorkspaceIndexer};
+use crate::indexer::{
+    protected_knowledge_recovery_work, workspace_recovery_work, WorkspaceIndexer,
+};
 use crate::indexer_support::resolve_graph_edges;
 use crate::layout::{discover_layout, sync_root_nodes};
 use crate::materialization::{
@@ -65,7 +67,7 @@ use crate::outcome_backend::StoreOutcomeReadBackend;
 use crate::prism_doc::{sync_repo_prism_doc, PrismDocSyncResult};
 use crate::projection_hydration::persisted_projection_load_plan;
 use crate::protected_state::runtime_sync::{
-    load_repo_protected_knowledge, sync_repo_protected_state,
+    load_repo_protected_knowledge, load_repo_protected_plan_state, sync_repo_protected_state,
 };
 use crate::published_knowledge::{
     validate_repo_concept_event, validate_repo_concept_relation_event,
@@ -431,6 +433,7 @@ pub struct WorkspaceSession {
     pub(crate) loaded_workspace_revision: Arc<AtomicU64>,
     pub(crate) fs_snapshot: Arc<Mutex<WorkspaceTreeSnapshot>>,
     pub(crate) watch: Option<WatchHandle>,
+    pub(crate) protected_state_watch: Option<WatchHandle>,
     pub(crate) curator: Option<CuratorHandle>,
     pub(crate) checkpoint_materializer: Option<CheckpointMaterializerHandle>,
     pub(crate) shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
@@ -1449,12 +1452,12 @@ impl WorkspaceSession {
         merge_repo_patch_events_into_memory(&self.root, &outcomes)?;
         let plan_state = if self.coordination_enabled {
             if let Some(shared_runtime_store) = self.shared_runtime_store() {
-                shared_runtime_store
+                let mut shared_store = shared_runtime_store
                     .lock()
-                    .expect("shared runtime store lock poisoned")
-                    .load_hydrated_coordination_plan_state_for_root(&self.root)?
+                    .expect("shared runtime store lock poisoned");
+                load_repo_protected_plan_state(&self.root, &mut *shared_store)?
             } else {
-                store.load_hydrated_coordination_plan_state_for_root(&self.root)?
+                load_repo_protected_plan_state(&self.root, &mut *store)?
             }
         } else {
             None
@@ -1464,6 +1467,7 @@ impl WorkspaceSession {
             .map(|state| state.snapshot.clone())
             .unwrap_or_default();
         let repo_knowledge = load_repo_protected_knowledge(&self.root)?;
+        let protected_knowledge_work = protected_knowledge_recovery_work(&repo_knowledge)?;
         let projections = merged_projection_index(
             local_projection_snapshot,
             shared_projection_snapshot,
@@ -1477,6 +1481,7 @@ impl WorkspaceSession {
             &graph,
             &history,
             &outcomes,
+            protected_knowledge_work,
             &coordination_snapshot,
             &plan_state
                 .as_ref()
@@ -2177,15 +2182,11 @@ impl WorkspaceSession {
             return Ok(None);
         }
         let state = if let Some(store) = self.shared_runtime_store() {
-            store
-                .lock()
-                .expect("shared runtime store lock poisoned")
-                .load_hydrated_coordination_plan_state_for_root(&self.root)?
+            let mut store = store.lock().expect("shared runtime store lock poisoned");
+            load_repo_protected_plan_state(&self.root, &mut *store)?
         } else {
-            self.store
-                .lock()
-                .expect("workspace store lock poisoned")
-                .load_hydrated_coordination_plan_state_for_root(&self.root)?
+            let mut store = self.store.lock().expect("workspace store lock poisoned");
+            load_repo_protected_plan_state(&self.root, &mut *store)?
         };
         Ok(state.map(|state| CoordinationPlanState {
             snapshot: state.snapshot,
@@ -3176,6 +3177,10 @@ fn merge_patch_file_summaries(
 impl Drop for WorkspaceSession {
     fn drop(&mut self) {
         if let Some(watch) = self.watch.take() {
+            let _ = watch.stop.send(WatchMessage::Stop);
+            let _ = watch.handle.join();
+        }
+        if let Some(watch) = self.protected_state_watch.take() {
             let _ = watch.stop.send(WatchMessage::Stop);
             let _ = watch.handle.join();
         }

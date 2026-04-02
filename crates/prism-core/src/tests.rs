@@ -2137,6 +2137,192 @@ fn repo_memory_reads_do_not_lazy_import_new_repo_events_after_startup() {
 }
 
 #[test]
+fn protected_state_watcher_imports_repo_memory_without_source_refresh() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+    let observed_before = session.observed_fs_revision();
+    let applied_before = session.applied_fs_revision();
+
+    let mut entry = MemoryEntry::new(MemoryKind::Structural, "watched protected memory");
+    entry.id = MemoryId("structural:watched-protected-memory".to_string());
+    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.scope = MemoryScope::Repo;
+    entry.source = MemorySource::User;
+    entry.trust = 0.9;
+    let event = MemoryEvent::from_entry(
+        MemoryEventKind::Promoted,
+        entry.clone(),
+        Some("task:watched-protected-memory".to_string()),
+        Vec::new(),
+        Vec::new(),
+    );
+    append_repo_memory_event(&root, &event).unwrap();
+
+    crate::watch::sync_protected_state_watch_update(
+        &root,
+        &session.published_generation,
+        &session.runtime_state,
+        &session.store,
+        &session.cold_query_store,
+        session.shared_runtime_store.as_ref(),
+        session.shared_runtime.sqlite_path(),
+        &session.refresh_lock,
+        &session.loaded_workspace_revision,
+        session.coordination_enabled,
+        &[
+            crate::protected_state::streams::ProtectedRepoStream::memory_stream("events.jsonl")
+                .expect("memory stream should classify"),
+        ],
+    )
+    .unwrap();
+
+    let events = session
+        .memory_events(&MemoryEventQuery {
+            memory_id: Some(entry.id.clone()),
+            focus: Vec::new(),
+            text: None,
+            limit: 5,
+            kinds: None,
+            actions: Some(vec![MemoryEventKind::Promoted]),
+            scope: Some(MemoryScope::Repo),
+            task_id: Some("task:watched-protected-memory".to_string()),
+            since: None,
+        })
+        .unwrap();
+    assert!(
+        !events.is_empty(),
+        "protected-state sync should import repo memory"
+    );
+    assert_eq!(session.observed_fs_revision(), observed_before);
+    assert_eq!(session.applied_fs_revision(), applied_before);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn protected_state_watcher_imports_repo_concepts_without_source_refresh() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\nfn beta() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+    let beta = session
+        .prism()
+        .symbol("beta")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::beta")
+        .expect("beta should be indexed")
+        .id()
+        .clone();
+    let observed_before = session.observed_fs_revision();
+    let applied_before = session.applied_fs_revision();
+
+    crate::concept_events::append_repo_concept_event(
+        &root,
+        &ConceptEvent {
+            id: "concept-event:watched-protected-concept".to_string(),
+            recorded_at: 19,
+            task_id: Some("task:watched-protected-concept".to_string()),
+            actor: None,
+            execution_context: None,
+            action: ConceptEventAction::Promote,
+            patch: None,
+            concept: ConceptPacket {
+                handle: "concept://watched_alpha_flow".to_string(),
+                canonical_name: "watched_alpha_flow".to_string(),
+                summary: "Curated alpha concept imported by the protected-state watcher."
+                    .to_string(),
+                aliases: vec!["alpha".to_string(), "alpha flow".to_string()],
+                confidence: 0.94,
+                core_members: vec![alpha.clone(), beta.clone()],
+                core_member_lineages: vec![
+                    session.prism().lineage_of(&alpha),
+                    session.prism().lineage_of(&beta),
+                ],
+                supporting_members: Vec::new(),
+                supporting_member_lineages: Vec::new(),
+                likely_tests: Vec::new(),
+                likely_test_lineages: Vec::new(),
+                evidence: vec!["protected-state watcher test".to_string()],
+                risk_hint: None,
+                decode_lenses: vec![ConceptDecodeLens::Open],
+                scope: ConceptScope::Repo,
+                provenance: ConceptProvenance {
+                    origin: "test".to_string(),
+                    kind: "protected_state_watch".to_string(),
+                    task_id: Some("task:watched-protected-concept".to_string()),
+                },
+                publication: Some(ConceptPublication {
+                    published_at: 19,
+                    last_reviewed_at: Some(19),
+                    status: ConceptPublicationStatus::Active,
+                    supersedes: Vec::new(),
+                    retired_at: None,
+                    retirement_reason: None,
+                }),
+            },
+        },
+    )
+    .unwrap();
+
+    crate::watch::sync_protected_state_watch_update(
+        &root,
+        &session.published_generation,
+        &session.runtime_state,
+        &session.store,
+        &session.cold_query_store,
+        session.shared_runtime_store.as_ref(),
+        session.shared_runtime.sqlite_path(),
+        &session.refresh_lock,
+        &session.loaded_workspace_revision,
+        session.coordination_enabled,
+        &[crate::protected_state::streams::ProtectedRepoStream::concept_events()],
+    )
+    .unwrap();
+
+    assert!(
+        session
+            .prism()
+            .concept_by_handle("concept://watched_alpha_flow")
+            .is_some(),
+        "protected-state sync should import repo concepts into the live runtime"
+    );
+    assert_eq!(session.observed_fs_revision(), observed_before);
+    assert_eq!(session.applied_fs_revision(), applied_before);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn repo_concept_events_round_trip_through_committed_jsonl_and_reload() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

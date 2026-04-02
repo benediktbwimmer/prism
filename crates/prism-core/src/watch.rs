@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -31,13 +32,18 @@ use crate::curator::{enqueue_curator_for_observed_async, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
 use crate::layout::discover_layout;
 use crate::observed_change_tracker::SharedObservedChangeTracker;
+use crate::protected_state::runtime_sync::{
+    load_repo_protected_knowledge, load_repo_protected_plan_state,
+    sync_selected_repo_protected_state, ProtectedStateImportSelection,
+};
+use crate::protected_state::streams::{classify_protected_repo_relative_path, ProtectedRepoStream};
 use crate::session::{
     WorkspaceRefreshBreakdown, WorkspaceRefreshResult, WorkspaceRefreshState, WorkspaceSession,
 };
 use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::shared_runtime_store::SharedRuntimeStore;
-use crate::util::current_timestamp;
+use crate::util::{cache_path, current_timestamp};
 use crate::workspace_identity::{
     coordination_persist_context_for_root, workspace_identity_for_root,
 };
@@ -185,7 +191,109 @@ pub(crate) fn spawn_fs_watch(
         }
     });
 
-    let _ = ready_rx.try_recv();
+    let _ = ready_rx.recv_timeout(Duration::from_millis(250));
+
+    Ok(WatchHandle {
+        stop: msg_tx,
+        handle,
+    })
+}
+
+pub(crate) fn spawn_protected_state_watch(
+    root: PathBuf,
+    published_generation: Arc<RwLock<WorkspacePublishedGeneration>>,
+    runtime_state: Arc<Mutex<WorkspaceRuntimeState>>,
+    store: Arc<Mutex<SqliteStore>>,
+    cold_query_store: Arc<Mutex<SqliteStore>>,
+    shared_runtime_store: Option<Arc<Mutex<SharedRuntimeStore>>>,
+    shared_runtime_sqlite: Option<PathBuf>,
+    refresh_lock: Arc<Mutex<()>>,
+    loaded_workspace_revision: Arc<AtomicU64>,
+    coordination_enabled: bool,
+) -> Result<WatchHandle> {
+    let (msg_tx, msg_rx) = mpsc::channel::<WatchMessage>();
+    let (ready_tx, ready_rx) = mpsc::sync_channel::<bool>(1);
+    let callback_tx = msg_tx.clone();
+
+    let handle = thread::spawn(move || {
+        let mut watcher = match recommended_watcher(move |event| {
+            let _ = callback_tx.send(WatchMessage::Fs(event));
+        }) {
+            Ok(watcher) => watcher,
+            Err(error) => {
+                warn!(
+                    root = %root.display(),
+                    error = %error,
+                    "failed to initialize prism protected-state watcher; continuing without live .prism sync"
+                );
+                let _ = ready_tx.send(false);
+                return;
+            }
+        };
+
+        if let Err(error) = watcher.watch(&root, RecursiveMode::Recursive) {
+            warn!(
+                root = %root.display(),
+                error = %error,
+                "failed to start prism protected-state watcher; continuing without live .prism sync"
+            );
+            let _ = ready_tx.send(false);
+            return;
+        }
+        let _ = ready_tx.send(true);
+
+        loop {
+            let event = match msg_rx.recv() {
+                Ok(WatchMessage::Fs(event)) => event,
+                Ok(WatchMessage::Stop) | Err(mpsc::RecvError) => return,
+            };
+
+            let Ok(event) = event else {
+                continue;
+            };
+            let mut protected_streams = relevant_protected_state_streams(&root, &event);
+            if protected_streams.is_empty() {
+                continue;
+            }
+
+            while let Ok(next) = msg_rx.recv_timeout(Duration::from_millis(75)) {
+                match next {
+                    WatchMessage::Fs(Ok(next)) => {
+                        protected_streams.extend(relevant_protected_state_streams(&root, &next));
+                    }
+                    WatchMessage::Fs(Err(_)) => continue,
+                    WatchMessage::Stop => return,
+                };
+            }
+
+            if protected_streams.is_empty() {
+                continue;
+            }
+
+            if let Err(error) = sync_protected_state_watch_update(
+                &root,
+                &published_generation,
+                &runtime_state,
+                &store,
+                &cold_query_store,
+                shared_runtime_store.as_ref(),
+                shared_runtime_sqlite.as_deref(),
+                &refresh_lock,
+                &loaded_workspace_revision,
+                coordination_enabled,
+                &protected_streams,
+            ) {
+                error!(
+                    root = %root.display(),
+                    error = %error,
+                    error_chain = %format_error_chain(&error),
+                    "prism protected-state watch sync failed"
+                );
+            }
+        }
+    });
+
+    let _ = ready_rx.recv_timeout(Duration::from_millis(250));
 
     Ok(WatchHandle {
         stop: msg_tx,
@@ -966,6 +1074,55 @@ fn can_scope_watch_refresh(root: &Path, dirty_paths: &[PathBuf]) -> bool {
     dirty_paths.iter().all(|path| path.starts_with(root))
 }
 
+fn relevant_protected_state_streams(root: &Path, event: &Event) -> Vec<ProtectedRepoStream> {
+    let mut streams = BTreeMap::<String, ProtectedRepoStream>::new();
+    let mut saw_prism_path = false;
+    for path in &event.paths {
+        let Ok(relative) = path.strip_prefix(root) else {
+            continue;
+        };
+        if relative
+            .components()
+            .next()
+            .is_some_and(|component| component.as_os_str() == ".prism")
+        {
+            saw_prism_path = true;
+        }
+        let Some(stream) = classify_protected_repo_relative_path(relative) else {
+            continue;
+        };
+        streams.insert(stream.stream_id().to_string(), stream);
+    }
+    if streams.is_empty() && saw_prism_path {
+        streams.insert(
+            "memory:events".to_string(),
+            ProtectedRepoStream::memory_stream("events.jsonl")
+                .expect("well-formed default memory stream"),
+        );
+        streams.insert(
+            "changes:events".to_string(),
+            ProtectedRepoStream::patch_events(),
+        );
+        streams.insert(
+            "concepts:events".to_string(),
+            ProtectedRepoStream::concept_events(),
+        );
+        streams.insert(
+            "concepts:relations".to_string(),
+            ProtectedRepoStream::concept_relations(),
+        );
+        streams.insert(
+            "contracts:events".to_string(),
+            ProtectedRepoStream::contract_events(),
+        );
+        streams.insert(
+            "plan:protected-watch".to_string(),
+            ProtectedRepoStream::plan_stream(&prism_ir::PlanId::new("plan:protected-watch")),
+        );
+    }
+    streams.into_values().collect()
+}
+
 fn relevant_watch_paths(root: &Path, event: &Event) -> Vec<PathBuf> {
     event
         .paths
@@ -977,6 +1134,137 @@ fn relevant_watch_paths(root: &Path, event: &Event) -> Vec<PathBuf> {
             (!is_ignored_watch_relative_path(relative)).then(|| path.clone())
         })
         .collect()
+}
+
+pub(crate) fn sync_protected_state_watch_update(
+    root: &Path,
+    published_generation: &Arc<RwLock<WorkspacePublishedGeneration>>,
+    runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
+    store: &Arc<Mutex<SqliteStore>>,
+    cold_query_store: &Arc<Mutex<SqliteStore>>,
+    shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
+    shared_runtime_sqlite: Option<&Path>,
+    refresh_lock: &Arc<Mutex<()>>,
+    loaded_workspace_revision: &Arc<AtomicU64>,
+    coordination_enabled: bool,
+    streams: &[ProtectedRepoStream],
+) -> Result<()> {
+    let selection = ProtectedStateImportSelection::from_streams(streams.iter());
+    if selection.is_empty() {
+        return Ok(());
+    }
+    let _guard = refresh_lock
+        .lock()
+        .expect("protected-state refresh lock poisoned");
+    let workspace_cache_path = cache_path(root)?;
+    let shared_runtime_aliases_workspace_store =
+        shared_runtime_sqlite == Some(workspace_cache_path.as_path());
+
+    let (report, local_workspace_revision, shared_workspace_revision, plan_state) =
+        if let Some(shared_runtime_store) = shared_runtime_store {
+            let local_store = store.lock().expect("workspace store lock poisoned");
+            let local_workspace_revision = local_store.workspace_revision()?;
+            drop(local_store);
+
+            let mut shared_store = shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned");
+            let report = sync_selected_repo_protected_state(root, &mut *shared_store, selection)?;
+            let plan_state = if coordination_enabled && selection.reloads_coordination() {
+                load_repo_protected_plan_state(root, &mut *shared_store)?
+            } else {
+                None
+            };
+            let shared_workspace_revision = if shared_runtime_aliases_workspace_store {
+                None
+            } else {
+                Some(shared_store.workspace_revision()?)
+            };
+            (
+                report,
+                local_workspace_revision,
+                shared_workspace_revision,
+                plan_state,
+            )
+        } else {
+            let mut local_store = store.lock().expect("workspace store lock poisoned");
+            let report = sync_selected_repo_protected_state(root, &mut *local_store, selection)?;
+            let plan_state = if coordination_enabled && selection.reloads_coordination() {
+                load_repo_protected_plan_state(root, &mut *local_store)?
+            } else {
+                None
+            };
+            let local_workspace_revision = local_store.workspace_revision()?;
+            (report, local_workspace_revision, None, plan_state)
+        };
+
+    let workspace_revision =
+        composite_workspace_revision(local_workspace_revision, shared_workspace_revision);
+    let mut next_state = runtime_state
+        .lock()
+        .expect("workspace runtime state lock poisoned")
+        .clone();
+    if selection.reloads_projection_knowledge() {
+        let repo_knowledge = load_repo_protected_knowledge(root)?;
+        next_state
+            .projections
+            .replace_curated_concepts(repo_knowledge.curated_concepts);
+        next_state
+            .projections
+            .replace_curated_contracts(repo_knowledge.curated_contracts);
+        next_state
+            .projections
+            .replace_concept_relations(repo_knowledge.concept_relations);
+    }
+    if coordination_enabled && selection.reloads_coordination() {
+        next_state.replace_coordination_runtime(
+            plan_state
+                .as_ref()
+                .map(|state| state.snapshot.clone())
+                .unwrap_or_default(),
+            plan_state
+                .as_ref()
+                .map(|state| state.plan_graphs.clone())
+                .unwrap_or_default(),
+            plan_state
+                .as_ref()
+                .map(|state| state.execution_overlays.clone())
+                .unwrap_or_default(),
+        );
+    }
+    let stream_ids = streams
+        .iter()
+        .map(|stream| stream.stream_id().to_string())
+        .collect::<Vec<_>>();
+    let next = next_state.publish_generation(
+        prism_ir::WorkspaceRevision {
+            graph_version: local_workspace_revision,
+            git_commit: None,
+        },
+        Some(coordination_persist_context_for_root(root, None)),
+    );
+    WorkspaceSession::attach_cold_query_backends(
+        next.prism_arc().as_ref(),
+        cold_query_store,
+        shared_runtime_store,
+    );
+    *runtime_state
+        .lock()
+        .expect("workspace runtime state lock poisoned") = next_state;
+    *published_generation
+        .write()
+        .expect("workspace published generation lock poisoned") = next;
+    loaded_workspace_revision.store(workspace_revision, Ordering::Relaxed);
+    info!(
+        root = %root.display(),
+        stream_ids = ?stream_ids,
+        imported_memory_events = report.imported_memory_events,
+        imported_patch_events = report.imported_patch_events,
+        reload_projection_knowledge = selection.reloads_projection_knowledge(),
+        reload_coordination = selection.reloads_coordination(),
+        "applied prism protected-state watch sync"
+    );
+    Ok(())
 }
 
 fn is_ignored_watch_relative_path(relative: &Path) -> bool {
@@ -1017,7 +1305,8 @@ fn format_error_chain(error: &anyhow::Error) -> String {
 mod tests {
     use super::{
         can_scope_watch_refresh, is_ignored_watch_relative_path,
-        maybe_auto_heartbeat_assisted_leases_in_store, relevant_watch_paths,
+        maybe_auto_heartbeat_assisted_leases_in_store, relevant_protected_state_streams,
+        relevant_watch_paths,
     };
     use notify::{
         event::{EventAttributes, ModifyKind},
@@ -1086,6 +1375,48 @@ mod tests {
 
         let paths = relevant_watch_paths(&root, &event);
         assert_eq!(paths, vec![root.join("crates/prism-core/src/watch.rs")]);
+    }
+
+    #[test]
+    fn relevant_protected_state_streams_detect_authoritative_prism_paths() {
+        let root = PathBuf::from("/workspace/prism");
+        let event = Event {
+            kind: EventKind::Modify(ModifyKind::Any),
+            paths: vec![
+                root.join(".prism/memory/events.jsonl"),
+                root.join(".prism/concepts/events.jsonl"),
+            ],
+            attrs: EventAttributes::new(),
+        };
+
+        let streams = relevant_protected_state_streams(&root, &event);
+        assert!(streams
+            .iter()
+            .any(|stream| stream.stream_id() == "memory:events"));
+        assert!(streams
+            .iter()
+            .any(|stream| stream.stream_id() == "concepts:events"));
+    }
+
+    #[test]
+    fn relevant_protected_state_streams_fallback_for_prism_directory_events() {
+        let root = PathBuf::from("/workspace/prism");
+        let event = Event {
+            kind: EventKind::Modify(ModifyKind::Any),
+            paths: vec![root.join(".prism/memory")],
+            attrs: EventAttributes::new(),
+        };
+
+        let streams = relevant_protected_state_streams(&root, &event);
+        assert!(streams
+            .iter()
+            .any(|stream| stream.stream_id() == "memory:events"));
+        assert!(streams
+            .iter()
+            .any(|stream| stream.stream_id() == "concepts:events"));
+        assert!(streams
+            .iter()
+            .any(|stream| stream.stream().starts_with("repo_plan")));
     }
 
     #[test]

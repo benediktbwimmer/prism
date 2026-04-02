@@ -5,7 +5,6 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crate::checkpoint_materializer::CheckpointMaterializerHandle;
-use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::indexer_support::{
     build_workspace_session, collect_pending_file_parses, path_matches_refresh_scope,
     resolve_graph_edges, ResolveGraphEdgesStats,
@@ -20,7 +19,7 @@ use crate::parse_pipeline::{parse_jobs_in_parallel, PreparedParseJob};
 use crate::patch_outcomes::{default_outcome_meta, RecordedPatchOutcome};
 use crate::projection_hydration::persisted_projection_load_plan;
 use crate::protected_state::runtime_sync::{
-    load_repo_protected_knowledge, sync_repo_protected_state,
+    load_repo_protected_knowledge, load_repo_protected_plan_state, sync_repo_protected_state,
 };
 use crate::reanchor::{detect_moved_files, infer_reanchors};
 use crate::repo_patch_events::merge_repo_patch_events_into_memory;
@@ -142,8 +141,7 @@ impl WorkspaceIndexer<SqliteStore> {
             let repo_knowledge = load_repo_protected_knowledge(&root)?;
             sync_repo_protected_state(&root, shared_store)?;
             if options.coordination && !shared_runtime_aliases_workspace_store {
-                let plan_state =
-                    shared_store.load_hydrated_coordination_plan_state_for_root(&root)?;
+                let plan_state = load_repo_protected_plan_state(&root, shared_store)?;
                 indexer.coordination_snapshot = plan_state
                     .as_ref()
                     .map(|state| state.snapshot.clone())
@@ -570,7 +568,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         let load_outcomes_ms = load_outcomes_started.elapsed().as_millis();
         let load_coordination_started = Instant::now();
         let plan_state = if options.coordination {
-            store.load_hydrated_coordination_plan_state_for_root(&root)?
+            load_repo_protected_plan_state(&root, &mut store)?
         } else {
             None
         };
@@ -582,6 +580,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         let had_projection_snapshot = load_plan.had_complete_derived_snapshot;
         let derive_projection_started = Instant::now();
         let repo_knowledge = load_repo_protected_knowledge(&root)?;
+        let protected_knowledge_work = protected_knowledge_recovery_work(&repo_knowledge)?;
         let mut projections = merged_projection_index(
             base_projection_snapshot,
             None,
@@ -606,6 +605,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                     &graph,
                     &history,
                     &outcomes,
+                    protected_knowledge_work,
                     &coordination_snapshot,
                     &plan_state
                         .as_ref()
@@ -1702,6 +1702,7 @@ pub(crate) fn workspace_recovery_work(
     graph: &Graph,
     history: &HistoryStore,
     outcomes: &OutcomeMemory,
+    protected_knowledge_work: WorkspaceRefreshWork,
     coordination_snapshot: &CoordinationSnapshot,
     plan_graphs: &[PlanGraph],
     plan_execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
@@ -1709,11 +1710,29 @@ pub(crate) fn workspace_recovery_work(
     Ok(graph_recovery_work(graph)?
         .saturating_add(history_recovery_work(history)?)
         .saturating_add(outcomes_recovery_work(outcomes)?)
+        .saturating_add(protected_knowledge_work)
         .saturating_add(coordination_recovery_work(
             coordination_snapshot,
             plan_graphs,
             plan_execution_overlays,
         )?))
+}
+
+pub(crate) fn protected_knowledge_recovery_work(
+    protected_knowledge: &crate::protected_state::runtime_sync::RepoProtectedKnowledge,
+) -> Result<WorkspaceRefreshWork> {
+    Ok(WorkspaceRefreshWork {
+        loaded_bytes: serialized_size(protected_knowledge)?,
+        replay_volume: u64::try_from(
+            protected_knowledge
+                .curated_concepts
+                .len()
+                .saturating_add(protected_knowledge.curated_contracts.len())
+                .saturating_add(protected_knowledge.concept_relations.len()),
+        )
+        .unwrap_or(u64::MAX),
+        ..WorkspaceRefreshWork::default()
+    })
 }
 
 fn graph_recovery_work(graph: &Graph) -> Result<WorkspaceRefreshWork> {

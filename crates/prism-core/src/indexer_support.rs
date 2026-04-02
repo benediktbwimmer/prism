@@ -27,7 +27,7 @@ use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::shared_runtime_store::SharedRuntimeStore;
 use crate::util::{persisted_file_hash, workspace_walk};
-use crate::watch::spawn_fs_watch;
+use crate::watch::{spawn_fs_watch, spawn_protected_state_watch};
 use crate::workspace_identity::coordination_persist_context_for_root;
 use crate::workspace_runtime_state::WorkspaceRuntimeState;
 
@@ -151,6 +151,18 @@ pub(crate) fn build_workspace_session(
         Arc::clone(&observed_change_tracker),
         Arc::clone(&worktree_principal_binding),
     )?);
+    let protected_state_watch = Some(spawn_protected_state_watch(
+        root.clone(),
+        Arc::clone(&published_generation),
+        Arc::clone(&runtime_state),
+        Arc::clone(&store),
+        Arc::clone(&cold_query_store),
+        shared_runtime_store.as_ref().map(Arc::clone),
+        shared_runtime.sqlite_path().map(Path::to_path_buf),
+        Arc::clone(&refresh_lock),
+        Arc::clone(&loaded_workspace_revision),
+        coordination_enabled,
+    )?);
     let watch_start_ms = watch_started.elapsed().as_millis();
     let graph = published_generation
         .read()
@@ -186,6 +198,7 @@ pub(crate) fn build_workspace_session(
         loaded_workspace_revision,
         fs_snapshot,
         watch,
+        protected_state_watch,
         curator: Some(curator),
         checkpoint_materializer: Some(checkpoint_materializer),
         shared_runtime_materializer,
