@@ -26,7 +26,7 @@ use tracing::{error, info, warn};
 
 use crate::checkpoint_materializer::CheckpointMaterializerHandle;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
-use crate::curator::{enqueue_curator_for_observed_locked, CuratorHandleRef};
+use crate::curator::{enqueue_curator_for_observed_async, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
 use crate::layout::discover_layout;
 use crate::session::{
@@ -432,8 +432,8 @@ fn refresh_prism_snapshot_with_guard(
         published_workspace_revision.clone(),
         coordination_context.clone(),
     );
-    let mut publish_generation_ms = u64::try_from(publish_generation_started.elapsed().as_millis())
-        .unwrap_or(u64::MAX);
+    let mut publish_generation_ms =
+        u64::try_from(publish_generation_started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let mut assisted_lease_ms = 0u64;
     if trigger == ChangeTrigger::FsWatch && coordination_enabled {
         let assisted_lease_started = Instant::now();
@@ -477,13 +477,13 @@ fn refresh_prism_snapshot_with_guard(
         .expect("workspace tree snapshot lock poisoned") = plan.next_snapshot;
     let curator_started = Instant::now();
     if let Some(curator) = curator {
-        let mut store = store.lock().expect("workspace store lock poisoned");
-        enqueue_curator_for_observed_locked(
-            curator,
-            next.prism_arc().as_ref(),
-            &mut store,
-            &observed,
-        )?;
+        enqueue_curator_for_observed_async(
+            root,
+            curator.clone(),
+            next.prism_arc(),
+            Arc::clone(store),
+            observed.clone(),
+        );
     }
     let curator_enqueue_ms =
         u64::try_from(curator_started.elapsed().as_millis()).unwrap_or(u64::MAX);
@@ -493,10 +493,8 @@ fn refresh_prism_snapshot_with_guard(
         cold_query_store,
         shared_runtime_store,
     );
-    let attach_cold_query_backends_ms = u64::try_from(
-        attach_cold_query_backends_started.elapsed().as_millis(),
-    )
-    .unwrap_or(u64::MAX);
+    let attach_cold_query_backends_ms =
+        u64::try_from(attach_cold_query_backends_started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let finalize_refresh_state_started = Instant::now();
     *runtime_state
         .lock()
@@ -512,10 +510,8 @@ fn refresh_prism_snapshot_with_guard(
         workspace_revision,
         &plan.delta,
     );
-    let finalize_refresh_state_ms = u64::try_from(
-        finalize_refresh_state_started.elapsed().as_millis(),
-    )
-    .unwrap_or(u64::MAX);
+    let finalize_refresh_state_ms =
+        u64::try_from(finalize_refresh_state_started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let breakdown = WorkspaceRefreshBreakdown {
         plan_refresh_ms,
         build_indexer_ms,

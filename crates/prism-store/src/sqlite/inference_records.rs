@@ -55,7 +55,7 @@ pub(super) fn append_records_tx(
     Ok(inserted)
 }
 
-pub(super) fn backfill_record_log_if_needed(conn: &Connection) -> Result<()> {
+pub(super) fn backfill_record_log_if_needed(conn: &mut Connection) -> Result<()> {
     let existing: Option<i64> = conn
         .query_row("SELECT 1 FROM inference_record_log LIMIT 1", [], |row| {
             row.get(0)
@@ -70,9 +70,10 @@ pub(super) fn backfill_record_log_if_needed(conn: &Connection) -> Result<()> {
         return Ok(());
     };
 
-    let tx = conn.unchecked_transaction()?;
-    append_records_tx(&tx, &snapshot.records)?;
-    tx.commit()?;
+    super::run_with_immediate_tx(conn, |tx| {
+        append_records_tx(tx, &snapshot.records)?;
+        Ok(())
+    })?;
     Ok(())
 }
 

@@ -21,18 +21,6 @@ where
     .map_err(Into::into)
 }
 
-pub(super) fn save_snapshot_row<T>(conn: &Connection, key: &str, snapshot: &T) -> Result<()>
-where
-    T: Serialize,
-{
-    conn.execute(
-        "INSERT INTO snapshots(key, value) VALUES (?1, ?2)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        params![key, serde_json::to_string(snapshot)?],
-    )?;
-    Ok(())
-}
-
 pub(super) fn save_snapshot_row_tx<T>(tx: &Transaction<'_>, key: &str, snapshot: &T) -> Result<()>
 where
     T: Serialize,

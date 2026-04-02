@@ -5,8 +5,8 @@
 
 ## Overview
 
-- Active repo concepts: 94
-- Active repo relations: 203
+- Active repo concepts: 95
+- Active repo relations: 206
 
 - Active repo contracts: 8
 
@@ -30,7 +30,7 @@
 - `concept, relation, and intent projections` (`concept://concept_relation_and_intent_projections`): prism-projections modules that materialize curated concept packets, concept-to-concept relation packets, and intent indexes from lower-level events.
 - `coordination and plan runtime` (`concept://coordination_and_plan_runtime`): Shared plan, task, claim, artifact, and blocker subsystem that models active intent and exposes runtime coordination views across PRISM.
 - `coordination and plan-runtime queries` (`concept://coordination_and_plan_runtime_queries`): prism-query modules that expose coordination snapshots, plan runtime overlays, intent views, and related query types over live coordination state.
-- `coordination mutation and policy helpers` (`concept://coordination_mutation_and_policy_helpers`): prism-coordination modules that apply coordination mutations and enforce policy transitions, rejection recording, and shared conflict/helper logic.
+- `coordination mutation, lease, and policy helpers` (`concept://coordination_mutation_and_policy_helpers`): prism-coordination modules that apply coordination mutations and enforce lease lifecycle, resume/reclaim, heartbeat, rejection recording, and shared policy/conflict helpers.
 - `coordination operations and policy` (`concept://coordination_operations_and_policy`): Coordination modules that implement query paths, mutations, blocker calculation, and helper logic over the shared coordination state model.
 - `coordination query and blocker operations` (`concept://coordination_query_and_blocker_operations`): prism-coordination modules that answer readiness, conflict, pending-review, and blocker questions over coordination state.
 - `coordination state model` (`concept://coordination_state_model`): Core coordination modules that define state, types, runtime overlays, and compatibility projections for plans, tasks, claims, and artifacts.
@@ -56,7 +56,7 @@
 - `language adapter family` (`concept://language_adapter_family`): Language- and format-specific adapters that translate Rust, Python, Markdown, JSON, TOML, and YAML inputs into the shared parser and IR pipeline.
 - `locate ranking and text-candidate flow` (`concept://locate_ranking_and_text_candidate_flow`): Compact-tool locate path that blends semantic search results, text-fragment candidates, exact identifier matches, glob filtering, and reranking heuristics into first-hop ranked targets.
 - `Markdown heading and intent adapter` (`concept://markdown_heading_and_intent_adapter`): Markdown adapter flow that turns headings into nested document structure, fingerprints markdown sections, and extracts unresolved intent targets from prose context.
-- `MCP mutation and session host` (`concept://mcp_mutation_and_session_host`): prism-mcp modules that parse mutate/session tool payloads, manage per-session state, and turn agent-side mutations into grounded PRISM state changes.
+- `MCP authenticated mutation host` (`concept://mcp_mutation_and_session_host`): prism-mcp modules that decode `prism_mutate` actions, host authenticated state-changing mutations, and route agent-side writes into durable PRISM state without relying on `prism_session` authority.
 - `MCP query and resource serving` (`concept://mcp_query_and_resource_serving`): prism-mcp serving layer that runs query execution, semantic context assembly, and MCP resource reads over the live Prism workspace.
 - `MCP runtime lifecycle` (`concept://mcp_runtime_lifecycle`): prism-mcp daemon and runtime-state modules that launch the server, track process/runtime health, and expose lifecycle-oriented status views.
 - `MCP runtime surface` (`concept://mcp_runtime_surface`): MCP- and daemon-facing runtime surface that bridges PRISM query and mutation capabilities into resources, schemas, compact tools, and long-lived server state.
@@ -76,6 +76,7 @@
 - `plan and repo-layout publication` (`concept://plan_and_repo_layout_publication`): prism-core modules that govern published plan material, repo layout paths, and supporting helpers used when durable artifacts are written back into the workspace.
 - `plan completion and insight queries` (`concept://plan_completion_and_insight_queries`): prism-query modules that evaluate plan completion, blockers, recommendations, and higher-level plan insights beyond raw runtime overlays.
 - `plan-graph compatibility and runtime overlays` (`concept://plan_graph_compatibility_and_runtime_overlays`): prism-coordination modules that translate between coordination snapshots and plan graphs and expose runtime overlay state above the canonical store.
+- `principal identity and mutation provenance` (`concept://principal_identity_and_mutation_provenance`): Cross-crate principal-authentication and provenance-stamping layer that turns authenticated local principals into durable event actors and execution-context snapshots for every authoritative mutation.
 - `PRISM architecture` (`concept://prism_architecture`): Top-level monorepo architecture spanning semantic IR, language parsing, workspace indexing, persistence/history, memory/projections/query, coordination/curation, and MCP-facing product surfaces.
 - `projection and query layer` (`concept://projection_and_query_layer`): Derived indexes and read APIs that turn graph, history, memory, and coordination state into semantic discovery, impact, and programmable query results.
 - `published knowledge and memory event logs` (`concept://published_knowledge_and_memory_event_logs`): prism-core modules that persist published knowledge artifacts and append memory event logs used to hydrate durable repo knowledge and memory views.
@@ -92,7 +93,7 @@
 - `semantic projection indexes` (`concept://semantic_projection_indexes`): prism-projections modules that materialize derived concept, relation, intent, and projection indexes from lower-level events and snapshots.
 - `server surface and runtime health views` (`concept://server_surface_and_runtime_health_views`): prism-mcp modules that expose top-level server capabilities, feature flags, runtime status, and diagnostics for the live server surface.
 - `session and episodic memory store` (`concept://session_and_episodic_memory_store`): prism-memory modules that assemble the session-scoped memory composite, persist episodic entries, and snapshot memory state across workspace reloads.
-- `session-state and mutation runtime` (`concept://session_state_and_mutation_runtime`): prism-mcp modules that hold per-session state, apply hosted mutations, and shape runtime/read-model views returned after mutations execute.
+- `session context and hosted mutation runtime` (`concept://session_state_and_mutation_runtime`): prism-mcp modules that hold per-session runtime context, execute authenticated hosted mutations, and shape follow-up runtime/read-model views such as task context and heartbeat guidance.
 - `SQLite and graph persistence` (`concept://sqlite_and_graph_persistence`): prism-store modules that own the SQLite backend, graph snapshots, and persist batches for the durable structural store behind PRISM sessions.
 - `structural IR and identity model` (`concept://structural_ir`): Authoritative semantic schema for nodes, edges, anchors, events, and stable identities that every higher PRISM layer depends on.
 - `structural memory feature model` (`concept://structural_memory_feature_model`): prism-memory modules that derive structural tags and rule features from memory entries and use them to rank structural recall results.
@@ -529,7 +530,7 @@ Aliases: `concept pipeline`, `concept publication`, `repo knowledge publication`
 
 ### Related Concepts
 
-- depended on by: `MCP mutation and session host` (`concept://mcp_mutation_and_session_host`)
+- depended on by: `MCP authenticated mutation host` (`concept://mcp_mutation_and_session_host`)
 - depended on by: `MCP runtime surface` (`concept://mcp_runtime_surface`)
 - depended on by: `agent inference and curation` (`concept://agent_inference_and_curation`)
 - depended on by: `compact expansion and concept views` (`concept://compact_expansion_and_concept_views`)
@@ -632,7 +633,7 @@ Aliases: `coordination system`, `plan runtime`, `shared work model`
 
 ### Related Concepts
 
-- depended on by: `MCP mutation and session host` (`concept://mcp_mutation_and_session_host`)
+- depended on by: `MCP authenticated mutation host` (`concept://mcp_mutation_and_session_host`)
 - depended on by: `MCP runtime surface` (`concept://mcp_runtime_surface`)
 - depended on by: `coordination and plan-runtime queries` (`concept://coordination_and_plan_runtime_queries`)
 - depended on by: `dashboard events and read models` (`concept://dashboard_events_and_read_models`)
@@ -640,7 +641,7 @@ Aliases: `coordination system`, `plan runtime`, `shared work model`
 - depended on by: `plan completion and insight queries` (`concept://plan_completion_and_insight_queries`)
 - depended on by: `projection and query layer` (`concept://projection_and_query_layer`)
 - depended on by: `query coordination and plan views` (`concept://query_coordination_and_plan_views`)
-- depended on by: `session-state and mutation runtime` (`concept://session_state_and_mutation_runtime`)
+- depended on by: `session context and hosted mutation runtime` (`concept://session_state_and_mutation_runtime`)
 - depended on by: `task-brief and coordination summary views` (`concept://task_brief_and_coordination_summary_views`)
 - depends on: `structural IR and identity model` (`concept://structural_ir`)
 - has part: `coordination operations and policy` (`concept://coordination_operations_and_policy`)
@@ -689,33 +690,39 @@ Aliases: `coordination queries`, `plan runtime queries`
 
 - Drift here misrepresents task, claim, or runtime plan state to every higher surface that depends on query views.
 
-## coordination mutation and policy helpers
+## coordination mutation, lease, and policy helpers
 
 Handle: `concept://coordination_mutation_and_policy_helpers`
 
-prism-coordination modules that apply coordination mutations and enforce policy transitions, rejection recording, and shared conflict/helper logic.
+prism-coordination modules that apply coordination mutations and enforce lease lifecycle, resume/reclaim, heartbeat, rejection recording, and shared policy/conflict helpers.
 
-Aliases: `coordination mutations`, `policy helper layer`
+Aliases: `coordination mutations`, `lease policy helper layer`, `coordination lease helpers`
 
 ### Core Members
 
-- `prism_coordination::mutations`
-- `prism_coordination::helpers`
+- `prism_coordination::mutations::enforce_task_lease_for_standard_mutation`
+- `prism_coordination::lease::refresh_task_lease`
+- `prism_coordination::lease::task_heartbeat_due_state`
+
+### Supporting Members
+
+- `prism_coordination::lease::refresh_claim_lease`
 
 ### Related Concepts
 
 - depends on: `coordination state model` (`concept://coordination_state_model`)
+- depends on: `principal identity and mutation provenance` (`concept://principal_identity_and_mutation_provenance`)
 - part of: `coordination operations and policy` (`concept://coordination_operations_and_policy`)
 - validated by: `validation and dogfooding loop` (`concept://validation_and_dogfooding`)
 
 ### Evidence
 
-- `mutations.rs` applies plan/task/claim/artifact transitions, while `helpers.rs` centralizes policy validation, conflict helpers, and rejection recording.
-- These modules are the write-path and policy-enforcement half of coordination operations.
+- `mutations.rs` now applies authenticated coordination transitions together with lease-aware rejection, resume, reclaim, and heartbeat semantics.
+- `lease.rs` and shared helpers centralize holder comparison, due-state evaluation, lease refresh, and policy evidence used by coordination mutations.
 
 ### Risk Hint
 
-- If mutation/policy helpers drift, coordination state can accept illegal transitions or reject valid work inconsistently.
+- If mutation or lease helpers drift, stale or expired work can be renewed incorrectly, valid resumptions can be rejected, and ownership can be attributed to the wrong principal.
 
 ## coordination operations and policy
 
@@ -739,7 +746,7 @@ Aliases: `coordination operations`, `policy and blockers`
 ### Related Concepts
 
 - depends on: `coordination state model` (`concept://coordination_state_model`)
-- has part: `coordination mutation and policy helpers` (`concept://coordination_mutation_and_policy_helpers`)
+- has part: `coordination mutation, lease, and policy helpers` (`concept://coordination_mutation_and_policy_helpers`)
 - has part: `coordination query and blocker operations` (`concept://coordination_query_and_blocker_operations`)
 - part of: `coordination and plan runtime` (`concept://coordination_and_plan_runtime`)
 - validated by: `validation and dogfooding loop` (`concept://validation_and_dogfooding`)
@@ -801,7 +808,7 @@ Aliases: `coordination state`, `plan/task model`
 
 ### Related Concepts
 
-- depended on by: `coordination mutation and policy helpers` (`concept://coordination_mutation_and_policy_helpers`)
+- depended on by: `coordination mutation, lease, and policy helpers` (`concept://coordination_mutation_and_policy_helpers`)
 - depended on by: `coordination operations and policy` (`concept://coordination_operations_and_policy`)
 - depended on by: `coordination query and blocker operations` (`concept://coordination_query_and_blocker_operations`)
 - depends on: `structural IR and identity model` (`concept://structural_ir`)
@@ -1267,7 +1274,7 @@ Aliases: `inference store`, `inferred edge runtime`
 
 ### Related Concepts
 
-- depends on: `MCP mutation and session host` (`concept://mcp_mutation_and_session_host`)
+- depends on: `MCP authenticated mutation host` (`concept://mcp_mutation_and_session_host`)
 - part of: `agent inference and curation` (`concept://agent_inference_and_curation`)
 - validated by: `validation and dogfooding loop` (`concept://validation_and_dogfooding`)
 
@@ -1455,21 +1462,19 @@ Aliases: `Markdown adapter`, `heading and intent parsing`
 - The Markdown adapter is a single-module implementation that constructs heading containment edges, section spans, stable heading slugs, and unresolved intents from markdown text.
 - Its behavior is meaningfully different from structured config adapters because it builds semantic document hierarchy and prose-linked intent targets rather than key/value trees.
 
-## MCP mutation and session host
+## MCP authenticated mutation host
 
 Handle: `concept://mcp_mutation_and_session_host`
 
-prism-mcp modules that parse mutate/session tool payloads, manage per-session state, and turn agent-side mutations into grounded PRISM state changes.
+prism-mcp modules that decode `prism_mutate` actions, host authenticated state-changing mutations, and route agent-side writes into durable PRISM state without relying on `prism_session` authority.
 
-Aliases: `mutation host`, `session host`, `tool payload host`
+Aliases: `authenticated mutation host`, `mutation host`, `tool payload host`
 
 ### Core Members
 
-- `prism_mcp::host_mutations`
-- `prism_mcp::session_state`
-- `prism_mcp::tool_args`
-- `prism_mcp::tool_schemas`
-- `prism_mcp::schema_examples`
+- `prism_mcp::mutation_provenance::MutationProvenance`
+- `prism_mcp::host_mutations::mutation_provenance`
+- `prism_mcp::tool_args::PrismHeartbeatLeaseArgs`
 
 ### Related Concepts
 
@@ -1477,19 +1482,20 @@ Aliases: `mutation host`, `session host`, `tool payload host`
 - depended on by: `validation feedback and metrics loop` (`concept://validation_feedback_and_metrics_loop`)
 - depends on: `concept and publication pipeline` (`concept://concept_and_publication_pipeline`)
 - depends on: `coordination and plan runtime` (`concept://coordination_and_plan_runtime`)
+- depends on: `principal identity and mutation provenance` (`concept://principal_identity_and_mutation_provenance`)
 - has part: `mutation argument and schema surface` (`concept://mutation_argument_and_schema_surface`)
-- has part: `session-state and mutation runtime` (`concept://session_state_and_mutation_runtime`)
+- has part: `session context and hosted mutation runtime` (`concept://session_state_and_mutation_runtime`)
 - part of: `MCP runtime surface` (`concept://mcp_runtime_surface`)
 - validated by: `validation and dogfooding loop` (`concept://validation_and_dogfooding`)
 
 ### Evidence
 
-- prism-mcp keeps mutation handling, session state, tool argument parsing, tool schemas, and schema examples as one coherent surface around grounded state changes.
-- This is the host layer behind prism_mutate, prism://session, and the exposed mutation contracts.
+- prism-mcp keeps mutation handling, provenance stamping, tool arguments, tool schemas, and schema examples as one coherent hosted mutation surface.
+- After the principal-identity cutover, `prism://session` is read-only context and the authoritative write path flows through authenticated `prism_mutate` actions.
 
 ### Risk Hint
 
-- Schema drift or session-state mistakes here can make otherwise valid concepts, memories, and outcomes fail to persist correctly.
+- Schema drift or provenance mistakes here can make authenticated mutations persist the wrong actor, lease, or execution context.
 
 ## MCP query and resource serving
 
@@ -1587,7 +1593,7 @@ Aliases: `mcp surface`, `server runtime`, `daemon surface`
 - depends on: `concept and publication pipeline` (`concept://concept_and_publication_pipeline`)
 - depends on: `coordination and plan runtime` (`concept://coordination_and_plan_runtime`)
 - depends on: `projection and query layer` (`concept://projection_and_query_layer`)
-- has part: `MCP mutation and session host` (`concept://mcp_mutation_and_session_host`)
+- has part: `MCP authenticated mutation host` (`concept://mcp_mutation_and_session_host`)
 - has part: `MCP query and resource serving` (`concept://mcp_query_and_resource_serving`)
 - has part: `MCP runtime lifecycle` (`concept://mcp_runtime_lifecycle`)
 - often used with: `JavaScript query ABI` (`concept://javascript_query_abi`)
@@ -1782,7 +1788,7 @@ Aliases: `mutation schemas`, `tool arg surface`
 
 ### Related Concepts
 
-- part of: `MCP mutation and session host` (`concept://mcp_mutation_and_session_host`)
+- part of: `MCP authenticated mutation host` (`concept://mcp_mutation_and_session_host`)
 - validated by: `validation and dogfooding loop` (`concept://validation_and_dogfooding`)
 
 ### Evidence
@@ -2079,6 +2085,40 @@ Aliases: `plan graph compat`, `runtime overlays`
 ### Risk Hint
 
 - Drift here breaks the translation between canonical coordination state and plan-runtime views used elsewhere in the repo.
+
+## principal identity and mutation provenance
+
+Handle: `concept://principal_identity_and_mutation_provenance`
+
+Cross-crate principal-authentication and provenance-stamping layer that turns authenticated local principals into durable event actors and execution-context snapshots for every authoritative mutation.
+
+Aliases: `authenticated principal identity`, `mutation provenance`, `authenticated mutation provenance`
+
+### Core Members
+
+- `prism_core::principal_registry::AuthenticatedPrincipal`
+- `prism_ir::principal::PrincipalActor`
+- `prism_ir::events::EventExecutionContext`
+- `prism_mcp::mutation_provenance::MutationProvenance`
+
+### Supporting Members
+
+- `prism_mcp::host_mutations::mutation_provenance`
+
+### Related Concepts
+
+- depended on by: `MCP authenticated mutation host` (`concept://mcp_mutation_and_session_host`)
+- depended on by: `coordination mutation, lease, and policy helpers` (`concept://coordination_mutation_and_policy_helpers`)
+- depends on: `structural IR and identity model` (`concept://structural_ir`)
+
+### Evidence
+
+- The principal-identity cutover snapshots authority id, principal id, principal kind/name, credential id, session id, request id, and workspace execution context into authoritative mutation events.
+- Bridge-adopted local principals are attribution and coordination identities; durable audit truth comes from event actors and execution-context snapshots rather than ambient `prism_session` state.
+
+### Risk Hint
+
+- If principal stamping drifts, audit history, lease ownership, and authenticated mutation attribution become untrustworthy even when writes still succeed.
 
 ## PRISM architecture
 
@@ -2602,34 +2642,33 @@ Aliases: `session memory store`, `episodic memory store`
 
 - If this store layer drifts, memory may appear to exist but fail to survive reloads or route correctly across kinds.
 
-## session-state and mutation runtime
+## session context and hosted mutation runtime
 
 Handle: `concept://session_state_and_mutation_runtime`
 
-prism-mcp modules that hold per-session state, apply hosted mutations, and shape runtime/read-model views returned after mutations execute.
+prism-mcp modules that hold per-session runtime context, execute authenticated hosted mutations, and shape follow-up runtime/read-model views such as task context and heartbeat guidance.
 
-Aliases: `mutation runtime`, `session runtime host`
+Aliases: `hosted mutation runtime`, `session context runtime`, `session view runtime`
 
 ### Core Members
 
-- `prism_mcp::session_state`
-- `prism_mcp::host_mutations`
-- `prism_mcp::runtime_views`
-- `prism_mcp::views`
+- `prism_mcp::session_state::SessionState`
+- `prism_mcp::host_mutations::QueryHost::store_outcome_without_refresh_authenticated`
+- `prism_mcp::runtime_views::runtime_status`
 
 ### Related Concepts
 
 - depends on: `coordination and plan runtime` (`concept://coordination_and_plan_runtime`)
-- part of: `MCP mutation and session host` (`concept://mcp_mutation_and_session_host`)
+- part of: `MCP authenticated mutation host` (`concept://mcp_mutation_and_session_host`)
 
 ### Evidence
 
-- `crates/prism-mcp/src/lib.rs` places `session_state`, `host_mutations`, `runtime_views`, and `views` on the hosted runtime side of the server.
-- These modules are the execution/state path that persists mutations into session-aware server behavior.
+- `session_state`, hosted mutation entrypoints, and runtime/read-model views still form the execution half of the MCP mutation path.
+- After the authority cutover, this layer keeps session context for handles, task context, and post-mutation guidance rather than acting as ambient coordination authority.
 
 ### Risk Hint
 
-- Breakage here causes mutations to succeed inconsistently, lose session context, or return misleading follow-up views.
+- Breakage here causes authenticated mutations to lose session context, return misleading follow-up views, or surface stale heartbeat guidance.
 
 ## SQLite and graph persistence
 
@@ -2690,6 +2729,7 @@ Aliases: `core ir`, `ir layer`, `identity model`
 - depended on by: `language adapter family` (`concept://language_adapter_family`)
 - depended on by: `parse, resolution, and reanchor flow` (`concept://parse_resolution_and_reanchor_flow`)
 - depended on by: `persistence and history layer` (`concept://persistence_and_history`)
+- depended on by: `principal identity and mutation provenance` (`concept://principal_identity_and_mutation_provenance`)
 - depended on by: `workspace indexing and refresh` (`concept://workspace_indexing_and_refresh`)
 - has part: `anchor, change, and lineage IR` (`concept://anchor_change_and_lineage_ir`)
 - has part: `graph, identity, and parse IR` (`concept://graph_identity_and_parse_ir`)
@@ -2833,12 +2873,12 @@ Aliases: `validation pipeline`, `dogfooding loop`, `trust gates`
 - has part: `validation feedback and metrics loop` (`concept://validation_feedback_and_metrics_loop`)
 - has part: `validation policy and release gates` (`concept://validation_policy_and_release_gates`)
 - part of: `PRISM architecture` (`concept://prism_architecture`)
-- validates: `MCP mutation and session host` (`concept://mcp_mutation_and_session_host`)
+- validates: `MCP authenticated mutation host` (`concept://mcp_mutation_and_session_host`)
 - validates: `MCP runtime surface` (`concept://mcp_runtime_surface`)
 - validates: `compact tool surface` (`concept://compact_tool_surface`)
 - validates: `concept and publication pipeline` (`concept://concept_and_publication_pipeline`)
 - validates: `coordination and plan runtime` (`concept://coordination_and_plan_runtime`)
-- validates: `coordination mutation and policy helpers` (`concept://coordination_mutation_and_policy_helpers`)
+- validates: `coordination mutation, lease, and policy helpers` (`concept://coordination_mutation_and_policy_helpers`)
 - validates: `coordination operations and policy` (`concept://coordination_operations_and_policy`)
 - validates: `curator backend execution and prompting` (`concept://curator_backend_execution_and_prompting`)
 - validates: `curator execution flow` (`concept://curator_execution_flow`)
@@ -2885,7 +2925,7 @@ Aliases: `validation feedback capture`, `validation scorecards`
 
 ### Related Concepts
 
-- depends on: `MCP mutation and session host` (`concept://mcp_mutation_and_session_host`)
+- depends on: `MCP authenticated mutation host` (`concept://mcp_mutation_and_session_host`)
 - depends on: `projection and query layer` (`concept://projection_and_query_layer`)
 - often used with: `dashboard surface` (`concept://dashboard_surface`)
 - part of: `validation and dogfooding loop` (`concept://validation_and_dogfooding`)
@@ -3065,3 +3105,4 @@ Aliases: `workspace session`, `session refresh runtime`
 ### Risk Hint
 
 - Session reload drift here leads to stale runtime views and incorrect downstream mutation/query behavior.
+

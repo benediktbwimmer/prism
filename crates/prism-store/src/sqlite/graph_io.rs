@@ -182,8 +182,6 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
     let fingerprints_started = Instant::now();
     load_node_fingerprints(conn, &mut file_records)?;
     let load_fingerprints_ms = fingerprints_started.elapsed().as_millis();
-    let (scrubbed_malformed_unresolved_rows, scrub_malformed_unresolved_ms) =
-        scrub_malformed_unresolved_rows(conn)?;
     let unresolved_started = Instant::now();
     load_unresolved_calls(conn, &mut file_records)?;
     load_unresolved_imports(conn, &mut file_records)?;
@@ -221,13 +219,13 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
         unresolved_import_count,
         unresolved_impl_count,
         unresolved_intent_count,
-        scrubbed_malformed_unresolved_rows,
+        scrubbed_malformed_unresolved_rows = 0,
         load_nodes_ms,
         load_edges_ms,
         load_file_records_ms,
         load_file_nodes_ms,
         load_fingerprints_ms,
-        scrub_malformed_unresolved_ms,
+        scrub_malformed_unresolved_ms = 0,
         load_unresolved_ms,
         total_ms = started.elapsed().as_millis(),
         "loaded prism graph snapshot"
@@ -836,7 +834,9 @@ fn load_unresolved_calls(
     file_records: &mut HashMap<PathBuf, FileRecord>,
 ) -> Result<()> {
     let mut stmt = conn.prepare(
-        "SELECT file_path, caller_crate_name, caller_path, caller_kind, name, span_start, span_end, module_path FROM unresolved_calls",
+        "SELECT file_path, caller_crate_name, caller_path, caller_kind, name, span_start, span_end, module_path
+         FROM unresolved_calls
+         WHERE typeof(span_start) = 'integer' AND typeof(span_end) = 'integer'",
     )?;
     let rows = stmt.query_map([], |row| {
         Ok((
@@ -870,7 +870,9 @@ fn load_unresolved_imports(
     file_records: &mut HashMap<PathBuf, FileRecord>,
 ) -> Result<()> {
     let mut stmt = conn.prepare(
-        "SELECT file_path, importer_crate_name, importer_path, importer_kind, path, span_start, span_end, module_path FROM unresolved_imports",
+        "SELECT file_path, importer_crate_name, importer_path, importer_kind, path, span_start, span_end, module_path
+         FROM unresolved_imports
+         WHERE typeof(span_start) = 'integer' AND typeof(span_end) = 'integer'",
     )?;
     let rows = stmt.query_map([], |row| {
         Ok((
@@ -904,7 +906,9 @@ fn load_unresolved_impls(
     file_records: &mut HashMap<PathBuf, FileRecord>,
 ) -> Result<()> {
     let mut stmt = conn.prepare(
-        "SELECT file_path, impl_crate_name, impl_path, impl_kind, target, span_start, span_end, module_path FROM unresolved_impls",
+        "SELECT file_path, impl_crate_name, impl_path, impl_kind, target, span_start, span_end, module_path
+         FROM unresolved_impls
+         WHERE typeof(span_start) = 'integer' AND typeof(span_end) = 'integer'",
     )?;
     let rows = stmt.query_map([], |row| {
         Ok((
@@ -938,7 +942,9 @@ fn load_unresolved_intents(
     file_records: &mut HashMap<PathBuf, FileRecord>,
 ) -> Result<()> {
     let mut stmt = conn.prepare(
-        "SELECT file_path, source_crate_name, source_path, source_kind, kind, target, span_start, span_end FROM unresolved_intents",
+        "SELECT file_path, source_crate_name, source_path, source_kind, kind, target, span_start, span_end
+         FROM unresolved_intents
+         WHERE typeof(span_start) = 'integer' AND typeof(span_end) = 'integer'",
     )?;
     let rows = stmt.query_map([], |row| {
         Ok((
@@ -967,21 +973,29 @@ fn load_unresolved_intents(
     Ok(())
 }
 
-fn scrub_malformed_unresolved_rows(conn: &Connection) -> Result<(usize, u128)> {
+pub(super) fn scrub_malformed_unresolved_rows(conn: &mut Connection) -> Result<usize> {
     let started = Instant::now();
-    let mut removed = 0;
-    for table in [
-        "unresolved_calls",
-        "unresolved_imports",
-        "unresolved_impls",
-        "unresolved_intents",
-    ] {
-        removed += conn.execute(
-            &format!(
-                "DELETE FROM {table} WHERE typeof(span_start) != 'integer' OR typeof(span_end) != 'integer'"
-            ),
-            [],
-        )?;
-    }
-    Ok((removed, started.elapsed().as_millis()))
+    let removed = super::run_with_immediate_tx(conn, |tx| {
+        let mut removed = 0;
+        for table in [
+            "unresolved_calls",
+            "unresolved_imports",
+            "unresolved_impls",
+            "unresolved_intents",
+        ] {
+            removed += tx.execute(
+                &format!(
+                    "DELETE FROM {table} WHERE typeof(span_start) != 'integer' OR typeof(span_end) != 'integer'"
+                ),
+                [],
+            )?;
+        }
+        Ok(removed)
+    })?;
+    info!(
+        removed_malformed_unresolved_rows = removed,
+        scrub_malformed_unresolved_ms = started.elapsed().as_millis(),
+        "scrubbed malformed unresolved sqlite rows"
+    );
+    Ok(removed)
 }

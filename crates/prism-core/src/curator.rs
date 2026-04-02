@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
@@ -11,6 +12,7 @@ use prism_curator::{
 use prism_ir::{new_prefixed_id, EventId};
 use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store};
+use tracing::warn;
 
 use crate::checkpoint_materializer::CheckpointMaterializerHandle;
 use crate::curator_support::{
@@ -339,6 +341,39 @@ pub(crate) fn enqueue_curator_for_observed_locked(
         }
     }
     Ok(())
+}
+
+pub(crate) fn enqueue_curator_for_observed_async(
+    root: &Path,
+    curator: CuratorHandleRef,
+    prism: Arc<Prism>,
+    store: Arc<Mutex<SqliteStore>>,
+    observed: Vec<prism_ir::ObservedChangeSet>,
+) {
+    let root = root.to_path_buf();
+    let spawn_root = root.clone();
+    let spawn_result = thread::Builder::new()
+        .name("prism-curator-enqueue".to_string())
+        .spawn(move || {
+            let result = {
+                let mut store = store.lock().expect("workspace store lock poisoned");
+                enqueue_curator_for_observed_locked(&curator, prism.as_ref(), &mut store, &observed)
+            };
+            if let Err(error) = result {
+                warn!(
+                    root = %root.display(),
+                    error = %error,
+                    "failed to enqueue curator jobs after workspace refresh"
+                );
+            }
+        });
+    if let Err(error) = spawn_result {
+        warn!(
+            root = %spawn_root.display(),
+            error = %error,
+            "failed to spawn curator enqueue worker after workspace refresh"
+        );
+    }
 }
 
 pub(crate) fn enqueue_curator_for_outcome_locked(

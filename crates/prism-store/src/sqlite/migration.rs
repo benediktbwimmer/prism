@@ -71,10 +71,10 @@ pub fn migrate_worktree_cache_from_shared_runtime(
         std::fs::create_dir_all(parent)?;
     }
 
-    let shared_conn = Connection::open(shared_path)
+    let mut shared_conn = Connection::open(shared_path)
         .with_context(|| format!("failed to open shared runtime db {}", shared_path.display()))?;
     configure_connection(&shared_conn)?;
-    schema::init_schema(&shared_conn)?;
+    schema::init_schema(&mut shared_conn)?;
     drop(shared_conn);
 
     let mut local_conn = Connection::open(worktree_path).with_context(|| {
@@ -84,13 +84,13 @@ pub fn migrate_worktree_cache_from_shared_runtime(
         )
     })?;
     configure_connection(&local_conn)?;
-    schema::init_schema(&local_conn)?;
+    schema::init_schema(&mut local_conn)?;
     local_conn.execute(
         &format!("ATTACH DATABASE ?1 AS {ATTACHED_SHARED_DB}"),
         params![shared_path.display().to_string()],
     )?;
 
-    let tx = local_conn.transaction()?;
+    let tx = local_conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
     let shared_has_local_state = database_has_local_semantic_state(&tx, ATTACHED_SHARED_DB)?;
     let local_has_local_state = database_has_local_semantic_state(&tx, "main")?;
     let shared_has_outcomes = database_has_outcome_state(&tx, ATTACHED_SHARED_DB)?;

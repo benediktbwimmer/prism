@@ -1,6 +1,6 @@
 use anyhow::Result;
 use prism_coordination::{CoordinationEvent, CoordinationSnapshot};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
 use crate::store::CoordinationEventStream;
 
@@ -39,13 +39,16 @@ pub(super) fn load_event_stream(conn: &Connection) -> Result<CoordinationEventSt
     })
 }
 
-pub(super) fn save_compaction(conn: &Connection, snapshot: &CoordinationSnapshot) -> Result<()> {
-    let last_sequence = conn.query_row(
+pub(super) fn save_compaction_tx(
+    tx: &Transaction<'_>,
+    snapshot: &CoordinationSnapshot,
+) -> Result<()> {
+    let last_sequence = tx.query_row(
         "SELECT COALESCE(MAX(sequence), 0) FROM coordination_event_log",
         [],
         |row| row.get::<_, i64>(0),
     )?;
-    conn.execute(
+    tx.execute(
         "INSERT INTO coordination_event_compaction(id, last_sequence, payload)
          VALUES (1, ?1, ?2)
          ON CONFLICT(id) DO UPDATE SET

@@ -6,8 +6,8 @@
 ## Overview
 
 - Active repo contracts: 8
-- Active repo concepts: 94
-- Active repo relations: 203
+- Active repo concepts: 95
+- Active repo relations: 206
 
 ## Published Contracts
 
@@ -522,7 +522,7 @@ Concept Handles:
 
 ### Guarantees
 
-- `tagged_tools_expose_bindable_root_schemas`: Tagged MCP tools such as prism_mutate expose a bindable root action/input schema on tools/list instead of only opaque or action-erased payload blobs. (scope: tool_binding) [hard]
+- `tagged_tools_expose_bindable_root_schemas`: Tagged MCP tools such as prism_session and prism_mutate expose a bindable root action/input schema on tools/list instead of only opaque or action-erased payload blobs. (scope: tool_binding) [hard]
   evidence ref: `agents-tool-schema-guidance`
   evidence ref: `server-tool-input-schema-tests`
 - `schema_resources_are_exact_payload_authority`: prism://tool-schemas and prism://schema/tool/{toolName}/action/{action} remain the exact JSON schema authority for non-trivial MCP payloads, including structured nested action payloads. (scope: schema_authority) [hard]
@@ -658,3 +658,4 @@ Concept Handles:
 - docs/REFRESH_RUNTIME_REDESIGN.md states that normal request handling must never call a full persisted reload of runtime state on the hot path.
 - workspace session concepts and the session/watch modules anchor dirty-path tracking, guarded replacement, and live refresh behavior.
 - The MCP refresh tests show request and mutation paths skipping persisted reload while still reloading persisted notes when freshness requires it.
+

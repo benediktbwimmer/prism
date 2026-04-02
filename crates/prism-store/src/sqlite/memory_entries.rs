@@ -77,7 +77,7 @@ pub(super) fn append_events_tx(tx: &Transaction<'_>, events: &[MemoryEvent]) -> 
     Ok(inserted)
 }
 
-pub(super) fn backfill_event_log_if_needed(conn: &Connection) -> Result<()> {
+pub(super) fn backfill_event_log_if_needed(conn: &mut Connection) -> Result<()> {
     let existing: Option<i64> = conn
         .query_row("SELECT 1 FROM memory_event_log LIMIT 1", [], |row| {
             row.get(0)
@@ -87,26 +87,27 @@ pub(super) fn backfill_event_log_if_needed(conn: &Connection) -> Result<()> {
         return Ok(());
     }
 
-    let tx = conn.unchecked_transaction()?;
-    let legacy_entries = load_entries_tx(&tx)?;
+    let legacy_entries = load_entries(conn)?;
     if !legacy_entries.is_empty() {
-        for entry in legacy_entries {
-            let event = MemoryEvent {
-                id: new_prefixed_id("memory-event").to_string(),
-                action: MemoryEventKind::Stored,
-                memory_id: entry.id.clone(),
-                scope: entry.scope,
-                entry: Some(entry.clone()),
-                recorded_at: entry.created_at,
-                task_id: extract_task_id_from_entry(&entry),
-                promoted_from: Vec::new(),
-                supersedes: Vec::new(),
-                actor: None,
-                execution_context: None,
-            };
-            append_events_tx(&tx, &[event])?;
-        }
-        tx.commit()?;
+        super::run_with_immediate_tx(conn, |tx| {
+            for entry in &legacy_entries {
+                let event = MemoryEvent {
+                    id: new_prefixed_id("memory-event").to_string(),
+                    action: MemoryEventKind::Stored,
+                    memory_id: entry.id.clone(),
+                    scope: entry.scope,
+                    entry: Some(entry.clone()),
+                    recorded_at: entry.created_at,
+                    task_id: extract_task_id_from_entry(entry),
+                    promoted_from: Vec::new(),
+                    supersedes: Vec::new(),
+                    actor: None,
+                    execution_context: None,
+                };
+                append_events_tx(tx, &[event])?;
+            }
+            Ok(())
+        })?;
         return Ok(());
     }
 
@@ -115,23 +116,25 @@ pub(super) fn backfill_event_log_if_needed(conn: &Connection) -> Result<()> {
         return Ok(());
     };
 
-    for entry in snapshot.entries {
-        let event = MemoryEvent {
-            id: new_prefixed_id("memory-event").to_string(),
-            action: MemoryEventKind::Stored,
-            memory_id: entry.id.clone(),
-            scope: entry.scope,
-            entry: Some(entry.clone()),
-            recorded_at: entry.created_at,
-            task_id: extract_task_id_from_entry(&entry),
-            promoted_from: Vec::new(),
-            supersedes: Vec::new(),
-            actor: None,
-            execution_context: None,
-        };
-        append_events_tx(&tx, &[event])?;
-    }
-    tx.commit()?;
+    super::run_with_immediate_tx(conn, |tx| {
+        for entry in &snapshot.entries {
+            let event = MemoryEvent {
+                id: new_prefixed_id("memory-event").to_string(),
+                action: MemoryEventKind::Stored,
+                memory_id: entry.id.clone(),
+                scope: entry.scope,
+                entry: Some(entry.clone()),
+                recorded_at: entry.created_at,
+                task_id: extract_task_id_from_entry(entry),
+                promoted_from: Vec::new(),
+                supersedes: Vec::new(),
+                actor: None,
+                execution_context: None,
+            };
+            append_events_tx(tx, &[event])?;
+        }
+        Ok(())
+    })?;
     Ok(())
 }
 

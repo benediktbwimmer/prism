@@ -429,10 +429,7 @@ pub(super) fn delete_concept_relation_tx(
 }
 
 pub(super) fn prune_projection_co_change(conn: &mut Connection) -> Result<usize> {
-    let tx = conn.transaction()?;
-    let deleted_rows = prune_projection_co_change_tx(&tx)?;
-    tx.commit()?;
-    Ok(deleted_rows)
+    super::run_with_immediate_tx(conn, |tx| prune_projection_co_change_tx(tx))
 }
 
 pub(super) fn apply_projection_co_change_deltas_tx(

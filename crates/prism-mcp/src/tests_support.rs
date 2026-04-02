@@ -220,7 +220,7 @@ pub(crate) fn wait_for_completed_curator_job(session: &WorkspaceSession) -> Stri
 }
 
 pub(crate) fn wait_until(description: &str, mut condition: impl FnMut() -> bool) {
-    for _ in 0..200 {
+    for _ in 0..400 {
         if condition() {
             return;
         }

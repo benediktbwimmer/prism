@@ -3,7 +3,7 @@ use rusqlite::Connection;
 
 const SCHEMA_VERSION: i64 = 20;
 
-pub(super) fn init_schema(conn: &Connection) -> Result<()> {
+pub(super) fn init_schema(conn: &mut Connection) -> Result<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
     match version {
         0 | SCHEMA_VERSION => {}

@@ -119,20 +119,23 @@ pub(super) fn retire_legacy_history_co_change(
         return Ok(LegacyCoChangeRetirement::default());
     }
     if !table_exists(conn, "history_co_change")? {
-        conn.execute(
-            "INSERT INTO metadata(key, value) VALUES (?1, 1)
-             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            params![LEGACY_CO_CHANGE_RETIRED_KEY],
-        )?;
+        super::run_with_immediate_tx(conn, |tx| {
+            tx.execute(
+                "INSERT INTO metadata(key, value) VALUES (?1, 1)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                params![LEGACY_CO_CHANGE_RETIRED_KEY],
+            )?;
+            Ok(())
+        })?;
         return Ok(LegacyCoChangeRetirement::default());
     }
 
     let deleted_rows = {
-        let tx = conn.transaction()?;
-        let deleted_rows = tx.execute("DELETE FROM history_co_change", [])?;
-        set_metadata_value_tx(&tx, LEGACY_CO_CHANGE_RETIRED_KEY, 1)?;
-        tx.commit()?;
-        deleted_rows
+        super::run_with_immediate_tx(conn, |tx| {
+            let deleted_rows = tx.execute("DELETE FROM history_co_change", [])?;
+            set_metadata_value_tx(tx, LEGACY_CO_CHANGE_RETIRED_KEY, 1)?;
+            Ok(deleted_rows)
+        })?
     };
 
     let page_size = conn.pragma_query_value(None, "page_size", |row| row.get::<_, i64>(0))? as u64;

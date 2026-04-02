@@ -5,8 +5,8 @@
 
 ## Overview
 
-- Active repo relations: 203
-- Active repo concepts covered: 94
+- Active repo relations: 206
+- Active repo concepts covered: 95
 
 - Active repo contracts: 8
 
@@ -173,7 +173,7 @@ Source Handle: `concept://coordination_and_plan_runtime_queries`
 - part of: `query coordination and plan views` (`concept://query_coordination_and_plan_views`) (confidence 0.96)
   evidence: Runtime coordination and plan-overlay access is one half of the coordination query cluster.
 
-## coordination mutation and policy helpers
+## coordination mutation, lease, and policy helpers
 
 Source Handle: `concept://coordination_mutation_and_policy_helpers`
 
@@ -181,6 +181,8 @@ Source Handle: `concept://coordination_mutation_and_policy_helpers`
   evidence: mutations.rs and helpers.rs implement the write-side and shared policy helper half of coordination operations.
 - depends on: `coordination state model` (`concept://coordination_state_model`) (confidence 0.96)
   evidence: Coordination mutations and policy helpers operate against the shared coordination state model and runtime overlays.
+- depends on: `principal identity and mutation provenance` (`concept://principal_identity_and_mutation_provenance`) (confidence 0.94)
+  evidence: Lease ownership, resume/reclaim policy, and heartbeat enforcement derive holder identity from authoritative principal actors recorded on mutation events.
 - validated by: `validation and dogfooding loop` (`concept://validation_and_dogfooding`) (confidence 0.92)
   evidence: Mutation-side coordination policy needs direct validation because it can violate plan and claim invariants without schema changes.
 
@@ -351,8 +353,8 @@ Source Handle: `concept://inferred_edge_runtime_and_session_store`
 
 - part of: `agent inference and curation` (`concept://agent_inference_and_curation`) (confidence 0.96)
   evidence: The inferred-edge store and mutation path are the non-curator half of the repo’s inference-and-curation subsystem.
-- depends on: `MCP mutation and session host` (`concept://mcp_mutation_and_session_host`) (confidence 0.92)
-  evidence: Live inferred-edge capture and promotion rely on the MCP mutation/session host that accepts `infer_edge` and `curator_promote_edge` actions.
+- depends on: `MCP authenticated mutation host` (`concept://mcp_mutation_and_session_host`) (confidence 0.92)
+  evidence: Live inferred-edge capture and curator promotion rely on the authenticated mutation host that accepts `infer_edge` and curator-driven mutation actions.
 - validated by: `validation and dogfooding loop` (`concept://validation_and_dogfooding`) (confidence 0.88)
   evidence: Inferred edges are explicitly called out in the validation plan as a bounded overlay that must not silently rewrite authoritative structure.
 
@@ -408,18 +410,20 @@ Source Handle: `concept://markdown_heading_and_intent_adapter`
 - depends on: `parser contract and fingerprint utilities` (`concept://parser_contract_and_fingerprint_utilities`) (confidence 0.96)
   evidence: The Markdown adapter uses shared document-name, document-path, fingerprint, and intent-target helpers from prism-parser.
 
-## MCP mutation and session host
+## MCP authenticated mutation host
 
 Source Handle: `concept://mcp_mutation_and_session_host`
 
 - depends on: `concept and publication pipeline` (`concept://concept_and_publication_pipeline`) (confidence 0.96)
   evidence: Mutation hosting persists concepts, relations, memories, and outcomes through the publication/mutation pipeline.
-- depends on: `coordination and plan runtime` (`concept://coordination_and_plan_runtime`) (confidence 0.93)
-  evidence: The same mutation host also fronts coordination and claim/artifact updates through the MCP surface.
+- depends on: `coordination and plan runtime` (`concept://coordination_and_plan_runtime`) (confidence 0.94)
+  evidence: The authenticated mutation host fronts coordination, claim, artifact, and heartbeat mutations through `prism_mutate` over the shared coordination runtime.
 - part of: `MCP runtime surface` (`concept://mcp_runtime_surface`) (confidence 0.99)
   evidence: Mutation hosting and session-state handling are core internal responsibilities of the MCP runtime surface.
+- depends on: `principal identity and mutation provenance` (`concept://principal_identity_and_mutation_provenance`) (confidence 0.96)
+  evidence: Before any authoritative write is persisted, the authenticated mutation host stamps event actors and execution-context snapshots through the principal/provenance layer.
 - validated by: `validation and dogfooding loop` (`concept://validation_and_dogfooding`) (confidence 0.94)
-  evidence: Mutation contract correctness and session-state handling are central to the repo’s dogfooding and validation loop.
+  evidence: Authenticated mutation contracts, provenance stamping, and hosted runtime behavior are central to the repo’s MCP dogfooding loop.
 
 ## MCP query and resource serving
 
@@ -507,8 +511,8 @@ Source Handle: `concept://memory_system`
 
 Source Handle: `concept://mutation_argument_and_schema_surface`
 
-- part of: `MCP mutation and session host` (`concept://mcp_mutation_and_session_host`) (confidence 0.96)
-  evidence: Argument decoding and schema publication are one half of the MCP mutation/session host.
+- part of: `MCP authenticated mutation host` (`concept://mcp_mutation_and_session_host`) (confidence 0.96)
+  evidence: Argument decoding and mutation schemas are one half of the authenticated mutation host surface, including authenticated coordination and heartbeat contracts.
 - validated by: `validation and dogfooding loop` (`concept://validation_and_dogfooding`) (confidence 0.90)
   evidence: Schema examples and argument validation are explicitly part of the repo’s MCP/query-surface validation story.
 
@@ -594,6 +598,13 @@ Source Handle: `concept://plan_graph_compatibility_and_runtime_overlays`
 
 - part of: `coordination state model` (`concept://coordination_state_model`) (confidence 0.96)
   evidence: compat.rs and runtime.rs export plan graph compatibility and runtime overlays as the second half of the coordination state model.
+
+## principal identity and mutation provenance
+
+Source Handle: `concept://principal_identity_and_mutation_provenance`
+
+- depends on: `structural IR and identity model` (`concept://structural_ir`) (confidence 0.93)
+  evidence: Principal actors and execution-context snapshots are durable IR event types rather than MCP-only transport metadata.
 
 ## projection and query layer
 
@@ -740,14 +751,14 @@ Source Handle: `concept://session_and_episodic_memory_store`
 - depends on: `semantic and structural memory models` (`concept://semantic_and_structural_memory_models`) (confidence 0.90)
   evidence: Session memory composes structural and semantic modules into the session-scoped memory runtime.
 
-## session-state and mutation runtime
+## session context and hosted mutation runtime
 
 Source Handle: `concept://session_state_and_mutation_runtime`
 
 - depends on: `coordination and plan runtime` (`concept://coordination_and_plan_runtime`) (confidence 0.90)
   evidence: Many hosted mutations and follow-up runtime views touch shared task, claim, artifact, and plan state.
-- part of: `MCP mutation and session host` (`concept://mcp_mutation_and_session_host`) (confidence 0.96)
-  evidence: Session state, hosted mutations, and runtime views are the execution half of the MCP mutation/session host.
+- part of: `MCP authenticated mutation host` (`concept://mcp_mutation_and_session_host`) (confidence 0.96)
+  evidence: Session context, hosted mutation execution, and follow-up runtime views are the execution half of the authenticated mutation host.
 
 ## SQLite and graph persistence
 
@@ -816,7 +827,7 @@ Source Handle: `concept://validation_feedback_and_metrics_loop`
 
 - often used with: `dashboard surface` (`concept://dashboard_surface`) (confidence 0.84)
   evidence: The validation spec explicitly calls for a metrics dashboard, making this loop a frequent companion to the dashboard surface.
-- depends on: `MCP mutation and session host` (`concept://mcp_mutation_and_session_host`) (confidence 0.89)
+- depends on: `MCP authenticated mutation host` (`concept://mcp_mutation_and_session_host`) (confidence 0.89)
   evidence: The validation feedback loop relies on the hosted mutation path that records `validation_feedback` entries into repo state.
 - depends on: `projection and query layer` (`concept://projection_and_query_layer`) (confidence 0.90)
   evidence: Validation checks and scorecards are materialized through projection state rather than only handwritten notes.

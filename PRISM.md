@@ -5,8 +5,8 @@
 
 ## Overview
 
-- Active repo concepts: 94
-- Active repo relations: 203
+- Active repo concepts: 95
+- Active repo relations: 206
 - Active repo contracts: 8
 - Full concept catalog: `docs/prism/concepts.md`
 - Full relation catalog: `docs/prism/relations.md`
@@ -44,7 +44,7 @@
 
 ## Key Concepts
 
-- `MCP mutation and session host` (`concept://mcp_mutation_and_session_host`): prism-mcp modules that parse mutate/session tool payloads, manage per-session state, and turn agent-side mutations into grounded PRISM state changes.
+- `MCP authenticated mutation host` (`concept://mcp_mutation_and_session_host`): prism-mcp modules that decode `prism_mutate` actions, host authenticated state-changing mutations, and route agent-side writes into durable PRISM state without relying on `prism_session` authority.
 - `coordination state model` (`concept://coordination_state_model`): Core coordination modules that define state, types, runtime overlays, and compatibility projections for plans, tasks, claims, and artifacts.
 - `parser contract and fingerprint utilities` (`concept://parser_contract_and_fingerprint_utilities`): Shared prism-parser contract that defines parse inputs/results, language adapter behavior, intent extraction, document naming, and stable fingerprint helpers reused by every adapter crate.
 - `semantic projection indexes` (`concept://semantic_projection_indexes`): prism-projections modules that materialize derived concept, relation, intent, and projection indexes from lower-level events and snapshots.

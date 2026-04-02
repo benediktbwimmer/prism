@@ -41,7 +41,9 @@ use prism_memory::{
     EpisodicMemorySnapshot, OutcomeEvent, OutcomeMemorySnapshot, OutcomeRecallQuery,
 };
 use prism_projections::{ConceptPacket, ConceptRelation, ConceptRelationKind};
-use rusqlite::{params, Connection, OpenFlags, OptionalExtension, Transaction};
+use rusqlite::{
+    params, Connection, OpenFlags, OptionalExtension, Transaction, TransactionBehavior,
+};
 use tracing::info;
 
 use crate::graph::Graph;
@@ -55,6 +57,8 @@ const OUTCOME_REVISION_KEY: &str = "revision:outcome";
 const EPISODIC_REVISION_KEY: &str = "revision:episodic";
 const INFERENCE_REVISION_KEY: &str = "revision:inference";
 const COORDINATION_REVISION_KEY: &str = "revision:coordination";
+const SQLITE_LOCK_RETRY_ATTEMPTS: usize = 50;
+const SQLITE_LOCK_RETRY_DELAY: Duration = Duration::from_millis(100);
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct SnapshotRevisions {
@@ -117,10 +121,7 @@ impl SqliteStore {
         if events.is_empty() {
             return Ok(0);
         }
-        let tx = self.conn.transaction()?;
-        let inserted = outcome_events::append_local_projection_tx(&tx, events)?;
-        tx.commit()?;
-        Ok(inserted)
+        self.with_immediate_tx(|tx| outcome_events::append_local_projection_tx(tx, events))
     }
 
     pub fn load_projection_outcome_event_ids(
@@ -151,29 +152,29 @@ impl SqliteStore {
             return Ok(0);
         }
         let outcome_cache = self.outcome_snapshot_cache.clone();
-        let tx = self.conn.transaction()?;
-        let outcome_revision_before = metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?;
-        let mut tracked_outcome_snapshot = if events.is_empty() {
-            None
-        } else {
-            cached_snapshot_for_revision(&outcome_cache, outcome_revision_before)
-        };
-        let inserted = outcome_events::append_shared_events_tx(&tx, events)?;
-        let outcome_revision = if inserted > 0 {
-            bump_metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?
-        } else {
-            outcome_revision_before
-        };
-        if inserted > 0 {
-            if let Some(current) = tracked_outcome_snapshot.take() {
-                tracked_outcome_snapshot =
-                    Some(crate::outcome_projection::apply_events(current, events));
-            }
-        }
-        if inserted > 0 {
-            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
-        }
-        tx.commit()?;
+        let (inserted, outcome_revision, tracked_outcome_snapshot) =
+            self.with_immediate_tx(|tx| {
+                let outcome_revision_before = metadata_value_tx(tx, OUTCOME_REVISION_KEY)?;
+                let mut tracked_outcome_snapshot = if events.is_empty() {
+                    None
+                } else {
+                    cached_snapshot_for_revision(&outcome_cache, outcome_revision_before)
+                };
+                let inserted = outcome_events::append_shared_events_tx(tx, events)?;
+                let outcome_revision = if inserted > 0 {
+                    bump_metadata_value_tx(tx, OUTCOME_REVISION_KEY)?
+                } else {
+                    outcome_revision_before
+                };
+                if inserted > 0 {
+                    if let Some(current) = tracked_outcome_snapshot.take() {
+                        tracked_outcome_snapshot =
+                            Some(crate::outcome_projection::apply_events(current, events));
+                    }
+                    bump_metadata_value_tx(tx, WORKSPACE_REVISION_KEY)?;
+                }
+                Ok((inserted, outcome_revision, tracked_outcome_snapshot))
+            })?;
         if let Some(snapshot) = tracked_outcome_snapshot {
             self.update_outcome_snapshot_cache(outcome_revision, snapshot);
         }
@@ -182,22 +183,23 @@ impl SqliteStore {
 
     pub fn save_shared_outcome_snapshot(&mut self, snapshot: &OutcomeMemorySnapshot) -> Result<()> {
         let outcome_cache = self.outcome_snapshot_cache.clone();
-        let tx = self.conn.transaction()?;
-        let (_, current) = current_outcome_snapshot_tx(&tx, &outcome_cache)?;
-        let delta = crate::outcome_projection::append_only_delta(current.as_ref(), snapshot);
-        let changed = if delta.is_empty() {
-            false
-        } else {
-            outcome_events::append_shared_events_tx(&tx, &delta)? > 0
-        };
-        let outcome_revision = if changed {
-            let revision = bump_metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?;
-            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
-            revision
-        } else {
-            metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?
-        };
-        tx.commit()?;
+        let (current, changed, outcome_revision) = self.with_immediate_tx(|tx| {
+            let (_, current) = current_outcome_snapshot_tx(tx, &outcome_cache)?;
+            let delta = crate::outcome_projection::append_only_delta(current.as_ref(), snapshot);
+            let changed = if delta.is_empty() {
+                false
+            } else {
+                outcome_events::append_shared_events_tx(tx, &delta)? > 0
+            };
+            let outcome_revision = if changed {
+                let revision = bump_metadata_value_tx(tx, OUTCOME_REVISION_KEY)?;
+                bump_metadata_value_tx(tx, WORKSPACE_REVISION_KEY)?;
+                revision
+            } else {
+                metadata_value_tx(tx, OUTCOME_REVISION_KEY)?
+            };
+            Ok((current, changed, outcome_revision))
+        })?;
         let merged = if changed {
             crate::outcome_projection::merge_snapshot(current, snapshot)
         } else {
@@ -224,8 +226,13 @@ impl SqliteStore {
         configure_connection(&conn)?;
         let configure_ms = configure_started.elapsed().as_millis();
         let schema_started = Instant::now();
-        schema::init_schema(&conn)?;
+        schema::init_schema(&mut conn)?;
         graph_io::ensure_file_record_parse_depth_column(&mut conn)?;
+        let scrubbed_malformed_unresolved_rows = if run_open_maintenance {
+            graph_io::scrub_malformed_unresolved_rows(&mut conn)?
+        } else {
+            0
+        };
         let schema_ms = schema_started.elapsed().as_millis();
         let compact_patch_payloads_started = Instant::now();
         let compacted_patch_payloads = if run_open_maintenance {
@@ -256,6 +263,7 @@ impl SqliteStore {
             open_connection_ms,
             configure_ms,
             schema_ms,
+            scrubbed_malformed_unresolved_rows,
             compact_patch_payloads_ms,
             compacted_hot_patch_payload_rows = compacted_patch_payloads.updated_rows,
             compacted_hot_patch_payload_reclaim_bytes =
@@ -277,6 +285,10 @@ impl SqliteStore {
             outcome_snapshot_cache: None,
             episodic_snapshot_cache: None,
         })
+    }
+
+    fn with_immediate_tx<T>(&mut self, op: impl FnMut(&Transaction<'_>) -> Result<T>) -> Result<T> {
+        run_with_immediate_tx(&mut self.conn, op)
     }
 
     fn open_runtime_reader_internal(path: &Path) -> Result<Self> {
@@ -426,46 +438,46 @@ impl SqliteStore {
     }
 
     pub fn append_inference_records(&mut self, records: &[InferredEdgeRecord]) -> Result<usize> {
-        let tx = self.conn.transaction()?;
-        let inserted = inference_records::append_records_tx(&tx, records)?;
-        if inserted > 0 {
-            bump_metadata_value_tx(&tx, INFERENCE_REVISION_KEY)?;
-        }
-        tx.commit()?;
-        Ok(inserted)
+        self.with_immediate_tx(|tx| {
+            let inserted = inference_records::append_records_tx(tx, records)?;
+            if inserted > 0 {
+                bump_metadata_value_tx(tx, INFERENCE_REVISION_KEY)?;
+            }
+            Ok(inserted)
+        })
     }
 
     pub fn upsert_projection_concept(&mut self, concept: &ConceptPacket) -> Result<bool> {
-        let tx = self.conn.transaction()?;
-        let changed = projections::upsert_curated_concept_tx(&tx, concept)? > 0;
-        if changed {
-            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
-        }
-        tx.commit()?;
-        Ok(changed)
+        self.with_immediate_tx(|tx| {
+            let changed = projections::upsert_curated_concept_tx(tx, concept)? > 0;
+            if changed {
+                bump_metadata_value_tx(tx, WORKSPACE_REVISION_KEY)?;
+            }
+            Ok(changed)
+        })
     }
 
     pub fn delete_projection_concept(&mut self, handle: &str) -> Result<bool> {
-        let tx = self.conn.transaction()?;
-        let changed = projections::delete_curated_concept_tx(&tx, handle)? > 0;
-        if changed {
-            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
-        }
-        tx.commit()?;
-        Ok(changed)
+        self.with_immediate_tx(|tx| {
+            let changed = projections::delete_curated_concept_tx(tx, handle)? > 0;
+            if changed {
+                bump_metadata_value_tx(tx, WORKSPACE_REVISION_KEY)?;
+            }
+            Ok(changed)
+        })
     }
 
     pub fn upsert_projection_concept_relation(
         &mut self,
         relation: &ConceptRelation,
     ) -> Result<bool> {
-        let tx = self.conn.transaction()?;
-        let changed = projections::upsert_concept_relation_tx(&tx, relation)? > 0;
-        if changed {
-            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
-        }
-        tx.commit()?;
-        Ok(changed)
+        self.with_immediate_tx(|tx| {
+            let changed = projections::upsert_concept_relation_tx(tx, relation)? > 0;
+            if changed {
+                bump_metadata_value_tx(tx, WORKSPACE_REVISION_KEY)?;
+            }
+            Ok(changed)
+        })
     }
 
     pub fn delete_projection_concept_relation(
@@ -474,14 +486,15 @@ impl SqliteStore {
         target_handle: &str,
         kind: ConceptRelationKind,
     ) -> Result<bool> {
-        let tx = self.conn.transaction()?;
-        let changed =
-            projections::delete_concept_relation_tx(&tx, source_handle, target_handle, kind)? > 0;
-        if changed {
-            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
-        }
-        tx.commit()?;
-        Ok(changed)
+        self.with_immediate_tx(|tx| {
+            let changed =
+                projections::delete_concept_relation_tx(tx, source_handle, target_handle, kind)?
+                    > 0;
+            if changed {
+                bump_metadata_value_tx(tx, WORKSPACE_REVISION_KEY)?;
+            }
+            Ok(changed)
+        })
     }
 }
 
@@ -506,19 +519,19 @@ impl Store for SqliteStore {
     }
 
     fn save_history_snapshot(&mut self, snapshot: &prism_history::HistorySnapshot) -> Result<()> {
-        let tx = self.conn.transaction()?;
-        history_io::replace_history_snapshot_tx(&tx, snapshot)?;
-        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            history_io::replace_history_snapshot_tx(tx, snapshot)?;
+            bump_metadata_value_tx(tx, WORKSPACE_REVISION_KEY)?;
+            Ok(())
+        })
     }
 
     fn apply_history_delta(&mut self, delta: &prism_history::HistoryPersistDelta) -> Result<()> {
-        let tx = self.conn.transaction()?;
-        history_io::apply_history_delta_tx(&tx, delta)?;
-        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            history_io::apply_history_delta_tx(tx, delta)?;
+            bump_metadata_value_tx(tx, WORKSPACE_REVISION_KEY)?;
+            Ok(())
+        })
     }
 
     fn save_history_snapshot_with_co_change_deltas(
@@ -526,12 +539,12 @@ impl Store for SqliteStore {
         snapshot: &prism_history::HistorySnapshot,
         deltas: &[prism_projections::CoChangeDelta],
     ) -> Result<()> {
-        let tx = self.conn.transaction()?;
-        history_io::replace_history_snapshot_tx(&tx, snapshot)?;
-        projections::apply_projection_co_change_deltas_tx(&tx, deltas)?;
-        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            history_io::replace_history_snapshot_tx(tx, snapshot)?;
+            projections::apply_projection_co_change_deltas_tx(tx, deltas)?;
+            bump_metadata_value_tx(tx, WORKSPACE_REVISION_KEY)?;
+            Ok(())
+        })
     }
 
     fn load_outcome_snapshot(&mut self) -> Result<Option<prism_memory::OutcomeMemorySnapshot>> {
@@ -584,25 +597,26 @@ impl Store for SqliteStore {
         snapshot: &prism_memory::OutcomeMemorySnapshot,
     ) -> Result<()> {
         let outcome_cache = self.outcome_snapshot_cache.clone();
-        let tx = self.conn.transaction()?;
-        let (_, current) = current_outcome_snapshot_tx(&tx, &outcome_cache)?;
-        let delta = crate::outcome_projection::append_only_delta(current.as_ref(), snapshot);
-        let changed = if delta.is_empty() {
-            false
-        } else {
-            outcome_events::append_events_tx(&tx, &delta)? > 0
-        };
-        if !delta.is_empty() {
-            outcome_events::append_local_projection_tx(&tx, &delta)?;
-        }
-        let outcome_revision = if changed {
-            let revision = bump_metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?;
-            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
-            revision
-        } else {
-            metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?
-        };
-        tx.commit()?;
+        let (current, changed, outcome_revision) = self.with_immediate_tx(|tx| {
+            let (_, current) = current_outcome_snapshot_tx(tx, &outcome_cache)?;
+            let delta = crate::outcome_projection::append_only_delta(current.as_ref(), snapshot);
+            let changed = if delta.is_empty() {
+                false
+            } else {
+                outcome_events::append_events_tx(tx, &delta)? > 0
+            };
+            if !delta.is_empty() {
+                outcome_events::append_local_projection_tx(tx, &delta)?;
+            }
+            let outcome_revision = if changed {
+                let revision = bump_metadata_value_tx(tx, OUTCOME_REVISION_KEY)?;
+                bump_metadata_value_tx(tx, WORKSPACE_REVISION_KEY)?;
+                revision
+            } else {
+                metadata_value_tx(tx, OUTCOME_REVISION_KEY)?
+            };
+            Ok((current, changed, outcome_revision))
+        })?;
         let merged = if changed {
             crate::outcome_projection::merge_snapshot(current, snapshot)
         } else {
@@ -621,33 +635,35 @@ impl Store for SqliteStore {
             return Ok(0);
         }
         let outcome_cache = self.outcome_snapshot_cache.clone();
-        let tx = self.conn.transaction()?;
-        let outcome_revision_before = metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?;
-        let mut tracked_outcome_snapshot = if events.is_empty() {
-            None
-        } else {
-            cached_snapshot_for_revision(&outcome_cache, outcome_revision_before)
-        };
-        let inserted = outcome_events::append_events_tx(&tx, events)?;
-        if inserted > 0 {
-            outcome_events::append_local_projection_tx(&tx, events)?;
-        }
-        let outcome_revision = if inserted > 0 {
-            bump_metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?
-        } else {
-            outcome_revision_before
-        };
-        if inserted > 0 {
-            if let Some(current) = tracked_outcome_snapshot.take() {
-                tracked_outcome_snapshot =
-                    Some(crate::outcome_projection::apply_events(current, events));
-            }
-        }
-        projections::apply_projection_validation_deltas_tx(&tx, validation_deltas)?;
-        if inserted > 0 || !validation_deltas.is_empty() {
-            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
-        }
-        tx.commit()?;
+        let (inserted, outcome_revision, tracked_outcome_snapshot) =
+            self.with_immediate_tx(|tx| {
+                let outcome_revision_before = metadata_value_tx(tx, OUTCOME_REVISION_KEY)?;
+                let mut tracked_outcome_snapshot = if events.is_empty() {
+                    None
+                } else {
+                    cached_snapshot_for_revision(&outcome_cache, outcome_revision_before)
+                };
+                let inserted = outcome_events::append_events_tx(tx, events)?;
+                if inserted > 0 {
+                    outcome_events::append_local_projection_tx(tx, events)?;
+                }
+                let outcome_revision = if inserted > 0 {
+                    bump_metadata_value_tx(tx, OUTCOME_REVISION_KEY)?
+                } else {
+                    outcome_revision_before
+                };
+                if inserted > 0 {
+                    if let Some(current) = tracked_outcome_snapshot.take() {
+                        tracked_outcome_snapshot =
+                            Some(crate::outcome_projection::apply_events(current, events));
+                    }
+                }
+                projections::apply_projection_validation_deltas_tx(tx, validation_deltas)?;
+                if inserted > 0 || !validation_deltas.is_empty() {
+                    bump_metadata_value_tx(tx, WORKSPACE_REVISION_KEY)?;
+                }
+                Ok((inserted, outcome_revision, tracked_outcome_snapshot))
+            })?;
         if let Some(snapshot) = tracked_outcome_snapshot {
             self.update_outcome_snapshot_cache(outcome_revision, snapshot);
         }
@@ -668,10 +684,10 @@ impl Store for SqliteStore {
         if deltas.is_empty() {
             return Ok(());
         }
-        let tx = self.conn.transaction()?;
-        projections::apply_projection_validation_deltas_tx(&tx, deltas)?;
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            projections::apply_projection_validation_deltas_tx(tx, deltas)?;
+            Ok(())
+        })
     }
 
     fn save_outcome_snapshot_with_validation_deltas(
@@ -680,29 +696,30 @@ impl Store for SqliteStore {
         deltas: &[prism_projections::ValidationDelta],
     ) -> Result<()> {
         let outcome_cache = self.outcome_snapshot_cache.clone();
-        let tx = self.conn.transaction()?;
-        let (_, current) = current_outcome_snapshot_tx(&tx, &outcome_cache)?;
-        let delta = crate::outcome_projection::append_only_delta(current.as_ref(), snapshot);
-        let outcome_changed = if delta.is_empty() {
-            false
-        } else {
-            outcome_events::append_events_tx(&tx, &delta)? > 0
-        };
-        if !delta.is_empty() {
-            outcome_events::append_local_projection_tx(&tx, &delta)?;
-        }
-        let outcome_revision = if outcome_changed {
-            bump_metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?
-        } else {
-            metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?
-        };
-        let mut workspace_changed = outcome_changed;
-        projections::apply_projection_validation_deltas_tx(&tx, deltas)?;
-        workspace_changed |= !deltas.is_empty();
-        if workspace_changed {
-            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
-        }
-        tx.commit()?;
+        let (current, outcome_changed, outcome_revision) = self.with_immediate_tx(|tx| {
+            let (_, current) = current_outcome_snapshot_tx(tx, &outcome_cache)?;
+            let delta = crate::outcome_projection::append_only_delta(current.as_ref(), snapshot);
+            let outcome_changed = if delta.is_empty() {
+                false
+            } else {
+                outcome_events::append_events_tx(tx, &delta)? > 0
+            };
+            if !delta.is_empty() {
+                outcome_events::append_local_projection_tx(tx, &delta)?;
+            }
+            let outcome_revision = if outcome_changed {
+                bump_metadata_value_tx(tx, OUTCOME_REVISION_KEY)?
+            } else {
+                metadata_value_tx(tx, OUTCOME_REVISION_KEY)?
+            };
+            let mut workspace_changed = outcome_changed;
+            projections::apply_projection_validation_deltas_tx(tx, deltas)?;
+            workspace_changed |= !deltas.is_empty();
+            if workspace_changed {
+                bump_metadata_value_tx(tx, WORKSPACE_REVISION_KEY)?;
+            }
+            Ok((current, outcome_changed, outcome_revision))
+        })?;
         let merged = if outcome_changed {
             crate::outcome_projection::merge_snapshot(current, snapshot)
         } else {
@@ -717,13 +734,13 @@ impl Store for SqliteStore {
     }
 
     fn append_memory_events(&mut self, events: &[prism_memory::MemoryEvent]) -> Result<usize> {
-        let tx = self.conn.transaction()?;
-        let inserted = memory_entries::append_events_tx(&tx, events)?;
-        if inserted > 0 {
-            bump_metadata_value_tx(&tx, EPISODIC_REVISION_KEY)?;
-        }
-        tx.commit()?;
-        Ok(inserted)
+        self.with_immediate_tx(|tx| {
+            let inserted = memory_entries::append_events_tx(tx, events)?;
+            if inserted > 0 {
+                bump_metadata_value_tx(tx, EPISODIC_REVISION_KEY)?;
+            }
+            Ok(inserted)
+        })
     }
 
     fn load_episodic_snapshot(&mut self) -> Result<Option<prism_memory::EpisodicMemorySnapshot>> {
@@ -735,15 +752,16 @@ impl Store for SqliteStore {
         snapshot: &prism_memory::EpisodicMemorySnapshot,
     ) -> Result<()> {
         let episodic_cache = self.episodic_snapshot_cache.clone();
-        let tx = self.conn.transaction()?;
-        let (_, current) = current_episodic_snapshot_tx(&tx, &episodic_cache)?;
-        let changed = memory_entries::save_snapshot_delta_tx(&tx, current.as_ref(), snapshot)?;
-        let revision = if changed {
-            bump_metadata_value_tx(&tx, EPISODIC_REVISION_KEY)?
-        } else {
-            metadata_value_tx(&tx, EPISODIC_REVISION_KEY)?
-        };
-        tx.commit()?;
+        let (current, changed, revision) = self.with_immediate_tx(|tx| {
+            let (_, current) = current_episodic_snapshot_tx(tx, &episodic_cache)?;
+            let changed = memory_entries::save_snapshot_delta_tx(tx, current.as_ref(), snapshot)?;
+            let revision = if changed {
+                bump_metadata_value_tx(tx, EPISODIC_REVISION_KEY)?
+            } else {
+                metadata_value_tx(tx, EPISODIC_REVISION_KEY)?
+            };
+            Ok((current, changed, revision))
+        })?;
         let merged = if changed {
             crate::memory_projection::merge_snapshot(current, snapshot)
         } else {
@@ -758,12 +776,12 @@ impl Store for SqliteStore {
     }
 
     fn save_inference_snapshot(&mut self, snapshot: &prism_agent::InferenceSnapshot) -> Result<()> {
-        let tx = self.conn.transaction()?;
-        if inference_records::save_snapshot_tx(&tx, snapshot)? {
-            bump_metadata_value_tx(&tx, INFERENCE_REVISION_KEY)?;
-        }
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            if inference_records::save_snapshot_tx(tx, snapshot)? {
+                bump_metadata_value_tx(tx, INFERENCE_REVISION_KEY)?;
+            }
+            Ok(())
+        })
     }
 
     fn load_projection_snapshot(
@@ -792,10 +810,10 @@ impl Store for SqliteStore {
         &mut self,
         snapshot: &prism_projections::ProjectionSnapshot,
     ) -> Result<()> {
-        let tx = self.conn.transaction()?;
-        projections::save_projection_snapshot_tx(&tx, snapshot)?;
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            projections::save_projection_snapshot_tx(tx, snapshot)?;
+            Ok(())
+        })
     }
 
     fn apply_projection_deltas(
@@ -803,11 +821,11 @@ impl Store for SqliteStore {
         co_change_deltas: &[prism_projections::CoChangeDelta],
         validation_deltas: &[prism_projections::ValidationDelta],
     ) -> Result<()> {
-        let tx = self.conn.transaction()?;
-        projections::apply_projection_co_change_deltas_tx(&tx, co_change_deltas)?;
-        projections::apply_projection_validation_deltas_tx(&tx, validation_deltas)?;
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            projections::apply_projection_co_change_deltas_tx(tx, co_change_deltas)?;
+            projections::apply_projection_validation_deltas_tx(tx, validation_deltas)?;
+            Ok(())
+        })
     }
 
     fn load_workspace_tree_snapshot(&mut self) -> Result<Option<WorkspaceTreeSnapshot>> {
@@ -815,10 +833,7 @@ impl Store for SqliteStore {
     }
 
     fn save_workspace_tree_snapshot(&mut self, snapshot: &WorkspaceTreeSnapshot) -> Result<()> {
-        let tx = self.conn.transaction()?;
-        snapshots::save_snapshot_row_tx(&tx, "workspace_tree", snapshot)?;
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| snapshots::save_snapshot_row_tx(tx, "workspace_tree", snapshot))
     }
 
     fn load_curator_snapshot(&mut self) -> Result<Option<prism_curator::CuratorSnapshot>> {
@@ -826,7 +841,7 @@ impl Store for SqliteStore {
     }
 
     fn save_curator_snapshot(&mut self, snapshot: &prism_curator::CuratorSnapshot) -> Result<()> {
-        snapshots::save_snapshot_row(&self.conn, "curator", snapshot)
+        self.with_immediate_tx(|tx| snapshots::save_snapshot_row_tx(tx, "curator", snapshot))
     }
 
     fn load_principal_registry_snapshot(
@@ -839,7 +854,9 @@ impl Store for SqliteStore {
         &mut self,
         snapshot: &prism_ir::PrincipalRegistrySnapshot,
     ) -> Result<()> {
-        snapshots::save_snapshot_row(&self.conn, "principal_registry", snapshot)
+        self.with_immediate_tx(|tx| {
+            snapshots::save_snapshot_row_tx(tx, "principal_registry", snapshot)
+        })
     }
 
     fn coordination_revision(&self) -> Result<u64> {
@@ -858,7 +875,7 @@ impl Store for SqliteStore {
         &mut self,
         snapshot: &prism_coordination::CoordinationSnapshot,
     ) -> Result<()> {
-        coordination_compaction::save_compaction(&self.conn, snapshot)
+        self.with_immediate_tx(|tx| coordination_compaction::save_compaction_tx(tx, snapshot))
     }
 
     fn load_coordination_read_model(
@@ -871,7 +888,9 @@ impl Store for SqliteStore {
         &mut self,
         read_model: &prism_coordination::CoordinationReadModel,
     ) -> Result<()> {
-        snapshots::save_snapshot_row(&self.conn, "coordination_read_model", read_model)
+        self.with_immediate_tx(|tx| {
+            snapshots::save_snapshot_row_tx(tx, "coordination_read_model", read_model)
+        })
     }
 
     fn load_coordination_queue_read_model(
@@ -884,7 +903,9 @@ impl Store for SqliteStore {
         &mut self,
         read_model: &prism_coordination::CoordinationQueueReadModel,
     ) -> Result<()> {
-        snapshots::save_snapshot_row(&self.conn, "coordination_queue_read_model", read_model)
+        self.with_immediate_tx(|tx| {
+            snapshots::save_snapshot_row_tx(tx, "coordination_queue_read_model", read_model)
+        })
     }
 
     fn load_latest_coordination_persist_context(
@@ -897,164 +918,179 @@ impl Store for SqliteStore {
         &mut self,
         batch: &CoordinationPersistBatch,
     ) -> Result<CoordinationPersistResult> {
-        let tx = self.conn.transaction()?;
-        let current_revision = metadata_value_tx(&tx, COORDINATION_REVISION_KEY)?;
-        if let Some(expected_revision) = batch.expected_revision {
-            if expected_revision != current_revision {
-                let event_ids = batch
-                    .appended_events
-                    .iter()
-                    .map(|event| event.meta.id.0.to_string())
-                    .collect::<Vec<_>>();
-                let existing = coordination_events::event_ids_exist_tx(&tx, &event_ids)?;
-                if !batch.appended_events.is_empty()
-                    && batch
+        self.with_immediate_tx(|tx| {
+            let current_revision = metadata_value_tx(tx, COORDINATION_REVISION_KEY)?;
+            if let Some(expected_revision) = batch.expected_revision {
+                if expected_revision != current_revision {
+                    let event_ids = batch
                         .appended_events
                         .iter()
-                        .all(|event| existing.contains(event.meta.id.0.as_str()))
-                {
-                    return Ok(CoordinationPersistResult {
-                        revision: current_revision,
-                        inserted_events: 0,
-                        applied: false,
-                    });
+                        .map(|event| event.meta.id.0.to_string())
+                        .collect::<Vec<_>>();
+                    let existing = coordination_events::event_ids_exist_tx(tx, &event_ids)?;
+                    if !batch.appended_events.is_empty()
+                        && batch
+                            .appended_events
+                            .iter()
+                            .all(|event| existing.contains(event.meta.id.0.as_str()))
+                    {
+                        return Ok(CoordinationPersistResult {
+                            revision: current_revision,
+                            inserted_events: 0,
+                            applied: false,
+                        });
+                    }
+                    anyhow::bail!(
+                        "coordination revision mismatch: expected {}, found {}",
+                        expected_revision,
+                        current_revision
+                    );
                 }
-                anyhow::bail!(
-                    "coordination revision mismatch: expected {}, found {}",
-                    expected_revision,
-                    current_revision
-                );
             }
-        }
 
-        let inserted_events = coordination_events::append_events_tx(&tx, &batch.appended_events)?;
-        snapshots::delete_snapshot_row_tx(&tx, "coordination")?;
-        if inserted_events == 0 {
+            let inserted_events =
+                coordination_events::append_events_tx(tx, &batch.appended_events)?;
+            snapshots::delete_snapshot_row_tx(tx, "coordination")?;
+            if inserted_events == 0 {
+                coordination_mutations::append_mutation_tx(
+                    tx,
+                    current_revision,
+                    batch.expected_revision,
+                    inserted_events,
+                    false,
+                    &batch.context,
+                )?;
+                return Ok(CoordinationPersistResult {
+                    revision: current_revision,
+                    inserted_events,
+                    applied: false,
+                });
+            }
+
+            let revision = bump_metadata_value_tx(tx, COORDINATION_REVISION_KEY)?;
             coordination_mutations::append_mutation_tx(
-                &tx,
-                current_revision,
+                tx,
+                revision,
                 batch.expected_revision,
                 inserted_events,
-                false,
+                true,
                 &batch.context,
             )?;
-            tx.commit()?;
-            return Ok(CoordinationPersistResult {
-                revision: current_revision,
+            Ok(CoordinationPersistResult {
+                revision,
                 inserted_events,
-                applied: false,
-            });
-        }
-
-        let revision = bump_metadata_value_tx(&tx, COORDINATION_REVISION_KEY)?;
-        coordination_mutations::append_mutation_tx(
-            &tx,
-            revision,
-            batch.expected_revision,
-            inserted_events,
-            true,
-            &batch.context,
-        )?;
-        tx.commit()?;
-        Ok(CoordinationPersistResult {
-            revision,
-            inserted_events,
-            applied: true,
+                applied: true,
+            })
         })
     }
 
     fn commit_auxiliary_persist_batch(&mut self, batch: &AuxiliaryPersistBatch) -> Result<()> {
         let outcome_cache = self.outcome_snapshot_cache.clone();
         let episodic_cache = self.episodic_snapshot_cache.clone();
-        let tx = self.conn.transaction()?;
-        let outcome_revision_before = metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?;
-        let episodic_revision_before = metadata_value_tx(&tx, EPISODIC_REVISION_KEY)?;
-        let mut workspace_changed = false;
-        let mut tracked_outcome_snapshot =
-            if batch.outcome_snapshot.is_some() || !batch.outcome_events.is_empty() {
-                cached_snapshot_for_revision(&outcome_cache, outcome_revision_before)
-            } else {
-                None
-            };
-        let appended_outcome_events = outcome_events::append_events_tx(&tx, &batch.outcome_events)?;
-        if appended_outcome_events > 0 {
-            workspace_changed = true;
-            bump_metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?;
-            if let Some(current) = tracked_outcome_snapshot.take() {
-                tracked_outcome_snapshot = Some(crate::outcome_projection::apply_events(
-                    current,
-                    &batch.outcome_events,
-                ));
+        let (
+            outcome_revision,
+            tracked_outcome_snapshot,
+            episodic_revision,
+            tracked_episodic_snapshot,
+        ) = self.with_immediate_tx(|tx| {
+            let outcome_revision_before = metadata_value_tx(tx, OUTCOME_REVISION_KEY)?;
+            let episodic_revision_before = metadata_value_tx(tx, EPISODIC_REVISION_KEY)?;
+            let mut workspace_changed = false;
+            let mut tracked_outcome_snapshot =
+                if batch.outcome_snapshot.is_some() || !batch.outcome_events.is_empty() {
+                    cached_snapshot_for_revision(&outcome_cache, outcome_revision_before)
+                } else {
+                    None
+                };
+            let appended_outcome_events =
+                outcome_events::append_events_tx(tx, &batch.outcome_events)?;
+            if appended_outcome_events > 0 {
+                workspace_changed = true;
+                bump_metadata_value_tx(tx, OUTCOME_REVISION_KEY)?;
+                if let Some(current) = tracked_outcome_snapshot.take() {
+                    tracked_outcome_snapshot = Some(crate::outcome_projection::apply_events(
+                        current,
+                        &batch.outcome_events,
+                    ));
+                }
             }
-        }
-        if let Some(snapshot) = &batch.outcome_snapshot {
-            let current = match tracked_outcome_snapshot.take() {
-                Some(current) => current,
-                None => current_outcome_snapshot_tx(&tx, &outcome_cache)?.1,
-            };
-            let changed = outcome_events::save_snapshot_delta_tx(&tx, current.as_ref(), snapshot)?;
-            workspace_changed |= changed;
-            if changed {
-                bump_metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?;
+            if let Some(snapshot) = &batch.outcome_snapshot {
+                let current = match tracked_outcome_snapshot.take() {
+                    Some(current) => current,
+                    None => current_outcome_snapshot_tx(tx, &outcome_cache)?.1,
+                };
+                let changed =
+                    outcome_events::save_snapshot_delta_tx(tx, current.as_ref(), snapshot)?;
+                workspace_changed |= changed;
+                if changed {
+                    bump_metadata_value_tx(tx, OUTCOME_REVISION_KEY)?;
+                }
+                tracked_outcome_snapshot = Some(if changed {
+                    crate::outcome_projection::merge_snapshot(current, snapshot)
+                } else {
+                    current
+                });
             }
-            tracked_outcome_snapshot = Some(if changed {
-                crate::outcome_projection::merge_snapshot(current, snapshot)
-            } else {
-                current
-            });
-        }
-        let mut tracked_episodic_snapshot =
-            if batch.episodic_snapshot.is_some() || !batch.memory_events.is_empty() {
-                cached_snapshot_for_revision(&episodic_cache, episodic_revision_before)
-            } else {
-                None
-            };
-        let appended_memory_events = memory_entries::append_events_tx(&tx, &batch.memory_events)?;
-        if appended_memory_events > 0 {
-            bump_metadata_value_tx(&tx, EPISODIC_REVISION_KEY)?;
-            if let Some(current) = tracked_episodic_snapshot.take() {
-                tracked_episodic_snapshot = Some(crate::memory_projection::apply_events(
-                    current,
-                    &batch.memory_events,
-                ));
+            let mut tracked_episodic_snapshot =
+                if batch.episodic_snapshot.is_some() || !batch.memory_events.is_empty() {
+                    cached_snapshot_for_revision(&episodic_cache, episodic_revision_before)
+                } else {
+                    None
+                };
+            let appended_memory_events =
+                memory_entries::append_events_tx(tx, &batch.memory_events)?;
+            if appended_memory_events > 0 {
+                bump_metadata_value_tx(tx, EPISODIC_REVISION_KEY)?;
+                if let Some(current) = tracked_episodic_snapshot.take() {
+                    tracked_episodic_snapshot = Some(crate::memory_projection::apply_events(
+                        current,
+                        &batch.memory_events,
+                    ));
+                }
             }
-        }
-        if let Some(snapshot) = &batch.episodic_snapshot {
-            let current = match tracked_episodic_snapshot.take() {
-                Some(current) => current,
-                None => current_episodic_snapshot_tx(&tx, &episodic_cache)?.1,
-            };
-            let changed = memory_entries::save_snapshot_delta_tx(&tx, current.as_ref(), snapshot)?;
-            if changed {
-                bump_metadata_value_tx(&tx, EPISODIC_REVISION_KEY)?;
+            if let Some(snapshot) = &batch.episodic_snapshot {
+                let current = match tracked_episodic_snapshot.take() {
+                    Some(current) => current,
+                    None => current_episodic_snapshot_tx(tx, &episodic_cache)?.1,
+                };
+                let changed =
+                    memory_entries::save_snapshot_delta_tx(tx, current.as_ref(), snapshot)?;
+                if changed {
+                    bump_metadata_value_tx(tx, EPISODIC_REVISION_KEY)?;
+                }
+                tracked_episodic_snapshot = Some(if changed {
+                    crate::memory_projection::merge_snapshot(current, snapshot)
+                } else {
+                    current
+                });
             }
-            tracked_episodic_snapshot = Some(if changed {
-                crate::memory_projection::merge_snapshot(current, snapshot)
-            } else {
-                current
-            });
-        }
-        if inference_records::append_records_tx(&tx, &batch.inference_records)? > 0 {
-            bump_metadata_value_tx(&tx, INFERENCE_REVISION_KEY)?;
-        }
-        if let Some(snapshot) = &batch.inference_snapshot {
-            if inference_records::save_snapshot_tx(&tx, snapshot)? {
-                bump_metadata_value_tx(&tx, INFERENCE_REVISION_KEY)?;
+            if inference_records::append_records_tx(tx, &batch.inference_records)? > 0 {
+                bump_metadata_value_tx(tx, INFERENCE_REVISION_KEY)?;
             }
-        }
-        if let Some(snapshot) = &batch.curator_snapshot {
-            snapshots::save_snapshot_row_tx(&tx, "curator", snapshot)?;
-        }
-        projections::apply_projection_validation_deltas_tx(&tx, &batch.validation_deltas)?;
-        if !batch.validation_deltas.is_empty() {
-            workspace_changed = true;
-        }
-        if workspace_changed {
-            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
-        }
-        let outcome_revision = metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?;
-        let episodic_revision = metadata_value_tx(&tx, EPISODIC_REVISION_KEY)?;
-        tx.commit()?;
+            if let Some(snapshot) = &batch.inference_snapshot {
+                if inference_records::save_snapshot_tx(tx, snapshot)? {
+                    bump_metadata_value_tx(tx, INFERENCE_REVISION_KEY)?;
+                }
+            }
+            if let Some(snapshot) = &batch.curator_snapshot {
+                snapshots::save_snapshot_row_tx(tx, "curator", snapshot)?;
+            }
+            projections::apply_projection_validation_deltas_tx(tx, &batch.validation_deltas)?;
+            if !batch.validation_deltas.is_empty() {
+                workspace_changed = true;
+            }
+            if workspace_changed {
+                bump_metadata_value_tx(tx, WORKSPACE_REVISION_KEY)?;
+            }
+            let outcome_revision = metadata_value_tx(tx, OUTCOME_REVISION_KEY)?;
+            let episodic_revision = metadata_value_tx(tx, EPISODIC_REVISION_KEY)?;
+            Ok((
+                outcome_revision,
+                tracked_outcome_snapshot,
+                episodic_revision,
+                tracked_episodic_snapshot,
+            ))
+        })?;
         if let Some(snapshot) = tracked_outcome_snapshot {
             self.update_outcome_snapshot_cache(outcome_revision, snapshot);
         }
@@ -1071,7 +1107,9 @@ impl Store for SqliteStore {
     ) -> Result<()> {
         let started = Instant::now();
         let outcome_cache = self.outcome_snapshot_cache.clone();
-        let tx = self.conn.transaction()?;
+        let tx = self
+            .conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
         let outcome_revision_before = metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?;
         let mut tracked_outcome_snapshot = if batch.outcome_events.is_empty() {
             None
@@ -1311,49 +1349,49 @@ impl Store for SqliteStore {
     }
 
     fn save_graph_snapshot(&mut self, graph: &Graph) -> Result<()> {
-        let tx = self.conn.transaction()?;
-        graph_io::replace_graph_snapshot_tx(&tx, graph)?;
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            graph_io::replace_graph_snapshot_tx(tx, graph)?;
+            Ok(())
+        })
     }
 
     fn save_file_state(&mut self, path: &Path, graph: &Graph) -> Result<()> {
         let Some(state) = graph.file_state(path) else {
             return Ok(());
         };
-        let tx = self.conn.transaction()?;
-        let mut file_state_writer = graph_io::FileStateWriter::new(&tx)?;
-        file_state_writer.save_file_state(&state)?;
-        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
-        drop(file_state_writer);
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            let mut file_state_writer = graph_io::FileStateWriter::new(tx)?;
+            file_state_writer.save_file_state(&state)?;
+            bump_metadata_value_tx(tx, WORKSPACE_REVISION_KEY)?;
+            drop(file_state_writer);
+            Ok(())
+        })
     }
 
     fn remove_file_state(&mut self, path: &Path) -> Result<()> {
-        let tx = self.conn.transaction()?;
-        let mut file_state_writer = graph_io::FileStateWriter::new(&tx)?;
-        file_state_writer.delete_file_state(path)?;
-        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
-        drop(file_state_writer);
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            let mut file_state_writer = graph_io::FileStateWriter::new(tx)?;
+            file_state_writer.delete_file_state(path)?;
+            bump_metadata_value_tx(tx, WORKSPACE_REVISION_KEY)?;
+            drop(file_state_writer);
+            Ok(())
+        })
     }
 
     fn replace_derived_edges(&mut self, graph: &Graph) -> Result<()> {
-        let tx = self.conn.transaction()?;
-        let _ = graph_io::replace_derived_edges_tx(&tx, graph)?;
-        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            let _ = graph_io::replace_derived_edges_tx(tx, graph)?;
+            bump_metadata_value_tx(tx, WORKSPACE_REVISION_KEY)?;
+            Ok(())
+        })
     }
 
     fn finalize(&mut self, graph: &Graph) -> Result<()> {
-        let tx = self.conn.transaction()?;
-        graph_io::finalize_tx(&tx, graph)?;
-        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            graph_io::finalize_tx(tx, graph)?;
+            bump_metadata_value_tx(tx, WORKSPACE_REVISION_KEY)?;
+            Ok(())
+        })
     }
 }
 
@@ -1445,16 +1483,31 @@ fn configure_reader_connection(conn: &Connection) -> Result<()> {
 }
 
 fn open_store_with_retry<T>(mut open: impl FnMut() -> Result<T>) -> Result<T> {
-    const MAX_ATTEMPTS: usize = 50;
-    const RETRY_DELAY_MS: u64 = 100;
+    retry_on_transient_sqlite_lock(|| open())
+}
 
+pub(super) fn run_with_immediate_tx<T>(
+    conn: &mut Connection,
+    mut op: impl FnMut(&Transaction<'_>) -> Result<T>,
+) -> Result<T> {
+    retry_on_transient_sqlite_lock(|| {
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let value = op(&tx)?;
+        tx.commit()?;
+        Ok(value)
+    })
+}
+
+pub(super) fn retry_on_transient_sqlite_lock<T>(mut op: impl FnMut() -> Result<T>) -> Result<T> {
     let mut attempt = 0usize;
     loop {
-        match open() {
+        match op() {
             Ok(value) => return Ok(value),
-            Err(error) if is_transient_sqlite_lock(&error) && attempt + 1 < MAX_ATTEMPTS => {
+            Err(error)
+                if is_transient_sqlite_lock(&error) && attempt + 1 < SQLITE_LOCK_RETRY_ATTEMPTS =>
+            {
                 attempt += 1;
-                thread::sleep(Duration::from_millis(RETRY_DELAY_MS));
+                thread::sleep(SQLITE_LOCK_RETRY_DELAY);
             }
             Err(error) => return Err(error),
         }

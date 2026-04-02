@@ -379,7 +379,7 @@ pub(super) fn append_local_projection_tx(
     Ok(inserted)
 }
 
-pub(super) fn backfill_event_log_if_needed(conn: &Connection) -> Result<()> {
+pub(super) fn backfill_event_log_if_needed(conn: &mut Connection) -> Result<()> {
     let existing: Option<i64> = conn
         .query_row("SELECT 1 FROM outcome_event_log LIMIT 1", [], |row| {
             row.get(0)
@@ -394,13 +394,14 @@ pub(super) fn backfill_event_log_if_needed(conn: &Connection) -> Result<()> {
         return Ok(());
     };
 
-    let tx = conn.unchecked_transaction()?;
-    append_events_tx(&tx, &snapshot.events)?;
-    tx.commit()?;
+    super::run_with_immediate_tx(conn, |tx| {
+        append_events_tx(tx, &snapshot.events)?;
+        Ok(())
+    })?;
     Ok(())
 }
 
-pub(super) fn backfill_anchor_index_if_needed(conn: &Connection) -> Result<()> {
+pub(super) fn backfill_anchor_index_if_needed(conn: &mut Connection) -> Result<()> {
     if metadata_value(conn, OUTCOME_ANCHOR_INDEX_BACKFILLED_KEY)?.is_some() {
         return Ok(());
     }
@@ -421,24 +422,25 @@ pub(super) fn backfill_anchor_index_if_needed(conn: &Connection) -> Result<()> {
         }
     }
 
-    let tx = conn.unchecked_transaction()?;
-    {
-        let mut stmt = tx.prepare_cached(
-            "INSERT OR IGNORE INTO outcome_event_anchor(event_id, anchor_kind, anchor_value)
-             VALUES (?1, ?2, ?3)",
-        )?;
-        for (event_id, raw) in rows {
-            let event = serde_json::from_str::<OutcomeEvent>(&raw).with_context(|| {
-                "failed to decode outcome event payload from sqlite during anchor index backfill"
-            })?;
-            for anchor in &event.anchors {
-                let (kind, value) = anchor_key(anchor);
-                stmt.execute(params![event_id, kind, value])?;
+    super::run_with_immediate_tx(conn, |tx| {
+        {
+            let mut stmt = tx.prepare_cached(
+                "INSERT OR IGNORE INTO outcome_event_anchor(event_id, anchor_kind, anchor_value)
+                 VALUES (?1, ?2, ?3)",
+            )?;
+            for (event_id, raw) in &rows {
+                let event = serde_json::from_str::<OutcomeEvent>(raw).with_context(|| {
+                    "failed to decode outcome event payload from sqlite during anchor index backfill"
+                })?;
+                for anchor in &event.anchors {
+                    let (kind, value) = anchor_key(anchor);
+                    stmt.execute(params![event_id, kind, value])?;
+                }
             }
         }
-    }
-    set_metadata_value_tx(&tx, OUTCOME_ANCHOR_INDEX_BACKFILLED_KEY, 1)?;
-    tx.commit()?;
+        set_metadata_value_tx(tx, OUTCOME_ANCHOR_INDEX_BACKFILLED_KEY, 1)?;
+        Ok(())
+    })?;
     Ok(())
 }
 
@@ -473,8 +475,7 @@ pub(super) fn compact_hot_patch_payloads_on_open(
         }
     }
 
-    {
-        let tx = conn.transaction()?;
+    super::run_with_immediate_tx(conn, |tx| {
         if !updates.is_empty() {
             let mut stmt =
                 tx.prepare_cached("UPDATE outcome_event_log SET payload = ?2 WHERE sequence = ?1")?;
@@ -482,9 +483,9 @@ pub(super) fn compact_hot_patch_payloads_on_open(
                 stmt.execute(params![sequence, payload])?;
             }
         }
-        set_metadata_value_tx(&tx, PATCH_PAYLOADS_COMPACTED_KEY, 1)?;
-        tx.commit()?;
-    }
+        set_metadata_value_tx(tx, PATCH_PAYLOADS_COMPACTED_KEY, 1)?;
+        Ok(())
+    })?;
 
     let page_size = conn.pragma_query_value(None, "page_size", |row| row.get::<_, i64>(0))? as u64;
     let freelist_count =
