@@ -345,18 +345,7 @@ fn spawn_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
     let mut command = Command::new("/bin/sh");
     command
         .arg("-c")
-        .arg(
-            r#"log_path="$1"
-shift
-exe="$1"
-shift
-nohup /bin/sh -c '
-exe="$1"
-shift
-exec "$exe" "$@" </dev/null >/dev/null 2>/dev/null
-' prism-mcp-daemon-child "$exe" "$@" &
-' prism-mcp-daemon-child "$log_path" "$exe" "$@" "#,
-        )
+        .arg(detached_daemon_launcher_script())
         .arg("prism-mcp-daemon-launcher")
         .arg(&log_path)
         .arg(&current_exe)
@@ -377,6 +366,15 @@ exec "$exe" "$@" </dev/null >/dev/null 2>/dev/null
         ));
     }
     Ok(())
+}
+
+fn detached_daemon_launcher_script() -> &'static str {
+    r#"log_path="$1"
+shift
+exe="$1"
+shift
+nohup "$exe" "$@" </dev/null >>"$log_path" 2>&1 &
+"#
 }
 
 fn write_http_uri_file(path: &Path, uri: &str) -> Result<()> {
@@ -543,13 +541,14 @@ impl Drop for HttpUriFileGuard {
 #[cfg(test)]
 mod tests {
     use super::{
-        auto_bind_host, bind_listener, stable_http_bind_candidates, HttpUriFileGuard,
-        PREFERRED_STABLE_HTTP_BIND_POLL,
+        auto_bind_host, bind_listener, detached_daemon_launcher_script,
+        stable_http_bind_candidates, HttpUriFileGuard, PREFERRED_STABLE_HTTP_BIND_POLL,
     };
     use crate::{PrismMcpCli, PrismMcpMode};
     use prism_core::PrismPaths;
     use std::fs;
     use std::path::PathBuf;
+    use std::process::Command;
     use std::time::{SystemTime, UNIX_EPOCH};
     use tokio::net::TcpListener as TokioTcpListener;
     use tokio::time::sleep;
@@ -632,6 +631,18 @@ mod tests {
         let right = stable_http_bind_candidates("127.0.0.1", &root);
         assert_eq!(left, right);
         assert!(!left.is_empty());
+    }
+
+    #[test]
+    fn detached_daemon_launcher_script_is_valid_sh() {
+        let status = Command::new("/bin/sh")
+            .arg("-n")
+            .arg("-c")
+            .arg(detached_daemon_launcher_script())
+            .status()
+            .unwrap();
+
+        assert!(status.success());
     }
 
     #[tokio::test]

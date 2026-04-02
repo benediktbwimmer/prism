@@ -115,7 +115,9 @@ pub use features::{CoordinationFeatureFlag, PrismMcpFeatures, QueryViewFeatureFl
 use js_runtime::JsWorkerPool;
 use lease_advice::*;
 use lineage_views::*;
-pub use logging::{init_logging, log_process_start, log_top_level_error};
+pub use logging::{
+    init_logging, install_panic_hook, log_process_exit, log_process_start, log_top_level_error,
+};
 use mcp_call_log::*;
 use memory_metadata::*;
 pub(crate) use mutation_provenance::*;

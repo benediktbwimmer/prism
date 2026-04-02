@@ -94,6 +94,72 @@ pub(crate) fn record_process_start(cli: &PrismMcpCli, root: &Path) -> Result<()>
     })
 }
 
+pub(crate) fn record_process_exit(
+    cli: &PrismMcpCli,
+    root: &Path,
+    error_chain: Option<&str>,
+) -> Result<()> {
+    let kind = mode_name(cli.mode).to_string();
+    let pid = std::process::id();
+    update_runtime_state(root, |state| {
+        let process = remove_process(state, pid, &kind);
+        push_event(
+            state,
+            if error_chain.is_some() {
+                "ERROR"
+            } else {
+                "INFO"
+            },
+            if error_chain.is_some() {
+                "prism-mcp exited with error"
+            } else {
+                "prism-mcp exited cleanly"
+            },
+            "prism_mcp::logging",
+            Some("crates/prism-mcp/src/logging.rs"),
+            None,
+            json!({
+                "mode": kind,
+                "pid": pid,
+                "process": process,
+                "errorChain": error_chain,
+            }),
+        );
+    })
+}
+
+pub(crate) fn record_process_panic(
+    cli: &PrismMcpCli,
+    root: &Path,
+    panic_message: Option<&str>,
+    location_file: Option<&str>,
+    location_line: Option<u32>,
+    location_column: Option<u32>,
+) -> Result<()> {
+    let kind = mode_name(cli.mode).to_string();
+    let pid = std::process::id();
+    update_runtime_state(root, |state| {
+        let process = remove_process(state, pid, &kind);
+        push_event(
+            state,
+            "ERROR",
+            "prism-mcp panicked",
+            "prism_mcp::logging",
+            Some("crates/prism-mcp/src/logging.rs"),
+            location_line.map(u64::from),
+            json!({
+                "mode": kind,
+                "pid": pid,
+                "process": process,
+                "panicMessage": panic_message,
+                "locationFile": location_file,
+                "locationLine": location_line,
+                "locationColumn": location_column,
+            }),
+        );
+    })
+}
+
 pub(crate) fn record_workspace_server_built(
     root: &Path,
     features: &PrismMcpFeatures,
@@ -211,6 +277,35 @@ pub(crate) fn record_bridge_connected_with_latency(
     })
 }
 
+pub(crate) fn record_bridge_connection_failure(
+    root: &Path,
+    upstream_uri: &str,
+    phase: &str,
+    reason: &str,
+    attempt: Option<usize>,
+    delay_ms: Option<u128>,
+    error: &str,
+) -> Result<()> {
+    update_runtime_state(root, |state| {
+        push_event(
+            state,
+            "WARN",
+            "prism-mcp bridge failed to connect to upstream",
+            "prism_mcp::proxy_server",
+            Some("crates/prism-mcp/src/proxy_server.rs"),
+            None,
+            json!({
+                "upstreamUri": upstream_uri,
+                "phase": phase,
+                "reason": reason,
+                "attempt": attempt,
+                "delayMs": delay_ms,
+                "error": error,
+            }),
+        );
+    })
+}
+
 pub(crate) fn record_workspace_refresh(
     root: &Path,
     refresh_path: &str,
@@ -281,7 +376,7 @@ fn update_runtime_state(root: &Path, update: impl FnOnce(&mut RuntimeState)) -> 
     let path = default_runtime_state_path(root)?;
     let mut state = read_runtime_state(root)?.unwrap_or_default();
     update(&mut state);
-    prune_dead_processes(&mut state.processes);
+    observe_dead_processes(&mut state);
     dedupe_processes(&mut state.processes);
     trim_events(&mut state.events);
     write_runtime_state(&path, &state)
@@ -348,6 +443,14 @@ fn dedupe_processes(processes: &mut Vec<RuntimeProcessRecord>) {
     processes.retain(|process| seen.insert((process.pid, process.kind.clone())));
 }
 
+fn remove_process(state: &mut RuntimeState, pid: u32, kind: &str) -> Option<RuntimeProcessRecord> {
+    let index = state
+        .processes
+        .iter()
+        .position(|process| process.pid == pid && process.kind == kind)?;
+    Some(state.processes.remove(index))
+}
+
 pub(crate) fn process_is_live(pid: u32) -> bool {
     if pid == 0 {
         return false;
@@ -363,8 +466,28 @@ pub(crate) fn process_is_live(pid: u32) -> bool {
     }
 }
 
-fn prune_dead_processes(processes: &mut Vec<RuntimeProcessRecord>) {
-    processes.retain(|process| process_is_live(process.pid));
+fn observe_dead_processes(state: &mut RuntimeState) {
+    let mut dead = Vec::new();
+    state.processes.retain(|process| {
+        let live = process_is_live(process.pid);
+        if !live {
+            dead.push(process.clone());
+        }
+        live
+    });
+    for process in dead {
+        push_event(
+            state,
+            "WARN",
+            "prism-mcp observed dead runtime process",
+            "prism_mcp::runtime_state",
+            Some("crates/prism-mcp/src/runtime_state.rs"),
+            None,
+            json!({
+                "process": process,
+            }),
+        );
+    }
 }
 
 #[cfg(test)]
@@ -375,7 +498,8 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
-        default_runtime_state_path, process_is_live, read_runtime_state, record_daemon_ready,
+        default_runtime_state_path, process_is_live, read_runtime_state,
+        record_bridge_connection_failure, record_daemon_ready, record_process_exit,
         record_process_start, runtime_state_temp_path, RuntimeProcessRecord, RuntimeState,
     };
     use crate::{PrismMcpCli, PrismMcpMode};
@@ -518,10 +642,103 @@ mod tests {
             .processes
             .iter()
             .all(|process| process.pid != stale_pid));
+        assert!(state.events.iter().any(|event| {
+            event.message == "prism-mcp observed dead runtime process"
+                && event.fields["process"]["pid"] == stale_pid
+        }));
         assert!(state
             .processes
             .iter()
             .any(|process| process.pid == std::process::id() && process.kind == "daemon"));
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn record_process_exit_removes_current_process_and_persists_event() {
+        let root = test_dir("process-exit");
+        let cli = PrismMcpCli {
+            root: root.clone(),
+            mode: PrismMcpMode::Bridge,
+            no_coordination: false,
+            internal_developer: false,
+            enable_coordination: Vec::new(),
+            disable_coordination: Vec::new(),
+            enable_query_view: Vec::new(),
+            disable_query_view: Vec::new(),
+            daemon_log: None,
+            shared_runtime_sqlite: None,
+            shared_runtime_uri: None,
+            restart_nonce: None,
+            daemon_start_timeout_ms: None,
+            http_bind: "127.0.0.1:0".to_string(),
+            http_path: "/mcp".to_string(),
+            health_path: "/healthz".to_string(),
+            http_uri_file: None,
+            upstream_uri: Some("http://127.0.0.1:41000/mcp".to_string()),
+            bootstrap_build_worktree_release: false,
+            bridge_daemon_binary: None,
+            daemonize: false,
+        };
+
+        record_process_start(&cli, &root).unwrap();
+        record_process_exit(&cli, &root, None).unwrap();
+
+        let state = read_runtime_state(&root).unwrap().unwrap();
+        assert!(!state
+            .processes
+            .iter()
+            .any(|process| process.pid == std::process::id() && process.kind == "bridge"));
+        assert!(state.events.iter().any(|event| {
+            event.message == "prism-mcp exited cleanly" && event.fields["pid"] == std::process::id()
+        }));
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn bridge_connection_failure_records_warning_and_prunes_dead_daemon() {
+        let root = test_dir("bridge-connection-failure");
+        let path = default_runtime_state_path(&root).unwrap();
+        let stale_pid = 999_998_u32;
+        fs::write(
+            &path,
+            serde_json::to_vec(&RuntimeState {
+                processes: vec![RuntimeProcessRecord {
+                    pid: stale_pid,
+                    kind: "daemon".to_string(),
+                    started_at: 1,
+                    health_path: Some("/healthz".to_string()),
+                    http_uri: Some("http://127.0.0.1:41000/mcp".to_string()),
+                    upstream_uri: None,
+                    restart_nonce: Some("restart-3".to_string()),
+                }],
+                events: Vec::new(),
+            })
+            .unwrap(),
+        )
+        .unwrap();
+
+        record_bridge_connection_failure(
+            &root,
+            "http://127.0.0.1:41000/mcp",
+            "reconnect",
+            "upstream transport closed before request",
+            Some(2),
+            Some(500),
+            "failed to connect to upstream PRISM MCP server",
+        )
+        .unwrap();
+
+        let state = read_runtime_state(&root).unwrap().unwrap();
+        assert!(state.processes.is_empty());
+        assert!(state.events.iter().any(|event| {
+            event.message == "prism-mcp bridge failed to connect to upstream"
+                && event.fields["phase"] == "reconnect"
+                && event.fields["attempt"] == 2
+        }));
+        assert!(state.events.iter().any(|event| {
+            event.message == "prism-mcp observed dead runtime process"
+                && event.fields["process"]["pid"] == stale_pid
+        }));
         fs::remove_dir_all(root).ok();
     }
 }

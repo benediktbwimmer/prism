@@ -1,5 +1,6 @@
 use std::env;
 use std::io::{self, IsTerminal};
+use std::panic::PanicHookInfo;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Error, Result};
@@ -55,6 +56,40 @@ pub fn init_logging(cli: &PrismMcpCli) -> Result<()> {
     Ok(())
 }
 
+pub fn install_panic_hook(cli: &PrismMcpCli, root: &Path) {
+    let cli = cli.clone();
+    let root = root.to_path_buf();
+    let previous_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        let panic_message = panic_message(panic_info);
+        let location = panic_info.location();
+        if let Err(error) = runtime_state::record_process_panic(
+            &cli,
+            &root,
+            panic_message.as_deref(),
+            location.map(|location| location.file()),
+            location.map(|location| location.line()),
+            location.map(|location| location.column()),
+        ) {
+            error!(
+                error = %error,
+                root = %root.display(),
+                "failed to update prism runtime state after panic"
+            );
+        }
+        error!(
+            mode = %mode_name(cli.mode),
+            root = %root.display(),
+            panic_message = panic_message.as_deref().unwrap_or("<non-string panic payload>"),
+            panic_location = location
+                .map(|location| format!("{}:{}:{}", location.file(), location.line(), location.column()))
+                .unwrap_or_else(|| "<unknown>".to_string()),
+            "prism-mcp panicked"
+        );
+        previous_hook(panic_info);
+    }));
+}
+
 pub fn log_process_start(cli: &PrismMcpCli, root: &Path) {
     if let Err(error) = runtime_state::record_process_start(cli, root) {
         error!(
@@ -86,6 +121,21 @@ pub fn log_process_start(cli: &PrismMcpCli, root: &Path) {
     );
 }
 
+pub fn log_process_exit(cli: &PrismMcpCli, root: &Path) {
+    if let Err(error) = runtime_state::record_process_exit(cli, root, None) {
+        error!(
+            error = %error,
+            root = %root.display(),
+            "failed to update prism runtime state on clean exit"
+        );
+    }
+    info!(
+        mode = %mode_name(cli.mode),
+        root = %root.display(),
+        "prism-mcp exited cleanly"
+    );
+}
+
 fn fallback_sidecar_path(
     root: &Path,
     file_name: &str,
@@ -97,11 +147,21 @@ fn fallback_sidecar_path(
 }
 
 pub fn log_top_level_error(cli: &PrismMcpCli, root: &Path, error_value: &Error) {
+    let error_chain = format_error_chain(error_value);
+    if let Err(runtime_state_error) =
+        runtime_state::record_process_exit(cli, root, Some(&error_chain))
+    {
+        error!(
+            error = %runtime_state_error,
+            root = %root.display(),
+            "failed to update prism runtime state on error exit"
+        );
+    }
     error!(
         mode = %mode_name(cli.mode),
         root = %root.display(),
         error = %error_value,
-        error_chain = %format_error_chain(error_value),
+        error_chain = %error_chain,
         "prism-mcp exited with error"
     );
 }
@@ -146,6 +206,14 @@ fn default_filter(mode: PrismMcpMode) -> &'static str {
             "warn,rmcp=error,rmcp::service=warn,prism_mcp=info,prism_core=info,prism_store=info,prism_query=info,prism_lang_json=info,prism_lang_yaml=info"
         }
     }
+}
+
+fn panic_message(panic_info: &PanicHookInfo<'_>) -> Option<String> {
+    panic_info
+        .payload()
+        .downcast_ref::<&str>()
+        .map(|message| (*message).to_string())
+        .or_else(|| panic_info.payload().downcast_ref::<String>().cloned())
 }
 
 #[cfg(test)]
