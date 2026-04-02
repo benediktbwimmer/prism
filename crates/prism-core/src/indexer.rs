@@ -150,13 +150,12 @@ impl WorkspaceIndexer<SqliteStore> {
             } else {
                 indexer.store.load_projection_snapshot_without_co_change()?
             };
-            let local_has_derived_projection_snapshot = if options.hydrate_persisted_projections
-                || options.hydrate_persisted_co_change
-            {
-                local_projection_snapshot.is_some()
-            } else {
-                indexer.store.has_derived_projection_snapshot()?
-            };
+            let local_has_derived_projection_snapshot =
+                if options.hydrate_persisted_projections || options.hydrate_persisted_co_change {
+                    local_projection_snapshot.is_some()
+                } else {
+                    indexer.store.has_derived_projection_snapshot()?
+                };
             let shared_projection_snapshot = if shared_runtime_aliases_workspace_store {
                 None
             } else {
@@ -175,9 +174,8 @@ impl WorkspaceIndexer<SqliteStore> {
             } else {
                 None
             };
-            indexer.outcomes = if local_has_derived_projection_snapshot
-                || shared_projection_snapshot.is_some()
-            {
+            indexer.outcomes =
+                if local_has_derived_projection_snapshot || shared_projection_snapshot.is_some() {
                     shared_store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
                 } else {
                     shared_store.load_outcome_snapshot()?
@@ -522,13 +520,12 @@ impl<S: Store> WorkspaceIndexer<S> {
         } else {
             store.load_projection_snapshot_without_co_change()?
         };
-        let local_has_derived_projection_snapshot = if options.hydrate_persisted_projections
-            || options.hydrate_persisted_co_change
-        {
-            persisted_projection_snapshot.is_some()
-        } else {
-            store.has_derived_projection_snapshot()?
-        };
+        let local_has_derived_projection_snapshot =
+            if options.hydrate_persisted_projections || options.hydrate_persisted_co_change {
+                persisted_projection_snapshot.is_some()
+            } else {
+                store.has_derived_projection_snapshot()?
+            };
         let workspace_tree_snapshot = store.load_workspace_tree_snapshot()?;
         let base_projection_snapshot = persisted_projection_snapshot.clone().map(|snapshot| {
             if options.hydrate_persisted_projections {
@@ -1046,6 +1043,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             }
         }
         let remove_missing_ms = remove_missing_started.elapsed().as_millis();
+        let workspace_tree_snapshot_started = Instant::now();
         let workspace_tree_snapshot = match next_tree_snapshot {
             Some(snapshot) => Some(snapshot.clone()),
             None => Some(build_workspace_tree_snapshot(
@@ -1053,6 +1051,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                 self.workspace_tree_snapshot.as_ref(),
             )?),
         };
+        let workspace_tree_snapshot_ms = workspace_tree_snapshot_started.elapsed().as_millis();
         if observed_changes.is_empty()
             && changes.is_empty()
             && upserted_paths.is_empty()
@@ -1075,6 +1074,12 @@ impl<S: Store> WorkspaceIndexer<S> {
                 collect_pending_ms,
                 parse_apply_ms,
                 remove_missing_ms,
+                rebuild_graph_indexes_ms = 0,
+                workspace_tree_snapshot_ms,
+                seed_node_lineages_ms = 0,
+                projection_snapshot_ms = 0,
+                history_delta_ms = 0,
+                build_persist_batch_ms = 0,
                 total_ms = started.elapsed().as_millis(),
                 "skipped downstream prism indexing phases because workspace state is unchanged"
             );
@@ -1110,11 +1115,19 @@ impl<S: Store> WorkspaceIndexer<S> {
                 collect_pending_ms,
                 parse_apply_ms,
                 remove_missing_ms,
+                rebuild_graph_indexes_ms = 0,
+                workspace_tree_snapshot_ms,
                 resolve_calls_ms = 0,
                 resolve_imports_ms = 0,
                 resolve_impls_ms = 0,
                 resolve_intents_ms = 0,
                 resolve_edges_ms = 0,
+                seed_node_lineages_ms = 0,
+                projection_snapshot_ms = 0,
+                history_delta_ms = 0,
+                build_persist_batch_ms = 0,
+                shared_outcome_append_ms = 0,
+                materialize_enqueue_ms = 0,
                 persist_ms = 0,
                 reanchor_memory_ms = 0,
                 total_ms = started.elapsed().as_millis(),
@@ -1192,9 +1205,12 @@ impl<S: Store> WorkspaceIndexer<S> {
             resolve_edges_ms,
             "finished prism edge resolution phase"
         );
+        let seed_node_lineages_started = Instant::now();
         let seeded_node_lineages = self
             .history
             .seed_nodes(self.graph.all_nodes().map(|node| node.id.clone()));
+        let seed_node_lineages_ms = seed_node_lineages_started.elapsed().as_millis();
+        let projection_snapshot_started = Instant::now();
         let projection_snapshot = (!self.had_projection_snapshot).then(|| {
             let snapshot = self.projections.snapshot();
             if self.shared_runtime_store.is_some() {
@@ -1203,15 +1219,19 @@ impl<S: Store> WorkspaceIndexer<S> {
                 snapshot
             }
         });
+        let projection_snapshot_ms = projection_snapshot_started.elapsed().as_millis();
+        let history_delta_started = Instant::now();
         let history_delta = self.had_prior_snapshot.then(|| {
             self.history
                 .persistence_delta(&all_lineage_events, &seeded_node_lineages)
         });
+        let history_delta_ms = history_delta_started.elapsed().as_millis();
         let upserted_file_count = upserted_paths.len() + in_place_upserted_paths.len();
         let removed_file_count = removed_paths.len();
         let co_change_delta_count = co_change_deltas.len();
         let validation_delta_count = validation_deltas.len();
         let deferred_materializer = self.checkpoint_materializer.clone();
+        let build_persist_batch_started = Instant::now();
         let batch = IndexPersistBatch {
             upserted_paths,
             in_place_upserted_paths,
@@ -1247,6 +1267,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             local_batch.outcome_snapshot = OutcomeMemorySnapshot { events: Vec::new() };
             local_batch.outcome_events.clear();
         }
+        let build_persist_batch_ms = build_persist_batch_started.elapsed().as_millis();
         let skip_persist = self.had_prior_snapshot
             && self.had_projection_snapshot
             && local_batch.upserted_paths.is_empty()
@@ -1283,6 +1304,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             );
             persist_ms
         };
+        let shared_outcome_append_started = Instant::now();
         if let Some(shared_runtime_store) = self.shared_runtime_store.as_mut() {
             if !batch.outcome_events.is_empty() {
                 prism_store::EventJournalStore::append_outcome_events(
@@ -1294,6 +1316,8 @@ impl<S: Store> WorkspaceIndexer<S> {
                     .append_local_outcome_projection(&batch.outcome_events)?;
             }
         }
+        let shared_outcome_append_ms = shared_outcome_append_started.elapsed().as_millis();
+        let mut materialize_enqueue_ms = 0;
         if let Some(materializer) = deferred_materializer {
             let materialize_started = Instant::now();
             let graph_result = materializer.enqueue_graph_snapshot(self.graph.snapshot());
@@ -1325,7 +1349,9 @@ impl<S: Store> WorkspaceIndexer<S> {
                     materialize_ms = materialize_started.elapsed().as_millis(),
                     "failed to enqueue prism index materializations; fell back to synchronous persistence"
                 );
+                materialize_enqueue_ms = materialize_started.elapsed().as_millis();
             } else {
+                materialize_enqueue_ms = materialize_started.elapsed().as_millis();
                 info!(
                     root = %self.root.display(),
                     targeted_refresh,
@@ -1414,11 +1440,19 @@ impl<S: Store> WorkspaceIndexer<S> {
             collect_pending_ms,
             parse_apply_ms,
             remove_missing_ms,
+            rebuild_graph_indexes_ms,
+            workspace_tree_snapshot_ms,
             resolve_calls_ms = resolve_edge_stats.resolve_calls_ms,
             resolve_imports_ms = resolve_edge_stats.resolve_imports_ms,
             resolve_impls_ms = resolve_edge_stats.resolve_impls_ms,
             resolve_intents_ms = resolve_edge_stats.resolve_intents_ms,
             resolve_edges_ms,
+            seed_node_lineages_ms,
+            projection_snapshot_ms,
+            history_delta_ms,
+            build_persist_batch_ms,
+            shared_outcome_append_ms,
+            materialize_enqueue_ms,
             persist_ms,
             reanchor_memory_ms,
             total_ms = started.elapsed().as_millis(),

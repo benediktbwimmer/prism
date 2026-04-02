@@ -57,7 +57,7 @@ Use PRISM MCP as the primary repo-awareness surface when it is available.
 ## Mutations
 
 - Use explicit PRISM mutation tools when durable state should be recorded instead of leaving it implicit.
-- Use `prism_session` with action `start_task` when beginning a meaningful unit of work and no suitable active task already exists.
+- Do not rely on a separate `prism_session` mutation tool; use `prism://session` to inspect current context and let the first `prism_mutate` create a task implicitly when no active task exists.
 - Use `prism_mutate` with actions `outcome`, `test_ran`, `failure_observed`, and `fix_validated` to record meaningful task results.
 - Use `prism_mutate` with action `memory` to store anchored memory when you learn something worth preserving.
 - Use the persistence ladder intentionally:

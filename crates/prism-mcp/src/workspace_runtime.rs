@@ -16,7 +16,8 @@ use prism_core::runtime_engine::{
     WorkspaceRuntimePathRequest, WorkspaceRuntimeQueueClass, WorkspaceRuntimeQueueSnapshot,
 };
 use prism_core::{
-    FsRefreshStatus, WorkspaceRefreshWork, WorkspaceSession, WorkspaceSnapshotRevisions,
+    FsRefreshStatus, WorkspaceRefreshBreakdown, WorkspaceRefreshWork, WorkspaceSession,
+    WorkspaceSnapshotRevisions,
 };
 use prism_ir::ObservedChangeSet;
 use prism_memory::{EpisodicMemorySnapshot, SessionMemory};
@@ -92,6 +93,20 @@ fn refresh_work(metrics: WorkspaceRefreshMetrics) -> WorkspaceRefreshWork {
         full_rebuild_count: metrics.full_rebuild_count,
         workspace_reloaded: metrics.workspace_reloaded,
     }
+}
+
+fn apply_refresh_breakdown(
+    metrics: &mut WorkspaceRefreshMetrics,
+    breakdown: WorkspaceRefreshBreakdown,
+) {
+    metrics.plan_refresh_ms = breakdown.plan_refresh_ms;
+    metrics.build_indexer_ms = breakdown.build_indexer_ms;
+    metrics.index_workspace_ms = breakdown.index_workspace_ms;
+    metrics.publish_generation_ms = breakdown.publish_generation_ms;
+    metrics.assisted_lease_ms = breakdown.assisted_lease_ms;
+    metrics.curator_enqueue_ms = breakdown.curator_enqueue_ms;
+    metrics.attach_cold_query_backends_ms = breakdown.attach_cold_query_backends_ms;
+    metrics.finalize_refresh_state_ms = breakdown.finalize_refresh_state_ms;
 }
 
 fn dirty_workspace_deferred_report(
@@ -739,6 +754,7 @@ fn sync_workspace_runtime_with_guard(
         replay_volume: reload_materialization.replay_volume,
         full_rebuild_count: u64::from(refresh_path == "full"),
         workspace_reloaded: refresh_path == "full",
+        ..WorkspaceRefreshMetrics::default()
     };
     publish_runtime_generation(
         config,
@@ -895,6 +911,7 @@ fn sync_workspace_runtime_for_read_with_guard(
         replay_volume: reload_materialization.replay_volume,
         full_rebuild_count: 0,
         workspace_reloaded: false,
+        ..WorkspaceRefreshMetrics::default()
     };
     publish_runtime_generation(config, &revisions, refresh_path, Vec::new(), None);
     if deferred {
@@ -1114,7 +1131,10 @@ pub(crate) fn sync_persisted_workspace_state(
         replay_volume: reload_materialization.replay_volume,
         full_rebuild_count: u64::from(workspace_reloaded),
         workspace_reloaded,
+        ..WorkspaceRefreshMetrics::default()
     };
+    let mut metrics = metrics;
+    apply_refresh_breakdown(&mut metrics, refresh_outcome.breakdown);
     publish_runtime_generation(
         config,
         &revisions,
@@ -1280,7 +1300,10 @@ fn run_workspace_prepare_paths_command(
         replay_volume: 0,
         full_rebuild_count: u64::from(workspace_reloaded),
         workspace_reloaded,
+        ..WorkspaceRefreshMetrics::default()
     };
+    let mut metrics = metrics;
+    apply_refresh_breakdown(&mut metrics, refresh_outcome.breakdown);
     let report = WorkspaceRefreshReport {
         refresh_path,
         runtime_sync_used: true,
@@ -1532,6 +1555,7 @@ fn sync_workspace_settle_domain(
         replay_volume: reload_materialization.replay_volume,
         full_rebuild_count: 0,
         workspace_reloaded: false,
+        ..WorkspaceRefreshMetrics::default()
     };
     let refresh_path = if episodic_reloaded || inference_reloaded || coordination_reloaded {
         "settle"
@@ -1991,6 +2015,7 @@ fn sync_workspace_runtime_checkpoint_with_guard(
         replay_volume: 0,
         full_rebuild_count: 0,
         workspace_reloaded: false,
+        ..WorkspaceRefreshMetrics::default()
     };
     publish_runtime_generation(config, &revisions, "checkpoint", Vec::new(), Some(false));
     log_refresh_workspace(

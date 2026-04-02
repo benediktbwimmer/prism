@@ -16,6 +16,14 @@ fn should_emit_breakdown(report: &WorkspaceRefreshReport) -> bool {
         || report.metrics.lock_wait_ms > 0
         || report.metrics.lock_hold_ms > 0
         || report.metrics.fs_refresh_ms > 0
+        || report.metrics.plan_refresh_ms > 0
+        || report.metrics.build_indexer_ms > 0
+        || report.metrics.index_workspace_ms > 0
+        || report.metrics.publish_generation_ms > 0
+        || report.metrics.assisted_lease_ms > 0
+        || report.metrics.curator_enqueue_ms > 0
+        || report.metrics.attach_cold_query_backends_ms > 0
+        || report.metrics.finalize_refresh_state_ms > 0
         || report.metrics.snapshot_revisions_ms > 0
         || report.metrics.load_episodic_ms > 0
         || report.metrics.load_inference_ms > 0
@@ -55,6 +63,62 @@ fn phase_specs(
                 "workspaceReloaded": report.metrics.workspace_reloaded,
             }),
             duration_from_ms(report.metrics.fs_refresh_ms),
+            true,
+            None,
+        ),
+        (
+            "runtimeSync.planRefresh",
+            json!({ "refreshPath": report.refresh_path }),
+            duration_from_ms(report.metrics.plan_refresh_ms),
+            true,
+            None,
+        ),
+        (
+            "runtimeSync.buildIndexer",
+            json!({ "refreshPath": report.refresh_path }),
+            duration_from_ms(report.metrics.build_indexer_ms),
+            true,
+            None,
+        ),
+        (
+            "runtimeSync.indexWorkspace",
+            json!({ "refreshPath": report.refresh_path }),
+            duration_from_ms(report.metrics.index_workspace_ms),
+            true,
+            None,
+        ),
+        (
+            "runtimeSync.publishGeneration",
+            json!({ "refreshPath": report.refresh_path }),
+            duration_from_ms(report.metrics.publish_generation_ms),
+            true,
+            None,
+        ),
+        (
+            "runtimeSync.assistedLease",
+            json!({ "refreshPath": report.refresh_path }),
+            duration_from_ms(report.metrics.assisted_lease_ms),
+            true,
+            None,
+        ),
+        (
+            "runtimeSync.enqueueCurator",
+            json!({ "refreshPath": report.refresh_path }),
+            duration_from_ms(report.metrics.curator_enqueue_ms),
+            true,
+            None,
+        ),
+        (
+            "runtimeSync.attachColdQueryBackends",
+            json!({ "refreshPath": report.refresh_path }),
+            duration_from_ms(report.metrics.attach_cold_query_backends_ms),
+            true,
+            None,
+        ),
+        (
+            "runtimeSync.finalizeRefreshState",
+            json!({ "refreshPath": report.refresh_path }),
+            duration_from_ms(report.metrics.finalize_refresh_state_ms),
             true,
             None,
         ),

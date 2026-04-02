@@ -590,6 +590,14 @@ struct WorkspaceRefreshMetrics {
     pub(crate) lock_wait_ms: u64,
     pub(crate) lock_hold_ms: u64,
     pub(crate) fs_refresh_ms: u64,
+    pub(crate) plan_refresh_ms: u64,
+    pub(crate) build_indexer_ms: u64,
+    pub(crate) index_workspace_ms: u64,
+    pub(crate) publish_generation_ms: u64,
+    pub(crate) assisted_lease_ms: u64,
+    pub(crate) curator_enqueue_ms: u64,
+    pub(crate) attach_cold_query_backends_ms: u64,
+    pub(crate) finalize_refresh_state_ms: u64,
     pub(crate) snapshot_revisions_ms: u64,
     pub(crate) load_episodic_ms: u64,
     pub(crate) load_inference_ms: u64,
@@ -606,6 +614,14 @@ impl WorkspaceRefreshMetrics {
             "lockWaitMs": self.lock_wait_ms,
             "lockHoldMs": self.lock_hold_ms,
             "fsRefreshMs": self.fs_refresh_ms,
+            "planRefreshMs": self.plan_refresh_ms,
+            "buildIndexerMs": self.build_indexer_ms,
+            "indexWorkspaceMs": self.index_workspace_ms,
+            "publishGenerationMs": self.publish_generation_ms,
+            "assistedLeaseMs": self.assisted_lease_ms,
+            "curatorEnqueueMs": self.curator_enqueue_ms,
+            "attachColdQueryBackendsMs": self.attach_cold_query_backends_ms,
+            "finalizeRefreshStateMs": self.finalize_refresh_state_ms,
             "snapshotRevisionsMs": self.snapshot_revisions_ms,
             "loadEpisodicMs": self.load_episodic_ms,
             "loadInferenceMs": self.load_inference_ms,
@@ -836,7 +852,7 @@ impl QueryHost {
         } else if args.current_task_description.is_some() || args.current_task_tags.is_some() {
             if session.current_task_state().is_none() {
                 return Err(anyhow!(
-                    "no active task is set; use prism_session with action `start_task` or provide currentTaskId"
+                    "no active task is set; provide currentTaskId before attaching description or tags, or let the next prism_mutate create a task implicitly"
                 ));
             }
             session.update_current_task_metadata(
@@ -1220,6 +1236,14 @@ fn log_refresh_workspace(
             lock_wait_ms = metrics.lock_wait_ms,
             lock_hold_ms = metrics.lock_hold_ms,
             fs_refresh_ms = metrics.fs_refresh_ms,
+            plan_refresh_ms = metrics.plan_refresh_ms,
+            build_indexer_ms = metrics.build_indexer_ms,
+            index_workspace_ms = metrics.index_workspace_ms,
+            publish_generation_ms = metrics.publish_generation_ms,
+            assisted_lease_ms = metrics.assisted_lease_ms,
+            curator_enqueue_ms = metrics.curator_enqueue_ms,
+            attach_cold_query_backends_ms = metrics.attach_cold_query_backends_ms,
+            finalize_refresh_state_ms = metrics.finalize_refresh_state_ms,
             snapshot_revisions_ms = metrics.snapshot_revisions_ms,
             load_episodic_ms = metrics.load_episodic_ms,
             load_inference_ms = metrics.load_inference_ms,
@@ -1241,6 +1265,14 @@ fn log_refresh_workspace(
             lock_wait_ms = metrics.lock_wait_ms,
             lock_hold_ms = metrics.lock_hold_ms,
             fs_refresh_ms = metrics.fs_refresh_ms,
+            plan_refresh_ms = metrics.plan_refresh_ms,
+            build_indexer_ms = metrics.build_indexer_ms,
+            index_workspace_ms = metrics.index_workspace_ms,
+            publish_generation_ms = metrics.publish_generation_ms,
+            assisted_lease_ms = metrics.assisted_lease_ms,
+            curator_enqueue_ms = metrics.curator_enqueue_ms,
+            attach_cold_query_backends_ms = metrics.attach_cold_query_backends_ms,
+            finalize_refresh_state_ms = metrics.finalize_refresh_state_ms,
             snapshot_revisions_ms = metrics.snapshot_revisions_ms,
             load_episodic_ms = metrics.load_episodic_ms,
             load_inference_ms = metrics.load_inference_ms,

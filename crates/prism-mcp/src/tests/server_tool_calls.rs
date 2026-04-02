@@ -68,50 +68,6 @@ async fn mcp_server_reports_actionable_tool_input_errors() {
 }
 
 #[tokio::test]
-async fn mcp_server_accepts_flat_prism_session_shorthand_input() {
-    let server = server_with_node(demo_node());
-    let (server_transport, client_transport) = tokio::io::duplex(4096);
-    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
-    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
-
-    let _ = initialize_client(&mut client).await;
-    client.send(initialized_notification()).await.unwrap();
-    let running = server_task
-        .await
-        .expect("server join should succeed")
-        .expect("server should initialize");
-
-    client
-        .send(call_tool_request(
-            2,
-            "prism_session",
-            json!({
-                "action": "start_task",
-                "description": "Investigate shorthand prism session input",
-                "tags": ["mcp", "ergonomics"]
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
-        ))
-        .await
-        .unwrap();
-
-    let envelope = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(envelope["action"], "start_task");
-    assert_eq!(
-        envelope["session"]["currentTask"]["description"],
-        "Investigate shorthand prism session input"
-    );
-    assert_eq!(
-        envelope["session"]["currentTask"]["tags"][0],
-        Value::String("mcp".to_string())
-    );
-
-    running.cancel().await.unwrap();
-}
-
-#[tokio::test]
 async fn mcp_server_accepts_snake_case_compact_tool_aliases() {
     let root = temp_workspace();
     std::fs::write(
@@ -233,31 +189,11 @@ async fn mcp_tool_call_logs_inherit_request_envelope_phases() {
         .unwrap();
     let _ = first_tool_content_json(client.receive().await.unwrap());
 
-    client
-        .send(call_tool_request(
-            3,
-            "prism_session",
-            json!({
-                "action": "start_task",
-                "description": "Verify request envelope inheritance"
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
-        ))
-        .await
-        .unwrap();
-    let _ = first_tool_content_json(client.receive().await.unwrap());
-
     let records = server_handle.host.mcp_call_log_store.records();
     let prism_query = records
         .iter()
         .find(|record| record.entry.call_type == "tool" && record.entry.name == "prism_query")
         .expect("prism_query tool record should exist");
-    let prism_session = records
-        .iter()
-        .find(|record| record.entry.call_type == "tool" && record.entry.name == "prism_session")
-        .expect("prism_session tool record should exist");
     let surfaced_entries = server_handle.host.mcp_call_entries(crate::McpLogArgs {
         limit: Some(20),
         since: None,
@@ -275,35 +211,26 @@ async fn mcp_tool_call_logs_inherit_request_envelope_phases() {
         .count();
     assert_eq!(delegated_request_wrappers, 0);
 
-    for record in [prism_query, prism_session] {
-        let operations = record
-            .phases
-            .iter()
-            .map(|phase| phase.operation.as_str())
-            .collect::<Vec<_>>();
-        assert!(operations.contains(&"mcp.receiveRequest"));
-        assert!(operations.contains(&"mcp.routeRequest"));
-        assert!(operations.contains(&"mcp.executeHandler"));
-        assert!(operations.contains(&"mcp.encodeResponse"));
-        let receive_started_at = record
-            .phases
-            .iter()
-            .find(|phase| phase.operation == "mcp.receiveRequest")
-            .map(|phase| phase.started_at)
-            .expect("mcp.receiveRequest phase should exist");
-        assert_eq!(record.entry.started_at, receive_started_at);
-    }
+    let operations = prism_query
+        .phases
+        .iter()
+        .map(|phase| phase.operation.as_str())
+        .collect::<Vec<_>>();
+    assert!(operations.contains(&"mcp.receiveRequest"));
+    assert!(operations.contains(&"mcp.routeRequest"));
+    assert!(operations.contains(&"mcp.executeHandler"));
+    assert!(operations.contains(&"mcp.encodeResponse"));
+    let receive_started_at = prism_query
+        .phases
+        .iter()
+        .find(|phase| phase.operation == "mcp.receiveRequest")
+        .map(|phase| phase.started_at)
+        .expect("mcp.receiveRequest phase should exist");
+    assert_eq!(prism_query.entry.started_at, receive_started_at);
     assert_eq!(
         prism_query.request_payload.as_ref(),
         Some(&json!({
             "code": "return { ok: true };"
-        }))
-    );
-    assert_eq!(
-        prism_session.request_payload.as_ref(),
-        Some(&json!({
-            "action": "start_task",
-            "description": "Verify request envelope inheritance"
         }))
     );
     let query_operations = prism_query
@@ -390,65 +317,6 @@ fn prism_mutate_coordination_rejects_missing_typed_payload_fields() {
 
     let message = error.to_string();
     assert!(message.contains("goal"), "{message}");
-}
-
-#[tokio::test]
-async fn mcp_server_accepts_prism_session_start_task_aliases() {
-    let server = server_with_node(demo_node());
-    let (server_transport, client_transport) = tokio::io::duplex(4096);
-    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
-    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
-
-    let _ = initialize_client(&mut client).await;
-    client.send(initialized_notification()).await.unwrap();
-    let running = server_task
-        .await
-        .expect("server join should succeed")
-        .expect("server should initialize");
-
-    client
-        .send(call_tool_request(
-            2,
-            "prism_session",
-            json!({
-                "action": "start_task",
-                "label": "Investigate aliased prism session input",
-                "tags": ["mcp", "ergonomics"]
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
-        ))
-        .await
-        .unwrap();
-
-    let envelope = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(envelope["action"], "start_task");
-    assert_eq!(
-        envelope["session"]["currentTask"]["description"],
-        "Investigate aliased prism session input"
-    );
-
-    running.cancel().await.unwrap();
-}
-
-#[test]
-fn prism_session_accepts_bind_coordination_task_action() {
-    let args = serde_json::from_value::<PrismSessionArgs>(json!({
-        "action": "bind_coordination_task",
-        "coordinationTaskId": "coord-task:12",
-        "tags": ["coordination", "dogfood"]
-    }))
-    .expect("bind_coordination_task shorthand should deserialize");
-
-    let PrismSessionArgs::BindCoordinationTask(args) = args else {
-        panic!("expected bind_coordination_task action");
-    };
-    assert_eq!(args.coordination_task_id, "coord-task:12");
-    assert_eq!(
-        args.tags,
-        Some(vec!["coordination".to_string(), "dogfood".to_string()])
-    );
 }
 
 #[tokio::test]

@@ -45,7 +45,7 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .iter()
         .filter_map(|tool| tool["name"].as_str())
         .collect::<Vec<_>>();
-    assert_eq!(tool_names.len(), 10);
+    assert_eq!(tool_names.len(), 9);
     assert!(tool_names.contains(&"prism_locate"));
     assert!(tool_names.contains(&"prism_gather"));
     assert!(tool_names.contains(&"prism_open"));
@@ -54,8 +54,8 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
     assert!(tool_names.contains(&"prism_task_brief"));
     assert!(tool_names.contains(&"prism_concept"));
     assert!(tool_names.contains(&"prism_query"));
-    assert!(tool_names.contains(&"prism_session"));
     assert!(tool_names.contains(&"prism_mutate"));
+    assert!(!tool_names.contains(&"prism_session"));
     for tool in tools["result"]["tools"].as_array().unwrap() {
         assert_eq!(tool["inputSchema"]["type"], "object");
     }
@@ -81,23 +81,6 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         "object"
     );
     assert!(mutate_schema.contains("schema/tool/prism_mutate/action/{action}"));
-
-    let session_tool = tools["result"]["tools"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|tool| tool["name"] == "prism_session")
-        .expect("prism_session tool should exist");
-    assert_eq!(
-        session_tool["inputSchema"]["required"],
-        json!(["action", "input"])
-    );
-    assert!(session_tool["inputSchema"]["oneOf"].is_null());
-    assert!(session_tool["inputSchema"]["properties"]["action"]["enum"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|value| value == "start_task"));
 
     client.send(list_resources_request(3)).await.unwrap();
     let resources = response_json(client.receive().await.unwrap());
@@ -394,27 +377,6 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
     client
         .send(read_resource_request(
             5,
-            "prism://schema/tool/prism_session",
-        ))
-        .await
-        .unwrap();
-    let session_schema = response_json(client.receive().await.unwrap());
-    let session_schema_payload = serde_json::from_str::<Value>(
-        session_schema["result"]["contents"][0]["text"]
-            .as_str()
-            .expect("tool schema should be text"),
-    )
-    .unwrap();
-    assert_eq!(session_schema_payload["type"], "object");
-    assert!(session_schema_payload.get("oneOf").is_some());
-    assert_eq!(
-        session_schema_payload["examples"][0]["action"],
-        "start_task"
-    );
-
-    client
-        .send(read_resource_request(
-            6,
             "prism://schema/tool/prism_mutate/action/coordination",
         ))
         .await
@@ -446,7 +408,7 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
 
     client
         .send(read_resource_request(
-            7,
+            6,
             "prism://schema/tool/prism_mutate/action/validation_feedback",
         ))
         .await

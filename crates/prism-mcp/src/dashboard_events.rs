@@ -596,11 +596,8 @@ impl Drop for MutationRun {
 }
 
 fn tool_name_for_action(action: &str) -> &str {
-    if action.starts_with("session.") {
-        "prism_session"
-    } else {
-        "prism_mutate"
-    }
+    let _ = action;
+    "prism_mutate"
 }
 
 impl QueryRun {

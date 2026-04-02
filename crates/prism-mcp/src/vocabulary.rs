@@ -13,34 +13,6 @@ pub(crate) struct VocabularyCategorySpec {
     pub(crate) values: &'static [VocabularyValueSpec],
 }
 
-const PRISM_SESSION_ACTIONS: &[VocabularyValueSpec] = &[
-    VocabularyValueSpec {
-        value: "start_task",
-        aliases: &[],
-        description: "Start a local PRISM task journal for the current session.",
-    },
-    VocabularyValueSpec {
-        value: "bind_coordination_task",
-        aliases: &[],
-        description: "Bind the current session to an existing coordination task.",
-    },
-    VocabularyValueSpec {
-        value: "configure",
-        aliases: &[],
-        description: "Adjust session task, agent, or limit settings.",
-    },
-    VocabularyValueSpec {
-        value: "finish_task",
-        aliases: &[],
-        description: "Mark the current or specified PRISM task as completed.",
-    },
-    VocabularyValueSpec {
-        value: "abandon_task",
-        aliases: &[],
-        description: "Mark the current or specified PRISM task as abandoned.",
-    },
-];
-
 const PRISM_MUTATE_ACTIONS: &[VocabularyValueSpec] = &[
     VocabularyValueSpec {
         value: "outcome",
@@ -692,12 +664,6 @@ const PRISM_CONCEPT_LENSES: &[VocabularyValueSpec] = &[
 ];
 
 const VOCABULARY_CATEGORIES: &[VocabularyCategorySpec] = &[
-    VocabularyCategorySpec {
-        key: "prismSessionAction",
-        title: "PRISM Session Actions",
-        description: "Top-level action values accepted by prism_session.",
-        values: PRISM_SESSION_ACTIONS,
-    },
     VocabularyCategorySpec {
         key: "prismMutateAction",
         title: "PRISM Mutate Actions",

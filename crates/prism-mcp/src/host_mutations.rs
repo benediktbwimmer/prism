@@ -326,6 +326,7 @@ impl QueryHost {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn start_task(
         &self,
         session: &SessionState,
@@ -412,6 +413,7 @@ impl QueryHost {
         self.close_task_without_refresh(session, args, TaskClosureDisposition::Abandoned)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn finish_task_without_refresh(
         &self,
         session: &SessionState,
@@ -420,6 +422,7 @@ impl QueryHost {
         self.close_task_without_refresh(session, args, TaskClosureDisposition::Completed)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn abandon_task_without_refresh(
         &self,
         session: &SessionState,

@@ -1,6 +1,6 @@
 use prism_js::{
-    ConceptPacketView, ConceptRelationView, TaskJournalView, ToolActionSchemaView,
-    ToolInputValidationView, ToolValidationIssueView,
+    ConceptPacketView, ConceptRelationView, ToolActionSchemaView, ToolInputValidationView,
+    ToolValidationIssueView,
 };
 use rmcp::schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{de, Deserialize, Deserializer};
@@ -331,10 +331,6 @@ fn validate_tool_value_against_schema(
         }
         "prism_query" => {
             deserialize_or_issue::<PrismQueryArgs>(value, None, &required_fields).map(|_| ())
-        }
-        "prism_session" => {
-            deserialize_or_issue::<PrismSessionArgsWire>(value, Some("input"), &required_fields)
-                .map(|_| ())
         }
         "prism_mutate" => validate_prism_mutate_input(value, &required_fields),
         _ => Ok(()),
@@ -1585,25 +1581,6 @@ pub(crate) struct PrismValidationFeedbackArgs {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct PrismStartTaskArgs {
-    #[serde(alias = "label", alias = "title", alias = "summary")]
-    pub(crate) description: Option<String>,
-    pub(crate) tags: Option<Vec<String>>,
-    #[serde(alias = "coordination_task_id")]
-    pub(crate) coordination_task_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct PrismBindCoordinationTaskArgs {
-    #[serde(alias = "coordination_task_id")]
-    pub(crate) coordination_task_id: String,
-    pub(crate) description: Option<String>,
-    pub(crate) tags: Option<Vec<String>>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
 pub(crate) struct PrismFinishTaskArgs {
     pub(crate) summary: String,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
@@ -1734,72 +1711,6 @@ pub(crate) struct PrismConfigureSessionArgs {
     #[serde(alias = "current_agent")]
     pub(crate) current_agent: Option<String>,
     pub(crate) clear_current_agent: Option<bool>,
-}
-
-#[derive(Debug, JsonSchema)]
-#[schemars(transform = ensure_root_object_input_schema)]
-#[serde(rename_all = "snake_case", tag = "action", content = "input")]
-pub(crate) enum PrismSessionArgs {
-    StartTask(PrismStartTaskArgs),
-    BindCoordinationTask(PrismBindCoordinationTaskArgs),
-    Configure(PrismConfigureSessionArgs),
-    FinishTask(PrismFinishTaskArgs),
-    AbandonTask(PrismFinishTaskArgs),
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case", tag = "action", content = "input")]
-enum PrismSessionArgsWire {
-    StartTask(PrismStartTaskArgs),
-    BindCoordinationTask(PrismBindCoordinationTaskArgs),
-    Configure(PrismConfigureSessionArgs),
-    FinishTask(PrismFinishTaskArgs),
-    AbandonTask(PrismFinishTaskArgs),
-}
-
-impl From<PrismSessionArgsWire> for PrismSessionArgs {
-    fn from(value: PrismSessionArgsWire) -> Self {
-        match value {
-            PrismSessionArgsWire::StartTask(args) => Self::StartTask(args),
-            PrismSessionArgsWire::BindCoordinationTask(args) => Self::BindCoordinationTask(args),
-            PrismSessionArgsWire::Configure(args) => Self::Configure(args),
-            PrismSessionArgsWire::FinishTask(args) => Self::FinishTask(args),
-            PrismSessionArgsWire::AbandonTask(args) => Self::AbandonTask(args),
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for PrismSessionArgs {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = Value::deserialize(deserializer)?;
-        parse_tagged_tool_input::<PrismSessionArgsWire>("prism_session", value)
-            .map(Into::into)
-            .map_err(serde::de::Error::custom)
-    }
-}
-
-#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum SessionMutationActionSchema {
-    StartTask,
-    BindCoordinationTask,
-    Configure,
-    FinishTask,
-    AbandonTask,
-}
-
-#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct PrismSessionMutationResult {
-    pub(crate) action: SessionMutationActionSchema,
-    pub(crate) task_id: Option<String>,
-    pub(crate) event_id: Option<String>,
-    pub(crate) memory_id: Option<String>,
-    pub(crate) journal: Option<TaskJournalView>,
-    pub(crate) session: SessionView,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

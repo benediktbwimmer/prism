@@ -5258,11 +5258,12 @@ return {
         .expect("tool schema query should succeed");
 
     let tool_names = result.result["toolNames"].as_array().expect("tool catalog");
-    assert_eq!(tool_names.len(), 10);
+    assert_eq!(tool_names.len(), 9);
     assert!(tool_names.iter().any(|tool| tool == "prism_locate"));
     assert!(tool_names.iter().any(|tool| tool == "prism_task_brief"));
     assert!(tool_names.iter().any(|tool| tool == "prism_concept"));
     assert!(tool_names.iter().any(|tool| tool == "prism_mutate"));
+    assert!(!tool_names.iter().any(|tool| tool == "prism_session"));
 
     let mutate = &result.result["mutateSummary"];
     assert_eq!(mutate["toolName"], "prism_mutate");
@@ -12578,7 +12579,7 @@ fn dropped_mutation_run_persists_aborted_call_record() {
     let records = host.mcp_call_log_store.records();
     let record = records
         .iter()
-        .find(|record| record.entry.call_type == "tool" && record.entry.name == "prism_session")
+        .find(|record| record.entry.call_type == "tool" && record.entry.name == "prism_mutate")
         .expect("dropped mutation record should exist");
     assert!(!record.entry.success);
     assert_eq!(

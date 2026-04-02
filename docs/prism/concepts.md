@@ -1485,7 +1485,7 @@ Aliases: `mutation host`, `session host`, `tool payload host`
 ### Evidence
 
 - prism-mcp keeps mutation handling, session state, tool argument parsing, tool schemas, and schema examples as one coherent surface around grounded state changes.
-- This is the host layer behind prism_session, prism_mutate, and the exposed mutation contracts.
+- This is the host layer behind prism_mutate, prism://session, and the exposed mutation contracts.
 
 ### Risk Hint
 
@@ -3065,4 +3065,3 @@ Aliases: `workspace session`, `session refresh runtime`
 ### Risk Hint
 
 - Session reload drift here leads to stale runtime views and incorrect downstream mutation/query behavior.
-

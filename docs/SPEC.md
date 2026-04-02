@@ -1545,7 +1545,7 @@ Session and task model:
 * an MCP session may exist with no active `TaskId` while it is only reading
 * every MCP session has a stable `SessionId` for attribution and live claim ownership
 * on the first mutation in a session with no active task, the server auto-creates a `TaskId` and binds it as the active task
-* agents may explicitly create and label task context with `prism_session { action: "start_task", ... }`
+* agents steer task attribution with explicit `task_id` and `currentTaskId` fields when needed, but there is no separate session mutation tool for task setup
 * one session may create many tasks over time; at most one task is the session default at a time
 * mutation tools inherit the active session `TaskId` when `task_id` is omitted
 * mutation tools may override attribution with an explicit `task_id`, so unrelated work can coexist in one session without opening a second MCP connection
@@ -1942,15 +1942,13 @@ Agents learn these surfaces best from examples. Recipes are not auxiliary docume
 
 ## 11.8 Mutation Tools
 
-The MCP server exposes explicit mutation tools alongside the read-only `prism_query`:
+The MCP server exposes one coarse mutation tool alongside the read-only `prism_query`:
 
 ```text
-prism_session { action: "start_task", input: { description: string, tags?: string[] } } -> { action: "start_task", task_id: string, session: SessionView }
-prism_session { action: "configure", input: { ... } } -> { action: "configure", task_id?: string, session: SessionView }
-
 prism_mutate { action: "outcome", input: { kind: OutcomeKind, anchors: AnchorRef[], summary: string, result?: OutcomeResult, evidence?: OutcomeEvidence[], task_id?: string } } -> EventMutationResult
 prism_mutate { action: "memory", input: { action: "store", payload: { anchors: AnchorRef[], kind: MemoryKind, scope?: MemoryScope, content: string, trust?: float, source?: MemorySource, metadata?: object, promoted_from?: MemoryId[], supersedes?: MemoryId[] }, task_id?: string } } -> MemoryMutationResult
 prism_mutate { action: "infer_edge", input: { source: NodeId, target: NodeId, kind: EdgeKind, confidence: float, scope?: InferredEdgeScope, task_id?: string } } -> EdgeMutationResult
+prism_mutate { action: "session_repair", input: { operation: "clear_current_task" } } -> SessionRepairMutationResult
 prism_mutate { action: "coordination", input: { kind: "plan_create" | "plan_update" | "task_create" | "update" | "plan_node_create" | "plan_edge_create" | "plan_edge_delete" | "handoff" | "handoff_accept", payload: object, task_id?: string } } -> CoordinationMutationResult
 prism_mutate { action: "claim", input: { action: "acquire" | "renew" | "release", payload: object, task_id?: string } } -> ClaimMutationResult
 prism_mutate { action: "artifact", input: { action: "propose" | "supersede" | "review", payload: object, task_id?: string } } -> ArtifactMutationResult
@@ -1958,7 +1956,7 @@ prism_mutate { action: "test_ran" | "failure_observed" | "fix_validated", input:
 prism_mutate { action: "curator_promote_edge" | "curator_promote_memory" | "curator_reject_proposal", input: { ... } } -> CuratorProposalDecisionResult
 ```
 
-These fill in `EventMeta` automatically from the session context. The lower the friction, the more reliably agents will record outcomes.
+These fill in `EventMeta` automatically from authenticated mutation context plus the active task/session convenience state. The lower the friction, the more reliably agents will record outcomes.
 
 Patch observation is not exposed as a mutation tool. PRISM detects file changes automatically via `ObservedChangeSet` and records them without agent involvement. Only outcomes that require semantic interpretation belong in the MCP mutation surface.
 
@@ -1966,14 +1964,13 @@ Rules:
 
 * mutation tools are separate from `prism_query` to keep the semantic escape hatch pure and predictable
 * all mutations produce structured confirmation and the resulting authoritative state for the mutated object
-* `prism_session { action: "start_task" }` creates a task record and makes it the active session task
 * if the session has no active task, the first mutation auto-creates one before the mutation is recorded
 * outcome events inherit the session's `TaskId` automatically when available
 * explicit `task_id` arguments override the active session task without changing the session default
 * inferred edges default to `SessionOnly` scope unless explicitly promoted
-* the MCP surface exposes one coarse session mutation tool and one coarse general mutation tool
-* `prism_mutate` owns shared plan, task, handoff, claim, artifact, outcome, memory, inference, and curator decision changes via tagged actions
-* coordination actions inside `prism_mutate` must attribute mutations to the current `SessionId` and current or explicit `TaskId`
+* the MCP surface exposes one coarse mutation tool plus read-only context resources such as `prism://session`
+* `prism_mutate` owns shared plan, task, handoff, claim, artifact, outcome, memory, inference, curator decision, and narrow session-repair changes via tagged actions
+* coordination actions inside `prism_mutate` must attribute mutations to the acting principal and current or explicit `TaskId`
 * coordination mutations must validate policy, dependency state, and base revision before they commit
 * the compact staged ABI is the default read surface for plans, claims, blockers, conflicts, artifacts, and review queues
 * `prism_query` remains available when the compact surface cannot express the needed read

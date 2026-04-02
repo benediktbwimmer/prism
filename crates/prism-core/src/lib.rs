@@ -60,8 +60,9 @@ pub use principal_registry::{
 pub use prism_doc::{PrismDocSyncResult, PrismDocSyncStatus};
 pub use prism_paths::PrismPaths;
 pub use session::{
-    CoordinationPlanState, FsRefreshStatus, WorkspaceFsRefreshOutcome, WorkspaceRefreshWork,
-    WorkspaceSession, WorkspaceSnapshotRevisions,
+    CoordinationPlanState, FsRefreshStatus, WorkspaceFsRefreshOutcome,
+    WorkspaceRefreshBreakdown, WorkspaceRefreshWork, WorkspaceSession,
+    WorkspaceSnapshotRevisions,
 };
 pub use shared_runtime_backend::SharedRuntimeBackend;
 pub use validation_feedback::{

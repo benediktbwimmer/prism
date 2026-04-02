@@ -17,9 +17,9 @@ use crate::{
     MemoryRetirePayload, MemoryStorePayload, PlanArchivePayload, PlanCreatePayload,
     PlanEdgeCreatePayload, PlanEdgeDeletePayload, PlanNodeCreatePayload, PlanUpdatePayload,
     PrismConceptArgs, PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMutationArgs,
-    PrismOpenArgs, PrismQueryArgs, PrismSessionArgs, PrismTaskBriefArgs, PrismWorksetArgs,
-    ResourceLinkView, TaskCreatePayload, TaskReclaimPayload, TaskResumePayload,
-    WorkflowUpdatePayload, TOOL_SCHEMAS_URI,
+    PrismOpenArgs, PrismQueryArgs, PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView,
+    TaskCreatePayload, TaskReclaimPayload, TaskResumePayload, WorkflowUpdatePayload,
+    TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -97,12 +97,6 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
             description: "Input schema for programmable read-only TypeScript PRISM queries."
                 .to_string(),
             example_input: tool_input_example("prism_query").expect("tool example"),
-        },
-        ToolSchemaCatalogEntry {
-            tool_name: "prism_session".to_string(),
-            schema_uri: tool_schema_resource_uri("prism_session"),
-            description: "Input schema for PRISM session and task-context mutations.".to_string(),
-            example_input: tool_input_example("prism_session").expect("tool example"),
         },
         ToolSchemaCatalogEntry {
             tool_name: "prism_mutate".to_string(),
@@ -291,11 +285,6 @@ pub(crate) fn tool_schema_resource_contents(
             "prism_query",
             "JSON Schema for the `prism_query` tool input payload.",
         ),
-        "prism_session" => tool_input_schema_contents::<PrismSessionArgs>(
-            uri,
-            "prism_session",
-            "JSON Schema for the `prism_session` tool input payload.",
-        ),
         "prism_mutate" => tool_input_schema_contents::<PrismMutationArgs>(
             uri,
             "prism_mutate",
@@ -341,10 +330,6 @@ pub(crate) fn tool_input_schema_value(tool_name: &str) -> Option<Value> {
         "prism_query" => Some(tool_input_schema_value_for::<PrismQueryArgs>(
             "prism_query",
             "JSON Schema for the `prism_query` tool input payload.",
-        )),
-        "prism_session" => Some(tool_input_schema_value_for::<PrismSessionArgs>(
-            "prism_session",
-            "JSON Schema for the `prism_session` tool input payload.",
         )),
         "prism_mutate" => Some(tool_input_schema_value_for::<PrismMutationArgs>(
             "prism_mutate",

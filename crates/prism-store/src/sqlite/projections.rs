@@ -271,7 +271,10 @@ pub(super) fn load_projection_snapshot_without_co_change_rows(
         }
     }
 
-    if validation_by_lineage.is_empty() && curated_concepts.is_empty() && concept_relations.is_empty() {
+    if validation_by_lineage.is_empty()
+        && curated_concepts.is_empty()
+        && concept_relations.is_empty()
+    {
         info!(
             total_ms = started.elapsed().as_millis(),
             "loaded prism projection snapshot without co-change: none"

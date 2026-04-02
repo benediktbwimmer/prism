@@ -93,13 +93,6 @@ pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
             "code": "return prism.search(\"read context\", { limit: 5, strategy: \"behavioral\", ownerKind: \"read\" });",
             "language": "ts",
         })),
-        "prism_session" => Some(json!({
-            "action": "start_task",
-            "input": {
-                "description": "Investigate the read-context path.",
-                "tags": ["mcp", "examples"],
-            }
-        })),
         "prism_mutate" => prism_mutate_action_example("validation_feedback"),
         _ => None,
     }
@@ -107,36 +100,6 @@ pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
 
 pub(crate) fn tool_input_examples(tool_name: &str) -> Option<Vec<Value>> {
     match tool_name {
-        "prism_session" => Some(vec![
-            tool_input_example("prism_session").expect("session example"),
-            json!({
-                "action": "bind_coordination_task",
-                "input": {
-                    "coordinationTaskId": "coord-task:12",
-                }
-            }),
-            json!({
-                "action": "configure",
-                "input": {
-                    "currentTaskDescription": "Continue compact-tool follow-up cleanup.",
-                    "currentTaskTags": ["prism-mcp", "dogfood"],
-                }
-            }),
-            json!({
-                "action": "finish_task",
-                "input": {
-                    "taskId": "task:demo-main",
-                    "summary": "Recorded the final compact-tool follow-up result.",
-                }
-            }),
-            json!({
-                "action": "abandon_task",
-                "input": {
-                    "taskId": "task:demo-main",
-                    "summary": "Stopping after the compact-tool follow-up was redirected.",
-                }
-            }),
-        ]),
         "prism_mutate" => Some(prism_mutate_examples()),
         _ => tool_input_example(tool_name).map(|example| vec![example]),
     }
@@ -148,11 +111,6 @@ pub(crate) fn tool_action_example(tool_name: &str, action: &str) -> Option<Value
 
 pub(crate) fn tool_action_examples(tool_name: &str, action: &str) -> Vec<Value> {
     match tool_name {
-        "prism_session" => tool_input_examples("prism_session")
-            .unwrap_or_default()
-            .into_iter()
-            .filter(|example| example.get("action").and_then(Value::as_str) == Some(action))
-            .collect(),
         "prism_mutate" => prism_mutate_examples()
             .into_iter()
             .filter(|example| example.get("action").and_then(Value::as_str) == Some(action))

@@ -48,8 +48,8 @@ Compact-tool note:
 The MCP transport surface currently includes:
 
 - `prism_query` as the rich semantic read surface and escape hatch
-- `prism_session` for task and session-context mutations
-- `prism_mutate` for all other state changes
+- `prism_mutate` for authoritative writes and narrow session repair mutations
+- `prism://session` as the read-only view of current task and workspace context
 
 ## Mental model
 
@@ -2540,19 +2540,16 @@ likely validations, and 1 to 2 `nextReads`.
 - Available now: coordination plans, tasks, claims, conflicts, blockers, review queues, claim simulation, and workflow helpers for inbox/task/claim preview.
 - Keep query logic small. If you find yourself reconstructing semantics from raw low-level fields every time, that method probably belongs in Prism itself.
 
-## Separate mutation tools
+## Mutation tool
 
-The query runtime is read-only. State changes happen through two coarse MCP mutation tools:
+The query runtime is read-only. State changes happen through `prism_mutate`:
 
-- `prism_session`
-  - action `start_task`
-  - action `configure`
-  - shorthand `{ action, ...fields }` is accepted in addition to the canonical `{ action, input: { ... } }`
 - `prism_mutate`
   - action `outcome`
   - action `memory`
   - action `concept`
   - action `concept_relation`
+  - action `session_repair`
   - action `infer_edge`
   - action `coordination`
   - action `claim`
@@ -2567,7 +2564,7 @@ The query runtime is read-only. State changes happen through two coarse MCP muta
   - action `curator_reject_proposal`
   - shorthand `{ action, ...fields }` is accepted in addition to the canonical `{ action, input: { ... } }`
 
-Read current session state through `prism://session`.
+Read current task and workspace context through `prism://session`. When no active task exists, the first `prism_mutate` call creates one implicitly.
 
 Patch observation is automatic. PRISM records file changes from `ObservedChangeSet` without requiring an explicit MCP call.
 "#;
