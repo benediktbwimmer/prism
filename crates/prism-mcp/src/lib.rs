@@ -1046,11 +1046,32 @@ impl QueryHost {
         Ok(())
     }
 
+    pub(crate) fn ensure_coordination_runtime_current(
+        &self,
+        workspace: &WorkspaceSession,
+    ) -> Result<()> {
+        let revision = workspace.coordination_revision()?;
+        if revision != self.loaded_coordination_revision_value()
+            || self.coordination_runtime_needs_reload(revision)
+        {
+            let _ = workspace.hydrate_coordination_runtime()?;
+        }
+        self.sync_coordination_revision_value(revision);
+        Ok(())
+    }
+
     pub(crate) fn sync_coordination_revision(&self, workspace: &WorkspaceSession) -> Result<()> {
-        let _ = workspace.hydrate_coordination_runtime()?;
         let revision = workspace.coordination_revision()?;
         self.sync_coordination_revision_value(revision);
         Ok(())
+    }
+
+    fn coordination_runtime_needs_reload(&self, revision: u64) -> bool {
+        if revision == 0 {
+            return false;
+        }
+        let prism = self.current_prism();
+        prism.coordination_snapshot().plans.is_empty() && !prism.authored_plan_graphs().is_empty()
     }
 
     fn sync_workspace_revision_value(&self, revision: u64) {

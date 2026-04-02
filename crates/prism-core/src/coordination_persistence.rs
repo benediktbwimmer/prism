@@ -81,6 +81,8 @@ pub(crate) trait CoordinationPersistenceBackend:
             (Some(plan_graphs), Some(execution_overlays)) => sync_repo_published_plan_state(
                 root,
                 snapshot,
+                None,
+                None,
                 plan_graphs.to_vec(),
                 execution_overlays.clone(),
             )?,
@@ -157,6 +159,8 @@ pub(crate) trait CoordinationPersistenceBackend:
         snapshot: &CoordinationSnapshot,
         appended_events: &[CoordinationEvent],
         session_id: Option<&SessionId>,
+        previous_snapshot: Option<&CoordinationSnapshot>,
+        previous_plan_graphs: Option<&[PlanGraph]>,
         plan_graphs: Option<&[PlanGraph]>,
         execution_overlays: Option<&BTreeMap<String, Vec<PlanExecutionOverlay>>>,
         mut observe_phase: O,
@@ -187,11 +191,32 @@ pub(crate) trait CoordinationPersistenceBackend:
         } else {
             "snapshot"
         };
-        let sync_result = match (plan_graphs, execution_overlays) {
-            (Some(plan_graphs), Some(execution_overlays)) => {
+        let sync_result = match (
+            previous_snapshot,
+            previous_plan_graphs,
+            plan_graphs,
+            execution_overlays,
+        ) {
+            (
+                Some(previous_snapshot),
+                Some(previous_plan_graphs),
+                Some(plan_graphs),
+                Some(execution_overlays),
+            ) => sync_repo_published_plan_state_observed(
+                root,
+                snapshot,
+                Some(previous_snapshot),
+                Some(previous_plan_graphs),
+                plan_graphs.to_vec(),
+                execution_overlays.clone(),
+                &mut observe_phase,
+            ),
+            (_, _, Some(plan_graphs), Some(execution_overlays)) => {
                 sync_repo_published_plan_state_observed(
                     root,
                     snapshot,
+                    None,
+                    None,
                     plan_graphs.to_vec(),
                     execution_overlays.clone(),
                     &mut observe_phase,
@@ -229,6 +254,8 @@ pub(crate) trait CoordinationPersistenceBackend:
         snapshot: &CoordinationSnapshot,
         appended_events: &[CoordinationEvent],
         session_id: Option<&SessionId>,
+        previous_snapshot: Option<&CoordinationSnapshot>,
+        previous_plan_graphs: Option<&[PlanGraph]>,
         plan_graphs: Option<&[PlanGraph]>,
         execution_overlays: Option<&BTreeMap<String, Vec<PlanExecutionOverlay>>>,
     ) -> Result<CoordinationPersistResult> {
@@ -238,6 +265,8 @@ pub(crate) trait CoordinationPersistenceBackend:
             snapshot,
             appended_events,
             session_id,
+            previous_snapshot,
+            previous_plan_graphs,
             plan_graphs,
             execution_overlays,
             |_operation, _duration, _args, _success, _error| {},
@@ -251,6 +280,8 @@ pub(crate) trait CoordinationPersistenceBackend:
         snapshot: &CoordinationSnapshot,
         appended_events: &[CoordinationEvent],
         session_id: Option<&SessionId>,
+        previous_snapshot: Option<&CoordinationSnapshot>,
+        previous_plan_graphs: Option<&[PlanGraph]>,
         plan_graphs: Option<&[PlanGraph]>,
         execution_overlays: Option<&BTreeMap<String, Vec<PlanExecutionOverlay>>>,
         mut observe_phase: O,
@@ -277,6 +308,8 @@ pub(crate) trait CoordinationPersistenceBackend:
                 snapshot,
                 appended_events,
                 session_id,
+                previous_snapshot,
+                previous_plan_graphs,
                 plan_graphs,
                 execution_overlays,
                 &mut observe_phase,

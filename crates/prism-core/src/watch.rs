@@ -761,6 +761,8 @@ where
             &snapshot,
             &appended_events,
             target.session_id(),
+            Some(&before_snapshot),
+            Some(&before_plan_graphs),
             Some(&plan_graphs),
             Some(&execution_overlays),
             |_operation, _duration, _args, _success, _error| {},

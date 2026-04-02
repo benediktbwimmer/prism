@@ -727,6 +727,78 @@ fn mutate_coordination_with_wait_succeeds_after_refresh_lock_releases() {
 }
 
 #[test]
+fn coordination_mutation_updates_published_plans_without_reloading_full_projection() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let plan_id = session
+        .mutate_coordination_with_session_wait_observed(
+            None,
+            |prism| {
+                prism.create_native_plan(
+                    EventMeta {
+                        id: EventId::new("coordination:delta-plan"),
+                        ts: 1,
+                        actor: EventActor::Agent,
+                        correlation: Some(TaskId::new("task:delta-plan")),
+                        causation: None,
+                        execution_context: None,
+                    },
+                    "Exercise incremental published-plan sync".into(),
+                    None,
+                    Some(Default::default()),
+                )
+            },
+            |_operation, _duration, _args, _success, _error| {},
+        )
+        .unwrap()
+        .expect("coordination mutation should acquire the refresh lock");
+
+    let mut operations = Vec::new();
+    session
+        .mutate_coordination_with_session_wait_observed(
+            None,
+            |prism| {
+                prism.update_native_plan(
+                    EventMeta {
+                        id: EventId::new("coordination:delta-plan-update"),
+                        ts: 2,
+                        actor: EventActor::Agent,
+                        correlation: Some(TaskId::new("task:delta-plan")),
+                        causation: None,
+                        execution_context: None,
+                    },
+                    &plan_id,
+                    Some(prism_ir::PlanStatus::Active),
+                    Some("Exercise incremental published-plan sync again".into()),
+                    None,
+                )
+            },
+            |operation, _duration, _args, _success, _error| {
+                operations.push(operation.to_string());
+            },
+        )
+        .unwrap()
+        .expect("coordination mutation should acquire the refresh lock");
+
+    assert!(operations.contains(&"mutation.coordination.syncPublishedPlans".to_string()));
+    assert!(operations.contains(&"mutation.coordination.publishedPlans.writeLogs".to_string()));
+    assert!(
+        !operations.contains(&"mutation.coordination.publishedPlans.loadProjection".to_string()),
+        "incremental coordination mutation should reuse in-memory plan state instead of replaying all published plan logs"
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn try_ensure_paths_deep_defers_when_refresh_is_in_progress() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -4435,6 +4507,8 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
             &updated_snapshot,
             &appended_events,
             Some(&SessionId::new("session:b")),
+            None,
+            None,
             None,
             None,
         )

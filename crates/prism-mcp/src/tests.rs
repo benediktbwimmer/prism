@@ -13514,6 +13514,7 @@ fn coordination_mutation_trace_records_persistence_subphases() {
     assert!(operations.contains(&"mutation.coordination.syncPublishedPlans"));
     assert!(operations.contains(&"mutation.coordination.publishedPlans.writeLogs"));
     assert!(operations.contains(&"mutation.coordination.publishedPlans.writeIndex"));
+    assert!(!operations.contains(&"mutation.coordination.publishedPlans.loadProjection"));
     assert!(operations.contains(&"mutation.coordination.syncLoadedRevisionAfter"));
 }
 
