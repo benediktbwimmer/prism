@@ -25,14 +25,20 @@ non-authoritative convenience behavior. It is not a reliable authority boundary.
 The canonical design is:
 
 - every mutation authenticates an acting principal explicitly
+- every authoritative mutation must run under declared work context; the only bootstrap exception is
+  the mutation that declares that work
 - read-only queries and resources remain unauthenticated by default
 - execution ownership is represented by leases, not by permanent session attachment
 - leases are refreshed only by authenticated mutations
 - durable provenance is recorded in the event log and projected into read models
+- declared `work` is the provenance/intention unit, while `coord-task` remains the shared
+  coordination object when one exists
 - the current `prism_session` tool is removed as a coordination surface
 - principals are machine-local by default, while coordination authority remains repo-scoped
 - principal identity must carry an explicit issuing authority/namespace, so machine-local identity
   today can federate cleanly later
+- repo-published `.prism` events must remain semantically self-contained on a cold clone; runtime
+  ids may appear only as optional correlation handles
 
 ---
 
@@ -494,6 +500,37 @@ Representative execution-context fields may include:
 This gives PRISM richer debugging and audit surfaces without re-elevating transport/session state
 into an authority boundary.
 
+### 8.3.1 Record declared work context separately from runtime correlation
+
+Authoritative mutation events must also snapshot declared work context separately from actor
+identity and separately from runtime correlation ids.
+
+The declared-work portion should answer:
+
+- why this mutation happened
+- whether the work was ad hoc, coordination-bound, or delegated
+- which coordination task or plan it was serving when present
+
+Representative declared-work snapshot fields may include:
+
+- `work_id`
+- work kind
+- work title
+- `parent_work_id`
+- `coordination_task_id`
+- `plan_id`
+- plan title snapshot
+
+This snapshot is semantic, not merely operational. Repo-published events must remain interpretable
+from `.prism` alone on a cold clone with an empty runtime database.
+
+That means:
+
+- runtime-only ids may appear in repo-published events as optional correlation handles
+- runtime-only ids must not be required resolution targets for understanding the event
+- if a mutation references ad hoc or runtime-only work, the event must still carry enough inline
+  work context to explain itself without shared runtime state
+
 ### 8.4 Use projections for fast lookups
 
 Fast lookup surfaces should be derived from the event log, not treated as the canonical source of
@@ -698,8 +735,17 @@ The following points were previously open questions and are now resolved for the
 - Mutation events should snapshot:
   - principal kind
   - human-readable name
+- Mutation events should also snapshot declared work context:
+  - `work_id`
+  - work kind
+  - work title
+  - optional `parent_work_id`
+  - optional `coordination_task_id`
+  - optional plan snapshot fields when the work serves a published plan
 - Mutation events should also record non-authoritative execution context separately from actor
   identity, including instance/worktree/correlation information where available.
+- Runtime correlation ids remain diagnostics only; repo-published events must not depend on
+  runtime-only objects for semantic interpretation.
 - Additional actor snapshot fields may be added later where audit stability materially benefits, but
   `kind` and `name` are the initial minimum.
 
@@ -760,15 +806,25 @@ The following points were previously open questions and are now resolved for the
 - The cutover is intentionally hard.
 - `prism_session` is removed rather than supported through a long compatibility window.
 - All mutations require credentials from day one of the cutover.
+- All authoritative mutations must also have declared work from day one of the cutover.
+- The only mutation allowed to bootstrap without existing work context is `declare_work`.
 - Existing coarse actor history should be migrated through synthetic fallback principals, for example:
   - `legacy_agent_fallback`
   - `legacy_human_fallback`
+- Existing implicit session-task behavior should be removed rather than preserved as a durable
+  provenance pattern.
 - Missing-credential mutations should fail loudly and descriptively.
+- Missing-work mutations should fail loudly and descriptively, with instructions to declare work
+  before retrying.
 - Instructions and surrounding tooling should clearly state how agents obtain and pass mutation
   credentials.
-- The same instructions should also tell agents that task-scoped reads may occasionally return a
-  server-authored instruction to send `heartbeat_lease` immediately, and that this should take
-  precedence over other next steps.
+- The same instructions should also tell agents:
+  - to adopt identity, inspect as needed, declare work or bind to an existing coordination task,
+    and only then mutate
+  - that task-scoped reads may occasionally return a server-authored instruction to send
+    `heartbeat_lease` immediately, and that this should take precedence over other next steps
+- Repo-published history may retain runtime correlation handles for diagnostics, but no
+  repo-published semantic reference may require the shared runtime database to resolve.
 
 ### 12.11 Remaining future policy space
 

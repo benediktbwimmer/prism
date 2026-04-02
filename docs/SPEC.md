@@ -159,7 +159,7 @@ Canonicalization rules:
 * `path` is semantic and package-relative, not workspace-layout-derived
 * `impl` nodes use `crate::module::Type::impl::Trait` or `crate::module::Type::impl`
 
-## 2.2 Stable Cross-Time and Task Identity
+## 2.2 Stable Cross-Time and Work Identity
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -169,14 +169,16 @@ pub struct LineageId(pub smol_str::SmolStr);
 pub struct EventId(pub smol_str::SmolStr);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TaskId(pub smol_str::SmolStr);
+pub struct WorkId(pub smol_str::SmolStr);
 ```
 
 Rules:
 
 * `LineageId` is stable across renames, moves, and other re-anchorable changes
 * `EventId` identifies a single observed or outcome event
-* `TaskId` groups related agent, user, build, review, and validation actions into one resumable story
+* `WorkId` identifies one declared unit of intent and provenance
+* a `WorkId` may be ad hoc, coordination-bound, or delegated
+* older drafts used `TaskId` for this role; the target terminology is `WorkId`
 
 ## 2.3 AnchorRef
 
@@ -204,7 +206,8 @@ pub struct EventMeta {
     pub id: EventId,
     pub ts: Timestamp,
     pub actor: EventActor,
-    pub correlation: Option<TaskId>,
+    pub correlation: Option<WorkId>,
+    pub work: Option<WorkContextSnapshot>,
     pub causation: Option<EventId>,
 }
 
@@ -215,11 +218,32 @@ pub enum EventActor {
     GitAuthor { name: String, email: Option<String> },
     CI,
 }
+
+pub struct WorkContextSnapshot {
+    pub work_id: WorkId,
+    pub kind: WorkKind,
+    pub title: String,
+    pub parent_work_id: Option<WorkId>,
+    pub coordination_task_id: Option<CoordinationTaskId>,
+    pub plan_id: Option<PlanId>,
+    pub plan_title: Option<String>,
+}
+
+pub enum WorkKind {
+    AdHoc,
+    Coordination,
+    Delegated,
+    Undeclared,
+}
 ```
 
 Rules:
 
-* `correlation` groups the events of one task or incident
+* `correlation` groups the events of one declared work item or incident
+* `work` snapshots the semantic work context that explains why the mutation happened
+* repo-published events must remain semantically interpretable from `.prism` alone on a cold clone
+* runtime session, request, instance, and credential ids may appear as diagnostics, but they must
+  not be required resolution targets for understanding repo-published events
 * `causation` points to the event that immediately led to this event
 * event streams may differ in semantics, but they share the same envelope
 
@@ -725,7 +749,7 @@ impl Prism {
     pub fn outcomes_for(&self, anchors: &[AnchorRef], limit: usize) -> Vec<OutcomeEvent>;
     pub fn related_failures(&self, node: &NodeId) -> Vec<OutcomeEvent>;
     pub fn blast_radius(&self, node: &NodeId) -> ChangeImpact;
-    pub fn resume_task(&self, task: &TaskId) -> TaskReplay;
+    pub fn resume_work(&self, work: &WorkId) -> WorkReplay;
 }
 
 impl<'a> Symbol<'a> {
@@ -755,9 +779,9 @@ High-value query behaviors:
 * attached outcome risks
 * unresolved ambiguities
 
-## 7.5 TaskReplay
+## 7.5 WorkReplay
 
-`TaskReplay` reconstructs the correlated story for a `TaskId`:
+`WorkReplay` reconstructs the correlated story for a `WorkId`:
 
 * plan or hypothesis
 * patch events
@@ -775,7 +799,7 @@ PRISM maintains four distinct kinds of state, each with different creation rules
 
 1. **Deterministic structure** — parser, store, and history build this automatically. Never agent-written.
 2. **Raw outcome memory** — what happened during a task: patch, test, failure, validation, note. Written by the foreground task agent.
-3. **Ephemeral inference** — temporary agent guesses useful for the current task or session. Session-scoped by default.
+3. **Ephemeral inference** — temporary agent guesses useful for the current work or session. Session-scoped by default.
 4. **Durable inferred knowledge** — persistent inferred edges or structural memories that survived enough evidence. Requires promotion.
 
 ## 8.2 Automated Pipeline (Non-Agent)
@@ -796,7 +820,7 @@ It knows what the user is trying to do, what uncertainty matters right now, what
 
 ### Query-Time Inference
 
-When the static graph is not enough, the agent can infer extra edges or associations for the current task:
+When the static graph is not enough, the agent can infer extra edges or associations for the current work:
 
 * likely callee for unresolved call
 * likely related module
@@ -902,7 +926,7 @@ Its outputs land as:
 * structural memories with explicit trust
 * promotion candidates, not authoritative structure
 
-The foreground agent is the historian of the current task. The background curator is the librarian over many tasks.
+The foreground agent is the historian of the current work. The background curator is the librarian over many work episodes.
 
 ## 8.7 Inferred Edge Overlay
 
@@ -938,7 +962,7 @@ pub struct AgentContext {
     pub symbol: NodeId,
     pub known_edges: Vec<Edge>,
     pub unresolved_calls: Vec<String>,
-    pub task: Option<TaskId>,
+    pub work: Option<WorkId>,
 }
 ```
 
@@ -946,7 +970,7 @@ pub struct AgentContext {
 
 * inferred edges must include confidence and `EdgeOrigin::Inferred`
 * static edges are never overwritten
-* agent-authored outcome events should carry `TaskId` correlation when possible
+* agent-authored outcome events should carry `WorkId` correlation when possible
 * recommendations and patches should be traceable back to graph, lineage, memory, or runtime evidence
 
 ## 8.10 Core Principle
@@ -1064,7 +1088,7 @@ pub struct MemoryEvent {
     pub scope: MemoryScope,
     pub entry: Option<MemoryEntry>,
     pub recorded_at: Timestamp,
-    pub task_id: Option<String>,
+    pub work_id: Option<String>,
     pub promoted_from: Vec<MemoryId>,
     pub supersedes: Vec<MemoryId>,
 }
@@ -1178,7 +1202,7 @@ Recommended v1.5 starter kinds:
 Index outcome events by:
 
 * `AnchorRef`
-* `TaskId`
+* `WorkId`
 * `OutcomeKind`
 * recency
 * result
@@ -1187,7 +1211,8 @@ Index outcome events by:
 Current implementation note:
 
 * `OutcomeMemory` is queried separately from `SessionMemory`
-* episodic note writes from MCP currently also emit `OutcomeKind::NoteAdded` events so task replay can see them
+* episodic note writes from MCP currently also emit `OutcomeKind::NoteAdded` events so work replay
+  can see them
 
 ## 9.9 Module Types
 
@@ -1289,12 +1314,17 @@ pub struct WorkspaceRevision {
 
 Rules:
 
-* `TaskId` remains the correlation ID for outcome history and task-local memory
-* `CoordinationTaskId` is the shared plan node for multi-agent work; many `TaskId`s may contribute to one coordination task
-* `SessionId` identifies the MCP connection that currently holds live claims or authored coordination mutations
+* `WorkId` is the provenance and intent unit for authored mutations, outcomes, and task-local
+  memory
+* `CoordinationTaskId` is the shared workflow object for multi-agent work; many `WorkId`s may
+  contribute to one coordination task over time
+* `SessionId` identifies the live MCP connection for runtime convenience and active claims, but it
+  is never semantic authority
 * `AgentId` identifies a logical actor across many sessions when the client can provide one
 * `WorkspaceRevision` captures the code state a coordination decision assumed
 * coordination records should store both structural anchors and the base revision they were made against
+* repo-published events that reference runtime-only work must carry enough inline work context to
+  stay self-contained without the shared runtime database
 
 ## 10.3 Shared Plan Graph
 
@@ -1365,7 +1395,8 @@ Rules:
 * acceptance criteria must be structured enough for handoff, validation, and review
 * task status is server-authoritative and replayable
 * assignment is advisory unless plan policy says otherwise
-* one coordination task may be executed by several local `TaskId`s over time, but it has one shared lifecycle
+* one coordination task may be executed by several local `WorkId`s over time, but it has one
+  shared lifecycle
 
 ## 10.4 Claims, Conflicts, and Contention
 
@@ -1456,7 +1487,7 @@ Rules:
 * file change observation is still automatic, but an artifact records the coordination meaning of a patch or deliverable
 * artifacts bind outputs to coordination tasks, anchors, and base revision
 * review is first-class and may gate task completion by policy
-* handoffs move task responsibility without losing the local `TaskId` history that led up to them
+* handoffs move task responsibility without losing the local `WorkId` history that led up to them
 * if the base revision is stale relative to current graph state, PRISM should surface that before approval or merge-like completion
 
 ## 10.6 Coordination Event Log
@@ -1540,15 +1571,21 @@ That means:
 * `prism_query` remains available as the semantic IR and escape hatch
 * API discovery happens through MCP resources, not repeated system prompt text
 
-Session and task model:
+Session and work model:
 
-* an MCP session may exist with no active `TaskId` while it is only reading
-* every MCP session has a stable `SessionId` for attribution and live claim ownership
-* on the first mutation in a session with no active task, the server auto-creates a `TaskId` and binds it as the active task
-* agents steer task attribution with explicit `task_id` and `currentTaskId` fields when needed, but there is no separate session mutation tool for task setup
-* one session may create many tasks over time; at most one task is the session default at a time
-* mutation tools inherit the active session `TaskId` when `task_id` is omitted
-* mutation tools may override attribution with an explicit `task_id`, so unrelated work can coexist in one session without opening a second MCP connection
+* an MCP session may exist with no active `WorkId` while it is only reading
+* every MCP session has a stable `SessionId` for runtime correlation and live claim ownership, not
+  semantic authority
+* no authoritative mutation is accepted without declared work context
+* `declare_work` is the bootstrap mutation and the only authoritative mutation allowed without an
+  already-active work context
+* sessions may cache a current `WorkId` as a convenience after declaration, but the server must not
+  auto-create work implicitly on first mutation
+* mutation tools inherit the active session `WorkId` only when one has already been declared
+* mutation tools may override attribution with an explicit `work_id`, so unrelated work can coexist
+  in one session without opening a second MCP connection
+* agents bind to shared coordination by declaring work with an optional `coordination_task_id` and
+  optional plan context
 
 ## 11.2 Compact Default Tools
 
@@ -1945,13 +1982,14 @@ Agents learn these surfaces best from examples. Recipes are not auxiliary docume
 The MCP server exposes one coarse mutation tool alongside the read-only `prism_query`:
 
 ```text
-prism_mutate { action: "outcome", input: { kind: OutcomeKind, anchors: AnchorRef[], summary: string, result?: OutcomeResult, evidence?: OutcomeEvidence[], task_id?: string } } -> EventMutationResult
-prism_mutate { action: "memory", input: { action: "store", payload: { anchors: AnchorRef[], kind: MemoryKind, scope?: MemoryScope, content: string, trust?: float, source?: MemorySource, metadata?: object, promoted_from?: MemoryId[], supersedes?: MemoryId[] }, task_id?: string } } -> MemoryMutationResult
-prism_mutate { action: "infer_edge", input: { source: NodeId, target: NodeId, kind: EdgeKind, confidence: float, scope?: InferredEdgeScope, task_id?: string } } -> EdgeMutationResult
+prism_mutate { action: "declare_work", input: { title: string, kind?: "ad_hoc" | "coordination" | "delegated", summary?: string, parent_work_id?: string, coordination_task_id?: string, plan_id?: string } } -> WorkDeclarationResult
+prism_mutate { action: "outcome", input: { kind: OutcomeKind, anchors: AnchorRef[], summary: string, result?: OutcomeResult, evidence?: OutcomeEvidence[], work_id?: string } } -> EventMutationResult
+prism_mutate { action: "memory", input: { action: "store", payload: { anchors: AnchorRef[], kind: MemoryKind, scope?: MemoryScope, content: string, trust?: float, source?: MemorySource, metadata?: object, promoted_from?: MemoryId[], supersedes?: MemoryId[] }, work_id?: string } } -> MemoryMutationResult
+prism_mutate { action: "infer_edge", input: { source: NodeId, target: NodeId, kind: EdgeKind, confidence: float, scope?: InferredEdgeScope, work_id?: string } } -> EdgeMutationResult
 prism_mutate { action: "session_repair", input: { operation: "clear_current_task" } } -> SessionRepairMutationResult
-prism_mutate { action: "coordination", input: { kind: "plan_create" | "plan_update" | "task_create" | "update" | "plan_node_create" | "plan_edge_create" | "plan_edge_delete" | "handoff" | "handoff_accept", payload: object, task_id?: string } } -> CoordinationMutationResult
-prism_mutate { action: "claim", input: { action: "acquire" | "renew" | "release", payload: object, task_id?: string } } -> ClaimMutationResult
-prism_mutate { action: "artifact", input: { action: "propose" | "supersede" | "review", payload: object, task_id?: string } } -> ArtifactMutationResult
+prism_mutate { action: "coordination", input: { kind: "plan_create" | "plan_update" | "task_create" | "update" | "plan_node_create" | "plan_edge_create" | "plan_edge_delete" | "handoff" | "handoff_accept", payload: object, work_id?: string } } -> CoordinationMutationResult
+prism_mutate { action: "claim", input: { action: "acquire" | "renew" | "release", payload: object, work_id?: string } } -> ClaimMutationResult
+prism_mutate { action: "artifact", input: { action: "propose" | "supersede" | "review", payload: object, work_id?: string } } -> ArtifactMutationResult
 prism_mutate { action: "test_ran" | "failure_observed" | "fix_validated", input: { ... } } -> EventMutationResult
 prism_mutate { action: "curator_promote_edge" | "curator_promote_memory" | "curator_reject_proposal", input: { ... } } -> CuratorProposalDecisionResult
 ```
@@ -1964,13 +2002,16 @@ Rules:
 
 * mutation tools are separate from `prism_query` to keep the semantic escape hatch pure and predictable
 * all mutations produce structured confirmation and the resulting authoritative state for the mutated object
-* if the session has no active task, the first mutation auto-creates one before the mutation is recorded
-* outcome events inherit the session's `TaskId` automatically when available
-* explicit `task_id` arguments override the active session task without changing the session default
+* authoritative mutations must fail if no declared work context is active and no explicit `work_id`
+  is supplied
+* `declare_work` is the only authoritative mutation allowed to run without an existing active work
+* outcome events inherit the session's active `WorkId` automatically when available
+* explicit `work_id` arguments override the active session work without changing the session default
 * inferred edges default to `SessionOnly` scope unless explicitly promoted
 * the MCP surface exposes one coarse mutation tool plus read-only context resources such as `prism://session`
 * `prism_mutate` owns shared plan, task, handoff, claim, artifact, outcome, memory, inference, curator decision, and narrow session-repair changes via tagged actions
-* coordination actions inside `prism_mutate` must attribute mutations to the acting principal and current or explicit `TaskId`
+* coordination actions inside `prism_mutate` must attribute mutations to the acting principal and
+  current or explicit `WorkId`
 * coordination mutations must validate policy, dependency state, and base revision before they commit
 * the compact staged ABI is the default read surface for plans, claims, blockers, conflicts, artifacts, and review queues
 * `prism_query` remains available when the compact surface cannot express the needed read
@@ -1978,6 +2019,10 @@ Rules:
 * when coordination is entirely disabled for a workspace session, coordination state should not be loaded or persisted for that session
 * coordination feature flags should gate both mutation tools and coordination read helpers so the advertised MCP surface matches what the server actually allows
 * workflow, claim, and artifact capabilities should be independently enableable for gradual rollout
+* `prism://instructions` should teach agents the strict bootstrap order: adopt identity, read as
+  needed, declare work or bind to an existing coordination task, then mutate
+* repo-published mutation history may include runtime correlation ids for diagnostics, but the event
+  must remain semantically understandable from `.prism` alone without a runtime database
 
 ## 11.9 Convenience Query Tools
 
@@ -2047,11 +2092,11 @@ These are explicitly not v1 requirements, but the architecture should leave room
 
 Recommended sequence:
 
-1. land `LineageId`, `EventId`, `TaskId`, and `AnchorRef` in `prism-ir`
+1. land `LineageId`, `EventId`, `WorkId`, and `AnchorRef` in `prism-ir`
 2. make `prism-store` emit `ObservedChangeSet`
 3. implement deterministic lineage resolution in `prism-history`
 4. add structured `OutcomeEvent` logging in `prism-memory`
-5. expose `lineage_of`, `related_failures`, `blast_radius`, and `resume_task` in `prism-query`
+5. expose `lineage_of`, `related_failures`, `blast_radius`, and `resume_work` in `prism-query`
 6. land `prism-js` as the stable JS/TS binding contract over `prism-query`
 7. add `prism-mcp` with `prism_query` and `prism://api-reference`
 8. add the compact staged agent ABI over that semantic core

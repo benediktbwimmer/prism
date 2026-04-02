@@ -97,6 +97,10 @@ Plan state is part of repo intent. Intent may differ by branch and should travel
 ### 3.6 Runtime state and published state are distinct
 Committed plan state should capture shared active intent. Ultra-ephemeral execution details should remain in the state DB.
 
+Published plan state must also remain semantically self-contained. A cold clone with only `.prism`
+state should be able to understand every published plan, node, edge, and provenance snapshot
+without resolving runtime-only rows from a shared state database.
+
 ### 3.7 Plans are handle-native
 The runtime surface should carry opaque handles wherever possible. Agents should not have to re-specify the same repo objects by text.
 
@@ -105,6 +109,9 @@ When possible, plan bindings should reattach through anchors and lineage rather 
 
 ### 3.9 Plans must stay inspectable
 The persisted representation in `.prism` must be reviewable, diffable, mergeable, and understandable without PRISM internals.
+
+Runtime-only ids may appear in published plan events as optional correlation handles, but they must
+never be the only meaning-bearing reference in repo-published state.
 
 ---
 
