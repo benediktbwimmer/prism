@@ -1663,7 +1663,7 @@ impl QueryHost {
                     Some(&session.session_id()),
                     |prism| {
                         let sync_started = std::time::Instant::now();
-                        match self.sync_coordination_revision(workspace) {
+                        match self.ensure_coordination_runtime_current(workspace) {
                             Ok(()) => {
                                 trace.record_phase(
                                     "mutation.coordination.syncLoadedRevisionBefore",
@@ -1701,7 +1701,7 @@ impl QueryHost {
                 match workspace.mutate_coordination_with_session_wait_observed(
                     Some(&session.session_id()),
                     |prism| {
-                        self.sync_coordination_revision(workspace)?;
+                        self.ensure_coordination_runtime_current(workspace)?;
                         self.apply_coordination_mutation(session, prism, args, meta.clone())
                     },
                     |_operation, _duration, _args, _success, _error| {},
@@ -1866,7 +1866,7 @@ impl QueryHost {
         self.ensure_tool_enabled("prism_claim", "coordination claim mutations")?;
         if let Some(workspace) = self.workspace_session() {
             self.refresh_workspace_for_mutation()?;
-            self.sync_coordination_revision(workspace)?;
+            self.ensure_coordination_runtime_current(workspace)?;
         }
         let prism = self.current_prism();
         let before_events = prism.coordination_events().len();
@@ -1949,7 +1949,7 @@ impl QueryHost {
         )?;
         if let Some(workspace) = self.workspace_session() {
             self.refresh_workspace_for_mutation()?;
-            self.sync_coordination_revision(workspace)?;
+            self.ensure_coordination_runtime_current(workspace)?;
         }
         let prism = self.current_prism();
         let before_events = prism.coordination_events().len();
@@ -2044,7 +2044,7 @@ impl QueryHost {
         self.ensure_tool_enabled("prism_artifact", "coordination artifact mutations")?;
         if let Some(workspace) = self.workspace_session() {
             self.refresh_workspace_for_mutation()?;
-            self.sync_coordination_revision(workspace)?;
+            self.ensure_coordination_runtime_current(workspace)?;
         }
         let prism = self.current_prism();
         let before_events = prism.coordination_events().len();

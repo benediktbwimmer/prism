@@ -8,7 +8,7 @@ use anyhow::{anyhow, Result};
 use prism_agent::{InferenceSnapshot, InferredEdgeRecord};
 use prism_coordination::{
     coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
-    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
+    snapshot_plan_graphs, CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
 };
 use prism_curator::{
     CuratorJobId, CuratorProposalDisposition, CuratorProposalState, CuratorSnapshot,
@@ -2409,6 +2409,7 @@ impl WorkspaceSession {
         };
         let prism = self.prism_arc();
         let before = prism.coordination_snapshot();
+        let before_plan_graphs = snapshot_plan_graphs(&before);
         let mutate_started = Instant::now();
         let result = mutate(prism.as_ref());
         observe_phase(
@@ -2465,6 +2466,8 @@ impl WorkspaceSession {
                         &snapshot,
                         &appended_events,
                         session_id,
+                        Some(&before),
+                        Some(&before_plan_graphs),
                         Some(&plan_graphs),
                         Some(&execution_overlays),
                         &mut observe_phase,
@@ -2533,6 +2536,8 @@ impl WorkspaceSession {
                         &snapshot,
                         &appended_events,
                         session_id,
+                        Some(&before),
+                        Some(&before_plan_graphs),
                         Some(&plan_graphs),
                         Some(&execution_overlays),
                         &mut observe_phase,
