@@ -12156,6 +12156,114 @@ fn declare_work_sets_current_work_and_subsequent_outcomes_use_work_ids() {
 }
 
 #[test]
+fn declare_delegated_work_inherits_parent_context_and_task_creation_binds_it() {
+    let root = temp_workspace();
+    let (workspace, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    let host = QueryHost::with_session(workspace);
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Ship delegated work inheritance" }),
+                task_id: None,
+            },
+        )
+        .expect("plan should persist");
+
+    let parent = host
+        .declare_work_without_refresh_authenticated(
+            test_session(&host).as_ref(),
+            PrismDeclareWorkArgs {
+                title: "Parent coordination work".to_string(),
+                kind: Some(WorkDeclarationKindInput::Coordination),
+                summary: Some("Establish parent work context.".to_string()),
+                parent_work_id: None,
+                coordination_task_id: None,
+                plan_id: Some(plan.state["id"].as_str().unwrap().to_string()),
+            },
+            Some(&authenticated),
+        )
+        .expect("parent work should declare");
+
+    let delegated = host
+        .declare_work_without_refresh_authenticated(
+            test_session(&host).as_ref(),
+            PrismDeclareWorkArgs {
+                title: "Delegated child work".to_string(),
+                kind: Some(WorkDeclarationKindInput::Delegated),
+                summary: Some("Inherit parent coordination context.".to_string()),
+                parent_work_id: None,
+                coordination_task_id: None,
+                plan_id: None,
+            },
+            Some(&authenticated),
+        )
+        .expect("delegated work should declare");
+
+    assert_eq!(
+        delegated.parent_work_id.as_deref(),
+        Some(parent.work_id.as_str())
+    );
+    assert_eq!(
+        delegated.plan_id.as_deref(),
+        Some(plan.state["id"].as_str().unwrap())
+    );
+    assert_eq!(
+        delegated.plan_title.as_deref(),
+        Some("Ship delegated work inheritance")
+    );
+    assert!(delegated.coordination_task_id.is_none());
+
+    let run = host.begin_mutation_run(test_session(&host).as_ref(), "coordination");
+    let created_task = host
+        .store_coordination_traced_authenticated(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Delegated child task"
+                }),
+                task_id: None,
+            },
+            &run,
+            Some(&authenticated),
+        )
+        .expect("task creation should persist under delegated work");
+
+    let task_id = created_task.state["id"]
+        .as_str()
+        .expect("created task id should be present");
+    let session = host
+        .session_resource_value(test_session(&host).as_ref())
+        .expect("session resource should load");
+    let current_work = session.current_work.expect("current work should stay set");
+    let current_task = session
+        .current_task
+        .expect("delegated task should bind current task");
+    assert_eq!(current_work.work_id, delegated.work_id);
+    assert_eq!(
+        current_work.parent_work_id.as_deref(),
+        Some(parent.work_id.as_str())
+    );
+    assert_eq!(current_work.coordination_task_id.as_deref(), Some(task_id));
+    assert_eq!(
+        current_work.plan_id.as_deref(),
+        Some(plan.state["id"].as_str().unwrap())
+    );
+    assert_eq!(current_task.task_id, task_id);
+    assert_eq!(current_task.coordination_task_id.as_deref(), Some(task_id));
+}
+
+#[test]
 fn bundle_helpers_keep_diagnostics_local_to_each_helper_call() {
     let root = temp_workspace();
     fs::write(
@@ -16357,6 +16465,63 @@ fn authenticated_coordination_mutation_records_declared_work_context_snapshot() 
     );
     assert!(work_context.coordination_task_id.is_none());
     assert!(work_context.plan_id.is_none());
+}
+
+#[test]
+fn authenticated_plan_create_rebinds_current_work_plan_context() {
+    let root = temp_workspace();
+    let (workspace, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    let host = QueryHost::with_session(workspace);
+
+    let declared = host
+        .declare_work_without_refresh_authenticated(
+            test_session(&host).as_ref(),
+            PrismDeclareWorkArgs {
+                title: "Create a plan and keep working under it".to_string(),
+                kind: Some(WorkDeclarationKindInput::Coordination),
+                summary: Some("Expect the active work to adopt the created plan.".to_string()),
+                parent_work_id: None,
+                coordination_task_id: None,
+                plan_id: None,
+            },
+            Some(&authenticated),
+        )
+        .expect("work should declare");
+
+    let run = host.begin_mutation_run(test_session(&host).as_ref(), "coordination");
+    let result = host
+        .store_coordination_traced_authenticated(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Ship plan rebinding" }),
+                task_id: None,
+            },
+            &run,
+            Some(&authenticated),
+        )
+        .expect("plan creation should persist");
+
+    let session = host
+        .session_resource_value(test_session(&host).as_ref())
+        .expect("session resource should load");
+    let current_work = session.current_work.expect("current work should stay set");
+    assert_eq!(current_work.work_id, declared.work_id);
+    assert_eq!(
+        current_work.plan_id.as_deref(),
+        Some(result.state["id"].as_str().unwrap())
+    );
+    assert_eq!(
+        current_work.plan_title.as_deref(),
+        Some("Ship plan rebinding")
+    );
+    assert!(current_work.coordination_task_id.is_none());
 }
 
 #[test]

@@ -167,6 +167,20 @@ impl SessionState {
             .expect("session work lock poisoned") = Some(work);
     }
 
+    pub(crate) fn update_current_work<F>(&self, update: F)
+    where
+        F: FnOnce(&mut SessionWorkState),
+    {
+        if let Some(work) = self
+            .current_work
+            .lock()
+            .expect("session work lock poisoned")
+            .as_mut()
+        {
+            update(work);
+        }
+    }
+
     pub(crate) fn update_current_task_metadata(
         &self,
         description: Option<Option<String>>,

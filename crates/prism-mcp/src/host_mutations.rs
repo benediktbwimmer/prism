@@ -149,6 +149,155 @@ fn coordination_audit_since(prism: &Prism, before_len: usize) -> CoordinationAud
     audit
 }
 
+fn coordination_plan_title(plan: &prism_coordination::Plan) -> String {
+    if plan.title.trim().is_empty() {
+        plan.goal.clone()
+    } else {
+        plan.title.clone()
+    }
+}
+
+fn plan_title_for(prism: &Prism, plan_id: &str) -> Option<String> {
+    prism
+        .coordination_plan(&PlanId::new(plan_id.to_string()))
+        .map(|plan| coordination_plan_title(&plan))
+}
+
+fn rebind_current_work_plan(session: &SessionState, prism: &Prism, plan_id: &str) {
+    let plan_title = plan_title_for(prism, plan_id);
+    session.update_current_work(|work| {
+        let matches_plan = work
+            .plan_id
+            .as_deref()
+            .is_none_or(|current| current == plan_id);
+        if !matches_plan {
+            return;
+        }
+        work.plan_id = Some(plan_id.to_string());
+        if let Some(title) = plan_title.clone() {
+            work.plan_title = Some(title);
+        }
+    });
+}
+
+fn maybe_bind_current_work_to_coordination_task(
+    session: &SessionState,
+    prism: &Prism,
+    task: &prism_coordination::CoordinationTask,
+    bind_session_task: bool,
+) {
+    let plan_id = task.plan.0.to_string();
+    let plan_title = plan_title_for(prism, &plan_id);
+    let mut should_bind_work = false;
+    if let Some(current_work) = session.current_work_state() {
+        let plan_matches = current_work
+            .plan_id
+            .as_deref()
+            .is_none_or(|current| current == plan_id);
+        let can_bind = matches!(
+            current_work.kind,
+            WorkContextKind::Coordination | WorkContextKind::Delegated
+        ) && plan_matches;
+        if bind_session_task {
+            should_bind_work = can_bind;
+        } else if current_work.kind == WorkContextKind::Delegated
+            && current_work.coordination_task_id.is_none()
+            && can_bind
+        {
+            should_bind_work = true;
+        }
+    }
+
+    if should_bind_work {
+        session.update_current_work(|work| {
+            work.coordination_task_id = Some(task.id.0.to_string());
+            work.plan_id = Some(plan_id.clone());
+            if let Some(title) = plan_title.clone() {
+                work.plan_title = Some(title);
+            }
+        });
+    } else if bind_session_task {
+        rebind_current_work_plan(session, prism, &plan_id);
+    }
+
+    if bind_session_task || should_bind_work {
+        session.set_current_task(
+            TaskId::new(task.id.0.to_string()),
+            Some(task.title.clone()),
+            Vec::new(),
+            Some(task.id.0.to_string()),
+        );
+    }
+}
+
+fn clear_current_coordination_binding(session: &SessionState, task_id: &str) {
+    if session
+        .current_task_state()
+        .as_ref()
+        .is_some_and(|task| task.id.0 == task_id)
+    {
+        session.clear_current_task();
+    }
+    session.update_current_work(|work| {
+        if work.coordination_task_id.as_deref() == Some(task_id) {
+            work.coordination_task_id = None;
+        }
+    });
+}
+
+fn sync_session_after_coordination_mutation(
+    session: &SessionState,
+    prism: &Prism,
+    kind: &CoordinationMutationKindInput,
+    state: &Value,
+) {
+    match kind {
+        CoordinationMutationKindInput::PlanCreate
+        | CoordinationMutationKindInput::PlanUpdate
+        | CoordinationMutationKindInput::PlanArchive => {
+            if let Some(plan_id) = state.get("id").and_then(Value::as_str) {
+                rebind_current_work_plan(session, prism, plan_id);
+            }
+        }
+        CoordinationMutationKindInput::TaskCreate => {
+            if let Some(plan_id) = state.get("planId").and_then(Value::as_str) {
+                rebind_current_work_plan(session, prism, plan_id);
+            }
+            if let Some(task_id) = state.get("id").and_then(Value::as_str) {
+                if let Some(task) =
+                    prism.coordination_task(&CoordinationTaskId::new(task_id.to_string()))
+                {
+                    maybe_bind_current_work_to_coordination_task(session, prism, &task, false);
+                }
+            }
+        }
+        CoordinationMutationKindInput::PlanNodeCreate
+        | CoordinationMutationKindInput::PlanEdgeCreate
+        | CoordinationMutationKindInput::PlanEdgeDelete
+        | CoordinationMutationKindInput::Update => {
+            if let Some(plan_id) = state.get("planId").and_then(Value::as_str) {
+                rebind_current_work_plan(session, prism, plan_id);
+            }
+        }
+        CoordinationMutationKindInput::Resume
+        | CoordinationMutationKindInput::Reclaim
+        | CoordinationMutationKindInput::HandoffAccept => {
+            if let Some(task_id) = state.get("id").and_then(Value::as_str) {
+                if let Some(task) =
+                    prism.coordination_task(&CoordinationTaskId::new(task_id.to_string()))
+                {
+                    maybe_bind_current_work_to_coordination_task(session, prism, &task, true);
+                }
+            }
+        }
+        CoordinationMutationKindInput::Handoff => {
+            if let Some(task_id) = state.get("id").and_then(Value::as_str) {
+                clear_current_coordination_binding(session, task_id);
+            }
+        }
+    }
+}
+
 fn mutation_provenance(
     host: &QueryHost,
     session: &SessionState,
@@ -311,8 +460,24 @@ impl QueryHost {
         }
 
         let prism = self.current_prism();
-        let coordination_task = args
-            .coordination_task_id
+        let inherited_parent_work = match (args.parent_work_id.as_deref(), args.kind.as_ref()) {
+            (Some(parent_work_id), _) => session
+                .current_work_state()
+                .filter(|work| work.id.0 == parent_work_id),
+            (None, Some(WorkDeclarationKindInput::Delegated)) => session.current_work_state(),
+            _ => None,
+        };
+        let parent_work_id = args.parent_work_id.clone().or_else(|| {
+            inherited_parent_work
+                .as_ref()
+                .map(|work| work.id.0.to_string())
+        });
+        let coordination_task_id = args.coordination_task_id.clone().or_else(|| {
+            inherited_parent_work
+                .as_ref()
+                .and_then(|work| work.coordination_task_id.clone())
+        });
+        let coordination_task = coordination_task_id
             .as_ref()
             .map(|task_id| {
                 prism
@@ -331,24 +496,30 @@ impl QueryHost {
                 .as_ref()
                 .and_then(|task| prism.coordination_plan(&task.plan))
         };
-        let plan_id = resolved_plan.as_ref().map(|plan| plan.id.0.to_string());
-        let plan_title = resolved_plan.as_ref().map(|plan| {
-            if plan.title.trim().is_empty() {
-                plan.goal.clone()
-            } else {
-                plan.title.clone()
-            }
-        });
+        let plan_id = resolved_plan
+            .as_ref()
+            .map(|plan| plan.id.0.to_string())
+            .or_else(|| {
+                inherited_parent_work
+                    .as_ref()
+                    .and_then(|work| work.plan_id.clone())
+            });
+        let plan_title = resolved_plan
+            .as_ref()
+            .map(coordination_plan_title)
+            .or_else(|| {
+                inherited_parent_work
+                    .as_ref()
+                    .and_then(|work| work.plan_title.clone())
+            });
         let kind = match args.kind {
             Some(WorkDeclarationKindInput::AdHoc) => WorkContextKind::AdHoc,
             Some(WorkDeclarationKindInput::Coordination) => WorkContextKind::Coordination,
             Some(WorkDeclarationKindInput::Delegated) => WorkContextKind::Delegated,
             None if coordination_task.is_some() => WorkContextKind::Coordination,
-            None if args.parent_work_id.is_some() => WorkContextKind::Delegated,
+            None if parent_work_id.is_some() => WorkContextKind::Delegated,
             None => WorkContextKind::AdHoc,
         };
-        let parent_work_id = args.parent_work_id.clone();
-        let coordination_task_id = args.coordination_task_id.clone();
         let summary = args.summary.clone();
         let work_id = session.declare_work(
             title,
@@ -1400,6 +1571,7 @@ impl QueryHost {
         let prism = self.current_prism();
         let before_events = prism.coordination_events().len();
         let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
+        let args_kind = args.kind.clone();
         let event_id = session.next_event_id("coordination");
         let meta = mutation_provenance(self, session, authenticated).event_meta(
             event_id.clone(),
@@ -1463,6 +1635,13 @@ impl QueryHost {
                         }
                     }
                     let prism = self.current_prism();
+                    sync_session_after_coordination_mutation(
+                        session,
+                        prism.as_ref(),
+                        &args_kind,
+                        &state,
+                    );
+                    self.persist_session_seed(session)?;
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     return Ok(CoordinationMutationResult {
                         event_id: event_id.0.to_string(),
@@ -1543,6 +1722,8 @@ impl QueryHost {
                 }
             };
         let audit = coordination_audit_since(prism.as_ref(), before_events);
+        sync_session_after_coordination_mutation(session, prism.as_ref(), &args_kind, &state);
+        self.persist_session_seed(session)?;
         Ok(CoordinationMutationResult {
             event_id: event_id.0.to_string(),
             event_ids: audit.event_ids,
