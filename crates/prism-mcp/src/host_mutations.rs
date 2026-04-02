@@ -14,6 +14,7 @@ use prism_curator::{
 use prism_ir::{
     new_prefixed_id, AgentId, AnchorRef, ArtifactId, ClaimId, CoordinationTaskId, Edge, EdgeOrigin,
     EventId, EventMeta, PlanEdge, PlanEdgeId, PlanEdgeKind, PlanId, PlanNodeId, TaskId,
+    WorkContextKind,
 };
 use prism_js::{CuratorProposalRecordView, TaskJournalView};
 use prism_memory::{
@@ -62,12 +63,13 @@ use crate::{
     PrismConceptMutationArgs, PrismConceptRelationMutationArgs, PrismContractMutationArgs,
     PrismCoordinationArgs, PrismCuratorApplyProposalArgs, PrismCuratorPromoteConceptArgs,
     PrismCuratorPromoteEdgeArgs, PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs,
-    PrismFinishTaskArgs, PrismHeartbeatLeaseArgs, PrismInferEdgeArgs, PrismMemoryArgs,
-    PrismOutcomeArgs, PrismSessionRepairArgs, PrismValidationFeedbackArgs, QueryHost,
-    SessionRepairMutationResult, SessionRepairOperationInput, SessionRepairOperationSchema,
-    SessionState, SparsePatch, SparsePatchInput, TaskCreatePayload, TaskReclaimPayload,
-    TaskResumePayload, ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
-    ValidationFeedbackVerdictInput, WorkflowStatusInput, WorkflowUpdatePayload,
+    PrismDeclareWorkArgs, PrismFinishTaskArgs, PrismHeartbeatLeaseArgs, PrismInferEdgeArgs,
+    PrismMemoryArgs, PrismOutcomeArgs, PrismSessionRepairArgs, PrismValidationFeedbackArgs,
+    QueryHost, SessionRepairMutationResult, SessionRepairOperationInput,
+    SessionRepairOperationSchema, SessionState, SparsePatch, SparsePatchInput, TaskCreatePayload,
+    TaskReclaimPayload, TaskResumePayload, ValidationFeedbackCategoryInput,
+    ValidationFeedbackMutationResult, ValidationFeedbackVerdictInput, WorkDeclarationKindInput,
+    WorkDeclarationResult, WorkflowStatusInput, WorkflowUpdatePayload,
     DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
 
@@ -153,9 +155,12 @@ fn mutation_provenance(
     authenticated: Option<&AuthenticatedPrincipal>,
 ) -> MutationProvenance {
     let workspace = host.workspace_session_ref();
+    let prism = host.current_prism();
     authenticated.map_or_else(
-        || MutationProvenance::fallback(workspace, session),
-        |authenticated| MutationProvenance::authenticated(workspace, session, authenticated),
+        || MutationProvenance::fallback(workspace, session, prism.clone()),
+        |authenticated| {
+            MutationProvenance::authenticated(workspace, session, prism.clone(), authenticated)
+        },
     )
 }
 
@@ -294,6 +299,126 @@ fn convert_workflow_status_for_plan_node(value: WorkflowStatusInput) -> prism_ir
 }
 
 impl QueryHost {
+    pub(crate) fn declare_work_without_refresh_authenticated(
+        &self,
+        session: &SessionState,
+        args: PrismDeclareWorkArgs,
+        authenticated: Option<&AuthenticatedPrincipal>,
+    ) -> Result<WorkDeclarationResult> {
+        let title = args.title.trim();
+        if title.is_empty() {
+            return Err(anyhow!("work title cannot be empty"));
+        }
+
+        let prism = self.current_prism();
+        let coordination_task = args
+            .coordination_task_id
+            .as_ref()
+            .map(|task_id| {
+                prism
+                    .coordination_task(&CoordinationTaskId::new(task_id.clone()))
+                    .ok_or_else(|| anyhow!("unknown coordination task `{task_id}`"))
+            })
+            .transpose()?;
+        let resolved_plan = if let Some(plan_id) = args.plan_id.as_ref() {
+            Some(
+                prism
+                    .coordination_plan(&PlanId::new(plan_id.clone()))
+                    .ok_or_else(|| anyhow!("unknown plan `{plan_id}`"))?,
+            )
+        } else {
+            coordination_task
+                .as_ref()
+                .and_then(|task| prism.coordination_plan(&task.plan))
+        };
+        let plan_id = resolved_plan.as_ref().map(|plan| plan.id.0.to_string());
+        let plan_title = resolved_plan.as_ref().map(|plan| {
+            if plan.title.trim().is_empty() {
+                plan.goal.clone()
+            } else {
+                plan.title.clone()
+            }
+        });
+        let kind = match args.kind {
+            Some(WorkDeclarationKindInput::AdHoc) => WorkContextKind::AdHoc,
+            Some(WorkDeclarationKindInput::Coordination) => WorkContextKind::Coordination,
+            Some(WorkDeclarationKindInput::Delegated) => WorkContextKind::Delegated,
+            None if coordination_task.is_some() => WorkContextKind::Coordination,
+            None if args.parent_work_id.is_some() => WorkContextKind::Delegated,
+            None => WorkContextKind::AdHoc,
+        };
+        let parent_work_id = args.parent_work_id.clone();
+        let coordination_task_id = args.coordination_task_id.clone();
+        let summary = args.summary.clone();
+        let work_id = session.declare_work(
+            title,
+            kind,
+            summary.clone(),
+            parent_work_id.clone().map(TaskId::new),
+            coordination_task_id.clone(),
+            plan_id.clone(),
+            plan_title.clone(),
+        );
+        if let Some(coordination_task) = coordination_task {
+            session.set_current_task(
+                TaskId::new(coordination_task.id.0.to_string()),
+                Some(coordination_task.title.clone()),
+                Vec::new(),
+                Some(coordination_task.id.0.to_string()),
+            );
+        } else {
+            session.clear_current_task();
+        }
+
+        let provenance = mutation_provenance(self, session, authenticated);
+        let event = OutcomeEvent {
+            meta: provenance.event_meta(
+                session.next_event_id("outcome"),
+                Some(work_id.clone()),
+                None,
+                current_timestamp(),
+            ),
+            anchors: Vec::new(),
+            kind: prism_memory::OutcomeKind::NoteAdded,
+            result: prism_memory::OutcomeResult::Success,
+            summary: summary
+                .clone()
+                .unwrap_or_else(|| format!("Declared work: {title}")),
+            evidence: Vec::new(),
+            metadata: json!({
+                "workDeclaration": {
+                    "title": title,
+                    "kind": kind,
+                    "parentWorkId": parent_work_id.clone(),
+                    "coordinationTaskId": coordination_task_id.clone(),
+                    "planId": plan_id.clone(),
+                    "planTitle": plan_title.clone(),
+                }
+            }),
+        };
+        if let Some(workspace) = self.workspace_session() {
+            workspace.append_outcome(event)?;
+            self.sync_workspace_revision(workspace)?;
+        } else {
+            prism.apply_outcome_event_to_projections(&event);
+            let _ = prism.outcome_memory().store_event(event)?;
+            self.persist_outcomes()?;
+        }
+
+        self.persist_session_seed(session)?;
+        Ok(WorkDeclarationResult {
+            work_id: work_id.0.to_string(),
+            kind,
+            title: title.to_string(),
+            summary,
+            parent_work_id,
+            coordination_task_id,
+            plan_id,
+            plan_title,
+            session: self.session_view_without_refresh(session),
+        })
+    }
+
     pub(crate) fn ensure_tool_enabled(&self, tool_name: &str, label: &str) -> Result<()> {
         if !self.features.is_tool_enabled(tool_name) {
             return Err(anyhow!(

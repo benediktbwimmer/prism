@@ -10,6 +10,7 @@ use rmcp::schemars::JsonSchema;
 use serde_json::Value;
 
 use crate::OutcomeEvent;
+use prism_ir::WorkContextKind;
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -42,6 +43,19 @@ pub(crate) struct SessionTaskView {
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct SessionWorkView {
+    pub(crate) work_id: String,
+    pub(crate) kind: WorkContextKind,
+    pub(crate) title: String,
+    pub(crate) summary: Option<String>,
+    pub(crate) parent_work_id: Option<String>,
+    pub(crate) coordination_task_id: Option<String>,
+    pub(crate) plan_id: Option<String>,
+    pub(crate) plan_title: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct CoordinationFeaturesView {
     pub(crate) workflow: bool,
     pub(crate) claims: bool,
@@ -61,6 +75,7 @@ pub(crate) struct FeatureFlagsView {
 pub(crate) struct SessionView {
     pub(crate) workspace_root: Option<String>,
     pub(crate) current_task: Option<SessionTaskView>,
+    pub(crate) current_work: Option<SessionWorkView>,
     pub(crate) current_agent: Option<String>,
     pub(crate) limits: SessionLimitsView,
     pub(crate) features: FeatureFlagsView,
@@ -103,6 +118,7 @@ pub(crate) struct SessionResourcePayload {
     pub(crate) schema_uri: String,
     pub(crate) workspace_root: Option<String>,
     pub(crate) current_task: Option<SessionTaskView>,
+    pub(crate) current_work: Option<SessionWorkView>,
     pub(crate) current_agent: Option<String>,
     pub(crate) limits: SessionLimitsView,
     pub(crate) features: FeatureFlagsView,

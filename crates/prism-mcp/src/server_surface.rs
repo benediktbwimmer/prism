@@ -839,6 +839,35 @@ impl PrismMcpServer {
     ) -> Result<CallToolResult, McpError> {
         let credential = args.credential;
         match args.mutation {
+            PrismMutationKindArgs::DeclareWork(args) => {
+                let authenticated = self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::AnyAuthenticated,
+                )?;
+                let result = self.execute_logged_mutation(
+                    "mutate.declare_work",
+                    MutationRefreshPolicy::None,
+                    || {
+                        self.host.declare_work_without_refresh_authenticated(
+                            self.session.as_ref(),
+                            args,
+                            Some(&authenticated),
+                        )
+                    },
+                    |result| {
+                        MutationDashboardMeta::task(
+                            Some(result.work_id.clone()),
+                            vec![result.work_id.clone()],
+                            0,
+                        )
+                    },
+                )?;
+                structured_tool_result(PrismMutationResult {
+                    action: PrismMutationActionSchema::DeclareWork,
+                    result: serde_json::to_value(result)
+                        .map_err(|err| map_query_error(err.into()))?,
+                })
+            }
             PrismMutationKindArgs::Outcome(args) => {
                 let authenticated = self.authenticate_mutation(
                     &credential,

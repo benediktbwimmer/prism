@@ -857,6 +857,7 @@ fn assisted_lease_event_meta(root: &Path, target: &AssistedLeaseTarget, now: u64
             instance_id: context.instance_id,
             request_id: None,
             credential_id: None,
+            work_context: None,
         }),
     }
 }
@@ -1032,6 +1033,7 @@ mod tests {
                 instance_id: None,
                 request_id: None,
                 credential_id: credential_id.map(prism_ir::CredentialId::new),
+                work_context: None,
             }),
         }
     }

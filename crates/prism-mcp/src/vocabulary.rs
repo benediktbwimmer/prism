@@ -15,6 +15,11 @@ pub(crate) struct VocabularyCategorySpec {
 
 const PRISM_MUTATE_ACTIONS: &[VocabularyValueSpec] = &[
     VocabularyValueSpec {
+        value: "declare_work",
+        aliases: &[],
+        description: "Declare durable current work context for subsequent mutations.",
+    },
+    VocabularyValueSpec {
         value: "outcome",
         aliases: &[],
         description: "Record a durable outcome event.",

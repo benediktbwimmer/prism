@@ -246,6 +246,41 @@ async fn mcp_tool_call_logs_inherit_request_envelope_phases() {
 }
 
 #[test]
+fn prism_mutate_declare_work_accepts_bootstrap_payload() {
+    let args = serde_json::from_value::<PrismMutationArgs>(json!({
+        "action": "declare_work",
+        "credential": {
+            "credentialId": "credential:test",
+            "principalToken": "prism_ptok_test"
+        },
+        "input": {
+            "title": "Curate principal identity concepts",
+            "kind": "delegated",
+            "summary": "Bootstrap durable work intent.",
+            "parentWorkId": "work:parent",
+            "coordinationTaskId": "coord-task:child",
+            "planId": "plan:identity"
+        }
+    }))
+    .expect("declare work mutation should deserialize");
+
+    let PrismMutationKindArgs::DeclareWork(args) = args.mutation else {
+        panic!("expected declare work mutation");
+    };
+    assert_eq!(args.title, "Curate principal identity concepts");
+    assert!(matches!(
+        args.kind,
+        Some(WorkDeclarationKindInput::Delegated)
+    ));
+    assert_eq!(args.parent_work_id.as_deref(), Some("work:parent"));
+    assert_eq!(
+        args.coordination_task_id.as_deref(),
+        Some("coord-task:child")
+    );
+    assert_eq!(args.plan_id.as_deref(), Some("plan:identity"));
+}
+
+#[test]
 fn prism_mutate_validation_feedback_accepts_flat_snake_case_fields() {
     let args = serde_json::from_value::<PrismMutationArgs>(json!({
         "action": "validation_feedback",

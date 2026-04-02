@@ -32,9 +32,10 @@ use crate::{
     LineageResourcePayload, MemoryResourcePayload, PlanResourcePayload, PlansQueryArgs,
     PlansResourcePayload, QueryExecution, QueryHost, ResourceSchemaCatalogPayload, SearchArgs,
     SearchResourcePayload, SessionLimitsView, SessionRepairActionView, SessionResourcePayload,
-    SessionState, SessionTaskView, SessionView, SymbolResourcePayload, TaskHeartbeatAdvice,
-    TaskResourcePayload, VocabularyResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
+    SessionState, SessionTaskView, SessionView, SessionWorkView, SymbolResourcePayload,
+    TaskHeartbeatAdvice, TaskResourcePayload, VocabularyResourcePayload,
+    DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
 };
 
 impl QueryHost {
@@ -122,9 +123,11 @@ impl QueryHost {
         let current_task = session
             .current_task_state()
             .map(|task| session_task_view(self, session, &task));
+        let current_work = session.current_work_state().map(session_work_view);
         SessionView {
             workspace_root: self.workspace_root().map(|root| root.display().to_string()),
             current_task,
+            current_work,
             current_agent: session.current_agent().map(|agent| agent.0.to_string()),
             limits: SessionLimitsView {
                 max_result_nodes: limits.max_result_nodes,
@@ -167,11 +170,17 @@ impl QueryHost {
             if let Some(task) = &session.current_task {
                 related_resources.push(task_resource_view_link(&task.task_id));
             }
+            if let Some(work) = &session.current_work {
+                if let Some(task_id) = &work.coordination_task_id {
+                    related_resources.push(task_resource_view_link(task_id));
+                }
+            }
             Ok(SessionResourcePayload {
                 uri: uri.clone(),
                 schema_uri,
                 workspace_root: session.workspace_root,
                 current_task: session.current_task,
+                current_work: session.current_work,
                 current_agent: session.current_agent,
                 limits: session.limits,
                 features: session.features,
@@ -1149,6 +1158,19 @@ pub(crate) fn session_task_view(
         context_summary: context.summary,
         next_action: context.next_action,
         repair_action: context.repair_action,
+    }
+}
+
+pub(crate) fn session_work_view(work: crate::session_state::SessionWorkState) -> SessionWorkView {
+    SessionWorkView {
+        work_id: work.id.0.to_string(),
+        kind: work.kind,
+        title: work.title,
+        summary: work.summary,
+        parent_work_id: work.parent_work_id.map(|id| id.0.to_string()),
+        coordination_task_id: work.coordination_task_id,
+        plan_id: work.plan_id,
+        plan_title: work.plan_title,
     }
 }
 

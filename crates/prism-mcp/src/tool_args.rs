@@ -1777,8 +1777,17 @@ pub(crate) struct PrismHeartbeatLeaseArgs {
     pub(crate) claim_id: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum WorkDeclarationKindInput {
+    AdHoc,
+    Coordination,
+    Delegated,
+}
+
 #[derive(Debug)]
 pub(crate) enum PrismMutationKindArgs {
+    DeclareWork(PrismDeclareWorkArgs),
     Outcome(PrismOutcomeArgs),
     Memory(PrismMemoryArgs),
     Concept(PrismConceptMutationArgs),
@@ -1805,6 +1814,7 @@ pub(crate) enum PrismMutationKindArgs {
 #[schemars(transform = ensure_root_object_input_schema)]
 #[serde(rename_all = "snake_case", tag = "action", content = "input")]
 enum PrismMutationKindArgsWire {
+    DeclareWork(PrismDeclareWorkArgs),
     Outcome(PrismOutcomeArgs),
     Memory(PrismMemoryArgs),
     Concept(PrismConceptMutationArgs),
@@ -1838,6 +1848,7 @@ struct PrismMutationArgsWire {
 impl From<PrismMutationKindArgsWire> for PrismMutationKindArgs {
     fn from(value: PrismMutationKindArgsWire) -> Self {
         match value {
+            PrismMutationKindArgsWire::DeclareWork(args) => Self::DeclareWork(args),
             PrismMutationKindArgsWire::Outcome(args) => Self::Outcome(args),
             PrismMutationKindArgsWire::Memory(args) => Self::Memory(args),
             PrismMutationKindArgsWire::Concept(args) => Self::Concept(args),
@@ -1926,6 +1937,7 @@ impl<'de> Deserialize<'de> for PrismMutationArgs {
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum PrismMutationActionSchema {
+    DeclareWork,
     Outcome,
     Memory,
     Concept,
@@ -1953,6 +1965,34 @@ pub(crate) enum PrismMutationActionSchema {
 pub(crate) struct PrismMutationResult {
     pub(crate) action: PrismMutationActionSchema,
     pub(crate) result: Value,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismDeclareWorkArgs {
+    pub(crate) title: String,
+    pub(crate) kind: Option<WorkDeclarationKindInput>,
+    pub(crate) summary: Option<String>,
+    #[serde(alias = "parent_work_id")]
+    pub(crate) parent_work_id: Option<String>,
+    #[serde(alias = "coordination_task_id")]
+    pub(crate) coordination_task_id: Option<String>,
+    #[serde(alias = "plan_id")]
+    pub(crate) plan_id: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct WorkDeclarationResult {
+    pub(crate) work_id: String,
+    pub(crate) kind: prism_ir::WorkContextKind,
+    pub(crate) title: String,
+    pub(crate) summary: Option<String>,
+    pub(crate) parent_work_id: Option<String>,
+    pub(crate) coordination_task_id: Option<String>,
+    pub(crate) plan_id: Option<String>,
+    pub(crate) plan_title: Option<String>,
+    pub(crate) session: SessionView,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

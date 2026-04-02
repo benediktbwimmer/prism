@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use prism_agent::{InferenceStore, InferredEdgeRecord, InferredEdgeScope};
 use prism_ir::{
     new_prefixed_id, new_slugged_id, new_sortable_token, AgentId, EventId, NodeId, NodeKind,
-    SessionId, TaskId,
+    SessionId, TaskId, WorkContextKind,
 };
 use prism_memory::SessionMemory;
 use prism_query::QueryLimits;
@@ -16,6 +16,18 @@ pub(crate) struct SessionTaskState {
     pub(crate) description: Option<String>,
     pub(crate) tags: Vec<String>,
     pub(crate) coordination_task_id: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct SessionWorkState {
+    pub(crate) id: TaskId,
+    pub(crate) kind: WorkContextKind,
+    pub(crate) title: String,
+    pub(crate) summary: Option<String>,
+    pub(crate) parent_work_id: Option<TaskId>,
+    pub(crate) coordination_task_id: Option<String>,
+    pub(crate) plan_id: Option<String>,
+    pub(crate) plan_title: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,6 +58,7 @@ pub(crate) struct SessionState {
     pub(crate) notes: Arc<SessionMemory>,
     pub(crate) inferred_edges: SessionInferenceStore,
     current_task: Mutex<Option<SessionTaskState>>,
+    current_work: Mutex<Option<SessionWorkState>>,
     current_agent: Mutex<Option<AgentId>>,
     next_event: Arc<AtomicU64>,
     next_handle: AtomicU64,
@@ -66,6 +79,7 @@ impl SessionState {
             notes,
             inferred_edges: SessionInferenceStore::new(inferred_edges),
             current_task: Mutex::new(None),
+            current_work: Mutex::new(None),
             current_agent: Mutex::new(None),
             next_event,
             next_handle: AtomicU64::new(1),
@@ -95,6 +109,14 @@ impl SessionState {
             .map(|task| task.id.clone())
     }
 
+    pub(crate) fn current_work(&self) -> Option<TaskId> {
+        self.current_work
+            .lock()
+            .expect("session work lock poisoned")
+            .as_ref()
+            .map(|work| work.id.clone())
+    }
+
     pub(crate) fn session_id(&self) -> SessionId {
         self.session_id.clone()
     }
@@ -110,6 +132,13 @@ impl SessionState {
         self.current_task
             .lock()
             .expect("session task lock poisoned")
+            .clone()
+    }
+
+    pub(crate) fn current_work_state(&self) -> Option<SessionWorkState> {
+        self.current_work
+            .lock()
+            .expect("session work lock poisoned")
             .clone()
     }
 
@@ -129,6 +158,13 @@ impl SessionState {
             tags,
             coordination_task_id,
         });
+    }
+
+    pub(crate) fn set_current_work(&self, work: SessionWorkState) {
+        *self
+            .current_work
+            .lock()
+            .expect("session work lock poisoned") = Some(work);
     }
 
     pub(crate) fn update_current_task_metadata(
@@ -156,6 +192,14 @@ impl SessionState {
             .current_task
             .lock()
             .expect("session task lock poisoned") = None;
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn clear_current_work(&self) {
+        *self
+            .current_work
+            .lock()
+            .expect("session work lock poisoned") = None;
     }
 
     pub(crate) fn set_current_agent(&self, agent: AgentId) {
@@ -199,9 +243,41 @@ impl SessionState {
         TaskId::new(new_slugged_id("task", description))
     }
 
+    fn next_described_work_id(&self, title: &str) -> TaskId {
+        TaskId::new(new_slugged_id("work", title))
+    }
+
+    pub(crate) fn declare_work(
+        &self,
+        title: &str,
+        kind: WorkContextKind,
+        summary: Option<String>,
+        parent_work_id: Option<TaskId>,
+        coordination_task_id: Option<String>,
+        plan_id: Option<String>,
+        plan_title: Option<String>,
+    ) -> TaskId {
+        let work = SessionWorkState {
+            id: self.next_described_work_id(title),
+            kind,
+            title: title.to_string(),
+            summary,
+            parent_work_id,
+            coordination_task_id,
+            plan_id,
+            plan_title,
+        };
+        let work_id = work.id.clone();
+        self.set_current_work(work);
+        work_id
+    }
+
     pub(crate) fn task_for_mutation(&self, explicit: Option<TaskId>) -> TaskId {
         if let Some(task) = explicit {
             return task;
+        }
+        if let Some(work) = self.current_work() {
+            return work;
         }
         if let Some(task) = self.current_task() {
             return task;

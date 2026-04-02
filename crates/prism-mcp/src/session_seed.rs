@@ -14,6 +14,7 @@ const SESSION_SEED_VERSION: u32 = 1;
 pub(crate) struct PersistedSessionSeed {
     version: u32,
     current_task: Option<PersistedSessionTaskSeed>,
+    current_work: Option<PersistedSessionWorkSeed>,
     current_agent: Option<String>,
     limits: PersistedQueryLimits,
 }
@@ -24,6 +25,18 @@ struct PersistedSessionTaskSeed {
     description: Option<String>,
     tags: Vec<String>,
     coordination_task_id: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct PersistedSessionWorkSeed {
+    work_id: String,
+    kind: prism_ir::WorkContextKind,
+    title: String,
+    summary: Option<String>,
+    parent_work_id: Option<String>,
+    coordination_task_id: Option<String>,
+    plan_id: Option<String>,
+    plan_title: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
@@ -44,6 +57,18 @@ impl PersistedSessionSeed {
                     description: task.description,
                     tags: task.tags,
                     coordination_task_id: task.coordination_task_id,
+                }),
+            current_work: session
+                .current_work_state()
+                .map(|work| PersistedSessionWorkSeed {
+                    work_id: work.id.0.to_string(),
+                    kind: work.kind,
+                    title: work.title,
+                    summary: work.summary,
+                    parent_work_id: work.parent_work_id.map(|id| id.0.to_string()),
+                    coordination_task_id: work.coordination_task_id,
+                    plan_id: work.plan_id,
+                    plan_title: work.plan_title,
                 }),
             current_agent: session.current_agent().map(|agent| agent.0.to_string()),
             limits: PersistedQueryLimits::from(session.limits()),
@@ -111,6 +136,18 @@ pub(crate) fn restore_session_seed(session: &SessionState, seed: &PersistedSessi
             task.tags.clone(),
             task.coordination_task_id.clone(),
         );
+    }
+    if let Some(work) = &seed.current_work {
+        session.set_current_work(crate::session_state::SessionWorkState {
+            id: TaskId::new(work.work_id.clone()),
+            kind: work.kind,
+            title: work.title.clone(),
+            summary: work.summary.clone(),
+            parent_work_id: work.parent_work_id.clone().map(TaskId::new),
+            coordination_task_id: work.coordination_task_id.clone(),
+            plan_id: work.plan_id.clone(),
+            plan_title: work.plan_title.clone(),
+        });
     }
     if let Some(agent) = &seed.current_agent {
         session.set_current_agent(AgentId::new(agent.clone()));

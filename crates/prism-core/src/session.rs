@@ -79,13 +79,13 @@ use crate::validation_feedback::{
     ValidationFeedbackRecord,
 };
 use crate::watch::{refresh_prism_snapshot, try_refresh_prism_snapshot, WatchHandle, WatchMessage};
-use crate::worktree_principal::BoundWorktreePrincipal;
 use crate::workspace_identity::coordination_persist_context_for_root;
 use crate::workspace_runtime_state::{WorkspacePublishedGeneration, WorkspaceRuntimeState};
 use crate::workspace_tree::{
     plan_full_refresh, populate_package_regions, WorkspaceRefreshDelta, WorkspaceRefreshMode,
     WorkspaceRefreshPlan,
 };
+use crate::worktree_principal::BoundWorktreePrincipal;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FsRefreshStatus {
@@ -1636,6 +1636,7 @@ impl WorkspaceSession {
             instance_id: context.instance_id,
             request_id,
             credential_id: credential_id.cloned(),
+            work_context: None,
         }
     }
 

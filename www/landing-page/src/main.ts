@@ -1,17 +1,14 @@
 import './style.css'
 
-// 1. Terminal Typing Effect
 const terminalLines = [
-  '<span class="token-comment">// 1. Find the next unblocked task (Intent)</span>',
-  '<span class="token-keyword">const</span> task = <span class="token-function">prism.readyTasks</span>(<span class="token-string">"plan:auth"</span>)[0];',
+  '<span class="token-comment">// 1. Discover Context & Intent</span>',
+  '<span class="token-keyword">const</span> ready = <span class="token-function">prism.readyTasks</span>(<span class="token-string">"plan:auth"</span>);',
+  '<span class="token-keyword">const</span> context = <span class="token-function">prism.memory.recall</span>({ focus: ready[0].anchors });',
   '',
-  '<span class="token-comment">// 2. Hydrate historical lessons (Memory)</span>',
-  '<span class="token-keyword">const</span> context = <span class="token-function">prism.memory.recall</span>({ focus: task.anchors });',
+  '<span class="token-comment">// 2. View cryptographic file-change ledger</span>',
+  '<span class="token-keyword">const</span> ledger = <span class="token-function">prism.provenance</span>(<span class="token-string">ready[0]</span>);',
   '',
-  '<span class="token-comment">// 3. Bind to repo vocabulary (Concepts)</span>',
-  '<span class="token-keyword">const</span> concept = <span class="token-function">prism.concept</span>(<span class="token-string">"Validation Layer"</span>);',
-  '',
-  '<span class="token-keyword">return</span> { task, context, concept };'
+  '<span class="token-keyword">return</span> { ready, context, ledger };'
 ];
 
 function typeWriter() {

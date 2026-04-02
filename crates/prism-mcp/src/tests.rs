@@ -5267,7 +5267,7 @@ return {
 
     let mutate = &result.result["mutateSummary"];
     assert_eq!(mutate["toolName"], "prism_mutate");
-    assert_eq!(mutate["actionCount"], 20);
+    assert_eq!(mutate["actionCount"], 21);
     assert_eq!(mutate["exampleAction"], "validation_feedback");
     assert_eq!(
         mutate["examplePrismSaid"],
@@ -10838,6 +10838,7 @@ fn compact_task_brief_prioritizes_heartbeat_instruction_when_lease_is_due() {
             instance_id: None,
             request_id: None,
             credential_id: None,
+            work_context: None,
         }),
     };
     let (plan_id, _) = coordination
@@ -12081,6 +12082,77 @@ fn restart_restores_persisted_session_seed_for_new_host_sessions() {
     assert_eq!(restored.limits.max_result_nodes, 3);
     assert_eq!(restored.limits.max_call_graph_depth, 2);
     assert_eq!(restored.limits.max_output_json_bytes, 2048);
+}
+
+#[test]
+fn declare_work_sets_current_work_and_subsequent_outcomes_use_work_ids() {
+    let root = temp_workspace();
+    let (workspace, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    let host = QueryHost::with_session(workspace);
+
+    let declared = host
+        .declare_work_without_refresh_authenticated(
+            test_session(&host).as_ref(),
+            PrismDeclareWorkArgs {
+                title: "Curate current work model".to_string(),
+                kind: Some(WorkDeclarationKindInput::AdHoc),
+                summary: Some("Bootstrap work attribution.".to_string()),
+                parent_work_id: Some("work:parent".to_string()),
+                coordination_task_id: None,
+                plan_id: None,
+            },
+            Some(&authenticated),
+        )
+        .expect("work should declare");
+    assert!(declared.work_id.starts_with("work:"));
+    assert_eq!(declared.kind, prism_ir::WorkContextKind::AdHoc);
+    assert_eq!(declared.parent_work_id.as_deref(), Some("work:parent"));
+
+    let result = host
+        .store_outcome_without_refresh_authenticated(
+            test_session(&host).as_ref(),
+            PrismOutcomeArgs {
+                anchors: Vec::new(),
+                kind: OutcomeKindInput::NoteAdded,
+                summary: "Stored follow-up note under declared work".to_string(),
+                result: Some(OutcomeResultInput::Success),
+                evidence: None,
+                task_id: None,
+            },
+            Some(&authenticated),
+        )
+        .expect("outcome should store");
+    assert_eq!(result.task_id, declared.work_id);
+
+    let replay = host
+        .current_prism()
+        .resume_task(&TaskId::new(result.task_id.clone()));
+    let work_context = replay
+        .events
+        .last()
+        .and_then(|event| event.meta.execution_context.as_ref())
+        .and_then(|context| context.work_context.as_ref())
+        .expect("outcome should record work context");
+    assert_eq!(work_context.work_id, declared.work_id);
+    assert_eq!(work_context.kind, prism_ir::WorkContextKind::AdHoc);
+    assert_eq!(work_context.title, "Curate current work model");
+    assert_eq!(work_context.parent_work_id.as_deref(), Some("work:parent"));
+
+    let session = host
+        .session_resource_value(test_session(&host).as_ref())
+        .expect("session resource should load");
+    let current_work = session
+        .current_work
+        .expect("session should surface current work");
+    assert_eq!(current_work.work_id, declared.work_id);
+    assert_eq!(current_work.title, "Curate current work model");
+    assert!(session.current_task.is_none());
 }
 
 #[test]
@@ -16093,6 +16165,101 @@ fn authenticated_outcome_mutation_records_principal_actor_and_execution_context(
     );
     assert!(context.repo_id.is_some());
     assert!(context.worktree_id.is_some());
+    let work_context = context
+        .work_context
+        .expect("authenticated outcome should record work context");
+    assert_eq!(work_context.work_id, "task:authenticated-outcome");
+    assert_eq!(work_context.kind, prism_ir::WorkContextKind::Undeclared);
+    assert_eq!(work_context.title, "task:authenticated-outcome");
+    assert!(work_context.coordination_task_id.is_none());
+    assert!(work_context.plan_id.is_none());
+}
+
+#[test]
+fn authenticated_outcome_mutation_records_coordination_work_context_snapshot() {
+    let root = temp_workspace();
+    let (workspace, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    let host = QueryHost::with_session(workspace);
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Ship work context snapshots" }),
+                task_id: None,
+            },
+        )
+        .expect("plan should persist");
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Snapshot coordination provenance",
+                }),
+                task_id: None,
+            },
+        )
+        .expect("task should persist");
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    let result = host
+        .store_outcome_without_refresh_authenticated(
+            test_session(&host).as_ref(),
+            PrismOutcomeArgs {
+                kind: OutcomeKindInput::NoteAdded,
+                anchors: vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::alpha".to_string(),
+                    kind: "function".to_string(),
+                }],
+                summary: "Authenticated coordination-scoped outcome.".to_string(),
+                result: Some(OutcomeResultInput::Success),
+                evidence: None,
+                task_id: Some(task_id.clone()),
+            },
+            Some(&authenticated),
+        )
+        .expect("authenticated coordination outcome should persist");
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let replay = reloaded.prism().resume_task(&TaskId::new(task_id.clone()));
+    let event = replay
+        .events
+        .into_iter()
+        .find(|event| event.meta.id.0 == result.event_id)
+        .expect("persisted outcome event should be replayable");
+    let context = event
+        .meta
+        .execution_context
+        .expect("coordination outcome should record execution context");
+    let work_context = context
+        .work_context
+        .expect("coordination outcome should record work context");
+    assert_eq!(work_context.work_id, task_id);
+    assert_eq!(work_context.kind, prism_ir::WorkContextKind::Coordination);
+    assert_eq!(work_context.title, "Snapshot coordination provenance");
+    assert_eq!(
+        work_context.coordination_task_id.as_deref(),
+        Some(task.state["id"].as_str().unwrap())
+    );
+    assert_eq!(
+        work_context.plan_id.as_deref(),
+        Some(plan.state["id"].as_str().unwrap())
+    );
+    assert_eq!(
+        work_context.plan_title.as_deref(),
+        Some("Ship work context snapshots")
+    );
 }
 
 #[test]
@@ -16193,6 +16360,13 @@ fn authenticated_validation_feedback_records_principal_actor_and_execution_conte
     );
     assert!(context.repo_id.is_some());
     assert!(context.worktree_id.is_some());
+    let work_context = context
+        .work_context
+        .expect("execution context should include work context");
+    assert_eq!(work_context.work_id, "task:authenticated-feedback");
+    assert_eq!(work_context.kind, prism_ir::WorkContextKind::Undeclared);
+    assert_eq!(work_context.title, "task:authenticated-feedback");
+    assert!(work_context.coordination_task_id.is_none());
 }
 
 #[test]
@@ -20103,6 +20277,7 @@ fn session_resource_prioritizes_heartbeat_instruction_when_lease_is_due() {
             instance_id: None,
             request_id: None,
             credential_id: None,
+            work_context: None,
         }),
     };
     let (plan_id, _) = coordination

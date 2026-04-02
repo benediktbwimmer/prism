@@ -959,7 +959,9 @@ fn append_plan_delta_events(
     events
 }
 
-fn repo_published_execution_overlays(overlays: Vec<PlanExecutionOverlay>) -> Vec<PlanExecutionOverlay> {
+fn repo_published_execution_overlays(
+    overlays: Vec<PlanExecutionOverlay>,
+) -> Vec<PlanExecutionOverlay> {
     let mut overlays = overlays
         .into_iter()
         // Repo-published plan streams must stay self-contained and repo-semantic. Runtime

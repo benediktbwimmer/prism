@@ -207,6 +207,11 @@ fn dashboard_session_view(host: &QueryHost, session: Option<&SessionState>) -> S
                 .current_task_state()
                 .map(|task| session_task_view(host, session, &task))
         }),
+        current_work: session.and_then(|session| {
+            session
+                .current_work_state()
+                .map(crate::host_resources::session_work_view)
+        }),
         current_agent: session
             .and_then(|session| session.current_agent().map(|agent| agent.0.to_string())),
         limits: SessionLimitsView {

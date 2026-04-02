@@ -39,6 +39,7 @@ fn principal_meta(
             instance_id: None,
             request_id: None,
             credential_id: None,
+            work_context: None,
         }),
     }
 }

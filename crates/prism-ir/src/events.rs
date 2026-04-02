@@ -34,6 +34,33 @@ pub struct EventExecutionContext {
     pub request_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub credential_id: Option<CredentialId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub work_context: Option<WorkContextSnapshot>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkContextKind {
+    Undeclared,
+    AdHoc,
+    Coordination,
+    Delegated,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkContextSnapshot {
+    pub work_id: String,
+    pub kind: WorkContextKind,
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_work_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coordination_task_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plan_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plan_title: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

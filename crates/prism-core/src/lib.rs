@@ -36,11 +36,11 @@ mod shared_runtime_store;
 mod util;
 mod validation_feedback;
 mod watch;
-mod worktree_principal;
 mod workspace_identity;
 mod workspace_runtime_state;
 mod workspace_session_defaults;
 mod workspace_tree;
+mod worktree_principal;
 
 use std::sync::Arc;
 
@@ -73,10 +73,10 @@ pub use validation_feedback::{
     ValidationFeedbackCategory, ValidationFeedbackEntry, ValidationFeedbackRecord,
     ValidationFeedbackVerdict,
 };
-pub use worktree_principal::{BoundWorktreePrincipal, WorktreePrincipalConflict};
 pub use workspace_session_defaults::{
     default_workspace_session_options, default_workspace_shared_runtime,
 };
+pub use worktree_principal::{BoundWorktreePrincipal, WorktreePrincipalConflict};
 
 #[derive(Debug, Clone)]
 pub struct WorkspaceSessionOptions {

@@ -126,6 +126,7 @@ pub(crate) fn tool_action_examples(tool_name: &str, action: &str) -> Vec<Value> 
 fn prism_mutate_examples() -> Vec<Value> {
     let mut examples = [
         "validation_feedback",
+        "declare_work",
         "session_repair",
         "outcome",
         "memory",
@@ -164,6 +165,16 @@ fn prism_mutate_action_example(action: &str) -> Option<Value> {
                 "category": "projection",
                 "verdict": "helpful",
                 "correctedManually": false
+            }
+        })),
+        "declare_work" => Some(json!({
+            "action": "declare_work",
+            "input": {
+                "title": "Curate principal identity concepts",
+                "kind": "ad_hoc",
+                "summary": "Bootstrap durable work attribution before later mutations.",
+                "parentWorkId": "work:parent-demo",
+                "planId": "plan:demo-main"
             }
         })),
         "session_repair" => Some(json!({
@@ -585,6 +596,16 @@ fn session_payload_example() -> Value {
             "taskId": "task:demo-main",
             "description": "Inspect the read-context flow.",
             "tags": ["mcp", "examples"]
+        },
+        "currentWork": {
+            "workId": "work:demo-main",
+            "kind": "ad_hoc",
+            "title": "Inspect the read-context flow",
+            "summary": "Bootstrap work attribution before storing outcomes.",
+            "parentWorkId": "work:parent-demo",
+            "coordinationTaskId": null,
+            "planId": null,
+            "planTitle": null
         },
         "currentAgent": "codex",
         "limits": sample_limits(),
