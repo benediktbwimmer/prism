@@ -303,6 +303,7 @@ struct UpstreamConnection {
 
 pub(crate) struct ProxyMcpServer {
     root: PathBuf,
+    reconnect_cli: Option<PrismMcpCli>,
     upstream: Arc<AsyncMutex<Option<UpstreamConnection>>>,
     upstream_source: BridgeUpstreamSource,
     reconnect_lock: Arc<AsyncMutex<()>>,
@@ -349,6 +350,7 @@ impl ProxyMcpServer {
         )));
         Ok(Self {
             root: root.to_path_buf(),
+            reconnect_cli: None,
             upstream: Arc::new(AsyncMutex::new(None)),
             upstream_source: BridgeUpstreamSource::Fixed("http://127.0.0.1:9/mcp".to_string()),
             reconnect_lock: Arc::new(AsyncMutex::new(())),
@@ -378,6 +380,7 @@ impl ProxyMcpServer {
         startup.mark_failed(error);
         Ok(Self {
             root: root.to_path_buf(),
+            reconnect_cli: None,
             upstream: Arc::new(AsyncMutex::new(None)),
             upstream_source,
             reconnect_lock: Arc::new(AsyncMutex::new(())),
@@ -417,6 +420,7 @@ impl ProxyMcpServer {
         }));
         Ok(Self {
             root: PathBuf::new(),
+            reconnect_cli: None,
             upstream: Arc::new(AsyncMutex::new(Some(connection))),
             upstream_source,
             reconnect_lock: Arc::new(AsyncMutex::new(())),
@@ -450,6 +454,7 @@ impl ProxyMcpServer {
         let tool_cache = bootstrap_tool_cache(features);
         let server = Self {
             root: root.to_path_buf(),
+            reconnect_cli: Some(cli.clone()),
             upstream: Arc::new(AsyncMutex::new(None)),
             upstream_source: upstream_source.clone(),
             reconnect_lock: Arc::new(AsyncMutex::new(())),
@@ -599,7 +604,7 @@ impl ProxyMcpServer {
         let mut last_error = None;
         while started.elapsed() < DEFAULT_BRIDGE_RECONNECT_TIMEOUT {
             attempt += 1;
-            let upstream_uri = match self.upstream_source.read_uri() {
+            let upstream_uri = match self.resolve_reconnect_upstream().await {
                 Ok(uri) => uri,
                 Err(error) => {
                     last_error = Some(error);
@@ -673,6 +678,31 @@ impl ProxyMcpServer {
         }
 
         Err(last_error.unwrap_or_else(|| anyhow!("failed to reconnect PRISM MCP bridge upstream")))
+    }
+
+    async fn resolve_reconnect_upstream(&self) -> Result<String> {
+        let Some(cli) = self.reconnect_cli.as_ref() else {
+            return self.upstream_source.read_uri();
+        };
+
+        let resolution_started = Instant::now();
+        let resolution = crate::daemon_mode::resolve_upstream_uri(cli, &self.root).await?;
+        if let Err(error) = crate::runtime_state::record_bridge_upstream_resolved(
+            &self.root,
+            &resolution.uri,
+            resolution.source,
+            resolution_started.elapsed().as_millis(),
+            resolution.daemon_wait_ms,
+            resolution.spawned_daemon,
+        ) {
+            warn!(
+                error = %error,
+                root = %self.root.display(),
+                upstream_uri = %resolution.uri,
+                "failed to update prism runtime state for bridge reconnect upstream resolution"
+            );
+        }
+        Ok(resolution.uri)
     }
 
     fn should_reconnect(error: &ServiceError) -> bool {

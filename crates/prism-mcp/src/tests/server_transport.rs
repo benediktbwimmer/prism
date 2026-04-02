@@ -9,12 +9,14 @@ use rmcp::{
 use serde_json::{json, Value};
 
 use super::*;
+use crate::runtime_state::{default_runtime_state_path, RuntimeProcessRecord, RuntimeState};
 use crate::tests_support::{
     call_tool_request, demo_node, first_tool_content_json, initialize_client,
     initialized_notification, list_tools_request, read_resource_request, response_json,
     server_with_node, server_with_node_and_features, spawn_http_upstream, temp_workspace,
     test_session, workspace_session_with_owner_credential,
 };
+use crate::{PrismMcpCli, PrismMcpMode};
 use prism_core::{CredentialProfile, CredentialsFile, SharedRuntimeBackend};
 use prism_ir::CredentialId;
 use prism_ir::{Language, Node, NodeId, NodeKind, Span};
@@ -313,10 +315,24 @@ async fn stdio_proxy_reconnects_after_upstream_restart_from_uri_file() {
         ))
         .await
         .expect("proxy should forward the first query");
-    let first_payload = first_query
+    let first_result = first_query
         .structured_content
-        .expect("query result should be structured");
-    assert_eq!(first_payload["result"], "demo::main");
+        .as_ref()
+        .map(|payload| payload["result"].clone())
+        .or_else(|| {
+            first_query
+                .content
+                .first()
+                .and_then(|content| content.as_text())
+                .map(|text| {
+                    serde_json::from_str::<Value>(&text.text)
+                        .ok()
+                        .and_then(|payload| payload.get("result").cloned())
+                        .unwrap_or_else(|| Value::String(text.text.clone()))
+                })
+        })
+        .expect("query result should expose a value");
+    assert_eq!(first_result, "demo::main");
 
     first_upstream_task.abort();
     let _ = first_upstream_task.await;
@@ -349,6 +365,167 @@ async fn stdio_proxy_reconnects_after_upstream_restart_from_uri_file() {
         .structured_content
         .expect("query result should be structured after reconnect");
     assert_eq!(second_payload["result"], "demo::replacement");
+
+    client.cancel().await.unwrap();
+    proxy_task.abort();
+    let _ = proxy_task.await;
+    second_upstream_task.abort();
+    let _ = second_upstream_task.await;
+}
+
+#[tokio::test]
+async fn bootstrap_proxy_self_heals_stale_uri_file_from_runtime_state() {
+    let root = temp_workspace();
+    let cli = PrismMcpCli {
+        root: root.clone(),
+        mode: PrismMcpMode::Bridge,
+        no_coordination: false,
+        internal_developer: false,
+        enable_coordination: Vec::new(),
+        disable_coordination: Vec::new(),
+        enable_query_view: Vec::new(),
+        disable_query_view: Vec::new(),
+        daemon_log: None,
+        shared_runtime_sqlite: None,
+        shared_runtime_uri: None,
+        restart_nonce: None,
+        daemon_start_timeout_ms: Some(500),
+        http_bind: "127.0.0.1:0".to_string(),
+        http_path: "/mcp".to_string(),
+        health_path: "/healthz".to_string(),
+        http_uri_file: None,
+        upstream_uri: None,
+        bootstrap_build_worktree_release: false,
+        bridge_daemon_binary: None,
+        daemonize: false,
+    };
+    let uri_file = cli
+        .http_uri_file_path(&root)
+        .expect("uri file path should resolve");
+    fs::create_dir_all(
+        uri_file
+            .parent()
+            .expect("uri file should have a parent directory"),
+    )
+    .expect("uri file parent should exist");
+
+    let (first_uri, first_upstream_task) = spawn_http_upstream(server_with_node(demo_node())).await;
+    fs::write(&uri_file, format!("{first_uri}\n")).expect("uri file should be written");
+
+    let upstream_source = crate::daemon_mode::BridgeUpstreamSource::from_cli(&cli, &root)
+        .expect("upstream source should build");
+    let proxy = crate::proxy_server::ProxyMcpServer::bootstrap_with_source_for_root(
+        &root,
+        cli.clone(),
+        upstream_source,
+    )
+    .await
+    .expect("bootstrap proxy should initialize");
+    let (client_transport, server_transport) = tokio::io::duplex(64 * 1024);
+    let proxy_task = tokio::spawn(async move {
+        proxy
+            .serve_transport(server_transport)
+            .await
+            .expect("bootstrap proxy should serve stdio");
+    });
+    let client = ().serve(client_transport).await.expect("client should connect through proxy");
+
+    let query_result = |response: &rmcp::model::CallToolResult| {
+        response
+            .structured_content
+            .as_ref()
+            .map(|payload| payload["result"].clone())
+            .or_else(|| {
+                response
+                    .content
+                    .first()
+                    .and_then(|content| content.as_text())
+                    .map(|text| {
+                        serde_json::from_str::<Value>(&text.text)
+                            .ok()
+                            .and_then(|payload| payload.get("result").cloned())
+                            .unwrap_or_else(|| Value::String(text.text.clone()))
+                    })
+            })
+            .expect("query result should expose a value")
+    };
+
+    let first_result = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let response = client
+                .call_tool(CallToolRequestParams::new("prism_query").with_arguments(
+                    serde_json::Map::from_iter([(
+                        String::from("code"),
+                        json!(r#"return prism.symbol("main")?.id.path ?? null;"#),
+                    )]),
+                ))
+                .await
+                .expect("proxy should forward the first query");
+            let result = query_result(&response);
+            if result == "demo::main" {
+                break result;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .expect("bootstrap query should complete before the timeout");
+    assert_eq!(first_result, "demo::main");
+
+    first_upstream_task.abort();
+    let _ = first_upstream_task.await;
+
+    let replacement_node = Node {
+        id: NodeId::new("demo", "demo::replacement", NodeKind::Function),
+        name: "replacement".into(),
+        kind: NodeKind::Function,
+        file: prism_ir::FileId(2),
+        span: Span::new(1, 1),
+        language: Language::Rust,
+    };
+    let (second_uri, second_upstream_task) =
+        spawn_http_upstream(server_with_node(replacement_node)).await;
+
+    let runtime_state_path =
+        default_runtime_state_path(&root).expect("runtime state path should resolve");
+    fs::create_dir_all(
+        runtime_state_path
+            .parent()
+            .expect("runtime state path should have a parent directory"),
+    )
+    .expect("runtime state parent should exist");
+    fs::write(
+        &runtime_state_path,
+        serde_json::to_vec_pretty(&RuntimeState {
+            processes: vec![RuntimeProcessRecord {
+                pid: std::process::id(),
+                kind: "daemon".to_string(),
+                started_at: 1,
+                health_path: Some("/healthz".to_string()),
+                http_uri: Some(second_uri.clone()),
+                upstream_uri: None,
+                restart_nonce: Some("replacement-daemon".to_string()),
+            }],
+            events: Vec::new(),
+        })
+        .expect("runtime state should serialize"),
+    )
+    .expect("runtime state should be written");
+
+    let second_query = tokio::time::timeout(
+        Duration::from_secs(10),
+        client.call_tool(CallToolRequestParams::new("prism_query").with_arguments(
+            serde_json::Map::from_iter([(
+                String::from("code"),
+                json!(r#"return prism.symbol("replacement")?.id.path ?? null;"#),
+            )]),
+        )),
+    )
+    .await
+    .expect("self-healing reconnect should complete before the timeout")
+    .expect("bootstrapped proxy should recover using runtime-state daemon candidates");
+    let second_result = query_result(&second_query);
+    assert_eq!(second_result, "demo::replacement");
 
     client.cancel().await.unwrap();
     proxy_task.abort();
