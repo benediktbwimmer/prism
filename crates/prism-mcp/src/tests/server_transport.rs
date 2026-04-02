@@ -206,6 +206,84 @@ async fn bootstrap_proxy_exposes_startup_resource_and_warmup_errors_before_ready
 }
 
 #[tokio::test]
+async fn failed_bootstrap_proxy_recovers_once_an_upstream_becomes_available() {
+    let uri_file = temp_workspace().join("bridge-uri.txt");
+    let root = temp_workspace();
+    let proxy = crate::proxy_server::ProxyMcpServer::failed_for_test(
+        &root,
+        PrismMcpFeatures::full(),
+        "bootstrap detach failed",
+        crate::daemon_mode::BridgeUpstreamSource::HttpUriFile(uri_file.clone()),
+    )
+    .expect("failed proxy should build");
+    let (client_transport, server_transport) = tokio::io::duplex(64 * 1024);
+    let proxy_task = tokio::spawn(async move {
+        proxy
+            .serve_transport(server_transport)
+            .await
+            .expect("failed proxy should serve stdio");
+    });
+
+    let client = ().serve(client_transport).await.expect("client should connect through proxy");
+
+    let startup = client
+        .read_resource(ReadResourceRequestParams::new(STARTUP_URI))
+        .await
+        .expect("startup resource should expose the failed state");
+    let startup_text = match &startup.contents[0] {
+        rmcp::model::ResourceContents::TextResourceContents { text, .. } => text.as_str(),
+        other => panic!("expected textual startup resource, got {other:?}"),
+    };
+    let startup_payload =
+        serde_json::from_str::<Value>(startup_text).expect("startup resource should be valid json");
+    assert_eq!(startup_payload["ready"], false);
+    assert_eq!(startup_payload["phase"], "failed");
+
+    let (upstream_uri, upstream_task) = spawn_http_upstream(server_with_node(demo_node())).await;
+    fs::write(&uri_file, format!("{upstream_uri}\n")).expect("uri file should be written");
+
+    let query = tokio::time::timeout(
+        Duration::from_secs(10),
+        client.call_tool(CallToolRequestParams::new("prism_query").with_arguments(
+            serde_json::Map::from_iter([(String::from("code"), json!("return 'recovered';"))]),
+        )),
+    )
+    .await
+    .expect("recovery query should complete before the timeout")
+    .expect("failed proxy should reconnect once the upstream is available");
+    let query_payload = query.structured_content.unwrap_or_else(|| {
+        serde_json::from_str(
+            &query.content[0]
+                .as_text()
+                .expect("query result should expose text content")
+                .text,
+        )
+        .expect("query text content should be valid json")
+    });
+    assert_eq!(query_payload["result"], "recovered");
+
+    let startup = client
+        .read_resource(ReadResourceRequestParams::new(STARTUP_URI))
+        .await
+        .expect("startup resource should reflect the recovered state");
+    let startup_text = match &startup.contents[0] {
+        rmcp::model::ResourceContents::TextResourceContents { text, .. } => text.as_str(),
+        other => panic!("expected textual startup resource, got {other:?}"),
+    };
+    let startup_payload =
+        serde_json::from_str::<Value>(startup_text).expect("startup resource should be valid json");
+    assert_eq!(startup_payload["ready"], true);
+    assert_eq!(startup_payload["phase"], "ready");
+    assert_eq!(startup_payload["upstreamUri"], upstream_uri);
+
+    client.cancel().await.unwrap();
+    proxy_task.abort();
+    let _ = proxy_task.await;
+    upstream_task.abort();
+    let _ = upstream_task.await;
+}
+
+#[tokio::test]
 async fn stdio_proxy_reconnects_after_upstream_restart_from_uri_file() {
     let uri_file = temp_workspace().join("bridge-uri.txt");
     let (first_uri, first_upstream_task) = spawn_http_upstream(server_with_node(demo_node())).await;
