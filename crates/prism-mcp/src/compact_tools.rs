@@ -192,6 +192,15 @@ impl QueryHost {
             let refresh_started = Instant::now();
             let refresh = self.observe_workspace_for_read()?;
             crate::refresh_phases::record_query_runtime_sync_phases(&query_run, &refresh);
+            let refresh_duration = refresh_started.elapsed();
+            let accounted_runtime_sync_duration =
+                crate::refresh_phases::accounted_runtime_sync_duration(&refresh);
+            let unattributed_runtime_sync_duration =
+                crate::refresh_phases::record_query_runtime_sync_gap_phase(
+                    &query_run,
+                    &refresh,
+                    refresh_duration,
+                );
             query_run.record_phase(
                 "compact.refreshWorkspace",
                 &json!({
@@ -201,8 +210,10 @@ impl QueryHost {
                     "inferenceReloaded": refresh.inference_reloaded,
                     "coordinationReloaded": refresh.coordination_reloaded,
                     "metrics": refresh.metrics.as_json(),
+                    "accountedRuntimeSyncMs": accounted_runtime_sync_duration.as_millis(),
+                    "unattributedRuntimeSyncMs": unattributed_runtime_sync_duration.as_millis(),
                 }),
-                refresh_started.elapsed(),
+                refresh_duration,
                 true,
                 None,
             );

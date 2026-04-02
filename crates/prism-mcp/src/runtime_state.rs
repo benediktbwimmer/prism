@@ -439,6 +439,8 @@ mod tests {
             health_path: "/healthz".to_string(),
             http_uri_file: None,
             upstream_uri: None,
+            bootstrap_build_worktree_release: false,
+            bridge_daemon_binary: None,
             daemonize: false,
         };
 
@@ -504,6 +506,8 @@ mod tests {
             health_path: "/healthz".to_string(),
             http_uri_file: None,
             upstream_uri: None,
+            bootstrap_build_worktree_release: false,
+            bridge_daemon_binary: None,
             daemonize: false,
         };
 

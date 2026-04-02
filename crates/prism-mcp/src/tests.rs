@@ -10051,6 +10051,12 @@ fn compact_tool_query_trace_records_refresh_and_handler_phases() {
         .get("metrics")
         .and_then(Value::as_object)
         .expect("compact refresh metrics");
+    for key in ["accountedRuntimeSyncMs", "unattributedRuntimeSyncMs"] {
+        assert!(
+            refresh_args.contains_key(key),
+            "expected compact refresh args to include `{key}`"
+        );
+    }
     for key in [
         "lockWaitMs",
         "lockHoldMs",
@@ -13666,6 +13672,12 @@ return prism.runtimeStatus();
     assert_eq!(args.get("episodicReloaded"), Some(&Value::Bool(false)));
     assert_eq!(args.get("inferenceReloaded"), Some(&Value::Bool(false)));
     assert_eq!(args.get("coordinationReloaded"), Some(&Value::Bool(false)));
+    for key in ["accountedRuntimeSyncMs", "unattributedRuntimeSyncMs"] {
+        assert!(
+            args.contains_key(key),
+            "expected typescript refresh args to include `{key}`"
+        );
+    }
     let metrics = args
         .get("metrics")
         .and_then(Value::as_object)

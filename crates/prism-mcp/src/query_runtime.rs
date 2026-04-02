@@ -34,11 +34,11 @@ use crate::{
     ad_hoc_plan_projection_diff_view, ad_hoc_plan_projection_view,
     ambiguity::is_broad_identifier_query, ambiguity_diagnostic_data, apply_module_filter,
     artifact_risk_view, artifact_view, blast_radius_view, blocker_view, change_impact_view,
-    changed_files, changed_symbols, claim_view, co_change_view, combined_parse_typescript_error,
-    concept_decode_lens_view, concept_packet_view, concept_relation_view,
+    changed_files, changed_symbols, changed_symbols_from_events, claim_view, co_change_view,
+    combined_parse_typescript_error, concept_decode_lens_view, concept_packet_view, concept_relation_view,
     concept_resolution_is_ambiguous, conflict_view, contract_packet_view, convert_anchors,
     convert_capability, convert_claim_mode, convert_node_id, coordination_task_view,
-    current_timestamp, diff_for, drift_candidate_view, edge_kind_label, edge_view,
+    current_timestamp, diff_for, diff_for_from_events, drift_candidate_view, edge_kind_label, edge_view,
     edit_slice_for_symbol, entrypoints_for, focused_block_for_symbol, invalid_query_argument_error,
     is_query_parse_error, js_runtime, lineage_view, memory_event_view, merge_node_ids,
     merge_promoted_checks, missing_return_hint, next_reads, owner_symbol_views_for_query,
@@ -50,7 +50,7 @@ use crate::{
     policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
     promoted_validation_checks, query_diagnostic, query_feature_disabled_error, query_method_specs,
     rank_search_results, read_context_view_cached, recent_change_context_view_cached,
-    recent_patches, relations_view, resolve_concepts_for_session, result_decode_error,
+    recent_patches, recent_patches_from_events, relations_view, resolve_concepts_for_session, result_decode_error,
     runtime_or_serialization_error, scored_memory_view, search_queries, source_excerpt_for_symbol,
     spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
     task_intent_view, task_risk_view, task_validation_recipe_view, tool_catalog_views,
@@ -527,6 +527,15 @@ impl QueryHost {
             let refresh_started = Instant::now();
             let refresh = self.observe_workspace_for_read()?;
             crate::refresh_phases::record_query_runtime_sync_phases(&query_run, &refresh);
+            let refresh_duration = refresh_started.elapsed();
+            let accounted_runtime_sync_duration =
+                crate::refresh_phases::accounted_runtime_sync_duration(&refresh);
+            let unattributed_runtime_sync_duration =
+                crate::refresh_phases::record_query_runtime_sync_gap_phase(
+                    &query_run,
+                    &refresh,
+                    refresh_duration,
+                );
             query_run.record_phase(
                 "typescript.refreshWorkspace",
                 &json!({
@@ -536,8 +545,10 @@ impl QueryHost {
                     "inferenceReloaded": refresh.inference_reloaded,
                     "coordinationReloaded": refresh.coordination_reloaded,
                     "metrics": refresh.metrics.as_json(),
+                    "accountedRuntimeSyncMs": accounted_runtime_sync_duration.as_millis(),
+                    "unattributedRuntimeSyncMs": unattributed_runtime_sync_duration.as_millis(),
                 }),
-                refresh_started.elapsed(),
+                refresh_duration,
                 true,
                 None,
             );
@@ -2339,13 +2350,41 @@ impl QueryExecution {
     pub(crate) fn changed_files(&self, args: ChangedFilesArgs) -> Result<Vec<ChangedFileView>> {
         let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
         let applied = requested.min(self.session.limits().max_result_nodes);
-        let mut results = changed_files(
-            self.prism.as_ref(),
-            args.task_id.as_ref(),
-            args.since,
-            args.path.as_deref(),
-            applied.saturating_add(1),
-        )?;
+        let mut results = if let Some(workspace) = self.host.workspace_session() {
+            workspace
+                .load_patch_file_summaries(
+                    args.task_id.as_ref(),
+                    args.since,
+                    args.path.as_deref(),
+                    applied.saturating_add(1),
+                )?
+                .into_iter()
+                .map(|summary| ChangedFileView {
+                    path: summary.path,
+                    event_id: summary.event_id.0.to_string(),
+                    ts: summary.ts,
+                    task_id: summary.task_id,
+                    trigger: summary.trigger,
+                    actor: summary.actor,
+                    reason: summary.reason,
+                    work_id: summary.work_id,
+                    work_title: summary.work_title,
+                    summary: summary.summary,
+                    changed_symbol_count: summary.changed_symbol_count,
+                    added_count: summary.added_count,
+                    removed_count: summary.removed_count,
+                    updated_count: summary.updated_count,
+                })
+                .collect()
+        } else {
+            changed_files(
+                self.prism.as_ref(),
+                args.task_id.as_ref(),
+                args.since,
+                args.path.as_deref(),
+                applied.saturating_add(1),
+            )?
+        };
         if requested > applied {
             self.push_diagnostic(
                 "result_truncated",
@@ -2383,13 +2422,37 @@ impl QueryExecution {
     ) -> Result<Vec<ChangedSymbolView>> {
         let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
         let applied = requested.min(self.session.limits().max_result_nodes);
-        let mut results = changed_symbols(
-            self.prism.as_ref(),
-            &args.path,
-            args.task_id.as_ref(),
-            args.since,
-            applied.saturating_add(1),
-        )?;
+        let mut results = if let Some(workspace) = self.host.workspace_session() {
+            let candidate_limit = applied.saturating_mul(4).max(applied.saturating_add(16));
+            let events = workspace
+                .load_patch_event_summaries(
+                    None,
+                    args.task_id.as_ref(),
+                    args.since,
+                    Some(&args.path),
+                    candidate_limit,
+                )?
+                .into_iter()
+                .map(|summary| workspace.load_outcome_event(&summary.event_id))
+                .collect::<Result<Vec<_>>>()?
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>();
+            changed_symbols_from_events(
+                self.prism.as_ref(),
+                events,
+                &args.path,
+                applied.saturating_add(1),
+            )?
+        } else {
+            changed_symbols(
+                self.prism.as_ref(),
+                &args.path,
+                args.task_id.as_ref(),
+                args.since,
+                applied.saturating_add(1),
+            )?
+        };
         if requested > applied {
             self.push_diagnostic(
                 "result_truncated",
@@ -2426,14 +2489,37 @@ impl QueryExecution {
         let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
         let applied = requested.min(self.session.limits().max_result_nodes);
         let target = args.target.map(convert_node_id).transpose()?;
-        let mut results = recent_patches(
-            self.prism.as_ref(),
-            target.as_ref(),
-            args.task_id.as_ref(),
-            args.since,
-            args.path.as_deref(),
-            applied.saturating_add(1),
-        )?;
+        let mut results = if let Some(workspace) = self.host.workspace_session() {
+            let events = workspace
+                .load_patch_event_summaries(
+                    target.as_ref(),
+                    args.task_id.as_ref(),
+                    args.since,
+                    args.path.as_deref(),
+                    applied.saturating_add(1),
+                )?
+                .into_iter()
+                .map(|summary| workspace.load_outcome_event(&summary.event_id))
+                .collect::<Result<Vec<_>>>()?
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>();
+            recent_patches_from_events(
+                self.prism.as_ref(),
+                events,
+                args.path.as_deref(),
+                applied.saturating_add(1),
+            )?
+        } else {
+            recent_patches(
+                self.prism.as_ref(),
+                target.as_ref(),
+                args.task_id.as_ref(),
+                args.since,
+                args.path.as_deref(),
+                applied.saturating_add(1),
+            )?
+        };
         if requested > applied {
             self.push_diagnostic(
                 "result_truncated",
@@ -2524,14 +2610,41 @@ impl QueryExecution {
             }
         };
 
-        let mut results = diff_for(
-            self.prism.as_ref(),
-            target.as_ref(),
-            requested_lineage.as_ref(),
-            args.task_id.as_ref(),
-            args.since,
-            applied.saturating_add(1),
-        )?;
+        let mut results = if let (Some(workspace), Some(target_id)) =
+            (self.host.workspace_session(), target.as_ref())
+        {
+            let candidate_limit = applied.saturating_mul(4).max(applied.saturating_add(16));
+            let events = workspace
+                .load_patch_event_summaries(
+                    Some(target_id),
+                    args.task_id.as_ref(),
+                    args.since,
+                    None,
+                    candidate_limit,
+                )?
+                .into_iter()
+                .map(|summary| workspace.load_outcome_event(&summary.event_id))
+                .collect::<Result<Vec<_>>>()?
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>();
+            diff_for_from_events(
+                self.prism.as_ref(),
+                events,
+                Some(target_id),
+                requested_lineage.as_ref(),
+                applied.saturating_add(1),
+            )?
+        } else {
+            diff_for(
+                self.prism.as_ref(),
+                target.as_ref(),
+                requested_lineage.as_ref(),
+                args.task_id.as_ref(),
+                args.since,
+                applied.saturating_add(1),
+            )?
+        };
         if requested > applied {
             self.push_diagnostic(
                 "result_truncated",
@@ -2648,14 +2761,37 @@ impl QueryExecution {
     pub(crate) fn task_changes(&self, args: TaskChangesArgs) -> Result<Vec<PatchEventView>> {
         let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
         let applied = requested.min(self.session.limits().max_result_nodes);
-        let mut results = recent_patches(
-            self.prism.as_ref(),
-            None,
-            Some(&args.task_id),
-            args.since,
-            args.path.as_deref(),
-            applied.saturating_add(1),
-        )?;
+        let mut results = if let Some(workspace) = self.host.workspace_session() {
+            let events = workspace
+                .load_patch_event_summaries(
+                    None,
+                    Some(&args.task_id),
+                    args.since,
+                    args.path.as_deref(),
+                    applied.saturating_add(1),
+                )?
+                .into_iter()
+                .map(|summary| workspace.load_outcome_event(&summary.event_id))
+                .collect::<Result<Vec<_>>>()?
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>();
+            recent_patches_from_events(
+                self.prism.as_ref(),
+                events,
+                args.path.as_deref(),
+                applied.saturating_add(1),
+            )?
+        } else {
+            recent_patches(
+                self.prism.as_ref(),
+                None,
+                Some(&args.task_id),
+                args.since,
+                args.path.as_deref(),
+                applied.saturating_add(1),
+            )?
+        };
         if requested > applied {
             self.push_diagnostic(
                 "result_truncated",

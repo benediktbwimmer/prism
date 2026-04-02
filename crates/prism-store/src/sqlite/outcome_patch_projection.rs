@@ -19,7 +19,6 @@ const PATCH_PROJECTION_BACKFILLED_KEY: &str = "outcomes:patch_projection_backfil
 struct ParsedPatchMetadata {
     trigger: Option<String>,
     reason: Option<String>,
-    file_paths: Vec<String>,
     changed_files: Vec<ParsedChangedFileSummary>,
 }
 
@@ -341,10 +340,10 @@ fn parse_patch_metadata(value: &Value) -> ParsedPatchMetadata {
         .map(ToOwned::to_owned)
         .collect::<Vec<_>>();
 
-    let mut changed_files = metadata
+    let mut changed_files: Vec<ParsedChangedFileSummary> = metadata
         .get("changedFilesSummary")
         .and_then(Value::as_array)
-        .map(parse_changed_file_summary_array)
+        .map(|values| parse_changed_file_summary_array(values))
         .unwrap_or_default();
     if changed_files.is_empty() {
         changed_files = changed_file_summary_from_symbols(metadata);
@@ -371,7 +370,6 @@ fn parse_patch_metadata(value: &Value) -> ParsedPatchMetadata {
             .get("reason")
             .and_then(Value::as_str)
             .map(ToOwned::to_owned),
-        file_paths,
         changed_files,
     }
 }
@@ -478,9 +476,10 @@ fn table_exists(conn: &Connection, table: &str) -> Result<bool> {
 
 fn metadata_value(conn: &Connection, key: &str) -> Result<Option<u64>> {
     conn.query_row("SELECT value FROM metadata WHERE key = ?1", params![key], |row| {
-        row.get::<_, u64>(0)
+        row.get::<_, i64>(0)
     })
     .optional()
+    .map(|value| value.and_then(|value| u64::try_from(value).ok()))
     .map_err(Into::into)
 }
 
@@ -488,7 +487,7 @@ fn set_metadata_value(conn: &Connection, key: &str, value: u64) -> Result<()> {
     conn.execute(
         "INSERT INTO metadata(key, value) VALUES (?1, ?2)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        params![key, value],
+        params![key, i64::try_from(value)?],
     )?;
     Ok(())
 }
@@ -497,7 +496,7 @@ fn set_metadata_value_tx(tx: &Transaction<'_>, key: &str, value: u64) -> Result<
     tx.execute(
         "INSERT INTO metadata(key, value) VALUES (?1, ?2)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        params![key, value],
+        params![key, i64::try_from(value)?],
     )?;
     Ok(())
 }

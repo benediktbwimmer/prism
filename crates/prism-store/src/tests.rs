@@ -27,9 +27,9 @@ use rusqlite::Connection;
 
 use crate::{
     migrate_worktree_cache_from_shared_runtime, AuxiliaryPersistBatch, CoordinationPersistBatch,
-    CoordinationPersistContext, Graph, IndexPersistBatch, MemoryStore,
-    ProjectionMaterializationMetadata, SqliteStore, Store, WorkspaceTreeDirectoryFingerprint,
-    WorkspaceTreeFileFingerprint, WorkspaceTreeSnapshot,
+    CoordinationPersistContext, Graph, IndexPersistBatch, MemoryStore, PatchEventSummaryQuery,
+    PatchFileSummaryQuery, ProjectionMaterializationMetadata, SqliteStore, Store,
+    WorkspaceTreeDirectoryFingerprint, WorkspaceTreeFileFingerprint, WorkspaceTreeSnapshot,
 };
 
 fn node(name: &str) -> Node {
@@ -3394,6 +3394,232 @@ fn sqlite_store_compacts_hot_patch_outcomes_on_open_and_rewrites_payload() {
     assert_eq!(compacted, 1);
 
     drop(store);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
+}
+
+#[test]
+fn sqlite_store_queries_patch_projection_summaries() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-patch-projection-query-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let outcomes = OutcomeMemorySnapshot {
+        events: vec![
+            prism_memory::OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new("outcome:patch-1"),
+                    ts: 10,
+                    actor: EventActor::System,
+                    correlation: Some(TaskId::new("task:patch")),
+                    causation: None,
+                    execution_context: None,
+                },
+                anchors: Vec::new(),
+                kind: prism_memory::OutcomeKind::PatchApplied,
+                result: prism_memory::OutcomeResult::Success,
+                summary: "patched src/lib.rs".to_string(),
+                evidence: Vec::new(),
+                metadata: serde_json::json!({
+                    "trigger": "FsWatch",
+                    "reason": "task task:patch",
+                    "filePaths": ["src/lib.rs"],
+                    "changedFilesSummary": [{
+                        "filePath": "src/lib.rs",
+                        "changedSymbolCount": 1,
+                        "addedCount": 0,
+                        "removedCount": 0,
+                        "updatedCount": 1,
+                    }],
+                }),
+            },
+            prism_memory::OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new("outcome:patch-2"),
+                    ts: 20,
+                    actor: EventActor::System,
+                    correlation: Some(TaskId::new("task:patch")),
+                    causation: None,
+                    execution_context: None,
+                },
+                anchors: Vec::new(),
+                kind: prism_memory::OutcomeKind::PatchApplied,
+                result: prism_memory::OutcomeResult::Success,
+                summary: "patched src/lib.rs again".to_string(),
+                evidence: Vec::new(),
+                metadata: serde_json::json!({
+                    "trigger": "FsWatch",
+                    "reason": "task task:patch",
+                    "filePaths": ["src/lib.rs"],
+                    "changedFilesSummary": [{
+                        "filePath": "src/lib.rs",
+                        "changedSymbolCount": 3,
+                        "addedCount": 1,
+                        "removedCount": 0,
+                        "updatedCount": 2,
+                    }],
+                }),
+            },
+            prism_memory::OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new("outcome:patch-3"),
+                    ts: 30,
+                    actor: EventActor::System,
+                    correlation: Some(TaskId::new("task:other")),
+                    causation: None,
+                    execution_context: None,
+                },
+                anchors: Vec::new(),
+                kind: prism_memory::OutcomeKind::PatchApplied,
+                result: prism_memory::OutcomeResult::Success,
+                summary: "patched src/main.rs".to_string(),
+                evidence: Vec::new(),
+                metadata: serde_json::json!({
+                    "trigger": "ManualReindex",
+                    "reason": "task task:other",
+                    "filePaths": ["src/main.rs"],
+                    "changedFilesSummary": [{
+                        "filePath": "src/main.rs",
+                        "changedSymbolCount": 2,
+                        "addedCount": 0,
+                        "removedCount": 1,
+                        "updatedCount": 1,
+                    }],
+                }),
+            },
+        ],
+    };
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    store.save_outcome_snapshot(&outcomes).unwrap();
+
+    let files = store
+        .load_patch_file_summaries(&PatchFileSummaryQuery {
+            task_id: None,
+            since: None,
+            path: None,
+            limit: 10,
+        })
+        .unwrap();
+    assert_eq!(files.len(), 2);
+    assert_eq!(files[0].path, "src/main.rs");
+    assert_eq!(files[1].path, "src/lib.rs");
+    assert_eq!(files[1].event_id, EventId::new("outcome:patch-2"));
+    assert_eq!(files[1].changed_symbol_count, 3);
+    assert_eq!(files[1].added_count, 1);
+
+    let task_events = store
+        .load_patch_event_summaries(&PatchEventSummaryQuery {
+            target: None,
+            task_id: Some(TaskId::new("task:patch")),
+            since: None,
+            path: Some("src/lib.rs".to_string()),
+            limit: 10,
+        })
+        .unwrap();
+    assert_eq!(task_events.len(), 2);
+    assert_eq!(task_events[0].event_id, EventId::new("outcome:patch-2"));
+    assert_eq!(task_events[1].event_id, EventId::new("outcome:patch-1"));
+
+    drop(store);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
+}
+
+#[test]
+fn sqlite_store_backfills_patch_projection_on_open() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-patch-projection-backfill-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+
+    {
+        let conn = Connection::open(&path).unwrap();
+        conn.execute_batch(
+            r#"
+            CREATE TABLE metadata (
+                key TEXT PRIMARY KEY,
+                value INTEGER NOT NULL
+            );
+            CREATE TABLE outcome_event_log (
+                sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id TEXT NOT NULL UNIQUE,
+                ts INTEGER NOT NULL,
+                payload TEXT NOT NULL
+            );
+            PRAGMA user_version = 20;
+            "#,
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO outcome_event_log(event_id, ts, payload) VALUES (?1, ?2, ?3)",
+            rusqlite::params![
+                "outcome:legacy-patch",
+                7_i64,
+                serde_json::json!({
+                    "meta": {
+                        "id": "outcome:legacy-patch",
+                        "ts": 7,
+                        "actor": "System",
+                        "correlation": "task:legacy",
+                        "causation": null,
+                    },
+                    "anchors": [],
+                    "kind": "PatchApplied",
+                    "result": "Success",
+                    "summary": "legacy patch",
+                    "evidence": [],
+                    "metadata": {
+                        "trigger": "FsWatch",
+                        "reason": "task task:legacy",
+                        "filePaths": ["src/lib.rs"],
+                        "changedFilesSummary": [{
+                            "filePath": "src/lib.rs",
+                            "changedSymbolCount": 4,
+                            "addedCount": 0,
+                            "removedCount": 0,
+                            "updatedCount": 4,
+                        }],
+                    },
+                })
+                .to_string(),
+            ],
+        )
+        .unwrap();
+    }
+
+    let store = SqliteStore::open(&path).unwrap();
+    let files = store
+        .load_patch_file_summaries(&PatchFileSummaryQuery {
+            task_id: Some(TaskId::new("task:legacy")),
+            since: None,
+            path: Some("src/lib.rs".to_string()),
+            limit: 10,
+        })
+        .unwrap();
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].event_id, EventId::new("outcome:legacy-patch"));
+    assert_eq!(files[0].changed_symbol_count, 4);
+
+    drop(store);
+    let conn = Connection::open(&path).unwrap();
+    let backfill_flag: i64 = conn
+        .query_row(
+            "SELECT value FROM metadata WHERE key = 'outcomes:patch_projection_backfilled'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(backfill_flag, 1);
+
     let _ = std::fs::remove_file(&path);
     let _ = std::fs::remove_file(path.with_extension("db-wal"));
     let _ = std::fs::remove_file(path.with_extension("db-shm"));

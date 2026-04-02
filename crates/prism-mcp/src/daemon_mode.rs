@@ -203,52 +203,17 @@ async fn bind_preferred_stable_listener(preferred: &str) -> Result<Option<TcpLis
 }
 
 async fn run_bridge(cli: &PrismMcpCli, root: &Path) -> Result<()> {
-    let resolution_started = Instant::now();
-    let upstream = resolve_upstream_uri(cli, root).await?;
     let upstream_source = BridgeUpstreamSource::from_cli(cli, root)?;
-    info!(
-        mode = "bridge",
-        root = %root.display(),
-        upstream_uri = %upstream.uri,
-        "prism-mcp bridge connected"
-    );
-    if let Err(error) = runtime_state::record_bridge_upstream_resolved(
-        root,
-        &upstream.uri,
-        upstream.source,
-        resolution_started.elapsed().as_millis(),
-        upstream.daemon_wait_ms,
-        upstream.spawned_daemon,
-    ) {
-        warn!(
-            error = %error,
-            root = %root.display(),
-            "failed to update prism runtime state for bridge upstream resolution"
-        );
-    }
-    let connect_started = Instant::now();
-    let proxy =
-        ProxyMcpServer::connect_with_source_for_root(root, upstream.uri.clone(), upstream_source)
-            .await?;
-    if let Err(error) = runtime_state::record_bridge_connected_with_latency(
-        root,
-        &upstream.uri,
-        Some(connect_started.elapsed().as_millis()),
-    ) {
-        warn!(
-            error = %error,
-            root = %root.display(),
-            "failed to update prism runtime state for bridge connection"
-        );
-    }
+    let proxy = ProxyMcpServer::bootstrap_with_source_for_root(root, cli.clone(), upstream_source)
+        .await?;
     proxy.serve_stdio().await
 }
 
-struct UpstreamResolution {
-    uri: String,
-    source: &'static str,
-    daemon_wait_ms: u128,
-    spawned_daemon: bool,
+pub(crate) struct UpstreamResolution {
+    pub(crate) uri: String,
+    pub(crate) source: &'static str,
+    pub(crate) daemon_wait_ms: u128,
+    pub(crate) spawned_daemon: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -278,7 +243,7 @@ impl BridgeUpstreamSource {
     }
 }
 
-async fn resolve_upstream_uri(cli: &PrismMcpCli, root: &Path) -> Result<UpstreamResolution> {
+pub(crate) async fn resolve_upstream_uri(cli: &PrismMcpCli, root: &Path) -> Result<UpstreamResolution> {
     if let Some(uri) = &cli.upstream_uri {
         return Ok(UpstreamResolution {
             uri: uri.clone(),
@@ -363,7 +328,10 @@ fn spawn_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
     if let Some(parent) = log_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let current_exe = std::env::current_exe()?;
+    let current_exe = cli
+        .bridge_daemon_binary
+        .clone()
+        .unwrap_or(std::env::current_exe()?);
     info!(
         root = %root.display(),
         log_path = %log_path.display(),
@@ -603,6 +571,8 @@ mod tests {
             health_path: "/healthz".to_string(),
             http_uri_file: None,
             upstream_uri: None,
+            bootstrap_build_worktree_release: false,
+            bridge_daemon_binary: None,
             daemonize: false,
         }
     }

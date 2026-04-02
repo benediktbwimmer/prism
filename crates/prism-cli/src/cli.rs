@@ -134,6 +134,10 @@ pub enum McpCommand {
         shared_runtime_sqlite: Option<PathBuf>,
         #[arg(long = "shared-runtime-uri")]
         shared_runtime_uri: Option<String>,
+        #[arg(long, hide = true, default_value_t = false)]
+        bootstrap_build_worktree_release: bool,
+        #[arg(long, hide = true)]
+        bridge_daemon_binary: Option<PathBuf>,
     },
     Start {
         #[arg(long, default_value_t = false)]

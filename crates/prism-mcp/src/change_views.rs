@@ -122,9 +122,21 @@ pub(crate) fn changed_symbols(
     since: Option<u64>,
     limit: usize,
 ) -> Result<Vec<ChangedSymbolView>> {
+    changed_symbols_from_events(prism, patch_events(prism, None, task_id, since), path, limit)
+}
+
+pub(crate) fn changed_symbols_from_events<I>(
+    prism: &Prism,
+    events: I,
+    path: &str,
+    limit: usize,
+) -> Result<Vec<ChangedSymbolView>>
+where
+    I: IntoIterator<Item = OutcomeEvent>,
+{
     let mut source_cache = HashMap::<String, Option<String>>::new();
     let mut views = Vec::new();
-    for event in patch_events(prism, None, task_id, since) {
+    for event in events {
         let parsed = parse_patch_event(prism, &event);
         for symbol in &parsed.changed_symbols {
             if !symbol_file_path(prism, symbol)
@@ -149,9 +161,26 @@ pub(crate) fn recent_patches(
     path: Option<&str>,
     limit: usize,
 ) -> Result<Vec<PatchEventView>> {
+    recent_patches_from_events(
+        prism,
+        patch_events(prism, target, task_id, since),
+        path,
+        limit,
+    )
+}
+
+pub(crate) fn recent_patches_from_events<I>(
+    prism: &Prism,
+    events: I,
+    path: Option<&str>,
+    limit: usize,
+) -> Result<Vec<PatchEventView>>
+where
+    I: IntoIterator<Item = OutcomeEvent>,
+{
     let mut source_cache = HashMap::<String, Option<String>>::new();
     let mut views = Vec::new();
-    for event in patch_events(prism, target, task_id, since) {
+    for event in events {
         let parsed = parse_patch_event(prism, &event);
         if path.is_some_and(|filter| !event_matches_path(prism, &parsed, filter)) {
             continue;
@@ -172,12 +201,31 @@ pub(crate) fn diff_for(
     since: Option<u64>,
     limit: usize,
 ) -> Result<Vec<DiffHunkView>> {
+    diff_for_from_events(
+        prism,
+        patch_events(prism, None, task_id, since),
+        target,
+        lineage_id,
+        limit,
+    )
+}
+
+pub(crate) fn diff_for_from_events<I>(
+    prism: &Prism,
+    events: I,
+    target: Option<&NodeId>,
+    lineage_id: Option<&LineageId>,
+    limit: usize,
+) -> Result<Vec<DiffHunkView>>
+where
+    I: IntoIterator<Item = OutcomeEvent>,
+{
     let target_lineage = lineage_id
         .cloned()
         .or_else(|| target.and_then(|id| prism.lineage_of(id)));
     let mut source_cache = HashMap::<String, Option<String>>::new();
     let mut views = Vec::new();
-    for event in patch_events(prism, None, task_id, since) {
+    for event in events {
         let parsed = parse_patch_event(prism, &event);
         for symbol in &parsed.changed_symbols {
             if !matches_diff_target(prism, symbol, target, target_lineage.as_ref()) {

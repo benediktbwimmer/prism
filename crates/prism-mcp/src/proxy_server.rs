@@ -1,26 +1,269 @@
 use std::collections::HashMap;
 use std::future::Future;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::process::Stdio;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context, Result};
 use rmcp::{
     model::*,
-    service::{RequestContext, RoleClient, RunningService, ServiceError},
+    service::{Peer, RequestContext, RoleClient, RoleServer, RunningService, ServiceError},
     transport::{stdio, StreamableHttpClientTransport},
-    ErrorData as McpError, RoleServer, ServerHandler, ServiceExt,
+    ErrorData as McpError, ServerHandler, ServiceExt,
 };
+use serde::Serialize;
 use tokio::sync::Mutex as AsyncMutex;
+use tokio::task::{self, JoinHandle};
 use tracing::{info, warn};
 
 use crate::bridge_auth::{BridgeAuthContext, BRIDGE_ADOPT_TOOL_NAME, BRIDGE_AUTH_URI};
 use crate::daemon_mode::BridgeUpstreamSource;
+use crate::*;
 
 const DEFAULT_BRIDGE_RECONNECT_BASE_DELAY: Duration = Duration::from_millis(100);
 const DEFAULT_BRIDGE_RECONNECT_MAX_DELAY: Duration = Duration::from_secs(2);
 const DEFAULT_BRIDGE_RECONNECT_TIMEOUT: Duration = Duration::from_secs(180);
+const DEFAULT_STARTUP_POLL_AFTER_MS: u64 = 3_000;
+const DEFAULT_BUILD_POLL_AFTER_MS: u64 = 10_000;
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum BridgeStartupPhase {
+    BuildingRelease,
+    StartingDaemon,
+    Ready,
+    Failed,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BridgeStartupPayload {
+    uri: String,
+    phase: BridgeStartupPhase,
+    ready: bool,
+    message: String,
+    next_action: String,
+    poll_after_ms: u64,
+    started_at_ms: u64,
+    selected_root: String,
+    bridge_binary: String,
+    daemon_binary: Option<String>,
+    upstream_uri: Option<String>,
+    daemon_log_path: Option<String>,
+    build_log_path: Option<String>,
+    error: Option<String>,
+}
+
+impl BridgeStartupPayload {
+    fn pending(
+        root: &Path,
+        bridge_binary: PathBuf,
+        daemon_binary: Option<PathBuf>,
+        daemon_log_path: Option<PathBuf>,
+        build_log_path: Option<PathBuf>,
+    ) -> Self {
+        Self {
+            uri: STARTUP_URI.to_string(),
+            phase: BridgeStartupPhase::StartingDaemon,
+            ready: false,
+            message: "PRISM bridge warmup is in progress.".to_string(),
+            next_action: format!(
+                "Wait a few seconds, then read {STARTUP_URI} again before using PRISM tools."
+            ),
+            poll_after_ms: DEFAULT_STARTUP_POLL_AFTER_MS,
+            started_at_ms: current_timestamp_ms(),
+            selected_root: root.display().to_string(),
+            bridge_binary: bridge_binary.display().to_string(),
+            daemon_binary: daemon_binary.map(|path| path.display().to_string()),
+            upstream_uri: None,
+            daemon_log_path: daemon_log_path.map(|path| path.display().to_string()),
+            build_log_path: build_log_path.map(|path| path.display().to_string()),
+            error: None,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct BridgeStartupState {
+    payload: RwLock<BridgeStartupPayload>,
+    client_peer: Mutex<Option<Peer<RoleServer>>>,
+}
+
+impl BridgeStartupState {
+    fn new(payload: BridgeStartupPayload) -> Self {
+        Self {
+            payload: RwLock::new(payload),
+            client_peer: Mutex::new(None),
+        }
+    }
+
+    fn snapshot(&self) -> BridgeStartupPayload {
+        self.payload
+            .read()
+            .map(|payload| payload.clone())
+            .unwrap_or_else(|poisoned| poisoned.into_inner().clone())
+    }
+
+    fn capture_peer(&self, peer: &Peer<RoleServer>) {
+        match self.client_peer.lock() {
+            Ok(mut slot) => *slot = Some(peer.clone()),
+            Err(poisoned) => *poisoned.into_inner() = Some(peer.clone()),
+        }
+    }
+
+    fn update_phase(&self, phase: BridgeStartupPhase, message: String, poll_after_ms: u64) {
+        match self.payload.write() {
+            Ok(mut payload) => {
+                payload.phase = phase;
+                payload.ready = matches!(phase, BridgeStartupPhase::Ready);
+                payload.message = message;
+                payload.poll_after_ms = poll_after_ms;
+                payload.next_action = if payload.ready {
+                    "PRISM tools are ready.".to_string()
+                } else {
+                    format!(
+                        "Wait at least {} seconds, then read {STARTUP_URI} again before using PRISM tools.",
+                        (poll_after_ms / 1000).max(1)
+                    )
+                };
+            }
+            Err(poisoned) => {
+                let mut payload = poisoned.into_inner();
+                payload.phase = phase;
+                payload.ready = matches!(phase, BridgeStartupPhase::Ready);
+                payload.message = message;
+                payload.poll_after_ms = poll_after_ms;
+                payload.next_action = if payload.ready {
+                    "PRISM tools are ready.".to_string()
+                } else {
+                    format!(
+                        "Wait at least {} seconds, then read {STARTUP_URI} again before using PRISM tools.",
+                        (poll_after_ms / 1000).max(1)
+                    )
+                };
+            }
+        }
+    }
+
+    fn mark_building_release(&self) {
+        self.update_phase(
+            BridgeStartupPhase::BuildingRelease,
+            "Building release binaries for this worktree.".to_string(),
+            DEFAULT_BUILD_POLL_AFTER_MS,
+        );
+    }
+
+    fn mark_starting_daemon(&self) {
+        self.update_phase(
+            BridgeStartupPhase::StartingDaemon,
+            "Starting or reconnecting the PRISM daemon for this workspace.".to_string(),
+            DEFAULT_STARTUP_POLL_AFTER_MS,
+        );
+    }
+
+    fn mark_ready(&self, upstream_uri: &str) {
+        match self.payload.write() {
+            Ok(mut payload) => {
+                payload.phase = BridgeStartupPhase::Ready;
+                payload.ready = true;
+                payload.message = format!("PRISM bridge is ready and connected to {upstream_uri}.");
+                payload.next_action = "PRISM tools are ready.".to_string();
+                payload.poll_after_ms = 0;
+                payload.upstream_uri = Some(upstream_uri.to_string());
+                payload.error = None;
+            }
+            Err(poisoned) => {
+                let mut payload = poisoned.into_inner();
+                payload.phase = BridgeStartupPhase::Ready;
+                payload.ready = true;
+                payload.message = format!("PRISM bridge is ready and connected to {upstream_uri}.");
+                payload.next_action = "PRISM tools are ready.".to_string();
+                payload.poll_after_ms = 0;
+                payload.upstream_uri = Some(upstream_uri.to_string());
+                payload.error = None;
+            }
+        }
+    }
+
+    fn mark_failed(&self, error: &str) {
+        match self.payload.write() {
+            Ok(mut payload) => {
+                payload.phase = BridgeStartupPhase::Failed;
+                payload.ready = false;
+                payload.message = "PRISM bridge startup failed.".to_string();
+                payload.next_action = format!(
+                    "Inspect the startup logs, fix the failure, then reopen the bridge or read {STARTUP_URI} again."
+                );
+                payload.poll_after_ms = DEFAULT_BUILD_POLL_AFTER_MS;
+                payload.error = Some(error.to_string());
+            }
+            Err(poisoned) => {
+                let mut payload = poisoned.into_inner();
+                payload.phase = BridgeStartupPhase::Failed;
+                payload.ready = false;
+                payload.message = "PRISM bridge startup failed.".to_string();
+                payload.next_action = format!(
+                    "Inspect the startup logs, fix the failure, then reopen the bridge or read {STARTUP_URI} again."
+                );
+                payload.poll_after_ms = DEFAULT_BUILD_POLL_AFTER_MS;
+                payload.error = Some(error.to_string());
+            }
+        }
+    }
+
+    fn startup_resource(&self) -> Resource {
+        Annotated::new(
+            RawResource::new(STARTUP_URI, "PRISM Startup")
+                .with_description(
+                    "Bridge startup status for release builds, daemon readiness, and PRISM warmup guidance.",
+                )
+                .with_mime_type("application/json"),
+            None,
+        )
+    }
+
+    fn startup_resource_contents(&self) -> ResourceContents {
+        ResourceContents::text(
+            serde_json::to_string_pretty(&self.snapshot())
+                .expect("startup payload should serialize"),
+            STARTUP_URI,
+        )
+        .with_mime_type("application/json")
+    }
+
+    fn startup_instructions_suffix(&self) -> String {
+        let payload = self.snapshot();
+        if payload.ready {
+            "This bridge has finished warming up and can proxy PRISM requests normally."
+                .to_string()
+        } else {
+            format!(
+                "This bridge is warming up PRISM for `{}`. Before using PRISM tools, read `{}` and wait until `phase` becomes `ready`. If startup is still in progress, wait about {} seconds and read `{}` again.",
+                payload.selected_root,
+                STARTUP_URI,
+                (payload.poll_after_ms / 1000).max(1),
+                STARTUP_URI
+            )
+        }
+    }
+
+    async fn notify_ready_surface(&self) {
+        let peer = match self.client_peer.lock() {
+            Ok(slot) => slot.clone(),
+            Err(poisoned) => poisoned.into_inner().clone(),
+        };
+        let Some(peer) = peer else {
+            return;
+        };
+        let _ = peer.notify_resource_updated(ResourceUpdatedNotificationParam {
+            uri: STARTUP_URI.to_string(),
+        }).await;
+        let _ = peer.notify_resource_list_changed().await;
+        let _ = peer.notify_tool_list_changed().await;
+    }
+}
 
 #[derive(Debug)]
 struct ProxyActivityTracker {
@@ -58,13 +301,15 @@ struct UpstreamConnection {
 }
 
 pub(crate) struct ProxyMcpServer {
-    upstream: AsyncMutex<UpstreamConnection>,
+    upstream: Arc<AsyncMutex<Option<UpstreamConnection>>>,
     upstream_source: BridgeUpstreamSource,
-    reconnect_lock: AsyncMutex<()>,
-    server_info: Mutex<ServerInfo>,
-    tool_cache: RwLock<HashMap<String, Tool>>,
+    reconnect_lock: Arc<AsyncMutex<()>>,
+    server_info: Arc<Mutex<ServerInfo>>,
+    tool_cache: Arc<RwLock<HashMap<String, Tool>>>,
     activity: Arc<ProxyActivityTracker>,
     bridge_auth: BridgeAuthContext,
+    startup: Arc<BridgeStartupState>,
+    warmup_task: AsyncMutex<Option<JoinHandle<()>>>,
 }
 
 impl ProxyMcpServer {
@@ -91,39 +336,106 @@ impl ProxyMcpServer {
         .await
     }
 
-    pub(crate) async fn connect_with_source_for_root(
-        root: &Path,
-        upstream_uri: String,
-        upstream_source: BridgeUpstreamSource,
-    ) -> Result<Self> {
-        Self::connect_with_bridge_auth(
-            upstream_uri,
-            upstream_source,
-            BridgeAuthContext::for_root(root)?,
-        )
-        .await
+    #[cfg(test)]
+    pub(crate) fn pending_for_test(root: &Path, features: PrismMcpFeatures) -> Result<Self> {
+        let startup = Arc::new(BridgeStartupState::new(BridgeStartupPayload::pending(
+            root,
+            std::env::current_exe().context("failed to resolve bridge executable path")?,
+            None,
+            None,
+            None,
+        )));
+        Ok(Self {
+            upstream: Arc::new(AsyncMutex::new(None)),
+            upstream_source: BridgeUpstreamSource::Fixed("http://127.0.0.1:9/mcp".to_string()),
+            reconnect_lock: Arc::new(AsyncMutex::new(())),
+            server_info: Arc::new(Mutex::new(bootstrap_server_info())),
+            tool_cache: Arc::new(RwLock::new(bootstrap_tool_cache(features))),
+            activity: Arc::new(ProxyActivityTracker::new()),
+            bridge_auth: BridgeAuthContext::disabled(),
+            startup,
+            warmup_task: AsyncMutex::new(None),
+        })
     }
 
+    #[cfg(test)]
     async fn connect_with_bridge_auth(
         upstream_uri: String,
         upstream_source: BridgeUpstreamSource,
         bridge_auth: BridgeAuthContext,
     ) -> Result<Self> {
         let (connection, server_info, tools) = Self::open_upstream(&upstream_uri).await?;
+        let startup = Arc::new(BridgeStartupState::new(BridgeStartupPayload {
+            uri: STARTUP_URI.to_string(),
+            phase: BridgeStartupPhase::Ready,
+            ready: true,
+            message: format!("PRISM bridge is ready and connected to {upstream_uri}."),
+            next_action: "PRISM tools are ready.".to_string(),
+            poll_after_ms: 0,
+            started_at_ms: current_timestamp_ms(),
+            selected_root: String::new(),
+            bridge_binary: std::env::current_exe()
+                .map(|path| path.display().to_string())
+                .unwrap_or_else(|_| "<unknown>".to_string()),
+            daemon_binary: None,
+            upstream_uri: Some(upstream_uri.clone()),
+            daemon_log_path: None,
+            build_log_path: None,
+            error: None,
+        }));
         Ok(Self {
-            upstream: AsyncMutex::new(connection),
+            upstream: Arc::new(AsyncMutex::new(Some(connection))),
             upstream_source,
-            reconnect_lock: AsyncMutex::new(()),
-            server_info: Mutex::new(server_info),
-            tool_cache: RwLock::new(
+            reconnect_lock: Arc::new(AsyncMutex::new(())),
+            server_info: Arc::new(Mutex::new(server_info)),
+            tool_cache: Arc::new(RwLock::new(
                 tools
                     .into_iter()
                     .map(|tool| (tool.name.to_string(), tool))
                     .collect(),
-            ),
+            )),
             activity: Arc::new(ProxyActivityTracker::new()),
             bridge_auth,
+            startup,
+            warmup_task: AsyncMutex::new(None),
         })
+    }
+
+    pub(crate) async fn bootstrap_with_source_for_root(
+        root: &Path,
+        cli: PrismMcpCli,
+        upstream_source: BridgeUpstreamSource,
+    ) -> Result<Self> {
+        let features = cli.features();
+        let startup = Arc::new(BridgeStartupState::new(BridgeStartupPayload::pending(
+            root,
+            std::env::current_exe().context("failed to resolve bridge executable path")?,
+            cli.bridge_daemon_binary.clone(),
+            cli.log_path(root).ok(),
+            bootstrap_build_log_path(root).ok(),
+        )));
+        let tool_cache = bootstrap_tool_cache(features);
+        let server = Self {
+            upstream: Arc::new(AsyncMutex::new(None)),
+            upstream_source: upstream_source.clone(),
+            reconnect_lock: Arc::new(AsyncMutex::new(())),
+            server_info: Arc::new(Mutex::new(bootstrap_server_info())),
+            tool_cache: Arc::new(RwLock::new(tool_cache)),
+            activity: Arc::new(ProxyActivityTracker::new()),
+            bridge_auth: BridgeAuthContext::for_root(root)?,
+            startup: Arc::clone(&startup),
+            warmup_task: AsyncMutex::new(None),
+        };
+        let task = tokio::spawn(Self::warm_up(
+            root.to_path_buf(),
+            cli,
+            Arc::clone(&startup),
+            Arc::clone(&server.tool_cache),
+            Arc::clone(&server.server_info),
+            Arc::clone(&server.upstream),
+        ));
+        *server.warmup_task.lock().await = Some(task);
+        Ok(server)
     }
 
     pub(crate) async fn serve_stdio(self) -> Result<()> {
@@ -187,22 +499,42 @@ impl ProxyMcpServer {
     async fn active_peer(&self) -> Result<rmcp::service::Peer<RoleClient>> {
         let peer = {
             let upstream = self.upstream.lock().await;
-            upstream.peer.clone()
+            upstream.as_ref().map(|upstream| upstream.peer.clone())
         };
-        if !peer.is_transport_closed() {
-            return Ok(peer);
+        if let Some(peer) = peer {
+            if !peer.is_transport_closed() {
+                return Ok(peer);
+            }
+            self.reconnect_with_backoff("upstream transport closed before request", false)
+                .await?;
+            let upstream = self.upstream.lock().await;
+            if let Some(upstream) = upstream.as_ref() {
+                return Ok(upstream.peer.clone());
+            }
         }
-        self.reconnect_with_backoff("upstream transport closed before request", false)
-            .await?;
-        let upstream = self.upstream.lock().await;
-        Ok(upstream.peer.clone())
+        let payload = self.startup.snapshot();
+        if payload.ready {
+            Err(anyhow!(
+                "PRISM bridge is ready but no upstream connection is available yet; retry shortly"
+            ))
+        } else if let Some(error) = payload.error {
+            Err(anyhow!(error))
+        } else {
+            Err(anyhow!(
+                "PRISM bridge is warming up; read {STARTUP_URI} and retry after {} ms",
+                payload.poll_after_ms
+            ))
+        }
     }
 
     async fn reconnect_with_backoff(&self, reason: &str, force: bool) -> Result<()> {
         let _reconnect = self.reconnect_lock.lock().await;
         if !force {
             let upstream = self.upstream.lock().await;
-            if !upstream.peer.is_transport_closed() {
+            if upstream
+                .as_ref()
+                .is_some_and(|upstream| !upstream.peer.is_transport_closed())
+            {
                 return Ok(());
             }
         }
@@ -235,7 +567,7 @@ impl ProxyMcpServer {
                 Ok((connection, server_info, tools)) => {
                     {
                         let mut upstream = self.upstream.lock().await;
-                        *upstream = connection;
+                        *upstream = Some(connection);
                     }
                     self.update_server_info(&server_info);
                     self.update_tool_cache(&tools);
@@ -320,6 +652,116 @@ impl ProxyMcpServer {
             .map(|_| ())
             .context("PRISM MCP bridge transport exited unexpectedly")
     }
+
+    async fn warm_up(
+        root: PathBuf,
+        cli: PrismMcpCli,
+        startup: Arc<BridgeStartupState>,
+        tool_cache: Arc<RwLock<HashMap<String, Tool>>>,
+        server_info: Arc<Mutex<ServerInfo>>,
+        upstream_slot: Arc<AsyncMutex<Option<UpstreamConnection>>>,
+    ) {
+        if cli.bootstrap_build_worktree_release {
+            startup.mark_building_release();
+            let build_log_path = bootstrap_build_log_path(&root).ok();
+            if let Err(error) = build_release_binaries(&root, build_log_path.as_deref()).await {
+                warn!(error = %error, root = %root.display(), "failed to build worktree release binaries for bridge bootstrap");
+                startup.mark_failed(&error.to_string());
+                startup.notify_ready_surface().await;
+                return;
+            }
+        }
+
+        startup.mark_starting_daemon();
+        let resolution_started = Instant::now();
+        let upstream_resolution = crate::daemon_mode::resolve_upstream_uri(&cli, &root).await;
+        let upstream_resolution = match upstream_resolution {
+            Ok(resolution) => resolution,
+            Err(error) => {
+                warn!(error = %error, root = %root.display(), "failed to resolve bridge upstream");
+                startup.mark_failed(&error.to_string());
+                startup.notify_ready_surface().await;
+                return;
+            }
+        };
+
+        if let Err(error) = crate::runtime_state::record_bridge_upstream_resolved(
+            &root,
+            &upstream_resolution.uri,
+            upstream_resolution.source,
+            resolution_started.elapsed().as_millis(),
+            upstream_resolution.daemon_wait_ms,
+            upstream_resolution.spawned_daemon,
+        ) {
+            warn!(
+                error = %error,
+                root = %root.display(),
+                "failed to update prism runtime state for bridge upstream resolution"
+            );
+        }
+
+        let connect_started = Instant::now();
+        match Self::open_upstream(&upstream_resolution.uri).await {
+            Ok((connection, info, tools)) => {
+                {
+                    let mut upstream = upstream_slot.lock().await;
+                    *upstream = Some(connection);
+                }
+                match tool_cache.write() {
+                    Ok(mut cache) => {
+                        cache.clear();
+                        cache.extend(
+                            tools
+                                .iter()
+                                .cloned()
+                                .map(|tool| (tool.name.to_string(), tool)),
+                        );
+                    }
+                    Err(poisoned) => {
+                        let mut cache = poisoned.into_inner();
+                        cache.clear();
+                        cache.extend(
+                            tools
+                                .iter()
+                                .cloned()
+                                .map(|tool| (tool.name.to_string(), tool)),
+                        );
+                    }
+                }
+                match server_info.lock() {
+                    Ok(mut slot) => *slot = info,
+                    Err(poisoned) => *poisoned.into_inner() = info,
+                }
+                if let Err(error) = crate::runtime_state::record_bridge_connected_with_latency(
+                    &root,
+                    &upstream_resolution.uri,
+                    Some(connect_started.elapsed().as_millis()),
+                ) {
+                    warn!(
+                        error = %error,
+                        root = %root.display(),
+                        "failed to update prism runtime state for bridge connection"
+                    );
+                }
+                info!(
+                    root = %root.display(),
+                    upstream_uri = %upstream_resolution.uri,
+                    "prism-mcp bridge connected"
+                );
+                startup.mark_ready(&upstream_resolution.uri);
+                startup.notify_ready_surface().await;
+            }
+            Err(error) => {
+                let error = anyhow!(
+                    "failed to connect bridge to upstream {}: {error}",
+                    upstream_resolution.uri
+                );
+                warn!(error = %error, root = %root.display(), "failed to complete bridge warmup");
+                startup.mark_failed(&error.to_string());
+                startup.notify_ready_surface().await;
+            }
+        }
+    }
 }
 
 impl ServerHandler for ProxyMcpServer {
@@ -328,7 +770,11 @@ impl ServerHandler for ProxyMcpServer {
             Ok(info) => info.clone(),
             Err(poisoned) => poisoned.into_inner().clone(),
         };
-        let suffix = self.bridge_auth.bridge_instructions_suffix();
+        let suffix = format!(
+            "{}\n\n{}",
+            self.startup.startup_instructions_suffix(),
+            self.bridge_auth.bridge_instructions_suffix()
+        );
         info.instructions = Some(match info.instructions.take() {
             Some(existing) if !existing.trim().is_empty() => format!("{existing}\n\n{suffix}"),
             _ => suffix.to_string(),
@@ -339,14 +785,24 @@ impl ServerHandler for ProxyMcpServer {
     async fn list_resources(
         &self,
         request: Option<PaginatedRequestParams>,
-        _: RequestContext<RoleServer>,
+        context: RequestContext<RoleServer>,
     ) -> Result<ListResourcesResult, McpError> {
         let _request = self.activity.begin_request();
-        let mut result = self
-            .call_upstream(request, "resources/list", |peer, request| async move {
-                peer.list_resources(request).await
-            })
-            .await?;
+        self.startup.capture_peer(&context.peer);
+        let mut result = match self.active_peer().await {
+            Ok(peer) => peer
+                .list_resources(request)
+                .await
+                .map_err(map_proxy_error)?,
+            Err(_) => ListResourcesResult {
+                resources: Vec::new(),
+                next_cursor: None,
+                meta: None,
+            },
+        };
+        result
+            .resources
+            .push(self.startup.startup_resource());
         result
             .resources
             .push(self.bridge_auth.bridge_auth_resource());
@@ -356,23 +812,33 @@ impl ServerHandler for ProxyMcpServer {
     async fn list_resource_templates(
         &self,
         request: Option<PaginatedRequestParams>,
-        _: RequestContext<RoleServer>,
+        context: RequestContext<RoleServer>,
     ) -> Result<ListResourceTemplatesResult, McpError> {
         let _request = self.activity.begin_request();
-        self.call_upstream(
-            request,
-            "resources/templates/list",
-            |peer, request| async move { peer.list_resource_templates(request).await },
-        )
-        .await
+        self.startup.capture_peer(&context.peer);
+        if let Ok(peer) = self.active_peer().await {
+            peer.list_resource_templates(request)
+                .await
+                .map_err(map_proxy_error)
+        } else {
+            Ok(ListResourceTemplatesResult {
+                resource_templates: Vec::new(),
+                next_cursor: None,
+                meta: None,
+            })
+        }
     }
 
     async fn read_resource(
         &self,
         request: ReadResourceRequestParams,
-        _: RequestContext<RoleServer>,
+        context: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResult, McpError> {
         let _request = self.activity.begin_request();
+        self.startup.capture_peer(&context.peer);
+        if request.uri == STARTUP_URI {
+            return Ok(ReadResourceResult::new(vec![self.startup.startup_resource_contents()]));
+        }
         if request.uri == BRIDGE_AUTH_URI {
             return Ok(ReadResourceResult::new(vec![self
                 .bridge_auth
@@ -387,11 +853,19 @@ impl ServerHandler for ProxyMcpServer {
     async fn call_tool(
         &self,
         request: CallToolRequestParams,
-        _: RequestContext<RoleServer>,
+        context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
         let _request = self.activity.begin_request();
+        self.startup.capture_peer(&context.peer);
         if request.name.as_ref() == BRIDGE_ADOPT_TOOL_NAME {
             return self.bridge_auth.handle_adopt(request.arguments);
+        }
+        if self.active_peer().await.is_err() {
+            let payload = self.startup.snapshot();
+            return Ok(CallToolResult::error(vec![Content::text(format!(
+                "{} Read {STARTUP_URI} and retry after {} ms.",
+                payload.message, payload.poll_after_ms
+            ))]));
         }
         let request = if request.name.as_ref() == "prism_mutate" {
             let mut request = request;
@@ -411,22 +885,40 @@ impl ServerHandler for ProxyMcpServer {
     async fn list_tools(
         &self,
         request: Option<PaginatedRequestParams>,
-        _: RequestContext<RoleServer>,
+        context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, McpError> {
         let _request = self.activity.begin_request();
-        let mut result = self
-            .call_upstream(request, "tools/list", |peer, request| async move {
-                peer.list_tools(request).await
-            })
-            .await?;
-        for tool in &mut result.tools {
-            if tool.name.as_ref() == "prism_mutate" {
-                *tool = self.bridge_auth.patch_mutation_tool(tool.clone());
+        self.startup.capture_peer(&context.peer);
+        if let Ok(peer) = self.active_peer().await {
+            let mut result = peer.list_tools(request).await.map_err(map_proxy_error)?;
+            for tool in &mut result.tools {
+                if tool.name.as_ref() == "prism_mutate" {
+                    *tool = self.bridge_auth.patch_mutation_tool(tool.clone());
+                }
             }
+            result.tools.push(self.bridge_auth.bridge_adopt_tool());
+            self.update_tool_cache(&result.tools);
+            Ok(result)
+        } else {
+            let mut tools = self
+                .tool_cache
+                .read()
+                .ok()
+                .map(|cache| cache.values().cloned().collect::<Vec<_>>())
+                .unwrap_or_default();
+            tools.sort_by(|left, right| left.name.cmp(&right.name));
+            for tool in &mut tools {
+                if tool.name.as_ref() == "prism_mutate" {
+                    *tool = self.bridge_auth.patch_mutation_tool(tool.clone());
+                }
+            }
+            tools.push(self.bridge_auth.bridge_adopt_tool());
+            Ok(ListToolsResult {
+                tools,
+                next_cursor: None,
+                meta: None,
+            })
         }
-        result.tools.push(self.bridge_auth.bridge_adopt_tool());
-        self.update_tool_cache(&result.tools);
-        Ok(result)
     }
 
     fn get_tool(&self, name: &str) -> Option<Tool> {
@@ -456,4 +948,83 @@ fn map_proxy_error(error: ServiceError) -> McpError {
 
 fn map_connect_error(error: anyhow::Error) -> McpError {
     McpError::internal_error(error.to_string(), None)
+}
+
+fn bootstrap_server_info() -> ServerInfo {
+    ServerInfo::new(
+        ServerCapabilities::builder()
+            .enable_resources()
+            .enable_resources_list_changed()
+            .enable_resources_subscribe()
+            .enable_tools()
+            .enable_tool_list_changed()
+            .build(),
+    )
+    .with_server_info(Implementation::from_build_env())
+    .with_protocol_version(ProtocolVersion::LATEST)
+}
+
+fn bootstrap_tool_cache(features: PrismMcpFeatures) -> HashMap<String, Tool> {
+    PrismMcpServer::build_tool_router()
+        .list_all()
+        .into_iter()
+        .filter(|tool| features.is_tool_enabled(&tool.name))
+        .map(PrismMcpServer::transport_bind_tool_schema)
+        .map(|tool| (tool.name.to_string(), tool))
+        .collect()
+}
+
+fn bootstrap_build_log_path(root: &Path) -> Result<PathBuf> {
+    let daemon_log_path = crate::daemon_mode::default_log_path(root)?;
+    let parent = daemon_log_path
+        .parent()
+        .ok_or_else(|| anyhow!("daemon log path has no parent directory"))?;
+    Ok(parent.join("bridge-bootstrap-build.log"))
+}
+
+async fn build_release_binaries(root: &Path, build_log_path: Option<&Path>) -> Result<()> {
+    let root = root.to_path_buf();
+    let build_log_path = build_log_path.map(PathBuf::from);
+    let status = task::spawn_blocking(move || -> Result<std::process::ExitStatus> {
+        let mut command = std::process::Command::new("cargo");
+        command
+            .arg("build")
+            .arg("--release")
+            .arg("-p")
+            .arg("prism-cli")
+            .arg("-p")
+            .arg("prism-mcp")
+            .current_dir(&root);
+
+        if let Some(build_log_path) = build_log_path.as_deref() {
+            if let Some(parent) = build_log_path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            let stdout = std::fs::File::create(build_log_path).with_context(|| {
+                format!("failed to create build log {}", build_log_path.display())
+            })?;
+            let stderr = stdout.try_clone().with_context(|| {
+                format!("failed to clone build log {}", build_log_path.display())
+            })?;
+            command.stdout(Stdio::from(stdout)).stderr(Stdio::from(stderr));
+        }
+
+        command
+            .status()
+            .context("failed to run cargo build for bridge bootstrap")
+    })
+    .await
+    .context("bridge bootstrap build task join failed")??;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!("bridge bootstrap build failed with status {status}"))
+    }
+}
+
+fn current_timestamp_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
 }

@@ -153,6 +153,7 @@ const INSTRUCTIONS_URI: &str = "prism://instructions";
 const ENTRYPOINTS_URI: &str = "prism://entrypoints";
 const CAPABILITIES_URI: &str = "prism://capabilities";
 const SESSION_URI: &str = "prism://session";
+const STARTUP_URI: &str = "prism://startup";
 const PROTECTED_STATE_URI: &str = "prism://protected-state";
 const PLANS_URI: &str = "prism://plans";
 const CONTRACTS_URI: &str = "prism://contracts";
@@ -247,6 +248,10 @@ pub struct PrismMcpCli {
     pub http_uri_file: Option<PathBuf>,
     #[arg(long = "upstream-uri")]
     pub upstream_uri: Option<String>,
+    #[arg(long, hide = true, default_value_t = false)]
+    pub bootstrap_build_worktree_release: bool,
+    #[arg(long, hide = true)]
+    pub bridge_daemon_binary: Option<PathBuf>,
     #[arg(long, hide = true, default_value_t = false)]
     pub daemonize: bool,
 }

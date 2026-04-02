@@ -160,12 +160,16 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             internal_developer,
             shared_runtime_sqlite,
             shared_runtime_uri,
+            bootstrap_build_worktree_release,
+            bridge_daemon_binary,
         } => bridge(
             &root,
             no_coordination,
             internal_developer,
             shared_runtime_sqlite,
             shared_runtime_uri,
+            bootstrap_build_worktree_release,
+            bridge_daemon_binary,
         ),
         McpCommand::Start {
             no_coordination,
@@ -230,6 +234,8 @@ fn bridge(
     internal_developer: bool,
     shared_runtime_sqlite: Option<PathBuf>,
     shared_runtime_uri: Option<String>,
+    bootstrap_build_worktree_release: bool,
+    bridge_daemon_binary: Option<PathBuf>,
 ) -> Result<()> {
     if shared_runtime_sqlite.is_some() && shared_runtime_uri.is_some() {
         bail!("configure either shared runtime sqlite or shared runtime uri, not both");
@@ -244,6 +250,8 @@ fn bridge(
         internal_developer,
         shared_runtime_sqlite.as_deref(),
         shared_runtime_uri.as_deref(),
+        bootstrap_build_worktree_release,
+        bridge_daemon_binary.as_deref(),
     );
     exec_bridge(binary, &args)
 }
@@ -638,6 +646,8 @@ fn bridge_exec_args(
     internal_developer: bool,
     shared_runtime_sqlite: Option<&Path>,
     shared_runtime_uri: Option<&str>,
+    bootstrap_build_worktree_release: bool,
+    bridge_daemon_binary: Option<&Path>,
 ) -> Vec<OsString> {
     let mut args = vec![
         OsString::from("--mode"),
@@ -660,6 +670,13 @@ fn bridge_exec_args(
     if let Some(shared_runtime_uri) = shared_runtime_uri {
         args.push(OsString::from("--shared-runtime-uri"));
         args.push(OsString::from(shared_runtime_uri));
+    }
+    if bootstrap_build_worktree_release {
+        args.push(OsString::from("--bootstrap-build-worktree-release"));
+    }
+    if let Some(bridge_daemon_binary) = bridge_daemon_binary {
+        args.push(OsString::from("--bridge-daemon-binary"));
+        args.push(bridge_daemon_binary.as_os_str().to_os_string());
     }
     args
 }
@@ -1804,7 +1821,7 @@ mod tests {
     fn bridge_exec_args_include_required_bridge_flags() {
         let root = temp_root("bridge-exec-args");
         let paths = McpPaths::for_root(&root).unwrap();
-        let args = bridge_exec_args(&root, &paths, false, true, None, None)
+        let args = bridge_exec_args(&root, &paths, false, true, None, None, false, None)
             .into_iter()
             .map(|arg| arg.to_string_lossy().to_string())
             .collect::<Vec<_>>();
@@ -1829,7 +1846,16 @@ mod tests {
         let root = temp_root("bridge-exec-shared-runtime");
         let paths = McpPaths::for_root(&root).unwrap();
         let sqlite = root.join("shared-runtime.db");
-        let args = bridge_exec_args(&root, &paths, true, false, Some(sqlite.as_path()), None)
+        let args = bridge_exec_args(
+            &root,
+            &paths,
+            true,
+            false,
+            Some(sqlite.as_path()),
+            None,
+            false,
+            None,
+        )
             .into_iter()
             .map(|arg| arg.to_string_lossy().to_string())
             .collect::<Vec<_>>();

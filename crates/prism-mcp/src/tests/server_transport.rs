@@ -145,6 +145,67 @@ async fn stdio_proxy_stays_alive_while_idle_until_client_disconnects() {
 }
 
 #[tokio::test]
+async fn bootstrap_proxy_exposes_startup_resource_and_warmup_errors_before_ready() {
+    let root = temp_workspace();
+    let proxy =
+        crate::proxy_server::ProxyMcpServer::pending_for_test(&root, PrismMcpFeatures::full())
+            .expect("pending proxy should build");
+    let (client_transport, server_transport) = tokio::io::duplex(64 * 1024);
+    let proxy_task = tokio::spawn(async move {
+        proxy
+            .serve_transport(server_transport)
+            .await
+            .expect("pending proxy should serve stdio");
+    });
+
+    let client = ().serve(client_transport).await.expect("client should connect through proxy");
+
+    let resources = client
+        .list_all_resources()
+        .await
+        .expect("pending proxy should list bootstrap resources");
+    assert!(resources.iter().any(|resource| resource.uri == STARTUP_URI));
+
+    let startup = client
+        .read_resource(ReadResourceRequestParams::new(STARTUP_URI))
+        .await
+        .expect("startup resource should be readable before the daemon is ready");
+    let startup_text = match &startup.contents[0] {
+        rmcp::model::ResourceContents::TextResourceContents { text, .. } => text.as_str(),
+        other => panic!("expected textual startup resource, got {other:?}"),
+    };
+    let startup_payload =
+        serde_json::from_str::<Value>(startup_text).expect("startup resource should be valid json");
+    assert_eq!(startup_payload["ready"], false);
+    assert_eq!(startup_payload["uri"], STARTUP_URI);
+
+    let tools = client
+        .list_all_tools()
+        .await
+        .expect("pending proxy should still expose bootstrap tools");
+    assert!(tools.iter().any(|tool| tool.name == "prism_query"));
+
+    let warmup_error = client
+        .call_tool(CallToolRequestParams::new("prism_query").with_arguments(
+            serde_json::Map::from_iter([(String::from("code"), json!("return 'not-yet';"))]),
+        ))
+        .await
+        .expect("pending proxy should return a tool error payload");
+    assert!(warmup_error.is_error.unwrap_or(false));
+    let warmup_text = warmup_error
+        .content
+        .first()
+        .and_then(|content| content.as_text())
+        .map(|text| text.text.clone())
+        .unwrap_or_default();
+    assert!(warmup_text.contains(STARTUP_URI));
+
+    client.cancel().await.unwrap();
+    proxy_task.abort();
+    let _ = proxy_task.await;
+}
+
+#[tokio::test]
 async fn stdio_proxy_reconnects_after_upstream_restart_from_uri_file() {
     let uri_file = temp_workspace().join("bridge-uri.txt");
     let (first_uri, first_upstream_task) = spawn_http_upstream(server_with_node(demo_node())).await;
