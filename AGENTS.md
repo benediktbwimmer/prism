@@ -35,7 +35,9 @@ When touching code that violates this policy, move it toward the target architec
 ## PRISM MCP Workflow
 
 - When the PRISM MCP server is available for this repo, use it as the primary repo-awareness surface.
-- Start by reading `prism://instructions`, then follow those instructions closely.
+- In a fresh worktree or any session where the bridge may still be warming up, read `prism://startup` first.
+- If `prism://startup` reports that PRISM is not ready yet, wait for the suggested interval, then read `prism://startup` again until it reports `phase: ready`.
+- Once `prism://startup` reports ready, read `prism://instructions`, then follow those instructions closely.
 - If the server is unavailable, fall back to targeted local inspection until it is available again.
 - After meaningful changes to PRISM MCP behavior or query/runtime behavior, rebuild the release binaries and restart the MCP daemon so the live PRISM server reflects the current code during the same Codex session.
 - From the repo root, use these exact commands:
@@ -44,7 +46,7 @@ When touching code that violates this policy, move it toward the target architec
   - `./target/release/prism-cli mcp status`
   - `./target/release/prism-cli mcp health`
 - Prefer the release binaries for restart and verification instead of `cargo run`, so the daemon and CLI are both using the freshly rebuilt release executables.
-- For PRISM-on-PRISM Codex work across multiple worktrees, prefer `scripts/prism-mcp-codex-launcher.sh` as the MCP command. It resolves the current worktree from the launch directory, re-execs that worktree's own launcher copy when needed, and builds that worktree's release binaries on first use if they are missing.
+- For PRISM-on-PRISM Codex work across multiple worktrees, prefer `scripts/prism-mcp-codex-launcher.sh` as the MCP command. It resolves the current worktree from the launch directory, prefers that worktree's own release binaries when they exist, and otherwise starts a bootstrap bridge that exposes `prism://startup` while the worktree-local release build and daemon startup finish in the background.
 
 ## Dogfooding Feedback Loop
 
