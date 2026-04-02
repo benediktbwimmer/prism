@@ -82,6 +82,156 @@ The current startup log shows the dominant remaining costs as:
 - SQLite persist/write amplification: between about `2.3s` and `29.7s`, depending on how much
   state has to be rewritten
 
+## Runtime And MCP Log Baseline On April 2, 2026
+
+Observed from live PRISM daemon and MCP log surfaces after the identity, protected-state, and
+declared-work workstreams landed.
+
+Primary sources:
+
+- `prism.runtimeStatus()`
+- `prism.runtimeTimeline({ limit: 20 })`
+- `prism.mcpStats({ minDurationMs: 50 })`
+- `prism.slowMcpCalls({ limit: 8, minDurationMs: 1000 })`
+- `prism.slowQueries({ limit: 8, minDurationMs: 1000 })`
+- `/Users/bene/.prism/repos/repo-8719dd7db144e96f/worktrees/worktree-8719dd7db144e96f/mcp/logs/prism-mcp-daemon.log`
+- `/Users/bene/.prism/repos/repo-8719dd7db144e96f/worktrees/worktree-8719dd7db144e96f/mcp/logs/prism-mcp-call-log.jsonl`
+
+### Live daemon shape
+
+- `bridgeCount`: `32`
+- `connectedBridgeCount`: `32`
+- `daemonCount`: `1`
+- worktree cache DB size: about `326.8 MB`
+- daemon log size: about `15.5 MB`
+- MCP call log size: about `40.3 MB`
+- current daemon startup: about `2086 ms`
+- current workspace build time: about `1851 ms`
+- last refresh duration: about `782 ms`
+- last refresh replay volume: `65293`
+- materialized files: `372`
+- materialized nodes: `17950`
+- materialized edges: `27969`
+
+The current daemon is healthy. Recent calls since the last restart are mostly fast, and the
+slowest recent calls were inspection queries rather than ordinary repo work.
+
+### Startup and recovery fixed-cost baseline
+
+The current startup timeline still contains meaningful fixed costs before the daemon becomes ready:
+
+- cache store open: about `411 ms`
+  - `schema_ms`: `27 ms`
+  - `prune_ms`: `382 ms`
+- graph snapshot load: about `98 ms`
+- indexer preparation: about `850 ms`
+  - `load_graph_ms`: `135 ms`
+  - `load_coordination_ms`: `191 ms`
+  - `derive_or_restore_projection_ms`: `304 ms`
+- full daemon ready time: about `2086 ms`
+
+This means startup is no longer pathological, but it still pays for prune, coordination load,
+projection restore, and recovery replay work every time.
+
+### Incremental refresh baseline
+
+Recent incremental refreshes looked healthy enough for ordinary edits, but still expose a few
+imbalances:
+
+- one-file targeted refresh example:
+  - `parse_apply_ms`: `26 ms`
+  - `persist_ms`: `3 ms`
+  - indexer total: `45 ms`
+  - refresh pipeline total: `382 ms`
+- another one-file targeted refresh example:
+  - indexer total: `27 ms`
+  - refresh pipeline total: `552 ms`
+
+The refresh path is no longer broadly reconstructive for every small edit, but the surrounding
+build-indexer and pipeline overhead still dominates pure indexing time.
+
+### Current hotspot classes
+
+#### 1. `prism_task_brief` still has the worst historical tail latency
+
+Historical slow-call and slow-query surfaces show:
+
+- average `prism_task_brief` duration around `14.9 s`
+- worst observed slow MCP call at about `914,697 ms`
+- second worst observed slow MCP call at about `794,864 ms`
+
+The worst traces are dominated by:
+
+- `runtimeSync.deferred`
+- `compact.refreshWorkspace`
+- `compact.handler`
+
+This is the clearest compact-surface latency hotspot.
+
+#### 2. coordination mutations can still stall behind `refresh_lock`
+
+Historical slow-call surfaces also show failed `prism_mutate` coordination requests that waited on
+refresh admission for far too long:
+
+- about `189,726 ms`
+- about `69,726 ms`
+
+The corresponding trace phases are centered on:
+
+- `mutation.coordination.waitRefreshLock`
+- `mutation.coordination.refreshWorkspace`
+
+That is an admission-policy problem, not just a raw compute problem.
+
+#### 3. co-change work still explodes on some ordinary edits
+
+The current daemon logs still show indexed edits with large co-change fanout even when the edit set
+is tiny:
+
+- one recent one-file refresh produced `co_change_delta_count: 11990`
+- another recent one-file refresh produced `co_change_delta_count: 72`
+
+Recent log scans also showed repeated warnings of:
+
+- `sampling symbol-level co-change deltas for oversized change set`
+
+This means the remaining co-change work is still too sensitive to certain large or high-fanout
+files.
+
+#### 4. bridge transport logs are still noisy around reconnects and restarts
+
+Recent daemon logs contain repeated warnings like:
+
+- `sse stream error: body error: error decoding response body`
+- `sse client event stream terminated with error: Err(TokioJoinError(...Cancelled...))`
+
+These events appear around restart and reconnect churn. They look more like expected bridge
+lifecycle noise than actual daemon correctness failures, but they currently pollute the warning
+surface.
+
+#### 5. bridge lifecycle visibility is still weak
+
+The live daemon reports `32` connected bridges, with several processes older than `20` hours.
+That may be correct for an active Codex session topology, but the current status surface does not
+make it obvious which bridges are actively serving requests versus merely still connected.
+
+### Immediate optimization hypotheses
+
+The next targeted optimization passes should focus on:
+
+1. slimming `prism_task_brief` so it can return a cheap useful answer before broader refresh or
+   enrichment work
+2. removing long `refresh_lock` stalls from coordination mutation admission, preferably by using a
+   lighter snapshot path or failing fast with retry guidance
+3. bounding or approximating oversized co-change work so small edit batches do not inherit large
+   fanout costs from hot files
+4. trimming startup or recovery fixed costs in store open, prune, coordination load, projection
+   restore, and replay
+5. reducing transport warning noise and exposing clearer active-versus-idle bridge lifecycle state
+
+These hypotheses are now tracked explicitly in
+`plan:01kn7cxa9tvnaa1svrgppcth4a`.
+
 ## Main Findings
 
 ### 1. Request handling used to force full workspace refresh

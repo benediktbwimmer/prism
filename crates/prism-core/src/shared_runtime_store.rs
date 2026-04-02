@@ -115,6 +115,15 @@ impl SharedRuntimeStore {
         }
     }
 
+    pub(crate) fn load_projection_outcome_event_ids(
+        &mut self,
+        query: &prism_memory::OutcomeRecallQuery,
+    ) -> Result<Vec<EventId>> {
+        match self {
+            Self::Sqlite(store) => store.load_projection_outcome_event_ids(query),
+        }
+    }
+
     pub(crate) fn load_outcomes_by_payload_scan(
         &mut self,
         query: &prism_memory::OutcomeRecallQuery,

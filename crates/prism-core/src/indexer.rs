@@ -50,7 +50,8 @@ use prism_memory::OutcomeMemory;
 use prism_parser::{LanguageAdapter, ParseDepth, ParseResult};
 use prism_projections::{
     co_change_delta_batch_for_events, CoChangeDelta, ProjectionIndex, ValidationDelta,
-    MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
+    MAX_CO_CHANGE_DELTAS_PER_CHANGESET, MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
+    MAX_CO_CHANGE_SAMPLED_LINEAGES_PER_CHANGESET,
 };
 use prism_query::Prism;
 use prism_store::{
@@ -63,14 +64,22 @@ const SLOW_FILE_PHASE_THRESHOLD_MS: u128 = 200;
 const SMALL_REPO_DEEP_PARSE_FILE_LIMIT: usize = 64;
 const OVERSIZED_TARGETED_DEEP_PARSE_BYTE_LIMIT: usize = 128 * 1024;
 
-fn log_truncated_co_change_fallback(root: &Path, path: &Path, event_count: usize, distinct: usize) {
+fn log_truncated_co_change_fallback(
+    root: &Path,
+    path: &Path,
+    event_count: usize,
+    distinct: usize,
+    sampled: usize,
+) {
     warn!(
         root = %root.display(),
         path = %path.display(),
         lineage_event_count = event_count,
         distinct_lineage_count = distinct,
-        sampled_lineage_count = MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
+        sampled_lineage_count = sampled,
         max_co_change_lineages_per_changeset = MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
+        max_co_change_sampled_lineages_per_changeset = MAX_CO_CHANGE_SAMPLED_LINEAGES_PER_CHANGESET,
+        max_co_change_deltas_per_changeset = MAX_CO_CHANGE_DELTAS_PER_CHANGESET,
         "sampling symbol-level co-change deltas for oversized change set"
     );
 }
@@ -883,6 +892,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                     &parsed_job.pending.path,
                     new_lineage_events.len(),
                     change_set_deltas.distinct_lineage_count,
+                    change_set_deltas.sampled_lineage_count,
                 );
             }
             self.projections.apply_lineage_events_with_co_change_deltas(
@@ -1023,6 +1033,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                         &tracked,
                         new_lineage_events.len(),
                         change_set_deltas.distinct_lineage_count,
+                        change_set_deltas.sampled_lineage_count,
                     );
                 }
                 self.projections.apply_lineage_events(&new_lineage_events);
@@ -1609,6 +1620,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                 path,
                 new_lineage_events.len(),
                 change_set_deltas.distinct_lineage_count,
+                change_set_deltas.sampled_lineage_count,
             );
         }
         self.projections.apply_lineage_events_with_co_change_deltas(

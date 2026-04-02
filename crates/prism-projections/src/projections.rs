@@ -25,8 +25,25 @@ use crate::types::{
 
 pub const MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE: usize = 32;
 // Guard the hot path against quadratic co-change explosions on bulk edits.
-// 128 distinct lineages already implies 16,256 directed deltas.
 pub const MAX_CO_CHANGE_LINEAGES_PER_CHANGESET: usize = 128;
+pub const MAX_CO_CHANGE_DELTAS_PER_CHANGESET: usize = 2048;
+pub const MAX_CO_CHANGE_SAMPLED_LINEAGES_PER_CHANGESET: usize =
+    sampled_co_change_lineage_limit(
+        MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
+        MAX_CO_CHANGE_DELTAS_PER_CHANGESET,
+    );
+
+const fn sampled_co_change_lineage_limit(max_lineages: usize, max_deltas: usize) -> usize {
+    let mut lineages = 1usize;
+    while lineages < max_lineages {
+        let next = lineages + 1;
+        if next.saturating_mul(next.saturating_sub(1)) > max_deltas {
+            break;
+        }
+        lineages = next;
+    }
+    lineages
+}
 
 #[derive(Debug, Clone)]
 pub struct CoChangeDeltaBatch {
@@ -1139,7 +1156,7 @@ fn distinct_sorted_lineages(mut lineages: Vec<LineageId>) -> DistinctLineageSele
     lineages.sort_by(|left, right| left.0.cmp(&right.0));
     lineages.dedup();
     let total_distinct_lineages = lineages.len();
-    if total_distinct_lineages <= MAX_CO_CHANGE_LINEAGES_PER_CHANGESET {
+    if total_distinct_lineages <= MAX_CO_CHANGE_SAMPLED_LINEAGES_PER_CHANGESET {
         return DistinctLineageSelection {
             lineages,
             total_distinct_lineages,
@@ -1147,10 +1164,10 @@ fn distinct_sorted_lineages(mut lineages: Vec<LineageId>) -> DistinctLineageSele
         };
     }
 
-    let mut sampled = Vec::with_capacity(MAX_CO_CHANGE_LINEAGES_PER_CHANGESET);
+    let mut sampled = Vec::with_capacity(MAX_CO_CHANGE_SAMPLED_LINEAGES_PER_CHANGESET);
     let last_index = total_distinct_lineages - 1;
-    let last_slot = MAX_CO_CHANGE_LINEAGES_PER_CHANGESET - 1;
-    for slot in 0..MAX_CO_CHANGE_LINEAGES_PER_CHANGESET {
+    let last_slot = MAX_CO_CHANGE_SAMPLED_LINEAGES_PER_CHANGESET - 1;
+    for slot in 0..MAX_CO_CHANGE_SAMPLED_LINEAGES_PER_CHANGESET {
         let index = if last_slot == 0 {
             0
         } else {

@@ -5,10 +5,11 @@ use std::time::Instant;
 use anyhow::{anyhow, Result};
 use prism_coordination::{CoordinationTask, TaskBlocker};
 use prism_ir::{
-    AnchorRef, CoordinationTaskId, NodeId, PlanGraph, PlanNode, PlanNodeBlocker,
+    AnchorRef, CoordinationTaskId, EdgeKind, NodeId, PlanGraph, PlanNode, PlanNodeBlocker,
     PlanNodeBlockerKind, PlanNodeId, PlanNodeStatus, TaskId, WorkspaceRevision,
 };
 use prism_js::{AgentOutcomeSummaryView, AgentTaskBlockerView, AgentTaskBriefResultView};
+use prism_memory::OutcomeRecallQuery;
 use prism_query::Prism;
 use serde_json::json;
 
@@ -84,23 +85,16 @@ impl QueryHost {
 
                 let task_id = TaskId::new(subject.task_id.clone());
                 let replay_started = Instant::now();
-                let replay = crate::load_task_replay(
+                let recent_outcomes = load_task_brief_recent_outcomes(
                     host.workspace_session_ref(),
                     prism.as_ref(),
                     &task_id,
-                )?;
-                let journal = crate::task_journal_view_from_replay(
-                    session.as_ref(),
-                    prism.as_ref(),
-                    replay,
-                    Some((Some(subject.title.clone()), Vec::new())),
                     TASK_BRIEF_OUTCOME_LIMIT,
-                    0,
                 )?;
                 query_run.record_phase(
                     "compact.taskBrief.replay",
                     &json!({
-                        "eventCount": journal.recent_events.len(),
+                        "eventCount": recent_outcomes.len(),
                     }),
                     replay_started.elapsed(),
                     true,
@@ -158,8 +152,7 @@ impl QueryHost {
                         .take(TASK_BRIEF_CONFLICT_LIMIT)
                         .map(|conflict| clamp_string(&conflict.summary, TASK_BRIEF_TEXT_MAX_CHARS))
                         .collect(),
-                    recent_outcomes: journal
-                        .recent_events
+                    recent_outcomes: recent_outcomes
                         .iter()
                         .map(|event| compact_outcome_summary_view(event, TASK_BRIEF_TEXT_MAX_CHARS))
                         .collect(),
@@ -354,6 +347,29 @@ fn compact_claim_holders(claims: &[prism_coordination::WorkClaim]) -> Vec<String
     holders
 }
 
+fn load_task_brief_recent_outcomes(
+    workspace: Option<&prism_core::WorkspaceSession>,
+    prism: &Prism,
+    task_id: &TaskId,
+    limit: usize,
+) -> Result<Vec<prism_memory::OutcomeEvent>> {
+    let query = OutcomeRecallQuery {
+        anchors: Vec::new(),
+        task: Some(task_id.clone()),
+        kinds: None,
+        result: None,
+        actor: None,
+        since: None,
+        limit,
+    };
+    if let Some(workspace) = workspace {
+        return workspace
+            .load_outcomes(&query)
+            .or_else(|_| Ok(prism.query_outcomes(&query)));
+    }
+    Ok(prism.query_outcomes(&query))
+}
+
 fn compact_task_next_reads(
     session: &SessionState,
     prism: &Prism,
@@ -408,22 +424,11 @@ fn compact_task_next_reads(
     }
 
     for node in seed_nodes.iter().take(4) {
-        for owner in next_reads(prism, node, TASK_BRIEF_NEXT_READ_LIMIT.saturating_mul(3))? {
-            let owner_node = node_id_from_view(&owner.symbol.id);
-            if seed_nodes.iter().any(|seed| seed == &owner_node) || !seen.insert(owner_node.clone())
-            {
-                continue;
-            }
-            candidates.push((owner_node, owner.why));
-        }
-    }
-
-    for node in seed_nodes.iter().take(4) {
-        for related in prism.blast_radius(node).direct_nodes {
+        for related in compact_task_direct_neighbors(prism, node)? {
             if seed_nodes.iter().any(|seed| seed == &related) || !seen.insert(related.clone()) {
                 continue;
             }
-            candidates.push((related, "Task blast-radius follow-up.".to_string()));
+            candidates.push((related, "Direct semantic neighbor of a task anchor.".to_string()));
             if candidates.len() >= TASK_BRIEF_NEXT_READ_LIMIT.saturating_mul(4) {
                 break;
             }
@@ -445,8 +450,56 @@ fn compact_task_next_reads(
     Ok(next_reads)
 }
 
-fn node_id_from_view(id: &prism_js::NodeIdView) -> NodeId {
-    NodeId::new(id.crate_name.clone(), id.path.clone(), id.kind)
+fn compact_task_direct_neighbors(prism: &Prism, target: &NodeId) -> Result<Vec<NodeId>> {
+    let symbol = symbol_for(prism, target)?;
+    let relations = symbol.relations();
+    let mut neighbors = Vec::<NodeId>::new();
+
+    for node_id in prism.spec_for(target) {
+        push_unique_node(&mut neighbors, node_id);
+    }
+    for node_id in prism.implementation_for(target) {
+        push_unique_node(&mut neighbors, node_id);
+    }
+    for node_id in relations.outgoing_related {
+        push_unique_node(&mut neighbors, node_id);
+    }
+    for node_id in relations.incoming_related {
+        push_unique_node(&mut neighbors, node_id);
+    }
+    for node_id in relations.outgoing_validates {
+        push_unique_node(&mut neighbors, node_id);
+    }
+    for node_id in relations.incoming_validates {
+        push_unique_node(&mut neighbors, node_id);
+    }
+    for node_id in relations.outgoing_specifies {
+        push_unique_node(&mut neighbors, node_id);
+    }
+    for node_id in relations.incoming_specifies {
+        push_unique_node(&mut neighbors, node_id);
+    }
+    for kind in [
+        EdgeKind::Calls,
+        EdgeKind::References,
+        EdgeKind::Imports,
+        EdgeKind::Implements,
+    ] {
+        for edge in prism.graph().edges_from(target, Some(kind)) {
+            push_unique_node(&mut neighbors, edge.target.clone());
+        }
+        for edge in prism.graph().edges_to(target, Some(kind)) {
+            push_unique_node(&mut neighbors, edge.source.clone());
+        }
+    }
+
+    Ok(neighbors)
+}
+
+fn push_unique_node(values: &mut Vec<NodeId>, value: NodeId) {
+    if !values.iter().any(|existing| existing == &value) {
+        values.push(value);
+    }
 }
 
 fn task_brief_likely_validations(

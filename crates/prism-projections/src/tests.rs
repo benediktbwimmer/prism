@@ -10,6 +10,7 @@ use prism_memory::{
 use crate::projections::{
     co_change_delta_batch_for_events, co_change_deltas_for_events, ProjectionIndex,
     MAX_CO_CHANGE_LINEAGES_PER_CHANGESET, MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE,
+    MAX_CO_CHANGE_SAMPLED_LINEAGES_PER_CHANGESET,
 };
 use crate::{
     ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptPacket,
@@ -364,13 +365,49 @@ fn co_change_deltas_sample_bulk_changesets_above_guardrail() {
     );
     assert_eq!(
         batch.sampled_lineage_count,
-        MAX_CO_CHANGE_LINEAGES_PER_CHANGESET
+        MAX_CO_CHANGE_SAMPLED_LINEAGES_PER_CHANGESET
     );
     assert_eq!(
         batch.deltas.len(),
-        MAX_CO_CHANGE_LINEAGES_PER_CHANGESET * (MAX_CO_CHANGE_LINEAGES_PER_CHANGESET - 1)
+        MAX_CO_CHANGE_SAMPLED_LINEAGES_PER_CHANGESET
+            * (MAX_CO_CHANGE_SAMPLED_LINEAGES_PER_CHANGESET - 1)
     );
     assert!(!co_change_deltas_for_events(&events).is_empty());
+}
+
+#[test]
+fn co_change_deltas_respect_delta_budget_before_lineage_cap() {
+    let events = (0..64)
+        .map(|index| LineageEvent {
+            meta: EventMeta {
+                id: EventId::new(format!("lineage:budget:{index}")),
+                ts: index as u64,
+                actor: EventActor::System,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            lineage: LineageId::new(format!("lineage:budget:{index}")),
+            kind: LineageEventKind::Updated,
+            before: Vec::new(),
+            after: Vec::new(),
+            confidence: 1.0,
+            evidence: Vec::new(),
+        })
+        .collect::<Vec<_>>();
+
+    let batch = co_change_delta_batch_for_events(&events);
+    assert!(batch.truncated);
+    assert_eq!(batch.distinct_lineage_count, 64);
+    assert_eq!(
+        batch.sampled_lineage_count,
+        MAX_CO_CHANGE_SAMPLED_LINEAGES_PER_CHANGESET
+    );
+    assert_eq!(
+        batch.deltas.len(),
+        MAX_CO_CHANGE_SAMPLED_LINEAGES_PER_CHANGESET
+            * (MAX_CO_CHANGE_SAMPLED_LINEAGES_PER_CHANGESET - 1)
+    );
 }
 
 #[test]

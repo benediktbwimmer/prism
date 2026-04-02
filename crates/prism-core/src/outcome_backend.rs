@@ -28,6 +28,10 @@ impl StoreOutcomeReadBackend {
 
 impl OutcomeReadBackend for StoreOutcomeReadBackend {
     fn query_outcomes(&self, query: &OutcomeRecallQuery) -> Result<Vec<OutcomeEvent>> {
+        if query.anchors.is_empty() && query.task.is_some() {
+            return self.load_projected_task_outcomes(query);
+        }
+
         let Some(shared_store) = &self.shared_store else {
             return self
                 .local_store
@@ -117,6 +121,33 @@ impl OutcomeReadBackend for StoreOutcomeReadBackend {
             .lock()
             .expect("workspace store lock poisoned")
             .load_task_replay(task_id)
+    }
+}
+
+impl StoreOutcomeReadBackend {
+    fn load_projected_task_outcomes(&self, query: &OutcomeRecallQuery) -> Result<Vec<OutcomeEvent>> {
+        let local = {
+            let local_store = self
+                .local_store
+                .lock()
+                .expect("workspace store lock poisoned");
+            let local_ids = local_store.load_projection_outcome_event_ids(query)?;
+            local_store.load_outcome_events_by_ids(&local_ids)?
+        };
+
+        let Some(shared_store) = &self.shared_store else {
+            return Ok(local);
+        };
+
+        let mut shared = {
+            let mut shared_store = shared_store
+                .lock()
+                .expect("shared runtime store lock poisoned");
+            let shared_ids = shared_store.load_projection_outcome_event_ids(query)?;
+            shared_store.load_outcome_events_by_ids(&shared_ids)?
+        };
+        merge_events(&mut shared, local, query.limit);
+        Ok(shared)
     }
 }
 

@@ -1600,7 +1600,7 @@ impl QueryHost {
         authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<CoordinationMutationResult> {
         self.ensure_tool_enabled("prism_coordination", "coordination workflow mutations")?;
-        if let Some(workspace) = self.workspace_session() {
+        if self.workspace_session().is_some() {
             let refresh_started = std::time::Instant::now();
             match self.refresh_workspace_for_mutation() {
                 Ok(report) => {
@@ -1645,35 +1645,6 @@ impl QueryHost {
                     return Err(error);
                 }
             }
-            let sync_started = std::time::Instant::now();
-            match self.sync_coordination_revision(workspace) {
-                Ok(()) => {
-                    if let Some(trace) = trace {
-                        trace.record_phase(
-                            "mutation.coordination.syncLoadedRevisionBefore",
-                            &json!({
-                                    "loadedRevision": self
-                                    .loaded_coordination_revision_value(),
-                            }),
-                            sync_started.elapsed(),
-                            true,
-                            None,
-                        );
-                    }
-                }
-                Err(error) => {
-                    if let Some(trace) = trace {
-                        trace.record_phase(
-                            "mutation.coordination.syncLoadedRevisionBefore",
-                            &json!({}),
-                            sync_started.elapsed(),
-                            false,
-                            Some(error.to_string()),
-                        );
-                    }
-                    return Err(error);
-                }
-            }
         }
         let prism = self.current_prism();
         let before_events = prism.coordination_events().len();
@@ -1690,7 +1661,34 @@ impl QueryHost {
             let result = if let Some(trace) = trace {
                 match workspace.mutate_coordination_with_session_wait_observed(
                     Some(&session.session_id()),
-                    |prism| self.apply_coordination_mutation(session, prism, args, meta.clone()),
+                    |prism| {
+                        let sync_started = std::time::Instant::now();
+                        match self.sync_coordination_revision(workspace) {
+                            Ok(()) => {
+                                trace.record_phase(
+                                    "mutation.coordination.syncLoadedRevisionBefore",
+                                    &json!({
+                                        "loadedRevision": self
+                                            .loaded_coordination_revision_value(),
+                                    }),
+                                    sync_started.elapsed(),
+                                    true,
+                                    None,
+                                );
+                            }
+                            Err(error) => {
+                                trace.record_phase(
+                                    "mutation.coordination.syncLoadedRevisionBefore",
+                                    &json!({}),
+                                    sync_started.elapsed(),
+                                    false,
+                                    Some(error.to_string()),
+                                );
+                                return Err(error);
+                            }
+                        }
+                        self.apply_coordination_mutation(session, prism, args, meta.clone())
+                    },
                     |operation, duration, args, success, error| {
                         trace.record_phase(operation, &args, duration, success, error)
                     },
@@ -1702,7 +1700,10 @@ impl QueryHost {
             } else {
                 match workspace.mutate_coordination_with_session_wait_observed(
                     Some(&session.session_id()),
-                    |prism| self.apply_coordination_mutation(session, prism, args, meta.clone()),
+                    |prism| {
+                        self.sync_coordination_revision(workspace)?;
+                        self.apply_coordination_mutation(session, prism, args, meta.clone())
+                    },
                     |_operation, _duration, _args, _success, _error| {},
                 ) {
                     Ok(Some(state)) => Ok(state),

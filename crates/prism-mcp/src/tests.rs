@@ -10999,6 +10999,83 @@ fn compact_task_brief_accepts_native_plan_node_current_task_ids() {
 }
 
 #[test]
+fn compact_task_brief_trace_exposes_subject_replay_and_next_read_phases() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Trace compact task brief",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "title": "Trace alpha task brief",
+                    "status": "Ready",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::main",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.compact_task_brief(
+        test_session(&host),
+        PrismTaskBriefArgs {
+            task_id: task_id.clone(),
+        },
+    )
+    .expect("task brief should succeed");
+
+    let entry = host
+        .query_log_entries(QueryLogArgs {
+            limit: Some(5),
+            since: None,
+            target: None,
+            operation: None,
+            task_id: None,
+            min_duration_ms: None,
+        })
+        .into_iter()
+        .find(|entry| entry.kind == "prism_task_brief")
+        .expect("task brief query log entry");
+    let trace = host
+        .query_trace_view(&entry.id)
+        .expect("task brief query trace");
+    let operations = trace
+        .phases
+        .iter()
+        .map(|phase| phase.operation.as_str())
+        .collect::<Vec<_>>();
+
+    assert!(operations.contains(&"compact.refreshWorkspace"));
+    assert!(operations.contains(&"compact.handler"));
+    assert!(operations.contains(&"compact.taskBrief.subject"));
+    assert!(operations.contains(&"compact.taskBrief.planContext"));
+    assert!(operations.contains(&"compact.taskBrief.coordinationContext"));
+    assert!(operations.contains(&"compact.taskBrief.replay"));
+    assert!(operations.contains(&"compact.taskBrief.nextReads"));
+}
+
+#[test]
 fn compact_workset_for_spec_targets_surfaces_drift_reads_and_gap_summary() {
     let root = temp_workspace();
     write_memory_insight_workspace(&root);
@@ -17929,6 +18006,7 @@ fn coordination_mutations_wait_for_runtime_sync_and_then_succeed() {
         Some(&Value::String("busy".to_string()))
     );
 }
+
 
 #[test]
 fn claim_mutations_queue_runtime_refresh_instead_of_returning_busy() {
