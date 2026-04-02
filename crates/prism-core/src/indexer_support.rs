@@ -20,6 +20,7 @@ use crate::checkpoint_materializer::CheckpointMaterializerHandle;
 use crate::curator::{CuratorHandle, CuratorHandleRef};
 use crate::indexer::PendingFileParse;
 use crate::observed_change_tracker::ObservedChangeTracker;
+use crate::repo_patch_events::sync_repo_patch_events;
 use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_intents};
 use crate::session::{WorkspaceRefreshSeed, WorkspaceRefreshState, WorkspaceSession};
 use crate::shared_runtime::composite_workspace_revision;
@@ -32,12 +33,12 @@ use crate::workspace_runtime_state::WorkspaceRuntimeState;
 
 pub(crate) fn build_workspace_session(
     root: PathBuf,
-    store: SqliteStore,
+    mut store: SqliteStore,
     workspace_tree_snapshot: WorkspaceTreeSnapshot,
     shared_runtime: SharedRuntimeBackend,
     hydrate_persisted_projections: bool,
     hydrate_persisted_co_change: bool,
-    shared_runtime_store: Option<SharedRuntimeStore>,
+    mut shared_runtime_store: Option<SharedRuntimeStore>,
     layout: crate::layout::WorkspaceLayout,
     graph: Graph,
     history: HistoryStore,
@@ -51,6 +52,11 @@ pub(crate) fn build_workspace_session(
     backend: Option<Arc<dyn CuratorBackend>>,
 ) -> Result<WorkspaceSession> {
     let started = Instant::now();
+    if let Some(shared_store) = shared_runtime_store.as_mut() {
+        sync_repo_patch_events(&root, shared_store)?;
+    } else {
+        sync_repo_patch_events(&root, &mut store)?;
+    }
     let workspace_revision = composite_workspace_revision(
         store.workspace_revision()?,
         shared_runtime_store

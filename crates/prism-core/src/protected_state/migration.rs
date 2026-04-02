@@ -70,7 +70,7 @@ pub fn migrate_legacy_protected_repo_state(
                 event.meta.execution_context.as_ref(),
             )
         },
-        |event| event.meta.id.as_str(),
+        |event| event.meta.id.0.as_str(),
         &mut report,
     )?;
 

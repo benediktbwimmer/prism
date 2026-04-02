@@ -44,7 +44,7 @@ use prism_coordination::CoordinationSnapshot;
 use prism_curator::CuratorBackend;
 use prism_history::HistoryStore;
 use prism_ir::{
-    ChangeTrigger, Edge, EdgeKind, EdgeOrigin, LineageEvent, ObservedChangeSet,
+    ChangeTrigger, Edge, EdgeKind, EdgeOrigin, EventMeta, LineageEvent, ObservedChangeSet,
     PlanExecutionOverlay, PlanGraph,
 };
 use prism_memory::OutcomeMemory;
@@ -674,7 +674,13 @@ impl<S: Store> WorkspaceIndexer<S> {
     }
 
     pub fn index_with_changes(&mut self) -> Result<Vec<prism_ir::GraphChange>> {
-        let (_, changes) = self.index_impl(ChangeTrigger::ManualReindex, None, None, None)?;
+        let (_, changes) = self.index_impl(
+            ChangeTrigger::ManualReindex,
+            None,
+            None,
+            None,
+            default_outcome_meta("observed"),
+        )?;
         Ok(changes)
     }
 
@@ -705,21 +711,6 @@ impl<S: Store> WorkspaceIndexer<S> {
             Some(&plan),
             Some(&plan.next_snapshot),
             Some(&deep_paths),
-            default_outcome_meta("observed"),
-        )?;
-        Ok(observed)
-    }
-
-    pub(crate) fn index_with_refresh_plan(
-        &mut self,
-        trigger: ChangeTrigger,
-        plan: &WorkspaceRefreshPlan,
-    ) -> Result<Vec<ObservedChangeSet>> {
-        let (observed, _) = self.index_impl(
-            trigger,
-            Some(plan),
-            Some(&plan.next_snapshot),
-            None,
             default_outcome_meta("observed"),
         )?;
         Ok(observed)
@@ -900,6 +891,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                 parsed_job.parse_depth,
                 &parsed_job.package,
                 parsed_job.parsed,
+                observed_meta.clone(),
                 trigger.clone(),
             );
             requires_graph_index_rebuild |= update.requires_index_rebuild;
@@ -990,6 +982,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                     pending_file.source.len(),
                     forced_deep_paths,
                 ),
+                observed_meta.clone(),
                 trigger.clone(),
             );
             requires_graph_index_rebuild |= update.requires_index_rebuild;
@@ -1547,6 +1540,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         parse_depth: ParseDepth,
         package: &PackageInfo,
         parsed: ParseResult,
+        observed_meta: EventMeta,
         trigger: ChangeTrigger,
     ) -> prism_store::FileUpdate {
         let previous_state = previous_path
@@ -1602,6 +1596,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         path: &Path,
         hash: u64,
         parse_depth: ParseDepth,
+        observed_meta: EventMeta,
         trigger: ChangeTrigger,
     ) -> prism_store::FileUpdate {
         self.graph.upsert_file_from_with_observed_without_rebuild(

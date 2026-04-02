@@ -13,7 +13,7 @@ pub(crate) fn append_repo_patch_event(root: &Path, event: &OutcomeEvent) -> Resu
     append_protected_stream_event(
         root,
         &ProtectedRepoStream::patch_events(),
-        event.meta.id.as_str(),
+        event.meta.id.0.as_str(),
         event,
         &implicit_principal_identity(Some(&event.meta.actor), event.meta.execution_context.as_ref()),
     )

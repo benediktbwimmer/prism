@@ -25,8 +25,9 @@ use prism_curator::{
 use prism_history::HistoryStore;
 use prism_ir::{
     AnchorRef, ChangeTrigger, CredentialId, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId,
-    Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, PlanEdgeKind, PlanId, Span,
-    SymbolFingerprint, TaskId,
+    EventExecutionContext, Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode,
+    PlanEdgeKind, PlanId, PrincipalActor, PrincipalAuthorityId, PrincipalId, Span,
+    SymbolFingerprint, TaskId, WorkContextKind, WorkContextSnapshot,
 };
 use prism_js::{AnchorRefView, ContractKindView, ContractStabilityView, ContractStatusView};
 use prism_memory::{
@@ -14739,10 +14740,32 @@ fn prism_change_views_surface_recent_files_symbols_and_task_changes() {
             meta: EventMeta {
                 id: EventId::new("outcome:change-view"),
                 ts: 10,
-                actor: EventActor::System,
+                actor: EventActor::Principal(PrincipalActor {
+                    authority_id: PrincipalAuthorityId::new("local-daemon"),
+                    principal_id: PrincipalId::new("agent:change-view"),
+                    kind: None,
+                    name: Some("change-view-agent".to_string()),
+                }),
                 correlation: Some(task_id.clone()),
                 causation: None,
-                execution_context: None,
+                execution_context: Some(EventExecutionContext {
+                    repo_id: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    session_id: None,
+                    instance_id: None,
+                    request_id: None,
+                    credential_id: None,
+                    work_context: Some(WorkContextSnapshot {
+                        work_id: "work:change-view".to_string(),
+                        kind: WorkContextKind::AdHoc,
+                        title: "Refine alpha".to_string(),
+                        parent_work_id: None,
+                        coordination_task_id: Some("task:change-view".to_string()),
+                        plan_id: None,
+                        plan_title: None,
+                    }),
+                }),
             },
             anchors: vec![AnchorRef::File(file_id), AnchorRef::Node(alpha_id.clone())],
             kind: OutcomeKind::PatchApplied,
@@ -14751,6 +14774,7 @@ fn prism_change_views_surface_recent_files_symbols_and_task_changes() {
             evidence: Vec::new(),
             metadata: json!({
                 "trigger": "ManualReindex",
+                "reason": "work Refine alpha (work:change-view)",
                 "filePaths": [source_path.to_string_lossy().into_owned()],
                 "changedSymbols": [
                     {
@@ -14806,6 +14830,10 @@ return {
     assert_eq!(changed_file["changedSymbolCount"], 2);
     assert_eq!(changed_file["removedCount"], 1);
     assert_eq!(changed_file["updatedCount"], 1);
+    assert_eq!(changed_file["actor"], "change-view-agent");
+    assert_eq!(changed_file["reason"], "work Refine alpha (work:change-view)");
+    assert_eq!(changed_file["workId"], "work:change-view");
+    assert_eq!(changed_file["workTitle"], "Refine alpha");
 
     let symbols = result.result["symbols"]
         .as_array()
@@ -14831,6 +14859,10 @@ return {
     let patch = &result.result["patches"][0];
     assert_eq!(patch["trigger"], "ManualReindex");
     assert_eq!(patch["taskId"], "task:change-view");
+    assert_eq!(patch["actor"], "change-view-agent");
+    assert_eq!(patch["reason"], "work Refine alpha (work:change-view)");
+    assert_eq!(patch["workId"], "work:change-view");
+    assert_eq!(patch["workTitle"], "Refine alpha");
     assert_eq!(patch["changedSymbols"].as_array().unwrap().len(), 2);
     assert!(patch["files"][0]
         .as_str()

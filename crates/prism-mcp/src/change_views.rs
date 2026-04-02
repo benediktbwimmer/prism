@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 
 use anyhow::Result;
-use prism_ir::{AnchorRef, FileId, LineageId, NodeId, NodeKind, Span, TaskId};
+use prism_ir::{AnchorRef, EventActor, FileId, LineageId, NodeId, NodeKind, Span, TaskId};
 use prism_js::{
     ChangedFileView, ChangedSymbolView, DiffHunkView, PatchEventView, SourceExcerptView,
     SourceLocationView,
@@ -23,6 +23,7 @@ const CHANGE_EXCERPT_OPTIONS: SourceExcerptOptions = SourceExcerptOptions {
 #[serde(rename_all = "camelCase")]
 struct PatchMetadata {
     trigger: Option<String>,
+    reason: Option<String>,
     files: Option<Vec<u32>>,
     file_paths: Option<Vec<String>>,
     changed_files_summary: Option<Vec<PatchChangedFileSummary>>,
@@ -57,6 +58,10 @@ struct ParsedPatchEvent {
     task_id: Option<String>,
     summary: String,
     trigger: Option<String>,
+    actor: Option<String>,
+    reason: Option<String>,
+    work_id: Option<String>,
+    work_title: Option<String>,
     files: Vec<String>,
     changed_files_summary: Vec<PatchChangedFileSummary>,
     changed_symbols: Vec<PatchChangedSymbol>,
@@ -92,6 +97,10 @@ pub(crate) fn changed_files(
                 ts: parsed.ts,
                 task_id: parsed.task_id.clone(),
                 trigger: parsed.trigger.clone(),
+                actor: parsed.actor.clone(),
+                reason: parsed.reason.clone(),
+                work_id: parsed.work_id.clone(),
+                work_title: parsed.work_title.clone(),
                 summary: parsed.summary.clone(),
                 changed_symbol_count: counts.changed_symbol_count,
                 added_count: counts.added_count,
@@ -216,6 +225,23 @@ fn parse_patch_event(prism: &Prism, event: &OutcomeEvent) -> ParsedPatchEvent {
         task_id,
         summary: event.summary.clone(),
         trigger: metadata.trigger.clone(),
+        actor: patch_actor_label(&event.meta.actor),
+        reason: metadata
+            .reason
+            .clone()
+            .or_else(|| patch_reason_from_event(event)),
+        work_id: event
+            .meta
+            .execution_context
+            .as_ref()
+            .and_then(|context| context.work_context.as_ref())
+            .map(|work| work.work_id.clone()),
+        work_title: event
+            .meta
+            .execution_context
+            .as_ref()
+            .and_then(|context| context.work_context.as_ref())
+            .map(|work| work.title.clone()),
         files: patch_files(prism, event, &metadata),
         changed_files_summary: metadata.changed_files_summary.clone().unwrap_or_default(),
         changed_symbols: patch_changed_symbols(prism, event, &metadata),
@@ -304,6 +330,10 @@ fn patch_event_view(
         ts: event.ts,
         task_id: event.task_id.clone(),
         trigger: event.trigger.clone(),
+        actor: event.actor.clone(),
+        reason: event.reason.clone(),
+        work_id: event.work_id.clone(),
+        work_title: event.work_title.clone(),
         summary: event.summary.clone(),
         files: event.files.clone(),
         changed_symbols: event
@@ -312,6 +342,36 @@ fn patch_event_view(
             .map(|symbol| changed_symbol_view(prism, symbol, source_cache))
             .collect::<Result<Vec<_>>>()?,
     })
+}
+
+fn patch_actor_label(actor: &EventActor) -> Option<String> {
+    match actor {
+        EventActor::Principal(principal) => Some(
+            principal
+                .name
+                .clone()
+                .unwrap_or_else(|| principal.scoped_id()),
+        ),
+        EventActor::Agent => Some("agent".to_string()),
+        EventActor::User => Some("user".to_string()),
+        EventActor::GitAuthor { name, .. } => Some(name.to_string()),
+        EventActor::CI => Some("ci".to_string()),
+        EventActor::System => None,
+    }
+}
+
+fn patch_reason_from_event(event: &OutcomeEvent) -> Option<String> {
+    event.meta
+        .execution_context
+        .as_ref()
+        .and_then(|context| context.work_context.as_ref())
+        .map(|work| format!("work {} ({})", work.title, work.work_id))
+        .or_else(|| {
+            event.meta
+                .correlation
+                .as_ref()
+                .map(|task_id| format!("task {}", task_id.0))
+        })
 }
 
 fn diff_hunk_view(

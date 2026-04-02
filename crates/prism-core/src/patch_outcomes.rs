@@ -5,6 +5,7 @@ use prism_memory::{OutcomeEvent, OutcomeKind, OutcomeResult};
 use prism_projections::ValidationDelta;
 use tracing::warn;
 
+use crate::published_knowledge::validate_repo_patch_event;
 use crate::repo_patch_events::append_repo_patch_event;
 use crate::util::current_timestamp;
 use crate::WorkspaceIndexer;
@@ -266,7 +267,9 @@ impl<S: prism_store::Store> WorkspaceIndexer<S> {
             .apply_outcome_event(&event, |node| self.history.lineage_of(node));
         let _ = self.outcomes.store_event(event.clone());
         if patch_is_repo_publishable(&event) {
-            if let Err(error) = append_repo_patch_event(&self.root, &event) {
+            if let Err(error) = validate_repo_patch_event(&event)
+                .and_then(|_| append_repo_patch_event(&self.root, &event))
+            {
                 warn!(
                     root = %self.root.display(),
                     event_id = %event.meta.id.0,

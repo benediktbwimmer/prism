@@ -537,6 +537,10 @@ type ChangedFileView = {
   ts: number;
   taskId?: string;
   trigger?: string;
+  actor?: string;
+  reason?: string;
+  workId?: string;
+  workTitle?: string;
   summary: string;
   changedSymbolCount: number;
   addedCount: number;
@@ -549,6 +553,10 @@ type PatchEventView = {
   ts: number;
   taskId?: string;
   trigger?: string;
+  actor?: string;
+  reason?: string;
+  workId?: string;
+  workTitle?: string;
   summary: string;
   files: string[];
   changedSymbols: ChangedSymbolView[];

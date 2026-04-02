@@ -21,7 +21,7 @@ use prism_ir::{
     CredentialRecord, CredentialStatus, EdgeKind, EventActor, EventId, EventMeta, GraphChange,
     LineageEvent, LineageEventKind, LineageEvidence, LineageId, NodeId, NodeKind,
     PrincipalAuthorityId, PrincipalId, PrincipalKind, PrincipalProfile, PrincipalRegistrySnapshot,
-    PrincipalStatus, SessionId, TaskId,
+    PrincipalStatus, SessionId, TaskId, WorkContextKind,
 };
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryEventQuery, MemoryId,
@@ -51,6 +51,7 @@ use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator_support::build_curator_context;
 use crate::materialization::summarize_workspace_materialization;
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
+use crate::repo_patch_events::load_repo_patch_events;
 use crate::workspace_tree::build_workspace_tree_snapshot;
 
 static NEXT_TEMP_WORKSPACE: AtomicU64 = AtomicU64::new(0);
@@ -1002,6 +1003,108 @@ fn fs_watch_refreshes_session_after_external_edit() {
         .filter(|event| event.kind == OutcomeKind::PatchApplied)
         .count();
     assert_eq!(patch_events, 1);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_patch_events_capture_provenance_and_reload_without_local_cache() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    *session
+        .worktree_principal_binding
+        .lock()
+        .expect("worktree principal binding lock poisoned") = Some(
+        crate::worktree_principal::BoundWorktreePrincipal {
+            authority_id: "local-daemon".to_string(),
+            principal_id: "agent:patch-provenance".to_string(),
+            principal_name: "patch-provenance".to_string(),
+        },
+    );
+    session.bind_active_work_context(crate::ActiveWorkContextBinding {
+        work_id: "work:rename-alpha".to_string(),
+        kind: WorkContextKind::AdHoc,
+        title: "Rename alpha".to_string(),
+        summary: Some("rename alpha to beta".to_string()),
+        parent_work_id: None,
+        coordination_task_id: Some("task:rename-alpha".to_string()),
+        plan_id: None,
+        plan_title: None,
+    });
+
+    fs::write(root.join("src/lib.rs"), "pub fn beta() {}\n").unwrap();
+    session
+        .refresh_state
+        .mark_fs_dirty_paths([root.join("src/lib.rs")]);
+    let observed = session.refresh_fs().unwrap();
+    assert!(!observed.is_empty());
+
+    let repo_events = load_repo_patch_events(&root).unwrap();
+    assert_eq!(repo_events.len(), 1);
+    let event = &repo_events[0];
+    assert_eq!(event.kind, OutcomeKind::PatchApplied);
+    assert_eq!(event.result, OutcomeResult::Success);
+    let EventActor::Principal(actor) = &event.meta.actor else {
+        panic!("expected principal actor");
+    };
+    assert_eq!(actor.authority_id, PrincipalAuthorityId::new("local-daemon"));
+    assert_eq!(actor.principal_id, PrincipalId::new("agent:patch-provenance"));
+    assert_eq!(actor.name.as_deref(), Some("patch-provenance"));
+    assert_eq!(
+        event.meta.correlation,
+        Some(TaskId::new("task:rename-alpha"))
+    );
+    let work = event
+        .meta
+        .execution_context
+        .as_ref()
+        .and_then(|context| context.work_context.as_ref())
+        .expect("work context should be present");
+    assert_eq!(work.work_id, "work:rename-alpha");
+    assert_eq!(work.title, "Rename alpha");
+    assert_eq!(work.coordination_task_id.as_deref(), Some("task:rename-alpha"));
+    assert_eq!(
+        event.metadata["reason"].as_str(),
+        Some("work Rename alpha (work:rename-alpha)")
+    );
+    assert!(event.metadata["filePaths"][0]
+        .as_str()
+        .unwrap_or_default()
+        .ends_with("src/lib.rs"));
+
+    let cache_db = crate::util::cache_path(&root).unwrap();
+    drop(session);
+    let _ = fs::remove_file(cache_db);
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let reloaded_events = reloaded
+        .prism()
+        .outcome_memory()
+        .snapshot()
+        .events
+        .into_iter()
+        .filter(|event| event.kind == OutcomeKind::PatchApplied)
+        .collect::<Vec<_>>();
+    assert_eq!(reloaded_events.len(), 1);
+    assert_eq!(
+        reloaded_events[0].metadata["reason"].as_str(),
+        Some("work Rename alpha (work:rename-alpha)")
+    );
+    let EventActor::Principal(reloaded_actor) = &reloaded_events[0].meta.actor else {
+        panic!("expected reloaded principal actor");
+    };
+    assert_eq!(
+        reloaded_actor.principal_id,
+        PrincipalId::new("agent:patch-provenance")
+    );
 
     let _ = fs::remove_dir_all(root);
 }

@@ -16,7 +16,8 @@ use prism_coordination::{
 use prism_history::HistoryStore;
 use prism_ir::{
     new_prefixed_id, ChangeTrigger, ClaimStatus, EventActor, EventExecutionContext, EventId,
-    EventMeta, LeaseRenewalMode, PrincipalActor, SessionId, TaskId,
+    EventMeta, LeaseRenewalMode, PrincipalActor, PrincipalAuthorityId, PrincipalId, SessionId,
+    TaskId, WorkContextSnapshot,
 };
 use prism_memory::OutcomeMemory;
 use prism_projections::ProjectionIndex;
@@ -421,7 +422,13 @@ fn refresh_prism_snapshot_with_guard(
     let build_indexer_ms =
         u64::try_from(build_indexer_started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let index_workspace_started = Instant::now();
-    let observed = match indexer.index_with_refresh_plan(trigger.clone(), &plan) {
+    let observed_meta =
+        observed_change_event_meta(root, observed_change_tracker, worktree_principal_binding);
+    let observed = match indexer.index_with_refresh_plan_and_meta(
+        trigger.clone(),
+        &plan,
+        observed_meta,
+    ) {
         Ok(observed) => observed,
         Err(error) => {
             *runtime_state
@@ -877,6 +884,59 @@ fn last_explicit_authenticated_target_event_ts(
                 .as_ref()
                 .and_then(|context| context.credential_id.as_ref().map(|_| event.meta.ts))
         })
+}
+
+fn observed_change_event_meta(
+    root: &Path,
+    observed_change_tracker: &SharedObservedChangeTracker,
+    worktree_principal_binding: &Arc<Mutex<Option<BoundWorktreePrincipal>>>,
+) -> EventMeta {
+    let work = observed_change_tracker
+        .lock()
+        .expect("observed change tracker lock poisoned")
+        .active_work();
+    let actor = worktree_principal_binding
+        .lock()
+        .expect("worktree principal binding lock poisoned")
+        .clone()
+        .map(|principal| {
+            EventActor::Principal(PrincipalActor {
+                authority_id: PrincipalAuthorityId::new(principal.authority_id),
+                principal_id: PrincipalId::new(principal.principal_id),
+                kind: None,
+                name: Some(principal.principal_name),
+            })
+        })
+        .unwrap_or(EventActor::System);
+    let context = coordination_persist_context_for_root(root, None);
+    EventMeta {
+        id: EventId::new(new_prefixed_id("observed")),
+        ts: current_timestamp(),
+        actor,
+        correlation: work
+            .as_ref()
+            .map(|active| active.coordination_task_id.clone().unwrap_or_else(|| active.work_id.clone()))
+            .map(TaskId::new),
+        causation: None,
+        execution_context: Some(EventExecutionContext {
+            repo_id: Some(context.repo_id),
+            worktree_id: Some(context.worktree_id),
+            branch_ref: context.branch_ref,
+            session_id: context.session_id,
+            instance_id: context.instance_id,
+            request_id: None,
+            credential_id: None,
+            work_context: work.map(|active| WorkContextSnapshot {
+                work_id: active.work_id,
+                kind: active.kind,
+                title: active.title,
+                parent_work_id: active.parent_work_id,
+                coordination_task_id: active.coordination_task_id,
+                plan_id: active.plan_id,
+                plan_title: active.plan_title,
+            }),
+        }),
+    }
 }
 
 fn assisted_lease_event_meta(root: &Path, target: &AssistedLeaseTarget, now: u64) -> EventMeta {
