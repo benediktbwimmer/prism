@@ -300,6 +300,16 @@ impl NativePlanRuntimeState {
         Ok(())
     }
 
+    pub(crate) fn update_task_and_plan_from_coordination(
+        &mut self,
+        task: &CoordinationTask,
+        plan: &Plan,
+    ) -> Result<PlanId> {
+        let plan_id = self.update_task_from_coordination(task)?;
+        self.update_plan_from_coordination(plan)?;
+        Ok(plan_id)
+    }
+
     pub(crate) fn create_node(
         &mut self,
         plan_id: &PlanId,

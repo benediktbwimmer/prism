@@ -4737,6 +4737,118 @@ fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
 }
 
 #[test]
+fn completing_last_task_appends_plan_completion_to_published_plan_log() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let (plan_id, task_id) = session
+        .mutate_coordination(|prism| {
+            let base_revision = prism.workspace_revision();
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:auto-complete-plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:auto-complete-plan")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Persist derived plan completion".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            let task = prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:auto-complete-task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:auto-complete-plan")),
+                    causation: None,
+                    execution_context: None,
+                },
+                prism_coordination::TaskCreateInput {
+                    plan_id: plan_id.clone(),
+                    title: "Complete the only task".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision,
+                },
+            )?;
+            Ok((plan_id, task.id))
+        })
+        .unwrap();
+
+    session
+        .mutate_coordination(|prism| {
+            let _ = prism.update_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:auto-complete-task-update"),
+                    ts: 3,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:auto-complete-plan")),
+                    causation: None,
+                    execution_context: None,
+                },
+                prism_coordination::TaskUpdateInput {
+                    task_id: task_id.clone(),
+                    kind: None,
+                    status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    title: None,
+                    summary: None,
+                    anchors: None,
+                    bindings: None,
+                    depends_on: None,
+                    acceptance: None,
+                    validation_refs: None,
+                    is_abstract: None,
+                    base_revision: Some(prism.workspace_revision()),
+                    priority: None,
+                    tags: None,
+                    completion_context: None,
+                },
+                prism.workspace_revision(),
+                3,
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let log_path = root
+        .join(".prism")
+        .join("plans")
+        .join("active")
+        .join(format!("{}.jsonl", plan_id.0));
+    let log_contents = fs::read_to_string(&log_path).unwrap();
+    assert!(
+        log_contents.contains("\"kind\":\"plan_updated\""),
+        "completing the last task should append a plan update event"
+    );
+    assert!(
+        log_contents.contains("\"status\":\"Completed\""),
+        "published plan log should persist the derived completed plan status"
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn repo_published_plan_logs_skip_runtime_handoff_deltas() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

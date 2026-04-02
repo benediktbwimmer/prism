@@ -565,12 +565,19 @@ impl Prism {
                 runtime.update_task(meta, input, current_revision, now)
             });
         match result {
-            Ok(task) => self
-                .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
-                    plan_runtime.update_task_from_coordination(&task)?;
+            Ok(task) => {
+                let plan = snapshot
+                    .plans
+                    .iter()
+                    .find(|plan| plan.id == task.plan)
+                    .cloned()
+                    .ok_or_else(|| anyhow!("unknown plan `{}`", task.plan.0))?;
+                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
+                    plan_runtime.update_task_and_plan_from_coordination(&task, &plan)?;
                     Ok(task.clone())
                 })
-                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone())),
+                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone()))
+            }
             Err(error) => {
                 self.persist_coordination_snapshot(snapshot)?;
                 Err(error)
@@ -589,12 +596,19 @@ impl Prism {
                 runtime.handoff(meta, input, current_revision)
             });
         match result {
-            Ok(task) => self
-                .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
-                    plan_runtime.update_task_from_coordination(&task)?;
+            Ok(task) => {
+                let plan = snapshot
+                    .plans
+                    .iter()
+                    .find(|plan| plan.id == task.plan)
+                    .cloned()
+                    .ok_or_else(|| anyhow!("unknown plan `{}`", task.plan.0))?;
+                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
+                    plan_runtime.update_task_and_plan_from_coordination(&task, &plan)?;
                     Ok(task.clone())
                 })
-                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone())),
+                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone()))
+            }
             Err(error) => {
                 self.persist_coordination_snapshot(snapshot)?;
                 Err(error)
@@ -614,12 +628,19 @@ impl Prism {
         let (before_snapshot, snapshot, result) =
             self.mutate_live_coordination_runtime(|runtime| runtime.accept_handoff(meta, input));
         match result {
-            Ok(task) => self
-                .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
-                    plan_runtime.update_task_from_coordination(&task)?;
+            Ok(task) => {
+                let plan = snapshot
+                    .plans
+                    .iter()
+                    .find(|plan| plan.id == task.plan)
+                    .cloned()
+                    .ok_or_else(|| anyhow!("unknown plan `{}`", task.plan.0))?;
+                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
+                    plan_runtime.update_task_and_plan_from_coordination(&task, &plan)?;
                     Ok(task.clone())
                 })
-                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone())),
+                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone()))
+            }
             Err(error) => {
                 self.persist_coordination_snapshot(snapshot)?;
                 Err(error)
@@ -639,12 +660,19 @@ impl Prism {
         let (before_snapshot, snapshot, result) =
             self.mutate_live_coordination_runtime(|runtime| runtime.resume_task(meta, input));
         match result {
-            Ok(task) => self
-                .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
-                    plan_runtime.update_task_from_coordination(&task)?;
+            Ok(task) => {
+                let plan = snapshot
+                    .plans
+                    .iter()
+                    .find(|plan| plan.id == task.plan)
+                    .cloned()
+                    .ok_or_else(|| anyhow!("unknown plan `{}`", task.plan.0))?;
+                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
+                    plan_runtime.update_task_and_plan_from_coordination(&task, &plan)?;
                     Ok(task.clone())
                 })
-                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone())),
+                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone()))
+            }
             Err(error) => {
                 self.persist_coordination_snapshot(snapshot)?;
                 Err(error)
@@ -664,12 +692,19 @@ impl Prism {
         let (before_snapshot, snapshot, result) =
             self.mutate_live_coordination_runtime(|runtime| runtime.reclaim_task(meta, input));
         match result {
-            Ok(task) => self
-                .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
-                    plan_runtime.update_task_from_coordination(&task)?;
+            Ok(task) => {
+                let plan = snapshot
+                    .plans
+                    .iter()
+                    .find(|plan| plan.id == task.plan)
+                    .cloned()
+                    .ok_or_else(|| anyhow!("unknown plan `{}`", task.plan.0))?;
+                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
+                    plan_runtime.update_task_and_plan_from_coordination(&task, &plan)?;
                     Ok(task.clone())
                 })
-                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone())),
+                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone()))
+            }
             Err(error) => {
                 self.persist_coordination_snapshot(snapshot)?;
                 Err(error)
@@ -688,12 +723,19 @@ impl Prism {
                 runtime.heartbeat_task(meta, task_id, renewal_provenance)
             });
         match result {
-            Ok(task) => self
-                .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
-                    plan_runtime.update_task_from_coordination(&task)?;
+            Ok(task) => {
+                let plan = snapshot
+                    .plans
+                    .iter()
+                    .find(|plan| plan.id == task.plan)
+                    .cloned()
+                    .ok_or_else(|| anyhow!("unknown plan `{}`", task.plan.0))?;
+                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
+                    plan_runtime.update_task_and_plan_from_coordination(&task, &plan)?;
                     Ok(task.clone())
                 })
-                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone())),
+                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone()))
+            }
             Err(error) => {
                 self.persist_coordination_snapshot(snapshot)?;
                 Err(error)
