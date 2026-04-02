@@ -497,11 +497,12 @@ async fn bootstrap_proxy_self_heals_stale_uri_file_from_runtime_state() {
             .expect("runtime state path should have a parent directory"),
     )
     .expect("runtime state parent should exist");
+    let stale_pid = 999_997_u32;
     fs::write(
         &runtime_state_path,
         serde_json::to_vec_pretty(&RuntimeState {
             processes: vec![RuntimeProcessRecord {
-                pid: std::process::id(),
+                pid: stale_pid,
                 kind: "daemon".to_string(),
                 started_at: 1,
                 health_path: Some("/healthz".to_string()),
@@ -529,6 +530,17 @@ async fn bootstrap_proxy_self_heals_stale_uri_file_from_runtime_state() {
     .expect("bootstrapped proxy should recover using runtime-state daemon candidates");
     let second_result = query_result(&second_query);
     assert_eq!(second_result, "demo::replacement");
+    let runtime_state = crate::runtime_state::read_runtime_state(&root)
+        .expect("runtime state should be readable")
+        .expect("runtime state should exist after reconnect");
+    assert!(runtime_state.events.iter().any(|event| {
+        event.message == "prism-mcp observed dead runtime process"
+            && event.fields["process"]["pid"] == stale_pid
+    }));
+    assert!(runtime_state.events.iter().any(|event| {
+        event.message == "prism-mcp bridge resolved upstream"
+            && event.fields["upstreamUri"] == second_uri
+    }));
 
     client.cancel().await.unwrap();
     proxy_task.abort();
@@ -743,7 +755,7 @@ async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
     fs::write(&uri_file, format!("{first_uri}\n")).expect("uri file should be written");
 
     let proxy = crate::proxy_server::ProxyMcpServer::connect_with_credentials_path(
-        credentials_path,
+        credentials_path.clone(),
         first_uri.clone(),
         crate::daemon_mode::BridgeUpstreamSource::HttpUriFile(uri_file.clone()),
     )
@@ -930,7 +942,7 @@ async fn stdio_proxy_marks_bridge_auth_stale_after_upstream_rejects_bound_creden
     fs::write(&uri_file, format!("{first_uri}\n")).expect("uri file should be written");
 
     let proxy = crate::proxy_server::ProxyMcpServer::connect_with_credentials_path(
-        credentials_path,
+        credentials_path.clone(),
         first_uri.clone(),
         crate::daemon_mode::BridgeUpstreamSource::HttpUriFile(uri_file.clone()),
     )
@@ -992,14 +1004,47 @@ async fn stdio_proxy_marks_bridge_auth_stale_after_upstream_rejects_bound_creden
     first_upstream_task.abort();
     let _ = first_upstream_task.await;
 
-    let second_upstream = PrismMcpServer::from_workspace_with_features_and_shared_runtime(
+    let second_workspace = index_workspace_session_with_options(
         &root,
-        PrismMcpFeatures::full(),
-        SharedRuntimeBackend::Sqlite {
-            path: second_shared_runtime_sqlite.clone(),
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: SharedRuntimeBackend::Sqlite {
+                path: second_shared_runtime_sqlite.clone(),
+            },
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
         },
     )
-    .expect("replacement workspace-backed server should build");
+    .expect("replacement workspace session should index");
+    let second_issued = second_workspace
+        .bootstrap_owner_principal(prism_core::BootstrapOwnerInput {
+            authority_id: None,
+            name: "Replacement Owner".to_string(),
+            role: Some("test_owner".to_string()),
+        })
+        .expect("replacement owner bootstrap should succeed");
+    let second_authenticated = second_workspace
+        .authenticate_principal_credential(
+            &second_issued.credential.credential_id,
+            &second_issued.principal_token,
+        )
+        .expect("replacement owner credential should authenticate");
+    credentials.upsert_profile(
+        CredentialProfile {
+            profile: "agent-a".to_string(),
+            authority_id: second_authenticated.principal.authority_id.0.to_string(),
+            principal_id: second_authenticated.principal.principal_id.0.to_string(),
+            credential_id: second_issued.credential.credential_id.0.to_string(),
+            principal_token: second_issued.principal_token.clone(),
+        },
+        true,
+    );
+    credentials
+        .save(&credentials_path)
+        .expect("bridge credentials should update to the replacement credential");
+
+    let second_upstream =
+        PrismMcpServer::with_session_and_features(second_workspace, PrismMcpFeatures::full());
     let (second_uri, second_upstream_task) = spawn_http_upstream(second_upstream).await;
     fs::write(&uri_file, format!("{second_uri}\n")).expect("uri file should be updated");
 
@@ -1071,6 +1116,80 @@ async fn stdio_proxy_marks_bridge_auth_stale_after_upstream_rejects_bound_creden
         stale_bridge_error.to_string().contains("bridge_auth_stale"),
         "{}",
         stale_bridge_error
+    );
+
+    let readopt = client
+        .call_tool(
+            CallToolRequestParams::new("prism_bridge_adopt").with_arguments(
+                serde_json::Map::from_iter([("profile".to_string(), json!("agent-a"))]),
+            ),
+        )
+        .await
+        .expect("bridge should re-adopt after the local credential is refreshed");
+    let readopt_payload = readopt
+        .structured_content
+        .expect("readopt should return structured content");
+    assert_eq!(readopt_payload["status"], "bound");
+    assert_eq!(
+        readopt_payload["credentialId"].as_str(),
+        Some(second_issued.credential.credential_id.0.as_str())
+    );
+
+    client
+        .call_tool(CallToolRequestParams::new("prism_mutate").with_arguments(
+            serde_json::Map::from_iter([
+                ("action".to_string(), json!("declare_work")),
+                (
+                    "input".to_string(),
+                    json!({
+                        "title": "Bridge stale auth recovery smoke test"
+                    }),
+                ),
+            ]),
+        ))
+        .await
+        .expect(
+            "re-adopted bridge should be able to declare fresh work on the replacement authority",
+        );
+
+    let recovered_mutation = client
+        .call_tool(
+            CallToolRequestParams::new("prism_mutate").with_arguments(serde_json::Map::from_iter([
+                ("action".to_string(), json!("validation_feedback")),
+                (
+                    "input".to_string(),
+                    json!({
+                        "context": "Bridge stale auth recovery smoke test.",
+                        "prismSaid": "Re-adopting the refreshed local credential should restore credential-less mutations.",
+                        "actuallyTrue": "The bridge bound the replacement credential and resumed authoritative mutations after re-adoption.",
+                        "category": "freshness",
+                        "verdict": "helpful",
+                        "correctedManually": false,
+                    }),
+                ),
+            ])),
+        )
+        .await
+        .expect("re-adopted bridge should recover credential-less mutations");
+    let recovered_payload = recovered_mutation
+        .structured_content
+        .expect("recovered mutation should be structured");
+    assert_eq!(recovered_payload["action"], "validation_feedback");
+
+    let recovered_bridge_auth = client
+        .read_resource(ReadResourceRequestParams::new("prism://bridge/auth"))
+        .await
+        .expect("bridge auth resource should reflect the recovered binding");
+    let recovered_bridge_auth_text = match &recovered_bridge_auth.contents[0] {
+        rmcp::model::ResourceContents::TextResourceContents { text, .. } => text.as_str(),
+        other => panic!("expected textual bridge auth resource, got {other:?}"),
+    };
+    let recovered_bridge_auth_payload = serde_json::from_str::<Value>(recovered_bridge_auth_text)
+        .expect("recovered bridge auth resource should be valid json");
+    assert_eq!(recovered_bridge_auth_payload["status"], "bound");
+    assert_eq!(
+        recovered_bridge_auth_payload["credentialId"].as_str(),
+        Some(second_issued.credential.credential_id.0.as_str())
     );
 
     client.cancel().await.unwrap();
