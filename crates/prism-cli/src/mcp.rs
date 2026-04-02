@@ -1856,9 +1856,9 @@ mod tests {
             false,
             None,
         )
-            .into_iter()
-            .map(|arg| arg.to_string_lossy().to_string())
-            .collect::<Vec<_>>();
+        .into_iter()
+        .map(|arg| arg.to_string_lossy().to_string())
+        .collect::<Vec<_>>();
 
         assert!(args.windows(2).any(|window| {
             window

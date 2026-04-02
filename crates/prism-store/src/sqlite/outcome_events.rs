@@ -10,8 +10,8 @@ use serde_json::{Map, Value};
 
 use crate::outcome_projection::{append_only_delta, snapshot_from_events};
 
-use super::snapshots;
 use super::outcome_patch_projection;
+use super::snapshots;
 
 const MAX_HOT_PATCH_CHANGED_SYMBOLS: usize = 256;
 const PATCH_PAYLOADS_COMPACTED_KEY: &str = "outcomes:hot_patch_payloads_compacted";

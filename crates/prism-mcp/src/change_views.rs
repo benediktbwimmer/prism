@@ -122,7 +122,12 @@ pub(crate) fn changed_symbols(
     since: Option<u64>,
     limit: usize,
 ) -> Result<Vec<ChangedSymbolView>> {
-    changed_symbols_from_events(prism, patch_events(prism, None, task_id, since), path, limit)
+    changed_symbols_from_events(
+        prism,
+        patch_events(prism, None, task_id, since),
+        path,
+        limit,
+    )
 }
 
 pub(crate) fn changed_symbols_from_events<I>(

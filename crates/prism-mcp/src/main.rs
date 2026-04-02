@@ -1,8 +1,8 @@
 use anyhow::Result;
 use clap::Parser;
 use prism_mcp::{
-    init_logging, log_process_start, log_top_level_error, maybe_daemonize_process, serve_with_mode,
-    PrismMcpCli,
+    init_logging, install_panic_hook, log_process_exit, log_process_start, log_top_level_error,
+    maybe_daemonize_process, serve_with_mode, PrismMcpCli,
 };
 
 fn main() -> Result<()> {
@@ -10,12 +10,16 @@ fn main() -> Result<()> {
     maybe_daemonize_process(&cli)?;
     init_logging(&cli)?;
     let root = cli.root.canonicalize().unwrap_or_else(|_| cli.root.clone());
+    install_panic_hook(&cli, &root);
     log_process_start(&cli, &root);
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
     match runtime.block_on(serve_with_mode(cli.clone())) {
-        Ok(()) => Ok(()),
+        Ok(()) => {
+            log_process_exit(&cli, &root);
+            Ok(())
+        }
         Err(error) => {
             log_top_level_error(&cli, &root, &error);
             Err(error)

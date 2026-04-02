@@ -270,9 +270,6 @@ mod tests {
             },
         };
 
-        assert_eq!(
-            accounted_runtime_sync_duration(&report).as_millis(),
-            430
-        );
+        assert_eq!(accounted_runtime_sync_duration(&report).as_millis(), 430);
     }
 }
