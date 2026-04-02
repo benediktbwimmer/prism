@@ -1504,6 +1504,8 @@ const __prismBase = Object.freeze({
     );
     return __prismHost("runtimeLogs", {
       limit: options?.limit,
+      scope: options?.scope,
+      worktreeId: options?.worktreeId ?? options?.worktree_id,
       level: options?.level,
       target: options?.target,
       contains: options?.contains,
@@ -1517,6 +1519,8 @@ const __prismBase = Object.freeze({
     );
     return __prismHost("runtimeTimeline", {
       limit: options?.limit,
+      scope: options?.scope,
+      worktreeId: options?.worktreeId ?? options?.worktree_id,
       contains: options?.contains,
     });
   },
@@ -1648,10 +1652,16 @@ const __prismBase = Object.freeze({
     return __prismHost("mcpLog", {
       limit: options?.limit,
       since: options?.since,
+      scope: options?.scope,
       callType: options?.callType ?? options?.call_type,
       name: options?.name,
       taskId: options?.taskId ?? options?.task_id,
+      worktreeId: options?.worktreeId ?? options?.worktree_id,
+      repoId: options?.repoId ?? options?.repo_id,
+      workspaceRoot: options?.workspaceRoot ?? options?.workspace_root,
       sessionId: options?.sessionId ?? options?.session_id,
+      serverInstanceId: options?.serverInstanceId ?? options?.server_instance_id,
+      processId: options?.processId ?? options?.process_id,
       success: options?.success,
       minDurationMs: options?.minDurationMs ?? options?.min_duration_ms,
       contains: options?.contains,
@@ -1666,10 +1676,16 @@ const __prismBase = Object.freeze({
     return __prismHost("slowMcpCalls", {
       limit: options?.limit,
       since: options?.since,
+      scope: options?.scope,
       callType: options?.callType ?? options?.call_type,
       name: options?.name,
       taskId: options?.taskId ?? options?.task_id,
+      worktreeId: options?.worktreeId ?? options?.worktree_id,
+      repoId: options?.repoId ?? options?.repo_id,
+      workspaceRoot: options?.workspaceRoot ?? options?.workspace_root,
       sessionId: options?.sessionId ?? options?.session_id,
+      serverInstanceId: options?.serverInstanceId ?? options?.server_instance_id,
+      processId: options?.processId ?? options?.process_id,
       success: options?.success,
       minDurationMs: options?.minDurationMs ?? options?.min_duration_ms,
       contains: options?.contains,
@@ -1685,10 +1701,16 @@ const __prismBase = Object.freeze({
     options = __prismValidateOptions("prism.mcpStats", options, __prismOptionKeys.mcpLog);
     return __prismHost("mcpStats", {
       since: options?.since,
+      scope: options?.scope,
       callType: options?.callType ?? options?.call_type,
       name: options?.name,
       taskId: options?.taskId ?? options?.task_id,
+      worktreeId: options?.worktreeId ?? options?.worktree_id,
+      repoId: options?.repoId ?? options?.repo_id,
+      workspaceRoot: options?.workspaceRoot ?? options?.workspace_root,
       sessionId: options?.sessionId ?? options?.session_id,
+      serverInstanceId: options?.serverInstanceId ?? options?.server_instance_id,
+      processId: options?.processId ?? options?.process_id,
       success: options?.success,
       minDurationMs: options?.minDurationMs ?? options?.min_duration_ms,
       contains: options?.contains,

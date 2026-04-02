@@ -239,6 +239,7 @@ pub enum DocsCommand {
 
 #[derive(Subcommand)]
 pub enum ProtectedStateCommand {
+    InstallGitSupport,
     Verify {
         #[arg(long)]
         stream: Option<String>,
@@ -267,6 +268,28 @@ pub enum ProtectedStateCommand {
         stream: String,
         #[arg(long = "accepted-head")]
         accepted_head: String,
+    },
+    #[command(hide = true, name = "merge-driver-stream")]
+    MergeDriverStream {
+        #[arg(long)]
+        ancestor: PathBuf,
+        #[arg(long)]
+        current: PathBuf,
+        #[arg(long)]
+        other: PathBuf,
+        #[arg(long)]
+        path: String,
+    },
+    #[command(hide = true, name = "merge-driver-derived")]
+    MergeDriverDerived {
+        #[arg(long)]
+        ancestor: PathBuf,
+        #[arg(long)]
+        current: PathBuf,
+        #[arg(long)]
+        other: PathBuf,
+        #[arg(long)]
+        path: String,
     },
 }
 
@@ -550,6 +573,18 @@ mod tests {
     }
 
     #[test]
+    fn protected_state_install_git_support_parses() {
+        let cli = Cli::parse_from(["prism", "protected-state", "install-git-support"]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::ProtectedState {
+                command: ProtectedStateCommand::InstallGitSupport,
+            } => {}
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
     fn protected_state_verify_accepts_optional_stream() {
         let cli = Cli::parse_from([
             "prism",
@@ -563,6 +598,40 @@ mod tests {
             Command::ProtectedState {
                 command: ProtectedStateCommand::Verify { stream },
             } => assert_eq!(stream.as_deref(), Some("concepts:events")),
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn hidden_merge_driver_stream_parses() {
+        let cli = Cli::parse_from([
+            "prism",
+            "protected-state",
+            "merge-driver-stream",
+            "--ancestor",
+            "base.jsonl",
+            "--current",
+            "current.jsonl",
+            "--other",
+            "other.jsonl",
+            "--path",
+            ".prism/concepts/events.jsonl",
+        ]);
+        match cli.command {
+            Command::ProtectedState {
+                command:
+                    ProtectedStateCommand::MergeDriverStream {
+                        ancestor,
+                        current,
+                        other,
+                        path,
+                    },
+            } => {
+                assert_eq!(ancestor, PathBuf::from("base.jsonl"));
+                assert_eq!(current, PathBuf::from("current.jsonl"));
+                assert_eq!(other, PathBuf::from("other.jsonl"));
+                assert_eq!(path, ".prism/concepts/events.jsonl");
+            }
             _ => panic!("unexpected command"),
         }
     }

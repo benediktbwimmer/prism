@@ -49,6 +49,7 @@ mod host_resources;
 mod js_runtime;
 mod lease_advice;
 mod lineage_views;
+mod log_scope;
 mod logging;
 mod mcp_call_log;
 mod memory_metadata;

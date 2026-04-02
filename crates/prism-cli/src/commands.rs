@@ -16,6 +16,7 @@ use crate::display::{
     print_lineage, print_memory_event, print_relation_section, print_relations,
     print_scored_memory, print_symbol, print_validation_feedback,
 };
+use crate::git_support::ensure_repo_git_support;
 use crate::mcp;
 use crate::parsing::{
     build_evidence, parse_memory_event_action, parse_memory_kind, parse_memory_scope,
@@ -35,6 +36,9 @@ use crate::workspace_root;
 pub fn run(cli: Cli) -> Result<()> {
     let Cli { root, command } = cli;
     let root = workspace_root::resolve(root.as_deref())?;
+    if should_auto_setup_repo_git_support(&command) {
+        ensure_repo_git_support(&root)?;
+    }
     if let Command::Mcp { command } = command {
         return mcp::handle(&root, command);
     }
@@ -250,6 +254,16 @@ pub fn run(cli: Cli) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn should_auto_setup_repo_git_support(command: &Command) -> bool {
+    !matches!(
+        command,
+        Command::ProtectedState {
+            command: crate::cli::ProtectedStateCommand::MergeDriverStream { .. }
+                | crate::cli::ProtectedStateCommand::MergeDriverDerived { .. }
+        }
+    )
 }
 
 fn handle_docs_command(session: &WorkspaceSession, command: DocsCommand) -> Result<()> {

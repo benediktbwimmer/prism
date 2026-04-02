@@ -16,6 +16,7 @@ use prism_js::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use crate::log_scope::{select_log_sources, LogScope, RepoLogSource};
 use crate::{McpLogArgs, QueryHost};
 
 const DEFAULT_MCP_LOG_LIMIT: usize = 20;
@@ -38,6 +39,7 @@ pub(crate) struct McpCallLogRuntime {
 
 #[derive(Debug)]
 pub(crate) struct McpCallLogStore {
+    root: Option<PathBuf>,
     path: Option<PathBuf>,
     max_bytes: u64,
     io_lock: Mutex<()>,
@@ -60,10 +62,16 @@ pub(crate) struct PersistedMcpCallRecord {
 pub(crate) struct McpCallFilter {
     pub(crate) limit: usize,
     pub(crate) since: Option<u64>,
+    pub(crate) scope: Option<LogScope>,
     pub(crate) call_type: Option<String>,
     pub(crate) name: Option<String>,
     pub(crate) task_id: Option<String>,
+    pub(crate) worktree_id: Option<String>,
+    pub(crate) repo_id: Option<String>,
+    pub(crate) workspace_root: Option<String>,
     pub(crate) session_id: Option<String>,
+    pub(crate) server_instance_id: Option<String>,
+    pub(crate) process_id: Option<u32>,
     pub(crate) success: Option<bool>,
     pub(crate) min_duration_ms: Option<u64>,
     pub(crate) contains: Option<String>,
@@ -78,6 +86,7 @@ impl McpCallLogStore {
         };
         let path = root.map(default_mcp_call_log_path);
         Self {
+            root: root.map(Path::to_path_buf),
             path,
             max_bytes: configured_max_bytes(),
             io_lock: Mutex::new(()),
@@ -139,12 +148,11 @@ impl McpCallLogStore {
     }
 
     pub(crate) fn recent(&self, filter: McpCallFilter) -> Vec<McpCallLogEntryView> {
-        let mut matches =
-            filter_delegated_request_wrappers(self.records().into_iter().collect::<Vec<_>>())
-                .into_iter()
-                .filter(|record| filter.matches(&record.entry))
-                .map(|record| record.entry)
-                .collect::<Vec<_>>();
+        let mut matches = filter_delegated_request_wrappers(self.records_for_filter(&filter))
+            .into_iter()
+            .filter(|record| filter.matches(&record.entry))
+            .map(|record| record.entry)
+            .collect::<Vec<_>>();
         matches.sort_by(|left, right| {
             right
                 .started_at
@@ -159,12 +167,11 @@ impl McpCallLogStore {
         if filter.min_duration_ms.is_none() {
             filter.min_duration_ms = Some(DEFAULT_SLOW_MCP_MIN_DURATION_MS);
         }
-        let mut matches =
-            filter_delegated_request_wrappers(self.records().into_iter().collect::<Vec<_>>())
-                .into_iter()
-                .filter(|record| filter.matches(&record.entry))
-                .map(|record| record.entry)
-                .collect::<Vec<_>>();
+        let mut matches = filter_delegated_request_wrappers(self.records_for_filter(&filter))
+            .into_iter()
+            .filter(|record| filter.matches(&record.entry))
+            .map(|record| record.entry)
+            .collect::<Vec<_>>();
         matches.sort_by(|left, right| {
             right
                 .duration_ms
@@ -177,7 +184,7 @@ impl McpCallLogStore {
     }
 
     pub(crate) fn trace(&self, id: &str) -> Option<McpCallTraceView> {
-        self.records()
+        self.trace_records()
             .into_iter()
             .find(|record| record.entry.id == id)
             .map(|record| McpCallTraceView {
@@ -191,11 +198,10 @@ impl McpCallLogStore {
     }
 
     pub(crate) fn stats(&self, filter: McpCallFilter) -> McpCallStatsView {
-        let records =
-            filter_delegated_request_wrappers(self.records().into_iter().collect::<Vec<_>>())
-                .into_iter()
-                .filter(|record| filter.matches(&record.entry))
-                .collect::<Vec<_>>();
+        let records = filter_delegated_request_wrappers(self.records_for_filter(&filter))
+            .into_iter()
+            .filter(|record| filter.matches(&record.entry))
+            .collect::<Vec<_>>();
         let total_calls = records.len();
         let success_count = records.iter().filter(|record| record.entry.success).count();
         let error_count = total_calls.saturating_sub(success_count);
@@ -224,6 +230,30 @@ impl McpCallLogStore {
             by_name: aggregate_buckets(&records, |record| Some(record.entry.name.clone())),
             by_view_name: aggregate_buckets(&records, |record| record.entry.view_name.clone()),
         }
+    }
+
+    fn trace_records(&self) -> Vec<PersistedMcpCallRecord> {
+        let Some(root) = self.root.as_deref() else {
+            return self.records();
+        };
+        let Ok(sources) = select_log_sources(root, Some(LogScope::Repo), None) else {
+            return self.records();
+        };
+        records_from_sources(&sources)
+    }
+
+    fn records_for_filter(&self, filter: &McpCallFilter) -> Vec<PersistedMcpCallRecord> {
+        let Some(root) = self.root.as_deref() else {
+            return self.records();
+        };
+        let Ok(sources) = select_log_sources(root, filter.scope, filter.worktree_id.as_deref())
+        else {
+            return self.records();
+        };
+        if sources.is_empty() {
+            return Vec::new();
+        }
+        records_from_sources(&sources)
     }
 }
 
@@ -272,10 +302,16 @@ impl McpCallFilter {
     pub(crate) fn from_args(
         limit: Option<usize>,
         since: Option<u64>,
+        scope: Option<LogScope>,
         call_type: Option<String>,
         name: Option<String>,
         task_id: Option<String>,
+        worktree_id: Option<String>,
+        repo_id: Option<String>,
+        workspace_root: Option<String>,
         session_id: Option<String>,
+        server_instance_id: Option<String>,
+        process_id: Option<u32>,
         success: Option<bool>,
         min_duration_ms: Option<u64>,
         contains: Option<String>,
@@ -284,10 +320,16 @@ impl McpCallFilter {
         Self {
             limit: limit.unwrap_or(default_limit).min(500),
             since,
+            scope,
             call_type,
             name,
             task_id,
+            worktree_id,
+            repo_id,
+            workspace_root,
             session_id,
+            server_instance_id,
+            process_id,
             success,
             min_duration_ms,
             contains,
@@ -317,8 +359,33 @@ impl McpCallFilter {
                 return false;
             }
         }
+        if let Some(worktree_id) = &self.worktree_id {
+            if entry.worktree_id.as_deref() != Some(worktree_id.as_str()) {
+                return false;
+            }
+        }
+        if let Some(repo_id) = &self.repo_id {
+            if entry.repo_id.as_deref() != Some(repo_id.as_str()) {
+                return false;
+            }
+        }
+        if let Some(workspace_root) = &self.workspace_root {
+            if entry.workspace_root.as_deref() != Some(workspace_root.as_str()) {
+                return false;
+            }
+        }
         if let Some(session_id) = &self.session_id {
             if entry.session_id.as_deref() != Some(session_id.as_str()) {
+                return false;
+            }
+        }
+        if let Some(server_instance_id) = &self.server_instance_id {
+            if entry.server_instance_id != *server_instance_id {
+                return false;
+            }
+        }
+        if let Some(process_id) = self.process_id {
+            if entry.process_id != process_id {
                 return false;
             }
         }
@@ -506,6 +573,9 @@ pub(crate) fn new_log_entry(
         server_instance_id: runtime.instance_id.clone(),
         process_id: runtime.process_id,
         workspace_root: runtime.workspace_root.clone(),
+        repo_id: None,
+        worktree_id: None,
+        log_path: None,
         trace_available: true,
     }
 }
@@ -515,10 +585,16 @@ impl QueryHost {
         self.mcp_call_log_store.recent(McpCallFilter::from_args(
             args.limit,
             args.since,
+            args.scope,
             args.call_type,
             args.name,
             args.task_id,
+            args.worktree_id,
+            args.repo_id,
+            args.workspace_root,
             args.session_id,
+            args.server_instance_id,
+            args.process_id,
             args.success,
             args.min_duration_ms,
             args.contains,
@@ -530,10 +606,16 @@ impl QueryHost {
         let mut filter = McpCallFilter::from_args(
             args.limit,
             args.since,
+            args.scope,
             args.call_type,
             args.name,
             args.task_id,
+            args.worktree_id,
+            args.repo_id,
+            args.workspace_root,
             args.session_id,
+            args.server_instance_id,
+            args.process_id,
             args.success,
             args.min_duration_ms,
             args.contains,
@@ -553,10 +635,16 @@ impl QueryHost {
         self.mcp_call_log_store.stats(McpCallFilter::from_args(
             None,
             args.since,
+            args.scope,
             args.call_type,
             args.name,
             args.task_id,
+            args.worktree_id,
+            args.repo_id,
+            args.workspace_root,
             args.session_id,
+            args.server_instance_id,
+            args.process_id,
             args.success,
             args.min_duration_ms,
             args.contains,
@@ -591,6 +679,28 @@ fn read_records_from_path(path: &Path) -> Result<Vec<PersistedMcpCallRecord>> {
         }
     }
     Ok(records)
+}
+
+fn records_from_sources(sources: &[RepoLogSource]) -> Vec<PersistedMcpCallRecord> {
+    let mut records = Vec::new();
+    for source in sources {
+        let path = &source.mcp_call_log_path;
+        let mut source_records = read_records_from_path(path).unwrap_or_default();
+        for record in &mut source_records {
+            enrich_record_source(record, source, path);
+        }
+        records.extend(source_records);
+    }
+    records
+}
+
+fn enrich_record_source(record: &mut PersistedMcpCallRecord, source: &RepoLogSource, path: &Path) {
+    if record.entry.workspace_root.is_none() {
+        record.entry.workspace_root = Some(source.workspace_root.clone());
+    }
+    record.entry.repo_id = Some(source.repo_id.clone());
+    record.entry.worktree_id = Some(source.worktree_id.clone());
+    record.entry.log_path = Some(path.display().to_string());
 }
 
 #[derive(Debug, Clone)]
@@ -1001,6 +1111,7 @@ mod tests {
     fn test_store(max_bytes: u64) -> McpCallLogStore {
         let root = temp_test_dir();
         McpCallLogStore {
+            root: None,
             path: Some(root.join("mcp-log.jsonl")),
             max_bytes,
             io_lock: Mutex::new(()),
@@ -1119,8 +1230,14 @@ mod tests {
         let entries = store.recent(McpCallFilter::from_args(
             Some(10),
             None,
+            None,
             Some("tool".to_string()),
             Some("prism_query".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
             None,
             None,
             Some(true),
@@ -1149,6 +1266,7 @@ mod tests {
     #[test]
     fn recent_and_stats_filter_delegated_request_wrappers() {
         let store = McpCallLogStore {
+            root: None,
             path: None,
             max_bytes: DEFAULT_MCP_CALL_LOG_MAX_BYTES,
             io_lock: Mutex::new(()),
@@ -1169,6 +1287,12 @@ mod tests {
             None,
             None,
             None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
             DEFAULT_MCP_LOG_LIMIT,
         ));
         assert_eq!(recent.len(), 1);
@@ -1176,6 +1300,12 @@ mod tests {
         assert_eq!(recent[0].name, "prism_query");
 
         let stats = store.stats(McpCallFilter::from_args(
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
             None,
             None,
             None,

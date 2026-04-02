@@ -739,6 +739,14 @@ pub struct RuntimeLogEventView {
     pub target: Option<String>,
     pub file: Option<String>,
     pub line_number: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repo_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub worktree_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workspace_root: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub log_path: Option<String>,
     pub fields: Option<Value>,
 }
 
@@ -2173,6 +2181,12 @@ pub struct McpCallLogEntryView {
     pub server_instance_id: String,
     pub process_id: u32,
     pub workspace_root: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repo_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub worktree_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub log_path: Option<String>,
     pub trace_available: bool,
 }
 

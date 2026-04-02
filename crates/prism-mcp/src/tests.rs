@@ -18413,6 +18413,10 @@ fn runtime_status_and_dashboard_summary_prefer_cached_diagnostics_snapshot() {
             file: None,
             line_number: None,
             fields: None,
+            repo_id: None,
+            worktree_id: None,
+            workspace_root: None,
+            log_path: None,
         }),
     );
 
@@ -18866,6 +18870,8 @@ return prism.memory.recall({
         RuntimeTimelineArgs {
             limit: Some(10),
             contains: Some("workspace refresh".to_string()),
+            scope: None,
+            worktree_id: None,
         },
     )
     .expect("runtime timeline should include refresh events");

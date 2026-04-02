@@ -131,13 +131,24 @@ const IMPACT_KEYS: &[&str] = &["taskId", "task_id", "target", "paths"];
 const MCP_LOG_KEYS: &[&str] = &[
     "limit",
     "since",
+    "scope",
     "callType",
     "call_type",
     "name",
     "taskId",
     "task_id",
+    "worktreeId",
+    "worktree_id",
+    "repoId",
+    "repo_id",
+    "workspaceRoot",
+    "workspace_root",
     "sessionId",
     "session_id",
+    "serverInstanceId",
+    "server_instance_id",
+    "processId",
+    "process_id",
     "success",
     "minDurationMs",
     "min_duration_ms",
@@ -165,8 +176,16 @@ const QUERY_LOG_KEYS: &[&str] = &[
     "min_duration_ms",
 ];
 const RECENT_PATCHES_KEYS: &[&str] = &["target", "since", "limit", "taskId", "task_id", "path"];
-const RUNTIME_LOGS_KEYS: &[&str] = &["limit", "level", "target", "contains"];
-const RUNTIME_TIMELINE_KEYS: &[&str] = &["limit", "contains"];
+const RUNTIME_LOGS_KEYS: &[&str] = &[
+    "limit",
+    "scope",
+    "worktreeId",
+    "worktree_id",
+    "level",
+    "target",
+    "contains",
+];
+const RUNTIME_TIMELINE_KEYS: &[&str] = &["limit", "scope", "worktreeId", "worktree_id", "contains"];
 const SEARCH_KEYS: &[&str] = &[
     "limit",
     "kind",

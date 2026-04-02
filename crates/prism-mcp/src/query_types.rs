@@ -14,6 +14,7 @@ use prism_query::Prism;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
+use crate::log_scope::LogScope;
 use crate::tool_args::ValidationRefPayload;
 use crate::{
     vocabulary_error, AcceptanceCriterionPayload, AcceptanceEvidencePolicyInput, AnchorRefInput,
@@ -136,10 +137,16 @@ pub(crate) struct QueryLogArgs {
 pub(crate) struct McpLogArgs {
     pub(crate) limit: Option<usize>,
     pub(crate) since: Option<u64>,
+    pub(crate) scope: Option<LogScope>,
     pub(crate) call_type: Option<String>,
     pub(crate) name: Option<String>,
     pub(crate) task_id: Option<String>,
+    pub(crate) worktree_id: Option<String>,
+    pub(crate) repo_id: Option<String>,
+    pub(crate) workspace_root: Option<String>,
     pub(crate) session_id: Option<String>,
+    pub(crate) server_instance_id: Option<String>,
+    pub(crate) process_id: Option<u32>,
     pub(crate) success: Option<bool>,
     pub(crate) min_duration_ms: Option<u64>,
     pub(crate) contains: Option<String>,
@@ -154,6 +161,8 @@ pub(crate) struct McpTraceArgs {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RuntimeLogArgs {
     pub(crate) limit: Option<usize>,
+    pub(crate) scope: Option<LogScope>,
+    pub(crate) worktree_id: Option<String>,
     pub(crate) level: Option<String>,
     pub(crate) target: Option<String>,
     pub(crate) contains: Option<String>,
@@ -163,6 +172,8 @@ pub(crate) struct RuntimeLogArgs {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RuntimeTimelineArgs {
     pub(crate) limit: Option<usize>,
+    pub(crate) scope: Option<LogScope>,
+    pub(crate) worktree_id: Option<String>,
     pub(crate) contains: Option<String>,
 }
 

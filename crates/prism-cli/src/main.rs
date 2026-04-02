@@ -3,6 +3,7 @@ mod cli;
 mod commands;
 mod daemon_log;
 mod display;
+mod git_support;
 mod mcp;
 mod parsing;
 mod projection_commands;

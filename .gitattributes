@@ -1,0 +1,11 @@
+# BEGIN PRISM MANAGED
+.prism/concepts/events.jsonl merge=prism-protected-stream
+.prism/concepts/relations.jsonl merge=prism-protected-stream
+.prism/contracts/events.jsonl merge=prism-protected-stream
+.prism/changes/events.jsonl merge=prism-protected-stream
+.prism/memory/*.jsonl merge=prism-protected-stream
+.prism/plans/streams/*.jsonl merge=prism-protected-stream
+.prism/plans/index.jsonl merge=prism-derived-prism
+.prism/plans/active/*.jsonl merge=prism-derived-prism
+.prism/plans/archived/*.jsonl merge=prism-derived-prism
+# END PRISM MANAGED

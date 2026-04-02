@@ -102,7 +102,7 @@ async fn mcp_server_rejects_prism_mutate_without_credential() {
                     "prismSaid": "Mutation should accept ambient session state.",
                     "actuallyTrue": "Mutation should reject calls without an explicit credential envelope.",
                     "category": "coordination",
-                    "verdict": "harmful"
+                    "verdict": "wrong"
                 }
             })
             .as_object()
@@ -197,10 +197,16 @@ async fn mcp_tool_call_logs_inherit_request_envelope_phases() {
     let surfaced_entries = server_handle.host.mcp_call_entries(crate::McpLogArgs {
         limit: Some(20),
         since: None,
+        scope: None,
         call_type: None,
         name: None,
         task_id: None,
+        worktree_id: None,
+        repo_id: None,
+        workspace_root: None,
         session_id: None,
+        server_instance_id: None,
+        process_id: None,
         success: None,
         min_duration_ms: None,
         contains: None,
