@@ -1361,7 +1361,7 @@ fn migrate_worktree_cache_moves_local_state_out_of_shared_runtime_db() {
                 upserted_paths: vec![source_path.clone()],
                 in_place_upserted_paths: Vec::new(),
                 removed_paths: Vec::new(),
-                history_snapshot: HistorySnapshot {
+                history_snapshot: Some(HistorySnapshot {
                     node_to_lineage: vec![(alpha.id.clone(), lineage.clone())],
                     events: vec![LineageEvent {
                         meta: EventMeta {
@@ -1382,9 +1382,9 @@ fn migrate_worktree_cache_moves_local_state_out_of_shared_runtime_db() {
                     tombstones: Vec::new(),
                     next_lineage: 2,
                     next_event: 8,
-                },
+                }),
                 history_delta: None,
-                outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+                outcome_snapshot: Some(OutcomeMemorySnapshot { events: Vec::new() }),
                 outcome_events: Vec::new(),
                 defer_graph_materialization: false,
                 co_change_deltas: vec![CoChangeDelta {
@@ -3461,15 +3461,15 @@ fn sqlite_store_commits_index_batches_atomically() {
         upserted_paths: vec![source_path.clone()],
         in_place_upserted_paths: Vec::new(),
         removed_paths: Vec::new(),
-        history_snapshot: HistorySnapshot {
+        history_snapshot: Some(HistorySnapshot {
             node_to_lineage: Vec::new(),
             events: Vec::new(),
             tombstones: Vec::new(),
             next_lineage: 1,
             next_event: 2,
-        },
+        }),
         history_delta: None,
-        outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+        outcome_snapshot: Some(OutcomeMemorySnapshot { events: Vec::new() }),
         outcome_events: Vec::new(),
         defer_graph_materialization: false,
         co_change_deltas: vec![CoChangeDelta {
@@ -3603,9 +3603,9 @@ fn sqlite_store_applies_incremental_history_delta() {
                 upserted_paths: vec![source_path.clone()],
                 in_place_upserted_paths: Vec::new(),
                 removed_paths: Vec::new(),
-                history_snapshot: initial_snapshot.clone(),
+                history_snapshot: Some(initial_snapshot.clone()),
                 history_delta: None,
-                outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+                outcome_snapshot: Some(OutcomeMemorySnapshot { events: Vec::new() }),
                 outcome_events: Vec::new(),
                 defer_graph_materialization: false,
                 co_change_deltas: vec![CoChangeDelta {
@@ -3639,7 +3639,7 @@ fn sqlite_store_applies_incremental_history_delta() {
                 upserted_paths: vec![source_path],
                 in_place_upserted_paths: Vec::new(),
                 removed_paths: Vec::new(),
-                history_snapshot: expected_snapshot.clone(),
+                history_snapshot: None,
                 history_delta: Some(HistoryPersistDelta {
                     removed_nodes: vec![alpha],
                     upserted_node_lineages: vec![(beta, lineage.clone())],
@@ -3649,7 +3649,7 @@ fn sqlite_store_applies_incremental_history_delta() {
                     next_lineage: 1,
                     next_event: 3,
                 }),
-                outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+                outcome_snapshot: None,
                 outcome_events: Vec::new(),
                 defer_graph_materialization: false,
                 co_change_deltas: vec![CoChangeDelta {
@@ -3700,15 +3700,15 @@ fn sqlite_store_tolerates_duplicate_node_ids_in_single_file_state() {
         upserted_paths: vec![source_path],
         in_place_upserted_paths: Vec::new(),
         removed_paths: Vec::new(),
-        history_snapshot: HistorySnapshot {
+        history_snapshot: Some(HistorySnapshot {
             node_to_lineage: Vec::new(),
             events: Vec::new(),
             tombstones: Vec::new(),
             next_lineage: 1,
             next_event: 2,
-        },
+        }),
         history_delta: None,
-        outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+        outcome_snapshot: Some(OutcomeMemorySnapshot { events: Vec::new() }),
         outcome_events: Vec::new(),
         defer_graph_materialization: false,
         co_change_deltas: Vec::new(),
@@ -3773,17 +3773,17 @@ fn sqlite_store_index_batch_appends_outcome_events_without_snapshot_reload() {
         upserted_paths: vec![source_path],
         in_place_upserted_paths: Vec::new(),
         removed_paths: Vec::new(),
-        history_snapshot: HistorySnapshot {
+        history_snapshot: Some(HistorySnapshot {
             node_to_lineage: Vec::new(),
             events: Vec::new(),
             tombstones: Vec::new(),
             next_lineage: 1,
             next_event: 2,
-        },
+        }),
         history_delta: None,
-        outcome_snapshot: OutcomeMemorySnapshot {
+        outcome_snapshot: Some(OutcomeMemorySnapshot {
             events: vec![event.clone()],
-        },
+        }),
         outcome_events: vec![event.clone()],
         defer_graph_materialization: false,
         co_change_deltas: Vec::new(),
@@ -3836,15 +3836,15 @@ fn sqlite_store_index_batch_updates_structurally_unchanged_file_state_in_place()
                 upserted_paths: vec![source_path.clone()],
                 in_place_upserted_paths: Vec::new(),
                 removed_paths: Vec::new(),
-                history_snapshot: HistorySnapshot {
+                history_snapshot: Some(HistorySnapshot {
                     node_to_lineage: Vec::new(),
                     events: Vec::new(),
                     tombstones: Vec::new(),
                     next_lineage: 1,
                     next_event: 2,
-                },
+                }),
                 history_delta: None,
-                outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+                outcome_snapshot: Some(OutcomeMemorySnapshot { events: Vec::new() }),
                 outcome_events: Vec::new(),
                 defer_graph_materialization: false,
                 co_change_deltas: Vec::new(),
@@ -3878,15 +3878,15 @@ fn sqlite_store_index_batch_updates_structurally_unchanged_file_state_in_place()
                 upserted_paths: Vec::new(),
                 in_place_upserted_paths: vec![source_path.clone()],
                 removed_paths: Vec::new(),
-                history_snapshot: HistorySnapshot {
+                history_snapshot: Some(HistorySnapshot {
                     node_to_lineage: Vec::new(),
                     events: Vec::new(),
                     tombstones: Vec::new(),
                     next_lineage: 1,
                     next_event: 2,
-                },
+                }),
                 history_delta: None,
-                outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+                outcome_snapshot: Some(OutcomeMemorySnapshot { events: Vec::new() }),
                 outcome_events: Vec::new(),
                 defer_graph_materialization: false,
                 co_change_deltas: Vec::new(),
@@ -3940,15 +3940,15 @@ fn sqlite_store_in_place_updates_preserve_unresolved_entry_columns() {
                 upserted_paths: vec![source_path.clone()],
                 in_place_upserted_paths: Vec::new(),
                 removed_paths: Vec::new(),
-                history_snapshot: HistorySnapshot {
+                history_snapshot: Some(HistorySnapshot {
                     node_to_lineage: Vec::new(),
                     events: Vec::new(),
                     tombstones: Vec::new(),
                     next_lineage: 1,
                     next_event: 2,
-                },
+                }),
                 history_delta: None,
-                outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+                outcome_snapshot: Some(OutcomeMemorySnapshot { events: Vec::new() }),
                 outcome_events: Vec::new(),
                 defer_graph_materialization: false,
                 co_change_deltas: Vec::new(),
@@ -4003,15 +4003,15 @@ fn sqlite_store_in_place_updates_preserve_unresolved_entry_columns() {
                 upserted_paths: Vec::new(),
                 in_place_upserted_paths: vec![source_path.clone()],
                 removed_paths: Vec::new(),
-                history_snapshot: HistorySnapshot {
+                history_snapshot: Some(HistorySnapshot {
                     node_to_lineage: Vec::new(),
                     events: Vec::new(),
                     tombstones: Vec::new(),
                     next_lineage: 1,
                     next_event: 2,
-                },
+                }),
                 history_delta: None,
-                outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+                outcome_snapshot: Some(OutcomeMemorySnapshot { events: Vec::new() }),
                 outcome_events: Vec::new(),
                 defer_graph_materialization: false,
                 co_change_deltas: Vec::new(),

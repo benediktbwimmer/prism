@@ -84,6 +84,10 @@ pub enum Command {
         #[command(subcommand)]
         command: PrincipalCommand,
     },
+    ProtectedState {
+        #[command(subcommand)]
+        command: ProtectedStateCommand,
+    },
 }
 
 #[derive(Subcommand)]
@@ -220,6 +224,11 @@ pub enum DocsCommand {
 }
 
 #[derive(Subcommand)]
+pub enum ProtectedStateCommand {
+    MigrateSign,
+}
+
+#[derive(Subcommand)]
 pub enum MemoryCommand {
     Recall {
         name: String,
@@ -267,7 +276,9 @@ pub enum MemoryCommand {
 mod tests {
     use clap::Parser;
 
-    use super::{AuthCommand, Cli, Command, DocsCommand, McpCommand, PrincipalCommand};
+    use super::{
+        AuthCommand, Cli, Command, DocsCommand, McpCommand, PrincipalCommand, ProtectedStateCommand,
+    };
 
     #[test]
     fn mcp_restart_preserves_bridges_by_default() {
@@ -448,6 +459,17 @@ mod tests {
                 assert_eq!(parent.as_deref(), Some("principal:owner"));
                 assert_eq!(capabilities.len(), 2);
             }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn protected_state_migrate_sign_parses() {
+        let cli = Cli::parse_from(["prism", "protected-state", "migrate-sign"]);
+        match cli.command {
+            Command::ProtectedState {
+                command: ProtectedStateCommand::MigrateSign,
+            } => {}
             _ => panic!("unexpected command"),
         }
     }

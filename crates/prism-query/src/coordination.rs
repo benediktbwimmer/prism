@@ -225,6 +225,13 @@ impl Prism {
         dedupe_blockers(blockers)
     }
 
+    pub fn base_blockers(&self, task_id: &CoordinationTaskId, now: Timestamp) -> Vec<TaskBlocker> {
+        self.continuity_runtime
+            .read()
+            .expect("continuity runtime lock poisoned")
+            .blockers(task_id, self.workspace_revision(), now)
+    }
+
     pub fn pending_reviews(&self, plan_id: Option<&PlanId>) -> Vec<Artifact> {
         let worktree_id = self.coordination_worktree_scope();
         self.continuity_runtime

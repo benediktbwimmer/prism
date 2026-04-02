@@ -355,16 +355,30 @@ pub(crate) fn enqueue_curator_for_observed_async(
     let spawn_result = thread::Builder::new()
         .name("prism-curator-enqueue".to_string())
         .spawn(move || {
-            let result = {
-                let mut store = store.lock().expect("workspace store lock poisoned");
-                enqueue_curator_for_observed_locked(&curator, prism.as_ref(), &mut store, &observed)
-            };
-            if let Err(error) = result {
-                warn!(
-                    root = %root.display(),
-                    error = %error,
-                    "failed to enqueue curator jobs after workspace refresh"
-                );
+            for change in &observed {
+                let Some((trigger, focus)) = curator_job_for_observed(change, prism.as_ref())
+                else {
+                    continue;
+                };
+                let budget = CuratorBudget::default();
+                let job = CuratorJob {
+                    id: CuratorJobId("pending".to_string()),
+                    trigger,
+                    task: change.meta.correlation.clone(),
+                    focus,
+                    budget,
+                };
+                let result = {
+                    let mut store = store.lock().expect("workspace store lock poisoned");
+                    curator.enqueue_locked(job, &mut store)
+                };
+                if let Err(error) = result {
+                    warn!(
+                        root = %root.display(),
+                        error = %error,
+                        "failed to enqueue curator jobs after workspace refresh"
+                    );
+                }
             }
         });
     if let Err(error) = spawn_result {

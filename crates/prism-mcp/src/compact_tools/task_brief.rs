@@ -1,13 +1,16 @@
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::time::Instant;
 
 use anyhow::{anyhow, Result};
+use prism_coordination::{CoordinationTask, TaskBlocker};
 use prism_ir::{
     AnchorRef, CoordinationTaskId, NodeId, PlanGraph, PlanNode, PlanNodeBlocker,
-    PlanNodeBlockerKind, PlanNodeId, PlanNodeStatus, TaskId,
+    PlanNodeBlockerKind, PlanNodeId, PlanNodeStatus, TaskId, WorkspaceRevision,
 };
 use prism_js::{AgentOutcomeSummaryView, AgentTaskBlockerView, AgentTaskBriefResultView};
-use prism_query::{PlanNodeRecommendation, PlanSummary, Prism};
+use prism_query::Prism;
+use serde_json::json;
 
 use super::suggested_actions::{dedupe_suggested_actions, suggested_open_action};
 use super::*;
@@ -27,23 +30,60 @@ impl QueryHost {
             Arc::clone(&session),
             "prism_task_brief",
             query_text,
-            move |host, _query_run| {
+            move |host, query_run| {
                 let prism = host.current_prism();
                 let now = crate::current_timestamp();
+                let subject_started = Instant::now();
                 let subject = resolve_task_brief_subject(prism.as_ref(), &task_id, now)?;
-                let plan_graph = prism.plan_graph(&subject.plan_id);
-                let plan_summary = prism.plan_summary(&subject.plan_id);
-                let plan_next = prism.plan_next(
-                    &subject.plan_id,
-                    TASK_BRIEF_NEXT_READ_LIMIT.saturating_mul(3),
+                query_run.record_phase(
+                    "compact.taskBrief.subject",
+                    &json!({
+                        "coordinationTask": subject.coordination_task_id.is_some(),
+                        "anchorCount": subject.anchors.len(),
+                        "taskId": &subject.task_id,
+                    }),
+                    subject_started.elapsed(),
+                    true,
+                    None,
                 );
-                let task_execution = prism
-                    .plan_execution(&subject.plan_id)
-                    .into_iter()
+
+                let plan_started = Instant::now();
+                let plan_graph = prism.plan_graph(&subject.plan_id);
+                let plan_execution = prism.plan_execution(&subject.plan_id);
+                let current_plan_node = plan_graph
+                    .as_ref()
+                    .and_then(|graph| graph.nodes.iter().find(|node| node.id == subject.node_id));
+                query_run.record_phase(
+                    "compact.taskBrief.planContext",
+                    &json!({
+                        "executionCount": plan_execution.len(),
+                        "hasPlanGraph": plan_graph.is_some(),
+                        "hasCurrentNode": current_plan_node.is_some(),
+                    }),
+                    plan_started.elapsed(),
+                    true,
+                    None,
+                );
+
+                let coordination_started = Instant::now();
+                let task_execution = plan_execution
+                    .iter()
                     .find(|overlay| overlay.node_id == subject.node_id);
                 let claims = prism.claims(&subject.anchors, now);
                 let conflicts = prism.conflicts(&subject.anchors, now);
+                query_run.record_phase(
+                    "compact.taskBrief.coordinationContext",
+                    &json!({
+                        "claimCount": claims.len(),
+                        "conflictCount": conflicts.len(),
+                    }),
+                    coordination_started.elapsed(),
+                    true,
+                    None,
+                );
+
                 let task_id = TaskId::new(subject.task_id.clone());
+                let replay_started = Instant::now();
                 let replay = crate::load_task_replay(
                     host.workspace_session_ref(),
                     prism.as_ref(),
@@ -57,25 +97,50 @@ impl QueryHost {
                     TASK_BRIEF_OUTCOME_LIMIT,
                     0,
                 )?;
+                query_run.record_phase(
+                    "compact.taskBrief.replay",
+                    &json!({
+                        "eventCount": journal.recent_events.len(),
+                    }),
+                    replay_started.elapsed(),
+                    true,
+                    None,
+                );
+
+                let next_reads_started = Instant::now();
                 let next_reads = compact_task_next_reads(
                     session.as_ref(),
                     prism.as_ref(),
                     &subject.node_id,
                     &subject.anchors,
                     plan_graph.as_ref(),
-                    plan_next.as_slice(),
                 )?;
+                query_run.record_phase(
+                    "compact.taskBrief.nextReads",
+                    &json!({
+                        "nextReadCount": next_reads.len(),
+                    }),
+                    next_reads_started.elapsed(),
+                    true,
+                    None,
+                );
                 let heartbeat_advice = subject
                     .coordination_task_id
                     .as_ref()
                     .and_then(|task_id| task_heartbeat_advice(prism.as_ref(), task_id, now));
                 let next_action = compact_task_brief_next_action(
                     heartbeat_advice.as_ref(),
-                    &subject.node_id,
                     subject.blockers.as_slice(),
-                    plan_summary.as_ref(),
-                    plan_next.as_slice(),
+                    next_reads.as_slice(),
                 );
+                let likely_validations = task_brief_likely_validations(
+                    current_plan_node,
+                    subject.likely_validations.as_slice(),
+                    subject.fallback_validation_refs.as_slice(),
+                );
+                let risk_hint = subject
+                    .risk_hint
+                    .or_else(|| compact_native_plan_risk_hint(&subject.plan_blockers));
 
                 let mut result = AgentTaskBriefResultView {
                     task_id: subject.task_id.clone(),
@@ -83,7 +148,7 @@ impl QueryHost {
                     status: subject.status,
                     assignee: subject.assignee.clone(),
                     pending_handoff_to: task_execution
-                        .and_then(|overlay| overlay.pending_handoff_to)
+                        .and_then(|overlay| overlay.pending_handoff_to.clone())
                         .or(subject.pending_handoff_to.clone())
                         .map(|agent| agent.0.to_string()),
                     blockers: subject.blockers,
@@ -98,9 +163,9 @@ impl QueryHost {
                         .iter()
                         .map(|event| compact_outcome_summary_view(event, TASK_BRIEF_TEXT_MAX_CHARS))
                         .collect(),
-                    likely_validations: subject.likely_validations,
+                    likely_validations,
                     next_reads,
-                    risk_hint: subject.risk_hint,
+                    risk_hint,
                     truncated: false,
                     next_action: Some(next_action),
                     suggested_actions: Vec::new(),
@@ -128,44 +193,28 @@ struct TaskBriefSubject {
     pending_handoff_to: Option<prism_ir::AgentId>,
     anchors: Vec<AnchorRef>,
     blockers: Vec<AgentTaskBlockerView>,
+    plan_blockers: Vec<PlanNodeBlocker>,
     likely_validations: Vec<String>,
+    fallback_validation_refs: Vec<String>,
     risk_hint: Option<String>,
 }
 
 fn resolve_task_brief_subject(prism: &Prism, task_id: &str, now: u64) -> Result<TaskBriefSubject> {
     let coordination_task_id = CoordinationTaskId::new(task_id.to_string());
     if let Some(task) = prism.coordination_task(&coordination_task_id) {
-        let blockers = prism
-            .blockers(&coordination_task_id, now)
-            .into_iter()
+        let raw_blockers = prism.base_blockers(&coordination_task_id, now);
+        let blockers = raw_blockers
+            .iter()
             .take(TASK_BRIEF_BLOCKER_LIMIT)
             .map(|blocker| AgentTaskBlockerView {
                 kind: blocker.kind,
                 summary: clamp_string(&blocker.summary, TASK_BRIEF_TEXT_MAX_CHARS),
             })
             .collect::<Vec<_>>();
-        let likely_validations = prism
-            .task_validation_recipe(&coordination_task_id)
-            .as_ref()
-            .map(|recipe| {
-                let scored_checks = recipe
-                    .scored_checks
-                    .iter()
-                    .cloned()
-                    .map(crate::validation_check_view)
-                    .collect::<Vec<_>>();
-                compact_validation_checks(
-                    &recipe.checks,
-                    &scored_checks,
-                    TASK_BRIEF_VALIDATION_LIMIT,
-                    COMPACT_VALIDATION_CHECK_MAX_CHARS,
-                )
-            })
-            .unwrap_or_default();
-        let risk_hint = compact_task_risk_hint(
-            prism.task_risk(&coordination_task_id, now).as_ref(),
-            prism.plan_summary(&task.plan).as_ref(),
-        );
+        let likely_validations = compact_validation_labels_from_task_blockers(&raw_blockers);
+        let risk_hint =
+            compact_coordination_task_risk_hint(&task, &raw_blockers, &prism.workspace_revision());
+        let fallback_validation_refs = coordination_task_validation_refs(&task);
         return Ok(TaskBriefSubject {
             task_id: task.id.0.to_string(),
             coordination_task_id: Some(task.id.clone()),
@@ -177,7 +226,9 @@ fn resolve_task_brief_subject(prism: &Prism, task_id: &str, now: u64) -> Result<
             pending_handoff_to: task.pending_handoff_to,
             anchors: task.anchors,
             blockers,
+            plan_blockers: Vec::new(),
             likely_validations,
+            fallback_validation_refs,
             risk_hint,
         });
     }
@@ -192,15 +243,6 @@ fn resolve_task_brief_subject(prism: &Prism, task_id: &str, now: u64) -> Result<
         .map(plan_node_blocker_view)
         .collect::<Vec<_>>();
     let likely_validations = native_plan_likely_validations(&node, &plan_blockers);
-    let risk_hint =
-        compact_native_plan_risk_hint(&plan_blockers, prism.plan_summary(&plan_id).as_ref());
-    let effective_assignee = prism
-        .plan_execution(&plan_id)
-        .into_iter()
-        .find(|overlay| overlay.node_id == node.id)
-        .and_then(|overlay| overlay.effective_assignee)
-        .or(node.assignee.clone())
-        .map(|agent| agent.0.to_string());
     Ok(TaskBriefSubject {
         task_id: node.id.0.to_string(),
         coordination_task_id: None,
@@ -208,12 +250,14 @@ fn resolve_task_brief_subject(prism: &Prism, task_id: &str, now: u64) -> Result<
         plan_id,
         title: node.title,
         status: coordination_task_status_for_plan_node(node.status),
-        assignee: effective_assignee,
+        assignee: node.assignee.as_ref().map(|agent| agent.0.to_string()),
         pending_handoff_to: None,
         anchors: node.bindings.anchors,
         blockers,
+        plan_blockers,
         likely_validations,
-        risk_hint,
+        fallback_validation_refs: Vec::new(),
+        risk_hint: None,
     })
 }
 
@@ -316,7 +360,6 @@ fn compact_task_next_reads(
     current_node_id: &PlanNodeId,
     anchors: &[AnchorRef],
     plan_graph: Option<&PlanGraph>,
-    plan_next: &[PlanNodeRecommendation],
 ) -> Result<Vec<AgentTargetHandleView>> {
     let seed_nodes = anchors
         .iter()
@@ -327,33 +370,6 @@ fn compact_task_next_reads(
         .collect::<Vec<_>>();
     let mut seen = HashSet::<NodeId>::new();
     let mut candidates = Vec::<(NodeId, String)>::new();
-
-    for recommendation in plan_next {
-        if recommendation.node.id == *current_node_id {
-            continue;
-        }
-        let why = clamp_string(
-            &recommendation.reasons.first().cloned().unwrap_or_else(|| {
-                format!("Plan recommends `{}` next.", recommendation.node.title)
-            }),
-            TASK_BRIEF_TEXT_MAX_CHARS,
-        );
-        for anchor in &recommendation.node.bindings.anchors {
-            let AnchorRef::Node(node_id) = anchor else {
-                continue;
-            };
-            if seed_nodes.iter().any(|seed| seed == node_id) || !seen.insert(node_id.clone()) {
-                continue;
-            }
-            candidates.push((node_id.clone(), why.clone()));
-            if candidates.len() >= TASK_BRIEF_NEXT_READ_LIMIT.saturating_mul(4) {
-                break;
-            }
-        }
-        if candidates.len() >= TASK_BRIEF_NEXT_READ_LIMIT.saturating_mul(4) {
-            break;
-        }
-    }
 
     if let Some(plan_graph) = plan_graph {
         for edge in plan_graph
@@ -433,66 +449,77 @@ fn node_id_from_view(id: &prism_js::NodeIdView) -> NodeId {
     NodeId::new(id.crate_name.clone(), id.path.clone(), id.kind)
 }
 
-fn compact_task_risk_hint(
-    risk: Option<&prism_query::TaskRisk>,
-    plan_summary: Option<&PlanSummary>,
-) -> Option<String> {
-    let hint = if let Some(risk) = risk {
-        if risk.review_required && !risk.has_approved_artifact {
-            format!(
-                "Risk {:.2} requires review before completion.",
-                risk.risk_score
-            )
-        } else if !risk.contract_review_notes.is_empty() {
-            risk.contract_review_notes[0].clone()
-        } else if !risk.missing_validations.is_empty() {
-            format!(
-                "Missing validations: {}.",
-                risk.missing_validations
-                    .iter()
-                    .take(2)
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )
-        } else if risk.stale_task {
-            "Task base revision is stale against the current graph.".to_string()
-        } else if !risk.risk_events.is_empty() {
-            "Recent failures still contribute to task risk.".to_string()
-        } else if !risk.likely_validations.is_empty() {
-            format!(
-                "Likely validations: {}.",
-                risk.likely_validations
-                    .iter()
-                    .take(2)
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )
-        } else {
-            format!(
-                "Risk score {:.2} with no specific validations inferred yet.",
-                risk.risk_score
-            )
-        }
-    } else if let Some(summary) = plan_summary {
-        if summary.completion_gated_nodes > 0 {
-            format!(
-                "{} plan node(s) are execution-ready but still gated on completion evidence.",
-                summary.completion_gated_nodes
-            )
-        } else if summary.execution_blocked_nodes > 0 && summary.actionable_nodes == 0 {
-            format!(
-                "No actionable plan nodes right now; {} node(s) remain execution-blocked.",
-                summary.execution_blocked_nodes
-            )
-        } else {
-            return None;
-        }
+fn task_brief_likely_validations(
+    current_plan_node: Option<&PlanNode>,
+    subject_validations: &[String],
+    fallback_validation_refs: &[String],
+) -> Vec<String> {
+    let mut validations = if let Some(node) = current_plan_node {
+        native_plan_likely_validations(node, &[])
     } else {
-        return None;
+        subject_validations.to_vec()
     };
-    Some(clamp_string(&hint, TASK_BRIEF_TEXT_MAX_CHARS))
+    if validations.is_empty() {
+        validations = fallback_validation_refs.to_vec();
+    }
+    validations.truncate(TASK_BRIEF_VALIDATION_LIMIT);
+    validations
+}
+
+fn compact_validation_labels_from_task_blockers(blockers: &[TaskBlocker]) -> Vec<String> {
+    let mut labels = Vec::new();
+    for blocker in blockers {
+        for label in &blocker.validation_checks {
+            push_unique_string(&mut labels, label.clone());
+            if labels.len() >= TASK_BRIEF_VALIDATION_LIMIT {
+                return labels;
+            }
+        }
+    }
+    labels
+}
+
+fn coordination_task_validation_refs(task: &CoordinationTask) -> Vec<String> {
+    let mut labels = Vec::new();
+    for validation in &task.validation_refs {
+        push_unique_string(&mut labels, validation.id.clone());
+        if labels.len() >= TASK_BRIEF_VALIDATION_LIMIT {
+            break;
+        }
+    }
+    labels
+}
+
+fn compact_coordination_task_risk_hint(
+    task: &CoordinationTask,
+    blockers: &[TaskBlocker],
+    workspace_revision: &WorkspaceRevision,
+) -> Option<String> {
+    if let Some(blocker) = blockers.iter().find(|blocker| {
+        matches!(
+            blocker.kind,
+            prism_coordination::BlockerKind::ReviewRequired
+                | prism_coordination::BlockerKind::RiskReviewRequired
+                | prism_coordination::BlockerKind::ValidationRequired
+                | prism_coordination::BlockerKind::ArtifactStale
+        )
+    }) {
+        return Some(clamp_string(&blocker.summary, TASK_BRIEF_TEXT_MAX_CHARS));
+    }
+    if coordination_task_is_workspace_bound(task)
+        && task.base_revision.graph_version < workspace_revision.graph_version
+    {
+        return Some("Task base revision is stale against the current graph.".to_string());
+    }
+    None
+}
+
+fn coordination_task_is_workspace_bound(task: &CoordinationTask) -> bool {
+    !task.anchors.is_empty()
+        || task
+            .acceptance
+            .iter()
+            .any(|criterion| !criterion.anchors.is_empty())
 }
 
 fn compact_outcome_summary_view(
@@ -509,10 +536,8 @@ fn compact_outcome_summary_view(
 
 fn compact_task_brief_next_action(
     heartbeat_advice: Option<&TaskHeartbeatAdvice>,
-    current_node_id: &PlanNodeId,
     blockers: &[AgentTaskBlockerView],
-    plan_summary: Option<&PlanSummary>,
-    plan_next: &[PlanNodeRecommendation],
+    next_reads: &[AgentTargetHandleView],
 ) -> String {
     if let Some(advice) = heartbeat_advice {
         return task_heartbeat_next_action(advice);
@@ -526,47 +551,13 @@ fn compact_task_brief_next_action(
     if !blockers.is_empty() {
         return "Inspect the current task blockers before switching nodes; use prism.blockers(taskId) or prism_query for full coordination detail.".to_string();
     }
-    if let Some(recommendation) = plan_next.iter().find(|recommendation| {
-        recommendation.actionable && recommendation.node.id != *current_node_id
-    }) {
-        return clamp_string(
-            &format!(
-                "Use prism_open on the recommended plan node `{}` to advance blocking work, or prism_query for full coordination detail.",
-                recommendation.node.title
-            ),
-            TASK_BRIEF_TEXT_MAX_CHARS,
-        );
-    }
-    if plan_next.iter().any(|recommendation| {
-        recommendation.actionable && recommendation.node.id == *current_node_id
-    }) {
+    if !next_reads.is_empty() {
         return "Use prism_open on a nextRead to work this plan node, or prism_query for full coordination detail.".to_string();
-    }
-    if let Some(recommendation) = plan_next
-        .iter()
-        .find(|recommendation| recommendation.node.id != *current_node_id)
-    {
-        return clamp_string(
-            &format!(
-                "Use prism_open on the recommended plan node `{}` to inspect blocking work, or prism_query for full coordination detail.",
-                recommendation.node.title
-            ),
-            TASK_BRIEF_TEXT_MAX_CHARS,
-        );
-    }
-    if let Some(summary) = plan_summary {
-        if summary.actionable_nodes == 0 && summary.execution_blocked_nodes > 0 {
-            return "Use prism_query to inspect blockers across the plan before continuing."
-                .to_string();
-        }
     }
     "Use prism_open on a nextRead, or prism_query for full coordination detail.".to_string()
 }
 
-fn compact_native_plan_risk_hint(
-    blockers: &[PlanNodeBlocker],
-    plan_summary: Option<&PlanSummary>,
-) -> Option<String> {
+fn compact_native_plan_risk_hint(blockers: &[PlanNodeBlocker]) -> Option<String> {
     let hint = if let Some(blocker) = blockers.iter().find(|blocker| {
         matches!(
             blocker.kind,
@@ -579,20 +570,6 @@ fn compact_native_plan_risk_hint(
         )
     }) {
         blocker.summary.clone()
-    } else if let Some(summary) = plan_summary {
-        if summary.completion_gated_nodes > 0 {
-            format!(
-                "{} plan node(s) are execution-ready but still gated on completion evidence.",
-                summary.completion_gated_nodes
-            )
-        } else if summary.execution_blocked_nodes > 0 && summary.actionable_nodes == 0 {
-            format!(
-                "No actionable plan nodes right now; {} node(s) remain execution-blocked.",
-                summary.execution_blocked_nodes
-            )
-        } else {
-            return None;
-        }
     } else {
         return None;
     };

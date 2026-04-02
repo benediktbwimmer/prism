@@ -1228,8 +1228,8 @@ impl Store for SqliteStore {
         let save_history_started = Instant::now();
         if let Some(history_delta) = &batch.history_delta {
             history_io::apply_history_delta_tx(&tx, history_delta)?;
-        } else {
-            history_io::replace_history_snapshot_tx(&tx, &batch.history_snapshot)?;
+        } else if let Some(history_snapshot) = &batch.history_snapshot {
+            history_io::replace_history_snapshot_tx(&tx, history_snapshot)?;
         }
         let save_history_ms = save_history_started.elapsed().as_millis();
 
@@ -1243,15 +1243,17 @@ impl Store for SqliteStore {
         }
         let outcome_changed = if inserted_outcome_events > 0 {
             true
-        } else {
+        } else if let Some(outcome_snapshot) = &batch.outcome_snapshot {
             if tracked_outcome_snapshot.is_none() {
                 tracked_outcome_snapshot = current_outcome_snapshot_tx(&tx, &outcome_cache)?.1;
             }
             outcome_events::save_snapshot_delta_tx(
                 &tx,
                 tracked_outcome_snapshot.as_ref(),
-                &batch.outcome_snapshot,
+                outcome_snapshot,
             )?
+        } else {
+            false
         };
         let outcome_revision = if outcome_changed {
             bump_metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?
@@ -1294,16 +1296,18 @@ impl Store for SqliteStore {
         tx.commit()?;
         let commit_tx_ms = commit_started.elapsed().as_millis();
         let merged_outcome_snapshot = if inserted_outcome_events > 0 {
-            tracked_outcome_snapshot
-        } else if outcome_changed {
-            crate::outcome_projection::merge_snapshot(
-                tracked_outcome_snapshot,
-                &batch.outcome_snapshot,
-            )
+            tracked_outcome_snapshot.or_else(|| batch.outcome_snapshot.clone())
+        } else if let Some(outcome_snapshot) = &batch.outcome_snapshot {
+            crate::outcome_projection::merge_snapshot(tracked_outcome_snapshot, outcome_snapshot)
         } else {
             tracked_outcome_snapshot
         };
-        if merged_outcome_snapshot.is_some() || !outcome_changed {
+        let should_update_outcome_cache = if inserted_outcome_events > 0 {
+            merged_outcome_snapshot.is_some()
+        } else {
+            batch.outcome_snapshot.is_some()
+        };
+        if should_update_outcome_cache {
             self.update_outcome_snapshot_cache(outcome_revision, merged_outcome_snapshot);
         }
         info!(
@@ -1322,11 +1326,23 @@ impl Store for SqliteStore {
             rewritten_derived_edge_count,
             rewritten_root_node_count,
             rewritten_root_edge_count,
-            history_lineage_count = batch.history_snapshot.node_to_lineage.len(),
-            history_event_count = batch.history_snapshot.events.len(),
-            history_tombstone_count = batch.history_snapshot.tombstones.len(),
+            history_lineage_count = batch
+                .history_snapshot
+                .as_ref()
+                .map_or(0, |snapshot| snapshot.node_to_lineage.len()),
+            history_event_count = batch
+                .history_snapshot
+                .as_ref()
+                .map_or(0, |snapshot| snapshot.events.len()),
+            history_tombstone_count = batch
+                .history_snapshot
+                .as_ref()
+                .map_or(0, |snapshot| snapshot.tombstones.len()),
             appended_outcome_event_count = batch.outcome_events.len(),
-            outcome_event_count = batch.outcome_snapshot.events.len(),
+            outcome_event_count = batch
+                .outcome_snapshot
+                .as_ref()
+                .map_or(0, |snapshot| snapshot.events.len()),
             projection_mode,
             projection_snapshot_lineage_count,
             projection_snapshot_validation_count,

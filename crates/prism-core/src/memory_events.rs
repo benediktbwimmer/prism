@@ -1,55 +1,54 @@
-use std::fs::{self, File, OpenOptions};
-use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Result};
 use prism_ir::AnchorRef;
 use prism_memory::{MemoryEvent, MemoryEventKind, MemoryEventQuery, MemoryScope};
 
+use crate::protected_state::repo_streams::{
+    append_protected_stream_event, implicit_principal_identity, inspect_protected_stream,
+};
+use crate::protected_state::streams::{ProtectedRepoStream, ProtectedVerificationStatus};
 use crate::util::repo_memory_events_path;
 
 pub(crate) fn append_repo_memory_event(root: &Path, event: &MemoryEvent) -> Result<()> {
-    let path = repo_memory_events_path(root);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let mut file = OpenOptions::new().create(true).append(true).open(&path)?;
-    serde_json::to_writer(&mut file, event)?;
-    file.write_all(b"\n")?;
-    Ok(())
+    let stream = ProtectedRepoStream::memory_stream("events.jsonl")
+        .expect("default repo memory stream should be classified as protected");
+    append_protected_stream_event(
+        root,
+        &stream,
+        &event.id,
+        event,
+        &implicit_principal_identity(event.actor.as_ref(), event.execution_context.as_ref()),
+    )
 }
 
 pub(crate) fn load_repo_memory_events(root: &Path) -> Result<Vec<MemoryEvent>> {
     let path = repo_memory_events_path(root);
-    if !path.exists() {
-        return Ok(Vec::new());
+    let stream = ProtectedRepoStream::memory_stream("events.jsonl")
+        .expect("default repo memory stream should be classified as protected");
+    let inspection = inspect_protected_stream::<MemoryEvent>(root, &stream)?;
+    if inspection.verification.verification_status != ProtectedVerificationStatus::Verified {
+        bail!(
+            "refused to hydrate repo memory from {} because verification status is {:?}: {}",
+            path.display(),
+            inspection.verification.verification_status,
+            inspection
+                .verification
+                .diagnostic_summary
+                .as_deref()
+                .unwrap_or("verification failed")
+        );
     }
-
-    let file = File::open(&path)?;
-    let reader = BufReader::new(file);
-    let mut events = Vec::new();
-    for (index, line) in reader.lines().enumerate() {
-        let line = line?;
-        if line.trim().is_empty() {
-            continue;
-        }
-        let event = serde_json::from_str::<MemoryEvent>(&line).with_context(|| {
-            format!(
-                "failed to parse memory event on line {} in {}",
-                index + 1,
-                path.display()
-            )
-        })?;
+    for event in &inspection.payloads {
         if event.scope != MemoryScope::Repo {
-            return Err(anyhow::anyhow!(
+            bail!(
                 "repo memory log {} contained non-repo event `{}`",
                 path.display(),
                 event.id
-            ));
+            );
         }
-        events.push(event);
     }
-    Ok(events)
+    Ok(inspection.payloads)
 }
 
 pub(crate) fn filter_memory_events(

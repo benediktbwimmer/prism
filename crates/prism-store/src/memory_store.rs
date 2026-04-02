@@ -548,11 +548,15 @@ impl Store for MemoryStore {
         batch: &IndexPersistBatch,
     ) -> anyhow::Result<()> {
         self.snapshot = Some(graph.snapshot());
-        self.history_snapshot = Some(batch.history_snapshot.clone());
+        if let Some(delta) = &batch.history_delta {
+            self.apply_history_delta(delta)?;
+        } else if let Some(snapshot) = &batch.history_snapshot {
+            self.history_snapshot = Some(snapshot.clone());
+        }
         if !batch.outcome_events.is_empty() {
             let _ = self.append_outcome_events(&batch.outcome_events, &[])?;
-        } else {
-            self.save_outcome_snapshot(&batch.outcome_snapshot)?;
+        } else if let Some(snapshot) = &batch.outcome_snapshot {
+            self.save_outcome_snapshot(snapshot)?;
         }
         if let Some(snapshot) = &batch.projection_snapshot {
             self.projection_snapshot = Some(snapshot.clone());

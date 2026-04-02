@@ -963,7 +963,7 @@ mod tests {
             PathBuf::from("node_modules/pkg/index.json").as_path()
         ));
         assert!(is_ignored_watch_relative_path(
-            PathBuf::from(".prism/plans/active/plan:1.jsonl").as_path()
+            PathBuf::from(".prism/plans/streams/plan:1.jsonl").as_path()
         ));
         assert!(!is_ignored_watch_relative_path(
             PathBuf::from("crates/prism-core/src/watch.rs").as_path()
@@ -976,7 +976,7 @@ mod tests {
         let event = Event {
             kind: EventKind::Modify(ModifyKind::Any),
             paths: vec![
-                root.join(".prism/plans/active/plan:1.jsonl"),
+                root.join(".prism/plans/streams/plan:1.jsonl"),
                 root.join("benchmarks/results/local/prism/workspaces/demo/repo/src/lib.rs"),
                 root.join("crates/prism-core/src/watch.rs"),
             ],

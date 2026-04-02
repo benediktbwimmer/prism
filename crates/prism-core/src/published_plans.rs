@@ -1,5 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -16,6 +16,10 @@ use prism_ir::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use crate::protected_state::repo_streams::{
+    append_protected_stream_event, implicit_principal_identity, inspect_protected_stream,
+};
+use crate::protected_state::streams::{classify_protected_repo_relative_path, ProtectedRepoStream};
 use crate::util::{
     repo_active_plans_dir, repo_archived_plans_dir, repo_plan_index_path, repo_plans_dir,
 };
@@ -253,6 +257,8 @@ where
     O: FnMut(&str, Duration, Value, bool, Option<String>),
 {
     let plans_dir = repo_plans_dir(root);
+    let streams_dir = plans_dir.join("streams");
+    fs::create_dir_all(&streams_dir)?;
     fs::create_dir_all(repo_active_plans_dir(root))?;
     fs::create_dir_all(repo_archived_plans_dir(root))?;
 
@@ -312,21 +318,19 @@ where
                     .unwrap_or_default(),
             };
 
-            let relative_log_path = relative_plan_log_path(header.status, &header.id);
+            let relative_log_path = authoritative_plan_log_path(&header.id);
             let full_log_path = root.join(&relative_log_path);
-            if let Some(previous_path) = existing_paths.get(&plan_key) {
-                let previous_path = resolve_log_path(root, previous_path);
-                if previous_path != full_log_path && previous_path.exists() {
-                    if let Some(parent) = full_log_path.parent() {
-                        fs::create_dir_all(parent)?;
-                    }
-                    fs::rename(previous_path, &full_log_path)?;
-                }
-            }
-
-            let previous_record = existing_projection.record(&graph.id);
-            let starting_sequence = existing_projection.next_log_sequence_for(&graph.id);
-            let events = if previous_record.is_none() && !full_log_path.exists() {
+            let previous_record = if full_log_path.exists() {
+                existing_projection.record(&graph.id)
+            } else {
+                None
+            };
+            let starting_sequence = if full_log_path.exists() {
+                existing_projection.next_log_sequence_for(&graph.id)
+            } else {
+                0
+            };
+            let events = if previous_record.is_none() {
                 published_plan_events(starting_sequence, &header, &graph)
             } else {
                 append_plan_delta_events(
@@ -337,11 +341,24 @@ where
                 )
             };
             if !events.is_empty() {
-                append_jsonl_file(&full_log_path, &events)?;
+                let stream = ProtectedRepoStream::plan_stream(&header.id);
+                let principal = implicit_principal_identity(None, None);
+                for event in &events {
+                    append_protected_stream_event(
+                        root,
+                        &stream,
+                        &event.event_id,
+                        event,
+                        &principal,
+                    )?;
+                }
                 logs_written += 1;
                 events_written += events.len();
             }
             expected_logs.insert(normalize_path(&full_log_path));
+            let derived_log_path = root.join(derived_plan_log_path(header.status, &header.id));
+            sync_derived_plan_log(&full_log_path, &derived_log_path)?;
+            expected_logs.insert(normalize_path(&derived_log_path));
             index_entries.push(PublishedPlanIndexEntry {
                 plan_id: header.id.clone(),
                 title: header.title.clone(),
@@ -350,6 +367,16 @@ where
                 kind: format!("{:?}", header.kind),
                 log_path: normalize_relative_path(&relative_log_path),
             });
+            if let Some(previous_path) = existing_paths.get(&plan_key) {
+                let previous_path = resolve_log_path(root, previous_path);
+                if previous_path != full_log_path && previous_path != derived_log_path {
+                    remove_legacy_plan_log_if_stale(
+                        &previous_path,
+                        &full_log_path,
+                        &derived_log_path,
+                    )?;
+                }
+            }
         }
         Ok(())
     })();
@@ -582,7 +609,7 @@ fn load_repo_published_plan_projection(root: &Path) -> Result<Option<PublishedPl
     let mut projection = PublishedPlanProjection::default();
     for entry in entries {
         let log_path = resolve_log_path(root, &entry.log_path);
-        let events = load_jsonl_file::<StoredPublishedPlanEvent>(&log_path)?;
+        let events = load_stored_plan_events(root, &log_path)?;
         let (record, overlays) = project_plan_log(&log_path, &events)?;
         projection.next_plan = projection
             .next_plan
@@ -1075,7 +1102,14 @@ fn legacy_dependency_edges_for_task(task: &LegacyPublishedPlanNode) -> Vec<PlanE
     edges
 }
 
-fn relative_plan_log_path(status: PlanStatus, plan_id: &PlanId) -> PathBuf {
+fn authoritative_plan_log_path(plan_id: &PlanId) -> PathBuf {
+    PathBuf::from(".prism")
+        .join("plans")
+        .join("streams")
+        .join(format!("{}.jsonl", plan_id.0))
+}
+
+fn derived_plan_log_path(status: PlanStatus, plan_id: &PlanId) -> PathBuf {
     let base = if matches!(status, PlanStatus::Archived) {
         PathBuf::from(".prism").join("plans").join("archived")
     } else {
@@ -1094,7 +1128,7 @@ fn resolve_log_path(root: &Path, raw: &str) -> PathBuf {
 }
 
 fn cleanup_stale_plan_logs(plans_dir: &Path, expected_logs: &BTreeSet<String>) -> Result<()> {
-    for subdir in ["active", "archived"] {
+    for subdir in ["active", "archived", "streams"] {
         let dir = plans_dir.join(subdir);
         if !dir.exists() {
             continue;
@@ -1109,6 +1143,91 @@ fn cleanup_stale_plan_logs(plans_dir: &Path, expected_logs: &BTreeSet<String>) -
                 fs::remove_file(path)?;
             }
         }
+    }
+    Ok(())
+}
+
+fn load_stored_plan_events(root: &Path, log_path: &Path) -> Result<Vec<StoredPublishedPlanEvent>> {
+    let relative = log_path
+        .strip_prefix(root)
+        .ok()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| log_path.to_path_buf());
+    match classify_protected_repo_relative_path(&relative) {
+        Some(stream) if stream.stream() == "repo_plan_events" => {
+            let inspection = inspect_protected_stream::<PublishedPlanEvent>(root, &stream)?;
+            if inspection.verification.verification_status
+                != crate::protected_state::streams::ProtectedVerificationStatus::Verified
+            {
+                return Err(anyhow!(
+                    "refused to hydrate protected plan stream {} because verification status is {:?}: {}",
+                    log_path.display(),
+                    inspection.verification.verification_status,
+                    inspection
+                        .verification
+                        .diagnostic_summary
+                        .as_deref()
+                        .unwrap_or("verification failed"),
+                ));
+            }
+            Ok(inspection
+                .payloads
+                .into_iter()
+                .map(StoredPublishedPlanEvent::Native)
+                .collect())
+        }
+        _ => load_jsonl_file::<StoredPublishedPlanEvent>(log_path),
+    }
+}
+
+fn sync_derived_plan_log(authoritative_path: &Path, derived_path: &Path) -> Result<()> {
+    if let Some(parent) = derived_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let bytes = fs::read(authoritative_path)?;
+    if fs::read(derived_path).ok().as_deref() != Some(bytes.as_slice()) {
+        fs::write(derived_path, bytes)?;
+    }
+    let opposite_path = if derived_path
+        .components()
+        .any(|component| component.as_os_str() == "archived")
+    {
+        derived_path
+            .parent()
+            .and_then(Path::parent)
+            .map(|plans_dir| {
+                plans_dir
+                    .join("active")
+                    .join(derived_path.file_name().unwrap())
+            })
+    } else {
+        derived_path
+            .parent()
+            .and_then(Path::parent)
+            .map(|plans_dir| {
+                plans_dir
+                    .join("archived")
+                    .join(derived_path.file_name().unwrap())
+            })
+    };
+    if let Some(opposite_path) = opposite_path {
+        if opposite_path.exists() {
+            fs::remove_file(opposite_path)?;
+        }
+    }
+    Ok(())
+}
+
+fn remove_legacy_plan_log_if_stale(
+    previous_path: &Path,
+    authoritative_path: &Path,
+    derived_path: &Path,
+) -> Result<()> {
+    if previous_path == authoritative_path || previous_path == derived_path {
+        return Ok(());
+    }
+    if previous_path.exists() {
+        fs::remove_file(previous_path)?;
     }
     Ok(())
 }
@@ -1160,25 +1279,6 @@ where
     file.write_all(&next)?;
     file.sync_all()?;
     fs::rename(temp_path, path)?;
-    Ok(())
-}
-
-fn append_jsonl_file<T>(path: &Path, values: &[T]) -> Result<()>
-where
-    T: Serialize,
-{
-    if values.is_empty() {
-        return Ok(());
-    }
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
-    for value in values {
-        serde_json::to_writer(&mut file, value)?;
-        file.write_all(b"\n")?;
-    }
-    file.sync_all()?;
     Ok(())
 }
 

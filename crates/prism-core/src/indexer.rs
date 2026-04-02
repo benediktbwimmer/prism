@@ -46,7 +46,7 @@ use prism_ir::{
     ChangeTrigger, Edge, EdgeKind, EdgeOrigin, LineageEvent, ObservedChangeSet,
     PlanExecutionOverlay, PlanGraph,
 };
-use prism_memory::{OutcomeMemory, OutcomeMemorySnapshot};
+use prism_memory::OutcomeMemory;
 use prism_parser::{LanguageAdapter, ParseDepth, ParseResult};
 use prism_projections::{
     co_change_delta_batch_for_events, CoChangeDelta, ProjectionIndex, ValidationDelta,
@@ -1232,14 +1232,34 @@ impl<S: Store> WorkspaceIndexer<S> {
         let validation_delta_count = validation_deltas.len();
         let deferred_materializer = self.checkpoint_materializer.clone();
         let build_persist_batch_started = Instant::now();
-        let batch = IndexPersistBatch {
+        let shared_runtime_outcomes = self.shared_runtime_store.is_some();
+        let shared_outcome_events = if shared_runtime_outcomes {
+            outcome_events.clone()
+        } else {
+            Vec::new()
+        };
+        let local_outcome_snapshot = if shared_runtime_outcomes || outcome_events.is_empty() {
+            None
+        } else {
+            Some(self.outcomes.snapshot())
+        };
+        let local_outcome_events = if shared_runtime_outcomes {
+            Vec::new()
+        } else {
+            outcome_events
+        };
+        let local_batch = IndexPersistBatch {
             upserted_paths,
             in_place_upserted_paths,
             removed_paths,
-            history_snapshot: self.history.snapshot(),
+            history_snapshot: if history_delta.is_some() {
+                None
+            } else {
+                Some(self.history.snapshot())
+            },
             history_delta,
-            outcome_snapshot: self.outcomes.snapshot(),
-            outcome_events,
+            outcome_snapshot: local_outcome_snapshot,
+            outcome_events: local_outcome_events,
             defer_graph_materialization: deferred_materializer.is_some(),
             co_change_deltas: if deferred_materializer.is_some() {
                 Vec::new()
@@ -1262,11 +1282,6 @@ impl<S: Store> WorkspaceIndexer<S> {
                 workspace_tree_snapshot.clone()
             },
         };
-        let mut local_batch = batch.clone();
-        if self.shared_runtime_store.is_some() {
-            local_batch.outcome_snapshot = OutcomeMemorySnapshot { events: Vec::new() };
-            local_batch.outcome_events.clear();
-        }
         let build_persist_batch_ms = build_persist_batch_started.elapsed().as_millis();
         let skip_persist = self.had_prior_snapshot
             && self.had_projection_snapshot
@@ -1306,14 +1321,14 @@ impl<S: Store> WorkspaceIndexer<S> {
         };
         let shared_outcome_append_started = Instant::now();
         if let Some(shared_runtime_store) = self.shared_runtime_store.as_mut() {
-            if !batch.outcome_events.is_empty() {
+            if !shared_outcome_events.is_empty() {
                 prism_store::EventJournalStore::append_outcome_events(
                     shared_runtime_store,
-                    &batch.outcome_events,
+                    &shared_outcome_events,
                     &[],
                 )?;
                 self.store
-                    .append_local_outcome_projection(&batch.outcome_events)?;
+                    .append_local_outcome_projection(&shared_outcome_events)?;
             }
         }
         let shared_outcome_append_ms = shared_outcome_append_started.elapsed().as_millis();

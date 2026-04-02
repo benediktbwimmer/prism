@@ -176,6 +176,18 @@ fn dirty_workspace_deferred_report(
             "workspaceReloaded": false,
         }),
     );
+    let _ = refresh_cached_runtime_status_for_config(
+        &crate::workspace_diagnostics::WorkspaceDiagnosticsConfig {
+            workspace: Arc::clone(&config.workspace),
+            loaded_workspace_revision: Arc::clone(&config.loaded_workspace_revision),
+            loaded_episodic_revision: Arc::clone(&config.loaded_episodic_revision),
+            loaded_inference_revision: Arc::clone(&config.loaded_inference_revision),
+            loaded_coordination_revision: Arc::clone(&config.loaded_coordination_revision),
+            runtime_engine: Arc::clone(&config.runtime_engine),
+            diagnostics_state: Arc::clone(&config.diagnostics_state),
+            mcp_call_log_store: Arc::clone(&config.mcp_call_log_store),
+        },
+    );
     WorkspaceRefreshReport {
         refresh_path: "deferred",
         runtime_sync_used,

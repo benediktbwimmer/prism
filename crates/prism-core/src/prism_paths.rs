@@ -154,6 +154,71 @@ impl PrismPaths {
         Ok(self.home_root.join("credentials.toml"))
     }
 
+    pub fn trust_dir(&self) -> Result<PathBuf> {
+        self.ensure_home_metadata()?;
+        let path = self.home_root.join("trust");
+        fs::create_dir_all(&path)
+            .with_context(|| format!("failed to create {}", path.display()))?;
+        Ok(path)
+    }
+
+    pub fn trust_bundle_path(&self, bundle_id: &str) -> Result<PathBuf> {
+        let path = self
+            .trust_dir()?
+            .join("bundles")
+            .join(format!("{}.json", storage_component(bundle_id)));
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)
+                .with_context(|| format!("failed to create {}", parent.display()))?;
+        }
+        Ok(path)
+    }
+
+    pub fn trusted_root_path(&self, authority_root_id: &str) -> Result<PathBuf> {
+        let path = self
+            .trust_dir()?
+            .join("roots")
+            .join(format!("{}.json", storage_component(authority_root_id)));
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)
+                .with_context(|| format!("failed to create {}", parent.display()))?;
+        }
+        Ok(path)
+    }
+
+    pub fn trusted_root_key_path(&self, issuer_key_id: &str) -> Result<PathBuf> {
+        let path = self
+            .trust_dir()?
+            .join("root-keys")
+            .join(format!("{}.json", storage_component(issuer_key_id)));
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)
+                .with_context(|| format!("failed to create {}", parent.display()))?;
+        }
+        Ok(path)
+    }
+
+    pub fn runtime_signing_key_path(&self, runtime_key_id: &str) -> Result<PathBuf> {
+        let path = self
+            .trust_dir()?
+            .join("runtime-keys")
+            .join(format!("{}.json", storage_component(runtime_key_id)));
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)
+                .with_context(|| format!("failed to create {}", parent.display()))?;
+        }
+        Ok(path)
+    }
+
+    pub fn runtime_authority_state_path(&self) -> Result<PathBuf> {
+        let path = self.trust_dir()?.join("runtime-authority.json");
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)
+                .with_context(|| format!("failed to create {}", parent.display()))?;
+        }
+        Ok(path)
+    }
+
     pub fn validation_feedback_path(&self) -> Result<PathBuf> {
         self.ensure_home_metadata()?;
         migrate_legacy_file(

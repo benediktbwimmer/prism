@@ -1268,7 +1268,7 @@ fn reload_bounds_hot_outcomes_but_queries_cold_outcomes_from_store() {
         "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
     )
     .unwrap();
-    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\nfn beta() {}\n").unwrap();
 
     let session = index_workspace_session(&root).unwrap();
     let alpha = session
@@ -1881,6 +1881,87 @@ fn repo_concept_events_round_trip_through_committed_jsonl_and_reload() {
     assert_eq!(
         concept.aliases,
         vec!["alpha".to_string(), "alpha flow".to_string()]
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn tampered_repo_concept_stream_is_rejected_on_reload() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let prism = session.prism();
+    let alpha = prism
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+    session
+        .append_concept_event(ConceptEvent {
+            id: "concept-event:repo-tampered".to_string(),
+            recorded_at: 17,
+            task_id: Some("task:repo-concept-tampered".to_string()),
+            actor: None,
+            execution_context: None,
+            action: ConceptEventAction::Promote,
+            patch: None,
+            concept: ConceptPacket {
+                handle: "concept://signed_tampered_alpha".to_string(),
+                canonical_name: "signed_tampered_alpha".to_string(),
+                summary: "Signed concept summary for tamper coverage.".to_string(),
+                aliases: vec!["alpha".to_string()],
+                confidence: 0.91,
+                core_members: vec![alpha.clone(), alpha.clone()],
+                core_member_lineages: vec![prism.lineage_of(&alpha), prism.lineage_of(&alpha)],
+                supporting_members: Vec::new(),
+                supporting_member_lineages: Vec::new(),
+                likely_tests: Vec::new(),
+                likely_test_lineages: Vec::new(),
+                evidence: vec!["Signed publication".to_string()],
+                risk_hint: None,
+                decode_lenses: vec![ConceptDecodeLens::Open],
+                scope: ConceptScope::Repo,
+                provenance: ConceptProvenance {
+                    origin: "test".to_string(),
+                    kind: "repo_concept_tamper".to_string(),
+                    task_id: Some("task:repo-concept-tampered".to_string()),
+                },
+                publication: Some(ConceptPublication {
+                    published_at: 17,
+                    last_reviewed_at: Some(17),
+                    status: ConceptPublicationStatus::Active,
+                    supersedes: Vec::new(),
+                    retired_at: None,
+                    retirement_reason: None,
+                }),
+            },
+        })
+        .unwrap();
+
+    let repo_log = root.join(".prism").join("concepts").join("events.jsonl");
+    let tampered = fs::read_to_string(&repo_log).unwrap().replace(
+        "Signed concept summary for tamper coverage.",
+        "Tampered concept summary for tamper coverage.",
+    );
+    fs::write(&repo_log, tampered).unwrap();
+
+    let error = match index_workspace_session(&root) {
+        Ok(_) => panic!("tampered concept stream should not reload"),
+        Err(error) => error.to_string(),
+    };
+    assert!(
+        error.contains("Tampered") || error.contains("signature verification"),
+        "expected tamper detection error, got: {error}"
     );
 
     let _ = fs::remove_dir_all(root);
@@ -3585,7 +3666,7 @@ fn repo_published_plan_state_merges_snapshot_and_published_views() {
 }
 
 #[test]
-fn published_plan_exports_override_replayed_task_backed_authored_fields() {
+fn derived_published_plan_mirrors_do_not_override_replayed_task_backed_authored_fields() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -3663,20 +3744,20 @@ fn published_plan_exports_override_replayed_task_backed_authored_fields() {
         .load_coordination_plan_state()
         .unwrap()
         .expect("replayed coordination plan state");
-    assert!(state.snapshot.plans.iter().any(|plan| {
-        plan.id == plan_id && plan.goal == "Stale published export should now win"
-    }));
+    assert!(state
+        .snapshot
+        .plans
+        .iter()
+        .any(|plan| { plan.id == plan_id && plan.goal == "Keep replay authoritative" }));
     assert!(state.snapshot.tasks.iter().any(|task| {
-        task.id == task_id
-            && task.plan == plan_id
-            && task.title == "Published task title should now win"
+        task.id == task_id && task.plan == plan_id && task.title == "Ignore stale export artifacts"
     }));
 
     let _ = fs::remove_dir_all(root);
 }
 
 #[test]
-fn refresh_fs_rehydrates_external_published_plan_edits_without_source_changes() {
+fn refresh_fs_ignores_external_derived_plan_mirror_edits_without_source_changes() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -3753,9 +3834,9 @@ fn refresh_fs_rehydrates_external_published_plan_edits_without_source_changes() 
         .snapshot
         .plans
         .iter()
-        .any(|plan| plan.id == plan_id && plan.goal == "Externally edited goal"));
+        .any(|plan| plan.id == plan_id && plan.goal == "Original authored goal"));
     assert!(state.snapshot.tasks.iter().any(|task| {
-        task.id == task_id && task.plan == plan_id && task.title == "Externally edited title"
+        task.id == task_id && task.plan == plan_id && task.title == "Original authored title"
     }));
 
     let _ = fs::remove_dir_all(root);
@@ -4860,7 +4941,7 @@ fn repo_published_plans_archive_transition_emits_archive_event_and_moves_log() {
     let index_contents =
         fs::read_to_string(root.join(".prism").join("plans").join("index.jsonl")).unwrap();
     assert!(index_contents.contains(&format!(
-        "\"log_path\":\".prism/plans/archived/{}.jsonl\"",
+        "\"log_path\":\".prism/plans/streams/{}.jsonl\"",
         plan_id.0
     )));
 
@@ -4882,6 +4963,58 @@ fn repo_published_plans_archive_transition_emits_archive_event_and_moves_log() {
         .plans
         .iter()
         .any(|plan| plan.id == plan_id && plan.status == prism_ir::PlanStatus::Archived));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn tampered_authoritative_plan_stream_is_rejected_on_reload() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let plan_id = session
+        .mutate_coordination(|prism| {
+            prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:tampered-plan-stream"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:tampered-plan-stream")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Signed plan goal".into(),
+                None,
+                Some(Default::default()),
+            )
+        })
+        .unwrap();
+
+    let stream_path = root
+        .join(".prism")
+        .join("plans")
+        .join("streams")
+        .join(format!("{}.jsonl", plan_id.0));
+    let tampered = fs::read_to_string(&stream_path)
+        .unwrap()
+        .replace("Signed plan goal", "Tampered plan goal");
+    fs::write(&stream_path, tampered).unwrap();
+
+    let error = match index_workspace_session(&root) {
+        Ok(_) => panic!("tampered authoritative plan stream should not reload"),
+        Err(error) => error.to_string(),
+    };
+    assert!(
+        error.contains("Tampered") || error.contains("signature verification"),
+        "expected tamper detection error, got: {error}"
+    );
 
     let _ = fs::remove_dir_all(root);
 }
