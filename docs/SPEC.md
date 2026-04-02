@@ -159,6 +159,14 @@ Rules:
 * published projection artifacts are committed because they are useful interfaces, not because they
   replace the underlying ledger
 
+Protected-state runtime import rule:
+
+* repo-published `.prism` streams are imported into live runtime state only by bootstrap or a
+  dedicated protected-state sync mechanism
+* normal read paths must not opportunistically import `.prism` streams as per-domain exceptions
+* the normal source watcher intentionally ignores `.prism`; protected-state imports belong to a
+  separate watcher or sync path so repo-published state does not masquerade as source indexing work
+
 Freshness semantics for projection-facing read surfaces must preserve the repo-wide runtime
 contract documented in [`docs/RUNTIME_REWRITE_ARCHITECTURE.md`](/Users/bene/code/prism/docs/RUNTIME_REWRITE_ARCHITECTURE.md):
 

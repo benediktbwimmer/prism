@@ -5,9 +5,6 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crate::checkpoint_materializer::CheckpointMaterializerHandle;
-use crate::concept_events::load_repo_curated_concepts;
-use crate::concept_relation_events::load_repo_concept_relations;
-use crate::contract_events::load_repo_curated_contracts;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::indexer_support::{
     build_workspace_session, collect_pending_file_parses, path_matches_refresh_scope,
@@ -22,6 +19,9 @@ use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::parse_pipeline::{parse_jobs_in_parallel, PreparedParseJob};
 use crate::patch_outcomes::{default_outcome_meta, RecordedPatchOutcome};
 use crate::projection_hydration::persisted_projection_load_plan;
+use crate::protected_state::runtime_sync::{
+    load_repo_protected_knowledge, sync_repo_protected_state,
+};
 use crate::reanchor::{detect_moved_files, infer_reanchors};
 use crate::repo_patch_events::merge_repo_patch_events_into_memory;
 use crate::session::{
@@ -139,6 +139,8 @@ impl WorkspaceIndexer<SqliteStore> {
             .aliases_sqlite_path(&workspace_store_path);
         let mut shared_runtime_store = SharedRuntimeStore::open(&options.shared_runtime)?;
         if let Some(shared_store) = shared_runtime_store.as_mut() {
+            let repo_knowledge = load_repo_protected_knowledge(&root)?;
+            sync_repo_protected_state(&root, shared_store)?;
             if options.coordination && !shared_runtime_aliases_workspace_store {
                 let plan_state =
                     shared_store.load_hydrated_coordination_plan_state_for_root(&root)?;
@@ -192,12 +194,13 @@ impl WorkspaceIndexer<SqliteStore> {
             }
             .map(OutcomeMemory::from_snapshot)
             .unwrap_or_else(OutcomeMemory::new);
+            merge_repo_patch_events_into_memory(&root, &indexer.outcomes)?;
             indexer.projections = merged_projection_index(
                 base_local_projection_snapshot,
                 base_shared_projection_snapshot,
-                load_repo_curated_concepts(&root)?,
-                load_repo_curated_contracts(&root)?,
-                load_repo_concept_relations(&root)?,
+                repo_knowledge.curated_concepts,
+                repo_knowledge.curated_contracts,
+                repo_knowledge.concept_relations,
                 &indexer.history.snapshot(),
                 &indexer.outcomes.snapshot(),
             );
@@ -356,12 +359,13 @@ impl<S: Store> WorkspaceIndexer<S> {
         let history_snapshot = history.snapshot();
         let outcomes = OutcomeMemory::from_snapshot(prism.outcome_snapshot());
         merge_repo_patch_events_into_memory(&root, &outcomes)?;
+        let repo_knowledge = load_repo_protected_knowledge(&root)?;
         let projections = merged_projection_index(
             Some(prism.projection_snapshot()),
             None,
-            load_repo_curated_concepts(&root)?,
-            load_repo_curated_contracts(&root)?,
-            load_repo_concept_relations(&root)?,
+            repo_knowledge.curated_concepts,
+            repo_knowledge.curated_contracts,
+            repo_knowledge.concept_relations,
             &history_snapshot,
             &outcomes.snapshot(),
         );
@@ -577,12 +581,13 @@ impl<S: Store> WorkspaceIndexer<S> {
         let load_coordination_ms = load_coordination_started.elapsed().as_millis();
         let had_projection_snapshot = load_plan.had_complete_derived_snapshot;
         let derive_projection_started = Instant::now();
+        let repo_knowledge = load_repo_protected_knowledge(&root)?;
         let mut projections = merged_projection_index(
             base_projection_snapshot,
             None,
-            load_repo_curated_concepts(&root)?,
-            load_repo_curated_contracts(&root)?,
-            load_repo_concept_relations(&root)?,
+            repo_knowledge.curated_concepts,
+            repo_knowledge.curated_contracts,
+            repo_knowledge.concept_relations,
             &history.snapshot(),
             &outcomes.snapshot(),
         );

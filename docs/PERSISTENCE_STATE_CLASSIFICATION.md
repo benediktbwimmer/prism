@@ -146,6 +146,26 @@ Rules:
 - Do allow bounded cold reads for large historical domains that are intentionally not fully hydrated in memory.
 - If a query merges hot and cold state, hot state wins on conflicts because it reflects the live daemon truth.
 
+## Protected-State Runtime Import Rule
+
+Repo-published `.prism` streams are protected-state inputs to the live runtime, not ad hoc
+read-path side channels.
+
+The runtime rule is:
+
+- bootstrap may hydrate repo-published `.prism` state into runtime memory
+- a dedicated protected-state sync path may import later `.prism` updates into live runtime state
+- normal read paths must consume current runtime state only and must not opportunistically import
+  `.prism` streams on a per-domain special basis
+
+Watcher responsibilities stay split:
+
+- the normal source watcher continues to ignore `.prism`
+- a dedicated protected-state watcher or equivalent sync mechanism owns live `.prism` imports
+
+That split is intentional. Repo-published protected streams should not trigger normal source
+indexing just because they changed on disk.
+
 ## Restart And Crash Contract
 
 The migration should assume the following restart behavior:

@@ -1796,7 +1796,7 @@ fn sqlite_store_configures_connection_pragmas() {
     assert_eq!(synchronous, 1);
     assert_eq!(temp_store, 2);
     assert_eq!(wal_autocheckpoint, 1000);
-    assert_eq!(user_version, 20);
+    assert_eq!(user_version, 21);
     assert!(indexed_tables.into_iter().all(|count| count == 1));
 
     drop(store);
@@ -3746,7 +3746,7 @@ fn sqlite_store_migrates_snapshot_backed_episodic_memory_to_append_only_log() {
         .conn
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .unwrap();
-    assert_eq!(user_version, 20);
+    assert_eq!(user_version, 21);
 
     let logged_rows: i64 = store
         .conn

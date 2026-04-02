@@ -50,6 +50,7 @@ use super::{
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator_support::build_curator_context;
 use crate::materialization::summarize_workspace_materialization;
+use crate::memory_events::append_repo_memory_event;
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::repo_patch_events::load_repo_patch_events;
 use crate::session::HOT_OUTCOME_HYDRATION_LIMIT;
@@ -2045,6 +2046,92 @@ fn repo_memory_events_round_trip_through_committed_jsonl_and_reload() {
         events[0].promoted_from,
         vec![MemoryId("memory:source".to_string())]
     );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_memory_reads_do_not_lazy_import_new_repo_events_after_startup() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    let mut entry = MemoryEntry::new(MemoryKind::Structural, "published after startup");
+    entry.id = MemoryId("structural:post-startup".to_string());
+    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.scope = MemoryScope::Repo;
+    entry.source = MemorySource::User;
+    entry.trust = 0.9;
+
+    append_repo_memory_event(
+        &root,
+        &MemoryEvent::from_entry(
+            MemoryEventKind::Promoted,
+            entry.clone(),
+            Some("task:post-startup".to_string()),
+            Vec::new(),
+            Vec::new(),
+        ),
+    )
+    .unwrap();
+
+    let live_events = session
+        .memory_events(&MemoryEventQuery {
+            memory_id: Some(entry.id.clone()),
+            focus: Vec::new(),
+            text: None,
+            limit: 5,
+            kinds: None,
+            actions: Some(vec![MemoryEventKind::Promoted]),
+            scope: Some(MemoryScope::Repo),
+            task_id: Some("task:post-startup".to_string()),
+            since: None,
+        })
+        .unwrap();
+    assert!(
+        live_events.is_empty(),
+        "read paths should not lazily import newly published repo memory"
+    );
+    assert_eq!(session.load_episodic_snapshot().unwrap(), None);
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let reloaded_events = reloaded
+        .memory_events(&MemoryEventQuery {
+            memory_id: Some(entry.id.clone()),
+            focus: Vec::new(),
+            text: None,
+            limit: 5,
+            kinds: None,
+            actions: Some(vec![MemoryEventKind::Promoted]),
+            scope: Some(MemoryScope::Repo),
+            task_id: Some("task:post-startup".to_string()),
+            since: None,
+        })
+        .unwrap();
+    assert_eq!(reloaded_events.len(), 1);
+    let reloaded_snapshot = reloaded
+        .load_episodic_snapshot()
+        .unwrap()
+        .expect("bootstrap should hydrate repo memory after restart");
+    assert!(reloaded_snapshot
+        .entries
+        .iter()
+        .any(|candidate| candidate.id == entry.id));
 
     let _ = fs::remove_dir_all(root);
 }

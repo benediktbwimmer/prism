@@ -107,6 +107,16 @@ Repo-committed truth in `.prism` remains durable and special.
 The runtime may be rebuilt from repo-published memories, concepts, plans, and source state.
 The local database is disposable.
 
+Repo-published `.prism` state must follow one runtime import rule:
+
+- bootstrap may hydrate repo-published protected streams into runtime state
+- a dedicated protected-state sync path may import later `.prism` changes into live runtime state
+- normal read paths must not opportunistically import `.prism` streams on a per-domain basis
+
+The normal source watcher must continue to ignore `.prism`.
+That is intentional because repo-published protected streams need a different import path than
+source-code edits; they should not fall back into source indexing by accident.
+
 ### 7. Freshness and materialization are explicit
 
 Freshness must become observable runtime state rather than hidden blocking behavior.

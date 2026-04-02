@@ -61,14 +61,3 @@ pub(crate) fn merge_repo_patch_events_into_memory(
     }
     Ok(count)
 }
-
-pub(crate) fn sync_repo_patch_events<S: prism_store::EventJournalStore>(
-    root: &Path,
-    store: &mut S,
-) -> Result<bool> {
-    let events = load_repo_patch_events(root)?;
-    if events.is_empty() {
-        return Ok(false);
-    }
-    Ok(prism_store::EventJournalStore::append_outcome_events(store, &events, &[])? > 0)
-}
