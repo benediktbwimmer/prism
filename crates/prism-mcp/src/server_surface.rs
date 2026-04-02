@@ -1828,6 +1828,9 @@ impl ServerHandler for PrismMcpServer {
                 capabilities_resource_link()
                     .with_title("PRISM Capabilities")
                     .no_annotation(),
+                protected_state_resource_link()
+                    .with_title("PRISM Protected State")
+                    .no_annotation(),
                 RawResource::new(SESSION_URI, "PRISM Session")
                     .with_description(
                         "Active workspace root, current task context, and runtime query limits",
@@ -1950,6 +1953,18 @@ impl ServerHandler for PrismMcpServer {
                             Some(resource_meta(
                                 "capabilities",
                                 Some(schema_resource_uri("capabilities")),
+                                None,
+                            )),
+                        )?
+                    } else if base_uri == PROTECTED_STATE_URI {
+                        json_resource_contents_with_meta(
+                            self.host
+                                .protected_state_resource_value(uri)
+                                .map_err(map_query_error)?,
+                            request.uri.clone(),
+                            Some(resource_meta(
+                                "protected-state",
+                                Some(schema_resource_uri("protected-state")),
                                 None,
                             )),
                         )?
@@ -2158,6 +2173,12 @@ impl ServerHandler for PrismMcpServer {
                         "PRISM Session Resource Schema",
                         "JSON Schema for the PRISM session resource payload.",
                         "session",
+                    )?,
+                    "protected-state" => schema_resource_contents::<ProtectedStateResourcePayload>(
+                        uri,
+                        "PRISM Protected State Resource Schema",
+                        "JSON Schema for protected .prism stream verification status, trust diagnostics, and repair guidance.",
+                        "protected-state",
                     )?,
                     "vocab" => schema_resource_contents::<VocabularyResourcePayload>(
                         uri,

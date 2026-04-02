@@ -127,6 +127,34 @@ pub(crate) struct SessionResourcePayload {
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct ProtectedStateStreamView {
+    pub(crate) stream: String,
+    pub(crate) stream_id: String,
+    pub(crate) protected_path: String,
+    pub(crate) verification_status: String,
+    pub(crate) last_verified_event_id: Option<String>,
+    pub(crate) last_verified_entry_hash: Option<String>,
+    pub(crate) trust_bundle_id: Option<String>,
+    pub(crate) diagnostic_code: Option<String>,
+    pub(crate) diagnostic_summary: Option<String>,
+    pub(crate) repair_hint: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ProtectedStateResourcePayload {
+    pub(crate) uri: String,
+    pub(crate) schema_uri: String,
+    pub(crate) workspace_root: Option<String>,
+    pub(crate) stream_selector: Option<String>,
+    pub(crate) streams: Vec<ProtectedStateStreamView>,
+    pub(crate) all_verified: bool,
+    pub(crate) non_verified_stream_count: usize,
+    pub(crate) related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct CapabilitiesBuildInfoView {
     pub(crate) server_name: String,
     pub(crate) server_version: String,

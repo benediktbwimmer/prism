@@ -225,7 +225,53 @@ pub enum DocsCommand {
 
 #[derive(Subcommand)]
 pub enum ProtectedStateCommand {
+    Verify {
+        #[arg(long)]
+        stream: Option<String>,
+    },
+    Diagnose {
+        #[arg(long)]
+        stream: Option<String>,
+    },
     MigrateSign,
+    Trust {
+        #[command(subcommand)]
+        command: ProtectedStateTrustCommand,
+    },
+    Quarantine {
+        #[arg(long)]
+        stream: String,
+    },
+    Repair {
+        #[arg(long)]
+        stream: String,
+        #[arg(long, default_value_t = false)]
+        to_last_valid: bool,
+    },
+    ReconcileStream {
+        #[arg(long)]
+        stream: String,
+        #[arg(long = "accepted-head")]
+        accepted_head: String,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum ProtectedStateTrustCommand {
+    Export {
+        #[arg(long = "bundle-id")]
+        bundle_id: Option<String>,
+        #[arg(long)]
+        output: PathBuf,
+        #[arg(long = "root-output")]
+        root_output: Option<PathBuf>,
+    },
+    Import {
+        #[arg(long)]
+        bundle: PathBuf,
+        #[arg(long)]
+        root: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -274,10 +320,13 @@ pub enum MemoryCommand {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use clap::Parser;
 
     use super::{
-        AuthCommand, Cli, Command, DocsCommand, McpCommand, PrincipalCommand, ProtectedStateCommand,
+        AuthCommand, Cli, Command, DocsCommand, McpCommand, PrincipalCommand,
+        ProtectedStateCommand, ProtectedStateTrustCommand,
     };
 
     #[test]
@@ -470,6 +519,80 @@ mod tests {
             Command::ProtectedState {
                 command: ProtectedStateCommand::MigrateSign,
             } => {}
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn protected_state_verify_accepts_optional_stream() {
+        let cli = Cli::parse_from([
+            "prism",
+            "protected-state",
+            "verify",
+            "--stream",
+            "concepts:events",
+        ]);
+        match cli.command {
+            Command::ProtectedState {
+                command: ProtectedStateCommand::Verify { stream },
+            } => assert_eq!(stream.as_deref(), Some("concepts:events")),
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn protected_state_trust_export_parses() {
+        let cli = Cli::parse_from([
+            "prism",
+            "protected-state",
+            "trust",
+            "export",
+            "--bundle-id",
+            "trust-bundle:test",
+            "--output",
+            "bundle.json",
+        ]);
+        match cli.command {
+            Command::ProtectedState {
+                command:
+                    ProtectedStateCommand::Trust {
+                        command:
+                            ProtectedStateTrustCommand::Export {
+                                bundle_id,
+                                output,
+                                root_output,
+                            },
+                    },
+            } => {
+                assert_eq!(bundle_id.as_deref(), Some("trust-bundle:test"));
+                assert_eq!(output, PathBuf::from("bundle.json"));
+                assert!(root_output.is_none());
+            }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn protected_state_repair_to_last_valid_is_opt_in() {
+        let cli = Cli::parse_from([
+            "prism",
+            "protected-state",
+            "repair",
+            "--stream",
+            "concepts:events",
+            "--to-last-valid",
+        ]);
+        match cli.command {
+            Command::ProtectedState {
+                command:
+                    ProtectedStateCommand::Repair {
+                        stream,
+                        to_last_valid,
+                    },
+            } => {
+                assert_eq!(stream, "concepts:events");
+                assert!(to_last_valid);
+            }
             _ => panic!("unexpected command"),
         }
     }

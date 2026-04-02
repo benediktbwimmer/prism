@@ -5,6 +5,7 @@ mod daemon_log;
 mod display;
 mod mcp;
 mod parsing;
+mod protected_state_commands;
 mod runtime;
 
 use anyhow::Result;

@@ -99,6 +99,11 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .unwrap()
         .iter()
         .any(|resource| resource["uri"] == CAPABILITIES_URI));
+    assert!(resources["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == PROTECTED_STATE_URI));
 
     client
         .send(read_resource_request(4, INSTRUCTIONS_URI))
@@ -171,6 +176,11 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .unwrap()
         .iter()
         .any(|resource| resource["uri"] == SESSION_URI));
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == PROTECTED_STATE_URI));
     assert!(capabilities_payload["resources"]
         .as_array()
         .unwrap()
@@ -620,6 +630,87 @@ async fn mcp_server_reads_file_resource_templates_for_workspace_paths() {
 }
 
 #[tokio::test]
+async fn mcp_server_reads_protected_state_resource_for_workspace_streams() {
+    let root = temp_workspace();
+    let server = PrismMcpServer::with_session(index_workspace_session(&root).unwrap());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(read_resource_request(
+            30,
+            "prism://protected-state?stream=concepts%3Aevents",
+        ))
+        .await
+        .unwrap();
+    let protected_state_resource = response_json(client.receive().await.unwrap());
+    let protected_state_payload = serde_json::from_str::<Value>(
+        protected_state_resource["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("protected-state resource should be text"),
+    )
+    .unwrap();
+    assert_eq!(
+        protected_state_payload["uri"],
+        "prism://protected-state?stream=concepts%3Aevents"
+    );
+    assert_eq!(protected_state_payload["streamSelector"], "concepts:events");
+    assert_eq!(protected_state_payload["allVerified"], true);
+    assert_eq!(protected_state_payload["nonVerifiedStreamCount"], 0);
+    assert_eq!(
+        protected_state_payload["streams"][0]["streamId"],
+        "concepts:events"
+    );
+    assert_eq!(
+        protected_state_payload["streams"][0]["verificationStatus"],
+        "Verified"
+    );
+    assert_eq!(
+        protected_state_payload["streams"][0]["protectedPath"],
+        ".prism/concepts/events.jsonl"
+    );
+    assert_eq!(
+        protected_state_payload["streams"][0]["diagnosticCode"],
+        Value::Null
+    );
+    assert!(protected_state_payload["relatedResources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == "prism://schema/protected-state"));
+
+    client
+        .send(read_resource_request(31, "prism://schema/protected-state"))
+        .await
+        .unwrap();
+    let protected_state_schema = response_json(client.receive().await.unwrap());
+    let protected_state_schema_payload = serde_json::from_str::<Value>(
+        protected_state_schema["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("protected-state schema should be text"),
+    )
+    .unwrap();
+    assert_eq!(
+        protected_state_schema_payload["$id"],
+        "prism://schema/protected-state"
+    );
+    assert_eq!(
+        protected_state_schema_payload["title"],
+        "PRISM Protected State Resource Schema"
+    );
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn mcp_server_lists_and_reads_plan_detail_resources() {
     let server = server_with_node(demo_node());
     let plan = server
@@ -855,6 +946,12 @@ async fn schema_catalog_and_capabilities_surface_stable_examples() {
         .as_array()
         .unwrap()
         .iter()
+        .any(|resource| resource["name"] == "PRISM Protected State"
+            && resource["exampleUri"] == "prism://protected-state?stream=concepts%3Aevents"));
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
         .any(|resource| resource["name"] == "PRISM Vocabulary"
             && resource["exampleUri"] == "prism://vocab"));
     assert!(capabilities_payload["tools"]
@@ -881,6 +978,16 @@ async fn schema_catalog_and_capabilities_surface_stable_examples() {
         .find(|entry| entry["resourceKind"] == "plan")
         .expect("plan schema entry should exist");
     assert_eq!(plan_entry["exampleUri"], "prism://plan/plan%3A1");
+    let protected_state_entry = catalog_payload["schemas"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["resourceKind"] == "protected-state")
+        .expect("protected-state schema entry should exist");
+    assert_eq!(
+        protected_state_entry["exampleUri"],
+        "prism://protected-state?stream=concepts%3Aevents"
+    );
 
     running.cancel().await.unwrap();
 }

@@ -69,6 +69,14 @@ pub use prism_paths::PrismPaths;
 pub use protected_state::migration::{
     migrate_legacy_protected_repo_state, ProtectedStateMigrationReport,
 };
+pub use protected_state::operators::{
+    diagnose_protected_state, export_protected_state_trust_material,
+    import_protected_state_trust_material, quarantine_protected_state_stream,
+    reconcile_protected_state_stream, repair_protected_state_stream_to_last_valid,
+    verify_protected_state, ProtectedStateQuarantineReport, ProtectedStateReconcileReport,
+    ProtectedStateRepairReport, ProtectedStateStreamReport, ProtectedStateTrustExport,
+    ProtectedStateTrustImportReport, ProtectedStateVerifyReport,
+};
 pub use session::{
     CoordinationPlanState, FsRefreshStatus, WorkspaceFsRefreshOutcome, WorkspaceRefreshBreakdown,
     WorkspaceRefreshWork, WorkspaceSession, WorkspaceSnapshotRevisions,

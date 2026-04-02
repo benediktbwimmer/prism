@@ -1,7 +1,6 @@
 use anyhow::Result;
 use prism_core::{
-    index_workspace_session, migrate_legacy_protected_repo_state, PrismDocSyncStatus,
-    ValidationFeedbackRecord, WorkspaceSession,
+    index_workspace_session, PrismDocSyncStatus, ValidationFeedbackRecord, WorkspaceSession,
 };
 use prism_ir::{AnchorRef, EventActor, EventMeta, TaskId};
 use prism_memory::{
@@ -11,8 +10,7 @@ use prism_memory::{
 
 use crate::auth_commands::{handle_auth_command, handle_principal_command};
 use crate::cli::{
-    Cli, Command, DocsCommand, FeedbackCommand, MemoryCommand, OutcomeCommand,
-    ProtectedStateCommand, TaskCommand,
+    Cli, Command, DocsCommand, FeedbackCommand, MemoryCommand, OutcomeCommand, TaskCommand,
 };
 use crate::display::{
     print_lineage, print_memory_event, print_relation_section, print_relations,
@@ -24,6 +22,7 @@ use crate::parsing::{
     parse_node_kind_filter, parse_outcome_kind, parse_outcome_result,
     parse_validation_feedback_category, parse_validation_feedback_verdict,
 };
+use crate::protected_state_commands::handle_protected_state_command;
 use crate::runtime::{
     build_memory_entry, build_memory_event, build_recall_query, build_task_event, current_event_id,
     current_timestamp, git_diff_summary, load_session_memory, record_outcome_event,
@@ -244,29 +243,6 @@ pub fn run(cli: Cli) -> Result<()> {
         Command::ProtectedState { .. } => unreachable!("handled above"),
     }
 
-    Ok(())
-}
-
-fn handle_protected_state_command(
-    root: &std::path::Path,
-    command: ProtectedStateCommand,
-) -> Result<()> {
-    match command {
-        ProtectedStateCommand::MigrateSign => {
-            let report = migrate_legacy_protected_repo_state(root)?;
-            if report.migrated_stream_count == 0 {
-                println!("no legacy protected streams required migration");
-            } else {
-                println!(
-                    "migrated {} protected stream(s), {} event(s)",
-                    report.migrated_stream_count, report.migrated_event_count
-                );
-                for path in report.migrated_paths {
-                    println!("{}", path.display());
-                }
-            }
-        }
-    }
     Ok(())
 }
 

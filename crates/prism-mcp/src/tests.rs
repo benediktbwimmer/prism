@@ -16271,7 +16271,9 @@ fn repo_published_memory_retains_declared_work_context_without_runtime_db() {
             PrismDeclareWorkArgs {
                 title: "Publish self-contained repo memory".to_string(),
                 kind: Some(WorkDeclarationKindInput::AdHoc),
-                summary: Some("Cold clones should still understand why this memory exists.".to_string()),
+                summary: Some(
+                    "Cold clones should still understand why this memory exists.".to_string(),
+                ),
                 parent_work_id: None,
                 coordination_task_id: None,
                 plan_id: None,

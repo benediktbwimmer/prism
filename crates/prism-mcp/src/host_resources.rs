@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use prism_agent::EdgeId;
+use prism_core::diagnose_protected_state;
 use prism_ir::{AnchorRef, CoordinationTaskId, EventId, LineageId, NodeId, PlanId, TaskId};
 use prism_memory::{MemoryEventQuery, MemoryId};
 use serde_json::json;
@@ -18,9 +19,9 @@ use crate::{
     memory_event_view, memory_resource_uri, memory_resource_view_link, owner_views_for_query,
     paginate_items, parse_resource_page, parse_resource_query_param, plan_resource_uri,
     plan_resource_view_link, plan_summary_view, plan_view, plans_resource_view_link,
-    plans_resource_view_link_with_options, resource_link_view, resource_schema_catalog_entries,
-    schema_resource_uri, schema_resource_view_link, schemas_resource_uri,
-    schemas_resource_view_link, search_ambiguity_from_diagnostics,
+    plans_resource_view_link_with_options, protected_state_resource_view_link, resource_link_view,
+    resource_schema_catalog_entries, schema_resource_uri, schema_resource_view_link,
+    schemas_resource_uri, schemas_resource_view_link, search_ambiguity_from_diagnostics,
     search_resource_view_link_with_options, session_resource_uri, session_resource_view_link,
     symbol_for, symbol_resource_uri, symbol_resource_view_link, symbol_resource_view_link_for_id,
     symbol_view, symbol_views_for_ids, task_heartbeat_advice, task_heartbeat_next_action,
@@ -30,11 +31,11 @@ use crate::{
     CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
     EventResourcePayload, FeatureFlagsView, FileResourcePayload, InferredEdgeRecordView,
     LineageResourcePayload, MemoryResourcePayload, PlanResourcePayload, PlansQueryArgs,
-    PlansResourcePayload, QueryExecution, QueryHost, ResourceSchemaCatalogPayload, SearchArgs,
-    SearchResourcePayload, SessionLimitsView, SessionRepairActionView, SessionResourcePayload,
-    SessionState, SessionTaskView, SessionView, SessionWorkView, SymbolResourcePayload,
-    TaskHeartbeatAdvice, TaskResourcePayload, VocabularyResourcePayload,
-    DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    PlansResourcePayload, ProtectedStateResourcePayload, ProtectedStateStreamView, QueryExecution,
+    QueryHost, ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload, SessionLimitsView,
+    SessionRepairActionView, SessionResourcePayload, SessionState, SessionTaskView, SessionView,
+    SessionWorkView, SymbolResourcePayload, TaskHeartbeatAdvice, TaskResourcePayload,
+    VocabularyResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
     DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
 };
 
@@ -196,9 +197,60 @@ impl QueryHost {
         })
     }
 
+    pub(crate) fn protected_state_resource_value(
+        &self,
+        uri: &str,
+    ) -> Result<ProtectedStateResourcePayload> {
+        self.execute_traced_resource_read("protected-state", uri, || {
+            let workspace_root = self.workspace_root().ok_or_else(|| {
+                anyhow!("protected-state resource requires a workspace-backed session")
+            })?;
+            let stream_selector =
+                parse_resource_query_param(uri, "stream").filter(|value| !value.is_empty());
+            let streams = diagnose_protected_state(workspace_root, stream_selector.as_deref())?
+                .into_iter()
+                .map(|report| ProtectedStateStreamView {
+                    stream: report.stream,
+                    stream_id: report.stream_id,
+                    protected_path: report.protected_path,
+                    verification_status: report.verification_status,
+                    last_verified_event_id: report.last_verified_event_id,
+                    last_verified_entry_hash: report.last_verified_entry_hash,
+                    trust_bundle_id: report.trust_bundle_id,
+                    diagnostic_code: report.diagnostic_code,
+                    diagnostic_summary: report.diagnostic_summary,
+                    repair_hint: report.repair_hint,
+                })
+                .collect::<Vec<_>>();
+            let non_verified_stream_count = streams
+                .iter()
+                .filter(|stream| stream.verification_status != "Verified")
+                .count();
+            let related_resources = dedupe_resource_link_views(vec![
+                instructions_resource_view_link(),
+                capabilities_resource_view_link(),
+                session_resource_view_link(),
+                protected_state_resource_view_link(),
+                schema_resource_view_link("protected-state"),
+                schemas_resource_view_link(),
+            ]);
+            Ok(ProtectedStateResourcePayload {
+                uri: uri.to_string(),
+                schema_uri: schema_resource_uri("protected-state"),
+                workspace_root: Some(workspace_root.display().to_string()),
+                stream_selector,
+                streams,
+                all_verified: non_verified_stream_count == 0,
+                non_verified_stream_count,
+                related_resources,
+            })
+        })
+    }
+
     pub(crate) fn schemas_resource_value(&self) -> ResourceSchemaCatalogPayload {
         let mut related_resources = vec![
             capabilities_resource_view_link(),
+            protected_state_resource_view_link(),
             schemas_resource_view_link(),
             vocab_resource_view_link(),
             schema_resource_view_link("schemas"),

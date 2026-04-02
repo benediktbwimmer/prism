@@ -13,8 +13,8 @@ use crate::{
     CONTRACTS_URI, EDGE_RESOURCE_TEMPLATE_URI, ENTRYPOINTS_RESOURCE_TEMPLATE_URI,
     EVENT_RESOURCE_TEMPLATE_URI, FILE_RESOURCE_TEMPLATE_URI, LINEAGE_RESOURCE_TEMPLATE_URI,
     MEMORY_RESOURCE_TEMPLATE_URI, PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI,
-    PLAN_RESOURCE_TEMPLATE_URI, SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI,
-    SYMBOL_RESOURCE_TEMPLATE_URI, TASK_RESOURCE_TEMPLATE_URI,
+    PLAN_RESOURCE_TEMPLATE_URI, PROTECTED_STATE_URI, SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI,
+    SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI, TASK_RESOURCE_TEMPLATE_URI,
     TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI, TOOL_SCHEMA_RESOURCE_TEMPLATE_URI,
     VOCAB_URI,
 };
@@ -625,6 +625,16 @@ fn resource_capabilities() -> Vec<ResourceCapabilityView> {
                 .to_string(),
             schema_uri: Some(schema_resource_uri("session")),
             example_uri: resource_example_uri("session"),
+        },
+        ResourceCapabilityView {
+            name: "PRISM Protected State".to_string(),
+            uri: PROTECTED_STATE_URI.to_string(),
+            mime_type: "application/json".to_string(),
+            description:
+                "Protected .prism stream verification status, trust diagnostics, and repair guidance."
+                    .to_string(),
+            schema_uri: Some(schema_resource_uri("protected-state")),
+            example_uri: resource_example_uri("protected-state"),
         },
         ResourceCapabilityView {
             name: "PRISM Vocabulary".to_string(),

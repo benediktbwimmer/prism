@@ -17,8 +17,8 @@ use crate::{
     CAPABILITIES_URI, CONTRACTS_RESOURCE_TEMPLATE_URI, CONTRACTS_URI, EDGE_RESOURCE_TEMPLATE_URI,
     ENTRYPOINTS_RESOURCE_TEMPLATE_URI, EVENT_RESOURCE_TEMPLATE_URI, FILE_RESOURCE_TEMPLATE_URI,
     INSTRUCTIONS_URI, LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI,
-    PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI, PLAN_RESOURCE_TEMPLATE_URI, SCHEMAS_URI,
-    SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
+    PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI, PLAN_RESOURCE_TEMPLATE_URI, PROTECTED_STATE_URI,
+    SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
     TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI, VOCAB_URI,
 };
 
@@ -378,6 +378,19 @@ pub(crate) fn capabilities_resource_uri() -> String {
     CAPABILITIES_URI.to_string()
 }
 
+pub(crate) fn protected_state_resource_uri() -> String {
+    PROTECTED_STATE_URI.to_string()
+}
+
+pub(crate) fn protected_state_resource_uri_with_options(stream: Option<&str>) -> String {
+    let mut uri = protected_state_resource_uri();
+    if let Some(stream) = stream.filter(|value| !value.is_empty()) {
+        uri.push_str("?stream=");
+        uri.push_str(&percent_encode_component(stream));
+    }
+    uri
+}
+
 pub(crate) fn plans_resource_uri() -> String {
     PLANS_URI.to_string()
 }
@@ -619,6 +632,19 @@ pub(crate) fn capabilities_resource_link() -> RawResource {
         ))
 }
 
+pub(crate) fn protected_state_resource_link() -> RawResource {
+    RawResource::new(protected_state_resource_uri(), "PRISM Protected State")
+        .with_description(
+            "Protected .prism stream verification status, trust diagnostics, and repair guidance",
+        )
+        .with_mime_type("application/json")
+        .with_meta(resource_meta(
+            "protected-state",
+            Some(schema_resource_uri("protected-state")),
+            None,
+        ))
+}
+
 pub(crate) fn plans_resource_link() -> RawResource {
     RawResource::new(plans_resource_uri(), "PRISM Plans")
         .with_description(
@@ -717,6 +743,14 @@ pub(crate) fn capabilities_resource_view_link() -> ResourceLinkView {
         capabilities_resource_uri(),
         "PRISM Capabilities",
         "Canonical capability map for query methods, resources, features, and build info",
+    )
+}
+
+pub(crate) fn protected_state_resource_view_link() -> ResourceLinkView {
+    resource_link_view(
+        protected_state_resource_uri(),
+        "PRISM Protected State",
+        "Protected .prism stream verification status, trust diagnostics, and repair guidance",
     )
 }
 
@@ -998,6 +1032,15 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             example_uri: resource_example_uri("session"),
             description: "Schema for the active workspace, task context, and runtime limits."
                 .to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "protected-state".to_string(),
+            schema_uri: schema_resource_uri("protected-state"),
+            resource_uri: Some(PROTECTED_STATE_URI.to_string()),
+            example_uri: resource_example_uri("protected-state"),
+            description:
+                "Schema for protected .prism stream verification status, trust diagnostics, and repair hints."
+                    .to_string(),
         },
         ResourceSchemaCatalogEntry {
             resource_kind: "tool-schemas".to_string(),

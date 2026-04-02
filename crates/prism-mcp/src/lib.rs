@@ -152,6 +152,7 @@ const INSTRUCTIONS_URI: &str = "prism://instructions";
 const ENTRYPOINTS_URI: &str = "prism://entrypoints";
 const CAPABILITIES_URI: &str = "prism://capabilities";
 const SESSION_URI: &str = "prism://session";
+const PROTECTED_STATE_URI: &str = "prism://protected-state";
 const PLANS_URI: &str = "prism://plans";
 const CONTRACTS_URI: &str = "prism://contracts";
 const FILE_RESOURCE_TEMPLATE_URI: &str =

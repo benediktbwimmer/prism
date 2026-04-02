@@ -3,9 +3,10 @@ use serde_json::{json, Value};
 use crate::{
     capabilities_resource_uri, contracts_resource_uri_with_options, edge_resource_uri,
     event_resource_uri, file_resource_uri_with_options, instructions_resource_uri,
-    memory_resource_uri, plan_resource_uri, plans_resource_uri, schema_resource_uri,
-    session_resource_uri, symbol_resource_uri_from_node_id, task_resource_uri,
-    tool_schema_resource_uri, vocab_resource_uri, API_REFERENCE_URI,
+    memory_resource_uri, plan_resource_uri, plans_resource_uri, protected_state_resource_uri,
+    protected_state_resource_uri_with_options, schema_resource_uri, session_resource_uri,
+    symbol_resource_uri_from_node_id, task_resource_uri, tool_schema_resource_uri,
+    vocab_resource_uri, API_REFERENCE_URI,
 };
 use prism_ir::{EdgeKind, NodeId};
 
@@ -22,6 +23,7 @@ pub(crate) fn resource_example_uri(resource_kind: &str) -> Option<String> {
         "capabilities" => Some(capabilities_resource_uri()),
         "schemas" => Some("prism://schemas".to_string()),
         "session" => Some(session_resource_uri()),
+        "protected-state" => Some(protected_state_resource_uri_with_options(Some("concepts:events"))),
         "vocab" => Some(vocab_resource_uri()),
         "tool-schemas" => Some("prism://tool-schemas".to_string()),
         "plans" => Some("prism://plans?contains=persistence&limit=5".to_string()),
@@ -577,6 +579,7 @@ fn resource_payload_example(resource_kind: &str) -> Option<Value> {
         "capabilities" => Some(capabilities_payload_example()),
         "schemas" => Some(resource_schema_catalog_payload_example()),
         "session" => Some(session_payload_example()),
+        "protected-state" => Some(protected_state_payload_example()),
         "vocab" => Some(vocab_payload_example()),
         "tool-schemas" => Some(tool_schema_catalog_payload_example()),
         "plans" => Some(plans_payload_example()),
@@ -618,6 +621,30 @@ fn session_payload_example() -> Value {
         "currentAgent": "codex",
         "limits": sample_limits(),
         "features": sample_features(),
+        "relatedResources": sample_related_resources(),
+    })
+}
+
+fn protected_state_payload_example() -> Value {
+    json!({
+        "uri": protected_state_resource_uri_with_options(Some("concepts:events")),
+        "schemaUri": schema_resource_uri("protected-state"),
+        "workspaceRoot": "/workspace/demo",
+        "streamSelector": "concepts:events",
+        "streams": [{
+            "stream": "repo_concept_events",
+            "streamId": "concepts:events",
+            "protectedPath": ".prism/concepts/events.jsonl",
+            "verificationStatus": "LegacyUnsigned",
+            "lastVerifiedEventId": null,
+            "lastVerifiedEntryHash": null,
+            "trustBundleId": null,
+            "diagnosticCode": "protected_stream_legacy_unsigned",
+            "diagnosticSummary": "protected stream .prism/concepts/events.jsonl still uses unsigned legacy records at line 1",
+            "repairHint": "run an explicit migrate-sign flow before using this stream authoritatively"
+        }],
+        "allVerified": false,
+        "nonVerifiedStreamCount": 1,
         "relatedResources": sample_related_resources(),
     })
 }
@@ -700,6 +727,13 @@ fn capabilities_payload_example() -> Value {
             "description": "Active workspace root, task context, limits, and feature flags.",
             "schemaUri": schema_resource_uri("session"),
             "exampleUri": session_resource_uri(),
+        }, {
+            "name": "PRISM Protected State",
+            "uri": protected_state_resource_uri(),
+            "mimeType": "application/json",
+            "description": "Protected .prism stream verification status, trust diagnostics, and repair guidance.",
+            "schemaUri": schema_resource_uri("protected-state"),
+            "exampleUri": resource_example_uri("protected-state"),
         }, {
             "name": "PRISM Vocabulary",
             "uri": vocab_resource_uri(),
