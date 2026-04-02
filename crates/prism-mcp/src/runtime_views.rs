@@ -12,11 +12,16 @@ use prism_core::runtime_engine::{
 };
 use prism_core::{PrismPaths, WorkspaceSession};
 use prism_js::{
-    ConnectionInfoView, RuntimeBoundaryRegionView, RuntimeDomainFreshnessView,
-    RuntimeFreshnessView, RuntimeHealthView, RuntimeLogEventView,
-    RuntimeMaterializationCoverageView, RuntimeMaterializationItemView, RuntimeMaterializationView,
-    RuntimeOverlayScopeView, RuntimeProcessView, RuntimeProjectionScopeView, RuntimeQueueDepthView,
-    RuntimeScopesView, RuntimeStatusView,
+    ConnectionInfoView, ProjectionAuthorityPlaneView, ProjectionClassView,
+    ProjectionFreshnessStateView, ProjectionMaterializationStateView, ProjectionReadModelView,
+    RuntimeBoundaryRegionView, RuntimeDomainFreshnessView, RuntimeFreshnessView, RuntimeHealthView,
+    RuntimeLogEventView, RuntimeMaterializationCoverageView, RuntimeMaterializationItemView,
+    RuntimeMaterializationView, RuntimeOverlayScopeView, RuntimeProcessView,
+    RuntimeProjectionScopeView, RuntimeQueueDepthView, RuntimeScopesView, RuntimeStatusView,
+};
+use prism_projections::{
+    ProjectionAuthorityPlane, ProjectionClass, ProjectionFreshnessState,
+    ProjectionMaterializationState, ProjectionReadModel,
 };
 use serde::Deserialize;
 use serde_json::{Map, Value};
@@ -292,6 +297,7 @@ fn runtime_status_from_inputs(
     let bridge_counts = classify_bridges(&bridges, &connected_bridge_pids);
     let connection =
         daemon_connection_info(inputs.root, &paths, &daemons, process_error.as_deref())?;
+    let freshness = runtime_freshness_from_inputs(inputs, runtime_state)?;
 
     Ok(RuntimeStatusView {
         root: inputs.root.display().to_string(),
@@ -318,8 +324,8 @@ fn runtime_status_from_inputs(
             .map(|process| runtime_process_view(process, &connected_bridge_pids))
             .collect(),
         process_error,
-        scopes: runtime_scopes_from_prism(inputs.prism.as_ref()),
-        freshness: runtime_freshness_from_inputs(inputs, runtime_state)?,
+        scopes: runtime_scopes_from_prism(inputs.prism.as_ref(), &freshness),
+        freshness,
     })
 }
 
@@ -524,15 +530,24 @@ fn runtime_queue_class_label(
     }
 }
 
-fn runtime_scopes_from_prism(prism: &prism_query::Prism) -> RuntimeScopesView {
+fn runtime_scopes_from_prism(
+    prism: &prism_query::Prism,
+    freshness: &RuntimeFreshnessView,
+) -> RuntimeScopesView {
     let (co_change_lineage_count, validation_lineage_count) = prism.projection_lineage_counts();
     let concepts = prism.curated_concepts_snapshot();
     let relations = prism.concept_relations_snapshot();
     let contracts = prism.curated_contracts();
+    let worktree_freshness = projection_freshness(freshness);
+    let worktree_materialization = projection_materialization(freshness);
 
     let projections = vec![
         RuntimeProjectionScopeView {
             scope: "repo".to_string(),
+            projection_class: ProjectionClassView::Serving,
+            authority_planes: vec![ProjectionAuthorityPlaneView::PublishedRepo],
+            freshness: ProjectionFreshnessStateView::Current,
+            materialization: ProjectionMaterializationStateView::Materialized,
             concept_count: concepts
                 .iter()
                 .filter(|concept| scope_label(&concept.scope) == "repo")
@@ -547,9 +562,48 @@ fn runtime_scopes_from_prism(prism: &prism_query::Prism) -> RuntimeScopesView {
                 .count(),
             co_change_lineage_count: 0,
             validation_lineage_count: 0,
+            read_models: vec![
+                projection_read_model_view(ProjectionReadModel::serving(
+                    "curated_concepts",
+                    vec![ProjectionAuthorityPlane::PublishedRepo],
+                    ProjectionFreshnessState::Current,
+                    ProjectionMaterializationState::Materialized,
+                    concepts
+                        .iter()
+                        .filter(|concept| scope_label(&concept.scope) == "repo")
+                        .count(),
+                )),
+                projection_read_model_view(ProjectionReadModel::serving(
+                    "concept_relations",
+                    vec![ProjectionAuthorityPlane::PublishedRepo],
+                    ProjectionFreshnessState::Current,
+                    ProjectionMaterializationState::Materialized,
+                    relations
+                        .iter()
+                        .filter(|relation| scope_label(&relation.scope) == "repo")
+                        .count(),
+                )),
+                projection_read_model_view(ProjectionReadModel::serving(
+                    "curated_contracts",
+                    vec![ProjectionAuthorityPlane::PublishedRepo],
+                    ProjectionFreshnessState::Current,
+                    ProjectionMaterializationState::Materialized,
+                    contracts
+                        .iter()
+                        .filter(|contract| scope_label(&contract.scope) == "repo")
+                        .count(),
+                )),
+            ],
         },
         RuntimeProjectionScopeView {
             scope: "worktree".to_string(),
+            projection_class: ProjectionClassView::Serving,
+            authority_planes: vec![
+                ProjectionAuthorityPlaneView::PublishedRepo,
+                ProjectionAuthorityPlaneView::SharedRuntime,
+            ],
+            freshness: projection_freshness_state_view(worktree_freshness),
+            materialization: projection_materialization_state_view(worktree_materialization),
             concept_count: concepts
                 .iter()
                 .filter(|concept| scope_label(&concept.scope) == "local")
@@ -564,9 +618,65 @@ fn runtime_scopes_from_prism(prism: &prism_query::Prism) -> RuntimeScopesView {
                 .count(),
             co_change_lineage_count,
             validation_lineage_count,
+            read_models: vec![
+                projection_read_model_view(ProjectionReadModel::serving(
+                    "curated_concepts",
+                    vec![ProjectionAuthorityPlane::SharedRuntime],
+                    worktree_freshness,
+                    ProjectionMaterializationState::Materialized,
+                    concepts
+                        .iter()
+                        .filter(|concept| scope_label(&concept.scope) == "local")
+                        .count(),
+                )),
+                projection_read_model_view(ProjectionReadModel::serving(
+                    "concept_relations",
+                    vec![ProjectionAuthorityPlane::SharedRuntime],
+                    worktree_freshness,
+                    ProjectionMaterializationState::Materialized,
+                    relations
+                        .iter()
+                        .filter(|relation| scope_label(&relation.scope) == "local")
+                        .count(),
+                )),
+                projection_read_model_view(ProjectionReadModel::serving(
+                    "curated_contracts",
+                    vec![ProjectionAuthorityPlane::SharedRuntime],
+                    worktree_freshness,
+                    ProjectionMaterializationState::Materialized,
+                    contracts
+                        .iter()
+                        .filter(|contract| scope_label(&contract.scope) == "local")
+                        .count(),
+                )),
+                projection_read_model_view(ProjectionReadModel::serving(
+                    "co_change",
+                    vec![
+                        ProjectionAuthorityPlane::PublishedRepo,
+                        ProjectionAuthorityPlane::SharedRuntime,
+                    ],
+                    worktree_freshness,
+                    worktree_materialization,
+                    co_change_lineage_count,
+                )),
+                projection_read_model_view(ProjectionReadModel::serving(
+                    "validation",
+                    vec![
+                        ProjectionAuthorityPlane::PublishedRepo,
+                        ProjectionAuthorityPlane::SharedRuntime,
+                    ],
+                    worktree_freshness,
+                    worktree_materialization,
+                    validation_lineage_count,
+                )),
+            ],
         },
         RuntimeProjectionScopeView {
             scope: "session".to_string(),
+            projection_class: ProjectionClassView::Serving,
+            authority_planes: vec![ProjectionAuthorityPlaneView::SharedRuntime],
+            freshness: ProjectionFreshnessStateView::Current,
+            materialization: ProjectionMaterializationStateView::Materialized,
             concept_count: concepts
                 .iter()
                 .filter(|concept| scope_label(&concept.scope) == "session")
@@ -581,6 +691,38 @@ fn runtime_scopes_from_prism(prism: &prism_query::Prism) -> RuntimeScopesView {
                 .count(),
             co_change_lineage_count: 0,
             validation_lineage_count: 0,
+            read_models: vec![
+                projection_read_model_view(ProjectionReadModel::serving(
+                    "curated_concepts",
+                    vec![ProjectionAuthorityPlane::SharedRuntime],
+                    ProjectionFreshnessState::Current,
+                    ProjectionMaterializationState::Materialized,
+                    concepts
+                        .iter()
+                        .filter(|concept| scope_label(&concept.scope) == "session")
+                        .count(),
+                )),
+                projection_read_model_view(ProjectionReadModel::serving(
+                    "concept_relations",
+                    vec![ProjectionAuthorityPlane::SharedRuntime],
+                    ProjectionFreshnessState::Current,
+                    ProjectionMaterializationState::Materialized,
+                    relations
+                        .iter()
+                        .filter(|relation| scope_label(&relation.scope) == "session")
+                        .count(),
+                )),
+                projection_read_model_view(ProjectionReadModel::serving(
+                    "curated_contracts",
+                    vec![ProjectionAuthorityPlane::SharedRuntime],
+                    ProjectionFreshnessState::Current,
+                    ProjectionMaterializationState::Materialized,
+                    contracts
+                        .iter()
+                        .filter(|contract| scope_label(&contract.scope) == "session")
+                        .count(),
+                )),
+            ],
         },
     ];
     let coordination = prism.coordination_snapshot();
@@ -623,6 +765,100 @@ fn overlay_scope_views(
                 .count(),
         },
     ]
+}
+
+fn projection_read_model_view(model: ProjectionReadModel) -> ProjectionReadModelView {
+    ProjectionReadModelView {
+        name: model.name,
+        projection_class: projection_class_view(model.projection_class),
+        authority_planes: model
+            .authority_planes
+            .into_iter()
+            .map(projection_authority_plane_view)
+            .collect(),
+        freshness: projection_freshness_state_view(model.freshness),
+        materialization: projection_materialization_state_view(model.materialization),
+        entry_count: model.entry_count,
+    }
+}
+
+fn projection_class_view(class: ProjectionClass) -> ProjectionClassView {
+    match class {
+        ProjectionClass::Published => ProjectionClassView::Published,
+        ProjectionClass::Serving => ProjectionClassView::Serving,
+        ProjectionClass::AdHoc => ProjectionClassView::AdHoc,
+    }
+}
+
+fn projection_authority_plane_view(
+    plane: ProjectionAuthorityPlane,
+) -> ProjectionAuthorityPlaneView {
+    match plane {
+        ProjectionAuthorityPlane::PublishedRepo => ProjectionAuthorityPlaneView::PublishedRepo,
+        ProjectionAuthorityPlane::SharedRuntime => ProjectionAuthorityPlaneView::SharedRuntime,
+    }
+}
+
+fn projection_freshness_state_view(
+    state: ProjectionFreshnessState,
+) -> ProjectionFreshnessStateView {
+    match state {
+        ProjectionFreshnessState::Current => ProjectionFreshnessStateView::Current,
+        ProjectionFreshnessState::Pending => ProjectionFreshnessStateView::Pending,
+        ProjectionFreshnessState::Stale => ProjectionFreshnessStateView::Stale,
+        ProjectionFreshnessState::Recovery => ProjectionFreshnessStateView::Recovery,
+        ProjectionFreshnessState::Deferred => ProjectionFreshnessStateView::Deferred,
+        ProjectionFreshnessState::Unknown => ProjectionFreshnessStateView::Unknown,
+    }
+}
+
+fn projection_materialization_state_view(
+    state: ProjectionMaterializationState,
+) -> ProjectionMaterializationStateView {
+    match state {
+        ProjectionMaterializationState::Materialized => {
+            ProjectionMaterializationStateView::Materialized
+        }
+        ProjectionMaterializationState::Partial => ProjectionMaterializationStateView::Partial,
+        ProjectionMaterializationState::Deferred => ProjectionMaterializationStateView::Deferred,
+        ProjectionMaterializationState::KnownUnmaterialized => {
+            ProjectionMaterializationStateView::KnownUnmaterialized
+        }
+    }
+}
+
+fn projection_freshness(freshness: &RuntimeFreshnessView) -> ProjectionFreshnessState {
+    if freshness.last_refresh_path.as_deref() == Some("recovery") {
+        return ProjectionFreshnessState::Recovery;
+    }
+    match freshness.status.as_str() {
+        "current" => ProjectionFreshnessState::Current,
+        "refresh-queued" => ProjectionFreshnessState::Pending,
+        "deferred" => ProjectionFreshnessState::Deferred,
+        "stale" => ProjectionFreshnessState::Stale,
+        "unknown" => ProjectionFreshnessState::Unknown,
+        _ => ProjectionFreshnessState::Unknown,
+    }
+}
+
+fn projection_materialization(freshness: &RuntimeFreshnessView) -> ProjectionMaterializationState {
+    if freshness.status == "deferred" {
+        return ProjectionMaterializationState::Deferred;
+    }
+    let projections_domain = freshness
+        .domains
+        .iter()
+        .find(|domain| domain.domain == "projections");
+    if projections_domain
+        .is_some_and(|domain| domain.materialization_depth == "known_unmaterialized")
+    {
+        return ProjectionMaterializationState::KnownUnmaterialized;
+    }
+    if freshness.fs_dirty || freshness.status == "stale" || freshness.status == "unknown" {
+        ProjectionMaterializationState::Partial
+    } else {
+        ProjectionMaterializationState::Materialized
+    }
 }
 
 fn scope_label<T: serde::Serialize>(scope: &T) -> String {

@@ -4,6 +4,7 @@ mod concepts;
 mod contracts;
 mod intent;
 mod projections;
+mod read_models;
 #[cfg(test)]
 mod tests;
 mod types;
@@ -22,6 +23,10 @@ pub use crate::projections::{
     CoChangeDeltaBatch, ProjectionIndex, MAX_CO_CHANGE_DELTAS_PER_CHANGESET,
     MAX_CO_CHANGE_LINEAGES_PER_CHANGESET, MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE,
     MAX_CO_CHANGE_SAMPLED_LINEAGES_PER_CHANGESET,
+};
+pub use crate::read_models::{
+    ProjectionAuthorityPlane, ProjectionClass, ProjectionFreshnessState,
+    ProjectionMaterializationState, ProjectionReadModel,
 };
 pub use crate::types::{
     CoChangeDelta, CoChangeRecord, ConceptDecodeLens, ConceptEvent, ConceptEventAction,

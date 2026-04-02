@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -32,6 +33,28 @@ pub(crate) struct MutationCredentialFixture {
     #[allow(dead_code)]
     pub(crate) principal_id: String,
     pub(crate) principal_token: String,
+}
+
+thread_local! {
+    static TEMP_TEST_DIRS: RefCell<TempTestDirState> = RefCell::new(TempTestDirState {
+        paths: Vec::new(),
+    });
+}
+
+struct TempTestDirState {
+    paths: Vec<PathBuf>,
+}
+
+impl Drop for TempTestDirState {
+    fn drop(&mut self) {
+        for path in self.paths.drain(..).rev() {
+            let _ = fs::remove_dir_all(path);
+        }
+    }
+}
+
+fn track_temp_dir(path: &Path) {
+    TEMP_TEST_DIRS.with(|state| state.borrow_mut().paths.push(path.to_path_buf()));
 }
 
 pub(crate) fn host_with_node(node: Node) -> QueryHost {
@@ -170,6 +193,7 @@ fn is_transient_sqlite_lock(error: &anyhow::Error) -> bool {
 pub(crate) fn temp_workspace() -> PathBuf {
     let suffix = new_sortable_token();
     let root = std::env::temp_dir().join(format!("prism-mcp-test-{suffix}"));
+    let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
         root.join("Cargo.toml"),
@@ -181,6 +205,7 @@ pub(crate) fn temp_workspace() -> PathBuf {
         "pub fn alpha() { beta(); }\npub fn beta() {}\n",
     )
     .unwrap();
+    track_temp_dir(&root);
     root
 }
 

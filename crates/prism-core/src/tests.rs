@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
@@ -56,6 +57,24 @@ static NEXT_TEMP_WORKSPACE: AtomicU64 = AtomicU64::new(0);
 static PRISM_HOME_ENV_LOCK: Mutex<()> = Mutex::new(());
 static BACKGROUND_WORKER_TEST_LOCK: Mutex<()> = Mutex::new(());
 
+thread_local! {
+    static TEMP_TEST_DIRS: RefCell<TempTestDirState> = RefCell::new(TempTestDirState {
+        paths: Vec::new(),
+    });
+}
+
+struct TempTestDirState {
+    paths: Vec<PathBuf>,
+}
+
+impl Drop for TempTestDirState {
+    fn drop(&mut self) {
+        for path in self.paths.drain(..).rev() {
+            let _ = fs::remove_dir_all(path);
+        }
+    }
+}
+
 struct PrismHomeEnvGuard {
     _guard: crate::prism_paths::TestPrismHomeOverrideGuard,
 }
@@ -72,6 +91,10 @@ fn background_worker_test_guard() -> MutexGuard<'static, ()> {
     BACKGROUND_WORKER_TEST_LOCK
         .lock()
         .expect("background worker test lock poisoned")
+}
+
+fn track_temp_dir(path: &std::path::Path) {
+    TEMP_TEST_DIRS.with(|state| state.borrow_mut().paths.push(path.to_path_buf()));
 }
 
 #[test]
@@ -420,6 +443,39 @@ fn prism_paths_respect_prism_home_override_and_write_metadata_manifests() {
 
     let _ = fs::remove_dir_all(root);
     let _ = fs::remove_dir_all(prism_home);
+}
+
+#[test]
+fn prism_paths_default_test_home_is_temporary_and_cleans_up_after_thread_exit() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+
+    let root = temp_workspace();
+    fs::create_dir_all(&root).unwrap();
+    fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
+
+    let home_root = thread::spawn({
+        let root = root.clone();
+        move || {
+            let paths = PrismPaths::for_workspace_root(&root).unwrap();
+            let _ = paths.shared_runtime_db_path().unwrap();
+            let home_root = paths.home_root().to_path_buf();
+            assert!(home_root.starts_with(std::env::temp_dir()));
+            if let Some(home) = std::env::var_os("HOME") {
+                assert_ne!(home_root, PathBuf::from(home).join(".prism"));
+            }
+            assert!(paths.repo_home_dir().exists());
+            home_root
+        }
+    })
+    .join()
+    .expect("temp home worker should finish");
+
+    assert!(
+        !home_root.exists(),
+        "thread-local default PRISM_HOME should be removed after the test thread exits"
+    );
+
+    let _ = fs::remove_dir_all(root);
 }
 
 #[test]
@@ -7241,8 +7297,10 @@ fn temp_workspace() -> PathBuf {
         .unwrap()
         .as_nanos();
     let sequence = NEXT_TEMP_WORKSPACE.fetch_add(1, Ordering::Relaxed);
-    std::env::temp_dir().join(format!(
+    let root = std::env::temp_dir().join(format!(
         "prism-test-{}-{stamp}-{sequence}",
         std::process::id()
-    ))
+    ));
+    track_temp_dir(&root);
+    root
 }

@@ -477,7 +477,9 @@ fn decode_base64_bytes(value: &str, label: &str) -> Result<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
     use std::fs;
+    use std::path::PathBuf;
 
     use super::{
         ensure_local_runtime_trust, export_trust_bundle, import_trust_bundle,
@@ -487,6 +489,28 @@ mod tests {
         prism_paths::set_test_prism_home_override, protected_state::trust::load_trusted_root,
         PrismPaths,
     };
+
+    thread_local! {
+        static TEMP_TEST_DIRS: RefCell<TempTestDirState> = RefCell::new(TempTestDirState {
+            paths: Vec::new(),
+        });
+    }
+
+    struct TempTestDirState {
+        paths: Vec<PathBuf>,
+    }
+
+    impl Drop for TempTestDirState {
+        fn drop(&mut self) {
+            for path in self.paths.drain(..).rev() {
+                let _ = fs::remove_dir_all(path);
+            }
+        }
+    }
+
+    fn track_temp_dir(path: &std::path::Path) {
+        TEMP_TEST_DIRS.with(|state| state.borrow_mut().paths.push(path.to_path_buf()));
+    }
 
     fn temp_workspace(label: &str) -> std::path::PathBuf {
         let root = std::env::temp_dir().join(format!(
@@ -500,6 +524,7 @@ mod tests {
         )
         .unwrap();
         fs::write(root.join("src/lib.rs"), "pub fn demo() {}\n").unwrap();
+        track_temp_dir(&root);
         root
     }
 

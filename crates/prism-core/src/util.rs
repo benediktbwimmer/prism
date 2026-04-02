@@ -62,6 +62,7 @@ pub(crate) fn default_adapters() -> Vec<Box<dyn LanguageAdapter + Send + Sync>> 
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -70,6 +71,28 @@ mod tests {
     use super::{persisted_file_hash, stable_hash_with_version, workspace_walk};
 
     static NEXT_TEMP_UTIL_WORKSPACE: AtomicU64 = AtomicU64::new(0);
+
+    thread_local! {
+        static TEMP_TEST_DIRS: RefCell<TempTestDirState> = RefCell::new(TempTestDirState {
+            paths: Vec::new(),
+        });
+    }
+
+    struct TempTestDirState {
+        paths: Vec<PathBuf>,
+    }
+
+    impl Drop for TempTestDirState {
+        fn drop(&mut self) {
+            for path in self.paths.drain(..).rev() {
+                let _ = fs::remove_dir_all(path);
+            }
+        }
+    }
+
+    fn track_temp_dir(path: &std::path::Path) {
+        TEMP_TEST_DIRS.with(|state| state.borrow_mut().paths.push(path.to_path_buf()));
+    }
 
     #[test]
     fn persisted_file_hash_changes_when_index_format_version_changes() {
@@ -136,6 +159,7 @@ mod tests {
         let root = std::env::temp_dir().join(format!("prism-util-{unique}-{nonce}"));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).unwrap();
+        track_temp_dir(&root);
         root
     }
 }

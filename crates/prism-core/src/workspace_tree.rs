@@ -509,6 +509,7 @@ pub(crate) fn diff_workspace_tree_snapshot(
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -517,6 +518,28 @@ mod tests {
     use super::{build_workspace_tree_snapshot, plan_full_refresh, plan_incremental_refresh};
 
     static NEXT_TEMP_WORKSPACE: AtomicU64 = AtomicU64::new(0);
+
+    thread_local! {
+        static TEMP_TEST_DIRS: RefCell<TempTestDirState> = RefCell::new(TempTestDirState {
+            paths: Vec::new(),
+        });
+    }
+
+    struct TempTestDirState {
+        paths: Vec<PathBuf>,
+    }
+
+    impl Drop for TempTestDirState {
+        fn drop(&mut self) {
+            for path in self.paths.drain(..).rev() {
+                let _ = fs::remove_dir_all(path);
+            }
+        }
+    }
+
+    fn track_temp_dir(path: &std::path::Path) {
+        TEMP_TEST_DIRS.with(|state| state.borrow_mut().paths.push(path.to_path_buf()));
+    }
 
     #[test]
     fn incremental_refresh_scopes_changed_file_and_directory() {
@@ -623,6 +646,7 @@ mod tests {
         let root = std::env::temp_dir().join(format!("prism-tree-{unique}-{nonce}"));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).unwrap();
+        track_temp_dir(&root);
         root.canonicalize().unwrap()
     }
 }

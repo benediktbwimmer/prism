@@ -19,6 +19,7 @@ prism-curator = { path = "../prism-curator" }
 prism-ir = { path = "../prism-ir" }
 prism-js = { path = "../prism-js" }
 prism-memory = { path = "../prism-memory" }
+prism-projections = { path = "../prism-projections" }
 prism-query = { path = "../prism-query" }
 prism-store = { path = "../prism-store" }
 deno_ast = { version = "0.53.1", features = ["transpiling", "visit"] }

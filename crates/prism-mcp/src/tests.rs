@@ -18424,6 +18424,58 @@ pub fn runtime_status() {}
     assert_eq!(worktree_projection.concept_count, 1);
     assert_eq!(session_projection.concept_count, 1);
     assert!(worktree_projection.co_change_lineage_count > 0);
+    assert_eq!(
+        repo_projection.projection_class,
+        prism_js::ProjectionClassView::Serving
+    );
+    assert_eq!(
+        repo_projection.authority_planes,
+        vec![prism_js::ProjectionAuthorityPlaneView::PublishedRepo]
+    );
+    assert_eq!(
+        worktree_projection.authority_planes,
+        vec![
+            prism_js::ProjectionAuthorityPlaneView::PublishedRepo,
+            prism_js::ProjectionAuthorityPlaneView::SharedRuntime,
+        ]
+    );
+    assert_eq!(
+        session_projection.authority_planes,
+        vec![prism_js::ProjectionAuthorityPlaneView::SharedRuntime]
+    );
+    assert_eq!(
+        repo_projection.read_models[0].name,
+        "curated_concepts".to_string()
+    );
+    assert_eq!(
+        repo_projection.read_models[0].projection_class,
+        prism_js::ProjectionClassView::Serving
+    );
+    assert_eq!(
+        repo_projection.read_models[0].freshness,
+        prism_js::ProjectionFreshnessStateView::Current
+    );
+    assert_eq!(
+        worktree_projection
+            .read_models
+            .iter()
+            .find(|model| model.name == "co_change")
+            .expect("co_change read model should exist")
+            .authority_planes,
+        vec![
+            prism_js::ProjectionAuthorityPlaneView::PublishedRepo,
+            prism_js::ProjectionAuthorityPlaneView::SharedRuntime,
+        ]
+    );
+    assert_eq!(
+        worktree_projection
+            .read_models
+            .iter()
+            .find(|model| model.name == "validation")
+            .expect("validation read model should exist")
+            .entry_count,
+        worktree_projection.validation_lineage_count
+    );
 
     let repo_overlay = status
         .scopes

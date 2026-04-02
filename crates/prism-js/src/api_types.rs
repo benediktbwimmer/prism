@@ -572,15 +572,67 @@ pub struct RuntimeMaterializationView {
     pub coordination: RuntimeMaterializationItemView,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ProjectionClassView {
+    Published,
+    Serving,
+    AdHoc,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ProjectionAuthorityPlaneView {
+    PublishedRepo,
+    SharedRuntime,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ProjectionFreshnessStateView {
+    Current,
+    Pending,
+    Stale,
+    Recovery,
+    Deferred,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ProjectionMaterializationStateView {
+    Materialized,
+    Partial,
+    Deferred,
+    KnownUnmaterialized,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectionReadModelView {
+    pub name: String,
+    pub projection_class: ProjectionClassView,
+    pub authority_planes: Vec<ProjectionAuthorityPlaneView>,
+    pub freshness: ProjectionFreshnessStateView,
+    pub materialization: ProjectionMaterializationStateView,
+    pub entry_count: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeProjectionScopeView {
     pub scope: String,
+    pub projection_class: ProjectionClassView,
+    pub authority_planes: Vec<ProjectionAuthorityPlaneView>,
+    pub freshness: ProjectionFreshnessStateView,
+    pub materialization: ProjectionMaterializationStateView,
     pub concept_count: usize,
     pub relation_count: usize,
     pub contract_count: usize,
     pub co_change_lineage_count: usize,
     pub validation_lineage_count: usize,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub read_models: Vec<ProjectionReadModelView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

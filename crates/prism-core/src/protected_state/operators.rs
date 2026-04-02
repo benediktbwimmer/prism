@@ -635,10 +635,33 @@ mod tests {
         append_protected_stream_event, implicit_principal_identity,
     };
     use crate::protected_state::streams::ProtectedRepoStream;
+    use std::cell::RefCell;
     use std::fs;
     use std::io::Write;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    thread_local! {
+        static TEMP_TEST_DIRS: RefCell<TempTestDirState> = RefCell::new(TempTestDirState {
+            paths: Vec::new(),
+        });
+    }
+
+    struct TempTestDirState {
+        paths: Vec<PathBuf>,
+    }
+
+    impl Drop for TempTestDirState {
+        fn drop(&mut self) {
+            for path in self.paths.drain(..).rev() {
+                let _ = fs::remove_dir_all(path);
+            }
+        }
+    }
+
+    fn track_temp_dir(path: &Path) {
+        TEMP_TEST_DIRS.with(|state| state.borrow_mut().paths.push(path.to_path_buf()));
+    }
 
     fn tempdir(label: &str) -> std::path::PathBuf {
         let path = std::env::temp_dir().join(format!(
@@ -649,6 +672,7 @@ mod tests {
                 .as_nanos()
         ));
         fs::create_dir_all(&path).unwrap();
+        track_temp_dir(&path);
         path
     }
 

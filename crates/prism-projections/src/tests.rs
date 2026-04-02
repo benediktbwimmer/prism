@@ -17,6 +17,8 @@ use crate::{
     ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptRelation,
     ConceptRelationKind, ConceptScope, ContractCompatibility, ContractEvent, ContractEventAction,
     ContractGuarantee, ContractKind, ContractPacket, ContractStatus, ContractTarget,
+    ProjectionAuthorityPlane, ProjectionFreshnessState, ProjectionMaterializationState,
+    ProjectionReadModel,
 };
 
 fn history_snapshot(
@@ -111,6 +113,29 @@ fn derives_validation_and_co_change_indexes() {
     let neighbors = index.co_change_neighbors(&alpha_lineage, 10);
     assert_eq!(neighbors[0].lineage, beta_lineage);
     assert_eq!(neighbors[0].count, 3);
+}
+
+#[test]
+fn projection_read_model_serializes_contract_and_freshness() {
+    let model = ProjectionReadModel::serving(
+        "co_change",
+        vec![
+            ProjectionAuthorityPlane::PublishedRepo,
+            ProjectionAuthorityPlane::SharedRuntime,
+        ],
+        ProjectionFreshnessState::Pending,
+        ProjectionMaterializationState::Partial,
+        12,
+    );
+
+    let value = serde_json::to_value(&model).expect("projection read model should serialize");
+    assert_eq!(value["name"], "co_change");
+    assert_eq!(value["projectionClass"], "serving");
+    assert_eq!(value["authorityPlanes"][0], "published_repo");
+    assert_eq!(value["authorityPlanes"][1], "shared_runtime");
+    assert_eq!(value["freshness"], "pending");
+    assert_eq!(value["materialization"], "partial");
+    assert_eq!(value["entryCount"], 12);
 }
 
 #[test]

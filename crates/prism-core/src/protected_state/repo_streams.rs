@@ -563,7 +563,9 @@ fn classified_failure<T>(
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
     use std::fs;
+    use std::path::PathBuf;
 
     use serde_json::json;
 
@@ -572,6 +574,28 @@ mod tests {
     };
     use crate::prism_paths::set_test_prism_home_override;
     use crate::protected_state::streams::{ProtectedRepoStream, ProtectedVerificationStatus};
+
+    thread_local! {
+        static TEMP_TEST_DIRS: RefCell<TempTestDirState> = RefCell::new(TempTestDirState {
+            paths: Vec::new(),
+        });
+    }
+
+    struct TempTestDirState {
+        paths: Vec<PathBuf>,
+    }
+
+    impl Drop for TempTestDirState {
+        fn drop(&mut self) {
+            for path in self.paths.drain(..).rev() {
+                let _ = fs::remove_dir_all(path);
+            }
+        }
+    }
+
+    fn track_temp_dir(path: &std::path::Path) {
+        TEMP_TEST_DIRS.with(|state| state.borrow_mut().paths.push(path.to_path_buf()));
+    }
 
     fn temp_workspace(label: &str) -> std::path::PathBuf {
         let root = std::env::temp_dir().join(format!(
@@ -585,6 +609,7 @@ mod tests {
         )
         .unwrap();
         fs::write(root.join("src/lib.rs"), "pub fn demo() {}\n").unwrap();
+        track_temp_dir(&root);
         root
     }
 

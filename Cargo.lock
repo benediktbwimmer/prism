@@ -1969,6 +1969,7 @@ dependencies = [
  "prism-ir",
  "prism-js",
  "prism-memory",
+ "prism-projections",
  "prism-query",
  "prism-store",
  "regex",

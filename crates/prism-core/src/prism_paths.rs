@@ -3,6 +3,8 @@ use std::cell::RefCell;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+#[cfg(test)]
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use anyhow::{anyhow, Context, Result};
 use prism_store::migrate_worktree_cache_from_shared_runtime;
@@ -20,6 +22,26 @@ const WORKTREE_METADATA_FILE_NAME: &str = "worktree.json";
 #[cfg(test)]
 thread_local! {
     static TEST_PRISM_HOME_OVERRIDE: RefCell<Option<PathBuf>> = const { RefCell::new(None) };
+    static TEST_TEMP_PRISM_HOME_STATE: RefCell<TestTempPrismHomeState> = RefCell::new(
+        TestTempPrismHomeState { path: None }
+    );
+}
+
+#[cfg(test)]
+static NEXT_TEST_PRISM_HOME: AtomicU64 = AtomicU64::new(0);
+
+#[cfg(test)]
+struct TestTempPrismHomeState {
+    path: Option<PathBuf>,
+}
+
+#[cfg(test)]
+impl Drop for TestTempPrismHomeState {
+    fn drop(&mut self) {
+        if let Some(path) = self.path.take() {
+            let _ = fs::remove_dir_all(path);
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -329,16 +351,52 @@ struct WorktreeMetadata {
 
 fn prism_home_root() -> Result<PathBuf> {
     #[cfg(test)]
-    if let Some(override_dir) = TEST_PRISM_HOME_OVERRIDE.with(|slot| slot.borrow().clone()) {
-        return Ok(override_dir);
+    {
+        if let Some(override_dir) = TEST_PRISM_HOME_OVERRIDE.with(|slot| slot.borrow().clone()) {
+            return Ok(override_dir);
+        }
+        if let Some(override_dir) = env::var_os(PRISM_HOME_ENV) {
+            return Ok(PathBuf::from(override_dir));
+        }
+        return ensure_test_prism_home_root();
     }
-    if let Some(override_dir) = env::var_os(PRISM_HOME_ENV) {
-        return Ok(PathBuf::from(override_dir));
+
+    #[cfg(not(test))]
+    {
+        if let Some(override_dir) = env::var_os(PRISM_HOME_ENV) {
+            return Ok(PathBuf::from(override_dir));
+        }
+        let home = env::var_os("HOME")
+            .map(PathBuf::from)
+            .ok_or_else(|| anyhow!("could not resolve home directory; set PRISM_HOME"))?;
+        return Ok(home.join(".prism"));
     }
-    let home = env::var_os("HOME")
-        .map(PathBuf::from)
-        .ok_or_else(|| anyhow!("could not resolve home directory; set PRISM_HOME"))?;
-    Ok(home.join(".prism"))
+
+    #[allow(unreachable_code)]
+    Err(anyhow!("unreachable prism home resolution branch"))
+}
+
+#[cfg(test)]
+fn ensure_test_prism_home_root() -> Result<PathBuf> {
+    TEST_TEMP_PRISM_HOME_STATE.with(|slot| {
+        if let Some(path) = slot.borrow().path.clone() {
+            return Ok(path);
+        }
+        let unique = NEXT_TEST_PRISM_HOME.fetch_add(1, Ordering::Relaxed);
+        let path = env::temp_dir().join(format!(
+            "prism-test-home-{}-{}-{unique}",
+            std::process::id(),
+            current_timestamp_millis()
+        ));
+        let _ = fs::remove_dir_all(&path);
+        fs::create_dir_all(&path)
+            .with_context(|| format!("failed to create {}", path.display()))?;
+        TEST_PRISM_HOME_OVERRIDE.with(|override_slot| {
+            *override_slot.borrow_mut() = Some(path.clone());
+        });
+        slot.borrow_mut().path = Some(path.clone());
+        Ok(path)
+    })
 }
 
 #[cfg(test)]
