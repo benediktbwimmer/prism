@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicU64;
-use std::sync::{Arc, Mutex, OnceLock, RwLock, Weak};
+use std::sync::{Arc, Condvar, Mutex, OnceLock, RwLock, Weak};
+use std::time::Duration;
 
 use prism_agent::InferenceStore;
 use prism_core::runtime_engine::{
@@ -24,12 +25,77 @@ static WORKSPACE_RUNTIME_SYNC_LOCKS: OnceLock<Mutex<HashMap<PathBuf, Weak<RwLock
 static WORKSPACE_RUNTIME_CURRENT_REVISIONS: OnceLock<
     Mutex<HashMap<PathBuf, Weak<SharedWorkspaceRuntimeRevisions>>>,
 > = OnceLock::new();
+static WORKSPACE_RUNTIME_READ_SYNCS: OnceLock<
+    Mutex<HashMap<PathBuf, Weak<SharedWorkspaceReadSync>>>,
+> = OnceLock::new();
 
 pub(crate) struct SharedWorkspaceRuntimeRevisions {
     current_workspace_revision: AtomicU64,
     current_episodic_revision: AtomicU64,
     current_inference_revision: AtomicU64,
     current_coordination_revision: AtomicU64,
+}
+
+#[derive(Default)]
+pub(crate) struct SharedWorkspaceReadSync {
+    state: Mutex<SharedWorkspaceReadSyncState>,
+    ready: Condvar,
+}
+
+#[derive(Default)]
+struct SharedWorkspaceReadSyncState {
+    in_flight: bool,
+    epoch: u64,
+}
+
+pub(crate) enum SharedWorkspaceReadSyncDecision {
+    Leader,
+    Current,
+    Busy,
+}
+
+impl SharedWorkspaceReadSync {
+    pub(crate) fn try_begin_or_join<F>(
+        &self,
+        current_check: F,
+        join_timeout: Duration,
+    ) -> SharedWorkspaceReadSyncDecision
+    where
+        F: Fn() -> bool,
+    {
+        let mut state = self
+            .state
+            .lock()
+            .expect("workspace runtime read-sync gate poisoned");
+        let observed_epoch = state.epoch;
+        if state.in_flight {
+            let (guard, _) = self
+                .ready
+                .wait_timeout_while(state, join_timeout, |state| {
+                    state.in_flight && state.epoch == observed_epoch
+                })
+                .expect("workspace runtime read-sync gate poisoned while waiting");
+            state = guard;
+            if current_check() {
+                return SharedWorkspaceReadSyncDecision::Current;
+            }
+            if state.in_flight && state.epoch == observed_epoch {
+                return SharedWorkspaceReadSyncDecision::Busy;
+            }
+        }
+        state.in_flight = true;
+        SharedWorkspaceReadSyncDecision::Leader
+    }
+
+    pub(crate) fn finish(&self) {
+        let mut state = self
+            .state
+            .lock()
+            .expect("workspace runtime read-sync gate poisoned");
+        state.in_flight = false;
+        state.epoch = state.epoch.saturating_add(1);
+        self.ready.notify_all();
+    }
 }
 
 impl SharedWorkspaceRuntimeRevisions {
@@ -79,6 +145,7 @@ pub(crate) struct WorkspaceRuntimeBinding {
     loaded_inference_revision: Arc<AtomicU64>,
     loaded_coordination_revision: Arc<AtomicU64>,
     current_revisions: Arc<SharedWorkspaceRuntimeRevisions>,
+    read_sync: Arc<SharedWorkspaceReadSync>,
     engine: Arc<Mutex<WorkspaceRuntimeEngine>>,
     prepared_delta: Arc<Mutex<Option<crate::workspace_runtime::PreparedWorkspaceRuntimeDelta>>>,
     runtime: Arc<WorkspaceRuntime>,
@@ -111,6 +178,7 @@ impl WorkspaceRuntimeBinding {
             workspace.inference_revision().unwrap_or(0),
             workspace.coordination_revision().unwrap_or(0),
         );
+        let read_sync = shared_workspace_runtime_read_sync(context.root());
         let config = WorkspaceRuntimeConfig {
             workspace: Arc::clone(&workspace),
             notes: Arc::clone(&notes),
@@ -124,6 +192,7 @@ impl WorkspaceRuntimeBinding {
             loaded_inference_revision: Arc::clone(&loaded_inference_revision),
             loaded_coordination_revision: Arc::clone(&loaded_coordination_revision),
             current_revisions: Arc::clone(&current_revisions),
+            read_sync: Arc::clone(&read_sync),
             runtime_engine: Arc::clone(&engine),
             prepared_delta: Arc::clone(&prepared_delta),
         };
@@ -170,6 +239,7 @@ impl WorkspaceRuntimeBinding {
             loaded_inference_revision,
             loaded_coordination_revision,
             current_revisions,
+            read_sync,
             engine,
             prepared_delta,
             runtime,
@@ -214,6 +284,11 @@ impl WorkspaceRuntimeBinding {
         &self.current_revisions
     }
 
+    #[cfg(test)]
+    pub(crate) fn read_sync(&self) -> &Arc<SharedWorkspaceReadSync> {
+        &self.read_sync
+    }
+
     pub(crate) fn runtime_config(&self) -> WorkspaceRuntimeConfig {
         WorkspaceRuntimeConfig {
             workspace: Arc::clone(&self.workspace),
@@ -228,6 +303,7 @@ impl WorkspaceRuntimeBinding {
             loaded_inference_revision: Arc::clone(&self.loaded_inference_revision),
             loaded_coordination_revision: Arc::clone(&self.loaded_coordination_revision),
             current_revisions: Arc::clone(&self.current_revisions),
+            read_sync: Arc::clone(&self.read_sync),
             runtime_engine: Arc::clone(&self.engine),
             prepared_delta: Arc::clone(&self.prepared_delta),
         }
@@ -323,4 +399,17 @@ fn shared_workspace_runtime_current_revisions(
     ));
     revisions.insert(root.to_path_buf(), Arc::downgrade(&current));
     current
+}
+
+fn shared_workspace_runtime_read_sync(root: &Path) -> Arc<SharedWorkspaceReadSync> {
+    let gates = WORKSPACE_RUNTIME_READ_SYNCS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut gates = gates
+        .lock()
+        .expect("workspace runtime read-sync registry poisoned");
+    if let Some(existing) = gates.get(root).and_then(Weak::upgrade) {
+        return existing;
+    }
+    let gate = Arc::new(SharedWorkspaceReadSync::default());
+    gates.insert(root.to_path_buf(), Arc::downgrade(&gate));
+    gate
 }

@@ -722,6 +722,7 @@ pub struct RuntimeStatusView {
     pub daemon_count: usize,
     pub bridge_count: usize,
     pub connected_bridge_count: usize,
+    pub idle_bridge_count: usize,
     pub orphan_bridge_count: usize,
     pub processes: Vec<RuntimeProcessView>,
     pub process_error: Option<String>,

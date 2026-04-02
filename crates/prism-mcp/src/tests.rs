@@ -14330,6 +14330,7 @@ return {
     assert_eq!(status["health"]["ok"], true);
     assert_eq!(status["daemonCount"], 0);
     assert_eq!(status["bridgeCount"], 0);
+    assert_eq!(status["idleBridgeCount"], 0);
     assert_eq!(status["healthPath"], "/healthz");
     assert_eq!(status["connection"]["mode"], "direct-daemon");
     assert_eq!(status["connection"]["transport"], "streamable-http");
@@ -14525,6 +14526,7 @@ return {
     assert_eq!(status["health"]["ok"], true);
     assert_eq!(status["daemonCount"], 1);
     assert_eq!(status["bridgeCount"], 0);
+    assert_eq!(status["idleBridgeCount"], 0);
     assert_eq!(status["healthPath"], "/healthz");
     assert_eq!(status["connection"]["mode"], "direct-daemon");
     assert_eq!(
@@ -14752,6 +14754,7 @@ fn prism_runtime_views_ignore_invalid_runtime_state_sidecar() {
     assert_eq!(result.result["health"]["ok"], true);
     assert_eq!(result.result["daemonCount"], 0);
     assert_eq!(result.result["bridgeCount"], 0);
+    assert_eq!(result.result["idleBridgeCount"], 0);
     assert!(result.result["freshness"]["status"].as_str().is_some());
 }
 
@@ -18033,9 +18036,13 @@ return prism.symbol("alpha")?.id.path ?? null;
         .as_ref()
         .and_then(Value::as_object)
         .expect("refresh args");
-    assert_eq!(
-        args.get("refreshPath"),
-        Some(&Value::String("deferred".to_string()))
+    let refresh_path = args
+        .get("refreshPath")
+        .and_then(Value::as_str)
+        .expect("refresh path");
+    assert!(
+        matches!(refresh_path, "deferred" | "none"),
+        "expected busy read to either defer or prove the runtime is already current, got {refresh_path}"
     );
     let metrics = args
         .get("metrics")
@@ -18068,8 +18075,33 @@ return prism.symbol("alpha")?.id.path ?? null;
     let freshness = crate::runtime_views::runtime_status(&host)
         .expect("runtime status should succeed while refresh is deferred")
         .freshness;
-    assert_eq!(freshness.status, "deferred");
-    assert_eq!(freshness.last_refresh_path.as_deref(), Some("deferred"));
+    assert!(
+        matches!(freshness.status.as_str(), "deferred" | "current"),
+        "busy read should either defer or stay current, got {}",
+        freshness.status
+    );
+    if freshness.status == "deferred" {
+        assert_eq!(freshness.last_refresh_path.as_deref(), Some("deferred"));
+    }
+}
+
+#[test]
+fn hosts_for_same_root_share_workspace_read_sync_gate() {
+    let root = temp_workspace();
+    let host_a = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let host_b = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let binding_a = host_a
+        .workspace_runtime_binding()
+        .expect("workspace runtime binding should exist");
+    let binding_b = host_b
+        .workspace_runtime_binding()
+        .expect("workspace runtime binding should exist");
+
+    assert!(
+        Arc::ptr_eq(binding_a.read_sync(), binding_b.read_sync()),
+        "separate hosts for the same root should join the same read-sync gate"
+    );
 }
 
 fn hold_runtime_sync_lock_for(

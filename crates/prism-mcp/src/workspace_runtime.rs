@@ -26,16 +26,21 @@ use serde_json::json;
 use tracing::{debug, error};
 
 use crate::{
-    diagnostics_state::DiagnosticsState, log_refresh_workspace, mcp_call_log::McpCallLogStore,
+    diagnostics_state::DiagnosticsState,
+    log_refresh_workspace,
+    mcp_call_log::McpCallLogStore,
     runtime_views::refresh_cached_runtime_status_for_config,
-    workspace_host::SharedWorkspaceRuntimeRevisions, DashboardState, QueryHost,
-    WorkspaceRefreshMetrics, WorkspaceRefreshReport,
+    workspace_host::{
+        SharedWorkspaceReadSync, SharedWorkspaceReadSyncDecision, SharedWorkspaceRuntimeRevisions,
+    },
+    DashboardState, QueryHost, WorkspaceRefreshMetrics, WorkspaceRefreshReport,
 };
 
 const BACKGROUND_REFRESH_INTERVAL: Duration = Duration::from_millis(250);
 const BACKGROUND_LANE_RETRY_INTERVAL: Duration = Duration::from_millis(10);
 const MUTATION_RUNTIME_SYNC_WAIT_TIMEOUT: Duration = Duration::from_millis(1500);
 const MUTATION_RUNTIME_SYNC_RETRY_INTERVAL: Duration = Duration::from_millis(10);
+const READ_RUNTIME_SYNC_JOIN_TIMEOUT: Duration = Duration::from_millis(100);
 
 #[derive(Clone)]
 pub(crate) struct WorkspaceRuntimeConfig {
@@ -51,6 +56,7 @@ pub(crate) struct WorkspaceRuntimeConfig {
     pub(crate) loaded_inference_revision: Arc<AtomicU64>,
     pub(crate) loaded_coordination_revision: Arc<AtomicU64>,
     pub(crate) current_revisions: Arc<SharedWorkspaceRuntimeRevisions>,
+    pub(crate) read_sync: Arc<SharedWorkspaceReadSync>,
     pub(crate) runtime_engine: Arc<Mutex<WorkspaceRuntimeEngine>>,
     pub(crate) prepared_delta: Arc<Mutex<Option<PreparedWorkspaceRuntimeDelta>>>,
 }
@@ -98,6 +104,28 @@ fn runtime_read_is_current(config: &WorkspaceRuntimeConfig) -> bool {
                 .current_revisions
                 .current_coordination_revision()
                 .load(Ordering::Relaxed)
+}
+
+fn runtime_read_fast_path_available(config: &WorkspaceRuntimeConfig) -> bool {
+    !config.workspace.needs_refresh()
+        && !config.workspace.is_fallback_check_due_now()
+        && runtime_read_is_current(config)
+}
+
+struct SharedReadSyncLeader<'a> {
+    gate: &'a SharedWorkspaceReadSync,
+}
+
+impl<'a> SharedReadSyncLeader<'a> {
+    fn new(gate: &'a SharedWorkspaceReadSync) -> Self {
+        Self { gate }
+    }
+}
+
+impl Drop for SharedReadSyncLeader<'_> {
+    fn drop(&mut self) {
+        self.gate.finish();
+    }
 }
 
 pub(crate) struct WorkspaceRuntime {
@@ -2185,13 +2213,39 @@ impl QueryHost {
         let runtime = binding.runtime();
         let diagnostics = binding.diagnostics();
         let config = binding.runtime_config();
-        if !workspace.needs_refresh()
-            && !workspace.is_fallback_check_due_now()
-            && runtime_read_is_current(&config)
-        {
+        if runtime_read_fast_path_available(&config) {
             diagnostics.request_refresh();
             return Ok(WorkspaceRefreshReport::none());
         }
+        match config.read_sync.try_begin_or_join(
+            || runtime_read_fast_path_available(&config),
+            READ_RUNTIME_SYNC_JOIN_TIMEOUT,
+        ) {
+            SharedWorkspaceReadSyncDecision::Current => {
+                diagnostics.request_refresh();
+                return Ok(WorkspaceRefreshReport::none());
+            }
+            SharedWorkspaceReadSyncDecision::Busy => {
+                runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
+                diagnostics.request_refresh();
+                workspace.record_runtime_refresh_observation_with_work(
+                    "deferred",
+                    0,
+                    WorkspaceRefreshWork::default(),
+                );
+                return Ok(WorkspaceRefreshReport {
+                    refresh_path: "deferred",
+                    runtime_sync_used: false,
+                    deferred: true,
+                    episodic_reloaded: false,
+                    inference_reloaded: false,
+                    coordination_reloaded: false,
+                    metrics: WorkspaceRefreshMetrics::default(),
+                });
+            }
+            SharedWorkspaceReadSyncDecision::Leader => {}
+        }
+        let _leader = SharedReadSyncLeader::new(&config.read_sync);
         let Some(report) = try_sync_workspace_runtime_for_read(&config)? else {
             runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
             diagnostics.request_refresh();
@@ -2262,7 +2316,7 @@ fn is_transient_sqlite_lock(error: &anyhow::Error) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::AtomicU64;
+    use std::sync::atomic::{AtomicBool, AtomicU64};
 
     use prism_agent::InferenceStore;
     use prism_core::index_workspace_session;
@@ -2285,6 +2339,10 @@ mod tests {
             workspace.inference_revision().unwrap_or(0),
             workspace.coordination_revision().unwrap_or(0),
         ))
+    }
+
+    fn test_read_sync() -> Arc<crate::workspace_host::SharedWorkspaceReadSync> {
+        Arc::new(crate::workspace_host::SharedWorkspaceReadSync::default())
     }
 
     #[test]
@@ -2312,6 +2370,7 @@ mod tests {
                 workspace.coordination_revision().unwrap_or(0),
             )),
             current_revisions: test_current_revisions(&workspace),
+            read_sync: test_read_sync(),
             runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
                 WorkspaceRuntimeContext::from_root(&root),
             ))),
@@ -2381,6 +2440,7 @@ mod tests {
                 workspace.coordination_revision().unwrap_or(0),
             )),
             current_revisions: test_current_revisions(&workspace),
+            read_sync: test_read_sync(),
             runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
                 WorkspaceRuntimeContext::from_root(&root),
             ))),
@@ -2443,6 +2503,7 @@ mod tests {
                 workspace.coordination_revision().unwrap_or(0),
             )),
             current_revisions: test_current_revisions(&workspace),
+            read_sync: test_read_sync(),
             runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
                 WorkspaceRuntimeContext::from_root(&root),
             ))),
@@ -2522,6 +2583,7 @@ mod tests {
                 workspace.coordination_revision().unwrap_or(0),
             )),
             current_revisions: test_current_revisions(&workspace),
+            read_sync: test_read_sync(),
             runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
                 WorkspaceRuntimeContext::from_root(&root),
             ))),
@@ -2641,6 +2703,7 @@ mod tests {
                 workspace.coordination_revision().unwrap_or(0),
             )),
             current_revisions: test_current_revisions(&workspace),
+            read_sync: test_read_sync(),
             runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
                 WorkspaceRuntimeContext::from_root(&root),
             ))),
@@ -2715,6 +2778,7 @@ mod tests {
                 workspace.coordination_revision().unwrap_or(0),
             )),
             current_revisions: test_current_revisions(&workspace),
+            read_sync: test_read_sync(),
             runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
                 WorkspaceRuntimeContext::from_root(&root),
             ))),
@@ -2801,6 +2865,7 @@ mod tests {
                 workspace.coordination_revision().unwrap_or(0),
             )),
             current_revisions: test_current_revisions(&workspace),
+            read_sync: test_read_sync(),
             runtime_engine: Arc::clone(&runtime_engine),
             prepared_delta: Arc::new(Mutex::new(None)),
         };
@@ -2863,6 +2928,7 @@ mod tests {
                 workspace.coordination_revision().unwrap_or(0),
             )),
             current_revisions: test_current_revisions(&workspace),
+            read_sync: test_read_sync(),
             runtime_engine: Arc::clone(&runtime_engine),
             prepared_delta: Arc::new(Mutex::new(None)),
         };
@@ -2975,6 +3041,7 @@ mod tests {
                 workspace.coordination_revision().unwrap_or(0),
             )),
             current_revisions: test_current_revisions(&workspace),
+            read_sync: test_read_sync(),
             runtime_engine: Arc::clone(&runtime_engine),
             prepared_delta: Arc::new(Mutex::new(None)),
         };
@@ -3082,6 +3149,7 @@ mod tests {
                 workspace.coordination_revision().unwrap_or(0),
             )),
             current_revisions: test_current_revisions(&workspace),
+            read_sync: test_read_sync(),
             runtime_engine: Arc::clone(&runtime_engine),
             prepared_delta: Arc::new(Mutex::new(None)),
         };
@@ -3172,6 +3240,7 @@ mod tests {
             loaded_inference_revision: Arc::new(AtomicU64::new(0)),
             loaded_coordination_revision: Arc::new(AtomicU64::new(0)),
             current_revisions: test_current_revisions(&workspace),
+            read_sync: test_read_sync(),
             runtime_engine,
             prepared_delta: Arc::new(Mutex::new(None)),
         };
@@ -3191,5 +3260,58 @@ mod tests {
 
         let _ = std::fs::remove_dir_all(root);
         let _ = std::fs::remove_dir_all(shared_runtime_root);
+    }
+
+    #[test]
+    fn shared_read_sync_waiter_observes_current_after_leader_finishes() {
+        let gate = Arc::new(crate::workspace_host::SharedWorkspaceReadSync::default());
+        let current = Arc::new(AtomicBool::new(false));
+
+        assert!(matches!(
+            gate.try_begin_or_join(|| current.load(Ordering::Relaxed), Duration::from_millis(5)),
+            crate::workspace_host::SharedWorkspaceReadSyncDecision::Leader
+        ));
+
+        let waiter_gate = Arc::clone(&gate);
+        let waiter_current = Arc::clone(&current);
+        let waiter = thread::spawn(move || {
+            waiter_gate.try_begin_or_join(
+                || waiter_current.load(Ordering::Relaxed),
+                Duration::from_millis(200),
+            )
+        });
+
+        thread::sleep(Duration::from_millis(20));
+        current.store(true, Ordering::Relaxed);
+        gate.finish();
+
+        assert!(matches!(
+            waiter.join().expect("waiter should finish"),
+            crate::workspace_host::SharedWorkspaceReadSyncDecision::Current
+        ));
+    }
+
+    #[test]
+    fn shared_read_sync_waiter_returns_busy_after_timeout() {
+        let gate = Arc::new(crate::workspace_host::SharedWorkspaceReadSync::default());
+
+        assert!(matches!(
+            gate.try_begin_or_join(|| false, Duration::from_millis(5)),
+            crate::workspace_host::SharedWorkspaceReadSyncDecision::Leader
+        ));
+
+        let started = Instant::now();
+        let outcome = gate.try_begin_or_join(|| false, Duration::from_millis(40));
+
+        assert!(matches!(
+            outcome,
+            crate::workspace_host::SharedWorkspaceReadSyncDecision::Busy
+        ));
+        assert!(
+            started.elapsed() >= Duration::from_millis(30),
+            "busy follower should wait briefly before giving up"
+        );
+
+        gate.finish();
     }
 }

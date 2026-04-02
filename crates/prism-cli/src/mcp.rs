@@ -49,12 +49,14 @@ struct McpProcess {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BridgeState {
     Connected,
+    Idle,
     Orphaned,
 }
 
 #[derive(Debug, Clone, Default)]
 struct BridgeCounts {
     connected: usize,
+    idle: usize,
     orphaned: usize,
 }
 
@@ -277,6 +279,7 @@ fn status(root: &Path) -> Result<()> {
     }
     println!("bridge_count: {}", bridges.len());
     println!("connected_bridge_count: {}", bridge_counts.connected);
+    println!("idle_bridge_count: {}", bridge_counts.idle);
     println!("orphan_bridge_count: {}", bridge_counts.orphaned);
     println!("preferred_connection_mode: {}", connection.mode);
     println!("preferred_transport: {}", connection.transport);
@@ -308,6 +311,11 @@ fn status(root: &Path) -> Result<()> {
     if bridge_counts.orphaned > 0 {
         println!("warning: orphaned bridge processes are running for this workspace");
         println!("hint: run `prism mcp cleanup` to reap orphaned bridges");
+    }
+    if bridge_counts.idle > 0 {
+        println!(
+            "note: idle bridge processes are disconnected from the current daemon and do not count toward active daemon load"
+        );
     }
     if daemons.is_empty() && !bridges.is_empty() {
         println!("warning: bridge processes exist without a daemon");
@@ -551,7 +559,7 @@ fn bridge_state(
     } else if process.ppid == 1 {
         Some(BridgeState::Orphaned)
     } else {
-        None
+        Some(BridgeState::Idle)
     }
 }
 
@@ -560,6 +568,7 @@ fn classify_bridges(bridges: &[McpProcess], connected_bridge_pids: &BTreeSet<u32
     for process in bridges {
         match bridge_state(process, connected_bridge_pids) {
             Some(BridgeState::Connected) => counts.connected += 1,
+            Some(BridgeState::Idle) => counts.idle += 1,
             Some(BridgeState::Orphaned) => counts.orphaned += 1,
             None => {}
         }
@@ -1494,6 +1503,7 @@ mod tests {
         let counts = classify_bridges(&bridges, &connected);
 
         assert_eq!(counts.connected, 1);
+        assert_eq!(counts.idle, 2);
         assert_eq!(counts.orphaned, 1);
     }
 
