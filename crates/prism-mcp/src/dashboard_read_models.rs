@@ -214,6 +214,7 @@ fn dashboard_session_view(host: &QueryHost, session: Option<&SessionState>) -> S
         }),
         current_agent: session
             .and_then(|session| session.current_agent().map(|agent| agent.0.to_string())),
+        bridge_identity: None,
         limits: SessionLimitsView {
             max_result_nodes: limits.max_result_nodes,
             max_call_graph_depth: limits.max_call_graph_depth,

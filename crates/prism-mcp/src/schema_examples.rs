@@ -619,6 +619,14 @@ fn session_payload_example() -> Value {
             "planTitle": null
         },
         "currentAgent": "codex",
+        "bridgeIdentity": {
+            "status": "bound",
+            "profile": "codex-c",
+            "principalId": "principal:codex-c",
+            "credentialId": "credential:codex-c",
+            "error": null,
+            "nextAction": "Proceed with authoritative `prism_mutate` calls without supplying `credential` on this bridge."
+        },
         "limits": sample_limits(),
         "features": sample_features(),
         "relatedResources": sample_related_resources(),

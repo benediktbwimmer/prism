@@ -130,6 +130,7 @@ impl QueryHost {
             current_task,
             current_work,
             current_agent: session.current_agent().map(|agent| agent.0.to_string()),
+            bridge_identity: None,
             limits: SessionLimitsView {
                 max_result_nodes: limits.max_result_nodes,
                 max_call_graph_depth: limits.max_call_graph_depth,
@@ -183,6 +184,7 @@ impl QueryHost {
                 current_task: session.current_task,
                 current_work: session.current_work,
                 current_agent: session.current_agent,
+                bridge_identity: session.bridge_identity,
                 limits: session.limits,
                 features: session.features,
                 related_resources: dedupe_resource_link_views(related_resources),

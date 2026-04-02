@@ -14,7 +14,7 @@ use rmcp::{
     ErrorData as McpError, ServerHandler, ServiceExt,
 };
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{json, Value};
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::task::{self, JoinHandle};
 use tracing::{info, warn};
@@ -536,6 +536,55 @@ impl ProxyMcpServer {
         }
     }
 
+    fn inject_bridge_identity_into_session_content(
+        &self,
+        content: ResourceContents,
+    ) -> Result<ResourceContents, McpError> {
+        match content {
+            ResourceContents::TextResourceContents {
+                uri, text, meta, ..
+            } => {
+                let mut payload: Value = serde_json::from_str(&text).map_err(|error| {
+                    McpError::internal_error(
+                        "failed to parse upstream session resource payload",
+                        Some(json!({ "error": error.to_string() })),
+                    )
+                })?;
+                let object = payload.as_object_mut().ok_or_else(|| {
+                    McpError::internal_error(
+                        "upstream session resource payload must be a JSON object",
+                        None,
+                    )
+                })?;
+                object.insert(
+                    "bridgeIdentity".to_string(),
+                    serde_json::to_value(self.bridge_auth.session_bridge_identity()).map_err(
+                        |error| {
+                            McpError::internal_error(
+                                "failed to serialize bridge identity for the session resource",
+                                Some(json!({ "error": error.to_string() })),
+                            )
+                        },
+                    )?,
+                );
+                json_resource_contents_with_meta(payload, uri, meta)
+            }
+            other => Ok(other),
+        }
+    }
+
+    fn inject_bridge_identity_into_session_result(
+        &self,
+        mut result: ReadResourceResult,
+    ) -> Result<ReadResourceResult, McpError> {
+        result.contents = result
+            .contents
+            .into_iter()
+            .map(|content| self.inject_bridge_identity_into_session_content(content))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(result)
+    }
+
     async fn recover_failed_startup_if_needed(&self) -> Result<()> {
         let payload = self.startup.snapshot();
         if payload.ready || payload.error.is_none() {
@@ -959,6 +1008,7 @@ impl ServerHandler for ProxyMcpServer {
     ) -> Result<ReadResourceResult, McpError> {
         let _request = self.activity.begin_request();
         self.startup.capture_peer(&context.peer);
+        let base_uri = split_resource_uri(request.uri.as_str()).0.to_string();
         if request.uri == STARTUP_URI {
             return Ok(ReadResourceResult::new(vec![self
                 .startup
@@ -969,10 +1019,16 @@ impl ServerHandler for ProxyMcpServer {
                 .bridge_auth
                 .bridge_auth_resource_contents()]));
         }
-        self.call_upstream(request, "resources/read", |peer, request| async move {
-            peer.read_resource(request).await
-        })
-        .await
+        let result = self
+            .call_upstream(request, "resources/read", |peer, request| async move {
+                peer.read_resource(request).await
+            })
+            .await?;
+        if base_uri == SESSION_URI {
+            self.inject_bridge_identity_into_session_result(result)
+        } else {
+            Ok(result)
+        }
     }
 
     async fn call_tool(

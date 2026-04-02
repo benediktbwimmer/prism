@@ -72,11 +72,23 @@ pub(crate) struct FeatureFlagsView {
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct BridgeIdentityView {
+    pub(crate) status: String,
+    pub(crate) profile: Option<String>,
+    pub(crate) principal_id: Option<String>,
+    pub(crate) credential_id: Option<String>,
+    pub(crate) error: Option<String>,
+    pub(crate) next_action: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct SessionView {
     pub(crate) workspace_root: Option<String>,
     pub(crate) current_task: Option<SessionTaskView>,
     pub(crate) current_work: Option<SessionWorkView>,
     pub(crate) current_agent: Option<String>,
+    pub(crate) bridge_identity: Option<BridgeIdentityView>,
     pub(crate) limits: SessionLimitsView,
     pub(crate) features: FeatureFlagsView,
 }
@@ -120,6 +132,7 @@ pub(crate) struct SessionResourcePayload {
     pub(crate) current_task: Option<SessionTaskView>,
     pub(crate) current_work: Option<SessionWorkView>,
     pub(crate) current_agent: Option<String>,
+    pub(crate) bridge_identity: Option<BridgeIdentityView>,
     pub(crate) limits: SessionLimitsView,
     pub(crate) features: FeatureFlagsView,
     pub(crate) related_resources: Vec<ResourceLinkView>,

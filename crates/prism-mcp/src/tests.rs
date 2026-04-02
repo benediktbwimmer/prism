@@ -21918,9 +21918,11 @@ fn cloned_servers_isolate_session_state_but_share_persisted_state() {
         .session_resource_value(client_b.session.as_ref())
         .unwrap();
     assert_eq!(session_a.current_agent.as_deref(), Some("agent-a"));
+    assert!(session_a.bridge_identity.is_none());
     assert!(session_a.current_task.is_none());
     assert_eq!(session_a.limits.max_result_nodes, 3);
     assert_eq!(session_b.current_agent, None);
+    assert!(session_b.bridge_identity.is_none());
     assert!(session_b.current_task.is_none());
     assert_eq!(
         session_b.limits.max_result_nodes,

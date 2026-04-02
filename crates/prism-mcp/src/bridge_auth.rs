@@ -10,6 +10,8 @@ use rmcp::ErrorData as McpError;
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 
+use crate::BridgeIdentityView;
+
 pub(crate) const BRIDGE_AUTH_URI: &str = "prism://bridge/auth";
 pub(crate) const BRIDGE_ADOPT_TOOL_NAME: &str = "prism_bridge_adopt";
 
@@ -392,10 +394,9 @@ impl BridgeAuthContext {
         Ok(Some(arguments))
     }
 
-    fn resource_payload(&self) -> BridgeAuthResourcePayload {
+    pub(crate) fn session_bridge_identity(&self) -> BridgeIdentityView {
         match self.state.snapshot() {
-            BridgeBindingState::Bound(binding) => BridgeAuthResourcePayload {
-                uri: BRIDGE_AUTH_URI.to_string(),
+            BridgeBindingState::Bound(binding) => BridgeIdentityView {
                 status: "bound".to_string(),
                 profile: Some(binding.profile_label().to_string()),
                 principal_id: Some(binding.principal_id().to_string()),
@@ -405,8 +406,7 @@ impl BridgeAuthContext {
                     "Proceed with authoritative `prism_mutate` calls without supplying `credential` on this bridge."
                         .to_string(),
             },
-            BridgeBindingState::Stale(binding) => BridgeAuthResourcePayload {
-                uri: BRIDGE_AUTH_URI.to_string(),
+            BridgeBindingState::Stale(binding) => BridgeIdentityView {
                 status: "stale".to_string(),
                 profile: Some(binding.profile.profile),
                 principal_id: Some(binding.profile.principal_id),
@@ -416,8 +416,7 @@ impl BridgeAuthContext {
                     "Refresh the local PRISM credential with `prism auth login` or mint a fresh one, then call `prism_bridge_adopt` again on this bridge."
                         .to_string(),
             },
-            BridgeBindingState::Unbound => BridgeAuthResourcePayload {
-                uri: BRIDGE_AUTH_URI.to_string(),
+            BridgeBindingState::Unbound => BridgeIdentityView {
                 status: "unbound".to_string(),
                 profile: None,
                 principal_id: None,
@@ -427,6 +426,19 @@ impl BridgeAuthContext {
                     "Call `prism_bridge_adopt` with a local profile label or principal id before the first authoritative `prism_mutate` on this bridge."
                         .to_string(),
             },
+        }
+    }
+
+    fn resource_payload(&self) -> BridgeAuthResourcePayload {
+        let identity = self.session_bridge_identity();
+        BridgeAuthResourcePayload {
+            uri: BRIDGE_AUTH_URI.to_string(),
+            status: identity.status,
+            profile: identity.profile,
+            principal_id: identity.principal_id,
+            credential_id: identity.credential_id,
+            error: identity.error,
+            next_action: identity.next_action,
         }
     }
 }

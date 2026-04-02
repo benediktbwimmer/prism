@@ -75,6 +75,13 @@ async fn stdio_proxy_forwards_to_streamable_http_upstream() {
         .await
         .expect("proxy should forward resources/read");
     assert_eq!(session.contents.len(), 1);
+    let session_text = match &session.contents[0] {
+        rmcp::model::ResourceContents::TextResourceContents { text, .. } => text.as_str(),
+        other => panic!("expected textual session resource, got {other:?}"),
+    };
+    let session_payload =
+        serde_json::from_str::<Value>(session_text).expect("session resource should be valid json");
+    assert_eq!(session_payload["bridgeIdentity"]["status"], "unbound");
 
     let query = client
         .call_tool(CallToolRequestParams::new("prism_query").with_arguments(
@@ -691,6 +698,27 @@ async fn stdio_proxy_can_adopt_local_profile_and_mutate_without_explicit_credent
         .expect("bridge auth resource should be valid json");
     assert_eq!(bridge_auth_payload["status"], "bound");
     assert_eq!(bridge_auth_payload["profile"], "agent-a");
+
+    let session = client
+        .read_resource(ReadResourceRequestParams::new(SESSION_URI))
+        .await
+        .expect("session resource should be readable");
+    let session_text = match &session.contents[0] {
+        rmcp::model::ResourceContents::TextResourceContents { text, .. } => text.as_str(),
+        other => panic!("expected textual session resource, got {other:?}"),
+    };
+    let session_payload =
+        serde_json::from_str::<Value>(session_text).expect("session resource should be valid json");
+    assert_eq!(session_payload["bridgeIdentity"]["status"], "bound");
+    assert_eq!(session_payload["bridgeIdentity"]["profile"], "agent-a");
+    assert_eq!(
+        session_payload["bridgeIdentity"]["principalId"],
+        authenticated.principal.principal_id.0.as_str()
+    );
+    assert_eq!(
+        session_payload["bridgeIdentity"]["credentialId"],
+        credential.credential_id.as_str()
+    );
 
     client.cancel().await.unwrap();
     proxy_task.abort();

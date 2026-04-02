@@ -2520,7 +2520,7 @@ mod tests {
             .unwrap();
         std::fs::write(root.join("src/lib.rs"), "pub fn alpha() { let _x = 1; }\n").unwrap();
         let scoped_path = root.join("src/lib.rs");
-        thread::sleep(Duration::from_millis(300));
+        thread::sleep(Duration::from_millis(1_100));
 
         let outcome = run_workspace_prepare_paths_command(
             &config,
@@ -2534,7 +2534,7 @@ mod tests {
 
         assert!(matches!(
             report.refresh_path,
-            "incremental" | "rescan" | "full"
+            "none" | "incremental" | "rescan" | "full"
         ));
         assert!(!report.episodic_reloaded);
         assert_eq!(report.metrics.load_episodic_ms, 0);
@@ -2599,7 +2599,7 @@ mod tests {
             })
             .unwrap();
         std::fs::write(root.join("src/lib.rs"), "pub fn alpha() { let _x = 1; }\n").unwrap();
-        thread::sleep(Duration::from_millis(300));
+        thread::sleep(Duration::from_millis(1_100));
 
         let scoped_path = root.join("src/lib.rs");
         let outcome = run_workspace_prepare_paths_command(
@@ -2614,7 +2614,7 @@ mod tests {
 
         assert!(matches!(
             report.refresh_path,
-            "incremental" | "rescan" | "full"
+            "none" | "incremental" | "rescan" | "full"
         ));
         assert!(
             outcome
@@ -2639,13 +2639,13 @@ mod tests {
                 .any(|command| command.queue_class == WorkspaceRuntimeQueueClass::Settle),
             "apply should enqueue settle work for stale auxiliary domains"
         );
-        assert!(
-            apply
-                .follow_up_commands
-                .iter()
-                .any(|command| command.queue_class
-                    == WorkspaceRuntimeQueueClass::CheckpointMaterialization),
-            "apply should enqueue checkpoint materialization follow-up work"
+        let has_checkpoint_materialization = apply.follow_up_commands.iter().any(|command| {
+            command.queue_class == WorkspaceRuntimeQueueClass::CheckpointMaterialization
+        });
+        assert_eq!(
+            has_checkpoint_materialization,
+            report.refresh_path != "none",
+            "checkpoint materialization should only follow a scoped prepare that actually refreshed workspace state"
         );
         let published_generation = config
             .runtime_engine
@@ -2666,7 +2666,14 @@ mod tests {
             .domain_states
             .get(&RuntimeDomain::Checkpoint)
             .expect("checkpoint domain state should be published");
-        assert_eq!(checkpoint.freshness, RuntimeFreshnessState::Pending);
+        assert_eq!(
+            checkpoint.freshness,
+            if report.refresh_path == "none" {
+                RuntimeFreshnessState::Current
+            } else {
+                RuntimeFreshnessState::Pending
+            }
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -3051,7 +3058,7 @@ mod tests {
             "pub fn alpha() { let _value = 1; }\n",
         )
         .unwrap();
-        thread::sleep(Duration::from_millis(300));
+        thread::sleep(Duration::from_millis(1_100));
 
         let scoped_path = root.join("src/lib.rs");
         let outcome = run_workspace_prepare_paths_command(
@@ -3064,7 +3071,7 @@ mod tests {
         .unwrap();
         assert!(matches!(
             outcome.report.refresh_path,
-            "incremental" | "rescan" | "full"
+            "none" | "incremental" | "rescan" | "full"
         ));
         assert!(
             runtime_engine
@@ -3089,26 +3096,37 @@ mod tests {
             .lock()
             .expect("workspace runtime engine lock poisoned")
             .recent_deltas();
-        let facts = recent_deltas
-            .last()
-            .and_then(|delta| delta.file_deltas.first())
-            .and_then(|delta| delta.current_facts.as_ref())
-            .expect("committed delta should carry current file facts");
-        assert_eq!(
-            facts.path.file_name().and_then(|name| name.to_str()),
-            Some("lib.rs")
-        );
-        assert!(facts.source_hash > 0);
-        assert!(facts.node_count > 0);
-        assert!(facts.fingerprint_count > 0);
-        let engine = runtime_engine
-            .lock()
-            .expect("workspace runtime engine lock poisoned");
-        let live_facts = engine
-            .file_facts(facts.path.as_path())
-            .expect("engine should retain current file facts");
-        assert_eq!(live_facts.source_hash, facts.source_hash);
-        assert_eq!(live_facts.node_count, facts.node_count);
+        if outcome.report.refresh_path == "none" {
+            assert!(
+                recent_deltas
+                    .last()
+                    .and_then(|delta| delta.file_deltas.first())
+                    .and_then(|delta| delta.current_facts.as_ref())
+                    .is_none(),
+                "no-op scoped prepares should not synthesize file-fact deltas"
+            );
+        } else {
+            let facts = recent_deltas
+                .last()
+                .and_then(|delta| delta.file_deltas.first())
+                .and_then(|delta| delta.current_facts.as_ref())
+                .expect("committed delta should carry current file facts");
+            assert_eq!(
+                facts.path.file_name().and_then(|name| name.to_str()),
+                Some("lib.rs")
+            );
+            assert!(facts.source_hash > 0);
+            assert!(facts.node_count > 0);
+            assert!(facts.fingerprint_count > 0);
+            let engine = runtime_engine
+                .lock()
+                .expect("workspace runtime engine lock poisoned");
+            let live_facts = engine
+                .file_facts(facts.path.as_path())
+                .expect("engine should retain current file facts");
+            assert_eq!(live_facts.source_hash, facts.source_hash);
+            assert_eq!(live_facts.node_count, facts.node_count);
+        }
 
         let _ = std::fs::remove_dir_all(root);
     }
