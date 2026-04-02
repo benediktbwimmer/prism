@@ -26,7 +26,7 @@ pub use crate::projections::{
 };
 pub use crate::read_models::{
     ProjectionAuthorityPlane, ProjectionClass, ProjectionFreshnessState,
-    ProjectionMaterializationState, ProjectionReadModel,
+    ProjectionMaterializationState, ProjectionReadModel, ProjectionScopeReadModel,
 };
 pub use crate::types::{
     CoChangeDelta, CoChangeRecord, ConceptDecodeLens, ConceptEvent, ConceptEventAction,

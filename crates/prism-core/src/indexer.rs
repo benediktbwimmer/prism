@@ -21,6 +21,7 @@ use crate::layout::{discover_layout, sync_root_nodes, PackageInfo, WorkspaceLayo
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::parse_pipeline::{parse_jobs_in_parallel, PreparedParseJob};
 use crate::patch_outcomes::{default_outcome_meta, RecordedPatchOutcome};
+use crate::repo_patch_events::merge_repo_patch_events_into_memory;
 use crate::reanchor::{detect_moved_files, infer_reanchors};
 use crate::session::{
     WorkspaceRefreshSeed, WorkspaceRefreshWork, WorkspaceSession, HOT_OUTCOME_HYDRATION_LIMIT,
@@ -354,6 +355,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
         let history_snapshot = history.snapshot();
         let outcomes = OutcomeMemory::from_snapshot(prism.outcome_snapshot());
+        merge_repo_patch_events_into_memory(&root, &outcomes)?;
         let projections = merged_projection_index(
             Some(prism.projection_snapshot()),
             None,
@@ -441,6 +443,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             plan_execution_overlays,
             projections,
         } = runtime_state;
+        merge_repo_patch_events_into_memory(&root, &outcomes)?;
         if refresh_runtime_roots {
             let workspace_id = sync_root_nodes(Arc::make_mut(&mut graph), &layout);
             Arc::make_mut(&mut history).seed_nodes(
@@ -559,6 +562,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         }
         .map(OutcomeMemory::from_snapshot)
         .unwrap_or_else(OutcomeMemory::new);
+        merge_repo_patch_events_into_memory(&root, &outcomes)?;
         let load_outcomes_ms = load_outcomes_started.elapsed().as_millis();
         let load_coordination_started = Instant::now();
         let plan_state = if options.coordination {
@@ -679,7 +683,7 @@ impl<S: Store> WorkspaceIndexer<S> {
     }
 
     pub fn index_with_trigger(&mut self, trigger: ChangeTrigger) -> Result<Vec<ObservedChangeSet>> {
-        let (observed, _) = self.index_impl(trigger, None, None, None)?;
+        let (observed, _) = self.index_impl(trigger, None, None, None, default_outcome_meta("observed"))?;
         Ok(observed)
     }
 
@@ -701,6 +705,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             Some(&plan),
             Some(&plan.next_snapshot),
             Some(&deep_paths),
+            default_outcome_meta("observed"),
         )?;
         Ok(observed)
     }
@@ -710,8 +715,24 @@ impl<S: Store> WorkspaceIndexer<S> {
         trigger: ChangeTrigger,
         plan: &WorkspaceRefreshPlan,
     ) -> Result<Vec<ObservedChangeSet>> {
+        let (observed, _) = self.index_impl(
+            trigger,
+            Some(plan),
+            Some(&plan.next_snapshot),
+            None,
+            default_outcome_meta("observed"),
+        )?;
+        Ok(observed)
+    }
+
+    pub(crate) fn index_with_refresh_plan_and_meta(
+        &mut self,
+        trigger: ChangeTrigger,
+        plan: &WorkspaceRefreshPlan,
+        observed_meta: EventMeta,
+    ) -> Result<Vec<ObservedChangeSet>> {
         let (observed, _) =
-            self.index_impl(trigger, Some(plan), Some(&plan.next_snapshot), None)?;
+            self.index_impl(trigger, Some(plan), Some(&plan.next_snapshot), None, observed_meta)?;
         Ok(observed)
     }
 
@@ -726,6 +747,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             Some(plan),
             Some(&plan.next_snapshot),
             Some(deep_paths),
+            default_outcome_meta("observed"),
         )?;
         Ok(observed)
     }
@@ -736,6 +758,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         refresh_plan: Option<&WorkspaceRefreshPlan>,
         next_tree_snapshot: Option<&WorkspaceTreeSnapshot>,
         forced_deep_paths: Option<&HashSet<PathBuf>>,
+        observed_meta: EventMeta,
     ) -> Result<(Vec<ObservedChangeSet>, Vec<prism_ir::GraphChange>)> {
         let started = Instant::now();
         info!(
@@ -1020,7 +1043,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             if !seen_files.contains(&tracked) && !moved_paths.contains(&tracked) {
                 let update = self.graph.remove_file_with_observed_without_rebuild(
                     &tracked,
-                    default_outcome_meta("observed"),
+                    observed_meta.clone(),
                     trigger.clone(),
                 );
                 requires_graph_index_rebuild |= update.requires_index_rebuild;
@@ -1568,7 +1591,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             parsed.unresolved_impls,
             parsed.unresolved_intents,
             &reanchors,
-            default_outcome_meta("observed"),
+            observed_meta,
             trigger,
         )
     }
@@ -1594,7 +1617,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             Vec::new(),
             Vec::new(),
             &[],
-            default_outcome_meta("observed"),
+            observed_meta,
             trigger,
         )
     }

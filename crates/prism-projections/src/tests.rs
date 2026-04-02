@@ -18,7 +18,7 @@ use crate::{
     ConceptRelationKind, ConceptScope, ContractCompatibility, ContractEvent, ContractEventAction,
     ContractGuarantee, ContractKind, ContractPacket, ContractStatus, ContractTarget,
     ProjectionAuthorityPlane, ProjectionFreshnessState, ProjectionMaterializationState,
-    ProjectionReadModel,
+    ProjectionReadModel, ProjectionScopeReadModel,
 };
 
 fn history_snapshot(
@@ -136,6 +136,45 @@ fn projection_read_model_serializes_contract_and_freshness() {
     assert_eq!(value["freshness"], "pending");
     assert_eq!(value["materialization"], "partial");
     assert_eq!(value["entryCount"], 12);
+}
+
+#[test]
+fn projection_scope_read_model_serializes_scope_contract_and_read_models() {
+    let scope = ProjectionScopeReadModel::serving(
+        "worktree",
+        vec![
+            ProjectionAuthorityPlane::PublishedRepo,
+            ProjectionAuthorityPlane::SharedRuntime,
+        ],
+        ProjectionFreshnessState::Stale,
+        ProjectionMaterializationState::Partial,
+        2,
+        1,
+        3,
+        12,
+        9,
+        vec![ProjectionReadModel::serving(
+            "co_change",
+            vec![
+                ProjectionAuthorityPlane::PublishedRepo,
+                ProjectionAuthorityPlane::SharedRuntime,
+            ],
+            ProjectionFreshnessState::Stale,
+            ProjectionMaterializationState::Partial,
+            12,
+        )],
+    );
+
+    let value = serde_json::to_value(&scope).expect("projection scope should serialize");
+    assert_eq!(value["scope"], "worktree");
+    assert_eq!(value["projectionClass"], "serving");
+    assert_eq!(value["authorityPlanes"][0], "published_repo");
+    assert_eq!(value["authorityPlanes"][1], "shared_runtime");
+    assert_eq!(value["freshness"], "stale");
+    assert_eq!(value["materialization"], "partial");
+    assert_eq!(value["coChangeLineageCount"], 12);
+    assert_eq!(value["validationLineageCount"], 9);
+    assert_eq!(value["readModels"][0]["name"], "co_change");
 }
 
 #[test]

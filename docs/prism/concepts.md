@@ -3,6 +3,15 @@
 > Generated from repo-scoped PRISM concept and relation knowledge.
 > Return to the concise entrypoint in `../../PRISM.md`.
 
+## Projection Metadata
+
+- Projection class: `published`
+- Authority planes: `published_repo`
+- Projection version: `1`
+- Source head: `sha256:331e68edf71fbdb6a06a7b24c390ab85dd4e102d09a20086ac199072dd4fa6c7`
+- Source logical timestamp: `1775113302`
+- Source snapshot: `95` concepts, `206` relations, `8` contracts
+
 ## Overview
 
 - Active repo concepts: 95

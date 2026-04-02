@@ -292,6 +292,7 @@ fn discover_protected_streams(root: &Path) -> Result<Vec<ProtectedRepoStream>> {
         ProtectedRepoStream::concept_events(),
         ProtectedRepoStream::concept_relations(),
         ProtectedRepoStream::contract_events(),
+        ProtectedRepoStream::patch_events(),
     ] {
         insert_stream(&mut ordered, &mut seen, stream);
     }

@@ -422,6 +422,9 @@ silently changing the meaning of an existing `repo_id`.
 This layout will accumulate stale local state over time, so cleanup semantics are
 part of the design rather than an afterthought.
 
+The concrete retention policy for those semantics lives in
+[PRISM_HOME_RETENTION_AND_GC.md](/Users/bene/code/prism/docs/PRISM_HOME_RETENTION_AND_GC.md).
+
 Rules:
 
 - `repo.json`, `worktree.json`, and `project.json` should carry `last_seen`

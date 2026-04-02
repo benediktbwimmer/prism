@@ -2618,12 +2618,18 @@ fn repo_concept_events_auto_sync_prism_doc() {
     let relations_doc = fs::read_to_string(root.join("docs/prism/relations.md")).unwrap();
     let contracts_doc = fs::read_to_string(root.join("docs/prism/contracts.md")).unwrap();
     assert!(prism_doc.contains("# PRISM"));
+    assert!(prism_doc.contains("## Projection Metadata"));
+    assert!(prism_doc.contains("- Projection class: `published`"));
+    assert!(prism_doc.contains("- Authority planes: `published_repo`"));
+    assert!(prism_doc.contains("- Projection version: `1`"));
+    assert!(prism_doc.contains("- Source head: `sha256:"));
     assert!(prism_doc.contains("## How to Read This Repo"));
     assert!(prism_doc.contains("docs/prism/concepts.md"));
     assert!(prism_doc.contains("docs/prism/relations.md"));
     assert!(prism_doc.contains("docs/prism/contracts.md"));
     assert!(prism_doc.contains("- Active repo concepts: 1"));
     assert!(concepts_doc.contains("# PRISM Concepts"));
+    assert!(concepts_doc.contains("## Projection Metadata"));
     assert!(concepts_doc.contains("`alpha_flow` (`concept://alpha_flow`)"));
     assert!(concepts_doc.contains("Explains how alpha delegates work into beta."));
     assert!(concepts_doc.contains("### Core Members"));
@@ -2632,7 +2638,9 @@ fn repo_concept_events_auto_sync_prism_doc() {
     assert!(concepts_doc.contains("demo::gamma"));
     assert!(concepts_doc.contains("### Risk Hint"));
     assert!(relations_doc.contains("# PRISM Relations"));
+    assert!(relations_doc.contains("## Projection Metadata"));
     assert!(contracts_doc.contains("# PRISM Contracts"));
+    assert!(contracts_doc.contains("## Projection Metadata"));
     assert!(contracts_doc.contains("No active repo-scoped contracts are currently published."));
 
     let sync = session.sync_prism_doc().unwrap();
@@ -2762,7 +2770,9 @@ fn repo_concept_relations_auto_sync_prism_doc() {
     assert!(prism_doc.contains("- Active repo concepts: 2"));
     assert!(prism_doc.contains("- Active repo relations: 1"));
     assert!(prism_doc.contains("## Generated Docs"));
+    assert!(prism_doc.contains("- Source snapshot: `2` concepts, `1` relations, `0` contracts"));
     assert!(relations_doc.contains("# PRISM Relations"));
+    assert!(relations_doc.contains("- Source logical timestamp: `37`"));
     assert!(relations_doc.contains("depends on: `beta_system` (`concept://beta_system`)"));
     assert!(relations_doc.contains("confidence 0.88"));
 
@@ -2860,6 +2870,7 @@ fn repo_contract_events_auto_sync_prism_doc() {
     assert!(prism_doc.contains("- Active repo contracts: 1"));
     assert!(prism_doc.contains("docs/prism/contracts.md"));
     assert!(contracts_doc.contains("# PRISM Contracts"));
+    assert!(contracts_doc.contains("- Source logical timestamp: `43`"));
     assert!(contracts_doc.contains("`alpha_api` (`contract://alpha_api`)"));
     assert!(contracts_doc.contains("Preserves a stable callable surface for alpha consumers."));
     assert!(contracts_doc.contains("Kind: interface"));

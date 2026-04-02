@@ -47,6 +47,14 @@ impl ProtectedRepoStream {
         }
     }
 
+    pub(crate) fn patch_events() -> Self {
+        Self {
+            stream: "repo_patch_events",
+            stream_id: "changes:events".to_string(),
+            relative_path: PathBuf::from(".prism/changes/events.jsonl"),
+        }
+    }
+
     pub(crate) fn memory_stream(file_name: &str) -> Option<Self> {
         (!file_name.trim().is_empty() && file_name.ends_with(".jsonl")).then(|| Self {
             stream: "repo_memory_events",
@@ -114,6 +122,11 @@ pub(crate) fn classify_protected_repo_relative_path(path: &Path) -> Option<Prote
         {
             Some(ProtectedRepoStream::contract_events())
         }
+        [prism, changes, file]
+            if prism == ".prism" && changes == "changes" && file == "events.jsonl" =>
+        {
+            Some(ProtectedRepoStream::patch_events())
+        }
         [prism, memory, file] if prism == ".prism" && memory == "memory" => {
             ProtectedRepoStream::memory_stream(file)
         }
@@ -158,6 +171,12 @@ mod tests {
             classify_protected_repo_relative_path(Path::new(".prism/contracts/events.jsonl"))
                 .expect("contract events should be protected");
         assert_eq!(contracts.stream(), "repo_contract_events");
+
+        let patches =
+            classify_protected_repo_relative_path(Path::new(".prism/changes/events.jsonl"))
+                .expect("patch events should be protected");
+        assert_eq!(patches.stream(), "repo_patch_events");
+        assert_eq!(patches.stream_id(), "changes:events");
 
         let memory = classify_protected_repo_relative_path(Path::new(".prism/memory/events.jsonl"))
             .expect("memory events should be protected");

@@ -176,6 +176,10 @@ pub(crate) fn repo_memory_events_path(root: &Path) -> PathBuf {
     root.join(".prism").join("memory").join("events.jsonl")
 }
 
+pub(crate) fn repo_patch_events_path(root: &Path) -> PathBuf {
+    root.join(".prism").join("changes").join("events.jsonl")
+}
+
 pub(crate) fn prism_doc_path(root: &Path) -> PathBuf {
     root.join("PRISM.md")
 }

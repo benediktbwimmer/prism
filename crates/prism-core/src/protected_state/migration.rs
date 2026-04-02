@@ -3,7 +3,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
-use prism_memory::{MemoryEvent, MemoryScope};
+use prism_memory::{MemoryEvent, MemoryScope, OutcomeEvent};
 use prism_projections::{ConceptEvent, ConceptRelationEvent, ContractEvent};
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -15,6 +15,7 @@ use crate::protected_state::streams::{ProtectedRepoStream, ProtectedVerification
 use crate::protected_state::trust::load_active_runtime_signing_key;
 use crate::util::{
     repo_concept_events_path, repo_concept_relations_path, repo_contract_events_path,
+    repo_patch_events_path,
 };
 use crate::PrismPaths;
 
@@ -56,6 +57,20 @@ pub fn migrate_legacy_protected_repo_state(
         load_legacy_jsonl::<ContractEvent>,
         |event| implicit_principal_identity(event.actor.as_ref(), event.execution_context.as_ref()),
         |event| event.id.as_str(),
+        &mut report,
+    )?;
+    migrate_stream(
+        root,
+        &ProtectedRepoStream::patch_events(),
+        &repo_patch_events_path(root),
+        load_legacy_jsonl::<OutcomeEvent>,
+        |event| {
+            implicit_principal_identity(
+                Some(&event.meta.actor),
+                event.meta.execution_context.as_ref(),
+            )
+        },
+        |event| event.meta.id.as_str(),
         &mut report,
     )?;
 

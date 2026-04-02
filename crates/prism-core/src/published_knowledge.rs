@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
-use prism_memory::{MemoryEvent, MemoryScope};
+use prism_memory::{MemoryEvent, MemoryScope, OutcomeEvent, OutcomeKind, OutcomeResult};
+use prism_ir::EventActor;
 use prism_projections::{
     ConceptEvent, ConceptPacket, ConceptProvenance, ConceptPublicationStatus, ConceptRelation,
     ConceptRelationEvent, ContractEvent, ContractPacket, ContractStatus, ContractTarget,
@@ -62,6 +63,70 @@ pub(crate) fn validate_repo_contract_event(event: &ContractEvent) -> Result<()> 
         return Ok(());
     }
     validate_repo_contract_packet(&event.contract)
+}
+
+pub(crate) fn validate_repo_patch_event(event: &OutcomeEvent) -> Result<()> {
+    if event.kind != OutcomeKind::PatchApplied {
+        return Err(anyhow!(
+            "repo-published patch event `{}` must use PatchApplied kind",
+            event.meta.id.0
+        ));
+    }
+    if event.result != OutcomeResult::Success {
+        return Err(anyhow!(
+            "repo-published patch event `{}` must have a successful result",
+            event.meta.id.0
+        ));
+    }
+    if matches!(event.meta.actor, EventActor::System) {
+        return Err(anyhow!(
+            "repo-published patch event `{}` must record a non-system actor",
+            event.meta.id.0
+        ));
+    }
+    let Some(context) = event.meta.execution_context.as_ref() else {
+        return Err(anyhow!(
+            "repo-published patch event `{}` must include execution context",
+            event.meta.id.0
+        ));
+    };
+    let Some(work) = context.work_context.as_ref() else {
+        return Err(anyhow!(
+            "repo-published patch event `{}` must include work context",
+            event.meta.id.0
+        ));
+    };
+    if work.work_id.trim().is_empty() || work.title.trim().is_empty() {
+        return Err(anyhow!(
+            "repo-published patch event `{}` must include non-empty work id and title",
+            event.meta.id.0
+        ));
+    }
+    let Some(metadata) = event.metadata.as_object() else {
+        return Err(anyhow!(
+            "repo-published patch event `{}` must include metadata",
+            event.meta.id.0
+        ));
+    };
+    let reason = metadata.get("reason").and_then(Value::as_str).unwrap_or("");
+    if reason.trim().is_empty() {
+        return Err(anyhow!(
+            "repo-published patch event `{}` must include a non-empty provenance reason",
+            event.meta.id.0
+        ));
+    }
+    let file_paths = metadata
+        .get("filePaths")
+        .and_then(Value::as_array)
+        .map(|paths| paths.iter().filter_map(Value::as_str).collect::<Vec<_>>())
+        .unwrap_or_default();
+    if file_paths.is_empty() {
+        return Err(anyhow!(
+            "repo-published patch event `{}` must include filePaths",
+            event.meta.id.0
+        ));
+    }
+    Ok(())
 }
 
 fn validate_repo_memory_metadata(metadata: &Value) -> Result<()> {

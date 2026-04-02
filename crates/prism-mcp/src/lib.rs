@@ -78,6 +78,7 @@ mod runtime_views;
 mod schema_examples;
 mod semantic_contexts;
 mod server_surface;
+mod serving_projection_models;
 mod session_seed;
 mod session_state;
 mod slow_call_snapshot;

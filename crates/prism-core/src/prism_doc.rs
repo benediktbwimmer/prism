@@ -10,12 +10,15 @@ use prism_projections::{
     ContractPacket, ContractPublicationStatus, ContractStability, ContractStatus, ContractTarget,
     ContractValidation,
 };
+use serde::Serialize;
+use sha2::{Digest, Sha256};
 
 use crate::util::prism_doc_path;
 
 const ARCHITECTURE_HANDLE: &str = "concept://prism_architecture";
 const ROOT_SUBSYSTEM_LIMIT: usize = 15;
 const ROOT_KEY_CONCEPT_LIMIT: usize = 12;
+const PUBLISHED_PROJECTION_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PrismDocSyncStatus {
@@ -82,6 +85,7 @@ struct PrismDocCatalog {
     contracts: Vec<ContractPacket>,
     concept_names: HashMap<String, String>,
     relation_degree: HashMap<String, usize>,
+    metadata: PublishedProjectionMetadata,
 }
 
 impl PrismDocCatalog {
@@ -103,12 +107,14 @@ impl PrismDocCatalog {
         let relations = visible_repo_relations(relations, &concept_names);
         let contracts = active_repo_contracts(contracts);
         let relation_degree = relation_degree_map(&relations);
+        let metadata = PublishedProjectionMetadata::from_sources(&concepts, &relations, &contracts);
         Self {
             concepts,
             relations,
             contracts,
             concept_names,
             relation_degree,
+            metadata,
         }
     }
 
@@ -181,6 +187,64 @@ impl PrismDocCatalog {
     }
 }
 
+#[derive(Debug, Clone)]
+struct PublishedProjectionMetadata {
+    projection_version: u32,
+    source_head: String,
+    source_logical_timestamp: Option<u64>,
+    concept_count: usize,
+    relation_count: usize,
+    contract_count: usize,
+}
+
+#[derive(Serialize)]
+struct PublishedProjectionDigestInput<'a> {
+    concepts: &'a [ConceptPacket],
+    relations: &'a [ConceptRelation],
+    contracts: &'a [ContractPacket],
+}
+
+impl PublishedProjectionMetadata {
+    fn from_sources(
+        concepts: &[ConceptPacket],
+        relations: &[ConceptRelation],
+        contracts: &[ContractPacket],
+    ) -> Self {
+        let digest_input = PublishedProjectionDigestInput {
+            concepts,
+            relations,
+            contracts,
+        };
+        let canonical = serde_jcs::to_vec(&digest_input).expect("projection stamp should encode");
+        let source_head = format!("sha256:{:x}", Sha256::digest(canonical));
+        let source_logical_timestamp = concepts
+            .iter()
+            .filter_map(|concept| concept.publication.as_ref())
+            .flat_map(|publication| {
+                [Some(publication.published_at), publication.last_reviewed_at].into_iter()
+            })
+            .chain(
+                contracts
+                    .iter()
+                    .filter_map(|contract| contract.publication.as_ref())
+                    .flat_map(|publication| {
+                        [Some(publication.published_at), publication.last_reviewed_at].into_iter()
+                    }),
+            )
+            .flatten()
+            .max();
+
+        Self {
+            projection_version: PUBLISHED_PROJECTION_VERSION,
+            source_head,
+            source_logical_timestamp,
+            concept_count: concepts.len(),
+            relation_count: relations.len(),
+            contract_count: contracts.len(),
+        }
+    }
+}
+
 fn render_root_prism_doc(catalog: &PrismDocCatalog) -> String {
     let mut markdown = String::new();
     markdown.push_str("# PRISM\n\n");
@@ -188,6 +252,7 @@ fn render_root_prism_doc(catalog: &PrismDocCatalog) -> String {
         "> This file is generated from repo-scoped PRISM knowledge. The concise summary lives here,\n",
     );
     markdown.push_str("> while the full generated catalog lives under `docs/prism/`.\n\n");
+    write_projection_metadata_section(&mut markdown, &catalog.metadata);
 
     markdown.push_str("## Overview\n\n");
     markdown.push_str(&format!(
@@ -269,6 +334,7 @@ fn render_concepts_doc(catalog: &PrismDocCatalog) -> String {
     markdown.push_str("# PRISM Concepts\n\n");
     markdown.push_str("> Generated from repo-scoped PRISM concept and relation knowledge.\n");
     markdown.push_str("> Return to the concise entrypoint in `../../PRISM.md`.\n\n");
+    write_projection_metadata_section(&mut markdown, &catalog.metadata);
 
     markdown.push_str("## Overview\n\n");
     markdown.push_str(&format!(
@@ -354,6 +420,7 @@ fn render_relations_doc(catalog: &PrismDocCatalog) -> String {
     markdown.push_str("# PRISM Relations\n\n");
     markdown.push_str("> Generated from repo-scoped PRISM concept relations.\n");
     markdown.push_str("> Return to the concise entrypoint in `../../PRISM.md`.\n\n");
+    write_projection_metadata_section(&mut markdown, &catalog.metadata);
 
     markdown.push_str("## Overview\n\n");
     markdown.push_str(&format!(
@@ -429,6 +496,7 @@ fn render_contracts_doc(catalog: &PrismDocCatalog) -> String {
     markdown.push_str("# PRISM Contracts\n\n");
     markdown.push_str("> Generated from repo-scoped PRISM contract knowledge.\n");
     markdown.push_str("> Return to the concise entrypoint in `../../PRISM.md`.\n\n");
+    write_projection_metadata_section(&mut markdown, &catalog.metadata);
 
     markdown.push_str("## Overview\n\n");
     markdown.push_str(&format!(
@@ -485,6 +553,29 @@ fn render_contracts_doc(catalog: &PrismDocCatalog) -> String {
     }
 
     markdown
+}
+
+fn write_projection_metadata_section(
+    markdown: &mut String,
+    metadata: &PublishedProjectionMetadata,
+) {
+    markdown.push_str("## Projection Metadata\n\n");
+    markdown.push_str("- Projection class: `published`\n");
+    markdown.push_str("- Authority planes: `published_repo`\n");
+    markdown.push_str(&format!(
+        "- Projection version: `{}`\n",
+        metadata.projection_version
+    ));
+    markdown.push_str(&format!("- Source head: `{}`\n", metadata.source_head));
+    if let Some(timestamp) = metadata.source_logical_timestamp {
+        markdown.push_str(&format!("- Source logical timestamp: `{timestamp}`\n"));
+    } else {
+        markdown.push_str("- Source logical timestamp: `unknown`\n");
+    }
+    markdown.push_str(&format!(
+        "- Source snapshot: `{}` concepts, `{}` relations, `{}` contracts\n\n",
+        metadata.concept_count, metadata.relation_count, metadata.contract_count
+    ));
 }
 
 fn write_generated_file(path: PathBuf, rendered: String) -> Result<PrismDocFileSync> {

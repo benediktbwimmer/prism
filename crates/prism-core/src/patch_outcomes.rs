@@ -3,7 +3,9 @@ use std::collections::{BTreeMap, HashSet};
 use prism_ir::{new_prefixed_id, AnchorRef, EventActor, EventId, EventMeta, ObservedChangeSet};
 use prism_memory::{OutcomeEvent, OutcomeKind, OutcomeResult};
 use prism_projections::ValidationDelta;
+use tracing::warn;
 
+use crate::repo_patch_events::append_repo_patch_event;
 use crate::util::current_timestamp;
 use crate::WorkspaceIndexer;
 
@@ -39,6 +41,33 @@ fn patch_summary(observed: &ObservedChangeSet) -> String {
         observed.removed.len(),
         observed.updated.len(),
     )
+}
+
+fn patch_reason(observed: &ObservedChangeSet) -> String {
+    if let Some(work) = observed
+        .meta
+        .execution_context
+        .as_ref()
+        .and_then(|context| context.work_context.as_ref())
+    {
+        return format!("work {} ({})", work.title, work.work_id);
+    }
+    if let Some(task_id) = observed.meta.correlation.as_ref() {
+        return format!("task {}", task_id.0);
+    }
+    format!("trigger {:?}", observed.trigger)
+}
+
+fn patch_is_repo_publishable(event: &OutcomeEvent) -> bool {
+    event.kind == OutcomeKind::PatchApplied
+        && event.result == OutcomeResult::Success
+        && !matches!(event.meta.actor, EventActor::System)
+        && event
+            .meta
+            .execution_context
+            .as_ref()
+            .and_then(|context| context.work_context.as_ref())
+            .is_some()
 }
 
 fn patch_file_paths<S: prism_store::Store>(
@@ -198,7 +227,7 @@ impl<S: prism_store::Store> WorkspaceIndexer<S> {
             meta: EventMeta {
                 id: auto_outcome_event_id("outcome"),
                 ts: observed.meta.ts,
-                actor: EventActor::System,
+                actor: observed.meta.actor.clone(),
                 correlation: observed.meta.correlation.clone(),
                 causation: Some(observed.meta.id.clone()),
                 execution_context: observed.meta.execution_context.clone(),
@@ -210,6 +239,7 @@ impl<S: prism_store::Store> WorkspaceIndexer<S> {
             evidence: Vec::new(),
             metadata: serde_json::json!({
                 "trigger": format!("{:?}", observed.trigger),
+                "reason": patch_reason(observed),
                 "files": observed.files.iter().map(|file_id| file_id.0).collect::<Vec<_>>(),
                 "filePaths": patch_file_paths(self, observed),
                 "changedFilesSummary": patch_metadata
@@ -235,6 +265,16 @@ impl<S: prism_store::Store> WorkspaceIndexer<S> {
         self.projections
             .apply_outcome_event(&event, |node| self.history.lineage_of(node));
         let _ = self.outcomes.store_event(event.clone());
+        if patch_is_repo_publishable(&event) {
+            if let Err(error) = append_repo_patch_event(&self.root, &event) {
+                warn!(
+                    root = %self.root.display(),
+                    event_id = %event.meta.id.0,
+                    error = %error,
+                    "failed to append repo patch provenance event"
+                );
+            }
+        }
         Some(RecordedPatchOutcome {
             event,
             validation_deltas,
