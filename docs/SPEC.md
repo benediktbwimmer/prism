@@ -130,6 +130,45 @@ Critical boundaries:
 * `prism-js` owns the JavaScript/TypeScript-facing API contract and runtime shim
 * `prism-mcp` owns agent transport, session lifecycle, and embedded query execution
 
+## 1.1 Authority Planes And Projections
+
+PRISM separates authority from interface-layer read models.
+
+Authority planes:
+
+* published repo authority: repo-scoped append-only truth under `.prism/**/*`
+* shared runtime authority: mutable runtime-scoped truth such as trust state, coordination
+  continuity, leases, and unpublished working state
+* derived projection state: read-optimized indexes, packets, summaries, caches, and generated
+  documentation derived from one or more authority planes
+
+Projection classes:
+
+* published projections: deterministic committed artifacts such as `PRISM.md` and `docs/prism/*`
+* serving projections: bounded read models for MCP, CLI, IDE, dashboards, and query/runtime
+  surfaces
+* ad hoc projections: parameterized historical, diff, audit, or time-scoped views requested on
+  demand
+
+Rules:
+
+* projections never silently author new truth
+* projections may read from published repo authority, shared runtime authority, or both
+* projections must surface freshness or materialization state when it affects trust in the answer
+* persisted projection accelerators remain derived and rebuildable, not hidden write authority
+* published projection artifacts are committed because they are useful interfaces, not because they
+  replace the underlying ledger
+
+Freshness semantics for projection-facing read surfaces must preserve the repo-wide runtime
+contract documented in [`docs/RUNTIME_REWRITE_ARCHITECTURE.md`](/Users/bene/code/prism/docs/RUNTIME_REWRITE_ARCHITECTURE.md):
+
+* `current`: the serving view is up to date for the relevant domain
+* `pending`: upstream authoritative change exists, but projection settlement is still in flight
+* `stale`: the projection is behind authoritative state
+* `recovery` or `known_unmaterialized`: the system knows the view is not fully hydrated yet
+
+Exact enum spellings may vary by surface, but those semantics must survive.
+
 ---
 
 # 2. Core IR (prism-ir)

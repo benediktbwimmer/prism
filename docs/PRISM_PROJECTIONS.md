@@ -2,7 +2,28 @@
 
 ## Status
 
-Design note aligned with the current PRISM architecture.
+Normative design target for the projection implementation phase.
+
+This document is not just background rationale. It defines the architecture contract for how
+PRISM separates authority from interface-layer read models.
+
+## Normative Invariants
+
+The following rules are implementation requirements:
+
+1. Published repo authority, shared runtime authority, and derived projection state remain
+   explicitly distinct planes.
+2. Projections are always derived. They may explain, summarize, cache, hydrate, or index
+   authoritative state, but they do not silently become a second write authority.
+3. Projection surfaces must be able to say which authority plane or planes they read from.
+4. Projection surfaces must expose freshness or materialization state when that state affects
+   trust in the answer.
+5. Missing, stale, deferred, or partially materialized projections must degrade honestly rather
+   than presenting themselves as fully current authority.
+6. Published projection artifacts such as repo-facing markdown views are deterministic
+   materializations over published authority, not hand-authored canonical truth.
+7. Ad hoc historical or diff-oriented views are projection requests over authoritative state, not
+   a special separate database model.
 
 ## The Problem: Authoritative Truth Is Not a Usable Interface
 

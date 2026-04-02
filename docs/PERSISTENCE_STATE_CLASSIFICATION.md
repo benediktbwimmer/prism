@@ -107,6 +107,15 @@ Representative surfaces:
 | Projections and read models | None by default; these are derived from authoritative state | Projection snapshots, co-change neighbors, validation deltas, query-oriented summaries, recommendation frontiers, compatibility read models | If a projection is rebuildable from authoritative events/state, it is not a write authority. |
 | Snapshots, compaction, and exports | None by default; these remain derived | `GraphSnapshot`, `HistorySnapshot`, `OutcomeMemorySnapshot`, `ProjectionSnapshot`, `CoordinationSnapshot`, episodic/inference/curator snapshots, deterministic per-plan compaction outputs, export artifacts | Snapshots may accelerate reload or export state, but replay/event-backed state remains canonical. |
 
+Projection contract:
+
+- published projections are committed deterministic interfaces over published repo authority
+- serving projections are latency-oriented read models over repo authority, runtime authority, or both
+- ad hoc projections are parameterized historical or diff-oriented reads over authoritative state
+- no projection class may become the sole semantic write authority for the domain it renders
+- persisted projection materializations are accelerators and must remain safe to discard and rebuild
+- projection surfaces must expose freshness or materialization state when trust depends on it
+
 ## Domain Durability Contract
 
 The classification above becomes the following migration contract:
