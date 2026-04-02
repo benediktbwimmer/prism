@@ -236,8 +236,7 @@ impl BridgeStartupState {
     fn startup_instructions_suffix(&self) -> String {
         let payload = self.snapshot();
         if payload.ready {
-            "This bridge has finished warming up and can proxy PRISM requests normally."
-                .to_string()
+            "This bridge has finished warming up and can proxy PRISM requests normally.".to_string()
         } else {
             format!(
                 "This bridge is warming up PRISM for `{}`. Before using PRISM tools, read `{}` and wait until `phase` becomes `ready`. If startup is still in progress, wait about {} seconds and read `{}` again.",
@@ -257,9 +256,11 @@ impl BridgeStartupState {
         let Some(peer) = peer else {
             return;
         };
-        let _ = peer.notify_resource_updated(ResourceUpdatedNotificationParam {
-            uri: STARTUP_URI.to_string(),
-        }).await;
+        let _ = peer
+            .notify_resource_updated(ResourceUpdatedNotificationParam {
+                uri: STARTUP_URI.to_string(),
+            })
+            .await;
         let _ = peer.notify_resource_list_changed().await;
         let _ = peer.notify_tool_list_changed().await;
     }
@@ -800,9 +801,7 @@ impl ServerHandler for ProxyMcpServer {
                 meta: None,
             },
         };
-        result
-            .resources
-            .push(self.startup.startup_resource());
+        result.resources.push(self.startup.startup_resource());
         result
             .resources
             .push(self.bridge_auth.bridge_auth_resource());
@@ -837,7 +836,9 @@ impl ServerHandler for ProxyMcpServer {
         let _request = self.activity.begin_request();
         self.startup.capture_peer(&context.peer);
         if request.uri == STARTUP_URI {
-            return Ok(ReadResourceResult::new(vec![self.startup.startup_resource_contents()]));
+            return Ok(ReadResourceResult::new(vec![self
+                .startup
+                .startup_resource_contents()]));
         }
         if request.uri == BRIDGE_AUTH_URI {
             return Ok(ReadResourceResult::new(vec![self
@@ -1006,7 +1007,9 @@ async fn build_release_binaries(root: &Path, build_log_path: Option<&Path>) -> R
             let stderr = stdout.try_clone().with_context(|| {
                 format!("failed to clone build log {}", build_log_path.display())
             })?;
-            command.stdout(Stdio::from(stdout)).stderr(Stdio::from(stderr));
+            command
+                .stdout(Stdio::from(stdout))
+                .stderr(Stdio::from(stderr));
         }
 
         command
@@ -1018,7 +1021,9 @@ async fn build_release_binaries(root: &Path, build_log_path: Option<&Path>) -> R
     if status.success() {
         Ok(())
     } else {
-        Err(anyhow!("bridge bootstrap build failed with status {status}"))
+        Err(anyhow!(
+            "bridge bootstrap build failed with status {status}"
+        ))
     }
 }
 

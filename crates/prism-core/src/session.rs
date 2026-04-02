@@ -15,11 +15,11 @@ use prism_curator::{
 };
 use prism_history::HistoryStore;
 use prism_ir::{
-    new_prefixed_id, AnchorRef, ChangeTrigger, CredentialId, EventActor, EventExecutionContext, EventId,
-    EventMeta, LineageEvent, LineageId, ObservedChangeCheckpoint, ObservedChangeCheckpointEntry,
-    ObservedChangeCheckpointTrigger, ObservedChangeSet, PlanExecutionOverlay, PlanGraph,
-    PrincipalActor, PrincipalAuthorityId, PrincipalId, PrincipalRegistrySnapshot, SessionId,
-    TaskId, WorkContextSnapshot,
+    new_prefixed_id, AnchorRef, ChangeTrigger, CredentialId, EventActor, EventExecutionContext,
+    EventId, EventMeta, LineageEvent, LineageId, ObservedChangeCheckpoint,
+    ObservedChangeCheckpointEntry, ObservedChangeCheckpointTrigger, ObservedChangeSet,
+    PlanExecutionOverlay, PlanGraph, PrincipalActor, PrincipalAuthorityId, PrincipalId,
+    PrincipalRegistrySnapshot, SessionId, TaskId, WorkContextSnapshot,
 };
 use prism_memory::OutcomeMemory;
 use prism_memory::{
@@ -759,13 +759,7 @@ impl WorkspaceSession {
             let mut store = shared_runtime_store
                 .lock()
                 .expect("shared runtime store lock poisoned");
-            store.load_patch_event_summaries(
-                target_anchor.as_ref(),
-                task_id,
-                since,
-                path,
-                limit,
-            )?
+            store.load_patch_event_summaries(target_anchor.as_ref(), task_id, since, path, limit)?
         } else {
             Vec::new()
         };

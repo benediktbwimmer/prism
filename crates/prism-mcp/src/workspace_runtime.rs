@@ -27,7 +27,8 @@ use tracing::{debug, error};
 
 use crate::{
     diagnostics_state::DiagnosticsState, log_refresh_workspace, mcp_call_log::McpCallLogStore,
-    runtime_views::refresh_cached_runtime_status_for_config, DashboardState, QueryHost,
+    runtime_views::refresh_cached_runtime_status_for_config,
+    workspace_host::SharedWorkspaceRuntimeRevisions, DashboardState, QueryHost,
     WorkspaceRefreshMetrics, WorkspaceRefreshReport,
 };
 
@@ -49,8 +50,54 @@ pub(crate) struct WorkspaceRuntimeConfig {
     pub(crate) loaded_episodic_revision: Arc<AtomicU64>,
     pub(crate) loaded_inference_revision: Arc<AtomicU64>,
     pub(crate) loaded_coordination_revision: Arc<AtomicU64>,
+    pub(crate) current_revisions: Arc<SharedWorkspaceRuntimeRevisions>,
     pub(crate) runtime_engine: Arc<Mutex<WorkspaceRuntimeEngine>>,
     pub(crate) prepared_delta: Arc<Mutex<Option<PreparedWorkspaceRuntimeDelta>>>,
+}
+
+fn sync_current_runtime_revisions(
+    config: &WorkspaceRuntimeConfig,
+    revisions: &WorkspaceSnapshotRevisions,
+) {
+    config
+        .current_revisions
+        .current_workspace_revision()
+        .store(revisions.workspace, Ordering::Relaxed);
+    config
+        .current_revisions
+        .current_episodic_revision()
+        .store(revisions.episodic, Ordering::Relaxed);
+    config
+        .current_revisions
+        .current_inference_revision()
+        .store(revisions.inference, Ordering::Relaxed);
+    config
+        .current_revisions
+        .current_coordination_revision()
+        .store(revisions.coordination, Ordering::Relaxed);
+}
+
+fn runtime_read_is_current(config: &WorkspaceRuntimeConfig) -> bool {
+    config.loaded_workspace_revision.load(Ordering::Relaxed)
+        == config
+            .current_revisions
+            .current_workspace_revision()
+            .load(Ordering::Relaxed)
+        && config.loaded_episodic_revision.load(Ordering::Relaxed)
+            == config
+                .current_revisions
+                .current_episodic_revision()
+                .load(Ordering::Relaxed)
+        && config.loaded_inference_revision.load(Ordering::Relaxed)
+            == config
+                .current_revisions
+                .current_inference_revision()
+                .load(Ordering::Relaxed)
+        && config.loaded_coordination_revision.load(Ordering::Relaxed)
+            == config
+                .current_revisions
+                .current_coordination_revision()
+                .load(Ordering::Relaxed)
 }
 
 pub(crate) struct WorkspaceRuntime {
@@ -706,6 +753,7 @@ fn sync_workspace_runtime_with_guard(
     let revisions_started = Instant::now();
     let revisions = config.workspace.snapshot_revisions_for_runtime()?;
     let snapshot_revisions_ms = elapsed_ms(revisions_started);
+    sync_current_runtime_revisions(config, &revisions);
     let (
         episodic_reload,
         inference_reload,
@@ -881,6 +929,7 @@ fn sync_workspace_runtime_for_read_with_guard(
     let revisions_started = Instant::now();
     let revisions = config.workspace.snapshot_revisions_for_runtime()?;
     let snapshot_revisions_ms = elapsed_ms(revisions_started);
+    sync_current_runtime_revisions(config, &revisions);
     config.loaded_workspace_revision.store(
         config.workspace.loaded_workspace_revision(),
         Ordering::Relaxed,
@@ -1016,6 +1065,7 @@ pub(crate) fn hydrate_persisted_workspace_state(config: &WorkspaceRuntimeConfig)
         Ordering::Relaxed,
     );
     let revisions = config.workspace.snapshot_revisions()?;
+    sync_current_runtime_revisions(config, &revisions);
     let _ = reload_episodic_snapshot_if_needed(config, revisions.episodic)?;
     let _ = reload_inference_snapshot_if_needed(config, revisions.inference)?;
     let _ = reload_coordination_snapshot_if_needed(config, revisions.coordination)?;
@@ -1105,6 +1155,7 @@ pub(crate) fn sync_persisted_workspace_state(
     let revisions_started = Instant::now();
     let revisions = config.workspace.snapshot_revisions_for_runtime()?;
     let snapshot_revisions_ms = elapsed_ms(revisions_started);
+    sync_current_runtime_revisions(config, &revisions);
     let episodic_started = Instant::now();
     let episodic_reload = reload_episodic_snapshot_if_needed(config, revisions.episodic)?;
     let load_episodic_ms = elapsed_ms(episodic_started);
@@ -1299,6 +1350,7 @@ fn run_workspace_prepare_paths_command(
     let revisions_started = Instant::now();
     let revisions = config.workspace.snapshot_revisions_for_runtime()?;
     let snapshot_revisions_ms = elapsed_ms(revisions_started);
+    sync_current_runtime_revisions(config, &revisions);
     let duration_ms = started.elapsed().as_millis();
     let metrics = WorkspaceRefreshMetrics {
         lock_wait_ms,
@@ -1520,6 +1572,7 @@ fn sync_workspace_settle_domain(
     let revisions_started = Instant::now();
     let revisions = config.workspace.snapshot_revisions_for_runtime()?;
     let snapshot_revisions_ms = elapsed_ms(revisions_started);
+    sync_current_runtime_revisions(config, &revisions);
 
     let (
         episodic_reload,
@@ -2014,6 +2067,7 @@ fn sync_workspace_runtime_checkpoint_with_guard(
     let revisions_started = Instant::now();
     let revisions = config.workspace.snapshot_revisions_for_runtime()?;
     let snapshot_revisions_ms = elapsed_ms(revisions_started);
+    sync_current_runtime_revisions(config, &revisions);
     let duration_ms = started.elapsed().as_millis();
     let metrics = WorkspaceRefreshMetrics {
         lock_wait_ms,
@@ -2131,6 +2185,13 @@ impl QueryHost {
         let runtime = binding.runtime();
         let diagnostics = binding.diagnostics();
         let config = binding.runtime_config();
+        if !workspace.needs_refresh()
+            && !workspace.is_fallback_check_due_now()
+            && runtime_read_is_current(&config)
+        {
+            diagnostics.request_refresh();
+            return Ok(WorkspaceRefreshReport::none());
+        }
         let Some(report) = try_sync_workspace_runtime_for_read(&config)? else {
             runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
             diagnostics.request_refresh();
@@ -2213,6 +2274,19 @@ mod tests {
     use crate::mcp_call_log::McpCallLogStore;
     use crate::tests_support::temp_workspace;
 
+    fn test_current_revisions(
+        workspace: &Arc<WorkspaceSession>,
+    ) -> Arc<crate::workspace_host::SharedWorkspaceRuntimeRevisions> {
+        Arc::new(crate::workspace_host::SharedWorkspaceRuntimeRevisions::new(
+            workspace
+                .workspace_revision()
+                .unwrap_or_else(|_| workspace.loaded_workspace_revision()),
+            workspace.episodic_revision().unwrap_or(0),
+            workspace.inference_revision().unwrap_or(0),
+            workspace.coordination_revision().unwrap_or(0),
+        ))
+    }
+
     #[test]
     fn dirty_workspace_deferred_report_skips_reload_metrics() {
         let root = temp_workspace();
@@ -2237,6 +2311,7 @@ mod tests {
             loaded_coordination_revision: Arc::new(AtomicU64::new(
                 workspace.coordination_revision().unwrap_or(0),
             )),
+            current_revisions: test_current_revisions(&workspace),
             runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
                 WorkspaceRuntimeContext::from_root(&root),
             ))),
@@ -2305,6 +2380,7 @@ mod tests {
             loaded_coordination_revision: Arc::new(AtomicU64::new(
                 workspace.coordination_revision().unwrap_or(0),
             )),
+            current_revisions: test_current_revisions(&workspace),
             runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
                 WorkspaceRuntimeContext::from_root(&root),
             ))),
@@ -2366,6 +2442,7 @@ mod tests {
             loaded_coordination_revision: Arc::new(AtomicU64::new(
                 workspace.coordination_revision().unwrap_or(0),
             )),
+            current_revisions: test_current_revisions(&workspace),
             runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
                 WorkspaceRuntimeContext::from_root(&root),
             ))),
@@ -2444,6 +2521,7 @@ mod tests {
             loaded_coordination_revision: Arc::new(AtomicU64::new(
                 workspace.coordination_revision().unwrap_or(0),
             )),
+            current_revisions: test_current_revisions(&workspace),
             runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
                 WorkspaceRuntimeContext::from_root(&root),
             ))),
@@ -2562,6 +2640,7 @@ mod tests {
             loaded_coordination_revision: Arc::new(AtomicU64::new(
                 workspace.coordination_revision().unwrap_or(0),
             )),
+            current_revisions: test_current_revisions(&workspace),
             runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
                 WorkspaceRuntimeContext::from_root(&root),
             ))),
@@ -2635,6 +2714,7 @@ mod tests {
             loaded_coordination_revision: Arc::new(AtomicU64::new(
                 workspace.coordination_revision().unwrap_or(0),
             )),
+            current_revisions: test_current_revisions(&workspace),
             runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
                 WorkspaceRuntimeContext::from_root(&root),
             ))),
@@ -2720,6 +2800,7 @@ mod tests {
             loaded_coordination_revision: Arc::new(AtomicU64::new(
                 workspace.coordination_revision().unwrap_or(0),
             )),
+            current_revisions: test_current_revisions(&workspace),
             runtime_engine: Arc::clone(&runtime_engine),
             prepared_delta: Arc::new(Mutex::new(None)),
         };
@@ -2781,6 +2862,7 @@ mod tests {
             loaded_coordination_revision: Arc::new(AtomicU64::new(
                 workspace.coordination_revision().unwrap_or(0),
             )),
+            current_revisions: test_current_revisions(&workspace),
             runtime_engine: Arc::clone(&runtime_engine),
             prepared_delta: Arc::new(Mutex::new(None)),
         };
@@ -2892,6 +2974,7 @@ mod tests {
             loaded_coordination_revision: Arc::new(AtomicU64::new(
                 workspace.coordination_revision().unwrap_or(0),
             )),
+            current_revisions: test_current_revisions(&workspace),
             runtime_engine: Arc::clone(&runtime_engine),
             prepared_delta: Arc::new(Mutex::new(None)),
         };
@@ -2998,6 +3081,7 @@ mod tests {
             loaded_coordination_revision: Arc::new(AtomicU64::new(
                 workspace.coordination_revision().unwrap_or(0),
             )),
+            current_revisions: test_current_revisions(&workspace),
             runtime_engine: Arc::clone(&runtime_engine),
             prepared_delta: Arc::new(Mutex::new(None)),
         };
@@ -3087,6 +3171,7 @@ mod tests {
             loaded_episodic_revision: Arc::new(AtomicU64::new(0)),
             loaded_inference_revision: Arc::new(AtomicU64::new(0)),
             loaded_coordination_revision: Arc::new(AtomicU64::new(0)),
+            current_revisions: test_current_revisions(&workspace),
             runtime_engine,
             prepared_delta: Arc::new(Mutex::new(None)),
         };

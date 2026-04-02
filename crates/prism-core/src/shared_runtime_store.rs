@@ -9,7 +9,8 @@ use prism_store::{
     CoordinationJournal, CoordinationPersistBatch, CoordinationPersistContext,
     CoordinationPersistResult, EventJournalStore, Graph, IndexPersistBatch, MaterializationStore,
     PatchEventSummary, PatchEventSummaryQuery, PatchFileSummary, PatchFileSummaryQuery,
-    ProjectionMaterializationMetadata, SnapshotRevisions, SqliteStore, Store, WorkspaceTreeSnapshot,
+    ProjectionMaterializationMetadata, SnapshotRevisions, SqliteStore, Store,
+    WorkspaceTreeSnapshot,
 };
 
 pub(crate) enum SharedRuntimeStore {

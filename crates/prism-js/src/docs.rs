@@ -559,6 +559,8 @@ type PatchEventView = {
   workTitle?: string;
   summary: string;
   files: string[];
+  changedSymbolCount: number;
+  changedSymbolsTruncated: boolean;
   changedSymbols: ChangedSymbolView[];
 };
 

@@ -4,14 +4,11 @@ use anyhow::{Context, Result};
 use prism_ir::{AnchorRef, EventActor, EventId};
 use prism_memory::{OutcomeEvent, OutcomeKind};
 use rusqlite::{
-    params, params_from_iter, types::Value as SqlValue, Connection, OptionalExtension,
-    Transaction,
+    params, params_from_iter, types::Value as SqlValue, Connection, OptionalExtension, Transaction,
 };
 use serde_json::Value;
 
-use crate::{
-    PatchEventSummary, PatchEventSummaryQuery, PatchFileSummary, PatchFileSummaryQuery,
-};
+use crate::{PatchEventSummary, PatchEventSummaryQuery, PatchFileSummary, PatchFileSummaryQuery};
 
 const PATCH_PROJECTION_BACKFILLED_KEY: &str = "outcomes:patch_projection_backfilled";
 
@@ -89,10 +86,7 @@ pub(super) fn append_patch_projection_tx(
     Ok(inserted)
 }
 
-pub(super) fn delete_patch_projection_rows_tx(
-    tx: &Transaction<'_>,
-    event_id: &str,
-) -> Result<()> {
+pub(super) fn delete_patch_projection_rows_tx(tx: &Transaction<'_>, event_id: &str) -> Result<()> {
     tx.execute(
         "DELETE FROM projection_patch_file WHERE event_id = ?1",
         params![event_id],
@@ -119,10 +113,9 @@ pub(super) fn backfill_patch_projection_if_needed(conn: &mut Connection) -> Resu
             conn.prepare("SELECT payload FROM outcome_event_log ORDER BY sequence ASC")?;
         let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
         for row in rows {
-            events.push(
-                serde_json::from_str::<OutcomeEvent>(&row?)
-                    .context("failed to decode outcome event payload during patch projection backfill")?,
-            );
+            events.push(serde_json::from_str::<OutcomeEvent>(&row?).context(
+                "failed to decode outcome event payload during patch projection backfill",
+            )?);
         }
     }
 
@@ -275,7 +268,11 @@ fn patch_projection_rows(
         return None;
     }
     let metadata = parse_patch_metadata(&event.metadata);
-    let task_id = event.meta.correlation.as_ref().map(|task| task.0.to_string());
+    let task_id = event
+        .meta
+        .correlation
+        .as_ref()
+        .map(|task| task.0.to_string());
     let actor = actor_label(&event.meta.actor);
     let work_id = event
         .meta
@@ -475,9 +472,11 @@ fn table_exists(conn: &Connection, table: &str) -> Result<bool> {
 }
 
 fn metadata_value(conn: &Connection, key: &str) -> Result<Option<u64>> {
-    conn.query_row("SELECT value FROM metadata WHERE key = ?1", params![key], |row| {
-        row.get::<_, i64>(0)
-    })
+    conn.query_row(
+        "SELECT value FROM metadata WHERE key = ?1",
+        params![key],
+        |row| row.get::<_, i64>(0),
+    )
     .optional()
     .map(|value| value.and_then(|value| u64::try_from(value).ok()))
     .map_err(Into::into)

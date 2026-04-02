@@ -488,6 +488,8 @@ pub struct PatchEventView {
     pub work_title: Option<String>,
     pub summary: String,
     pub files: Vec<String>,
+    pub changed_symbol_count: usize,
+    pub changed_symbols_truncated: bool,
     pub changed_symbols: Vec<ChangedSymbolView>,
 }
 

@@ -204,8 +204,8 @@ async fn bind_preferred_stable_listener(preferred: &str) -> Result<Option<TcpLis
 
 async fn run_bridge(cli: &PrismMcpCli, root: &Path) -> Result<()> {
     let upstream_source = BridgeUpstreamSource::from_cli(cli, root)?;
-    let proxy = ProxyMcpServer::bootstrap_with_source_for_root(root, cli.clone(), upstream_source)
-        .await?;
+    let proxy =
+        ProxyMcpServer::bootstrap_with_source_for_root(root, cli.clone(), upstream_source).await?;
     proxy.serve_stdio().await
 }
 
@@ -243,7 +243,10 @@ impl BridgeUpstreamSource {
     }
 }
 
-pub(crate) async fn resolve_upstream_uri(cli: &PrismMcpCli, root: &Path) -> Result<UpstreamResolution> {
+pub(crate) async fn resolve_upstream_uri(
+    cli: &PrismMcpCli,
+    root: &Path,
+) -> Result<UpstreamResolution> {
     if let Some(uri) = &cli.upstream_uri {
         return Ok(UpstreamResolution {
             uri: uri.clone(),
