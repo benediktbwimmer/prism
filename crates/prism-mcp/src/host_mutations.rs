@@ -2481,6 +2481,15 @@ impl QueryHost {
         session: &SessionState,
         args: PrismCuratorPromoteEdgeArgs,
     ) -> Result<CuratorProposalDecisionResult> {
+        self.promote_curator_edge_authenticated(session, args, None)
+    }
+
+    pub(crate) fn promote_curator_edge_authenticated(
+        &self,
+        session: &SessionState,
+        args: PrismCuratorPromoteEdgeArgs,
+        _authenticated: Option<&AuthenticatedPrincipal>,
+    ) -> Result<CuratorProposalDecisionResult> {
         let workspace = self
             .workspace_session()
             .ok_or_else(|| anyhow!("curator mutations require a workspace-backed session"))?;
@@ -2711,7 +2720,7 @@ impl QueryHost {
         let options = args.options;
 
         match proposal {
-            CuratorProposal::InferredEdge(_) => self.promote_curator_edge(
+            CuratorProposal::InferredEdge(_) => self.promote_curator_edge_authenticated(
                 session,
                 PrismCuratorPromoteEdgeArgs {
                     job_id: args.job_id,
@@ -2722,6 +2731,7 @@ impl QueryHost {
                     note: args.note,
                     task_id: args.task_id,
                 },
+                authenticated,
             ),
             CuratorProposal::ConceptCandidate(_) => self.promote_curator_concept_authenticated(
                 session,

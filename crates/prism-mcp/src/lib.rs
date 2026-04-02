@@ -852,7 +852,7 @@ impl QueryHost {
         } else if args.current_task_description.is_some() || args.current_task_tags.is_some() {
             if session.current_task_state().is_none() {
                 return Err(anyhow!(
-                    "no active task is set; provide currentTaskId before attaching description or tags, or let the next prism_mutate create a task implicitly"
+                    "no active task is set; provide currentTaskId before attaching description or tags, or declare work explicitly before the next authenticated mutation"
                 ));
             }
             session.update_current_task_metadata(

@@ -1810,6 +1810,8 @@ pub(crate) enum PrismMutationKindArgs {
     CuratorRejectProposal(PrismCuratorRejectProposalArgs),
 }
 
+impl PrismMutationKindArgs {}
+
 #[derive(Debug, Deserialize, JsonSchema)]
 #[schemars(transform = ensure_root_object_input_schema)]
 #[serde(rename_all = "snake_case", tag = "action", content = "input")]

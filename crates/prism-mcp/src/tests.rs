@@ -12885,6 +12885,26 @@ async fn validation_feedback_tool_mutation_skips_request_path_refresh() {
             2,
             "prism_mutate",
             json!({
+                "action": "declare_work",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "title": "Record refresh-runtime validation feedback"
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let declared_work = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(declared_work["action"], "declare_work");
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_mutate",
+            json!({
                 "action": "validation_feedback",
                 "credential": mutation_credential_json(&credential),
                 "input": {
@@ -16259,6 +16279,312 @@ fn authenticated_outcome_mutation_records_coordination_work_context_snapshot() {
     assert_eq!(
         work_context.plan_title.as_deref(),
         Some("Ship work context snapshots")
+    );
+}
+
+#[test]
+fn authenticated_coordination_mutation_records_declared_work_context_snapshot() {
+    let root = temp_workspace();
+    let (workspace, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    let host = QueryHost::with_session(workspace);
+
+    let declared = host
+        .declare_work_without_refresh_authenticated(
+            test_session(&host).as_ref(),
+            PrismDeclareWorkArgs {
+                title: "Create a provenance-aware plan".to_string(),
+                kind: Some(WorkDeclarationKindInput::Coordination),
+                summary: Some("Bootstrap coordination work under declared intent.".to_string()),
+                parent_work_id: Some("work:parent-coordination".to_string()),
+                coordination_task_id: None,
+                plan_id: None,
+            },
+            Some(&authenticated),
+        )
+        .expect("work should declare");
+
+    let run = host.begin_mutation_run(test_session(&host).as_ref(), "coordination");
+    let result = host
+        .store_coordination_traced_authenticated(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Ship declared work provenance" }),
+                task_id: None,
+            },
+            &run,
+            Some(&authenticated),
+        )
+        .expect("authenticated coordination mutation should persist");
+
+    let event_id = result
+        .event_ids
+        .first()
+        .expect("coordination mutation should record an event id");
+    let event = host
+        .current_prism()
+        .coordination_events()
+        .into_iter()
+        .find(|event| event.meta.id.0 == *event_id)
+        .expect("persisted coordination event should exist");
+    let principal = match event.meta.actor {
+        EventActor::Principal(principal) => principal,
+        actor => panic!("expected principal actor, got {actor:?}"),
+    };
+    assert_eq!(
+        principal.principal_id.0,
+        authenticated.principal.principal_id.0
+    );
+    let context = event
+        .meta
+        .execution_context
+        .expect("coordination event should record execution context");
+    let work_context = context
+        .work_context
+        .expect("coordination event should record declared work context");
+    assert_eq!(work_context.work_id, declared.work_id);
+    assert_eq!(work_context.kind, prism_ir::WorkContextKind::Coordination);
+    assert_eq!(work_context.title, "Create a provenance-aware plan");
+    assert_eq!(
+        work_context.parent_work_id.as_deref(),
+        Some("work:parent-coordination")
+    );
+    assert!(work_context.coordination_task_id.is_none());
+    assert!(work_context.plan_id.is_none());
+}
+
+#[test]
+fn authenticated_claim_mutation_preserves_declared_work_context_chain() {
+    let root = temp_workspace();
+    let (workspace, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    let host = QueryHost::with_session(workspace);
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Ship claim provenance" }),
+                task_id: None,
+            },
+        )
+        .expect("plan should persist");
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Claim edit scope",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .expect("task should persist");
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    let declared = host
+        .declare_work_without_refresh_authenticated(
+            test_session(&host).as_ref(),
+            PrismDeclareWorkArgs {
+                title: "Claim the alpha edit lane".to_string(),
+                kind: None,
+                summary: Some("Attach claim mutations to the active declared work.".to_string()),
+                parent_work_id: Some("work:parent-claim".to_string()),
+                coordination_task_id: Some(task_id.clone()),
+                plan_id: None,
+            },
+            Some(&authenticated),
+        )
+        .expect("work should declare");
+
+    let result = host
+        .store_claim_authenticated(
+            test_session(&host).as_ref(),
+            PrismClaimArgs {
+                action: ClaimActionInput::Acquire,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }],
+                    "capability": "Edit",
+                    "mode": "SoftExclusive",
+                    "coordinationTaskId": task_id,
+                }),
+                task_id: None,
+            },
+            Some(&authenticated),
+        )
+        .expect("authenticated claim mutation should persist");
+
+    let event_id = result
+        .event_ids
+        .first()
+        .expect("claim mutation should record an event id");
+    let event = host
+        .current_prism()
+        .coordination_events()
+        .into_iter()
+        .find(|event| event.meta.id.0 == *event_id)
+        .expect("persisted claim event should exist");
+    let context = event
+        .meta
+        .execution_context
+        .expect("claim event should record execution context");
+    let work_context = context
+        .work_context
+        .expect("claim event should record declared work context");
+    assert_eq!(work_context.work_id, declared.work_id);
+    assert_eq!(work_context.kind, prism_ir::WorkContextKind::Coordination);
+    assert_eq!(work_context.title, "Claim the alpha edit lane");
+    assert_eq!(
+        work_context.parent_work_id.as_deref(),
+        Some("work:parent-claim")
+    );
+    assert_eq!(
+        work_context.coordination_task_id.as_deref(),
+        Some(task_id.as_str())
+    );
+    assert_eq!(
+        work_context.plan_id.as_deref(),
+        Some(plan.state["id"].as_str().unwrap())
+    );
+    assert_eq!(
+        work_context.plan_title.as_deref(),
+        Some("Ship claim provenance")
+    );
+}
+
+#[test]
+fn authenticated_artifact_mutation_preserves_declared_work_context_chain() {
+    let root = temp_workspace();
+    let (workspace, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    let host = QueryHost::with_session(workspace);
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Ship artifact provenance" }),
+                task_id: None,
+            },
+        )
+        .expect("plan should persist");
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Propose patch artifact",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .expect("task should persist");
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    let declared = host
+        .declare_work_without_refresh_authenticated(
+            test_session(&host).as_ref(),
+            PrismDeclareWorkArgs {
+                title: "Propose the alpha patch".to_string(),
+                kind: None,
+                summary: Some("Attach artifact mutations to the active declared work.".to_string()),
+                parent_work_id: Some("work:parent-artifact".to_string()),
+                coordination_task_id: Some(task_id.clone()),
+                plan_id: None,
+            },
+            Some(&authenticated),
+        )
+        .expect("work should declare");
+
+    let result = host
+        .store_artifact_authenticated(
+            test_session(&host).as_ref(),
+            PrismArtifactArgs {
+                action: ArtifactActionInput::Propose,
+                payload: json!({
+                    "taskId": task_id,
+                    "diffRef": "patch:artifact-provenance"
+                }),
+                task_id: None,
+            },
+            Some(&authenticated),
+        )
+        .expect("authenticated artifact mutation should persist");
+
+    let event_id = result
+        .event_ids
+        .first()
+        .expect("artifact mutation should record an event id");
+    let event = host
+        .current_prism()
+        .coordination_events()
+        .into_iter()
+        .find(|event| event.meta.id.0 == *event_id)
+        .expect("persisted artifact event should exist");
+    let context = event
+        .meta
+        .execution_context
+        .expect("artifact event should record execution context");
+    let work_context = context
+        .work_context
+        .expect("artifact event should record declared work context");
+    assert_eq!(work_context.work_id, declared.work_id);
+    assert_eq!(work_context.kind, prism_ir::WorkContextKind::Coordination);
+    assert_eq!(work_context.title, "Propose the alpha patch");
+    assert_eq!(
+        work_context.parent_work_id.as_deref(),
+        Some("work:parent-artifact")
+    );
+    assert_eq!(
+        work_context.coordination_task_id.as_deref(),
+        Some(task.state["id"].as_str().unwrap())
+    );
+    assert_eq!(
+        work_context.plan_id.as_deref(),
+        Some(plan.state["id"].as_str().unwrap())
+    );
+    assert_eq!(
+        work_context.plan_title.as_deref(),
+        Some("Ship artifact provenance")
     );
 }
 
@@ -19972,7 +20298,7 @@ fn session_resource_surfaces_detached_current_task_context() {
     assert!(current_task
         .context_summary
         .contains("leftover session context"));
-    assert!(current_task.next_action.contains("start a fresh task"));
+    assert!(current_task.next_action.contains("declare_work"));
     let repair = current_task
         .repair_action
         .expect("detached task should surface a repair action");

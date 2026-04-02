@@ -1227,7 +1227,7 @@ fn session_task_context_summary(
             status: "detached",
             summary: "Current task has no recorded replay history or live coordination binding and may be leftover session context."
                 .to_string(),
-            next_action: "Clear the current task if you are changing scope, or start a fresh task through the normal task-start flow.".to_string(),
+            next_action: "Clear the current task if you are changing scope, or call prism_mutate with action `declare_work` before your next authenticated mutation.".to_string(),
             repair_action: Some(SessionRepairActionView {
                 tool: "prism_mutate".to_string(),
                 input: json!({

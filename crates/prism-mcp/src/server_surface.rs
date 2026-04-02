@@ -278,6 +278,24 @@ impl PrismMcpServer {
         Ok(authenticated)
     }
 
+    fn require_declared_work_context(
+        &self,
+        action_name: &'static str,
+        has_explicit_work_subject: bool,
+    ) -> Result<(), McpError> {
+        if has_explicit_work_subject || self.session.current_work_state().is_some() {
+            return Ok(());
+        }
+        Err(McpError::invalid_params(
+            "declared work context required before mutation",
+            Some(json!({
+                "code": "mutation_declared_work_required",
+                "action": action_name,
+                "nextAction": "Call `prism_mutate` with `action: \"declare_work\"` to declare intent before retrying this mutation, or provide an explicit taskId/claimId when the action supports it.",
+            })),
+        ))
+    }
+
     pub(crate) fn execute_logged_mutation<T, F, G>(
         &self,
         action: &str,
@@ -873,6 +891,7 @@ impl PrismMcpServer {
                     &credential,
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
+                self.require_declared_work_context("outcome", args.task_id.is_some())?;
                 let result = self.execute_logged_mutation(
                     "mutate.outcome",
                     MutationRefreshPolicy::None,
@@ -908,6 +927,7 @@ impl PrismMcpServer {
                     &credential,
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
+                self.require_declared_work_context("memory", args.task_id.is_some())?;
                 let result = self.execute_logged_mutation(
                     "mutate.memory",
                     MutationRefreshPolicy::None,
@@ -943,6 +963,7 @@ impl PrismMcpServer {
                     &credential,
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
+                self.require_declared_work_context("concept", args.task_id.is_some())?;
                 let result = self.execute_logged_mutation(
                     "mutate.concept",
                     MutationRefreshPolicy::None,
@@ -979,6 +1000,7 @@ impl PrismMcpServer {
                     &credential,
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
+                self.require_declared_work_context("contract", args.task_id.is_some())?;
                 let result = self.execute_logged_mutation(
                     "mutate.contract",
                     MutationRefreshPolicy::None,
@@ -1015,6 +1037,7 @@ impl PrismMcpServer {
                     &credential,
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
+                self.require_declared_work_context("concept_relation", args.task_id.is_some())?;
                 let result = self.execute_logged_mutation(
                     "mutate.concept_relation",
                     MutationRefreshPolicy::None,
@@ -1051,6 +1074,7 @@ impl PrismMcpServer {
                     &credential,
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
+                self.require_declared_work_context("validation_feedback", args.task_id.is_some())?;
                 let result = self.execute_logged_mutation(
                     "mutate.validation_feedback",
                     MutationRefreshPolicy::None,
@@ -1117,6 +1141,7 @@ impl PrismMcpServer {
                     &credential,
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
+                self.require_declared_work_context("infer_edge", args.task_id.is_some())?;
                 let result = self.execute_logged_mutation(
                     "mutate.infer_edge",
                     MutationRefreshPolicy::None,
@@ -1148,6 +1173,10 @@ impl PrismMcpServer {
                 let authenticated = self.authenticate_mutation(
                     &credential,
                     MutationCapabilityRequirement::MutateCoordination,
+                )?;
+                self.require_declared_work_context(
+                    "heartbeat_lease",
+                    args.task_id.is_some() || args.claim_id.is_some(),
                 )?;
                 let result = self.execute_logged_mutation(
                     "mutate.heartbeat_lease",
@@ -1184,6 +1213,7 @@ impl PrismMcpServer {
                     &credential,
                     MutationCapabilityRequirement::MutateCoordination,
                 )?;
+                self.require_declared_work_context("coordination", args.task_id.is_some())?;
                 let result = self.execute_logged_mutation_with_run(
                     "mutate.coordination",
                     MutationRefreshPolicy::None,
@@ -1216,6 +1246,7 @@ impl PrismMcpServer {
                     &credential,
                     MutationCapabilityRequirement::MutateCoordination,
                 )?;
+                self.require_declared_work_context("claim", args.task_id.is_some())?;
                 let result = self.execute_logged_mutation(
                     "mutate.claim",
                     MutationRefreshPolicy::None,
@@ -1248,6 +1279,7 @@ impl PrismMcpServer {
                     &credential,
                     MutationCapabilityRequirement::MutateCoordination,
                 )?;
+                self.require_declared_work_context("artifact", args.task_id.is_some())?;
                 let result = self.execute_logged_mutation(
                     "mutate.artifact",
                     MutationRefreshPolicy::None,
@@ -1280,6 +1312,7 @@ impl PrismMcpServer {
                     &credential,
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
+                self.require_declared_work_context("test_ran", args.task_id.is_some())?;
                 let summary = format!(
                     "test `{}` {}",
                     args.test,
@@ -1341,6 +1374,7 @@ impl PrismMcpServer {
                     &credential,
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
+                self.require_declared_work_context("failure_observed", args.task_id.is_some())?;
                 let evidence = args
                     .trace
                     .map(|trace| vec![OutcomeEvidenceInput::StackTrace { hash: trace }]);
@@ -1386,6 +1420,7 @@ impl PrismMcpServer {
                     &credential,
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
+                self.require_declared_work_context("fix_validated", args.task_id.is_some())?;
                 let evidence = args.command.clone().map(|command| {
                     vec![OutcomeEvidenceInput::Command {
                         argv: command,
@@ -1434,6 +1469,7 @@ impl PrismMcpServer {
                     &credential,
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
+                self.require_declared_work_context("curator_promote_edge", args.task_id.is_some())?;
                 let result = self.execute_logged_mutation(
                     "mutate.curator_promote_edge",
                     MutationRefreshPolicy::None,
@@ -1469,6 +1505,10 @@ impl PrismMcpServer {
                 let authenticated = self.authenticate_mutation(
                     &credential,
                     MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
+                self.require_declared_work_context(
+                    "curator_apply_proposal",
+                    args.task_id.is_some(),
                 )?;
                 let result = self.execute_logged_mutation(
                     "mutate.curator_apply_proposal",
@@ -1515,6 +1555,10 @@ impl PrismMcpServer {
                     &credential,
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
+                self.require_declared_work_context(
+                    "curator_promote_concept",
+                    args.task_id.is_some(),
+                )?;
                 let result = self.execute_logged_mutation(
                     "mutate.curator_promote_concept",
                     MutationRefreshPolicy::None,
@@ -1546,6 +1590,10 @@ impl PrismMcpServer {
                 let authenticated = self.authenticate_mutation(
                     &credential,
                     MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
+                self.require_declared_work_context(
+                    "curator_promote_memory",
+                    args.task_id.is_some(),
                 )?;
                 let result = self.execute_logged_mutation(
                     "mutate.curator_promote_memory",
@@ -1588,6 +1636,10 @@ impl PrismMcpServer {
                 let authenticated = self.authenticate_mutation(
                     &credential,
                     MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
+                self.require_declared_work_context(
+                    "curator_reject_proposal",
+                    args.task_id.is_some(),
                 )?;
                 let result = self.execute_logged_mutation(
                     "mutate.curator_reject_proposal",

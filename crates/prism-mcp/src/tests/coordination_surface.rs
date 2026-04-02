@@ -30,6 +30,26 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
             2,
             "prism_mutate",
             json!({
+                "action": "declare_work",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "title": "Review coordination blockers"
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let declared_work = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(declared_work["action"], "declare_work");
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_mutate",
+            json!({
                 "action": "coordination",
                 "credential": mutation_credential_json(&credential),
                 "input": {
@@ -51,7 +71,7 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
 
     client
         .send(call_tool_request(
-            3,
+            4,
             "prism_mutate",
             json!({
                 "action": "coordination",
@@ -81,7 +101,7 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
 
     client
         .send(call_tool_request(
-            4,
+            5,
             "prism_mutate",
             json!({
                 "action": "artifact",
@@ -105,7 +125,7 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
 
     client
         .send(call_tool_request(
-            5,
+            6,
             "prism_query",
             json!({
                 "code": format!(

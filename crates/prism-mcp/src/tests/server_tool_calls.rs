@@ -418,6 +418,26 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
             2,
             "prism_mutate",
             json!({
+                "action": "declare_work",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "title": "Coordinate the main edit"
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let declared_work = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(declared_work["action"], "declare_work");
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_mutate",
+            json!({
                 "action": "coordination",
                 "credential": mutation_credential_json(&credential),
                 "input": {
@@ -436,7 +456,7 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
 
     client
         .send(call_tool_request(
-            3,
+            4,
             "prism_mutate",
             json!({
                 "action": "coordination",
@@ -466,7 +486,7 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
 
     client
         .send(call_tool_request(
-            4,
+            5,
             "prism_mutate",
             json!({
                 "action": "claim",
@@ -497,7 +517,7 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
 
     client
         .send(call_tool_request(
-            5,
+            6,
             "prism_mutate",
             json!({
                 "action": "artifact",
@@ -525,7 +545,7 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
 
     let events = server_handle.host.current_prism().coordination_events();
     for (response, expected_request_id) in
-        [(&plan, "2"), (&task, "3"), (&claim, "4"), (&artifact, "5")]
+        [(&plan, "3"), (&task, "4"), (&claim, "5"), (&artifact, "6")]
     {
         let event_ids = response["result"]["eventIds"]
             .as_array()
@@ -557,7 +577,7 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
 
     client
         .send(call_tool_request(
-            6,
+            7,
             "prism_query",
             json!({
                 "code": format!(
@@ -796,6 +816,26 @@ async fn mcp_server_rejects_authenticated_mutation_from_second_principal_on_same
             2,
             "prism_mutate",
             json!({
+                "action": "declare_work",
+                "credential": owner_credential.clone(),
+                "input": {
+                    "title": "Bind the worktree to the owner principal"
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let declared_work = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(declared_work["action"], "declare_work");
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_mutate",
+            json!({
                 "action": "validation_feedback",
                 "credential": owner_credential,
                 "input": {
@@ -817,7 +857,7 @@ async fn mcp_server_rejects_authenticated_mutation_from_second_principal_on_same
 
     client
         .send(call_tool_request(
-            3,
+            4,
             "prism_mutate",
             json!({
                 "action": "validation_feedback",
@@ -856,6 +896,62 @@ async fn mcp_server_rejects_authenticated_mutation_from_second_principal_on_same
 }
 
 #[tokio::test]
+async fn mcp_server_rejects_authenticated_mutation_without_declared_work_context() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_mutate",
+            json!({
+                "action": "validation_feedback",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "context": "Attempt an authenticated mutation before the agent declares work.",
+                    "prismSaid": "Authenticated mutations can infer intent from session state.",
+                    "actuallyTrue": "Authenticated mutations must reject until the agent declares work explicitly.",
+                    "category": "coordination",
+                    "verdict": "wrong"
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let response = response_json(client.receive().await.unwrap());
+    assert_eq!(response["error"]["code"], -32602);
+    assert_eq!(
+        response["error"]["data"]["code"],
+        Value::String("mutation_declared_work_required".to_string())
+    );
+    assert_eq!(
+        response["error"]["data"]["action"],
+        Value::String("validation_feedback".to_string())
+    );
+    let next_action = response["error"]["data"]["nextAction"]
+        .as_str()
+        .unwrap_or_default();
+    assert!(next_action.contains("declare_work"), "{next_action}");
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn mcp_server_executes_heartbeat_lease_mutation_round_trip() {
     let root = temp_workspace();
     let (session, credential) = workspace_session_with_owner_credential(&root);
@@ -875,6 +971,26 @@ async fn mcp_server_executes_heartbeat_lease_mutation_round_trip() {
     client
         .send(call_tool_request(
             2,
+            "prism_mutate",
+            json!({
+                "action": "declare_work",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "title": "Exercise claim and heartbeat mutations"
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let declared_work = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(declared_work["action"], "declare_work");
+
+    client
+        .send(call_tool_request(
+            3,
             "prism_mutate",
             json!({
                 "action": "claim",
@@ -901,7 +1017,7 @@ async fn mcp_server_executes_heartbeat_lease_mutation_round_trip() {
 
     client
         .send(call_tool_request(
-            3,
+            4,
             "prism_mutate",
             json!({
                 "action": "heartbeat_lease",

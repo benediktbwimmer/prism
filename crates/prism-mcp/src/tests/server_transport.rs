@@ -305,6 +305,25 @@ async fn stdio_proxy_can_adopt_local_profile_and_mutate_without_explicit_credent
     assert_eq!(adopt_payload["status"], "bound");
     assert_eq!(adopt_payload["profile"], "agent-a");
 
+    let declare_work = client
+        .call_tool(CallToolRequestParams::new("prism_mutate").with_arguments(
+            serde_json::Map::from_iter([
+                ("action".to_string(), json!("declare_work")),
+                (
+                    "input".to_string(),
+                    json!({
+                        "title": "Bridge auth smoke test"
+                    }),
+                ),
+            ]),
+        ))
+        .await
+        .expect("bound bridge should allow declare_work without an explicit credential");
+    let declare_work_payload = declare_work
+        .structured_content
+        .expect("declare_work result should be structured");
+    assert_eq!(declare_work_payload["action"], "declare_work");
+
     let mutation = client
         .call_tool(
             CallToolRequestParams::new("prism_mutate").with_arguments(serde_json::Map::from_iter([
@@ -428,6 +447,21 @@ async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
         )
         .await
         .expect("bridge adopt should succeed");
+
+    client
+        .call_tool(CallToolRequestParams::new("prism_mutate").with_arguments(
+            serde_json::Map::from_iter([
+                ("action".to_string(), json!("declare_work")),
+                (
+                    "input".to_string(),
+                    json!({
+                        "title": "Bridge restart smoke test"
+                    }),
+                ),
+            ]),
+        ))
+        .await
+        .expect("declare_work should succeed before the first bridge mutation");
 
     client
         .call_tool(

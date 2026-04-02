@@ -29,6 +29,8 @@ When touching code that violates this policy, move it toward the target architec
 
 - After making edits, run targeted tests for the area you changed.
 - After targeted tests pass, always run the full workspace test suite to confirm the entire repo is green before finishing the task.
+- If a full `cargo test` suite run flakes on individual tests, rerun the failing tests in isolation.
+- When those isolated reruns pass, treat validation as successful and do not keep rerunning the full workspace suite only to chase the same non-deterministic flakes.
 
 ## PRISM MCP Workflow
 
