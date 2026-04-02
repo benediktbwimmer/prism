@@ -43,9 +43,10 @@ use serde_json::json;
 use super::{
     hydrate_workspace_session, hydrate_workspace_session_with_options, index_workspace,
     index_workspace_session, index_workspace_session_with_curator,
-    index_workspace_session_with_options, BootstrapOwnerInput, MintPrincipalRequest,
-    PrismDocSyncStatus, PrismPaths, SharedRuntimeBackend, ValidationFeedbackCategory,
-    ValidationFeedbackRecord, ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
+    index_workspace_session_with_options, regenerate_repo_published_plan_artifacts,
+    BootstrapOwnerInput, MintPrincipalRequest, PrismDocSyncStatus, PrismPaths,
+    SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
+    ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
 };
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator_support::build_curator_context;
@@ -4999,6 +5000,64 @@ fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
         updated_lines, 3,
         "task status change should append one delta event instead of rewriting the full log"
     );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn regenerate_repo_published_plan_artifacts_restores_index_and_derived_log_from_streams() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let plan_id = session
+        .mutate_coordination(|prism| {
+            prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:regen-plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:regen-plan")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Regenerate plan projections".into(),
+                None,
+                Some(Default::default()),
+            )
+        })
+        .unwrap();
+
+    let stream_path = root
+        .join(".prism")
+        .join("plans")
+        .join("streams")
+        .join(format!("{}.jsonl", plan_id.0));
+    let active_path = root
+        .join(".prism")
+        .join("plans")
+        .join("active")
+        .join(format!("{}.jsonl", plan_id.0));
+    let index_path = root.join(".prism").join("plans").join("index.jsonl");
+    let stream_bytes = fs::read(&stream_path).unwrap();
+
+    fs::remove_file(&active_path).unwrap();
+    fs::remove_file(&index_path).unwrap();
+
+    regenerate_repo_published_plan_artifacts(&root).unwrap();
+
+    assert_eq!(fs::read(&active_path).unwrap(), stream_bytes);
+    let index_contents = fs::read_to_string(&index_path).unwrap();
+    assert!(index_contents.contains(&format!(
+        "\"log_path\":\".prism/plans/streams/{}.jsonl\"",
+        plan_id.0
+    )));
 
     let _ = fs::remove_dir_all(root);
 }

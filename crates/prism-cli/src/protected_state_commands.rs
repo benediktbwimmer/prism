@@ -13,12 +13,18 @@ use prism_core::{
 };
 
 use crate::cli::{ProtectedStateCommand, ProtectedStateTrustCommand};
+use crate::git_support::{
+    install_repo_git_support, run_derived_merge_driver, run_stream_merge_driver,
+};
 
 pub(crate) fn handle_protected_state_command(
     root: &Path,
     command: ProtectedStateCommand,
 ) -> Result<()> {
     match command {
+        ProtectedStateCommand::InstallGitSupport => {
+            install_repo_git_support(root)?;
+        }
         ProtectedStateCommand::Verify { stream } => {
             let report = match stream.as_deref() {
                 Some(stream) => verify_single_stream(root, stream)?,
@@ -78,6 +84,22 @@ pub(crate) fn handle_protected_state_command(
         } => {
             let report = reconcile_protected_state_stream(root, &stream, &accepted_head)?;
             print_reconcile_report(&report);
+        }
+        ProtectedStateCommand::MergeDriverStream {
+            ancestor,
+            current,
+            other,
+            path,
+        } => {
+            run_stream_merge_driver(root, &ancestor, &current, &other, &path)?;
+        }
+        ProtectedStateCommand::MergeDriverDerived {
+            ancestor,
+            current,
+            other,
+            path,
+        } => {
+            run_derived_merge_driver(root, &ancestor, &current, &other, &path)?;
         }
     }
 

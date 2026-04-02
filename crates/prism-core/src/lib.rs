@@ -79,6 +79,7 @@ pub use protected_state::operators::{
     ProtectedStateRepairReport, ProtectedStateStreamReport, ProtectedStateTrustExport,
     ProtectedStateTrustImportReport, ProtectedStateVerifyReport,
 };
+pub use published_plans::regenerate_repo_published_plan_artifacts;
 pub use session::{
     CoordinationPlanState, FsRefreshStatus, WorkspaceFsRefreshOutcome, WorkspaceRefreshBreakdown,
     WorkspaceRefreshWork, WorkspaceSession, WorkspaceSnapshotRevisions,

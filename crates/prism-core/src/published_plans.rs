@@ -231,6 +231,42 @@ pub(crate) fn sync_repo_published_plans(
     )
 }
 
+pub fn regenerate_repo_published_plan_artifacts(root: &Path) -> Result<()> {
+    let plans_dir = repo_plans_dir(root);
+    if !plans_dir.exists() {
+        return Ok(());
+    }
+    let streams_dir = plans_dir.join("streams");
+    fs::create_dir_all(&streams_dir)?;
+    fs::create_dir_all(repo_active_plans_dir(root))?;
+    fs::create_dir_all(repo_archived_plans_dir(root))?;
+
+    let mut index_entries = Vec::new();
+    let mut expected_derived_logs = BTreeSet::new();
+    for record in load_authoritative_published_plan_records(root, &streams_dir)? {
+        let relative_log_path = authoritative_plan_log_path(&record.header.id);
+        let authoritative_path = root.join(&relative_log_path);
+        let derived_log_path = root.join(derived_plan_log_path(
+            record.header.status,
+            &record.header.id,
+        ));
+        sync_derived_plan_log(&authoritative_path, &derived_log_path)?;
+        expected_derived_logs.insert(normalize_path(&derived_log_path));
+        index_entries.push(PublishedPlanIndexEntry {
+            plan_id: record.header.id.clone(),
+            title: record.header.title.clone(),
+            status: record.header.status,
+            scope: format!("{:?}", record.header.scope),
+            kind: format!("{:?}", record.header.kind),
+            log_path: normalize_relative_path(&relative_log_path),
+        });
+    }
+    index_entries.sort_by(|left, right| left.plan_id.0.cmp(&right.plan_id.0));
+    write_jsonl_file(&repo_plan_index_path(root), &index_entries)?;
+    cleanup_stale_derived_plan_logs(&plans_dir, &expected_derived_logs)?;
+    Ok(())
+}
+
 pub(crate) fn sync_repo_published_plan_state(
     root: &Path,
     snapshot: &CoordinationSnapshot,
@@ -1150,6 +1186,60 @@ fn cleanup_stale_plan_logs(plans_dir: &Path, expected_logs: &BTreeSet<String>) -
         }
     }
     Ok(())
+}
+
+fn cleanup_stale_derived_plan_logs(
+    plans_dir: &Path,
+    expected_derived_logs: &BTreeSet<String>,
+) -> Result<()> {
+    for subdir in ["active", "archived"] {
+        let dir = plans_dir.join(subdir);
+        if !dir.exists() {
+            continue;
+        }
+        for entry in fs::read_dir(&dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.extension().and_then(|ext| ext.to_str()) != Some("jsonl") {
+                continue;
+            }
+            if !expected_derived_logs.contains(&normalize_path(&path)) {
+                fs::remove_file(path)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn load_authoritative_published_plan_records(
+    root: &Path,
+    streams_dir: &Path,
+) -> Result<Vec<PublishedPlanRecord>> {
+    let mut records = Vec::new();
+    if !streams_dir.exists() {
+        return Ok(records);
+    }
+    for entry in fs::read_dir(streams_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("jsonl") {
+            continue;
+        }
+        let Ok(relative) = path.strip_prefix(root) else {
+            continue;
+        };
+        let Some(stream) = classify_protected_repo_relative_path(relative) else {
+            continue;
+        };
+        if stream.stream() != "repo_plan_events" {
+            continue;
+        }
+        let events = load_stored_plan_events(root, &path)?;
+        let (record, _) = project_plan_log(&path, &events)?;
+        records.push(record);
+    }
+    records.sort_by(|left, right| left.header.id.0.cmp(&right.header.id.0));
+    Ok(records)
 }
 
 fn load_stored_plan_events(root: &Path, log_path: &Path) -> Result<Vec<StoredPublishedPlanEvent>> {
