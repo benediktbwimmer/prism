@@ -1,11 +1,111 @@
 use std::fs;
+use std::path::{Path, PathBuf};
 
 use super::*;
+use crate::mcp_call_log::PersistedMcpCallRecord;
 use crate::tests_support::{
     host_with_session_internal, temp_workspace, test_session, write_long_excerpt_workspace,
 };
-use prism_core::index_workspace_session;
-use serde_json::Value;
+use prism_core::{index_workspace_session, PrismPaths};
+use prism_js::{
+    McpCallLogEntryView, McpCallPayloadSummaryView, QueryDiagnostic, RuntimeLogEventView,
+};
+use serde_json::{json, Value};
+
+fn sibling_worktree_dir(root: &Path, worktree_id: &str, canonical_root: &str) -> PathBuf {
+    let prism_paths = PrismPaths::for_workspace_root(root).unwrap();
+    let current_metadata: Value = serde_json::from_str(
+        &fs::read_to_string(prism_paths.worktree_dir().join("worktree.json")).unwrap(),
+    )
+    .unwrap();
+    let repo_id = current_metadata["repo_id"].as_str().unwrap();
+    let dir = prism_paths
+        .repo_home_dir()
+        .join("worktrees")
+        .join(worktree_id.replace(':', "-"));
+    fs::create_dir_all(dir.join("mcp/logs")).unwrap();
+    fs::write(
+        dir.join("worktree.json"),
+        serde_json::to_string_pretty(&json!({
+            "version": 1,
+            "repo_id": repo_id,
+            "worktree_id": worktree_id,
+            "canonical_root": canonical_root,
+            "branch_ref": "refs/heads/main",
+            "created_at": 1,
+            "last_seen_at": 1
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    dir
+}
+
+fn empty_payload_summary() -> McpCallPayloadSummaryView {
+    McpCallPayloadSummaryView {
+        kind: "none".to_string(),
+        json_bytes: 0,
+        item_count: None,
+        truncated: false,
+        excerpt: None,
+    }
+}
+
+fn sibling_mcp_record(id: &str, workspace_root: &str) -> PersistedMcpCallRecord {
+    PersistedMcpCallRecord {
+        entry: McpCallLogEntryView {
+            id: id.to_string(),
+            call_type: "tool".to_string(),
+            name: "prism_query".to_string(),
+            view_name: None,
+            summary: "sibling record".to_string(),
+            started_at: 1_900_000_000,
+            duration_ms: 42,
+            session_id: Some("session:sibling".to_string()),
+            task_id: None,
+            success: true,
+            error: None,
+            operations: vec!["mcp.executeHandler".to_string()],
+            touched: vec!["tools/call".to_string()],
+            diagnostics: Vec::<QueryDiagnostic>::new(),
+            request: empty_payload_summary(),
+            response: empty_payload_summary(),
+            server_instance_id: "mcp-instance:sibling".to_string(),
+            process_id: 4242,
+            workspace_root: Some(workspace_root.to_string()),
+            repo_id: None,
+            worktree_id: None,
+            log_path: None,
+            trace_available: true,
+        },
+        phases: Vec::new(),
+        request_payload: None,
+        request_preview: None,
+        response_preview: None,
+        metadata: json!({ "tool": "prism_query", "queryText": "return 'sibling';" }),
+        query_compat: None,
+    }
+}
+
+fn write_runtime_log(path: &Path, events: &[RuntimeLogEventView]) {
+    let lines = events
+        .iter()
+        .map(|event| {
+            serde_json::to_string(&json!({
+                "timestamp": event.timestamp,
+                "level": event.level,
+                "message": event.message,
+                "target": event.target,
+                "filename": event.file,
+                "line_number": event.line_number,
+                "extra": event.fields,
+            }))
+            .unwrap()
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    fs::write(path, format!("{lines}\n")).unwrap();
+}
 
 #[test]
 fn prism_file_queries_read_exact_ranges_and_around_line_slices() {
@@ -973,6 +1073,196 @@ return {
         .unwrap_or_default()
         .ends_with("mcp/logs/prism-mcp-call-log.jsonl"));
     assert!(status["mcpCallLogBytes"].as_u64().unwrap_or_default() > 0);
+}
+
+#[test]
+fn prism_mcp_log_repo_scope_merges_worktrees_and_filters_instances() {
+    let root = temp_workspace();
+    write_long_excerpt_workspace(&root);
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    host.execute(
+        test_session(&host),
+        r#"
+return prism.searchText("read context", {
+  path: "src/recall.rs",
+  limit: 1,
+  contextLines: 0,
+});
+"#,
+        QueryLanguage::Ts,
+    )
+    .expect("seed query should succeed");
+
+    let sibling_dir = sibling_worktree_dir(
+        &root,
+        "worktree:sibling",
+        "/tmp/prism-query-history-sibling",
+    );
+    let sibling_log_path = sibling_dir.join("mcp/logs/prism-mcp-call-log.jsonl");
+    fs::write(
+        &sibling_log_path,
+        format!(
+            "{}\n",
+            serde_json::to_string(&sibling_mcp_record(
+                "mcp-call:sibling",
+                "/tmp/prism-query-history-sibling",
+            ))
+            .unwrap()
+        ),
+    )
+    .unwrap();
+
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+return {
+  repo: prism.mcpLog({ scope: "repo", limit: 10 }),
+  sibling: prism.mcpLog({ scope: "repo", worktreeId: "worktree:sibling", limit: 10 }),
+  instance: prism.mcpLog({ scope: "repo", serverInstanceId: "mcp-instance:sibling", limit: 10 }),
+  process: prism.mcpLog({ scope: "repo", processId: 4242, limit: 10 }),
+  stats: prism.mcpStats({ scope: "repo", worktreeId: "worktree:sibling" }),
+  trace: prism.mcpTrace("mcp-call:sibling"),
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("repo-scoped mcp log query should succeed");
+
+    let repo = result.result["repo"].as_array().expect("repo entries");
+    assert!(repo.iter().any(|entry| entry["id"] == "mcp-call:sibling"));
+    let sibling = result.result["sibling"]
+        .as_array()
+        .expect("sibling entries");
+    assert_eq!(sibling.len(), 1);
+    assert_eq!(sibling[0]["worktreeId"], "worktree:sibling");
+    assert_eq!(sibling[0]["serverInstanceId"], "mcp-instance:sibling");
+    assert_eq!(sibling[0]["processId"], 4242);
+    assert!(sibling[0]["logPath"]
+        .as_str()
+        .unwrap_or_default()
+        .ends_with("mcp/logs/prism-mcp-call-log.jsonl"));
+    assert_eq!(
+        result.result["instance"]
+            .as_array()
+            .expect("instance entries")
+            .len(),
+        1
+    );
+    assert_eq!(
+        result.result["process"]
+            .as_array()
+            .expect("process entries")
+            .len(),
+        1
+    );
+    assert_eq!(result.result["stats"]["totalCalls"], 1);
+    assert_eq!(result.result["trace"]["entry"]["id"], "mcp-call:sibling");
+    assert_eq!(
+        result.result["trace"]["entry"]["worktreeId"],
+        "worktree:sibling"
+    );
+}
+
+#[test]
+fn prism_runtime_logs_repo_scope_merges_worktrees_and_keeps_default_worktree_view() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+    let prism_paths = PrismPaths::for_workspace_root(&root).unwrap();
+
+    write_runtime_log(
+        &prism_paths.mcp_daemon_log_path().unwrap(),
+        &[RuntimeLogEventView {
+            timestamp: Some("2026-04-02T10:00:00Z".to_string()),
+            level: Some("INFO".to_string()),
+            message: "repo-scope-current".to_string(),
+            target: Some("prism_mcp::tests".to_string()),
+            file: Some("tests/query_history.rs".to_string()),
+            line_number: Some(1),
+            repo_id: None,
+            worktree_id: None,
+            workspace_root: None,
+            log_path: None,
+            fields: None,
+        }],
+    );
+
+    let sibling_dir = sibling_worktree_dir(
+        &root,
+        "worktree:sibling-runtime",
+        "/tmp/prism-query-history-runtime-sibling",
+    );
+    write_runtime_log(
+        &sibling_dir.join("mcp/logs/prism-mcp-daemon.log"),
+        &[
+            RuntimeLogEventView {
+                timestamp: Some("2026-04-02T10:01:00Z".to_string()),
+                level: Some("INFO".to_string()),
+                message: "repo-scope-sibling".to_string(),
+                target: Some("prism_mcp::tests".to_string()),
+                file: Some("tests/query_history.rs".to_string()),
+                line_number: Some(2),
+                repo_id: None,
+                worktree_id: None,
+                workspace_root: None,
+                log_path: None,
+                fields: None,
+            },
+            RuntimeLogEventView {
+                timestamp: Some("2026-04-02T10:02:00Z".to_string()),
+                level: Some("INFO".to_string()),
+                message: "prism-mcp daemon ready".to_string(),
+                target: Some("prism_mcp::tests".to_string()),
+                file: Some("tests/query_history.rs".to_string()),
+                line_number: Some(3),
+                repo_id: None,
+                worktree_id: None,
+                workspace_root: None,
+                log_path: None,
+                fields: None,
+            },
+        ],
+    );
+
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+return {
+  current: prism.runtimeLogs({ contains: "repo-scope", limit: 10 }),
+  repo: prism.runtimeLogs({ scope: "repo", contains: "repo-scope", limit: 10 }),
+  sibling: prism.runtimeLogs({ scope: "repo", worktreeId: "worktree:sibling-runtime", contains: "repo-scope", limit: 10 }),
+  timeline: prism.runtimeTimeline({ scope: "repo", contains: "prism-mcp daemon ready", limit: 10 }),
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("repo-scoped runtime log query should succeed");
+
+    let current = result.result["current"]
+        .as_array()
+        .expect("current runtime logs");
+    assert_eq!(current.len(), 1);
+    assert_eq!(current[0]["message"], "repo-scope-current");
+
+    let repo = result.result["repo"].as_array().expect("repo runtime logs");
+    assert_eq!(repo.len(), 2);
+    assert_eq!(repo[0]["message"], "repo-scope-sibling");
+    assert_eq!(repo[0]["worktreeId"], "worktree:sibling-runtime");
+    assert_eq!(repo[1]["message"], "repo-scope-current");
+
+    let sibling = result.result["sibling"]
+        .as_array()
+        .expect("sibling runtime logs");
+    assert_eq!(sibling.len(), 1);
+    assert_eq!(sibling[0]["message"], "repo-scope-sibling");
+
+    let timeline = result.result["timeline"]
+        .as_array()
+        .expect("runtime timeline");
+    assert_eq!(timeline.len(), 1);
+    assert_eq!(timeline[0]["worktreeId"], "worktree:sibling-runtime");
 }
 
 #[test]

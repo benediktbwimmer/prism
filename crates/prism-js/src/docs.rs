@@ -234,10 +234,16 @@ type QueryLogOptions = {
 type McpLogOptions = {
   limit?: number;
   since?: number;
+  scope?: "worktree" | "repo" | "all";
   callType?: string;
   name?: string;
   taskId?: string;
+  worktreeId?: string;
+  repoId?: string;
+  workspaceRoot?: string;
   sessionId?: string;
+  serverInstanceId?: string;
+  processId?: number;
   success?: boolean;
   minDurationMs?: number;
   contains?: string;
@@ -255,6 +261,8 @@ type ValidationFeedbackOptions = {
 
 type RuntimeLogOptions = {
   limit?: number;
+  scope?: "worktree" | "repo" | "all";
+  worktreeId?: string;
   level?: string;
   target?: string;
   contains?: string;
@@ -262,6 +270,8 @@ type RuntimeLogOptions = {
 
 type RuntimeTimelineOptions = {
   limit?: number;
+  scope?: "worktree" | "repo" | "all";
+  worktreeId?: string;
   contains?: string;
 };
 

@@ -27,6 +27,7 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use crate::daemon_log;
+use crate::log_scope::{select_log_sources, LogScope, RepoLogSource};
 use crate::mcp_call_log::McpCallLogStore;
 use crate::runtime_state::{
     process_is_live, read_runtime_state, RuntimeEventRecord, RuntimeProcessRecord, RuntimeState,
@@ -192,33 +193,38 @@ pub(crate) fn runtime_logs(
     args: RuntimeLogArgs,
 ) -> Result<Vec<RuntimeLogEventView>> {
     let root = workspace_root(host)?;
-    let paths = RuntimePaths::for_root(root)?;
     let limit = args.limit.unwrap_or(DEFAULT_RUNTIME_LOG_LIMIT);
     if limit == 0 {
         return Ok(Vec::new());
     }
-
-    let lines = daemon_log::tail_lines(&paths.log_path, scan_limit(limit))?;
     let level = args
         .level
         .as_deref()
         .map(|value| value.to_ascii_lowercase());
-    let target = args.target.as_deref();
+    let target = args.target.as_deref().map(str::to_string);
     let contains = args
         .contains
         .as_deref()
         .map(|value| value.to_ascii_lowercase());
-    let mut results = Vec::new();
-    for line in lines.into_iter().rev() {
-        let event = parse_log_event(&line);
-        if !matches_runtime_log(&event, &line, level.as_deref(), target, contains.as_deref()) {
-            continue;
-        }
-        results.push(event);
-        if results.len() >= limit {
-            break;
-        }
-    }
+    let mut results = runtime_log_events(
+        root,
+        args.scope,
+        args.worktree_id.as_deref(),
+        scan_limit(limit),
+        |source, line| {
+            let event = runtime_log_event_from_line(source, &line);
+            matches_runtime_log(
+                &event,
+                &line,
+                level.as_deref(),
+                target.as_deref(),
+                contains.as_deref(),
+            )
+            .then_some(event)
+        },
+    )?;
+    results.sort_by(|left, right| runtime_event_sort_desc(right, left));
+    results.truncate(limit);
     Ok(results)
 }
 
@@ -227,7 +233,6 @@ pub(crate) fn runtime_timeline(
     args: RuntimeTimelineArgs,
 ) -> Result<Vec<RuntimeLogEventView>> {
     let root = workspace_root(host)?;
-    let paths = RuntimePaths::for_root(root)?;
     let limit = args.limit.unwrap_or(DEFAULT_RUNTIME_TIMELINE_LIMIT);
     if limit == 0 {
         return Ok(Vec::new());
@@ -237,36 +242,42 @@ pub(crate) fn runtime_timeline(
         .contains
         .as_deref()
         .map(|value| value.to_ascii_lowercase());
-    if let Some(state) = read_runtime_state(root)? {
-        let mut events = state
-            .events
-            .into_iter()
-            .map(runtime_state_event_view)
-            .filter(|event| {
-                contains
-                    .as_deref()
-                    .is_none_or(|needle| log_contains(event, &event.message, needle))
-            })
-            .collect::<Vec<_>>();
-        if !events.is_empty() {
-            if events.len() > limit {
-                events = events.split_off(events.len() - limit);
+    if args.scope.unwrap_or(LogScope::Worktree) == LogScope::Worktree && args.worktree_id.is_none()
+    {
+        if let Some(state) = read_runtime_state(root)? {
+            let mut events = state
+                .events
+                .into_iter()
+                .map(runtime_state_event_view)
+                .filter(|event| {
+                    contains
+                        .as_deref()
+                        .is_none_or(|needle| log_contains(event, &event.message, needle))
+                })
+                .collect::<Vec<_>>();
+            if !events.is_empty() {
+                if events.len() > limit {
+                    events = events.split_off(events.len() - limit);
+                }
+                return Ok(events);
             }
-            return Ok(events);
         }
     }
-
-    let mut events = daemon_log::tail_lines(&paths.log_path, scan_limit(limit))?
-        .into_iter()
-        .map(|line| (line.clone(), parse_log_event(&line)))
-        .filter(|(line, event)| {
-            is_timeline_event(event)
+    let mut events = runtime_log_events(
+        root,
+        args.scope,
+        args.worktree_id.as_deref(),
+        scan_limit(limit),
+        |source, line| {
+            let event = runtime_log_event_from_line(source, &line);
+            (is_timeline_event(&event)
                 && contains
                     .as_deref()
-                    .is_none_or(|needle| log_contains(event, line, needle))
-        })
-        .map(|(_, event)| event)
-        .collect::<Vec<_>>();
+                    .is_none_or(|needle| log_contains(&event, &line, needle)))
+            .then_some(event)
+        },
+    )?;
+    events.sort_by(runtime_event_sort_asc);
     if events.len() > limit {
         events = events.split_off(events.len() - limit);
     }
@@ -810,6 +821,10 @@ fn runtime_state_event_view(event: RuntimeEventRecord) -> RuntimeLogEventView {
         target: Some(event.target),
         file: event.file,
         line_number: event.line_number,
+        repo_id: None,
+        worktree_id: None,
+        workspace_root: None,
+        log_path: None,
         fields: value_object_fields(event.fields),
     }
 }
@@ -1057,6 +1072,10 @@ fn parse_log_event(line: &str) -> RuntimeLogEventView {
             target: None,
             file: None,
             line_number: None,
+            repo_id: None,
+            worktree_id: None,
+            workspace_root: None,
+            log_path: None,
             fields: None,
         },
     }
@@ -1072,8 +1091,60 @@ fn runtime_log_event_view(record: DaemonLogRecord) -> RuntimeLogEventView {
         target: record.target,
         file: record.filename,
         line_number: record.line_number,
+        repo_id: None,
+        worktree_id: None,
+        workspace_root: None,
+        log_path: None,
         fields: (!record.extra.is_empty()).then_some(Value::Object(record.extra)),
     }
+}
+
+fn runtime_log_events(
+    root: &Path,
+    scope: Option<LogScope>,
+    worktree_id: Option<&str>,
+    line_limit: usize,
+    include: impl Fn(&RepoLogSource, String) -> Option<RuntimeLogEventView>,
+) -> Result<Vec<RuntimeLogEventView>> {
+    let sources = select_log_sources(root, scope, worktree_id)?;
+    let mut events = Vec::new();
+    for source in sources {
+        for line in daemon_log::tail_lines(&source.daemon_log_path, line_limit)? {
+            if let Some(event) = include(&source, line) {
+                events.push(event);
+            }
+        }
+    }
+    Ok(events)
+}
+
+fn runtime_log_event_from_line(source: &RepoLogSource, line: &str) -> RuntimeLogEventView {
+    let mut event = parse_log_event(line);
+    event.repo_id = Some(source.repo_id.clone());
+    event.worktree_id = Some(source.worktree_id.clone());
+    event.workspace_root = Some(source.workspace_root.clone());
+    event.log_path = Some(source.daemon_log_path.display().to_string());
+    event
+}
+
+fn runtime_event_sort_desc(
+    left: &RuntimeLogEventView,
+    right: &RuntimeLogEventView,
+) -> std::cmp::Ordering {
+    left.timestamp
+        .cmp(&right.timestamp)
+        .then_with(|| left.log_path.cmp(&right.log_path))
+        .then_with(|| left.message.cmp(&right.message))
+}
+
+fn runtime_event_sort_asc(
+    left: &RuntimeLogEventView,
+    right: &RuntimeLogEventView,
+) -> std::cmp::Ordering {
+    left.timestamp
+        .cmp(&right.timestamp)
+        .then_with(|| left.log_path.cmp(&right.log_path))
+        .then_with(|| left.message.cmp(&right.message))
 }
 
 fn value_object_fields(value: Value) -> Option<Value> {
@@ -1231,6 +1302,10 @@ mod tests {
             file: None,
             line_number: None,
             fields: None,
+            repo_id: None,
+            worktree_id: None,
+            workspace_root: None,
+            log_path: None,
         }));
         assert!(!is_timeline_event(&RuntimeLogEventView {
             timestamp: Some("2026-03-26T15:12:35Z".to_string()),
@@ -1240,6 +1315,10 @@ mod tests {
             file: None,
             line_number: None,
             fields: None,
+            repo_id: None,
+            worktree_id: None,
+            workspace_root: None,
+            log_path: None,
         }));
         assert!(is_timeline_event(&RuntimeLogEventView {
             timestamp: Some("2026-03-26T15:12:36Z".to_string()),
@@ -1253,6 +1332,10 @@ mod tests {
                 "resolutionMs": 12,
                 "daemonWaitMs": 0,
             })),
+            repo_id: None,
+            worktree_id: None,
+            workspace_root: None,
+            log_path: None,
         }));
     }
 
