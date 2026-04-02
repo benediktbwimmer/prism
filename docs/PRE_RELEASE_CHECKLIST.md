@@ -2,8 +2,8 @@
 
 ## Status
 
-**This list is closed.** Nothing gets added. The next good idea goes on the
-post-release roadmap.
+**This list is closed. For real this time.** Nothing gets added. The next good
+idea goes on the post-release roadmap.
 
 ## The List
 
@@ -27,21 +27,34 @@ post-release roadmap.
   multiple worktree checkouts against one local Postgres instance. The local-first
   SQLite model remains the default; Postgres is the optional shared backend.
 
-- [ ] **5. Packaging and distribution (Phase 1)**
+- [ ] **5. JS/TS/JSX/TSX parser support**
+  Extend semantic parsing to JavaScript, TypeScript, JSX, and TSX files. Without
+  this, PRISM has no meaningful resolution for the largest segment of codebases
+  agents actually work on. Rust and Python cover the author's projects.
+  JS/TS covers everyone else's.
+
+- [ ] **6. Packaging and distribution (Phase 1)**
   Ship PRISM as one installed executable named `prism`. Homebrew tap for macOS,
   shell installer for Linux, GitHub Releases as the canonical artifact host.
   See [PACKAGING_AND_DISTRIBUTION_PLAN.md](./PACKAGING_AND_DISTRIBUTION_PLAN.md)
   for the full plan. Windows is Phase 2.
 
-- [ ] **6. Documentation site**
+- [ ] **7. Documentation site**
   A proper docs site alongside the landing page. Must cover: installation,
   repo configuration, MCP client setup, tool surface reference, `.prism`
   directory structure, and the authority model. This is what turns a GitHub repo
   into a product someone can depend on.
 
-- [ ] **7. README**
+- [ ] **8. README**
   A clear, concise project README with install instructions, quickstart, and
   links to the docs site and landing page.
+
+- [ ] **9. External repo validation**
+  Test PRISM on a non-PRISM codebase to validate the MCP surface is
+  self-sufficient. When agents work on PRISM itself, they can bypass the MCP
+  tools by reading source code for implementation details. Testing on an
+  external repo eliminates that confound and proves the tool surface stands
+  on its own.
 
 ## Explicitly deferred
 
@@ -59,4 +72,4 @@ The following are good ideas that are **not** in scope for the initial release:
 
 ## Done when
 
-All seven items are checked. Then tag, release, and ship.
+All nine items are checked. Then tag, release, and ship.
