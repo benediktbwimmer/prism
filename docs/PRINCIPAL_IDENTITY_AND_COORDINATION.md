@@ -546,6 +546,32 @@ Useful projections include:
 Optional denormalized read-model fields such as `created_by` or `last_updated_by` are acceptable as
 projections, but not as the primary provenance store.
 
+### 8.5 Self-containment boundary by published surface
+
+Repo-published `.prism` state must follow one simple rule:
+
+- semantic context must resolve from `.prism` alone
+- runtime-only ids may appear only as optional diagnostics or protected-stream signing metadata
+
+Applied to current published surfaces:
+
+- `.prism/plans/...`
+  - may publish plan headers, nodes, edges, authored bindings, and repo-semantic handoff state
+  - must not publish runtime session ids, worktree ids, branch refs, active lease holders, or
+    other shared-runtime-only ownership fields
+- `.prism/memory/events.jsonl`
+  - may publish repo-scoped memory entries and their authored event snapshots
+  - any work/task reference must be understandable without runtime lookup once declared-work
+    cutover lands
+- `.prism/concepts/...`, `.prism/contracts/...`, and concept relations
+  - may publish repo-scoped packets, provenance snapshots, and publication metadata
+  - runtime correlation ids remain non-authoritative and optional
+- protected repo-stream envelopes
+  - may include runtime signing identity and verification metadata
+  - are not semantic dependencies for interpreting the payload itself
+
+This boundary keeps cold clones intelligible even when no shared runtime database is present.
+
 ---
 
 ## 9. Practical behavior in the common host-agnostic case

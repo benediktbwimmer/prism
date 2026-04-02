@@ -716,6 +716,111 @@ async fn mcp_server_rejects_prism_mutate_when_capability_is_denied() {
 }
 
 #[tokio::test]
+async fn mcp_server_rejects_authenticated_mutation_from_second_principal_on_same_worktree() {
+    let root = temp_workspace();
+    let (session, owner_credential) = workspace_session_with_owner_credential(&root);
+    let owner = session
+        .authenticate_principal_credential(
+            &CredentialId::new(owner_credential.credential_id.clone()),
+            &owner_credential.principal_token,
+        )
+        .expect("owner credential should authenticate");
+    let worker = session
+        .mint_principal_credential(
+            &owner,
+            MintPrincipalRequest {
+                authority_id: None,
+                kind: PrincipalKind::Agent,
+                name: "Second Worker".to_string(),
+                role: Some("second_worker".to_string()),
+                parent_principal_id: Some(PrincipalId::new(owner.principal.principal_id.0.clone())),
+                capabilities: vec![CredentialCapability::All],
+                profile: Value::Null,
+            },
+        )
+        .expect("child principal should mint");
+    let owner_credential = mutation_credential_json(&owner_credential);
+    let worker_credential = json!({
+        "credentialId": worker.credential.credential_id.0,
+        "principalToken": worker.principal_token,
+    });
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_mutate",
+            json!({
+                "action": "validation_feedback",
+                "credential": owner_credential,
+                "input": {
+                    "context": "Bind the workspace to the owner principal before a second agent attempts to mutate it.",
+                    "prismSaid": "First authenticated mutation should bind the worktree principal.",
+                    "actuallyTrue": "The first principal to mutate the worktree becomes its exclusive authenticated author for this daemon session.",
+                    "category": "coordination",
+                    "verdict": "helpful"
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let owner_response = response_json(client.receive().await.unwrap());
+    assert!(owner_response.get("error").is_none(), "{owner_response}");
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_mutate",
+            json!({
+                "action": "validation_feedback",
+                "credential": worker_credential,
+                "input": {
+                    "context": "Try to mutate the same worktree from a different authenticated principal.",
+                    "prismSaid": "Another principal should be able to reuse the same worktree if it has valid credentials.",
+                    "actuallyTrue": "Authenticated mutations are exclusive to the principal that already bound the worktree.",
+                    "category": "coordination",
+                    "verdict": "wrong"
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let response = response_json(client.receive().await.unwrap());
+    assert_eq!(response["error"]["code"], -32602);
+    assert_eq!(
+        response["error"]["data"]["code"],
+        Value::String("mutation_worktree_principal_conflict".to_string())
+    );
+    assert_eq!(
+        response["error"]["data"]["boundPrincipal"]["principalId"],
+        Value::String(owner.principal.principal_id.0.to_string())
+    );
+    assert_eq!(
+        response["error"]["data"]["attemptedPrincipal"]["principalId"],
+        Value::String(worker.principal.principal_id.0.to_string())
+    );
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn mcp_server_executes_heartbeat_lease_mutation_round_trip() {
     let root = temp_workspace();
     let (session, credential) = workspace_session_with_owner_credential(&root);

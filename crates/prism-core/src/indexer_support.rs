@@ -179,6 +179,7 @@ pub(crate) fn build_workspace_session(
         checkpoint_materializer: Some(checkpoint_materializer),
         shared_runtime_materializer,
         coordination_enabled,
+        worktree_principal_binding: Arc::new(Mutex::new(None)),
     })
 }
 

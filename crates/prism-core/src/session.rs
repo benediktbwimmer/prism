@@ -79,6 +79,7 @@ use crate::validation_feedback::{
     ValidationFeedbackRecord,
 };
 use crate::watch::{refresh_prism_snapshot, try_refresh_prism_snapshot, WatchHandle, WatchMessage};
+use crate::worktree_principal::BoundWorktreePrincipal;
 use crate::workspace_identity::coordination_persist_context_for_root;
 use crate::workspace_runtime_state::{WorkspacePublishedGeneration, WorkspaceRuntimeState};
 use crate::workspace_tree::{
@@ -425,6 +426,7 @@ pub struct WorkspaceSession {
     pub(crate) checkpoint_materializer: Option<CheckpointMaterializerHandle>,
     pub(crate) shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     pub(crate) coordination_enabled: bool,
+    pub(crate) worktree_principal_binding: Arc<Mutex<Option<BoundWorktreePrincipal>>>,
 }
 
 impl WorkspaceSession {

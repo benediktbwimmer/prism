@@ -3418,8 +3418,8 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
                     status: Some(prism_ir::CoordinationTaskStatus::Ready),
                     assignee: None,
                     session: Some(prism_ir::SessionId::new("session:published-plan")),
-                    worktree_id: None,
-                    branch_ref: None,
+                    worktree_id: Some("worktree:published-plan".into()),
+                    branch_ref: Some("refs/heads/published-plan".into()),
                     anchors: Vec::new(),
                     depends_on: Vec::new(),
                     acceptance: Vec::new(),
@@ -3442,6 +3442,14 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
     assert!(
         !log_contents.contains("session:published-plan"),
         "repo-published plan logs should not persist runtime session ids"
+    );
+    assert!(
+        !log_contents.contains("worktree:published-plan"),
+        "repo-published plan logs should not persist runtime worktree ids"
+    );
+    assert!(
+        !log_contents.contains("refs/heads/published-plan"),
+        "repo-published plan logs should not persist runtime branch refs"
     );
     assert!(
         log_contents.contains("\"kind\":\"plan_created\""),

@@ -241,6 +241,28 @@ impl PrismMcpServer {
                     })),
                 )
             })?;
+        workspace
+            .bind_or_validate_worktree_principal(&authenticated)
+            .map_err(|error| {
+                McpError::invalid_params(
+                    "prism_mutate principal conflicts with the worktree-bound principal",
+                    Some(json!({
+                        "code": "mutation_worktree_principal_conflict",
+                        "worktreeId": error.worktree_id,
+                        "boundPrincipal": {
+                            "authorityId": error.bound_principal.authority_id,
+                            "principalId": error.bound_principal.principal_id,
+                            "name": error.bound_principal.principal_name,
+                        },
+                        "attemptedPrincipal": {
+                            "authorityId": error.attempted_principal.authority_id,
+                            "principalId": error.attempted_principal.principal_id,
+                            "name": error.attempted_principal.principal_name,
+                        },
+                        "nextAction": "Use the same principal for this worktree, or move the other principal onto a separate git worktree before attempting authenticated mutations.",
+                    })),
+                )
+            })?;
         if !requirement.allows(&authenticated) {
             return Err(McpError::invalid_params(
                 "prism_mutate credential lacks the required capability",

@@ -959,9 +959,12 @@ fn append_plan_delta_events(
     events
 }
 
-fn normalize_execution_overlays(overlays: Vec<PlanExecutionOverlay>) -> Vec<PlanExecutionOverlay> {
+fn repo_published_execution_overlays(overlays: Vec<PlanExecutionOverlay>) -> Vec<PlanExecutionOverlay> {
     let mut overlays = overlays
         .into_iter()
+        // Repo-published plan streams must stay self-contained and repo-semantic. Runtime
+        // correlation like session/worktree/branch remains in the shared runtime snapshot and is
+        // never serialized into `.prism` plan logs.
         .map(|overlay| PlanExecutionOverlay {
             node_id: overlay.node_id,
             pending_handoff_to: overlay.pending_handoff_to,
@@ -971,7 +974,7 @@ fn normalize_execution_overlays(overlays: Vec<PlanExecutionOverlay>) -> Vec<Plan
             effective_assignee: None,
             awaiting_handoff_from: None,
         })
-        .filter(|overlay| overlay.pending_handoff_to.is_some() || overlay.session.is_some())
+        .filter(|overlay| overlay.pending_handoff_to.is_some())
         .collect::<Vec<_>>();
     overlays.sort_by(|left, right| left.node_id.0.cmp(&right.node_id.0));
     overlays
@@ -994,7 +997,7 @@ fn execution_overlays_by_plan(
         .map(|(plan_id, tasks)| {
             (
                 plan_id,
-                normalize_execution_overlays(execution_overlays_from_tasks(&tasks)),
+                repo_published_execution_overlays(execution_overlays_from_tasks(&tasks)),
             )
         })
         .collect()
