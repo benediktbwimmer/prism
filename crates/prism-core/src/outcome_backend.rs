@@ -125,7 +125,10 @@ impl OutcomeReadBackend for StoreOutcomeReadBackend {
 }
 
 impl StoreOutcomeReadBackend {
-    fn load_projected_task_outcomes(&self, query: &OutcomeRecallQuery) -> Result<Vec<OutcomeEvent>> {
+    fn load_projected_task_outcomes(
+        &self,
+        query: &OutcomeRecallQuery,
+    ) -> Result<Vec<OutcomeEvent>> {
         let local = {
             let local_store = self
                 .local_store

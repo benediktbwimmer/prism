@@ -4849,6 +4849,176 @@ fn completing_last_task_appends_plan_completion_to_published_plan_log() {
 }
 
 #[test]
+fn releasing_last_claim_appends_plan_completion_to_published_plan_log() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let (plan_id, task_id, claim_id) = session
+        .mutate_coordination(|prism| {
+            let base_revision = prism.workspace_revision();
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:auto-close-on-claim-release-plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:auto-close-on-claim-release")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Persist derived plan completion after claim release".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            let task = prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:auto-close-on-claim-release-task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:auto-close-on-claim-release")),
+                    causation: None,
+                    execution_context: None,
+                },
+                prism_coordination::TaskCreateInput {
+                    plan_id: plan_id.clone(),
+                    title: "Complete the only task and release the claim".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: Some(SessionId::new("session:auto-close-on-claim-release")),
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: vec![AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: base_revision.clone(),
+                },
+            )?;
+            let (claim_id, _conflicts, _claim) = prism.acquire_native_claim(
+                EventMeta {
+                    id: EventId::new("coordination:auto-close-on-claim-release-claim"),
+                    ts: 3,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:auto-close-on-claim-release")),
+                    causation: None,
+                    execution_context: None,
+                },
+                SessionId::new("session:auto-close-on-claim-release"),
+                prism_coordination::ClaimAcquireInput {
+                    task_id: Some(task.id.clone()),
+                    anchors: task.anchors.clone(),
+                    capability: prism_ir::Capability::Edit,
+                    mode: Some(prism_ir::ClaimMode::SoftExclusive),
+                    ttl_seconds: Some(60),
+                    base_revision: base_revision.clone(),
+                    current_revision: base_revision,
+                    agent: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                },
+            )?;
+            Ok((plan_id, task.id, claim_id.expect("claim id")))
+        })
+        .unwrap();
+
+    session
+        .mutate_coordination(|prism| {
+            let _ = prism.update_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:auto-close-on-claim-release-task-update"),
+                    ts: 4,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:auto-close-on-claim-release")),
+                    causation: None,
+                    execution_context: None,
+                },
+                prism_coordination::TaskUpdateInput {
+                    task_id: task_id.clone(),
+                    kind: None,
+                    status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    title: None,
+                    summary: None,
+                    anchors: None,
+                    bindings: None,
+                    depends_on: None,
+                    acceptance: None,
+                    validation_refs: None,
+                    is_abstract: None,
+                    base_revision: Some(prism.workspace_revision()),
+                    priority: None,
+                    tags: None,
+                    completion_context: Some(prism_coordination::TaskCompletionContext::default()),
+                },
+                prism.workspace_revision(),
+                4,
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    session
+        .mutate_coordination(|prism| {
+            let _ = prism.release_native_claim(
+                EventMeta {
+                    id: EventId::new("coordination:auto-close-on-claim-release-release"),
+                    ts: 5,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:auto-close-on-claim-release")),
+                    causation: None,
+                    execution_context: None,
+                },
+                &SessionId::new("session:auto-close-on-claim-release"),
+                &claim_id,
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    assert_eq!(
+        session
+            .prism()
+            .coordination_plan(&plan_id)
+            .expect("plan after release")
+            .status,
+        prism_ir::PlanStatus::Completed
+    );
+    assert_eq!(
+        session
+            .prism()
+            .plan_graph(&plan_id)
+            .expect("authored plan graph")
+            .status,
+        prism_ir::PlanStatus::Completed
+    );
+
+    let log_path = root
+        .join(".prism")
+        .join("plans")
+        .join("active")
+        .join(format!("{}.jsonl", plan_id.0));
+    let log_contents = fs::read_to_string(&log_path).unwrap();
+    assert!(
+        log_contents.contains("\"kind\":\"plan_updated\""),
+        "releasing the last claim should append a plan update event"
+    );
+    assert!(
+        log_contents.contains("\"status\":\"Completed\""),
+        "published plan log should persist the derived completed plan status after claim release"
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn repo_published_plan_logs_skip_runtime_handoff_deltas() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

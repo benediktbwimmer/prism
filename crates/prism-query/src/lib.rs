@@ -474,11 +474,14 @@ impl Prism {
     }
 
     fn persist_coordination_snapshot(&self, snapshot: CoordinationSnapshot) -> Result<()> {
-        let snapshot = self
-            .plan_runtime
-            .read()
-            .expect("plan runtime lock poisoned")
-            .apply_to_coordination_snapshot(snapshot);
+        let snapshot = {
+            let mut runtime = self
+                .plan_runtime
+                .write()
+                .expect("plan runtime lock poisoned");
+            runtime.sync_task_execution_plan_statuses_from_coordination_snapshot(&snapshot)?;
+            runtime.apply_to_coordination_snapshot(snapshot)
+        };
         self.replace_continuity_snapshot(snapshot);
         Ok(())
     }

@@ -428,7 +428,10 @@ fn compact_task_next_reads(
             if seed_nodes.iter().any(|seed| seed == &related) || !seen.insert(related.clone()) {
                 continue;
             }
-            candidates.push((related, "Direct semantic neighbor of a task anchor.".to_string()));
+            candidates.push((
+                related,
+                "Direct semantic neighbor of a task anchor.".to_string(),
+            ));
             if candidates.len() >= TASK_BRIEF_NEXT_READ_LIMIT.saturating_mul(4) {
                 break;
             }

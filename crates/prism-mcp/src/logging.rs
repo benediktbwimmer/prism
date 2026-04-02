@@ -139,10 +139,28 @@ fn env_filter(default_directive: &str) -> Result<EnvFilter> {
 
 fn default_filter(mode: PrismMcpMode) -> &'static str {
     match mode {
-        PrismMcpMode::Stdio => "warn,prism_mcp=warn,prism_core=warn,prism_store=warn,prism_query=warn",
-        PrismMcpMode::Daemon | PrismMcpMode::Bridge => {
-            "warn,prism_mcp=info,prism_core=info,prism_store=info,prism_query=info,prism_lang_json=info,prism_lang_yaml=info"
+        PrismMcpMode::Stdio => {
+            "warn,rmcp=error,rmcp::service=warn,prism_mcp=warn,prism_core=warn,prism_store=warn,prism_query=warn"
         }
+        PrismMcpMode::Daemon | PrismMcpMode::Bridge => {
+            "warn,rmcp=error,rmcp::service=warn,prism_mcp=info,prism_core=info,prism_store=info,prism_query=info,prism_lang_json=info,prism_lang_yaml=info"
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_filter_keeps_rmcp_service_warnings_visible() {
+        let daemon = default_filter(PrismMcpMode::Daemon);
+        assert!(daemon.contains("rmcp=error"));
+        assert!(daemon.contains("rmcp::service=warn"));
+
+        let stdio = default_filter(PrismMcpMode::Stdio);
+        assert!(stdio.contains("rmcp=error"));
+        assert!(stdio.contains("rmcp::service=warn"));
     }
 }
 

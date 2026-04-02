@@ -2077,6 +2077,11 @@ fn sqlite_store_prunes_legacy_co_change_rows_on_open() {
             )
             .unwrap();
         }
+        tx.execute(
+            "DELETE FROM metadata WHERE key = 'projection:co_change_pruned_on_open'",
+            [],
+        )
+        .unwrap();
         tx.commit().unwrap();
     }
 
@@ -2090,6 +2095,40 @@ fn sqlite_store_prunes_legacy_co_change_rows_on_open() {
         )
         .unwrap();
     assert_eq!(row_count as usize, MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE);
+    let pruned_marker: i64 = store
+        .conn
+        .query_row(
+            "SELECT value FROM metadata WHERE key = 'projection:co_change_pruned_on_open'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(pruned_marker, 1);
+
+    drop(store);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn sqlite_store_marks_empty_projection_co_change_backfill_complete_on_open() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-empty-projection-prune-marker-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+
+    let store = SqliteStore::open(&path).unwrap();
+    let pruned_marker: i64 = store
+        .conn
+        .query_row(
+            "SELECT value FROM metadata WHERE key = 'projection:co_change_pruned_on_open'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(pruned_marker, 1);
 
     drop(store);
     let _ = std::fs::remove_file(path);

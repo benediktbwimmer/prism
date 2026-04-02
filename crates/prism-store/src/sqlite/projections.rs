@@ -6,6 +6,8 @@ use prism_projections::MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE;
 use rusqlite::{params, Connection, Transaction};
 use tracing::info;
 
+const PROJECTION_CO_CHANGE_PRUNED_ON_OPEN_KEY: &str = "projection:co_change_pruned_on_open";
+
 pub(super) fn load_projection_snapshot_rows(
     conn: &Connection,
 ) -> Result<Option<prism_projections::ProjectionSnapshot>> {
@@ -375,6 +377,8 @@ pub(super) fn save_projection_snapshot_tx(
         }
     }
 
+    set_projection_co_change_pruned_on_open_tx(tx)?;
+
     Ok(())
 }
 
@@ -429,7 +433,28 @@ pub(super) fn delete_concept_relation_tx(
 }
 
 pub(super) fn prune_projection_co_change(conn: &mut Connection) -> Result<usize> {
-    super::run_with_immediate_tx(conn, |tx| prune_projection_co_change_tx(tx))
+    if super::metadata_value(conn, PROJECTION_CO_CHANGE_PRUNED_ON_OPEN_KEY)? > 0 {
+        return Ok(0);
+    }
+
+    let has_rows = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM projection_co_change LIMIT 1)",
+        [],
+        |row| row.get::<_, bool>(0),
+    )?;
+    if !has_rows {
+        super::run_with_immediate_tx(conn, |tx| {
+            set_projection_co_change_pruned_on_open_tx(tx)?;
+            Ok(())
+        })?;
+        return Ok(0);
+    }
+
+    super::run_with_immediate_tx(conn, |tx| {
+        let deleted_rows = prune_projection_co_change_tx(tx)?;
+        set_projection_co_change_pruned_on_open_tx(tx)?;
+        Ok(deleted_rows)
+    })
 }
 
 pub(super) fn apply_projection_co_change_deltas_tx(
@@ -508,6 +533,15 @@ fn prune_projection_co_change_tx(tx: &Transaction<'_>) -> Result<usize> {
         params![MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE as i64],
     )?;
     Ok(deleted_rows)
+}
+
+fn set_projection_co_change_pruned_on_open_tx(tx: &Transaction<'_>) -> Result<()> {
+    tx.execute(
+        "INSERT INTO metadata(key, value) VALUES (?1, 1)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![PROJECTION_CO_CHANGE_PRUNED_ON_OPEN_KEY],
+    )?;
+    Ok(())
 }
 
 pub(super) fn apply_projection_validation_deltas_tx(

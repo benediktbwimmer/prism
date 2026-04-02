@@ -238,6 +238,32 @@ impl NativePlanRuntimeState {
         snapshot
     }
 
+    pub(crate) fn sync_task_execution_plan_statuses_from_coordination_snapshot(
+        &mut self,
+        snapshot: &CoordinationSnapshot,
+    ) -> Result<()> {
+        for plan in snapshot
+            .plans
+            .iter()
+            .filter(|plan| plan.kind == PlanKind::TaskExecution)
+        {
+            if let Some(graph) = self.graphs.get_mut(plan.id.0.as_str()) {
+                graph.status = plan.status;
+                graph.scope = plan.scope;
+            } else {
+                self.create_plan_from_coordination(plan)?;
+                for task in snapshot.tasks.iter().filter(|task| task.plan == plan.id) {
+                    self.create_task_from_coordination(task)?;
+                }
+            }
+            self.policies
+                .insert(plan.id.0.to_string(), plan.policy.clone());
+        }
+        self.next_plan = self.next_plan.max(snapshot.next_plan);
+        self.next_task = self.next_task.max(snapshot.next_task);
+        Ok(())
+    }
+
     pub(crate) fn create_plan_from_coordination(&mut self, plan: &Plan) -> Result<PlanId> {
         if self.graphs.contains_key(plan.id.0.as_str()) {
             return Err(anyhow!("plan `{}` already exists", plan.id.0));

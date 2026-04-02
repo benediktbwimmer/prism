@@ -27,11 +27,10 @@ pub const MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE: usize = 32;
 // Guard the hot path against quadratic co-change explosions on bulk edits.
 pub const MAX_CO_CHANGE_LINEAGES_PER_CHANGESET: usize = 128;
 pub const MAX_CO_CHANGE_DELTAS_PER_CHANGESET: usize = 2048;
-pub const MAX_CO_CHANGE_SAMPLED_LINEAGES_PER_CHANGESET: usize =
-    sampled_co_change_lineage_limit(
-        MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
-        MAX_CO_CHANGE_DELTAS_PER_CHANGESET,
-    );
+pub const MAX_CO_CHANGE_SAMPLED_LINEAGES_PER_CHANGESET: usize = sampled_co_change_lineage_limit(
+    MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
+    MAX_CO_CHANGE_DELTAS_PER_CHANGESET,
+);
 
 const fn sampled_co_change_lineage_limit(max_lineages: usize, max_deltas: usize) -> usize {
     let mut lineages = 1usize;

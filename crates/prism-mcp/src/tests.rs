@@ -18007,7 +18007,6 @@ fn coordination_mutations_wait_for_runtime_sync_and_then_succeed() {
     );
 }
 
-
 #[test]
 fn claim_mutations_queue_runtime_refresh_instead_of_returning_busy() {
     let root = temp_workspace();

@@ -556,7 +556,6 @@ impl WorkspaceSession {
         self.shared_runtime_store.as_ref()
     }
 
-
     fn lock_refresh_for_mutation(&self, reason: &'static str) -> MutexGuard<'_, ()> {
         let wait_started = Instant::now();
         let guard = self
