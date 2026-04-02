@@ -1,3 +1,4 @@
+mod ad_hoc_projections;
 mod common;
 mod contracts;
 mod coordination;
@@ -52,7 +53,8 @@ pub use crate::source::{
 };
 pub use crate::symbol::{Relations, Symbol};
 pub use crate::types::{
-    canonical_concept_handle, canonical_contract_handle, ArtifactRisk, ChangeImpact, CoChange,
+    canonical_concept_handle, canonical_contract_handle, AdHocPlanProjection,
+    AdHocPlanProjectionDiff, AdHocPlanProjectionSummary, ArtifactRisk, ChangeImpact, CoChange,
     ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptHealth,
     ConceptHealthSignals, ConceptHealthStatus, ConceptPacket, ConceptProvenance,
     ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent,

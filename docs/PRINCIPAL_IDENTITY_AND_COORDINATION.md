@@ -4,6 +4,10 @@ Status: pre-implementation design note
 Audience: PRISM core, coordination, MCP, runtime, and storage maintainers  
 Scope: identity, authentication, provenance, and lease semantics for shared multi-actor coordination
 
+See also:
+[SHARED_IDENTITY_FUTURE_STATE.md](/Users/bene/code/prism/docs/SHARED_IDENTITY_FUTURE_STATE.md)
+for the desired Postgres-backed multi-machine identity end state.
+
 ---
 
 ## 1. Summary
@@ -585,8 +589,11 @@ the ability to call mutations.
 
 For a common setup:
 
-- one PRISM MCP daemon on a developer machine
-- one Codex MCP config entry
+- one Codex MCP config entry such as `prism mcp bridge`
+- for PRISM-on-PRISM dogfooding, one static Codex entry can instead point to
+  `scripts/prism-mcp-codex-launcher.sh`, which resolves the active worktree and
+  launches that worktree's release binaries
+- one PRISM bridge and one managed daemon per active workspace or worktree
 - multiple concurrent Codex threads
 - possible subagents
 - possible shared MCP sessions beneath the surface

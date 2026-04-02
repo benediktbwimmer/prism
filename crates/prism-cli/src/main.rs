@@ -5,8 +5,10 @@ mod daemon_log;
 mod display;
 mod mcp;
 mod parsing;
+mod projection_commands;
 mod protected_state_commands;
 mod runtime;
+mod workspace_root;
 
 use anyhow::Result;
 use clap::Parser;

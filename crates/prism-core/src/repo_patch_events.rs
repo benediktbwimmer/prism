@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use anyhow::{bail, Result};
-use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeKind};
+use prism_memory::{OutcomeEvent, OutcomeKind, OutcomeMemory};
 
 use crate::protected_state::repo_streams::{
     append_protected_stream_event, implicit_principal_identity, inspect_protected_stream,
@@ -15,7 +15,10 @@ pub(crate) fn append_repo_patch_event(root: &Path, event: &OutcomeEvent) -> Resu
         &ProtectedRepoStream::patch_events(),
         event.meta.id.0.as_str(),
         event,
-        &implicit_principal_identity(Some(&event.meta.actor), event.meta.execution_context.as_ref()),
+        &implicit_principal_identity(
+            Some(&event.meta.actor),
+            event.meta.execution_context.as_ref(),
+        ),
     )
 }
 

@@ -424,28 +424,25 @@ fn refresh_prism_snapshot_with_guard(
     let index_workspace_started = Instant::now();
     let observed_meta =
         observed_change_event_meta(root, observed_change_tracker, worktree_principal_binding);
-    let observed = match indexer.index_with_refresh_plan_and_meta(
-        trigger.clone(),
-        &plan,
-        observed_meta,
-    ) {
-        Ok(observed) => observed,
-        Err(error) => {
-            *runtime_state
-                .lock()
-                .expect("workspace runtime state lock poisoned") = WorkspaceRuntimeState::new(
-                next_layout,
-                Graph::from_snapshot(current_prism.graph().snapshot()),
-                HistoryStore::from_snapshot(current_prism.history_snapshot()),
-                OutcomeMemory::from_snapshot(current_prism.outcome_snapshot()),
-                current_prism.coordination_snapshot(),
-                current_prism.authored_plan_graphs(),
-                current_prism.plan_execution_overlays_by_plan(),
-                ProjectionIndex::from_snapshot(current_prism.projection_snapshot()),
-            );
-            return Err(error);
-        }
-    };
+    let observed =
+        match indexer.index_with_refresh_plan_and_meta(trigger.clone(), &plan, observed_meta) {
+            Ok(observed) => observed,
+            Err(error) => {
+                *runtime_state
+                    .lock()
+                    .expect("workspace runtime state lock poisoned") = WorkspaceRuntimeState::new(
+                    next_layout,
+                    Graph::from_snapshot(current_prism.graph().snapshot()),
+                    HistoryStore::from_snapshot(current_prism.history_snapshot()),
+                    OutcomeMemory::from_snapshot(current_prism.outcome_snapshot()),
+                    current_prism.coordination_snapshot(),
+                    current_prism.authored_plan_graphs(),
+                    current_prism.plan_execution_overlays_by_plan(),
+                    ProjectionIndex::from_snapshot(current_prism.projection_snapshot()),
+                );
+                return Err(error);
+            }
+        };
     let index_workspace_ms =
         u64::try_from(index_workspace_started.elapsed().as_millis()).unwrap_or(u64::MAX);
     observed_change_tracker
@@ -915,7 +912,12 @@ fn observed_change_event_meta(
         actor,
         correlation: work
             .as_ref()
-            .map(|active| active.coordination_task_id.clone().unwrap_or_else(|| active.work_id.clone()))
+            .map(|active| {
+                active
+                    .coordination_task_id
+                    .clone()
+                    .unwrap_or_else(|| active.work_id.clone())
+            })
             .map(TaskId::new),
         causation: None,
         execution_context: Some(EventExecutionContext {

@@ -1,13 +1,13 @@
 use anyhow::Result;
 use rusqlite::Connection;
 
-const SCHEMA_VERSION: i64 = 20;
+const SCHEMA_VERSION: i64 = 21;
 
 pub(super) fn init_schema(conn: &mut Connection) -> Result<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
     match version {
         0 | SCHEMA_VERSION => {}
-        11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 => {}
+        11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 => {}
         _ => reset_schema(conn)?,
     }
 
@@ -191,6 +191,51 @@ fn current_schema_sql() -> &'static str {
         CREATE INDEX IF NOT EXISTS idx_outcome_event_anchor_lookup
             ON outcome_event_anchor(anchor_kind, anchor_value, event_id);
 
+        CREATE TABLE IF NOT EXISTS projection_patch_event (
+            event_id TEXT PRIMARY KEY,
+            ts INTEGER NOT NULL,
+            task_id TEXT,
+            trigger TEXT,
+            actor TEXT,
+            reason TEXT,
+            work_id TEXT,
+            work_title TEXT,
+            summary TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_projection_patch_event_ts
+            ON projection_patch_event(ts DESC, event_id DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_projection_patch_event_task_ts
+            ON projection_patch_event(task_id, ts DESC, event_id DESC);
+
+        CREATE TABLE IF NOT EXISTS projection_patch_file (
+            event_id TEXT NOT NULL,
+            ts INTEGER NOT NULL,
+            task_id TEXT,
+            file_path TEXT NOT NULL,
+            trigger TEXT,
+            actor TEXT,
+            reason TEXT,
+            work_id TEXT,
+            work_title TEXT,
+            summary TEXT NOT NULL,
+            changed_symbol_count INTEGER NOT NULL,
+            added_count INTEGER NOT NULL,
+            removed_count INTEGER NOT NULL,
+            updated_count INTEGER NOT NULL,
+            PRIMARY KEY (event_id, file_path)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_projection_patch_file_ts
+            ON projection_patch_file(ts DESC, event_id DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_projection_patch_file_task_ts
+            ON projection_patch_file(task_id, ts DESC, event_id DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_projection_patch_file_path_ts
+            ON projection_patch_file(file_path, ts DESC, event_id DESC);
+
         CREATE TABLE IF NOT EXISTS inference_record_log (
             sequence INTEGER PRIMARY KEY AUTOINCREMENT,
             edge_id TEXT NOT NULL UNIQUE,
@@ -330,10 +375,13 @@ fn reset_schema(conn: &Connection) -> Result<()> {
         DROP TABLE IF EXISTS memory_event_log;
         DROP TABLE IF EXISTS outcome_event_log;
         DROP TABLE IF EXISTS outcome_event_local;
+        DROP TABLE IF EXISTS outcome_event_anchor;
         DROP TABLE IF EXISTS history_node_lineages;
         DROP TABLE IF EXISTS history_events;
         DROP TABLE IF EXISTS history_co_change;
         DROP TABLE IF EXISTS history_tombstones;
+        DROP TABLE IF EXISTS projection_patch_event;
+        DROP TABLE IF EXISTS projection_patch_file;
         DROP TABLE IF EXISTS projection_co_change;
         DROP TABLE IF EXISTS projection_validation;
         DROP TABLE IF EXISTS projection_curated_concept;

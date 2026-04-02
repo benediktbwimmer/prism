@@ -26,10 +26,10 @@ use prism_ir::{
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryEventQuery, MemoryId,
     MemoryKind, MemoryModule, MemoryScope, MemorySource, OutcomeEvent, OutcomeEvidence,
-    OutcomeKind, OutcomeRecallQuery, OutcomeResult, SessionMemory,
+    OutcomeKind, OutcomeMemorySnapshot, OutcomeRecallQuery, OutcomeResult, SessionMemory,
 };
 use prism_parser::ParseDepth;
-use prism_projections::ProjectionSnapshot;
+use prism_projections::{CoChangeRecord, ProjectionSnapshot, ValidationCheck};
 use prism_query::{
     ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptPacket,
     ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptRelation,
@@ -37,7 +37,7 @@ use prism_query::{
     ContractCompatibility, ContractEvent, ContractEventAction, ContractGuarantee, ContractKind,
     ContractPacket, ContractStatus, ContractTarget, OutcomeReadBackend, Prism,
 };
-use prism_store::{Graph, MemoryStore, SqliteStore, Store};
+use prism_store::{Graph, MemoryStore, ProjectionMaterializationMetadata, SqliteStore, Store};
 use serde_json::json;
 
 use super::{
@@ -52,6 +52,7 @@ use crate::curator_support::build_curator_context;
 use crate::materialization::summarize_workspace_materialization;
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::repo_patch_events::load_repo_patch_events;
+use crate::session::HOT_OUTCOME_HYDRATION_LIMIT;
 use crate::workspace_tree::build_workspace_tree_snapshot;
 
 static NEXT_TEMP_WORKSPACE: AtomicU64 = AtomicU64::new(0);
@@ -1022,13 +1023,12 @@ fn repo_patch_events_capture_provenance_and_reload_without_local_cache() {
     *session
         .worktree_principal_binding
         .lock()
-        .expect("worktree principal binding lock poisoned") = Some(
-        crate::worktree_principal::BoundWorktreePrincipal {
+        .expect("worktree principal binding lock poisoned") =
+        Some(crate::worktree_principal::BoundWorktreePrincipal {
             authority_id: "local-daemon".to_string(),
             principal_id: "agent:patch-provenance".to_string(),
             principal_name: "patch-provenance".to_string(),
-        },
-    );
+        });
     session.bind_active_work_context(crate::ActiveWorkContextBinding {
         work_id: "work:rename-alpha".to_string(),
         kind: WorkContextKind::AdHoc,
@@ -1055,8 +1055,14 @@ fn repo_patch_events_capture_provenance_and_reload_without_local_cache() {
     let EventActor::Principal(actor) = &event.meta.actor else {
         panic!("expected principal actor");
     };
-    assert_eq!(actor.authority_id, PrincipalAuthorityId::new("local-daemon"));
-    assert_eq!(actor.principal_id, PrincipalId::new("agent:patch-provenance"));
+    assert_eq!(
+        actor.authority_id,
+        PrincipalAuthorityId::new("local-daemon")
+    );
+    assert_eq!(
+        actor.principal_id,
+        PrincipalId::new("agent:patch-provenance")
+    );
     assert_eq!(actor.name.as_deref(), Some("patch-provenance"));
     assert_eq!(
         event.meta.correlation,
@@ -1070,7 +1076,10 @@ fn repo_patch_events_capture_provenance_and_reload_without_local_cache() {
         .expect("work context should be present");
     assert_eq!(work.work_id, "work:rename-alpha");
     assert_eq!(work.title, "Rename alpha");
-    assert_eq!(work.coordination_task_id.as_deref(), Some("task:rename-alpha"));
+    assert_eq!(
+        work.coordination_task_id.as_deref(),
+        Some("task:rename-alpha")
+    );
     assert_eq!(
         event.metadata["reason"].as_str(),
         Some("work Rename alpha (work:rename-alpha)")
@@ -1105,6 +1114,94 @@ fn repo_patch_events_capture_provenance_and_reload_without_local_cache() {
         reloaded_actor.principal_id,
         PrincipalId::new("agent:patch-provenance")
     );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn binding_principal_backfills_repo_patch_events_for_active_work() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    session.bind_active_work_context(crate::ActiveWorkContextBinding {
+        work_id: "work:late-auth".to_string(),
+        kind: WorkContextKind::AdHoc,
+        title: "Late auth publish".to_string(),
+        summary: Some("bind principal after edits".to_string()),
+        parent_work_id: None,
+        coordination_task_id: None,
+        plan_id: None,
+        plan_title: None,
+    });
+
+    fs::write(root.join("src/lib.rs"), "pub fn beta() {}\n").unwrap();
+    session
+        .refresh_state
+        .mark_fs_dirty_paths([root.join("src/lib.rs")]);
+    let observed = session.refresh_fs().unwrap();
+    assert!(!observed.is_empty());
+
+    let runtime_patch = session
+        .prism()
+        .query_outcomes(&OutcomeRecallQuery {
+            kinds: Some(vec![OutcomeKind::PatchApplied]),
+            result: Some(OutcomeResult::Success),
+            limit: 1,
+            ..OutcomeRecallQuery::default()
+        })
+        .into_iter()
+        .next()
+        .expect("patch event should exist");
+    assert!(matches!(runtime_patch.meta.actor, EventActor::System));
+    assert_eq!(
+        runtime_patch.metadata["reason"].as_str(),
+        Some("work Late auth publish (work:late-auth)")
+    );
+    assert!(load_repo_patch_events(&root).unwrap().is_empty());
+
+    let owner = session
+        .bootstrap_owner_principal(BootstrapOwnerInput {
+            authority_id: Some(PrincipalAuthorityId::new("local-daemon")),
+            name: "Late Auth Owner".to_string(),
+            role: Some("repo_owner".to_string()),
+        })
+        .unwrap();
+    let authenticated = session
+        .authenticate_principal_credential(&owner.credential.credential_id, &owner.principal_token)
+        .unwrap();
+    session
+        .bind_or_validate_worktree_principal(&authenticated)
+        .unwrap();
+
+    let repo_events = load_repo_patch_events(&root).unwrap();
+    assert_eq!(repo_events.len(), 1);
+    let repo_event = &repo_events[0];
+    let EventActor::Principal(actor) = &repo_event.meta.actor else {
+        panic!("repo event should be principal-authored");
+    };
+    assert_eq!(actor.authority_id, owner.principal.authority_id);
+    assert_eq!(actor.principal_id, owner.principal.principal_id);
+    assert_eq!(actor.name.as_deref(), Some(owner.principal.name.as_str()));
+    assert_eq!(
+        repo_event.metadata["reason"].as_str(),
+        Some("work Late auth publish (work:late-auth)")
+    );
+
+    let live_event = session
+        .load_outcome_event(&repo_event.meta.id)
+        .unwrap()
+        .expect("live runtime should expose rewritten patch event");
+    let EventActor::Principal(live_actor) = &live_event.meta.actor else {
+        panic!("live event should be principal-authored after backfill");
+    };
+    assert_eq!(live_actor.principal_id, owner.principal.principal_id);
 
     let _ = fs::remove_dir_all(root);
 }
@@ -5943,6 +6040,128 @@ fn startup_hydrates_persisted_curated_concepts_even_when_derived_projections_sta
         .curated_concepts()
         .iter()
         .any(|concept| concept.handle == persisted_concept.handle));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn startup_treats_incomplete_persisted_projection_materialization_as_missing_snapshot() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { beta(); }\npub fn beta() {}\n",
+    )
+    .unwrap();
+
+    let _ = index_workspace_session(&root).unwrap();
+    let db_path = PrismPaths::for_workspace_root(&root)
+        .unwrap()
+        .worktree_cache_db_path()
+        .unwrap();
+    let mut store = SqliteStore::open(&db_path).unwrap();
+    let mut persisted = store.load_projection_snapshot().unwrap().unwrap();
+    assert!(!persisted.co_change_by_lineage.is_empty());
+    if persisted.validation_by_lineage.is_empty() {
+        persisted.validation_by_lineage.push((
+            LineageId::new("lineage:alpha"),
+            vec![ValidationCheck {
+                label: "test:smoke".to_string(),
+                score: 1.0,
+                last_seen: 1,
+            }],
+        ));
+    }
+    persisted.co_change_by_lineage.clear();
+    store.save_projection_snapshot(&persisted).unwrap();
+    assert_eq!(
+        store.load_projection_materialization_metadata().unwrap(),
+        ProjectionMaterializationMetadata {
+            has_co_change: false,
+            has_validation: true,
+            has_knowledge: false,
+        }
+    );
+
+    let indexer =
+        WorkspaceIndexer::new_with_options(&root, WorkspaceSessionOptions::default()).unwrap();
+    assert!(!indexer.had_projection_snapshot);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn startup_keeps_hot_outcomes_bounded_when_persisted_projection_materialization_is_co_change_only()
+{
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let _ = index_workspace_session(&root).unwrap();
+    let db_path = PrismPaths::for_workspace_root(&root)
+        .unwrap()
+        .worktree_cache_db_path()
+        .unwrap();
+    let mut store = SqliteStore::open(&db_path).unwrap();
+    let events = (0..(HOT_OUTCOME_HYDRATION_LIMIT + 8))
+        .map(|index| OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new(format!("outcome:test:projection-boundary:{index}")),
+                ts: u64::try_from(index + 1).unwrap(),
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:projection-boundary")),
+                causation: None,
+                execution_context: None,
+            },
+            anchors: Vec::new(),
+            kind: OutcomeKind::PlanCreated,
+            result: OutcomeResult::Success,
+            summary: format!("outcome {index}"),
+            evidence: Vec::new(),
+            metadata: serde_json::Value::Null,
+        })
+        .collect::<Vec<_>>();
+    store
+        .save_outcome_snapshot(&OutcomeMemorySnapshot {
+            events: events.clone(),
+        })
+        .unwrap();
+    store
+        .save_projection_snapshot(&ProjectionSnapshot {
+            co_change_by_lineage: vec![(
+                LineageId::new("lineage:alpha"),
+                vec![CoChangeRecord {
+                    lineage: LineageId::new("lineage:beta"),
+                    count: 3,
+                }],
+            )],
+            validation_by_lineage: Vec::new(),
+            curated_concepts: Vec::new(),
+            concept_relations: Vec::new(),
+        })
+        .unwrap();
+    assert_eq!(
+        store.load_projection_materialization_metadata().unwrap(),
+        ProjectionMaterializationMetadata {
+            has_co_change: true,
+            has_validation: false,
+            has_knowledge: false,
+        }
+    );
+
+    let indexer =
+        WorkspaceIndexer::new_with_options(&root, WorkspaceSessionOptions::default()).unwrap();
+    assert!(indexer.outcomes.snapshot().events.len() <= HOT_OUTCOME_HYDRATION_LIMIT);
 
     let _ = fs::remove_dir_all(root);
 }

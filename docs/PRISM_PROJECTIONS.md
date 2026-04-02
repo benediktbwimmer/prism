@@ -290,6 +290,23 @@ prism project plan:01kn6rkat --diff="now-4h..now"
 Those commands should be understood as projection requests, not as special access to a separate
 historical database.
 
+The first concrete ad hoc projection family should be plan-focused:
+
+- `plan_projection_at(plan_id, as_of)` for point-in-time structural plan views
+- `plan_projection_diff(plan_id, from, to)` for structural plan diffs across a bounded window
+
+Those requests should replay authoritative coordination history up to the requested timestamp and
+derive a historical plan runtime from that replay. They should report their authority plane and
+history source explicitly.
+
+Historical ad hoc plan projections should remain honest about what they are:
+
+- they are replayed structural views, not a second canonical plan store
+- they should not silently reuse live hydration paths that can pull current anchor or blocker state
+  into a historical answer
+- they should prefer raw replayed plan graphs and execution overlays over present-time convenience
+  summaries when serving time-travel results
+
 ## Non-Goals
 
 This projection layer should not:

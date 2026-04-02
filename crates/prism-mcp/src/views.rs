@@ -4,6 +4,7 @@ use prism_curator::{
 };
 use prism_ir::{AnchorRef, Edge, NodeId, WorkspaceRevision};
 use prism_js::{
+    AdHocPlanProjectionDiffView, AdHocPlanProjectionSummaryView, AdHocPlanProjectionView,
     AnchorRefView, ArtifactRiskView, ArtifactView, BlockerCauseView, BlockerView, ChangeImpactView,
     ClaimView, CoChangeView, ConceptBindingMetadataView, ConceptCurationHintsView,
     ConceptDecodeLensView, ConceptPacketTruncationView, ConceptPacketVerbosityView,
@@ -18,13 +19,15 @@ use prism_js::{
     NodeIdView, PlanAcceptanceCriterionView, PlanBindingView, PlanEdgeView,
     PlanExecutionOverlayView, PlanGraphView, PlanListEntryView, PlanNodeBlockerView,
     PlanNodeRecommendationView, PlanNodeView, PlanSummaryView, PlanView, PolicyViolationRecordView,
-    PolicyViolationView, QueryDiagnostic, ScoredMemoryView, TaskIntentView, TaskRiskView,
-    TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView, ValidationRefView,
-    WorkspaceRevisionView,
+    PolicyViolationView, ProjectionAuthorityPlaneView, ProjectionClassView, QueryDiagnostic,
+    ScoredMemoryView, TaskIntentView, TaskRiskView, TaskValidationRecipeView, ValidationCheckView,
+    ValidationRecipeView, ValidationRefView, WorkspaceRevisionView,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
+use prism_projections::{ProjectionAuthorityPlane, ProjectionClass};
 use prism_query::{
-    ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens, ConceptPacket, ConceptProvenance,
+    AdHocPlanProjection, AdHocPlanProjectionDiff, AdHocPlanProjectionSummary, ArtifactRisk,
+    ChangeImpact, CoChange, ConceptDecodeLens, ConceptPacket, ConceptProvenance,
     ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationKind,
     ConceptResolution, ConceptScope, ContractCompatibility, ContractGuarantee,
     ContractGuaranteeStrength, ContractHealth, ContractHealthSignals, ContractHealthStatus,
@@ -1345,6 +1348,124 @@ pub(crate) fn plan_execution_overlay_view(
         session: value.session.map(|session| session.0.to_string()),
         effective_assignee: value.effective_assignee.map(|agent| agent.0.to_string()),
         awaiting_handoff_from: value.awaiting_handoff_from.map(|node| node.0.to_string()),
+    }
+}
+
+pub(crate) fn ad_hoc_plan_projection_summary_view(
+    value: AdHocPlanProjectionSummary,
+) -> AdHocPlanProjectionSummaryView {
+    AdHocPlanProjectionSummaryView {
+        total_nodes: value.total_nodes,
+        abstract_nodes: value.abstract_nodes,
+        proposed_nodes: value.proposed_nodes,
+        ready_nodes: value.ready_nodes,
+        waiting_nodes: value.waiting_nodes,
+        in_progress_nodes: value.in_progress_nodes,
+        in_review_nodes: value.in_review_nodes,
+        validating_nodes: value.validating_nodes,
+        blocked_nodes: value.blocked_nodes,
+        completed_nodes: value.completed_nodes,
+        abandoned_nodes: value.abandoned_nodes,
+        total_edges: value.total_edges,
+    }
+}
+
+pub(crate) fn ad_hoc_plan_projection_view(value: AdHocPlanProjection) -> AdHocPlanProjectionView {
+    AdHocPlanProjectionView {
+        projection_class: match value.projection_class {
+            ProjectionClass::Published => ProjectionClassView::Published,
+            ProjectionClass::Serving => ProjectionClassView::Serving,
+            ProjectionClass::AdHoc => ProjectionClassView::AdHoc,
+        },
+        authority_planes: value
+            .authority_planes
+            .into_iter()
+            .map(|plane| match plane {
+                ProjectionAuthorityPlane::PublishedRepo => {
+                    ProjectionAuthorityPlaneView::PublishedRepo
+                }
+                ProjectionAuthorityPlane::SharedRuntime => {
+                    ProjectionAuthorityPlaneView::SharedRuntime
+                }
+            })
+            .collect(),
+        history_source: value.history_source,
+        plan_id: value.plan_id.0.to_string(),
+        as_of: value.as_of,
+        replayed_event_count: value.replayed_event_count,
+        graph: plan_graph_view(value.graph),
+        execution_overlays: value
+            .execution_overlays
+            .into_iter()
+            .map(plan_execution_overlay_view)
+            .collect(),
+        summary: ad_hoc_plan_projection_summary_view(value.summary),
+    }
+}
+
+pub(crate) fn ad_hoc_plan_projection_diff_view(
+    value: AdHocPlanProjectionDiff,
+) -> AdHocPlanProjectionDiffView {
+    AdHocPlanProjectionDiffView {
+        projection_class: match value.projection_class {
+            ProjectionClass::Published => ProjectionClassView::Published,
+            ProjectionClass::Serving => ProjectionClassView::Serving,
+            ProjectionClass::AdHoc => ProjectionClassView::AdHoc,
+        },
+        authority_planes: value
+            .authority_planes
+            .into_iter()
+            .map(|plane| match plane {
+                ProjectionAuthorityPlane::PublishedRepo => {
+                    ProjectionAuthorityPlaneView::PublishedRepo
+                }
+                ProjectionAuthorityPlane::SharedRuntime => {
+                    ProjectionAuthorityPlaneView::SharedRuntime
+                }
+            })
+            .collect(),
+        history_source: value.history_source,
+        plan_id: value.plan_id.0.to_string(),
+        from: value.from,
+        to: value.to,
+        before: value.before.map(ad_hoc_plan_projection_view),
+        after: value.after.map(ad_hoc_plan_projection_view),
+        plan_metadata_changed: value.plan_metadata_changed,
+        added_nodes: value
+            .added_nodes
+            .into_iter()
+            .map(|id| id.0.to_string())
+            .collect(),
+        removed_nodes: value
+            .removed_nodes
+            .into_iter()
+            .map(|id| id.0.to_string())
+            .collect(),
+        changed_nodes: value
+            .changed_nodes
+            .into_iter()
+            .map(|id| id.0.to_string())
+            .collect(),
+        added_edges: value
+            .added_edges
+            .into_iter()
+            .map(|id| id.0.to_string())
+            .collect(),
+        removed_edges: value
+            .removed_edges
+            .into_iter()
+            .map(|id| id.0.to_string())
+            .collect(),
+        changed_edges: value
+            .changed_edges
+            .into_iter()
+            .map(|id| id.0.to_string())
+            .collect(),
+        changed_execution_nodes: value
+            .changed_execution_nodes
+            .into_iter()
+            .map(|id| id.0.to_string())
+            .collect(),
     }
 }
 

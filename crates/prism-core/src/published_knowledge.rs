@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
-use prism_memory::{MemoryEvent, MemoryScope, OutcomeEvent, OutcomeKind, OutcomeResult};
 use prism_ir::EventActor;
+use prism_memory::{MemoryEvent, MemoryScope, OutcomeEvent, OutcomeKind, OutcomeResult};
 use prism_projections::{
     ConceptEvent, ConceptPacket, ConceptProvenance, ConceptPublicationStatus, ConceptRelation,
     ConceptRelationEvent, ContractEvent, ContractPacket, ContractStatus, ContractTarget,

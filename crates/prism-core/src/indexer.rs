@@ -21,8 +21,9 @@ use crate::layout::{discover_layout, sync_root_nodes, PackageInfo, WorkspaceLayo
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::parse_pipeline::{parse_jobs_in_parallel, PreparedParseJob};
 use crate::patch_outcomes::{default_outcome_meta, RecordedPatchOutcome};
-use crate::repo_patch_events::merge_repo_patch_events_into_memory;
+use crate::projection_hydration::persisted_projection_load_plan;
 use crate::reanchor::{detect_moved_files, infer_reanchors};
+use crate::repo_patch_events::merge_repo_patch_events_into_memory;
 use crate::session::{
     WorkspaceRefreshSeed, WorkspaceRefreshWork, WorkspaceSession, HOT_OUTCOME_HYDRATION_LIMIT,
 };
@@ -153,6 +154,7 @@ impl WorkspaceIndexer<SqliteStore> {
                     .map(|state| state.execution_overlays)
                     .unwrap_or_default();
             }
+            let projection_metadata = indexer.store.load_projection_materialization_metadata()?;
             let local_projection_snapshot = if options.hydrate_persisted_projections {
                 indexer.store.load_projection_snapshot()?
             } else if options.hydrate_persisted_co_change {
@@ -160,12 +162,11 @@ impl WorkspaceIndexer<SqliteStore> {
             } else {
                 indexer.store.load_projection_snapshot_without_co_change()?
             };
-            let local_has_derived_projection_snapshot =
-                if options.hydrate_persisted_projections || options.hydrate_persisted_co_change {
-                    local_projection_snapshot.is_some()
-                } else {
-                    indexer.store.has_derived_projection_snapshot()?
-                };
+            let load_plan = persisted_projection_load_plan(
+                projection_metadata,
+                options.hydrate_persisted_projections,
+                options.hydrate_persisted_co_change,
+            );
             let shared_projection_snapshot = if shared_runtime_aliases_workspace_store {
                 None
             } else {
@@ -184,14 +185,13 @@ impl WorkspaceIndexer<SqliteStore> {
             } else {
                 None
             };
-            indexer.outcomes =
-                if local_has_derived_projection_snapshot || shared_projection_snapshot.is_some() {
-                    shared_store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
-                } else {
-                    shared_store.load_outcome_snapshot()?
-                }
-                .map(OutcomeMemory::from_snapshot)
-                .unwrap_or_else(OutcomeMemory::new);
+            indexer.outcomes = if load_plan.load_full_outcomes {
+                shared_store.load_outcome_snapshot()?
+            } else {
+                shared_store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
+            }
+            .map(OutcomeMemory::from_snapshot)
+            .unwrap_or_else(OutcomeMemory::new);
             indexer.projections = merged_projection_index(
                 base_local_projection_snapshot,
                 base_shared_projection_snapshot,
@@ -525,6 +525,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         sync_root_nodes(&mut graph, &layout);
         resolve_graph_edges(&mut graph, None);
         let load_projection_started = Instant::now();
+        let projection_metadata = store.load_projection_materialization_metadata()?;
         let persisted_projection_snapshot = if options.hydrate_persisted_projections {
             store.load_projection_snapshot()?
         } else if options.hydrate_persisted_co_change {
@@ -532,12 +533,11 @@ impl<S: Store> WorkspaceIndexer<S> {
         } else {
             store.load_projection_snapshot_without_co_change()?
         };
-        let local_has_derived_projection_snapshot =
-            if options.hydrate_persisted_projections || options.hydrate_persisted_co_change {
-                persisted_projection_snapshot.is_some()
-            } else {
-                store.has_derived_projection_snapshot()?
-            };
+        let load_plan = persisted_projection_load_plan(
+            projection_metadata,
+            options.hydrate_persisted_projections,
+            options.hydrate_persisted_co_change,
+        );
         let workspace_tree_snapshot = store.load_workspace_tree_snapshot()?;
         let base_projection_snapshot = persisted_projection_snapshot.clone().map(|snapshot| {
             if options.hydrate_persisted_projections {
@@ -549,16 +549,16 @@ impl<S: Store> WorkspaceIndexer<S> {
         let load_projection_ms = load_projection_started.elapsed().as_millis();
         let load_history_started = Instant::now();
         let mut history = store
-            .load_history_snapshot_with_options(!local_has_derived_projection_snapshot)?
+            .load_history_snapshot_with_options(load_plan.load_history_events)?
             .map(HistoryStore::from_snapshot)
             .unwrap_or_else(HistoryStore::new);
         let load_history_ms = load_history_started.elapsed().as_millis();
         history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
         let load_outcomes_started = Instant::now();
-        let outcomes = if local_has_derived_projection_snapshot {
-            store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
-        } else {
+        let outcomes = if load_plan.load_full_outcomes {
             store.load_outcome_snapshot()?
+        } else {
+            store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
         }
         .map(OutcomeMemory::from_snapshot)
         .unwrap_or_else(OutcomeMemory::new);
@@ -575,7 +575,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             .map(|state| state.snapshot.clone())
             .unwrap_or_default();
         let load_coordination_ms = load_coordination_started.elapsed().as_millis();
-        let had_projection_snapshot = base_projection_snapshot.is_some();
+        let had_projection_snapshot = load_plan.had_complete_derived_snapshot;
         let derive_projection_started = Instant::now();
         let mut projections = merged_projection_index(
             base_projection_snapshot,
@@ -689,7 +689,8 @@ impl<S: Store> WorkspaceIndexer<S> {
     }
 
     pub fn index_with_trigger(&mut self, trigger: ChangeTrigger) -> Result<Vec<ObservedChangeSet>> {
-        let (observed, _) = self.index_impl(trigger, None, None, None, default_outcome_meta("observed"))?;
+        let (observed, _) =
+            self.index_impl(trigger, None, None, None, default_outcome_meta("observed"))?;
         Ok(observed)
     }
 
@@ -722,8 +723,13 @@ impl<S: Store> WorkspaceIndexer<S> {
         plan: &WorkspaceRefreshPlan,
         observed_meta: EventMeta,
     ) -> Result<Vec<ObservedChangeSet>> {
-        let (observed, _) =
-            self.index_impl(trigger, Some(plan), Some(&plan.next_snapshot), None, observed_meta)?;
+        let (observed, _) = self.index_impl(
+            trigger,
+            Some(plan),
+            Some(&plan.next_snapshot),
+            None,
+            observed_meta,
+        )?;
         Ok(observed)
     }
 

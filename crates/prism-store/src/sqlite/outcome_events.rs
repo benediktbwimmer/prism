@@ -11,6 +11,7 @@ use serde_json::{Map, Value};
 use crate::outcome_projection::{append_only_delta, snapshot_from_events};
 
 use super::snapshots;
+use super::outcome_patch_projection;
 
 const MAX_HOT_PATCH_CHANGED_SYMBOLS: usize = 256;
 const PATCH_PAYLOADS_COMPACTED_KEY: &str = "outcomes:hot_patch_payloads_compacted";
@@ -375,6 +376,7 @@ pub(super) fn append_local_projection_tx(
             append_anchor_rows_tx(tx, event)?;
         }
     }
+    outcome_patch_projection::append_patch_projection_tx(tx, events)?;
     compact_local_projection_tx(tx, LOCAL_OUTCOME_PROJECTION_LIMIT)?;
     Ok(inserted)
 }
@@ -557,7 +559,7 @@ where
     Ok(events)
 }
 
-fn append_anchor_rows_tx(tx: &Transaction<'_>, event: &OutcomeEvent) -> Result<()> {
+pub(super) fn append_anchor_rows_tx(tx: &Transaction<'_>, event: &OutcomeEvent) -> Result<()> {
     let mut stmt = tx.prepare_cached(
         "INSERT OR IGNORE INTO outcome_event_anchor(event_id, anchor_kind, anchor_value)
          VALUES (?1, ?2, ?3)",
@@ -573,6 +575,8 @@ fn compact_local_projection_tx(tx: &Transaction<'_>, keep_limit: usize) -> Resul
     if keep_limit == 0 {
         let removed = tx.execute("DELETE FROM outcome_event_anchor", [])?;
         tx.execute("DELETE FROM outcome_event_local", [])?;
+        tx.execute("DELETE FROM projection_patch_file", [])?;
+        tx.execute("DELETE FROM projection_patch_event", [])?;
         return Ok(removed);
     }
     let stale_ids = {
@@ -606,6 +610,7 @@ fn compact_local_projection_tx(tx: &Transaction<'_>, keep_limit: usize) -> Resul
     for event_id in stale_ids {
         deleted += anchor_stmt.execute(params![event_id.as_str()])?;
         local_stmt.execute(params![event_id.as_str()])?;
+        outcome_patch_projection::delete_patch_projection_rows_tx(tx, &event_id)?;
     }
     Ok(deleted)
 }

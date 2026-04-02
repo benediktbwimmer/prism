@@ -44,6 +44,7 @@ When touching code that violates this policy, move it toward the target architec
   - `./target/release/prism-cli mcp status`
   - `./target/release/prism-cli mcp health`
 - Prefer the release binaries for restart and verification instead of `cargo run`, so the daemon and CLI are both using the freshly rebuilt release executables.
+- For PRISM-on-PRISM Codex work across multiple worktrees, prefer `scripts/prism-mcp-codex-launcher.sh` as the MCP command. It resolves the current worktree from the launch directory, re-execs that worktree's own launcher copy when needed, and builds that worktree's release binaries on first use if they are missing.
 
 ## Dogfooding Feedback Loop
 

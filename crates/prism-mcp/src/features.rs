@@ -214,6 +214,8 @@ impl PrismMcpFeatures {
             "plans"
             | "plan"
             | "planGraph"
+            | "planProjectionAt"
+            | "planProjectionDiff"
             | "planExecution"
             | "planReadyNodes"
             | "planNodeBlockers"

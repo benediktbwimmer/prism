@@ -8,6 +8,7 @@ mod inference_records;
 mod memory_entries;
 mod migration;
 mod outcome_events;
+mod outcome_patch_projection;
 mod projections;
 mod schema;
 mod snapshots;
@@ -47,6 +48,9 @@ use rusqlite::{
 use tracing::info;
 
 use crate::graph::Graph;
+use crate::patch_projection::{
+    PatchEventSummary, PatchEventSummaryQuery, PatchFileSummary, PatchFileSummaryQuery,
+};
 use crate::store::{
     AuxiliaryPersistBatch, CoordinationEventStream, CoordinationPersistBatch,
     CoordinationPersistResult, IndexPersistBatch, Store, WorkspaceTreeSnapshot,
@@ -143,6 +147,20 @@ impl SqliteStore {
         outcome_events::load_outcomes_by_payload_scan(&self.conn, query, exclude)
     }
 
+    pub fn load_patch_event_summaries(
+        &self,
+        query: &PatchEventSummaryQuery,
+    ) -> Result<Vec<PatchEventSummary>> {
+        outcome_patch_projection::load_patch_event_summaries(&self.conn, query)
+    }
+
+    pub fn load_patch_file_summaries(
+        &self,
+        query: &PatchFileSummaryQuery,
+    ) -> Result<Vec<PatchFileSummary>> {
+        outcome_patch_projection::load_patch_file_summaries(&self.conn, query)
+    }
+
     pub fn append_shared_outcome_events(
         &mut self,
         events: &[OutcomeEvent],
@@ -161,6 +179,12 @@ impl SqliteStore {
                     cached_snapshot_for_revision(&outcome_cache, outcome_revision_before)
                 };
                 let inserted = outcome_events::append_shared_events_tx(tx, events)?;
+                if inserted > 0 {
+                    for event in events {
+                        outcome_events::append_anchor_rows_tx(tx, event)?;
+                    }
+                    outcome_patch_projection::append_patch_projection_tx(tx, events)?;
+                }
                 let outcome_revision = if inserted > 0 {
                     bump_metadata_value_tx(tx, OUTCOME_REVISION_KEY)?
                 } else {
@@ -241,6 +265,13 @@ impl SqliteStore {
             outcome_events::PatchPayloadCompaction::default()
         };
         let compact_patch_payloads_ms = compact_patch_payloads_started.elapsed().as_millis();
+        let patch_projection_backfill_started = Instant::now();
+        let patch_projection_backfilled = if run_open_maintenance {
+            outcome_patch_projection::backfill_patch_projection_if_needed(&mut conn)?
+        } else {
+            0
+        };
+        let patch_projection_backfill_ms = patch_projection_backfill_started.elapsed().as_millis();
         let retire_legacy_started = Instant::now();
         let retired_legacy_co_change = if run_open_maintenance {
             history_io::retire_legacy_history_co_change(&mut conn)?
@@ -269,6 +300,8 @@ impl SqliteStore {
             compacted_hot_patch_payload_reclaim_bytes =
                 compacted_patch_payloads.reclaimed_bytes_before_vacuum,
             compacted_hot_patch_payload_vacuumed = compacted_patch_payloads.vacuumed,
+            patch_projection_backfill_ms,
+            patch_projection_backfilled,
             retire_legacy_ms,
             retired_legacy_history_co_change_rows = retired_legacy_co_change.deleted_rows,
             retired_legacy_history_co_change_reclaim_bytes =
@@ -788,6 +821,12 @@ impl Store for SqliteStore {
         &mut self,
     ) -> Result<Option<prism_projections::ProjectionSnapshot>> {
         projections::load_projection_snapshot_rows(&self.conn)
+    }
+
+    fn load_projection_materialization_metadata(
+        &mut self,
+    ) -> Result<crate::ProjectionMaterializationMetadata> {
+        projections::load_projection_materialization_metadata(&self.conn)
     }
 
     fn load_projection_knowledge_snapshot(

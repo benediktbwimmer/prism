@@ -109,6 +109,11 @@ fn api_reference_mentions_primary_tool() {
         .contains("taskChanges(taskId: string, options?: ChangedFilesOptions): PatchEventView[];"));
     assert!(docs.contains("connectionInfo(): ConnectionInfoView;"));
     assert!(docs.contains("runtimeStatus(): RuntimeStatusView;"));
+    assert!(docs
+        .contains("planProjectionAt(planId: string, at: number): AdHocPlanProjectionView | null;"));
+    assert!(docs.contains(
+        "planProjectionDiff(planId: string, from: number, to: number): AdHocPlanProjectionDiffView;"
+    ));
     assert!(docs.contains("runtimeLogs(options?: RuntimeLogOptions): RuntimeLogEventView[];"));
     assert!(
         docs.contains("runtimeTimeline(options?: RuntimeTimelineOptions): RuntimeLogEventView[];")
@@ -170,6 +175,8 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("type TextSearchBundleView = {"));
     assert!(docs.contains("type TargetBundleView = {"));
     assert!(docs.contains("type RuntimeStatusView = {"));
+    assert!(docs.contains("type AdHocPlanProjectionView = {"));
+    assert!(docs.contains("type AdHocPlanProjectionDiffView = {"));
     assert!(docs.contains("mcpCallLogPath?: string;"));
     assert!(docs.contains("mcpCallLogBytes?: number;"));
     assert!(docs.contains("type ConnectionInfoView = {"));

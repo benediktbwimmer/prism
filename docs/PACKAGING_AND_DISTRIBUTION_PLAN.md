@@ -202,6 +202,7 @@ Make the command surface explicit and stable.
 
 Required public shape:
 
+- `prism mcp bridge`
 - `prism mcp serve`
 - `prism mcp start`
 - `prism mcp stop`
@@ -212,6 +213,9 @@ Required public shape:
 
 Recommended details:
 
+- `prism mcp bridge` should be the canonical editor/host integration entrypoint
+- `prism mcp bridge` should auto-resolve the workspace root from the launch cwd
+  when `--root` is omitted, then spawn or reuse that workspace's managed daemon
 - `prism mcp serve` should be the canonical direct foreground command
 - `prism mcp serve` should default to stdio unless there is a strong reason to
   prefer an explicit transport flag
@@ -223,6 +227,8 @@ Acceptance criteria:
 
 - the docs can explain the distinction between `serve` and `start` in one short
   paragraph
+- editor integrations can use one static command entry such as
+  `prism mcp bridge` without hard-coding a checkout-specific root
 - the public MCP command set no longer depends on users understanding the
   internal `prism-mcp` executable
 

@@ -6,8 +6,11 @@ use clap::{Parser, Subcommand};
 #[command(name = "prism")]
 #[command(about = "Deterministic local-first code perception")]
 pub struct Cli {
-    #[arg(long, default_value = ".")]
-    pub root: PathBuf,
+    #[arg(
+        long,
+        help = "Workspace root. When omitted, PRISM resolves the nearest git worktree root from the current directory and falls back to the current directory when no git root is found."
+    )]
+    pub root: Option<PathBuf>,
     #[command(subcommand)]
     pub command: Command,
 }
@@ -25,6 +28,13 @@ pub enum Command {
     Docs {
         #[command(subcommand)]
         command: DocsCommand,
+    },
+    Project {
+        target: String,
+        #[arg(long)]
+        at: Option<String>,
+        #[arg(long)]
+        diff: Option<String>,
     },
     Entrypoints,
     Symbol {
@@ -332,6 +342,7 @@ mod tests {
     #[test]
     fn mcp_restart_preserves_bridges_by_default() {
         let cli = Cli::parse_from(["prism", "mcp", "restart"]);
+        assert!(cli.root.is_none());
         match cli.command {
             Command::Mcp {
                 command:
@@ -358,6 +369,7 @@ mod tests {
     #[test]
     fn mcp_stop_preserves_bridges_by_default() {
         let cli = Cli::parse_from(["prism", "mcp", "stop"]);
+        assert!(cli.root.is_none());
         match cli.command {
             Command::Mcp {
                 command: McpCommand::Stop { kill_bridges },
@@ -369,6 +381,7 @@ mod tests {
     #[test]
     fn mcp_restart_kill_bridges_flag_is_opt_in() {
         let cli = Cli::parse_from(["prism", "mcp", "restart", "--kill-bridges"]);
+        assert!(cli.root.is_none());
         match cli.command {
             Command::Mcp {
                 command: McpCommand::Restart { kill_bridges, .. },
@@ -380,6 +393,7 @@ mod tests {
     #[test]
     fn mcp_restart_internal_developer_flag_is_opt_in() {
         let cli = Cli::parse_from(["prism", "mcp", "restart", "--internal-developer"]);
+        assert!(cli.root.is_none());
         match cli.command {
             Command::Mcp {
                 command:
@@ -394,6 +408,7 @@ mod tests {
     #[test]
     fn mcp_start_accepts_http_bind_override() {
         let cli = Cli::parse_from(["prism", "mcp", "start", "--http-bind", "127.0.0.1:43123"]);
+        assert!(cli.root.is_none());
         match cli.command {
             Command::Mcp {
                 command: McpCommand::Start { http_bind, .. },
@@ -405,6 +420,7 @@ mod tests {
     #[test]
     fn mcp_cleanup_parses() {
         let cli = Cli::parse_from(["prism", "mcp", "cleanup"]);
+        assert!(cli.root.is_none());
         match cli.command {
             Command::Mcp {
                 command: McpCommand::Cleanup,
@@ -416,6 +432,7 @@ mod tests {
     #[test]
     fn mcp_endpoint_parses() {
         let cli = Cli::parse_from(["prism", "mcp", "endpoint"]);
+        assert!(cli.root.is_none());
         match cli.command {
             Command::Mcp {
                 command: McpCommand::Endpoint,
@@ -427,6 +444,7 @@ mod tests {
     #[test]
     fn docs_generate_parses() {
         let cli = Cli::parse_from(["prism", "docs", "generate"]);
+        assert!(cli.root.is_none());
         match cli.command {
             Command::Docs {
                 command: DocsCommand::Generate,
@@ -438,6 +456,7 @@ mod tests {
     #[test]
     fn auth_init_parses() {
         let cli = Cli::parse_from(["prism", "auth", "init", "--name", "Bene"]);
+        assert!(cli.root.is_none());
         match cli.command {
             Command::Auth {
                 command:
@@ -458,6 +477,7 @@ mod tests {
     #[test]
     fn auth_login_parses_principal_selector() {
         let cli = Cli::parse_from(["prism", "auth", "login", "--principal", "principal:owner"]);
+        assert!(cli.root.is_none());
         match cli.command {
             Command::Auth {
                 command:
@@ -492,6 +512,7 @@ mod tests {
             "--capability",
             "mutate_repo_memory",
         ]);
+        assert!(cli.root.is_none());
         match cli.command {
             Command::Principal {
                 command:
@@ -515,6 +536,7 @@ mod tests {
     #[test]
     fn protected_state_migrate_sign_parses() {
         let cli = Cli::parse_from(["prism", "protected-state", "migrate-sign"]);
+        assert!(cli.root.is_none());
         match cli.command {
             Command::ProtectedState {
                 command: ProtectedStateCommand::MigrateSign,
@@ -532,6 +554,7 @@ mod tests {
             "--stream",
             "concepts:events",
         ]);
+        assert!(cli.root.is_none());
         match cli.command {
             Command::ProtectedState {
                 command: ProtectedStateCommand::Verify { stream },
@@ -552,6 +575,7 @@ mod tests {
             "--output",
             "bundle.json",
         ]);
+        assert!(cli.root.is_none());
         match cli.command {
             Command::ProtectedState {
                 command:
@@ -582,6 +606,7 @@ mod tests {
             "concepts:events",
             "--to-last-valid",
         ]);
+        assert!(cli.root.is_none());
         match cli.command {
             Command::ProtectedState {
                 command:
@@ -593,6 +618,18 @@ mod tests {
                 assert_eq!(stream, "concepts:events");
                 assert!(to_last_valid);
             }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn explicit_root_still_parses() {
+        let cli = Cli::parse_from(["prism", "--root", "/tmp/worktree", "mcp", "status"]);
+        assert_eq!(cli.root, Some(PathBuf::from("/tmp/worktree")));
+        match cli.command {
+            Command::Mcp {
+                command: McpCommand::Status,
+            } => {}
             _ => panic!("unexpected command"),
         }
     }

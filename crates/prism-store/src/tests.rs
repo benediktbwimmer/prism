@@ -27,8 +27,9 @@ use rusqlite::Connection;
 
 use crate::{
     migrate_worktree_cache_from_shared_runtime, AuxiliaryPersistBatch, CoordinationPersistBatch,
-    CoordinationPersistContext, Graph, IndexPersistBatch, MemoryStore, SqliteStore, Store,
-    WorkspaceTreeDirectoryFingerprint, WorkspaceTreeFileFingerprint, WorkspaceTreeSnapshot,
+    CoordinationPersistContext, Graph, IndexPersistBatch, MemoryStore,
+    ProjectionMaterializationMetadata, SqliteStore, Store, WorkspaceTreeDirectoryFingerprint,
+    WorkspaceTreeFileFingerprint, WorkspaceTreeSnapshot,
 };
 
 fn node(name: &str) -> Node {
@@ -2517,6 +2518,68 @@ fn sqlite_store_apply_projection_deltas_materializes_without_bumping_workspace_r
             curated_concepts: Vec::new(),
             concept_relations: Vec::new(),
         })
+    );
+    assert_eq!(
+        store.load_projection_materialization_metadata().unwrap(),
+        ProjectionMaterializationMetadata {
+            has_co_change: true,
+            has_validation: true,
+            has_knowledge: false,
+        }
+    );
+}
+
+#[test]
+fn sqlite_store_tracks_projection_materialization_metadata_for_partial_snapshots() {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-projection-materialization-metadata-{nanos}.db"
+    ));
+    let mut store = SqliteStore::open(&path).unwrap();
+    store
+        .save_projection_snapshot(&ProjectionSnapshot {
+            co_change_by_lineage: Vec::new(),
+            validation_by_lineage: vec![(
+                prism_ir::LineageId::new("lineage:alpha"),
+                vec![ValidationCheck {
+                    label: "test:smoke".to_string(),
+                    score: 2.5,
+                    last_seen: 41,
+                }],
+            )],
+            curated_concepts: vec![ConceptPacket {
+                handle: "concept://alpha".to_string(),
+                canonical_name: "alpha".to_string(),
+                summary: "alpha".to_string(),
+                aliases: Vec::new(),
+                confidence: 0.9,
+                core_members: Vec::new(),
+                core_member_lineages: Vec::new(),
+                supporting_members: Vec::new(),
+                supporting_member_lineages: Vec::new(),
+                likely_tests: Vec::new(),
+                likely_test_lineages: Vec::new(),
+                evidence: Vec::new(),
+                risk_hint: None,
+                decode_lenses: Vec::new(),
+                scope: ConceptScope::Local,
+                provenance: ConceptProvenance::default(),
+                publication: None,
+            }],
+            concept_relations: Vec::new(),
+        })
+        .unwrap();
+
+    assert_eq!(
+        store.load_projection_materialization_metadata().unwrap(),
+        ProjectionMaterializationMetadata {
+            has_co_change: false,
+            has_validation: true,
+            has_knowledge: true,
+        }
     );
 }
 

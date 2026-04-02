@@ -24,8 +24,8 @@ use prism_curator::{
 };
 use prism_history::HistoryStore;
 use prism_ir::{
-    AnchorRef, ChangeTrigger, CredentialId, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId,
-    EventExecutionContext, Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode,
+    AnchorRef, ChangeTrigger, CredentialId, Edge, EdgeKind, EventActor, EventExecutionContext,
+    EventId, EventMeta, FileId, Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode,
     PlanEdgeKind, PlanId, PrincipalActor, PrincipalAuthorityId, PrincipalId, Span,
     SymbolFingerprint, TaskId, WorkContextKind, WorkContextSnapshot,
 };
@@ -207,6 +207,75 @@ fn coordination_mutations_flow_through_query_runtime() {
     assert_eq!(claims_value.as_array().unwrap().len(), 1);
     assert_eq!(artifacts_value.as_array().unwrap().len(), 1);
     assert!(simulated_value.as_array().unwrap().is_empty());
+}
+
+#[test]
+fn query_runtime_exposes_ad_hoc_plan_projection_views() {
+    let host = host_with_node(demo_node());
+    let session = test_session(&host);
+    let plan = host
+        .store_coordination(
+            session.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Inspect projection history" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let task = host
+        .store_coordination(
+            session.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "title": "Task A"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        session.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id,
+                "status": "in_progress"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let envelope = host
+        .execute(
+            session,
+            &format!(
+                r#"
+return {{
+  at: prism.planProjectionAt("{plan_id}", 9000000000),
+  diff: prism.planProjectionDiff("{plan_id}", 0, 9000000000),
+}};
+"#
+            ),
+            QueryLanguage::Ts,
+        )
+        .expect("projection query should succeed");
+
+    assert_eq!(envelope.result["at"]["projectionClass"], "ad_hoc");
+    assert_eq!(
+        envelope.result["at"]["authorityPlanes"],
+        json!(["shared_runtime"])
+    );
+    assert_eq!(envelope.result["at"]["summary"]["inProgressNodes"], 1);
+    assert_eq!(envelope.result["diff"]["addedNodes"], json!([task_id]));
+    assert_eq!(envelope.result["diff"]["planMetadataChanged"], true);
 }
 
 #[test]
@@ -14831,7 +14900,10 @@ return {
     assert_eq!(changed_file["removedCount"], 1);
     assert_eq!(changed_file["updatedCount"], 1);
     assert_eq!(changed_file["actor"], "change-view-agent");
-    assert_eq!(changed_file["reason"], "work Refine alpha (work:change-view)");
+    assert_eq!(
+        changed_file["reason"],
+        "work Refine alpha (work:change-view)"
+    );
     assert_eq!(changed_file["workId"], "work:change-view");
     assert_eq!(changed_file["workTitle"], "Refine alpha");
 

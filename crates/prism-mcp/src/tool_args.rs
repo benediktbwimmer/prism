@@ -2353,6 +2353,23 @@ pub(crate) struct PlanTargetArgs {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct PlanProjectionAtArgs {
+    #[serde(alias = "plan_id")]
+    pub(crate) plan_id: String,
+    pub(crate) at: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PlanProjectionDiffArgs {
+    #[serde(alias = "plan_id")]
+    pub(crate) plan_id: String,
+    pub(crate) from: u64,
+    pub(crate) to: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct PlanNextArgs {
     #[serde(alias = "plan_id")]
     pub(crate) plan_id: String,

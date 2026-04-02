@@ -363,6 +363,18 @@ pub(crate) fn query_method_specs() -> Vec<(
             "Read the first-class plan graph projection for a coordination plan.",
         ),
         (
+            "planProjectionAt",
+            "coordination",
+            Some("workflow"),
+            "Replay a historical structural plan projection at one timestamp.",
+        ),
+        (
+            "planProjectionDiff",
+            "coordination",
+            Some("workflow"),
+            "Diff two historical structural plan projections across a bounded time window.",
+        ),
+        (
             "planExecution",
             "coordination",
             Some("workflow"),

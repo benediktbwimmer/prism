@@ -1,6 +1,8 @@
 use std::error::Error;
 use std::fmt;
 
+use tracing::warn;
+
 use crate::workspace_identity::workspace_identity_for_root;
 use crate::{AuthenticatedPrincipal, WorkspaceSession};
 
@@ -44,7 +46,7 @@ impl WorkspaceSession {
             .worktree_principal_binding
             .lock()
             .expect("worktree principal binding lock poisoned");
-        match guard.as_mut() {
+        let result = match guard.as_mut() {
             None => {
                 *guard = Some(attempted);
                 Ok(())
@@ -58,7 +60,20 @@ impl WorkspaceSession {
                 bound_principal: bound.clone(),
                 attempted_principal: attempted,
             }),
+        };
+        drop(guard);
+
+        if result.is_ok() {
+            if let Err(error) = self.publish_pending_repo_patch_provenance_for_active_work() {
+                warn!(
+                    root = %self.root.display(),
+                    error = %error,
+                    "failed to publish pending repo patch provenance after binding worktree principal"
+                );
+            }
         }
+
+        result
     }
 
     pub fn bound_worktree_principal(&self) -> Option<BoundWorktreePrincipal> {

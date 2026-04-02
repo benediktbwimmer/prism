@@ -15,8 +15,8 @@ use prism_projections::{CoChangeDelta, ProjectionSnapshot, ValidationDelta};
 use crate::graph::Graph;
 use crate::store::{
     AuxiliaryPersistBatch, CoordinationEventStream, CoordinationPersistBatch,
-    CoordinationPersistContext, CoordinationPersistResult, IndexPersistBatch, Store,
-    WorkspaceTreeSnapshot,
+    CoordinationPersistContext, CoordinationPersistResult, IndexPersistBatch,
+    ProjectionMaterializationMetadata, Store, WorkspaceTreeSnapshot,
 };
 
 /// Synchronous runtime-authority operations that must remain durable across crash/restart.
@@ -102,6 +102,9 @@ pub trait MaterializationStore {
     fn load_inference_snapshot(&mut self) -> Result<Option<prism_agent::InferenceSnapshot>>;
     fn save_inference_snapshot(&mut self, snapshot: &prism_agent::InferenceSnapshot) -> Result<()>;
     fn load_projection_snapshot(&mut self) -> Result<Option<ProjectionSnapshot>>;
+    fn load_projection_materialization_metadata(
+        &mut self,
+    ) -> Result<ProjectionMaterializationMetadata>;
     fn save_projection_snapshot(&mut self, snapshot: &ProjectionSnapshot) -> Result<()>;
     fn apply_projection_deltas(
         &mut self,
@@ -295,6 +298,12 @@ impl<T: Store + ?Sized> MaterializationStore for T {
 
     fn load_projection_snapshot(&mut self) -> Result<Option<ProjectionSnapshot>> {
         Store::load_projection_snapshot(self)
+    }
+
+    fn load_projection_materialization_metadata(
+        &mut self,
+    ) -> Result<ProjectionMaterializationMetadata> {
+        Store::load_projection_materialization_metadata(self)
     }
 
     fn save_projection_snapshot(&mut self, snapshot: &ProjectionSnapshot) -> Result<()> {

@@ -3,12 +3,13 @@ use std::path::Path;
 
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use anyhow::{bail, Result};
-use prism_ir::EventId;
+use prism_ir::{AnchorRef, EventId, TaskId};
 use prism_store::{
     AuxiliaryPersistBatch, ColdQueryStore, CoordinationCheckpointStore, CoordinationEventStream,
     CoordinationJournal, CoordinationPersistBatch, CoordinationPersistContext,
     CoordinationPersistResult, EventJournalStore, Graph, IndexPersistBatch, MaterializationStore,
-    SnapshotRevisions, SqliteStore, Store, WorkspaceTreeSnapshot,
+    PatchEventSummary, PatchEventSummaryQuery, PatchFileSummary, PatchFileSummaryQuery,
+    ProjectionMaterializationMetadata, SnapshotRevisions, SqliteStore, Store, WorkspaceTreeSnapshot,
 };
 
 pub(crate) enum SharedRuntimeStore {
@@ -131,6 +132,44 @@ impl SharedRuntimeStore {
     ) -> Result<Vec<prism_memory::OutcomeEvent>> {
         match self {
             Self::Sqlite(store) => store.load_outcomes_by_payload_scan(query, exclude),
+        }
+    }
+
+    pub(crate) fn load_patch_event_summaries(
+        &mut self,
+        target: Option<&AnchorRef>,
+        task_id: Option<&TaskId>,
+        since: Option<u64>,
+        path: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<PatchEventSummary>> {
+        let query = PatchEventSummaryQuery {
+            target: target.cloned(),
+            task_id: task_id.cloned(),
+            since,
+            path: path.map(ToOwned::to_owned),
+            limit,
+        };
+        match self {
+            Self::Sqlite(store) => store.load_patch_event_summaries(&query),
+        }
+    }
+
+    pub(crate) fn load_patch_file_summaries(
+        &mut self,
+        task_id: Option<&TaskId>,
+        since: Option<u64>,
+        path: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<PatchFileSummary>> {
+        let query = PatchFileSummaryQuery {
+            task_id: task_id.cloned(),
+            since,
+            path: path.map(ToOwned::to_owned),
+            limit,
+        };
+        match self {
+            Self::Sqlite(store) => store.load_patch_file_summaries(&query),
         }
     }
 }
@@ -322,6 +361,16 @@ impl MaterializationStore for SharedRuntimeStore {
     ) -> Result<Option<prism_projections::ProjectionSnapshot>> {
         match self {
             Self::Sqlite(store) => <SqliteStore as Store>::load_projection_snapshot(store),
+        }
+    }
+
+    fn load_projection_materialization_metadata(
+        &mut self,
+    ) -> Result<ProjectionMaterializationMetadata> {
+        match self {
+            Self::Sqlite(store) => {
+                <SqliteStore as Store>::load_projection_materialization_metadata(store)
+            }
         }
     }
 

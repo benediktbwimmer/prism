@@ -22,6 +22,7 @@ use crate::parsing::{
     parse_node_kind_filter, parse_outcome_kind, parse_outcome_result,
     parse_validation_feedback_category, parse_validation_feedback_verdict,
 };
+use crate::projection_commands::handle_project_command;
 use crate::protected_state_commands::handle_protected_state_command;
 use crate::runtime::{
     build_memory_entry, build_memory_event, build_recall_query, build_task_event, current_event_id,
@@ -29,9 +30,11 @@ use crate::runtime::{
     record_validation_outcome, resolve_optional_anchors, resolve_single_symbol,
     run_validation_command,
 };
+use crate::workspace_root;
 
 pub fn run(cli: Cli) -> Result<()> {
     let Cli { root, command } = cli;
+    let root = workspace_root::resolve(root.as_deref())?;
     if let Command::Mcp { command } = command {
         return mcp::handle(&root, command);
     }
@@ -52,6 +55,9 @@ pub fn run(cli: Cli) -> Result<()> {
         Command::Mcp { .. } => unreachable!("handled above"),
         Command::Auth { .. } => unreachable!("handled above"),
         Command::Docs { command } => handle_docs_command(&session, command)?,
+        Command::Project { target, at, diff } => {
+            handle_project_command(prism.as_ref(), target, at, diff)?
+        }
         Command::Entrypoints => {
             for symbol in prism.entrypoints() {
                 println!("{}", symbol.signature());

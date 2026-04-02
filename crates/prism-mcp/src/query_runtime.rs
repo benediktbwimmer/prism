@@ -8,13 +8,13 @@ use prism_ir::{
     PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId,
 };
 use prism_js::{
-    ChangedFileView, ChangedSymbolView, ConceptDecodeView, ConceptPacketView, ConnectionInfoView,
-    ContractPacketView, DiffHunkView, DiscoveryBundleView, EditContextView, FocusedBlockView,
-    MemoryEventView, PatchEventView, QueryDiagnostic, QueryEnvelope, ReadContextView,
-    RecentChangeContextView, RuntimeLogEventView, RuntimeStatusView, ScoredMemoryView,
-    SourceExcerptView, SourceSliceView, SubgraphView, SymbolView, TextSearchMatchView,
-    ToolCatalogEntryView, ToolInputValidationView, ToolSchemaView, ValidationContextView,
-    ValidationFeedbackView,
+    AdHocPlanProjectionDiffView, AdHocPlanProjectionView, ChangedFileView, ChangedSymbolView,
+    ConceptDecodeView, ConceptPacketView, ConnectionInfoView, ContractPacketView, DiffHunkView,
+    DiscoveryBundleView, EditContextView, FocusedBlockView, MemoryEventView, PatchEventView,
+    QueryDiagnostic, QueryEnvelope, ReadContextView, RecentChangeContextView, RuntimeLogEventView,
+    RuntimeStatusView, ScoredMemoryView, SourceExcerptView, SourceSliceView, SubgraphView,
+    SymbolView, TextSearchMatchView, ToolCatalogEntryView, ToolInputValidationView, ToolSchemaView,
+    ValidationContextView, ValidationFeedbackView,
 };
 use prism_memory::{MemoryEventQuery, MemoryModule, OutcomeKind, OutcomeRecallQuery, RecallQuery};
 use prism_query::{
@@ -31,6 +31,7 @@ use crate::query_typecheck::StaticCheckMode;
 use crate::runtime_views::{connection_info, runtime_logs, runtime_status, runtime_timeline};
 use crate::text_search::search_text;
 use crate::{
+    ad_hoc_plan_projection_diff_view, ad_hoc_plan_projection_view,
     ambiguity::is_broad_identifier_query, ambiguity_diagnostic_data, apply_module_filter,
     artifact_risk_view, artifact_view, blast_radius_view, blocker_view, change_impact_view,
     changed_files, changed_symbols, claim_view, co_change_view, combined_parse_typescript_error,
@@ -61,15 +62,16 @@ use crate::{
     CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs, DiscoveryTargetArgs, EditSliceArgs,
     FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs, McpLogArgs, McpTraceArgs,
     MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
-    PendingReviewsArgs, PlanNextArgs, PlanNodeTargetArgs, PlanTargetArgs, PlansQueryArgs,
-    PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs,
-    RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext, SearchArgs,
-    SearchTextArgs, SemanticContextCache, SessionState, SimulateClaimArgs, SourceExcerptArgs,
-    SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode,
-    TaskTargetArgs, ToolNameArgs, ToolValidationArgs, ValidationFeedbackArgs, WhereUsedArgs,
-    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER,
-    QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
+    PendingReviewsArgs, PlanNextArgs, PlanNodeTargetArgs, PlanProjectionAtArgs,
+    PlanProjectionDiffArgs, PlanTargetArgs, PlansQueryArgs, PolicyViolationQueryArgs, QueryHost,
+    QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs,
+    RuntimeTimelineArgs, SearchAmbiguityContext, SearchArgs, SearchTextArgs, SemanticContextCache,
+    SessionState, SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs,
+    TaskChangesArgs, TaskJournalArgs, TaskScopeMode, TaskTargetArgs, ToolNameArgs,
+    ToolValidationArgs, ValidationFeedbackArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH,
+    DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+    INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER,
+    USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -1192,6 +1194,14 @@ impl QueryExecution {
                             .map(plan_graph_view),
                     )?)
                 }
+                "planProjectionAt" => {
+                    let args: PlanProjectionAtArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.plan_projection_at(args)?)?)
+                }
+                "planProjectionDiff" => {
+                    let args: PlanProjectionDiffArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.plan_projection_diff(args)?)?)
+                }
                 "planExecution" => {
                     let args: PlanTargetArgs = serde_json::from_value(args)?;
                     Ok(serde_json::to_value(
@@ -2105,6 +2115,26 @@ impl QueryExecution {
             );
         }
         Ok(results)
+    }
+
+    fn plan_projection_at(
+        &self,
+        args: PlanProjectionAtArgs,
+    ) -> Result<Option<AdHocPlanProjectionView>> {
+        Ok(self
+            .prism
+            .plan_projection_at(&PlanId::new(args.plan_id), args.at)
+            .map(ad_hoc_plan_projection_view))
+    }
+
+    fn plan_projection_diff(
+        &self,
+        args: PlanProjectionDiffArgs,
+    ) -> Result<AdHocPlanProjectionDiffView> {
+        Ok(ad_hoc_plan_projection_diff_view(
+            self.prism
+                .plan_projection_diff(&PlanId::new(args.plan_id), args.from, args.to),
+        ))
     }
 
     pub(crate) fn search(&self, args: SearchArgs) -> Result<Vec<SymbolView>> {

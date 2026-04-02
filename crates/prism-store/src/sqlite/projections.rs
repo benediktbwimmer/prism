@@ -7,6 +7,35 @@ use rusqlite::{params, Connection, Transaction};
 use tracing::info;
 
 const PROJECTION_CO_CHANGE_PRUNED_ON_OPEN_KEY: &str = "projection:co_change_pruned_on_open";
+const PROJECTION_HAS_CO_CHANGE_KEY: &str = "projection:has_co_change";
+const PROJECTION_HAS_VALIDATION_KEY: &str = "projection:has_validation";
+const PROJECTION_HAS_KNOWLEDGE_KEY: &str = "projection:has_knowledge";
+
+pub(super) fn load_projection_materialization_metadata(
+    conn: &Connection,
+) -> Result<crate::ProjectionMaterializationMetadata> {
+    Ok(crate::ProjectionMaterializationMetadata {
+        has_co_change: metadata_or_row_presence(
+            conn,
+            PROJECTION_HAS_CO_CHANGE_KEY,
+            "SELECT EXISTS(SELECT 1 FROM projection_co_change LIMIT 1)",
+        )?,
+        has_validation: metadata_or_row_presence(
+            conn,
+            PROJECTION_HAS_VALIDATION_KEY,
+            "SELECT EXISTS(SELECT 1 FROM projection_validation LIMIT 1)",
+        )?,
+        has_knowledge: metadata_or_row_presence(
+            conn,
+            PROJECTION_HAS_KNOWLEDGE_KEY,
+            "SELECT EXISTS(
+                SELECT 1 FROM projection_curated_concept LIMIT 1
+            ) OR EXISTS(
+                SELECT 1 FROM projection_concept_relation LIMIT 1
+            )",
+        )?,
+    })
+}
 
 pub(super) fn load_projection_snapshot_rows(
     conn: &Connection,
@@ -378,6 +407,15 @@ pub(super) fn save_projection_snapshot_tx(
     }
 
     set_projection_co_change_pruned_on_open_tx(tx)?;
+    set_projection_materialization_metadata_tx(
+        tx,
+        crate::ProjectionMaterializationMetadata {
+            has_co_change: !snapshot.co_change_by_lineage.is_empty(),
+            has_validation: !snapshot.validation_by_lineage.is_empty(),
+            has_knowledge: !snapshot.curated_concepts.is_empty()
+                || !snapshot.concept_relations.is_empty(),
+        },
+    )?;
 
     Ok(())
 }
@@ -386,26 +424,30 @@ pub(super) fn upsert_curated_concept_tx(
     tx: &Transaction<'_>,
     concept: &prism_projections::ConceptPacket,
 ) -> Result<usize> {
-    Ok(tx.execute(
+    let changed = tx.execute(
         "INSERT INTO projection_curated_concept(handle, payload)
          VALUES (?1, ?2)
          ON CONFLICT(handle) DO UPDATE SET payload = excluded.payload",
         params![concept.handle.as_str(), serde_json::to_string(concept)?],
-    )?)
+    )?;
+    set_projection_materialization_flag_tx(tx, PROJECTION_HAS_KNOWLEDGE_KEY, true)?;
+    Ok(changed)
 }
 
 pub(super) fn delete_curated_concept_tx(tx: &Transaction<'_>, handle: &str) -> Result<usize> {
-    Ok(tx.execute(
+    let changed = tx.execute(
         "DELETE FROM projection_curated_concept WHERE handle = ?1",
         [handle],
-    )?)
+    )?;
+    update_projection_knowledge_flag_tx(tx)?;
+    Ok(changed)
 }
 
 pub(super) fn upsert_concept_relation_tx(
     tx: &Transaction<'_>,
     relation: &prism_projections::ConceptRelation,
 ) -> Result<usize> {
-    Ok(tx.execute(
+    let changed = tx.execute(
         "INSERT INTO projection_concept_relation(source_handle, target_handle, kind, payload)
          VALUES (?1, ?2, ?3, ?4)
          ON CONFLICT(source_handle, target_handle, kind)
@@ -416,7 +458,9 @@ pub(super) fn upsert_concept_relation_tx(
             serde_json::to_string(&relation.kind)?,
             serde_json::to_string(relation)?,
         ],
-    )?)
+    )?;
+    set_projection_materialization_flag_tx(tx, PROJECTION_HAS_KNOWLEDGE_KEY, true)?;
+    Ok(changed)
 }
 
 pub(super) fn delete_concept_relation_tx(
@@ -425,11 +469,13 @@ pub(super) fn delete_concept_relation_tx(
     target_handle: &str,
     kind: prism_projections::ConceptRelationKind,
 ) -> Result<usize> {
-    Ok(tx.execute(
+    let changed = tx.execute(
         "DELETE FROM projection_concept_relation
          WHERE source_handle = ?1 AND target_handle = ?2 AND kind = ?3",
         params![source_handle, target_handle, serde_json::to_string(&kind)?],
-    )?)
+    )?;
+    update_projection_knowledge_flag_tx(tx)?;
+    Ok(changed)
 }
 
 pub(super) fn prune_projection_co_change(conn: &mut Connection) -> Result<usize> {
@@ -461,6 +507,9 @@ pub(super) fn apply_projection_co_change_deltas_tx(
     tx: &Transaction<'_>,
     deltas: &[prism_projections::CoChangeDelta],
 ) -> Result<()> {
+    if deltas.is_empty() {
+        return Ok(());
+    }
     let mut aggregated =
         HashMap::<(prism_ir::LineageId, prism_ir::LineageId), u64>::with_capacity(deltas.len());
     let mut touched_sources = BTreeSet::<prism_ir::LineageId>::new();
@@ -487,6 +536,7 @@ pub(super) fn apply_projection_co_change_deltas_tx(
     if !touched_sources.is_empty() {
         prune_projection_co_change_sources_tx(tx, touched_sources.iter())?;
     }
+    set_projection_materialization_flag_tx(tx, PROJECTION_HAS_CO_CHANGE_KEY, true)?;
     Ok(())
 }
 
@@ -548,6 +598,9 @@ pub(super) fn apply_projection_validation_deltas_tx(
     tx: &Transaction<'_>,
     deltas: &[prism_projections::ValidationDelta],
 ) -> Result<()> {
+    if deltas.is_empty() {
+        return Ok(());
+    }
     for delta in deltas {
         tx.execute(
             "INSERT INTO projection_validation(lineage, label, score, last_seen)
@@ -564,7 +617,69 @@ pub(super) fn apply_projection_validation_deltas_tx(
             ],
         )?;
     }
+    set_projection_materialization_flag_tx(tx, PROJECTION_HAS_VALIDATION_KEY, true)?;
     Ok(())
+}
+
+fn metadata_or_row_presence(conn: &Connection, key: &str, exists_sql: &str) -> Result<bool> {
+    let persisted = super::metadata_value(conn, key)?;
+    if persisted > 0 {
+        return Ok(true);
+    }
+    Ok(conn.query_row(exists_sql, [], |row| row.get::<_, bool>(0))?)
+}
+
+fn set_projection_materialization_metadata_tx(
+    tx: &Transaction<'_>,
+    metadata: crate::ProjectionMaterializationMetadata,
+) -> Result<()> {
+    set_projection_materialization_flag_tx(
+        tx,
+        PROJECTION_HAS_CO_CHANGE_KEY,
+        metadata.has_co_change,
+    )?;
+    set_projection_materialization_flag_tx(
+        tx,
+        PROJECTION_HAS_VALIDATION_KEY,
+        metadata.has_validation,
+    )?;
+    set_projection_materialization_flag_tx(
+        tx,
+        PROJECTION_HAS_KNOWLEDGE_KEY,
+        metadata.has_knowledge,
+    )?;
+    Ok(())
+}
+
+fn set_projection_materialization_flag_tx(
+    tx: &Transaction<'_>,
+    key: &str,
+    value: bool,
+) -> Result<()> {
+    tx.execute(
+        "INSERT INTO metadata(key, value) VALUES (?1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![key, if value { 1 } else { 0 }],
+    )?;
+    Ok(())
+}
+
+fn update_projection_knowledge_flag_tx(tx: &Transaction<'_>) -> Result<()> {
+    let has_concepts = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM projection_curated_concept LIMIT 1)",
+        [],
+        |row| row.get::<_, bool>(0),
+    )?;
+    let has_relations = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM projection_concept_relation LIMIT 1)",
+        [],
+        |row| row.get::<_, bool>(0),
+    )?;
+    set_projection_materialization_flag_tx(
+        tx,
+        PROJECTION_HAS_KNOWLEDGE_KEY,
+        has_concepts || has_relations,
+    )
 }
 
 fn normalized_co_change_rows(

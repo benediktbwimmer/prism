@@ -361,13 +361,15 @@ fn patch_actor_label(actor: &EventActor) -> Option<String> {
 }
 
 fn patch_reason_from_event(event: &OutcomeEvent) -> Option<String> {
-    event.meta
+    event
+        .meta
         .execution_context
         .as_ref()
         .and_then(|context| context.work_context.as_ref())
         .map(|work| format!("work {} ({})", work.title, work.work_id))
         .or_else(|| {
-            event.meta
+            event
+                .meta
                 .correlation
                 .as_ref()
                 .map(|task_id| format!("task {}", task_id.0))

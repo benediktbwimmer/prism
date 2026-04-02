@@ -1662,6 +1662,52 @@ type PlanExecutionOverlayView = {
   awaitingHandoffFrom?: string;
 };
 
+type AdHocPlanProjectionSummaryView = {
+  totalNodes: number;
+  abstractNodes: number;
+  proposedNodes: number;
+  readyNodes: number;
+  waitingNodes: number;
+  inProgressNodes: number;
+  inReviewNodes: number;
+  validatingNodes: number;
+  blockedNodes: number;
+  completedNodes: number;
+  abandonedNodes: number;
+  totalEdges: number;
+};
+
+type AdHocPlanProjectionView = {
+  projectionClass: string;
+  authorityPlanes: string[];
+  historySource: string;
+  planId: string;
+  asOf: number;
+  replayedEventCount: number;
+  graph: PlanGraphView;
+  executionOverlays: PlanExecutionOverlayView[];
+  summary: AdHocPlanProjectionSummaryView;
+};
+
+type AdHocPlanProjectionDiffView = {
+  projectionClass: string;
+  authorityPlanes: string[];
+  historySource: string;
+  planId: string;
+  from: number;
+  to: number;
+  before?: AdHocPlanProjectionView;
+  after?: AdHocPlanProjectionView;
+  planMetadataChanged: boolean;
+  addedNodes: string[];
+  removedNodes: string[];
+  changedNodes: string[];
+  addedEdges: string[];
+  removedEdges: string[];
+  changedEdges: string[];
+  changedExecutionNodes: string[];
+};
+
 type PlanNodeBlockerView = {
   kind: string;
   summary: string;

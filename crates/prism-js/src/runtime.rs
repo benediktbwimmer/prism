@@ -900,6 +900,12 @@ const __prismBase = Object.freeze({
   planGraph(planId) {
     return __prismHost("planGraph", { planId });
   },
+  planProjectionAt(planId, at) {
+    return __prismHost("planProjectionAt", { planId, at });
+  },
+  planProjectionDiff(planId, from, to) {
+    return __prismHost("planProjectionDiff", { planId, from, to });
+  },
   planExecution(planId) {
     return __prismHost("planExecution", { planId });
   },

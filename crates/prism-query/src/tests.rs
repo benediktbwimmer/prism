@@ -122,6 +122,263 @@ fn prefers_exact_name_matches_before_fuzzy_matches() {
 }
 
 #[test]
+fn ad_hoc_plan_projection_replays_plan_state_at_timestamp() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:projection"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            PlanCreateInput {
+                goal: "Replay ad hoc plan projections".into(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_a_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:projection:a:create"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Task A".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    coordination
+        .update_task(
+            EventMeta {
+                id: EventId::new("coord:task:projection:a:update"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskUpdateInput {
+                task_id: task_a_id.clone(),
+                kind: None,
+                status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                summary: None,
+                anchors: None,
+                bindings: None,
+                depends_on: None,
+                acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
+                base_revision: Some(WorkspaceRevision::default()),
+                priority: None,
+                tags: None,
+                completion_context: None,
+            },
+            WorkspaceRevision::default(),
+            3,
+        )
+        .unwrap();
+
+    let projections = ProjectionIndex::derive(&history.snapshot(), &outcomes.snapshot());
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        history,
+        outcomes,
+        coordination.snapshot(),
+        projections,
+    );
+
+    let before = prism
+        .plan_projection_at(&plan_id, 2)
+        .expect("plan should exist at task creation timestamp");
+    assert_eq!(
+        before.projection_class,
+        prism_projections::ProjectionClass::AdHoc
+    );
+    assert_eq!(
+        before.authority_planes,
+        vec![prism_projections::ProjectionAuthorityPlane::SharedRuntime]
+    );
+    assert_eq!(before.summary.ready_nodes, 1);
+    assert_eq!(before.summary.in_progress_nodes, 0);
+
+    let after = prism
+        .plan_projection_at(&plan_id, 3)
+        .expect("plan should exist at task update timestamp");
+    assert_eq!(after.summary.ready_nodes, 0);
+    assert_eq!(after.summary.in_progress_nodes, 1);
+    assert_eq!(after.replayed_event_count, 3);
+}
+
+#[test]
+fn ad_hoc_plan_projection_diff_reports_added_and_changed_nodes() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:projection:diff"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            PlanCreateInput {
+                goal: "Diff ad hoc plan projections".into(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_a_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:projection:diff:a:create"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Task A".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    coordination
+        .update_task(
+            EventMeta {
+                id: EventId::new("coord:task:projection:diff:a:update"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskUpdateInput {
+                task_id: task_a_id.clone(),
+                kind: None,
+                status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                summary: None,
+                anchors: None,
+                bindings: None,
+                depends_on: None,
+                acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
+                base_revision: Some(WorkspaceRevision::default()),
+                priority: None,
+                tags: None,
+                completion_context: None,
+            },
+            WorkspaceRevision::default(),
+            3,
+        )
+        .unwrap();
+    let (task_b_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:projection:diff:b:create"),
+                ts: 4,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Task B".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: vec![task_a_id.clone()],
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+
+    let projections = ProjectionIndex::derive(&history.snapshot(), &outcomes.snapshot());
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        history,
+        outcomes,
+        coordination.snapshot(),
+        projections,
+    );
+
+    let diff = prism.plan_projection_diff(&plan_id, 2, 4);
+    assert_eq!(
+        diff.projection_class,
+        prism_projections::ProjectionClass::AdHoc
+    );
+    assert!(!diff.plan_metadata_changed);
+    assert_eq!(diff.added_nodes, vec![PlanNodeId::new(task_b_id.0.clone())]);
+    assert_eq!(
+        diff.changed_nodes,
+        vec![PlanNodeId::new(task_a_id.0.clone())]
+    );
+    assert_eq!(diff.added_edges.len(), 1);
+    assert!(diff.removed_nodes.is_empty());
+    assert!(diff.changed_execution_nodes.is_empty());
+    assert_eq!(
+        diff.after
+            .as_ref()
+            .expect("after snapshot should exist")
+            .summary
+            .in_progress_nodes,
+        1
+    );
+}
+
+#[test]
 fn search_respects_limit() {
     let mut graph = Graph::new();
     for index in 0..3 {

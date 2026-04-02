@@ -2,72 +2,41 @@
 
 set -euo pipefail
 
-ROOT="/Users/bene/code/prism"
-CLI_BIN="$ROOT/target/release/prism-cli"
-BIN="$ROOT/target/release/prism-mcp"
-HTTP_PATH="/mcp"
-HEALTH_PATH="/healthz"
+SCRIPT_PATH="${0:A}"
+SCRIPT_NAME="${0:t}"
+SCRIPT_DIR="${SCRIPT_PATH:h}"
 
-resolve_status_path() {
-  python3 - "$CLI_BIN" "$ROOT" "$1" <<'PY'
-import subprocess
-import sys
+resolve_root() {
+  if git -C "${PWD:A}" rev-parse --show-toplevel >/dev/null 2>&1; then
+    git -C "${PWD:A}" rev-parse --show-toplevel
+    return 0
+  fi
 
-cli_bin, root, field = sys.argv[1:4]
-output = subprocess.check_output(
-    [cli_bin, "--root", root, "mcp", "status"],
-    text=True,
-)
-for line in output.splitlines():
-    if not line.startswith(field + ": "):
-        continue
-    value = line.split(": ", 1)[1]
-    if field == "log_path":
-        value = value.split(" (", 1)[0]
-    print(value)
-    raise SystemExit(0)
-raise SystemExit(1)
-PY
+  print -r -- "${PWD:A}"
 }
 
-URI_FILE="$(resolve_status_path uri_file)"
-LOG="$(resolve_status_path log_path)"
+ROOT="${PRISM_ROOT_OVERRIDE:-$(resolve_root)}"
+LOCAL_SCRIPT="$ROOT/scripts/$SCRIPT_NAME"
 
-is_daemon_ready() {
-  python3 - "$URI_FILE" "$HEALTH_PATH" <<'PY'
-import pathlib
-import sys
-import urllib.error
-import urllib.parse
-import urllib.request
+if [[ "${PRISM_CODEX_LAUNCHER_REEXEC:-0}" != "1" && -f "$LOCAL_SCRIPT" && "$LOCAL_SCRIPT:A" != "$SCRIPT_PATH" ]]; then
+  exec env PRISM_CODEX_LAUNCHER_REEXEC=1 /bin/zsh "$LOCAL_SCRIPT" "$@"
+fi
 
-uri_file = pathlib.Path(sys.argv[1])
-health_path = sys.argv[2]
-if not uri_file.exists():
-    raise SystemExit(1)
+ensure_release_binaries() {
+  local cli_bin="$ROOT/target/release/prism-cli"
+  local mcp_bin="$ROOT/target/release/prism-mcp"
 
-uri = uri_file.read_text().strip()
-if not uri:
-    raise SystemExit(1)
+  if [[ -x "$cli_bin" && -x "$mcp_bin" ]]; then
+    return 0
+  fi
 
-parts = urllib.parse.urlsplit(uri)
-health_url = urllib.parse.urlunsplit((parts.scheme, parts.netloc, health_path, "", ""))
-try:
-    with urllib.request.urlopen(health_url, timeout=0.2) as response:
-        raise SystemExit(0 if 200 <= response.status < 300 else 1)
-except (OSError, urllib.error.URLError, ValueError):
-    raise SystemExit(1)
-PY
+  echo "Building PRISM release binaries in $ROOT" >&2
+  (
+    cd "$ROOT"
+    cargo build --release -p prism-cli -p prism-mcp
+  )
 }
 
-if ! is_daemon_ready; then
-  rm -f "$URI_FILE"
-  "$CLI_BIN" --root "$ROOT" mcp restart --no-coordination >/dev/null
-fi
+ensure_release_binaries
 
-if ! is_daemon_ready; then
-  echo "prism daemon failed to start; see $LOG" >&2
-  exit 1
-fi
-
-exec "$BIN" --mode bridge --root "$ROOT" --http-uri-file "$URI_FILE" --no-coordination
+exec "$ROOT/target/release/prism-cli" --root "$ROOT" mcp bridge --internal-developer "$@"

@@ -1563,6 +1563,58 @@ pub struct PlanExecutionOverlayView {
     pub awaiting_handoff_from: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AdHocPlanProjectionSummaryView {
+    pub total_nodes: usize,
+    pub abstract_nodes: usize,
+    pub proposed_nodes: usize,
+    pub ready_nodes: usize,
+    pub waiting_nodes: usize,
+    pub in_progress_nodes: usize,
+    pub in_review_nodes: usize,
+    pub validating_nodes: usize,
+    pub blocked_nodes: usize,
+    pub completed_nodes: usize,
+    pub abandoned_nodes: usize,
+    pub total_edges: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AdHocPlanProjectionView {
+    pub projection_class: ProjectionClassView,
+    pub authority_planes: Vec<ProjectionAuthorityPlaneView>,
+    pub history_source: String,
+    pub plan_id: String,
+    pub as_of: u64,
+    pub replayed_event_count: usize,
+    pub graph: PlanGraphView,
+    pub execution_overlays: Vec<PlanExecutionOverlayView>,
+    pub summary: AdHocPlanProjectionSummaryView,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AdHocPlanProjectionDiffView {
+    pub projection_class: ProjectionClassView,
+    pub authority_planes: Vec<ProjectionAuthorityPlaneView>,
+    pub history_source: String,
+    pub plan_id: String,
+    pub from: u64,
+    pub to: u64,
+    pub before: Option<AdHocPlanProjectionView>,
+    pub after: Option<AdHocPlanProjectionView>,
+    pub plan_metadata_changed: bool,
+    pub added_nodes: Vec<String>,
+    pub removed_nodes: Vec<String>,
+    pub changed_nodes: Vec<String>,
+    pub added_edges: Vec<String>,
+    pub removed_edges: Vec<String>,
+    pub changed_edges: Vec<String>,
+    pub changed_execution_nodes: Vec<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockerCauseView {

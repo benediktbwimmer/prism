@@ -99,6 +99,27 @@ pub struct CoordinationEventStream {
     pub suffix_events: Vec<CoordinationEvent>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct ProjectionMaterializationMetadata {
+    pub has_co_change: bool,
+    pub has_validation: bool,
+    pub has_knowledge: bool,
+}
+
+impl ProjectionMaterializationMetadata {
+    pub const fn has_any_rows(self) -> bool {
+        self.has_co_change || self.has_validation || self.has_knowledge
+    }
+
+    pub const fn has_derived_rows(self) -> bool {
+        self.has_co_change || self.has_validation
+    }
+
+    pub const fn has_complete_derived_snapshot(self) -> bool {
+        self.has_co_change && self.has_validation
+    }
+}
+
 pub trait Store {
     fn load_graph(&mut self) -> Result<Option<Graph>>;
     fn load_history_snapshot(&mut self) -> Result<Option<HistorySnapshot>>;
@@ -186,6 +207,19 @@ pub trait Store {
     fn load_inference_snapshot(&mut self) -> Result<Option<InferenceSnapshot>>;
     fn save_inference_snapshot(&mut self, snapshot: &InferenceSnapshot) -> Result<()>;
     fn load_projection_snapshot(&mut self) -> Result<Option<ProjectionSnapshot>>;
+    fn load_projection_materialization_metadata(
+        &mut self,
+    ) -> Result<ProjectionMaterializationMetadata> {
+        let Some(snapshot) = self.load_projection_snapshot()? else {
+            return Ok(ProjectionMaterializationMetadata::default());
+        };
+        Ok(ProjectionMaterializationMetadata {
+            has_co_change: !snapshot.co_change_by_lineage.is_empty(),
+            has_validation: !snapshot.validation_by_lineage.is_empty(),
+            has_knowledge: !snapshot.curated_concepts.is_empty()
+                || !snapshot.concept_relations.is_empty(),
+        })
+    }
     fn load_projection_knowledge_snapshot(&mut self) -> Result<Option<ProjectionSnapshot>> {
         Ok(self
             .load_projection_snapshot()?
@@ -379,6 +413,12 @@ impl<T: Store + ?Sized> Store for MutexGuard<'_, T> {
 
     fn load_projection_snapshot_without_co_change(&mut self) -> Result<Option<ProjectionSnapshot>> {
         Store::load_projection_snapshot_without_co_change(&mut **self)
+    }
+
+    fn load_projection_materialization_metadata(
+        &mut self,
+    ) -> Result<ProjectionMaterializationMetadata> {
+        Store::load_projection_materialization_metadata(&mut **self)
     }
 
     fn has_derived_projection_snapshot(&mut self) -> Result<bool> {

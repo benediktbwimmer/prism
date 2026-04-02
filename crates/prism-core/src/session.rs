@@ -15,7 +15,7 @@ use prism_curator::{
 };
 use prism_history::HistoryStore;
 use prism_ir::{
-    new_prefixed_id, ChangeTrigger, CredentialId, EventActor, EventExecutionContext, EventId,
+    new_prefixed_id, AnchorRef, ChangeTrigger, CredentialId, EventActor, EventExecutionContext, EventId,
     EventMeta, LineageEvent, LineageId, ObservedChangeCheckpoint, ObservedChangeCheckpointEntry,
     ObservedChangeCheckpointTrigger, ObservedChangeSet, PlanExecutionOverlay, PlanGraph,
     PrincipalActor, PrincipalAuthorityId, PrincipalId, PrincipalRegistrySnapshot, SessionId,
@@ -23,7 +23,8 @@ use prism_ir::{
 };
 use prism_memory::OutcomeMemory;
 use prism_memory::{
-    EpisodicMemorySnapshot, MemoryEvent, MemoryEventQuery, OutcomeEvent, TaskReplay,
+    EpisodicMemorySnapshot, MemoryEvent, MemoryEventQuery, OutcomeEvent, OutcomeKind,
+    OutcomeRecallQuery, OutcomeResult, TaskReplay,
 };
 use prism_parser::ParseDepth;
 use prism_projections::{
@@ -32,6 +33,7 @@ use prism_projections::{
 };
 use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, Graph, SqliteStore, Store, WorkspaceTreeSnapshot};
+use prism_store::{PatchEventSummary, PatchFileSummary};
 use serde_json::{json, Value};
 use tracing::{info, warn};
 
@@ -65,10 +67,12 @@ use crate::mutation_trace;
 use crate::observed_change_tracker::SharedObservedChangeTracker;
 use crate::outcome_backend::StoreOutcomeReadBackend;
 use crate::prism_doc::{sync_repo_prism_doc, PrismDocSyncResult};
+use crate::projection_hydration::persisted_projection_load_plan;
 use crate::published_knowledge::{
     validate_repo_concept_event, validate_repo_concept_relation_event,
-    validate_repo_contract_event, validate_repo_memory_event,
+    validate_repo_contract_event, validate_repo_memory_event, validate_repo_patch_event,
 };
+use crate::repo_patch_events::{append_repo_patch_event, load_repo_patch_events};
 use crate::runtime_engine::WorkspaceRuntimePathRequest;
 use crate::shared_runtime::{
     composite_workspace_revision, merge_episodic_snapshots, merge_memory_events,
@@ -732,6 +736,69 @@ impl WorkspaceSession {
         Ok(self.prism_arc().outcome_event(event_id))
     }
 
+    pub fn load_patch_event_summaries(
+        &self,
+        target: Option<&prism_ir::NodeId>,
+        task_id: Option<&TaskId>,
+        since: Option<u64>,
+        path: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<PatchEventSummary>> {
+        let target_anchor = target.cloned().map(AnchorRef::Node);
+        let local = {
+            let store = self.store.lock().expect("workspace store lock poisoned");
+            store.load_patch_event_summaries(&prism_store::PatchEventSummaryQuery {
+                target: target_anchor.clone(),
+                task_id: task_id.cloned(),
+                since,
+                path: path.map(ToOwned::to_owned),
+                limit,
+            })?
+        };
+        let shared = if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            let mut store = shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned");
+            store.load_patch_event_summaries(
+                target_anchor.as_ref(),
+                task_id,
+                since,
+                path,
+                limit,
+            )?
+        } else {
+            Vec::new()
+        };
+        Ok(merge_patch_event_summaries(shared, local, limit))
+    }
+
+    pub fn load_patch_file_summaries(
+        &self,
+        task_id: Option<&TaskId>,
+        since: Option<u64>,
+        path: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<PatchFileSummary>> {
+        let local = {
+            let store = self.store.lock().expect("workspace store lock poisoned");
+            store.load_patch_file_summaries(&prism_store::PatchFileSummaryQuery {
+                task_id: task_id.cloned(),
+                since,
+                path: path.map(ToOwned::to_owned),
+                limit,
+            })?
+        };
+        let shared = if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            let mut store = shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned");
+            store.load_patch_file_summaries(task_id, since, path, limit)?
+        } else {
+            Vec::new()
+        };
+        Ok(merge_patch_file_summaries(shared, local, limit))
+    }
+
     pub fn prism(&self) -> Arc<Prism> {
         self.prism_arc()
     }
@@ -741,6 +808,77 @@ impl WorkspaceSession {
             .read()
             .expect("workspace published generation lock poisoned")
             .prism_arc()
+    }
+
+    pub fn publish_pending_repo_patch_provenance_for_active_work(&self) -> Result<Vec<EventId>> {
+        let Some(bound_principal) = self.bound_worktree_principal() else {
+            return Ok(Vec::new());
+        };
+        let Some(active_work) = self.active_work_context() else {
+            return Ok(Vec::new());
+        };
+
+        let existing_repo_event_ids = load_repo_patch_events(&self.root)?
+            .into_iter()
+            .map(|event| event.meta.id)
+            .collect::<HashSet<_>>();
+        let patch_events = self.prism_arc().query_outcomes(&OutcomeRecallQuery {
+            kinds: Some(vec![OutcomeKind::PatchApplied]),
+            result: Some(OutcomeResult::Success),
+            limit: 0,
+            ..OutcomeRecallQuery::default()
+        });
+        let actor = EventActor::Principal(PrincipalActor {
+            authority_id: PrincipalAuthorityId::new(bound_principal.authority_id),
+            principal_id: PrincipalId::new(bound_principal.principal_id),
+            kind: None,
+            name: Some(bound_principal.principal_name),
+        });
+
+        let mut published = Vec::new();
+        for patch_event in patch_events {
+            if existing_repo_event_ids.contains(&patch_event.meta.id) {
+                continue;
+            }
+            if !matches!(patch_event.meta.actor, EventActor::System) {
+                continue;
+            }
+            let Some(work_context) = patch_event
+                .meta
+                .execution_context
+                .as_ref()
+                .and_then(|context| context.work_context.as_ref())
+            else {
+                continue;
+            };
+            if work_context.work_id != active_work.work_id {
+                continue;
+            }
+
+            let mut repo_event = patch_event.clone();
+            repo_event.meta.actor = actor.clone();
+            validate_repo_patch_event(&repo_event)?;
+            append_repo_patch_event(&self.root, &repo_event)?;
+            published.push(repo_event);
+        }
+
+        if published.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let prism = self.prism_arc();
+        let mut runtime_state = self
+            .runtime_state
+            .lock()
+            .expect("workspace runtime state lock poisoned");
+        let mut event_ids = Vec::with_capacity(published.len());
+        for event in published {
+            prism.apply_outcome_event_to_projections(&event);
+            let id = prism.outcome_memory().store_event(event.clone())?;
+            runtime_state.apply_outcome_event(&event);
+            event_ids.push(id);
+        }
+        Ok(event_ids)
     }
 
     pub(crate) fn attach_cold_query_backends(
@@ -1258,6 +1396,7 @@ impl WorkspaceSession {
         let layout = discover_layout(&self.root)?;
         sync_root_nodes(&mut graph, &layout);
         resolve_graph_edges(&mut graph, None);
+        let projection_metadata = store.load_projection_materialization_metadata()?;
         let local_projection_snapshot = if self.hydrate_persisted_projections {
             store.load_projection_snapshot()?
         } else if self.hydrate_persisted_co_change {
@@ -1265,12 +1404,11 @@ impl WorkspaceSession {
         } else {
             store.load_projection_snapshot_without_co_change()?
         };
-        let local_has_derived_projection_snapshot =
-            if self.hydrate_persisted_projections || self.hydrate_persisted_co_change {
-                local_projection_snapshot.is_some()
-            } else {
-                store.has_derived_projection_snapshot()?
-            };
+        let load_plan = persisted_projection_load_plan(
+            projection_metadata,
+            self.hydrate_persisted_projections,
+            self.hydrate_persisted_co_change,
+        );
         let shared_runtime_aliases_workspace_store = self
             .shared_runtime
             .aliases_sqlite_path(&cache_path(&self.root)?);
@@ -1285,34 +1423,34 @@ impl WorkspaceSession {
             None
         };
         let mut history = store
-            .load_history_snapshot_with_options(
-                !local_has_derived_projection_snapshot && shared_projection_snapshot.is_none(),
-            )?
+            .load_history_snapshot_with_options(load_plan.load_history_events)?
             .map(HistoryStore::from_snapshot)
             .unwrap_or_else(HistoryStore::new);
         history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
         let outcomes = if shared_runtime_aliases_workspace_store {
-            if local_has_derived_projection_snapshot || shared_projection_snapshot.is_some() {
-                store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
-            } else {
+            if load_plan.load_full_outcomes {
                 store.load_outcome_snapshot()?
+            } else {
+                store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
             }
         } else if let Some(shared_runtime_store) = self.shared_runtime_store() {
             let mut shared_store = shared_runtime_store
                 .lock()
                 .expect("shared runtime store lock poisoned");
-            if local_has_derived_projection_snapshot || shared_projection_snapshot.is_some() {
+            if load_plan.load_full_outcomes {
+                prism_store::ColdQueryStore::load_outcome_snapshot(&mut *shared_store)?
+            } else {
                 prism_store::ColdQueryStore::load_recent_outcome_snapshot(
                     &mut *shared_store,
                     HOT_OUTCOME_HYDRATION_LIMIT,
                 )?
-            } else {
-                prism_store::ColdQueryStore::load_outcome_snapshot(&mut *shared_store)?
             }
-        } else if local_has_derived_projection_snapshot || shared_projection_snapshot.is_some() {
-            store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
         } else {
-            store.load_outcome_snapshot()?
+            if load_plan.load_full_outcomes {
+                store.load_outcome_snapshot()?
+            } else {
+                store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
+            }
         }
         .map(OutcomeMemory::from_snapshot)
         .unwrap_or_else(OutcomeMemory::new);
@@ -3001,6 +3139,65 @@ impl WorkspaceSession {
         }
         Ok(prism_store::EventJournalStore::append_memory_events(store, &events)? > 0)
     }
+}
+
+fn merge_patch_event_summaries(
+    mut shared: Vec<PatchEventSummary>,
+    local: Vec<PatchEventSummary>,
+    limit: usize,
+) -> Vec<PatchEventSummary> {
+    let mut seen = shared
+        .iter()
+        .map(|summary| summary.event_id.clone())
+        .collect::<HashSet<_>>();
+    for summary in local {
+        if seen.insert(summary.event_id.clone()) {
+            shared.push(summary);
+        }
+    }
+    shared.sort_by(|left, right| {
+        right
+            .ts
+            .cmp(&left.ts)
+            .then_with(|| left.event_id.0.cmp(&right.event_id.0))
+    });
+    if limit > 0 {
+        shared.truncate(limit);
+    }
+    shared
+}
+
+fn merge_patch_file_summaries(
+    shared: Vec<PatchFileSummary>,
+    local: Vec<PatchFileSummary>,
+    limit: usize,
+) -> Vec<PatchFileSummary> {
+    let mut merged = HashMap::<String, PatchFileSummary>::new();
+    for summary in shared.into_iter().chain(local) {
+        match merged.get_mut(&summary.path) {
+            Some(existing)
+                if (summary.ts, summary.event_id.0.as_str())
+                    > (existing.ts, existing.event_id.0.as_str()) =>
+            {
+                *existing = summary;
+            }
+            None => {
+                merged.insert(summary.path.clone(), summary);
+            }
+            _ => {}
+        }
+    }
+    let mut rows = merged.into_values().collect::<Vec<_>>();
+    rows.sort_by(|left, right| {
+        right
+            .ts
+            .cmp(&left.ts)
+            .then_with(|| left.event_id.0.cmp(&right.event_id.0))
+    });
+    if limit > 0 {
+        rows.truncate(limit);
+    }
+    rows
 }
 
 impl Drop for WorkspaceSession {
