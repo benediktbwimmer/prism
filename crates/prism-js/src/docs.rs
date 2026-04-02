@@ -559,6 +559,8 @@ type PatchEventView = {
   workTitle?: string;
   summary: string;
   files: string[];
+  changedSymbolCount: number;
+  changedSymbolsTruncated: boolean;
   changedSymbols: ChangedSymbolView[];
 };
 
@@ -686,6 +688,7 @@ type RuntimeStatusView = {
   daemonCount: number;
   bridgeCount: number;
   connectedBridgeCount: number;
+  idleBridgeCount: number;
   orphanBridgeCount: number;
   processes: RuntimeProcessView[];
   processError?: string;

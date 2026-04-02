@@ -1057,6 +1057,10 @@ impl QueryHost {
             binding
                 .loaded_workspace_revision()
                 .store(revision, Ordering::Relaxed);
+            binding
+                .current_revisions()
+                .current_workspace_revision()
+                .store(revision, Ordering::Relaxed);
         }
     }
 
@@ -1064,6 +1068,10 @@ impl QueryHost {
         if let Some(binding) = self.workspace_runtime_binding() {
             binding
                 .loaded_episodic_revision()
+                .store(revision, Ordering::Relaxed);
+            binding
+                .current_revisions()
+                .current_episodic_revision()
                 .store(revision, Ordering::Relaxed);
         }
     }
@@ -1073,6 +1081,10 @@ impl QueryHost {
             binding
                 .loaded_inference_revision()
                 .store(revision, Ordering::Relaxed);
+            binding
+                .current_revisions()
+                .current_inference_revision()
+                .store(revision, Ordering::Relaxed);
         }
     }
 
@@ -1080,6 +1092,10 @@ impl QueryHost {
         if let Some(binding) = self.workspace_runtime_binding() {
             binding
                 .loaded_coordination_revision()
+                .store(revision, Ordering::Relaxed);
+            binding
+                .current_revisions()
+                .current_coordination_revision()
                 .store(revision, Ordering::Relaxed);
         }
     }

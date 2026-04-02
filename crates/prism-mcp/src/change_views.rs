@@ -18,6 +18,7 @@ const CHANGE_EXCERPT_OPTIONS: SourceExcerptOptions = SourceExcerptOptions {
     max_lines: 4,
     max_chars: 240,
 };
+const PATCH_EVENT_SYMBOL_PREVIEW_LIMIT: usize = 16;
 
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -190,7 +191,12 @@ where
         if path.is_some_and(|filter| !event_matches_path(prism, &parsed, filter)) {
             continue;
         }
-        views.push(patch_event_view(prism, &parsed, &mut source_cache)?);
+        views.push(patch_event_view(
+            prism,
+            &parsed,
+            &mut source_cache,
+            PATCH_EVENT_SYMBOL_PREVIEW_LIMIT,
+        )?);
         if limit > 0 && views.len() >= limit {
             return Ok(views);
         }
@@ -377,7 +383,15 @@ fn patch_event_view(
     prism: &Prism,
     event: &ParsedPatchEvent,
     source_cache: &mut HashMap<String, Option<String>>,
+    symbol_preview_limit: usize,
 ) -> Result<PatchEventView> {
+    let changed_symbol_count = patch_changed_symbol_count(event);
+    let changed_symbols = event
+        .changed_symbols
+        .iter()
+        .take(symbol_preview_limit)
+        .map(|symbol| changed_symbol_view(prism, symbol, source_cache))
+        .collect::<Result<Vec<_>>>()?;
     Ok(PatchEventView {
         event_id: event.event_id.clone(),
         ts: event.ts,
@@ -389,12 +403,23 @@ fn patch_event_view(
         work_title: event.work_title.clone(),
         summary: event.summary.clone(),
         files: event.files.clone(),
-        changed_symbols: event
-            .changed_symbols
-            .iter()
-            .map(|symbol| changed_symbol_view(prism, symbol, source_cache))
-            .collect::<Result<Vec<_>>>()?,
+        changed_symbol_count,
+        changed_symbols_truncated: changed_symbol_count > changed_symbols.len(),
+        changed_symbols,
     })
+}
+
+fn patch_changed_symbol_count(event: &ParsedPatchEvent) -> usize {
+    let summary_total: usize = event
+        .changed_files_summary
+        .iter()
+        .map(|summary| summary.changed_symbol_count)
+        .sum();
+    if summary_total > 0 {
+        summary_total
+    } else {
+        event.changed_symbols.len()
+    }
 }
 
 fn patch_actor_label(actor: &EventActor) -> Option<String> {

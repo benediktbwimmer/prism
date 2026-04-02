@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::atomic::Ordering;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -69,12 +70,14 @@ struct McpProcess {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BridgeState {
     Connected,
+    Idle,
     Orphaned,
 }
 
 #[derive(Debug, Clone, Default)]
 struct BridgeCounts {
     connected: usize,
+    idle: usize,
     orphaned: usize,
 }
 
@@ -319,6 +322,7 @@ fn runtime_status_from_inputs(
         daemon_count: daemons.len(),
         bridge_count: bridges.len(),
         connected_bridge_count: bridge_counts.connected,
+        idle_bridge_count: bridge_counts.idle,
         orphan_bridge_count: bridge_counts.orphaned,
         processes: processes
             .into_iter()
@@ -908,7 +912,7 @@ fn bridge_state(
     } else if process.ppid == 1 {
         Some(BridgeState::Orphaned)
     } else {
-        None
+        Some(BridgeState::Idle)
     }
 }
 
@@ -964,6 +968,7 @@ fn normalize_route_path(path: &str) -> String {
 fn bridge_state_label(state: BridgeState) -> String {
     match state {
         BridgeState::Connected => "connected",
+        BridgeState::Idle => "idle",
         BridgeState::Orphaned => "orphaned",
     }
     .to_string()
@@ -974,6 +979,7 @@ fn classify_bridges(bridges: &[McpProcess], connected_bridge_pids: &BTreeSet<u32
     for process in bridges {
         match bridge_state(process, connected_bridge_pids) {
             Some(BridgeState::Connected) => counts.connected += 1,
+            Some(BridgeState::Idle) => counts.idle += 1,
             Some(BridgeState::Orphaned) => counts.orphaned += 1,
             None => {}
         }
@@ -982,6 +988,12 @@ fn classify_bridges(bridges: &[McpProcess], connected_bridge_pids: &BTreeSet<u32
 }
 
 fn connected_bridge_ids(bridges: &[McpProcess], uri: Option<&str>) -> BTreeSet<u32> {
+    if let Some(uri) = uri {
+        if let Ok(connected) = connected_process_ids_for_uri(uri) {
+            return connected;
+        }
+    }
+
     bridges
         .iter()
         .filter(|bridge| {
@@ -994,6 +1006,33 @@ fn connected_bridge_ids(bridges: &[McpProcess], uri: Option<&str>) -> BTreeSet<u
         })
         .map(|bridge| bridge.pid)
         .collect()
+}
+
+fn connected_process_ids_for_uri(uri: &str) -> Result<BTreeSet<u32>> {
+    let Some(port) = uri_port(uri) else {
+        return Ok(BTreeSet::new());
+    };
+    let output = Command::new("lsof")
+        .args(["-nP", &format!("-iTCP:{port}"), "-sTCP:ESTABLISHED", "-Fp"])
+        .output()
+        .context("failed to inspect established TCP connections with lsof")?;
+    if !output.status.success() {
+        return Ok(BTreeSet::new());
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| line.strip_prefix('p'))
+        .filter_map(|pid| pid.parse::<u32>().ok())
+        .collect())
+}
+
+fn uri_port(uri: &str) -> Option<u16> {
+    uri.strip_prefix("http://")
+        .or_else(|| uri.strip_prefix("https://"))
+        .and_then(|rest| rest.split('/').next())
+        .and_then(|authority| authority.rsplit_once(':'))
+        .and_then(|(_, port)| port.parse::<u16>().ok())
 }
 
 fn select_kind(processes: &[McpProcess], kind: McpProcessKind) -> Vec<McpProcess> {
@@ -1347,16 +1386,45 @@ mod tests {
         let counts = classify_bridges(&bridges, &connected);
 
         assert_eq!(counts.connected, 1);
+        assert_eq!(counts.idle, 2);
         assert_eq!(counts.orphaned, 1);
         assert_eq!(
             bridge_state(&bridges[0], &connected).map(bridge_state_label),
             Some("connected".to_string())
         );
-        assert_eq!(bridge_state(&bridges[1], &connected), None);
-        assert_eq!(bridge_state(&bridges[2], &connected), None);
+        assert_eq!(
+            bridge_state(&bridges[1], &connected).map(bridge_state_label),
+            Some("idle".to_string())
+        );
+        assert_eq!(
+            bridge_state(&bridges[2], &connected).map(bridge_state_label),
+            Some("idle".to_string())
+        );
         assert_eq!(
             bridge_state(&bridges[3], &connected).map(bridge_state_label),
             Some("orphaned".to_string())
+        );
+    }
+
+    #[test]
+    fn connected_bridge_ids_prefer_live_socket_ownership_over_upstream_history() {
+        let bridges = vec![McpProcess {
+            pid: 10,
+            ppid: 1000,
+            rss_kb: 1,
+            elapsed: "00:01".to_string(),
+            command: "prism-mcp --mode bridge".to_string(),
+            kind: McpProcessKind::Bridge,
+            health_path: None,
+            http_uri: None,
+            upstream_uri: Some("http://127.0.0.1:9/mcp".to_string()),
+        }];
+
+        let connected = connected_bridge_ids(&bridges, Some("http://127.0.0.1:9/mcp"));
+
+        assert!(
+            connected.is_empty(),
+            "historical upstream URIs should not masquerade as live connections"
         );
     }
 

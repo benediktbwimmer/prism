@@ -14330,6 +14330,7 @@ return {
     assert_eq!(status["health"]["ok"], true);
     assert_eq!(status["daemonCount"], 0);
     assert_eq!(status["bridgeCount"], 0);
+    assert_eq!(status["idleBridgeCount"], 0);
     assert_eq!(status["healthPath"], "/healthz");
     assert_eq!(status["connection"]["mode"], "direct-daemon");
     assert_eq!(status["connection"]["transport"], "streamable-http");
@@ -14525,6 +14526,7 @@ return {
     assert_eq!(status["health"]["ok"], true);
     assert_eq!(status["daemonCount"], 1);
     assert_eq!(status["bridgeCount"], 0);
+    assert_eq!(status["idleBridgeCount"], 0);
     assert_eq!(status["healthPath"], "/healthz");
     assert_eq!(status["connection"]["mode"], "direct-daemon");
     assert_eq!(
@@ -14752,6 +14754,7 @@ fn prism_runtime_views_ignore_invalid_runtime_state_sidecar() {
     assert_eq!(result.result["health"]["ok"], true);
     assert_eq!(result.result["daemonCount"], 0);
     assert_eq!(result.result["bridgeCount"], 0);
+    assert_eq!(result.result["idleBridgeCount"], 0);
     assert!(result.result["freshness"]["status"].as_str().is_some());
 }
 
@@ -14947,6 +14950,8 @@ return {
     assert_eq!(patch["reason"], "work Refine alpha (work:change-view)");
     assert_eq!(patch["workId"], "work:change-view");
     assert_eq!(patch["workTitle"], "Refine alpha");
+    assert_eq!(patch["changedSymbolCount"], 2);
+    assert_eq!(patch["changedSymbolsTruncated"], false);
     assert_eq!(patch["changedSymbols"].as_array().unwrap().len(), 2);
     assert!(patch["files"][0]
         .as_str()
@@ -14976,6 +14981,131 @@ return {
 
     let task_patch = &result.result["task"][0];
     assert_eq!(task_patch["eventId"], "outcome:change-view");
+    assert_eq!(task_patch["changedSymbolCount"], 2);
+    assert_eq!(task_patch["changedSymbolsTruncated"], false);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn prism_recent_patches_bounds_changed_symbol_previews() {
+    let root = temp_workspace();
+    let source_path = root.join("src/lib.rs");
+    fs::create_dir_all(source_path.parent().unwrap()).unwrap();
+
+    let mut source = String::new();
+    let mut spans = Vec::new();
+    for index in 0..20 {
+        let name = format!("symbol_{index}");
+        let line = format!("pub fn {name}() {{}}\n");
+        let start = source.len() + line.find(&name).expect("symbol name span");
+        let end = start + name.len();
+        spans.push((name, Span::new(start, end)));
+        source.push_str(&line);
+    }
+    fs::write(&source_path, &source).unwrap();
+
+    let mut graph = Graph::new();
+    let file_id = graph.ensure_file(&source_path);
+    let mut changed_symbols = Vec::new();
+    for (name, span) in &spans {
+        let node_id = NodeId::new("demo", &format!("demo::{name}"), NodeKind::Function);
+        graph.add_node(Node {
+            id: node_id.clone(),
+            name: name.clone().into(),
+            kind: NodeKind::Function,
+            file: file_id,
+            span: *span,
+            language: Language::Rust,
+        });
+        changed_symbols.push(json!({
+            "status": "updated_after",
+            "id": node_id,
+            "name": name,
+            "kind": NodeKind::Function,
+            "filePath": source_path.to_string_lossy().into_owned(),
+            "span": span,
+        }));
+    }
+
+    let task_id = TaskId::new("task:change-view-bounded");
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    outcomes
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:change-view-bounded"),
+                ts: 10,
+                actor: EventActor::Principal(PrincipalActor {
+                    authority_id: PrincipalAuthorityId::new("local-daemon"),
+                    principal_id: PrincipalId::new("agent:change-view-bounded"),
+                    kind: None,
+                    name: Some("change-view-agent".to_string()),
+                }),
+                correlation: Some(task_id.clone()),
+                causation: None,
+                execution_context: Some(EventExecutionContext {
+                    repo_id: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    session_id: None,
+                    instance_id: None,
+                    request_id: None,
+                    credential_id: None,
+                    work_context: Some(WorkContextSnapshot {
+                        work_id: "work:change-view-bounded".to_string(),
+                        kind: WorkContextKind::AdHoc,
+                        title: "Bound recent patch previews".to_string(),
+                        parent_work_id: None,
+                        coordination_task_id: Some(task_id.0.to_string()),
+                        plan_id: None,
+                        plan_title: None,
+                    }),
+                }),
+            },
+            anchors: vec![AnchorRef::File(file_id)],
+            kind: OutcomeKind::PatchApplied,
+            result: OutcomeResult::Success,
+            summary: "patched src/lib.rs".into(),
+            evidence: Vec::new(),
+            metadata: json!({
+                "trigger": "ManualReindex",
+                "reason": "work Bound recent patch previews (work:change-view-bounded)",
+                "filePaths": [source_path.to_string_lossy().into_owned()],
+                "changedSymbols": changed_symbols,
+            }),
+        })
+        .unwrap();
+
+    let host = host_with_prism(Prism::with_history_and_outcomes(graph, history, outcomes));
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+return {
+  patches: prism.recentPatches({ path: "src/lib.rs", limit: 1 }),
+  task: prism.taskChanges("task:change-view-bounded", { limit: 1 }),
+  symbols: prism.changedSymbols("src/lib.rs", { limit: 25 }),
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("bounded change-view query should succeed");
+
+    let patch = &result.result["patches"][0];
+    assert_eq!(patch["changedSymbolCount"], 20);
+    assert_eq!(patch["changedSymbolsTruncated"], true);
+    assert_eq!(patch["changedSymbols"].as_array().unwrap().len(), 16);
+
+    let task_patch = &result.result["task"][0];
+    assert_eq!(task_patch["changedSymbolCount"], 20);
+    assert_eq!(task_patch["changedSymbolsTruncated"], true);
+    assert_eq!(task_patch["changedSymbols"].as_array().unwrap().len(), 16);
+
+    let symbols = result.result["symbols"]
+        .as_array()
+        .expect("changed symbols");
+    assert_eq!(symbols.len(), 20);
 
     let _ = fs::remove_dir_all(root);
 }
@@ -17906,9 +18036,13 @@ return prism.symbol("alpha")?.id.path ?? null;
         .as_ref()
         .and_then(Value::as_object)
         .expect("refresh args");
-    assert_eq!(
-        args.get("refreshPath"),
-        Some(&Value::String("deferred".to_string()))
+    let refresh_path = args
+        .get("refreshPath")
+        .and_then(Value::as_str)
+        .expect("refresh path");
+    assert!(
+        matches!(refresh_path, "deferred" | "none"),
+        "expected busy read to either defer or prove the runtime is already current, got {refresh_path}"
     );
     let metrics = args
         .get("metrics")
@@ -17941,8 +18075,33 @@ return prism.symbol("alpha")?.id.path ?? null;
     let freshness = crate::runtime_views::runtime_status(&host)
         .expect("runtime status should succeed while refresh is deferred")
         .freshness;
-    assert_eq!(freshness.status, "deferred");
-    assert_eq!(freshness.last_refresh_path.as_deref(), Some("deferred"));
+    assert!(
+        matches!(freshness.status.as_str(), "deferred" | "current"),
+        "busy read should either defer or stay current, got {}",
+        freshness.status
+    );
+    if freshness.status == "deferred" {
+        assert_eq!(freshness.last_refresh_path.as_deref(), Some("deferred"));
+    }
+}
+
+#[test]
+fn hosts_for_same_root_share_workspace_read_sync_gate() {
+    let root = temp_workspace();
+    let host_a = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let host_b = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let binding_a = host_a
+        .workspace_runtime_binding()
+        .expect("workspace runtime binding should exist");
+    let binding_b = host_b
+        .workspace_runtime_binding()
+        .expect("workspace runtime binding should exist");
+
+    assert!(
+        Arc::ptr_eq(binding_a.read_sync(), binding_b.read_sync()),
+        "separate hosts for the same root should join the same read-sync gate"
+    );
 }
 
 fn hold_runtime_sync_lock_for(

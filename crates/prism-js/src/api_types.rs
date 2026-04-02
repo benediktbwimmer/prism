@@ -488,6 +488,8 @@ pub struct PatchEventView {
     pub work_title: Option<String>,
     pub summary: String,
     pub files: Vec<String>,
+    pub changed_symbol_count: usize,
+    pub changed_symbols_truncated: bool,
     pub changed_symbols: Vec<ChangedSymbolView>,
 }
 
@@ -720,6 +722,7 @@ pub struct RuntimeStatusView {
     pub daemon_count: usize,
     pub bridge_count: usize,
     pub connected_bridge_count: usize,
+    pub idle_bridge_count: usize,
     pub orphan_bridge_count: usize,
     pub processes: Vec<RuntimeProcessView>,
     pub process_error: Option<String>,

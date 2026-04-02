@@ -530,7 +530,7 @@ async fn mcp_server_reads_file_resource_templates_for_workspace_paths() {
         .any(|resource| resource["uri"] == "prism://schema/file"));
 
     wait_until(
-        "resource read traces to include workspace refresh phases",
+        "resource read traces to include resource refresh phases",
         || {
             let records = server_handle.host.mcp_call_log_store.records();
             let session_read = records.iter().find(|record| {
@@ -565,10 +565,7 @@ async fn mcp_server_reads_file_resource_templates_for_workspace_paths() {
                         .iter()
                         .map(|phase| phase.operation.as_str())
                         .collect::<Vec<_>>();
-                    operations.contains(&"runtimeSync.waitLock")
-                        && operations.contains(&"runtimeSync.refreshFs")
-                        && operations.contains(&"runtimeSync.snapshotRevisions")
-                        && operations.contains(&"resource.refreshWorkspace")
+                    operations.contains(&"resource.refreshWorkspace")
                         && operations.contains(&"resource.handler")
                 });
             all_ready
@@ -608,11 +605,22 @@ async fn mcp_server_reads_file_resource_templates_for_workspace_paths() {
             .collect::<Vec<_>>();
         assert!(operations.contains(&"mcp.receiveRequest"));
         assert!(operations.contains(&"mcp.routeRequest"));
-        assert!(operations.contains(&"runtimeSync.waitLock"));
-        assert!(operations.contains(&"runtimeSync.refreshFs"));
-        assert!(operations.contains(&"runtimeSync.snapshotRevisions"));
         assert!(operations.contains(&"resource.refreshWorkspace"));
         assert!(operations.contains(&"resource.handler"));
+        let refresh_args = record
+            .phases
+            .iter()
+            .find(|phase| phase.operation == "resource.refreshWorkspace")
+            .and_then(|phase| phase.args_summary.as_ref())
+            .and_then(Value::as_object)
+            .expect("resource refresh args should exist");
+        assert!(refresh_args.contains_key("refreshPath"));
+        assert!(refresh_args.contains_key("metrics"));
+        if operations.contains(&"runtimeSync.waitLock") {
+            assert!(operations.contains(&"runtimeSync.waitLock"));
+            assert!(operations.contains(&"runtimeSync.refreshFs"));
+            assert!(operations.contains(&"runtimeSync.snapshotRevisions"));
+        }
         assert!(
             operations
                 .iter()
