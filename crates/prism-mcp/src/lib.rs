@@ -412,7 +412,9 @@ impl PrismMcpServer {
     pub(crate) fn session_log_context(&self) -> (String, Option<String>) {
         (
             self.session.session_id().0.to_string(),
-            self.session.current_task().map(|task| task.0.to_string()),
+            self.session
+                .effective_current_task()
+                .map(|task| task.0.to_string()),
         )
     }
 

@@ -30,8 +30,8 @@ use prism_ir::{
 };
 use prism_js::{AnchorRefView, ContractKindView, ContractStabilityView, ContractStatusView};
 use prism_memory::{
-    MemoryEntry, MemoryId, MemoryKind, MemoryModule, MemorySource, OutcomeEvent, OutcomeEvidence,
-    OutcomeKind, OutcomeMemory, OutcomeResult, RecallQuery,
+    MemoryEntry, MemoryEventQuery, MemoryId, MemoryKind, MemoryModule, MemorySource, OutcomeEvent,
+    OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeResult, RecallQuery,
 };
 use prism_query::{
     ConceptDecodeLens, ConceptPacket, ConceptProvenance, ConceptScope, ContractKind,
@@ -12068,16 +12068,11 @@ fn restart_restores_persisted_session_seed_for_new_host_sessions() {
         .session_resource_value(test_session(&restarted).as_ref())
         .expect("restored session should load");
 
-    let current_task = restored.current_task.expect("current task should restore");
-    assert_eq!(current_task.task_id, started.0);
-    assert_eq!(
-        current_task.description.as_deref(),
-        Some("Resume milestone one")
+    assert!(
+        restored.current_task.is_none(),
+        "legacy bare session-task context should not survive restart without declared work"
     );
-    assert_eq!(
-        current_task.tags,
-        vec!["milestone-1".to_string(), "restart".to_string()]
-    );
+    assert!(restored.current_work.is_none());
     assert_eq!(restored.current_agent.as_deref(), Some("agent-restart"));
     assert_eq!(restored.limits.max_result_nodes, 3);
     assert_eq!(restored.limits.max_call_graph_depth, 2);
@@ -12205,6 +12200,79 @@ fn restored_session_seed_rebinds_workspace_active_work_context() {
     assert_eq!(
         workspace_work.summary.as_deref(),
         Some("Reload should restore active work.")
+    );
+}
+
+#[test]
+fn restart_restores_coordination_task_binding_when_declared_work_exists() {
+    let root = temp_workspace();
+    let (workspace, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    let host = QueryHost::with_session(workspace);
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Persist coordination focus across restart" }),
+                task_id: None,
+            },
+        )
+        .expect("plan should create");
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Resume declared coordination work"
+                }),
+                task_id: None,
+            },
+        )
+        .expect("task should create");
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.declare_work_without_refresh_authenticated(
+        test_session(&host).as_ref(),
+        PrismDeclareWorkArgs {
+            title: "Persist coordination focus".to_string(),
+            kind: Some(WorkDeclarationKindInput::Coordination),
+            summary: Some("Restart should keep the declared coordination binding.".to_string()),
+            parent_work_id: None,
+            coordination_task_id: Some(task_id.clone()),
+            plan_id: None,
+        },
+        Some(&authenticated),
+    )
+    .expect("work should declare");
+
+    let restarted = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let restored = restarted
+        .session_resource_value(test_session(&restarted).as_ref())
+        .expect("restored session should load");
+
+    let current_work = restored.current_work.expect("current work should restore");
+    assert_eq!(current_work.kind, prism_ir::WorkContextKind::Coordination);
+    assert_eq!(
+        current_work.coordination_task_id.as_deref(),
+        Some(task_id.as_str())
+    );
+
+    let current_task = restored
+        .current_task
+        .expect("coordination task binding should restore with declared work");
+    assert_eq!(current_task.task_id, task_id);
+    assert_eq!(
+        current_task.description.as_deref(),
+        Some("Resume declared coordination work")
     );
 }
 
@@ -16183,6 +16251,87 @@ return prism.memory.events({
     assert_eq!(payload.memory.metadata["publication"]["status"], "active");
     assert_eq!(payload.history.len(), 1);
     assert_eq!(payload.history[0].memory_id, result.memory_id);
+}
+
+#[test]
+fn repo_published_memory_retains_declared_work_context_without_runtime_db() {
+    let root = temp_workspace();
+    let (workspace, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    let host = QueryHost::with_session(workspace);
+
+    let declared = host
+        .declare_work_without_refresh_authenticated(
+            test_session(&host).as_ref(),
+            PrismDeclareWorkArgs {
+                title: "Publish self-contained repo memory".to_string(),
+                kind: Some(WorkDeclarationKindInput::AdHoc),
+                summary: Some("Cold clones should still understand why this memory exists.".to_string()),
+                parent_work_id: None,
+                coordination_task_id: None,
+                plan_id: None,
+            },
+            Some(&authenticated),
+        )
+        .expect("work should declare");
+
+    let result = host
+        .store_memory_without_refresh_authenticated(
+            test_session(&host).as_ref(),
+            PrismMemoryArgs {
+                action: MemoryMutationActionInput::Store,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }],
+                    "kind": "structural",
+                    "scope": "repo",
+                    "content": "alpha ownership carries declared work provenance",
+                    "trust": 0.9
+                }),
+                task_id: None,
+            },
+            Some(&authenticated),
+        )
+        .expect("repo memory should persist");
+
+    let prism_paths = PrismPaths::for_workspace_root(&root).unwrap();
+    let runtime_db = prism_paths.shared_runtime_db_path().unwrap();
+    let _ = fs::remove_file(&runtime_db);
+    let _ = fs::remove_file(runtime_db.with_extension("db-wal"));
+    let _ = fs::remove_file(runtime_db.with_extension("db-shm"));
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let events = reloaded
+        .memory_events(&MemoryEventQuery {
+            memory_id: Some(MemoryId(result.memory_id.clone())),
+            focus: Vec::new(),
+            text: None,
+            limit: 5,
+            kinds: None,
+            actions: None,
+            scope: Some(prism_memory::MemoryScope::Repo),
+            task_id: Some(declared.work_id.clone()),
+            since: None,
+        })
+        .expect("repo memory events should reload without runtime db");
+    assert_eq!(events.len(), 1);
+    let work_context = events[0]
+        .execution_context
+        .as_ref()
+        .and_then(|context| context.work_context.as_ref())
+        .expect("repo memory event should retain declared work context");
+    assert_eq!(work_context.work_id, declared.work_id);
+    assert_eq!(work_context.kind, prism_ir::WorkContextKind::AdHoc);
+    assert_eq!(work_context.title, "Publish self-contained repo memory");
 }
 
 #[test]
@@ -20783,21 +20932,11 @@ fn session_resource_surfaces_detached_current_task_context() {
     let session = host
         .session_resource_value(test_session(&host).as_ref())
         .expect("session resource should load");
-    let current_task = session
-        .current_task
-        .expect("current task should be present");
 
-    assert_eq!(current_task.context_status, "detached");
-    assert!(current_task
-        .context_summary
-        .contains("leftover session context"));
-    assert!(current_task.next_action.contains("declare_work"));
-    let repair = current_task
-        .repair_action
-        .expect("detached task should surface a repair action");
-    assert_eq!(repair.tool, "prism_mutate");
-    assert_eq!(repair.input["action"], "session_repair");
-    assert_eq!(repair.input["input"]["operation"], "clear_current_task");
+    assert!(
+        session.current_task.is_none(),
+        "detached ad-hoc session-task leftovers should not surface as active task context"
+    );
 }
 
 #[test]
@@ -21347,7 +21486,7 @@ fn cloned_servers_isolate_session_state_but_share_persisted_state() {
             },
         )
         .unwrap();
-    let task_a = client_a
+    let _task_a = client_a
         .host
         .start_task(
             client_a.session.as_ref(),
@@ -21366,13 +21505,7 @@ fn cloned_servers_isolate_session_state_but_share_persisted_state() {
         .session_resource_value(client_b.session.as_ref())
         .unwrap();
     assert_eq!(session_a.current_agent.as_deref(), Some("agent-a"));
-    assert_eq!(
-        session_a
-            .current_task
-            .as_ref()
-            .map(|task| task.task_id.as_str()),
-        Some(task_a.0.as_str())
-    );
+    assert!(session_a.current_task.is_none());
     assert_eq!(session_a.limits.max_result_nodes, 3);
     assert_eq!(session_b.current_agent, None);
     assert!(session_b.current_task.is_none());

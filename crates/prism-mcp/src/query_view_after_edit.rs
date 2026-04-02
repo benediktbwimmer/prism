@@ -163,7 +163,7 @@ pub(crate) fn after_edit_view(execution: &QueryExecution, input: Value) -> Resul
                 })
             },
         )?
-    } else if let Some(task) = execution.session().current_task_state() {
+    } else if let Some(task) = execution.session().effective_current_task_state() {
         let task_id = task.id.0.to_string();
         record_after_edit_step(
             execution,

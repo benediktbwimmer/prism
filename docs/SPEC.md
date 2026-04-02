@@ -1581,6 +1581,9 @@ Session and work model:
   already-active work context
 * sessions may cache a current `WorkId` as a convenience after declaration, but the server must not
   auto-create work implicitly on first mutation
+* detached `currentTask` convenience state is transitional only and must not be treated as durable
+  declared intent; a bare task focus may be dropped on restart when it is not anchored by current
+  work
 * mutation tools inherit the active session `WorkId` only when one has already been declared
 * mutation tools may override attribution with an explicit `work_id`, so unrelated work can coexist
   in one session without opening a second MCP connection
@@ -1983,6 +1986,7 @@ The MCP server exposes one coarse mutation tool alongside the read-only `prism_q
 
 ```text
 prism_mutate { action: "declare_work", input: { title: string, kind?: "ad_hoc" | "coordination" | "delegated", summary?: string, parent_work_id?: string, coordination_task_id?: string, plan_id?: string } } -> WorkDeclarationResult
+prism_mutate { action: "checkpoint", input: { summary?: string, task_id?: string } } -> CheckpointMutationResult
 prism_mutate { action: "outcome", input: { kind: OutcomeKind, anchors: AnchorRef[], summary: string, result?: OutcomeResult, evidence?: OutcomeEvidence[], work_id?: string } } -> EventMutationResult
 prism_mutate { action: "memory", input: { action: "store", payload: { anchors: AnchorRef[], kind: MemoryKind, scope?: MemoryScope, content: string, trust?: float, source?: MemorySource, metadata?: object, promoted_from?: MemoryId[], supersedes?: MemoryId[] }, work_id?: string } } -> MemoryMutationResult
 prism_mutate { action: "infer_edge", input: { source: NodeId, target: NodeId, kind: EdgeKind, confidence: float, scope?: InferredEdgeScope, work_id?: string } } -> EdgeMutationResult
@@ -1996,7 +2000,7 @@ prism_mutate { action: "curator_promote_edge" | "curator_promote_memory" | "cura
 
 These fill in `EventMeta` automatically from authenticated mutation context plus the active task/session convenience state. The lower the friction, the more reliably agents will record outcomes.
 
-Patch observation is not exposed as a mutation tool. PRISM detects file changes automatically via `ObservedChangeSet` and records them without agent involvement. Only outcomes that require semantic interpretation belong in the MCP mutation surface.
+Patch observation is not exposed as a mutation tool. PRISM detects file changes automatically via `ObservedChangeSet`, accumulates them while work attribution is unambiguous, and publishes durable checkpoints at mutation boundaries, work transitions, disconnect, or explicit `checkpoint` requests. Only outcomes that require semantic interpretation belong in the MCP mutation surface.
 
 Rules:
 

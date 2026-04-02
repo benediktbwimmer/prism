@@ -39,6 +39,8 @@ The canonical design is:
   today can federate cleanly later
 - repo-published `.prism` events must remain semantically self-contained on a cold clone; runtime
   ids may appear only as optional correlation handles
+- detached session-task focus is transient compatibility state and must not be treated as durable
+  intent unless it is anchored by declared work
 
 ---
 
@@ -530,6 +532,8 @@ That means:
 - runtime-only ids must not be required resolution targets for understanding the event
 - if a mutation references ad hoc or runtime-only work, the event must still carry enough inline
   work context to explain itself without shared runtime state
+- bare session-task leftovers are not sufficient durable work context on their own and may be
+  discarded across restart when no declared work anchors them
 
 ### 8.4 Use projections for fast lookups
 

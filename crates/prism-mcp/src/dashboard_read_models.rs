@@ -204,7 +204,7 @@ fn dashboard_session_view(host: &QueryHost, session: Option<&SessionState>) -> S
             .map(|workspace| workspace.root().display().to_string()),
         current_task: session.and_then(|session| {
             session
-                .current_task_state()
+                .effective_current_task_state()
                 .map(|task| session_task_view(host, session, &task))
         }),
         current_work: session.and_then(|session| {

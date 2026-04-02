@@ -121,7 +121,7 @@ impl QueryHost {
     pub(crate) fn session_view_without_refresh(&self, session: &SessionState) -> SessionView {
         let limits = session.limits();
         let current_task = session
-            .current_task_state()
+            .effective_current_task_state()
             .map(|task| session_task_view(self, session, &task));
         let current_work = session.current_work_state().map(session_work_view);
         SessionView {
@@ -240,7 +240,7 @@ impl QueryHost {
         let replay = crate::load_task_replay(self.workspace_session_ref(), prism.as_ref(), task_id)
             .unwrap_or_else(|_| prism.resume_task(task_id));
         derive_task_metadata(
-            session.current_task_state().as_ref(),
+            session.effective_current_task_state().as_ref(),
             prism.as_ref(),
             task_id,
             &replay.events,

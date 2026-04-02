@@ -50,14 +50,14 @@ impl PersistedSessionSeed {
     fn capture(session: &SessionState) -> Self {
         Self {
             version: SESSION_SEED_VERSION,
-            current_task: session
-                .current_task_state()
-                .map(|task| PersistedSessionTaskSeed {
+            current_task: session.persistable_current_task_state().map(|task| {
+                PersistedSessionTaskSeed {
                     task_id: task.id.0.to_string(),
                     description: task.description,
                     tags: task.tags,
                     coordination_task_id: task.coordination_task_id,
-                }),
+                }
+            }),
             current_work: session
                 .current_work_state()
                 .map(|work| PersistedSessionWorkSeed {
@@ -129,14 +129,6 @@ pub(crate) fn persist_session_seed(root: &Path, session: &SessionState) -> Resul
 
 pub(crate) fn restore_session_seed(session: &SessionState, seed: &PersistedSessionSeed) {
     session.set_limits(seed.limits.into());
-    if let Some(task) = &seed.current_task {
-        session.set_current_task(
-            TaskId::new(task.task_id.clone()),
-            task.description.clone(),
-            task.tags.clone(),
-            task.coordination_task_id.clone(),
-        );
-    }
     if let Some(work) = &seed.current_work {
         session.set_current_work(crate::session_state::SessionWorkState {
             id: TaskId::new(work.work_id.clone()),
@@ -148,6 +140,16 @@ pub(crate) fn restore_session_seed(session: &SessionState, seed: &PersistedSessi
             plan_id: work.plan_id.clone(),
             plan_title: work.plan_title.clone(),
         });
+    }
+    if seed.current_work.is_some() {
+        if let Some(task) = &seed.current_task {
+            session.set_current_task(
+                TaskId::new(task.task_id.clone()),
+                task.description.clone(),
+                task.tags.clone(),
+                task.coordination_task_id.clone(),
+            );
+        }
     }
     if let Some(agent) = &seed.current_agent {
         session.set_current_agent(AgentId::new(agent.clone()));

@@ -1988,7 +1988,7 @@ impl QueryExecution {
 
     pub(crate) fn best_symbol(&self, query: &str) -> Result<Option<SymbolView>> {
         let mut matches = self.symbols(query)?;
-        let current_task_id = self.session.current_task().map(|task| task.0);
+        let current_task_id = self.session.effective_current_task().map(|task| task.0);
         let ambiguity = rank_search_results(
             self.prism.as_ref(),
             &mut matches,
@@ -2115,7 +2115,7 @@ impl QueryExecution {
         let applied = requested.min(limits.max_result_nodes);
         let path_mode = parse_path_mode(args.path_mode.as_deref())?;
         let explicit_task_id = args.task_id.clone();
-        let current_task_id = self.session.current_task().map(|task| task.0);
+        let current_task_id = self.session.effective_current_task().map(|task| task.0);
         let effective_task_id = explicit_task_id.as_deref().or(current_task_id.as_deref());
         let strategy = args.strategy.as_deref().unwrap_or("direct");
         let exact_structured =

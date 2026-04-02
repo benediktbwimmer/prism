@@ -172,7 +172,9 @@ impl PrismMcpServer {
             started_at,
             duration_ms,
             Some(self.session.session_id().0.to_string()),
-            self.session.current_task().map(|task| task.0.to_string()),
+            self.session
+                .effective_current_task()
+                .map(|task| task.0.to_string()),
             success,
             error,
             crate::mcp_call_log::unique_operations(&phases),

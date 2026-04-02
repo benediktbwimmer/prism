@@ -99,15 +99,15 @@ fn task_context_for_resolution(
         .map(str::trim)
         .filter(|task_id| !task_id.is_empty())
     else {
-        return session.current_task_state();
+        return session.effective_current_task_state();
     };
 
     if session
-        .current_task_state()
+        .effective_current_task_state()
         .as_ref()
         .is_some_and(|task| task.id.0 == task_id)
     {
-        return session.current_task_state();
+        return session.effective_current_task_state();
     }
 
     let coordination_task_id = task_id

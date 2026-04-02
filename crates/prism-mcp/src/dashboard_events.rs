@@ -220,7 +220,9 @@ impl QueryHost {
             started_at: current_timestamp(),
             started: Instant::now(),
             session_id: session.session_id().0.to_string(),
-            task_id: session.current_task().map(|task| task.0.to_string()),
+            task_id: session
+                .effective_current_task()
+                .map(|task| task.0.to_string()),
             phases: Arc::new(Mutex::new(Vec::new())),
             finalized: false,
         };

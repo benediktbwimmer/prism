@@ -60,7 +60,7 @@ pub(crate) fn command_memory_view(execution: &QueryExecution, input: Value) -> R
     let mut notes = Vec::new();
     let task_id = if let Some(task_id) = input.task_id {
         Some(task_id)
-    } else if let Some(task) = execution.session().current_task_state() {
+    } else if let Some(task) = execution.session().effective_current_task_state() {
         notes.push(format!(
             "Defaulted to the current session task `{}`.",
             task.id.0

@@ -788,7 +788,7 @@ fn plans_payload_example() -> Value {
         }, {
             "uri": session_resource_uri(),
             "name": "PRISM Session",
-            "description": "Active workspace root, current task context, and runtime query limits"
+            "description": "Active workspace root, current work and task focus, and runtime query limits"
         }],
     })
 }
@@ -839,7 +839,7 @@ fn plan_payload_example() -> Value {
         }, {
             "uri": session_resource_uri(),
             "name": "PRISM Session",
-            "description": "Active workspace root, current task context, and runtime query limits"
+            "description": "Active workspace root, current work and task focus, and runtime query limits"
         }],
     })
 }

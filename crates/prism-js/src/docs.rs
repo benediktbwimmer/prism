@@ -49,7 +49,7 @@ The MCP transport surface currently includes:
 
 - `prism_query` as the rich semantic read surface and escape hatch
 - `prism_mutate` for authoritative writes and narrow session repair mutations
-- `prism://session` as the read-only view of current task and workspace context
+- `prism://session` as the read-only view of current work, task focus, and workspace context
 
 ## Mental model
 
@@ -2545,6 +2545,8 @@ likely validations, and 1 to 2 `nextReads`.
 The query runtime is read-only. State changes happen through `prism_mutate`:
 
 - `prism_mutate`
+  - action `declare_work`
+  - action `checkpoint`
   - action `outcome`
   - action `memory`
   - action `concept`
@@ -2564,7 +2566,7 @@ The query runtime is read-only. State changes happen through `prism_mutate`:
   - action `curator_reject_proposal`
   - shorthand `{ action, ...fields }` is accepted in addition to the canonical `{ action, input: { ... } }`
 
-Read current task and workspace context through `prism://session`. When no active task exists, the first `prism_mutate` call creates one implicitly.
+Read current work, task focus, and workspace context through `prism://session`. Authoritative mutations do not create work implicitly: call `declare_work` first unless the mutation is intentionally using an explicit `taskId` or `claimId`.
 
-Patch observation is automatic. PRISM records file changes from `ObservedChangeSet` without requiring an explicit MCP call.
+Patch observation is automatic. PRISM records file changes from `ObservedChangeSet` without requiring an explicit MCP call, and publishes durable change checkpoints automatically at mutation boundaries, work transitions, disconnect, or explicit `checkpoint` requests.
 "#;

@@ -30,7 +30,7 @@ impl MutationProvenance {
             actor: EventActor::Agent.canonical_identity_actor(),
             execution_context: execution_context(workspace, session, None),
             prism,
-            current_task: session.current_task_state(),
+            current_task: session.effective_current_task_state(),
             current_work: session.current_work_state(),
         }
     }
@@ -54,7 +54,7 @@ impl MutationProvenance {
                 Some(&authenticated.credential.credential_id),
             ),
             prism,
-            current_task: session.current_task_state(),
+            current_task: session.effective_current_task_state(),
             current_work: session.current_work_state(),
         }
     }

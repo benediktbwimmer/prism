@@ -109,6 +109,10 @@ impl SessionState {
             .map(|task| task.id.clone())
     }
 
+    pub(crate) fn effective_current_task(&self) -> Option<TaskId> {
+        self.effective_current_task_state().map(|task| task.id)
+    }
+
     pub(crate) fn current_work(&self) -> Option<TaskId> {
         self.current_work
             .lock()
@@ -133,6 +137,22 @@ impl SessionState {
             .lock()
             .expect("session task lock poisoned")
             .clone()
+    }
+
+    pub(crate) fn effective_current_task_state(&self) -> Option<SessionTaskState> {
+        let task = self.current_task_state()?;
+        match self.current_work_state() {
+            Some(work) if session_task_matches_work(&task, &work) => Some(task),
+            Some(_) => session_task_is_plan_node_focus(&task).then_some(task),
+            None => (session_task_is_coordination_focus(&task)
+                || session_task_is_plan_node_focus(&task))
+            .then_some(task),
+        }
+    }
+
+    pub(crate) fn persistable_current_task_state(&self) -> Option<SessionTaskState> {
+        self.current_work_state()
+            .and_then(|_| self.effective_current_task_state())
     }
 
     pub(crate) fn current_work_state(&self) -> Option<SessionWorkState> {
@@ -355,6 +375,33 @@ impl SessionState {
             .expect("session handle keys lock poisoned")
             .insert(key, handle.to_string());
     }
+}
+
+fn session_task_is_coordination_focus(task: &SessionTaskState) -> bool {
+    task.coordination_task_id.is_some() || task.id.0.starts_with("coord-task:")
+}
+
+fn session_task_is_plan_node_focus(task: &SessionTaskState) -> bool {
+    task.id.0.starts_with("plan-node:")
+}
+
+fn session_task_matches_work(task: &SessionTaskState, work: &SessionWorkState) -> bool {
+    if session_task_is_plan_node_focus(task) {
+        return true;
+    }
+
+    let task_coordination_id = task.coordination_task_id.as_deref().or_else(|| {
+        task.id
+            .0
+            .starts_with("coord-task:")
+            .then_some(task.id.0.as_str())
+    });
+    let work_coordination_id = work.coordination_task_id.as_deref();
+
+    matches!(
+        (task_coordination_id, work_coordination_id),
+        (Some(task_id), Some(work_id)) if task_id == work_id
+    )
 }
 
 fn session_handle_key(target: &SessionHandleTarget) -> String {

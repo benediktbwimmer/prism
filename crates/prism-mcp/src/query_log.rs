@@ -74,7 +74,9 @@ impl QueryHost {
             started_at: current_timestamp(),
             started: Instant::now(),
             session_id: session.session_id().0.to_string(),
-            task_id: session.current_task().map(|task| task.0.to_string()),
+            task_id: session
+                .effective_current_task()
+                .map(|task| task.0.to_string()),
             mcp_call_log_store: Arc::clone(&self.mcp_call_log_store),
             workspace: self.workspace_session_arc(),
             view_name: Arc::new(std::sync::Mutex::new(None)),

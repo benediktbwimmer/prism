@@ -60,6 +60,7 @@ Use PRISM MCP as the primary repo-awareness surface when it is available.
 - Do not rely on a separate `prism_session` mutation tool; use `prism://session` to inspect current context.
 - Before any authoritative mutation, call `prism_mutate` with `action: "declare_work"` unless you are intentionally supplying an explicit mutation `taskId` or `claimId`.
 - PRISM rejects authenticated mutations that do not have declared work context. Reads remain allowed without active work.
+- Treat detached `currentTask` session leftovers as transient compatibility state, not durable intent. Bare session-task context is not guaranteed to survive restart unless it is anchored by declared work.
 - Use `prism_mutate` with actions `outcome`, `test_ran`, `failure_observed`, and `fix_validated` to record meaningful task results.
 - Use `prism_mutate` with action `memory` to store anchored memory when you learn something worth preserving.
 - Use the persistence ladder intentionally:
