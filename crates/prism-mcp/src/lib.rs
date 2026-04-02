@@ -2,10 +2,10 @@ use anyhow::{anyhow, Result};
 use clap::{ArgAction, ValueEnum};
 use prism_agent::InferenceStore;
 use prism_core::{
-    default_workspace_shared_runtime, hydrate_workspace_session_with_options, SharedRuntimeBackend,
-    WorkspaceSession, WorkspaceSessionOptions,
+    default_workspace_shared_runtime, hydrate_workspace_session_with_options,
+    ActiveWorkContextBinding, SharedRuntimeBackend, WorkspaceSession, WorkspaceSessionOptions,
 };
-use prism_ir::TaskId;
+use prism_ir::{EventId, TaskId};
 use prism_js::{api_reference_markdown, CuratorJobView, API_REFERENCE_URI};
 use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent, SessionMemory};
 use prism_query::{Prism, QueryLimits};
@@ -188,6 +188,21 @@ fn default_query_worker_pool() -> JsWorkerPool {
 #[cfg(not(test))]
 fn default_query_worker_pool() -> JsWorkerPool {
     JsWorkerPool::spawn()
+}
+
+fn active_work_context_binding(
+    work: &crate::session_state::SessionWorkState,
+) -> ActiveWorkContextBinding {
+    ActiveWorkContextBinding {
+        work_id: work.id.0.to_string(),
+        kind: work.kind,
+        title: work.title.clone(),
+        summary: work.summary.clone(),
+        parent_work_id: work.parent_work_id.as_ref().map(|id| id.0.to_string()),
+        coordination_task_id: work.coordination_task_id.clone(),
+        plan_id: work.plan_id.clone(),
+        plan_title: work.plan_title.clone(),
+    }
 }
 
 #[derive(Debug, Clone, clap::Parser)]
@@ -768,6 +783,7 @@ impl QueryHost {
         if let Some(seed) = self.restored_session_seed.as_ref() {
             restore_session_seed(session.as_ref(), seed);
         }
+        self.sync_workspace_active_work_context(session.as_ref());
         session
     }
 
@@ -905,6 +921,33 @@ impl QueryHost {
 
     pub(crate) fn workspace_runtime_binding(&self) -> Option<Arc<WorkspaceRuntimeBinding>> {
         self.workspace_runtime_binding_ref().cloned()
+    }
+
+    pub(crate) fn sync_workspace_active_work_context(&self, session: &SessionState) {
+        let Some(workspace) = self.workspace_session_ref() else {
+            return;
+        };
+        if let Some(work) = session.current_work_state() {
+            workspace.bind_active_work_context(active_work_context_binding(&work));
+        } else {
+            workspace.clear_active_work_context();
+        }
+    }
+
+    pub(crate) fn persist_flushed_observed_change_checkpoints(
+        &self,
+        session: &SessionState,
+        summary: Option<&str>,
+    ) -> Result<Vec<EventId>> {
+        let Some(workspace) = self.workspace_session_ref() else {
+            return Ok(Vec::new());
+        };
+        workspace.persist_flushed_observed_change_checkpoints(
+            Some(&session.session_id()),
+            current_request_id(),
+            None,
+            summary,
+        )
     }
 
     pub(crate) fn loaded_workspace_revision_value(&self) -> u64 {

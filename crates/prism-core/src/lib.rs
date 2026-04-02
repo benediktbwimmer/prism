@@ -16,6 +16,7 @@ mod materialization;
 mod memory_events;
 mod memory_refresh;
 pub mod mutation_trace;
+mod observed_change_tracker;
 mod outcome_backend;
 mod parse_pipeline;
 mod patch_outcomes;
@@ -55,6 +56,10 @@ pub use indexer::WorkspaceIndexer;
 pub use local_credentials::{CredentialProfile, CredentialsFile};
 pub use materialization::{
     WorkspaceBoundaryRegion, WorkspaceMaterializationCoverage, WorkspaceMaterializationSummary,
+};
+pub use observed_change_tracker::{
+    AccumulatedObservedChange, ActiveWorkContextBinding, FlushedObservedChangeSet,
+    ObservedChangeFlushTrigger,
 };
 pub use principal_registry::{
     AuthenticatedPrincipal, BootstrapOwnerInput, MintPrincipalRequest, MintedPrincipalCredential,

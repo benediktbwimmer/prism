@@ -19,6 +19,7 @@ use tracing::info;
 use crate::checkpoint_materializer::CheckpointMaterializerHandle;
 use crate::curator::{CuratorHandle, CuratorHandleRef};
 use crate::indexer::PendingFileParse;
+use crate::observed_change_tracker::ObservedChangeTracker;
 use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_intents};
 use crate::session::{WorkspaceRefreshSeed, WorkspaceRefreshState, WorkspaceSession};
 use crate::shared_runtime::composite_workspace_revision;
@@ -111,6 +112,8 @@ pub(crate) fn build_workspace_session(
         );
     }
     let fs_snapshot = Arc::new(Mutex::new(workspace_tree_snapshot));
+    let observed_change_tracker = Arc::new(Mutex::new(ObservedChangeTracker::default()));
+    let worktree_principal_binding = Arc::new(Mutex::new(None));
     let checkpoint_materializer =
         CheckpointMaterializerHandle::new(root.clone(), Arc::clone(&store));
     let load_curator_snapshot_ms = 0_u128;
@@ -139,6 +142,8 @@ pub(crate) fn build_workspace_session(
         shared_runtime_materializer.clone(),
         coordination_enabled,
         Some(CuratorHandleRef::from(&curator)),
+        Arc::clone(&observed_change_tracker),
+        Arc::clone(&worktree_principal_binding),
     )?);
     let watch_start_ms = watch_started.elapsed().as_millis();
     let graph = published_generation
@@ -179,7 +184,8 @@ pub(crate) fn build_workspace_session(
         checkpoint_materializer: Some(checkpoint_materializer),
         shared_runtime_materializer,
         coordination_enabled,
-        worktree_principal_binding: Arc::new(Mutex::new(None)),
+        worktree_principal_binding,
+        observed_change_tracker,
     })
 }
 

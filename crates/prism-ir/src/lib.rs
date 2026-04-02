@@ -19,7 +19,9 @@ pub use coordination::{
 };
 pub use durable_ids::{new_prefixed_id, new_slugged_id, new_sortable_token, slugify_id_fragment};
 pub use events::{
-    EventActor, EventExecutionContext, EventMeta, WorkContextKind, WorkContextSnapshot,
+    EventActor, EventExecutionContext, EventMeta, ObservedChangeCheckpoint,
+    ObservedChangeCheckpointEntry, ObservedChangeCheckpointTrigger, WorkContextKind,
+    WorkContextSnapshot,
 };
 pub use graph::{Edge, EdgeKind, EdgeOrigin, Node, NodeId, NodeKind, Skeleton, Subgraph};
 pub use history::{LineageEvent, LineageEventKind, LineageEvidence};

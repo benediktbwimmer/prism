@@ -13,8 +13,8 @@ use prism_curator::{
 };
 use prism_ir::{
     new_prefixed_id, AgentId, AnchorRef, ArtifactId, ClaimId, CoordinationTaskId, Edge, EdgeOrigin,
-    EventId, EventMeta, PlanEdge, PlanEdgeId, PlanEdgeKind, PlanId, PlanNodeId, TaskId,
-    WorkContextKind,
+    EventId, EventMeta, ObservedChangeCheckpoint, ObservedChangeCheckpointTrigger, PlanEdge,
+    PlanEdgeId, PlanEdgeKind, PlanId, PlanNodeId, TaskId, WorkContextKind,
 };
 use prism_js::{CuratorProposalRecordView, TaskJournalView};
 use prism_memory::{
@@ -47,30 +47,31 @@ use crate::{
     manual_memory_metadata, parse_edge_kind, plan_edge_view, plan_node_view, plan_view,
     retire_repo_publication_metadata, task_journal_memory_metadata, ArtifactActionInput,
     ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
-    ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput, ClaimMutationResult,
-    ClaimReleasePayload, ClaimRenewPayload, ConceptMutationOperationInput, ConceptMutationResult,
-    ConceptRelationKindInput, ConceptRelationMutationOperationInput, ConceptRelationMutationResult,
-    ConceptScopeInput, ConceptVerbosity, ContractCompatibilityInput, ContractGuaranteeInput,
-    ContractGuaranteeStrengthInput, ContractKindInput, ContractMutationOperationInput,
-    ContractMutationResult, ContractStabilityInput, ContractStatusInput, ContractTargetInput,
-    ContractValidationInput, CoordinationMutationKindInput, CoordinationMutationResult,
-    CuratorJobView, CuratorProposalCreatedResources, CuratorProposalDecision,
-    CuratorProposalDecisionResult, EdgeMutationResult, EventMutationResult, HandoffAcceptPayload,
-    HeartbeatLeaseMutationResult, MemoryMutationActionInput, MemoryMutationResult,
-    MemoryRetirePayload, MemoryStorePayload, MutationViolationView, NodeIdInput,
-    PlanArchivePayload, PlanEdgeCreatePayload, PlanEdgeDeletePayload, PlanNodeCreatePayload,
-    PlanUpdatePayload, PrismArtifactArgs, PrismClaimArgs, PrismConceptLensInput,
-    PrismConceptMutationArgs, PrismConceptRelationMutationArgs, PrismContractMutationArgs,
-    PrismCoordinationArgs, PrismCuratorApplyProposalArgs, PrismCuratorPromoteConceptArgs,
-    PrismCuratorPromoteEdgeArgs, PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs,
-    PrismDeclareWorkArgs, PrismFinishTaskArgs, PrismHeartbeatLeaseArgs, PrismInferEdgeArgs,
-    PrismMemoryArgs, PrismOutcomeArgs, PrismSessionRepairArgs, PrismValidationFeedbackArgs,
-    QueryHost, SessionRepairMutationResult, SessionRepairOperationInput,
-    SessionRepairOperationSchema, SessionState, SparsePatch, SparsePatchInput, TaskCreatePayload,
-    TaskReclaimPayload, TaskResumePayload, ValidationFeedbackCategoryInput,
-    ValidationFeedbackMutationResult, ValidationFeedbackVerdictInput, WorkDeclarationKindInput,
-    WorkDeclarationResult, WorkflowStatusInput, WorkflowUpdatePayload,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+    ArtifactSupersedePayload, CheckpointMutationResult, ClaimAcquirePayload, ClaimActionInput,
+    ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload, ConceptMutationOperationInput,
+    ConceptMutationResult, ConceptRelationKindInput, ConceptRelationMutationOperationInput,
+    ConceptRelationMutationResult, ConceptScopeInput, ConceptVerbosity, ContractCompatibilityInput,
+    ContractGuaranteeInput, ContractGuaranteeStrengthInput, ContractKindInput,
+    ContractMutationOperationInput, ContractMutationResult, ContractStabilityInput,
+    ContractStatusInput, ContractTargetInput, ContractValidationInput,
+    CoordinationMutationKindInput, CoordinationMutationResult, CuratorJobView,
+    CuratorProposalCreatedResources, CuratorProposalDecision, CuratorProposalDecisionResult,
+    EdgeMutationResult, EventMutationResult, HandoffAcceptPayload, HeartbeatLeaseMutationResult,
+    MemoryMutationActionInput, MemoryMutationResult, MemoryRetirePayload, MemoryStorePayload,
+    MutationViolationView, NodeIdInput, PlanArchivePayload, PlanEdgeCreatePayload,
+    PlanEdgeDeletePayload, PlanNodeCreatePayload, PlanUpdatePayload, PrismArtifactArgs,
+    PrismCheckpointArgs, PrismClaimArgs, PrismConceptLensInput, PrismConceptMutationArgs,
+    PrismConceptRelationMutationArgs, PrismContractMutationArgs, PrismCoordinationArgs,
+    PrismCuratorApplyProposalArgs, PrismCuratorPromoteConceptArgs, PrismCuratorPromoteEdgeArgs,
+    PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs, PrismDeclareWorkArgs,
+    PrismFinishTaskArgs, PrismHeartbeatLeaseArgs, PrismInferEdgeArgs, PrismMemoryArgs,
+    PrismOutcomeArgs, PrismSessionRepairArgs, PrismValidationFeedbackArgs, QueryHost,
+    SessionRepairMutationResult, SessionRepairOperationInput, SessionRepairOperationSchema,
+    SessionState, SparsePatch, SparsePatchInput, TaskCreatePayload, TaskReclaimPayload,
+    TaskResumePayload, ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
+    ValidationFeedbackVerdictInput, WorkDeclarationKindInput, WorkDeclarationResult,
+    WorkflowStatusInput, WorkflowUpdatePayload, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
 
 #[derive(Default)]
@@ -163,7 +164,12 @@ fn plan_title_for(prism: &Prism, plan_id: &str) -> Option<String> {
         .map(|plan| coordination_plan_title(&plan))
 }
 
-fn rebind_current_work_plan(session: &SessionState, prism: &Prism, plan_id: &str) {
+fn rebind_current_work_plan(
+    host: &QueryHost,
+    session: &SessionState,
+    prism: &Prism,
+    plan_id: &str,
+) -> Result<()> {
     let plan_title = plan_title_for(prism, plan_id);
     session.update_current_work(|work| {
         let matches_plan = work
@@ -178,14 +184,18 @@ fn rebind_current_work_plan(session: &SessionState, prism: &Prism, plan_id: &str
             work.plan_title = Some(title);
         }
     });
+    host.sync_workspace_active_work_context(session);
+    host.persist_flushed_observed_change_checkpoints(session, None)?;
+    Ok(())
 }
 
 fn maybe_bind_current_work_to_coordination_task(
+    host: &QueryHost,
     session: &SessionState,
     prism: &Prism,
     task: &prism_coordination::CoordinationTask,
     bind_session_task: bool,
-) {
+) -> Result<()> {
     let plan_id = task.plan.0.to_string();
     let plan_title = plan_title_for(prism, &plan_id);
     let mut should_bind_work = false;
@@ -217,7 +227,7 @@ fn maybe_bind_current_work_to_coordination_task(
             }
         });
     } else if bind_session_task {
-        rebind_current_work_plan(session, prism, &plan_id);
+        rebind_current_work_plan(host, session, prism, &plan_id)?;
     }
 
     if bind_session_task || should_bind_work {
@@ -228,9 +238,16 @@ fn maybe_bind_current_work_to_coordination_task(
             Some(task.id.0.to_string()),
         );
     }
+    host.sync_workspace_active_work_context(session);
+    host.persist_flushed_observed_change_checkpoints(session, None)?;
+    Ok(())
 }
 
-fn clear_current_coordination_binding(session: &SessionState, task_id: &str) {
+fn clear_current_coordination_binding(
+    host: &QueryHost,
+    session: &SessionState,
+    task_id: &str,
+) -> Result<()> {
     if session
         .current_task_state()
         .as_ref()
@@ -243,31 +260,37 @@ fn clear_current_coordination_binding(session: &SessionState, task_id: &str) {
             work.coordination_task_id = None;
         }
     });
+    host.sync_workspace_active_work_context(session);
+    host.persist_flushed_observed_change_checkpoints(session, None)?;
+    Ok(())
 }
 
 fn sync_session_after_coordination_mutation(
+    host: &QueryHost,
     session: &SessionState,
     prism: &Prism,
     kind: &CoordinationMutationKindInput,
     state: &Value,
-) {
+) -> Result<()> {
     match kind {
         CoordinationMutationKindInput::PlanCreate
         | CoordinationMutationKindInput::PlanUpdate
         | CoordinationMutationKindInput::PlanArchive => {
             if let Some(plan_id) = state.get("id").and_then(Value::as_str) {
-                rebind_current_work_plan(session, prism, plan_id);
+                rebind_current_work_plan(host, session, prism, plan_id)?;
             }
         }
         CoordinationMutationKindInput::TaskCreate => {
             if let Some(plan_id) = state.get("planId").and_then(Value::as_str) {
-                rebind_current_work_plan(session, prism, plan_id);
+                rebind_current_work_plan(host, session, prism, plan_id)?;
             }
             if let Some(task_id) = state.get("id").and_then(Value::as_str) {
                 if let Some(task) =
                     prism.coordination_task(&CoordinationTaskId::new(task_id.to_string()))
                 {
-                    maybe_bind_current_work_to_coordination_task(session, prism, &task, false);
+                    maybe_bind_current_work_to_coordination_task(
+                        host, session, prism, &task, false,
+                    )?;
                 }
             }
         }
@@ -276,7 +299,7 @@ fn sync_session_after_coordination_mutation(
         | CoordinationMutationKindInput::PlanEdgeDelete
         | CoordinationMutationKindInput::Update => {
             if let Some(plan_id) = state.get("planId").and_then(Value::as_str) {
-                rebind_current_work_plan(session, prism, plan_id);
+                rebind_current_work_plan(host, session, prism, plan_id)?;
             }
         }
         CoordinationMutationKindInput::Resume
@@ -286,16 +309,19 @@ fn sync_session_after_coordination_mutation(
                 if let Some(task) =
                     prism.coordination_task(&CoordinationTaskId::new(task_id.to_string()))
                 {
-                    maybe_bind_current_work_to_coordination_task(session, prism, &task, true);
+                    maybe_bind_current_work_to_coordination_task(
+                        host, session, prism, &task, true,
+                    )?;
                 }
             }
         }
         CoordinationMutationKindInput::Handoff => {
             if let Some(task_id) = state.get("id").and_then(Value::as_str) {
-                clear_current_coordination_binding(session, task_id);
+                clear_current_coordination_binding(host, session, task_id)?;
             }
         }
     }
+    Ok(())
 }
 
 fn mutation_provenance(
@@ -540,6 +566,8 @@ impl QueryHost {
         } else {
             session.clear_current_task();
         }
+        self.sync_workspace_active_work_context(session);
+        self.persist_flushed_observed_change_checkpoints(session, None)?;
 
         let provenance = mutation_provenance(self, session, authenticated);
         let event = OutcomeEvent {
@@ -586,6 +614,85 @@ impl QueryHost {
             coordination_task_id,
             plan_id,
             plan_title,
+            session: self.session_view_without_refresh(session),
+        })
+    }
+
+    pub(crate) fn store_checkpoint_authenticated(
+        &self,
+        session: &SessionState,
+        args: PrismCheckpointArgs,
+        authenticated: Option<&AuthenticatedPrincipal>,
+    ) -> Result<CheckpointMutationResult> {
+        let summary = args
+            .summary
+            .as_ref()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
+        let task_id = args
+            .task_id
+            .clone()
+            .or_else(|| session.current_work().map(|id| id.0.to_string()))
+            .or_else(|| session.current_task().map(|id| id.0.to_string()))
+            .ok_or_else(|| anyhow!("checkpoint requires current work or explicit task id"))?;
+
+        let mut event_ids = Vec::new();
+        if let Some(workspace) = self.workspace_session_ref() {
+            workspace
+                .flush_observed_changes(prism_core::ObservedChangeFlushTrigger::ExplicitCheckpoint);
+        }
+        event_ids.extend(
+            self.persist_flushed_observed_change_checkpoints(session, summary.as_deref())?
+                .into_iter()
+                .map(|id| id.0.to_string()),
+        );
+
+        if event_ids.is_empty() {
+            let provenance = mutation_provenance(self, session, authenticated);
+            let event = OutcomeEvent {
+                meta: provenance.event_meta(
+                    EventId::new(new_prefixed_id("checkpoint")),
+                    Some(TaskId::new(task_id.clone())),
+                    None,
+                    current_timestamp(),
+                ),
+                anchors: Vec::new(),
+                kind: OutcomeKind::NoteAdded,
+                result: OutcomeResult::Success,
+                summary: summary
+                    .clone()
+                    .unwrap_or_else(|| format!("Checkpointed work {task_id}")),
+                evidence: Vec::new(),
+                metadata: json!({
+                    "observedChangeCheckpoint": ObservedChangeCheckpoint {
+                        flush_trigger: ObservedChangeCheckpointTrigger::ExplicitCheckpoint,
+                        changed_paths: Vec::<String>::new(),
+                        entries: Vec::new(),
+                        window_started_at: current_timestamp(),
+                        window_ended_at: current_timestamp(),
+                        summary: summary.clone(),
+                    }
+                }),
+            };
+            let event_id = if let Some(workspace) = self.workspace_session() {
+                let id = workspace.append_outcome(event)?;
+                self.sync_workspace_revision(workspace)?;
+                id
+            } else {
+                let prism = self.current_prism();
+                prism.apply_outcome_event_to_projections(&event);
+                let id = prism.outcome_memory().store_event(event)?;
+                self.persist_outcomes()?;
+                id
+            };
+            event_ids.push(event_id.0.to_string());
+        }
+
+        self.persist_session_seed(session)?;
+        Ok(CheckpointMutationResult {
+            event_ids,
+            task_id,
+            summary,
             session: self.session_view_without_refresh(session),
         })
     }
@@ -1636,11 +1743,12 @@ impl QueryHost {
                     }
                     let prism = self.current_prism();
                     sync_session_after_coordination_mutation(
+                        self,
                         session,
                         prism.as_ref(),
                         &args_kind,
                         &state,
-                    );
+                    )?;
                     self.persist_session_seed(session)?;
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     return Ok(CoordinationMutationResult {
@@ -1722,7 +1830,13 @@ impl QueryHost {
                 }
             };
         let audit = coordination_audit_since(prism.as_ref(), before_events);
-        sync_session_after_coordination_mutation(session, prism.as_ref(), &args_kind, &state);
+        sync_session_after_coordination_mutation(
+            self,
+            session,
+            prism.as_ref(),
+            &args_kind,
+            &state,
+        )?;
         self.persist_session_seed(session)?;
         Ok(CoordinationMutationResult {
             event_id: event_id.0.to_string(),

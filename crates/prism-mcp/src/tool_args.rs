@@ -1788,6 +1788,7 @@ pub(crate) enum WorkDeclarationKindInput {
 #[derive(Debug)]
 pub(crate) enum PrismMutationKindArgs {
     DeclareWork(PrismDeclareWorkArgs),
+    Checkpoint(PrismCheckpointArgs),
     Outcome(PrismOutcomeArgs),
     Memory(PrismMemoryArgs),
     Concept(PrismConceptMutationArgs),
@@ -1817,6 +1818,7 @@ impl PrismMutationKindArgs {}
 #[serde(rename_all = "snake_case", tag = "action", content = "input")]
 enum PrismMutationKindArgsWire {
     DeclareWork(PrismDeclareWorkArgs),
+    Checkpoint(PrismCheckpointArgs),
     Outcome(PrismOutcomeArgs),
     Memory(PrismMemoryArgs),
     Concept(PrismConceptMutationArgs),
@@ -1851,6 +1853,7 @@ impl From<PrismMutationKindArgsWire> for PrismMutationKindArgs {
     fn from(value: PrismMutationKindArgsWire) -> Self {
         match value {
             PrismMutationKindArgsWire::DeclareWork(args) => Self::DeclareWork(args),
+            PrismMutationKindArgsWire::Checkpoint(args) => Self::Checkpoint(args),
             PrismMutationKindArgsWire::Outcome(args) => Self::Outcome(args),
             PrismMutationKindArgsWire::Memory(args) => Self::Memory(args),
             PrismMutationKindArgsWire::Concept(args) => Self::Concept(args),
@@ -1940,6 +1943,7 @@ impl<'de> Deserialize<'de> for PrismMutationArgs {
 #[serde(rename_all = "snake_case")]
 pub(crate) enum PrismMutationActionSchema {
     DeclareWork,
+    Checkpoint,
     Outcome,
     Memory,
     Concept,
@@ -1994,6 +1998,23 @@ pub(crate) struct WorkDeclarationResult {
     pub(crate) coordination_task_id: Option<String>,
     pub(crate) plan_id: Option<String>,
     pub(crate) plan_title: Option<String>,
+    pub(crate) session: SessionView,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismCheckpointArgs {
+    pub(crate) summary: Option<String>,
+    #[serde(alias = "task_id")]
+    pub(crate) task_id: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CheckpointMutationResult {
+    pub(crate) event_ids: Vec<String>,
+    pub(crate) task_id: String,
+    pub(crate) summary: Option<String>,
     pub(crate) session: SessionView,
 }
 

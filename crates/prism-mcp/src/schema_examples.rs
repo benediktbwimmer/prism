@@ -127,6 +127,7 @@ fn prism_mutate_examples() -> Vec<Value> {
     let mut examples = [
         "validation_feedback",
         "declare_work",
+        "checkpoint",
         "session_repair",
         "outcome",
         "memory",
@@ -175,6 +176,13 @@ fn prism_mutate_action_example(action: &str) -> Option<Value> {
                 "summary": "Bootstrap durable work attribution before later mutations.",
                 "parentWorkId": "work:parent-demo",
                 "planId": "plan:demo-main"
+            }
+        })),
+        "checkpoint" => Some(json!({
+            "action": "checkpoint",
+            "input": {
+                "summary": "Checkpoint the current implementation milestone.",
+                "taskId": "work:demo-main"
             }
         })),
         "session_repair" => Some(json!({

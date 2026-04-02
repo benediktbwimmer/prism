@@ -5267,7 +5267,7 @@ return {
 
     let mutate = &result.result["mutateSummary"];
     assert_eq!(mutate["toolName"], "prism_mutate");
-    assert_eq!(mutate["actionCount"], 21);
+    assert_eq!(mutate["actionCount"], 22);
     assert_eq!(mutate["exampleAction"], "validation_feedback");
     assert_eq!(
         mutate["examplePrismSaid"],
@@ -12153,6 +12153,334 @@ fn declare_work_sets_current_work_and_subsequent_outcomes_use_work_ids() {
     assert_eq!(current_work.work_id, declared.work_id);
     assert_eq!(current_work.title, "Curate current work model");
     assert!(session.current_task.is_none());
+    let workspace_work = host
+        .workspace_session()
+        .expect("workspace-backed host")
+        .active_work_context()
+        .expect("workspace session should mirror declared work");
+    assert_eq!(workspace_work.work_id, declared.work_id);
+    assert_eq!(workspace_work.title, "Curate current work model");
+    assert_eq!(
+        workspace_work.summary.as_deref(),
+        Some("Bootstrap work attribution.")
+    );
+}
+
+#[test]
+fn restored_session_seed_rebinds_workspace_active_work_context() {
+    let root = temp_workspace();
+    let (workspace, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    let host = QueryHost::with_session(workspace);
+
+    let declared = host
+        .declare_work_without_refresh_authenticated(
+            test_session(&host).as_ref(),
+            PrismDeclareWorkArgs {
+                title: "Persist mirrored work context".to_string(),
+                kind: Some(WorkDeclarationKindInput::AdHoc),
+                summary: Some("Reload should restore active work.".to_string()),
+                parent_work_id: None,
+                coordination_task_id: None,
+                plan_id: None,
+            },
+            Some(&authenticated),
+        )
+        .expect("work should declare");
+
+    let reloaded = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let _ = test_session(&reloaded);
+    let workspace_work = reloaded
+        .workspace_session()
+        .expect("workspace-backed host")
+        .active_work_context()
+        .expect("restored session should rebind active work");
+    assert_eq!(workspace_work.work_id, declared.work_id);
+    assert_eq!(workspace_work.title, "Persist mirrored work context");
+    assert_eq!(
+        workspace_work.summary.as_deref(),
+        Some("Reload should restore active work.")
+    );
+}
+
+#[test]
+fn authenticated_mutation_flushes_accumulated_observed_changes() {
+    let root = temp_workspace();
+    let (workspace, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    workspace
+        .bind_or_validate_worktree_principal(&authenticated)
+        .expect("principal should bind to the worktree");
+    let server = PrismMcpServer::with_session_and_features(
+        workspace,
+        PrismMcpFeatures::full().with_internal_developer(true),
+    );
+
+    let declared = server
+        .host
+        .declare_work_without_refresh_authenticated(
+            test_session(&server.host).as_ref(),
+            PrismDeclareWorkArgs {
+                title: "Capture file edits automatically".to_string(),
+                kind: Some(WorkDeclarationKindInput::AdHoc),
+                summary: Some("Observed changes should flush on the next mutation.".to_string()),
+                parent_work_id: None,
+                coordination_task_id: None,
+                plan_id: None,
+            },
+            Some(&authenticated),
+        )
+        .expect("work should declare");
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { gamma(); }\npub fn gamma() {}\n",
+    )
+    .unwrap();
+    server.host.observe_workspace_for_read().unwrap();
+    wait_until(
+        "background workspace refresh after declared-work edit",
+        || {
+            server
+                .host
+                .execute(
+                    test_session(&server.host),
+                    r#"
+const sym = prism.symbol("gamma");
+return sym?.id.path ?? null;
+"#,
+                    QueryLanguage::Ts,
+                )
+                .map(|result| result.result == Value::String("demo::gamma".to_string()))
+                .unwrap_or(false)
+        },
+    );
+
+    server
+        .execute_logged_mutation(
+            "mutate.outcome",
+            MutationRefreshPolicy::None,
+            || {
+                server.host.store_outcome_without_refresh_authenticated(
+                    test_session(&server.host).as_ref(),
+                    PrismOutcomeArgs {
+                        anchors: Vec::new(),
+                        kind: OutcomeKindInput::NoteAdded,
+                        summary: "Flush observed changes at mutation boundary".to_string(),
+                        result: Some(OutcomeResultInput::Success),
+                        evidence: None,
+                        task_id: None,
+                    },
+                    Some(&authenticated),
+                )
+            },
+            |result| {
+                MutationDashboardMeta::task(
+                    Some(result.task_id.clone()),
+                    vec![result.task_id.clone(), result.event_id.clone()],
+                    0,
+                )
+            },
+        )
+        .expect("follow-up authenticated mutation should succeed");
+
+    let replay = server
+        .host
+        .current_prism()
+        .resume_task(&TaskId::new(declared.work_id.clone()));
+    let checkpoint = replay
+        .events
+        .into_iter()
+        .find(|event| {
+            event.metadata["observedChangeCheckpoint"]["flushTrigger"]
+                == Value::String("mutation_boundary".to_string())
+        })
+        .expect("mutation boundary should publish a durable checkpoint event");
+    let change_set = &checkpoint.metadata["observedChangeCheckpoint"];
+    assert!(
+        change_set["changedPaths"]
+            .as_array()
+            .expect("changed paths should serialize as an array")
+            .iter()
+            .any(|path| path
+                .as_str()
+                .is_some_and(|path| path.ends_with("src/lib.rs"))),
+        "expected changed paths to include src/lib.rs, got {:?}",
+        change_set["changedPaths"]
+    );
+}
+
+#[test]
+fn declare_work_publishes_work_transition_checkpoint_for_prior_work() {
+    let root = temp_workspace();
+    let (workspace, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    workspace
+        .bind_or_validate_worktree_principal(&authenticated)
+        .expect("principal should bind to the worktree");
+    let host = QueryHost::with_session(workspace);
+
+    let first = host
+        .declare_work_without_refresh_authenticated(
+            test_session(&host).as_ref(),
+            PrismDeclareWorkArgs {
+                title: "First implementation slice".to_string(),
+                kind: Some(WorkDeclarationKindInput::AdHoc),
+                summary: Some("Own the first work context.".to_string()),
+                parent_work_id: None,
+                coordination_task_id: None,
+                plan_id: None,
+            },
+            Some(&authenticated),
+        )
+        .expect("first work should declare");
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { gamma(); }\npub fn gamma() {}\n",
+    )
+    .unwrap();
+    host.observe_workspace_for_read().unwrap();
+    wait_until(
+        "background workspace refresh before work transition",
+        || {
+            host.execute(
+                test_session(&host),
+                r#"
+const sym = prism.symbol("gamma");
+return sym?.id.path ?? null;
+"#,
+                QueryLanguage::Ts,
+            )
+            .map(|result| result.result == Value::String("demo::gamma".to_string()))
+            .unwrap_or(false)
+        },
+    );
+
+    host.declare_work_without_refresh_authenticated(
+        test_session(&host).as_ref(),
+        PrismDeclareWorkArgs {
+            title: "Second implementation slice".to_string(),
+            kind: Some(WorkDeclarationKindInput::AdHoc),
+            summary: Some("Transition into a new work context.".to_string()),
+            parent_work_id: None,
+            coordination_task_id: None,
+            plan_id: None,
+        },
+        Some(&authenticated),
+    )
+    .expect("second work should declare");
+
+    let replay = host
+        .current_prism()
+        .resume_task(&TaskId::new(first.work_id.clone()));
+    let checkpoint = replay
+        .events
+        .into_iter()
+        .find(|event| {
+            event.metadata["observedChangeCheckpoint"]["flushTrigger"]
+                == Value::String("work_transition".to_string())
+        })
+        .expect("work transition should publish a checkpoint for the prior work");
+    assert!(
+        checkpoint.metadata["observedChangeCheckpoint"]["changedPaths"]
+            .as_array()
+            .expect("changed paths should serialize as an array")
+            .iter()
+            .any(|path| path
+                .as_str()
+                .is_some_and(|path| path.ends_with("src/lib.rs")))
+    );
+}
+
+#[test]
+fn explicit_checkpoint_mutation_publishes_checkpoint_without_pending_changes() {
+    let root = temp_workspace();
+    let (workspace, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = workspace
+        .authenticate_principal_credential(
+            &CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    workspace
+        .bind_or_validate_worktree_principal(&authenticated)
+        .expect("principal should bind to the worktree");
+    let server = PrismMcpServer::with_session_and_features(
+        workspace,
+        PrismMcpFeatures::full().with_internal_developer(true),
+    );
+
+    let declared = server
+        .host
+        .declare_work_without_refresh_authenticated(
+            test_session(&server.host).as_ref(),
+            PrismDeclareWorkArgs {
+                title: "Manual milestone".to_string(),
+                kind: Some(WorkDeclarationKindInput::AdHoc),
+                summary: Some("Prepare for an explicit checkpoint.".to_string()),
+                parent_work_id: None,
+                coordination_task_id: None,
+                plan_id: None,
+            },
+            Some(&authenticated),
+        )
+        .expect("work should declare");
+
+    let result = server
+        .execute_logged_mutation(
+            "mutate.checkpoint",
+            MutationRefreshPolicy::None,
+            || {
+                server.host.store_checkpoint_authenticated(
+                    test_session(&server.host).as_ref(),
+                    PrismCheckpointArgs {
+                        summary: Some("Checkpoint the milestone boundary.".to_string()),
+                        task_id: None,
+                    },
+                    Some(&authenticated),
+                )
+            },
+            |result| {
+                let mut ids = result.event_ids.clone();
+                ids.push(result.task_id.clone());
+                MutationDashboardMeta::task(Some(result.task_id.clone()), ids, 0)
+            },
+        )
+        .expect("explicit checkpoint should succeed");
+    assert_eq!(result.task_id, declared.work_id);
+
+    let replay = server
+        .host
+        .current_prism()
+        .resume_task(&TaskId::new(declared.work_id.clone()));
+    let checkpoint = replay
+        .events
+        .into_iter()
+        .find(|event| {
+            event.metadata["observedChangeCheckpoint"]["flushTrigger"]
+                == Value::String("explicit_checkpoint".to_string())
+        })
+        .expect("explicit checkpoint should publish a durable checkpoint event");
+    assert_eq!(
+        checkpoint.metadata["observedChangeCheckpoint"]["summary"],
+        Value::String("Checkpoint the milestone boundary.".to_string())
+    );
 }
 
 #[test]

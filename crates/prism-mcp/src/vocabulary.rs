@@ -20,6 +20,11 @@ const PRISM_MUTATE_ACTIONS: &[VocabularyValueSpec] = &[
         description: "Declare durable current work context for subsequent mutations.",
     },
     VocabularyValueSpec {
+        value: "checkpoint",
+        aliases: &[],
+        description: "Publish a standalone observed-change checkpoint for the current work.",
+    },
+    VocabularyValueSpec {
         value: "outcome",
         aliases: &[],
         description: "Record a durable outcome event.",

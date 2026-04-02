@@ -1,4 +1,4 @@
-use prism_core::{AdmissionBusyError, AuthenticatedPrincipal};
+use prism_core::{AdmissionBusyError, AuthenticatedPrincipal, ObservedChangeFlushTrigger};
 use prism_ir::{CredentialCapability, CredentialId};
 use prism_js::{
     AgentConceptResultView, AgentExpandResultView, AgentGatherResultView, AgentLocateResultView,
@@ -380,6 +380,14 @@ impl PrismMcpServer {
         }
 
         let operation_started = Instant::now();
+        if action != "mutate.declare_work" && action != "mutate.checkpoint" {
+            if let Some(workspace) = self.host.workspace_session_ref() {
+                workspace.flush_observed_changes(ObservedChangeFlushTrigger::MutationBoundary);
+            }
+            self.host
+                .persist_flushed_observed_change_checkpoints(self.session.as_ref(), None)
+                .map_err(map_query_error)?;
+        }
         let (operation_result, traced_phases) =
             prism_core::mutation_trace::scope(|| operation(&run));
         for phase in traced_phases {
@@ -882,6 +890,34 @@ impl PrismMcpServer {
                 )?;
                 structured_tool_result(PrismMutationResult {
                     action: PrismMutationActionSchema::DeclareWork,
+                    result: serde_json::to_value(result)
+                        .map_err(|err| map_query_error(err.into()))?,
+                })
+            }
+            PrismMutationKindArgs::Checkpoint(args) => {
+                let authenticated = self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
+                self.require_declared_work_context("checkpoint", args.task_id.is_some())?;
+                let result = self.execute_logged_mutation(
+                    "mutate.checkpoint",
+                    MutationRefreshPolicy::None,
+                    || {
+                        self.host.store_checkpoint_authenticated(
+                            self.session.as_ref(),
+                            args,
+                            Some(&authenticated),
+                        )
+                    },
+                    |result| {
+                        let mut result_ids = result.event_ids.clone();
+                        result_ids.push(result.task_id.clone());
+                        MutationDashboardMeta::task(Some(result.task_id.clone()), result_ids, 0)
+                    },
+                )?;
+                structured_tool_result(PrismMutationResult {
+                    action: PrismMutationActionSchema::Checkpoint,
                     result: serde_json::to_value(result)
                         .map_err(|err| map_query_error(err.into()))?,
                 })

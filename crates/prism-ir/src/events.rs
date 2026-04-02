@@ -63,6 +63,42 @@ pub struct WorkContextSnapshot {
     pub plan_title: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ObservedChangeCheckpointTrigger {
+    MutationBoundary,
+    WorkTransition,
+    Disconnect,
+    ExplicitCheckpoint,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ObservedChangeCheckpointEntry {
+    pub trigger: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_path: Option<String>,
+    pub file_count: usize,
+    pub added_nodes: usize,
+    pub removed_nodes: usize,
+    pub updated_nodes: usize,
+    pub observed_at: Timestamp,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ObservedChangeCheckpoint {
+    pub flush_trigger: ObservedChangeCheckpointTrigger,
+    pub changed_paths: Vec<String>,
+    pub entries: Vec<ObservedChangeCheckpointEntry>,
+    pub window_started_at: Timestamp,
+    pub window_ended_at: Timestamp,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum EventActor {
     User,

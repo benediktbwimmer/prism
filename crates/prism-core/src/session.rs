@@ -15,9 +15,11 @@ use prism_curator::{
 };
 use prism_history::HistoryStore;
 use prism_ir::{
-    ChangeTrigger, CredentialId, EventExecutionContext, EventId, LineageEvent, LineageId,
-    ObservedChangeSet, PlanExecutionOverlay, PlanGraph, PrincipalRegistrySnapshot, SessionId,
-    TaskId,
+    new_prefixed_id, ChangeTrigger, CredentialId, EventActor, EventExecutionContext, EventId,
+    EventMeta, LineageEvent, LineageId, ObservedChangeCheckpoint, ObservedChangeCheckpointEntry,
+    ObservedChangeCheckpointTrigger, ObservedChangeSet, PlanExecutionOverlay, PlanGraph,
+    PrincipalActor, PrincipalAuthorityId, PrincipalId, PrincipalRegistrySnapshot, SessionId,
+    TaskId, WorkContextSnapshot,
 };
 use prism_memory::OutcomeMemory;
 use prism_memory::{
@@ -31,7 +33,7 @@ use prism_projections::{
 use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, Graph, SqliteStore, Store, WorkspaceTreeSnapshot};
 use serde_json::{json, Value};
-use tracing::info;
+use tracing::{info, warn};
 
 pub use prism_store::SnapshotRevisions as WorkspaceSnapshotRevisions;
 
@@ -60,6 +62,7 @@ use crate::memory_events::{
     append_repo_memory_event, filter_memory_events, load_repo_memory_events,
 };
 use crate::mutation_trace;
+use crate::observed_change_tracker::SharedObservedChangeTracker;
 use crate::outcome_backend::StoreOutcomeReadBackend;
 use crate::prism_doc::{sync_repo_prism_doc, PrismDocSyncResult};
 use crate::published_knowledge::{
@@ -86,6 +89,7 @@ use crate::workspace_tree::{
     WorkspaceRefreshPlan,
 };
 use crate::worktree_principal::BoundWorktreePrincipal;
+use crate::{ActiveWorkContextBinding, FlushedObservedChangeSet, ObservedChangeFlushTrigger};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FsRefreshStatus {
@@ -427,9 +431,127 @@ pub struct WorkspaceSession {
     pub(crate) shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     pub(crate) coordination_enabled: bool,
     pub(crate) worktree_principal_binding: Arc<Mutex<Option<BoundWorktreePrincipal>>>,
+    pub(crate) observed_change_tracker: SharedObservedChangeTracker,
 }
 
 impl WorkspaceSession {
+    pub fn bind_active_work_context(&self, work: ActiveWorkContextBinding) {
+        self.observed_change_tracker
+            .lock()
+            .expect("observed change tracker lock poisoned")
+            .set_active_work(work);
+    }
+
+    pub fn clear_active_work_context(&self) {
+        self.observed_change_tracker
+            .lock()
+            .expect("observed change tracker lock poisoned")
+            .clear_active_work();
+    }
+
+    pub fn active_work_context(&self) -> Option<ActiveWorkContextBinding> {
+        self.observed_change_tracker
+            .lock()
+            .expect("observed change tracker lock poisoned")
+            .active_work()
+    }
+
+    pub fn flush_observed_changes(&self, trigger: ObservedChangeFlushTrigger) {
+        self.observed_change_tracker
+            .lock()
+            .expect("observed change tracker lock poisoned")
+            .flush(trigger);
+    }
+
+    pub fn take_flushed_observed_changes(&self) -> Vec<FlushedObservedChangeSet> {
+        self.observed_change_tracker
+            .lock()
+            .expect("observed change tracker lock poisoned")
+            .take_flushed()
+    }
+
+    pub fn persist_flushed_observed_change_checkpoints(
+        &self,
+        session_id: Option<&SessionId>,
+        request_id: Option<String>,
+        credential_id: Option<&CredentialId>,
+        summary: Option<&str>,
+    ) -> Result<Vec<EventId>> {
+        let flushed = self.take_flushed_observed_changes();
+        if flushed.is_empty() {
+            return Ok(Vec::new());
+        }
+        let normalized_summary = summary
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned);
+        let mut event_ids = Vec::with_capacity(flushed.len());
+        for change_set in flushed {
+            let checkpoint = ObservedChangeCheckpoint {
+                flush_trigger: observed_change_checkpoint_trigger(change_set.trigger),
+                changed_paths: change_set.changed_paths.clone(),
+                entries: change_set
+                    .entries
+                    .iter()
+                    .map(|entry| ObservedChangeCheckpointEntry {
+                        trigger: format!("{:?}", entry.trigger).to_ascii_lowercase(),
+                        previous_path: entry.previous_path.clone(),
+                        current_path: entry.current_path.clone(),
+                        file_count: entry.file_count,
+                        added_nodes: entry.added_nodes,
+                        removed_nodes: entry.removed_nodes,
+                        updated_nodes: entry.updated_nodes,
+                        observed_at: entry.observed_at,
+                    })
+                    .collect(),
+                window_started_at: change_set.window_started_at,
+                window_ended_at: change_set.window_ended_at,
+                summary: normalized_summary.clone(),
+            };
+            let summary = normalized_summary
+                .clone()
+                .unwrap_or_else(|| default_observed_change_checkpoint_summary(&change_set));
+            let mut execution_context =
+                self.event_execution_context(session_id, request_id.clone(), credential_id);
+            execution_context.work_context = Some(WorkContextSnapshot {
+                work_id: change_set.work.work_id.clone(),
+                kind: change_set.work.kind,
+                title: change_set.work.title.clone(),
+                parent_work_id: change_set.work.parent_work_id.clone(),
+                coordination_task_id: change_set.work.coordination_task_id.clone(),
+                plan_id: change_set.work.plan_id.clone(),
+                plan_title: change_set.work.plan_title.clone(),
+            });
+            let event = OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new(new_prefixed_id("checkpoint")),
+                    ts: change_set.window_ended_at,
+                    actor: EventActor::Principal(PrincipalActor {
+                        authority_id: PrincipalAuthorityId::new(
+                            change_set.principal.authority_id.clone(),
+                        ),
+                        principal_id: PrincipalId::new(change_set.principal.principal_id.clone()),
+                        kind: None,
+                        name: Some(change_set.principal.principal_name.clone()),
+                    }),
+                    correlation: Some(TaskId::new(change_set.work.work_id.clone())),
+                    causation: None,
+                    execution_context: Some(execution_context),
+                },
+                anchors: Vec::new(),
+                kind: prism_memory::OutcomeKind::NoteAdded,
+                result: prism_memory::OutcomeResult::Success,
+                summary,
+                evidence: Vec::new(),
+                metadata: json!({
+                    "observedChangeCheckpoint": checkpoint,
+                }),
+            };
+            event_ids.push(self.append_outcome(event)?);
+        }
+        Ok(event_ids)
+    }
+
     fn shared_runtime_store(&self) -> Option<&Arc<Mutex<SharedRuntimeStore>>> {
         self.shared_runtime_store.as_ref()
     }
@@ -2831,6 +2953,8 @@ impl WorkspaceSession {
             self.shared_runtime_materializer.clone(),
             self.coordination_enabled,
             curator.as_ref(),
+            &self.observed_change_tracker,
+            &self.worktree_principal_binding,
             trigger,
             known_fingerprint,
             dirty_paths_override,
@@ -2859,6 +2983,8 @@ impl WorkspaceSession {
             self.shared_runtime_materializer.clone(),
             self.coordination_enabled,
             self.curator.as_ref().map(CuratorHandleRef::from).as_ref(),
+            &self.observed_change_tracker,
+            &self.worktree_principal_binding,
             trigger,
             known_fingerprint,
             dirty_paths_override,
@@ -2883,6 +3009,10 @@ impl Drop for WorkspaceSession {
             let _ = watch.stop.send(WatchMessage::Stop);
             let _ = watch.handle.join();
         }
+        if let Err(error) = self.persist_flushed_observed_change_checkpoints(None, None, None, None)
+        {
+            warn!(error = %error, "failed to persist observed change checkpoints during workspace session shutdown");
+        }
         if let Some(mut curator) = self.curator.take() {
             curator.stop();
         }
@@ -2893,4 +3023,30 @@ impl Drop for WorkspaceSession {
             materializer.stop();
         }
     }
+}
+
+fn observed_change_checkpoint_trigger(
+    trigger: ObservedChangeFlushTrigger,
+) -> ObservedChangeCheckpointTrigger {
+    match trigger {
+        ObservedChangeFlushTrigger::MutationBoundary => {
+            ObservedChangeCheckpointTrigger::MutationBoundary
+        }
+        ObservedChangeFlushTrigger::WorkTransition => {
+            ObservedChangeCheckpointTrigger::WorkTransition
+        }
+        ObservedChangeFlushTrigger::Disconnect => ObservedChangeCheckpointTrigger::Disconnect,
+        ObservedChangeFlushTrigger::ExplicitCheckpoint => {
+            ObservedChangeCheckpointTrigger::ExplicitCheckpoint
+        }
+    }
+}
+
+fn default_observed_change_checkpoint_summary(change_set: &FlushedObservedChangeSet) -> String {
+    let path_count = change_set.changed_paths.len();
+    let noun = if path_count == 1 { "path" } else { "paths" };
+    format!(
+        "Checkpointed {path_count} changed {noun} for work {}",
+        change_set.work.title
+    )
 }

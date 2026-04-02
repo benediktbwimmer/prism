@@ -29,6 +29,7 @@ use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator::{enqueue_curator_for_observed_async, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
 use crate::layout::discover_layout;
+use crate::observed_change_tracker::SharedObservedChangeTracker;
 use crate::session::{
     WorkspaceRefreshBreakdown, WorkspaceRefreshResult, WorkspaceRefreshState, WorkspaceSession,
 };
@@ -44,6 +45,7 @@ use crate::workspace_tree::{
     diff_workspace_tree_snapshot, plan_full_refresh, plan_incremental_refresh,
     populate_package_regions, WorkspaceRefreshMode,
 };
+use crate::worktree_principal::BoundWorktreePrincipal;
 
 const ASSISTED_LEASE_RENEWAL_ENV: &str = "PRISM_ASSISTED_LEASE_RENEWAL";
 
@@ -73,6 +75,8 @@ pub(crate) fn spawn_fs_watch(
     shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     coordination_enabled: bool,
     curator: Option<CuratorHandleRef>,
+    observed_change_tracker: SharedObservedChangeTracker,
+    worktree_principal_binding: Arc<Mutex<Option<BoundWorktreePrincipal>>>,
 ) -> Result<WatchHandle> {
     let (msg_tx, msg_rx) = mpsc::channel::<WatchMessage>();
     let (ready_tx, ready_rx) = mpsc::sync_channel::<bool>(1);
@@ -108,7 +112,13 @@ pub(crate) fn spawn_fs_watch(
         loop {
             let event = match msg_rx.recv() {
                 Ok(WatchMessage::Fs(event)) => event,
-                Ok(WatchMessage::Stop) | Err(mpsc::RecvError) => break,
+                Ok(WatchMessage::Stop) | Err(mpsc::RecvError) => {
+                    observed_change_tracker
+                        .lock()
+                        .expect("observed change tracker lock poisoned")
+                        .flush(crate::ObservedChangeFlushTrigger::Disconnect);
+                    break;
+                }
             };
 
             let Ok(event) = event else {
@@ -128,7 +138,13 @@ pub(crate) fn spawn_fs_watch(
                         }
                     }
                     WatchMessage::Fs(Err(_)) => continue,
-                    WatchMessage::Stop => return,
+                    WatchMessage::Stop => {
+                        observed_change_tracker
+                            .lock()
+                            .expect("observed change tracker lock poisoned")
+                            .flush(crate::ObservedChangeFlushTrigger::Disconnect);
+                        return;
+                    }
                 };
             }
 
@@ -151,6 +167,8 @@ pub(crate) fn spawn_fs_watch(
                     shared_runtime_materializer.clone(),
                     coordination_enabled,
                     curator.as_ref(),
+                    &observed_change_tracker,
+                    &worktree_principal_binding,
                     ChangeTrigger::FsWatch,
                     None,
                     Some(dirty_paths),
@@ -190,6 +208,8 @@ pub(crate) fn refresh_prism_snapshot(
     shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
+    observed_change_tracker: &SharedObservedChangeTracker,
+    worktree_principal_binding: &Arc<Mutex<Option<BoundWorktreePrincipal>>>,
     trigger: ChangeTrigger,
     known_fingerprint: Option<WorkspaceTreeSnapshot>,
     dirty_paths_override: Option<Vec<PathBuf>>,
@@ -212,6 +232,8 @@ pub(crate) fn refresh_prism_snapshot(
         shared_runtime_materializer,
         coordination_enabled,
         curator,
+        observed_change_tracker,
+        worktree_principal_binding,
         trigger,
         known_fingerprint,
         dirty_paths_override,
@@ -235,6 +257,8 @@ pub(crate) fn try_refresh_prism_snapshot(
     shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
+    observed_change_tracker: &SharedObservedChangeTracker,
+    worktree_principal_binding: &Arc<Mutex<Option<BoundWorktreePrincipal>>>,
     trigger: ChangeTrigger,
     known_fingerprint: Option<WorkspaceTreeSnapshot>,
     dirty_paths_override: Option<Vec<PathBuf>>,
@@ -257,6 +281,8 @@ pub(crate) fn try_refresh_prism_snapshot(
         shared_runtime_materializer,
         coordination_enabled,
         curator,
+        observed_change_tracker,
+        worktree_principal_binding,
         trigger,
         known_fingerprint,
         dirty_paths_override,
@@ -280,6 +306,8 @@ fn refresh_prism_snapshot_with_guard(
     shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
+    observed_change_tracker: &SharedObservedChangeTracker,
+    worktree_principal_binding: &Arc<Mutex<Option<BoundWorktreePrincipal>>>,
     trigger: ChangeTrigger,
     known_fingerprint: Option<WorkspaceTreeSnapshot>,
     dirty_paths_override: Option<Vec<PathBuf>>,
@@ -413,6 +441,16 @@ fn refresh_prism_snapshot_with_guard(
     };
     let index_workspace_ms =
         u64::try_from(index_workspace_started.elapsed().as_millis()).unwrap_or(u64::MAX);
+    observed_change_tracker
+        .lock()
+        .expect("observed change tracker lock poisoned")
+        .record(
+            worktree_principal_binding
+                .lock()
+                .expect("worktree principal binding lock poisoned")
+                .clone(),
+            &observed,
+        );
     let local_workspace_revision = indexer.store.workspace_revision()?;
     let workspace_revision = composite_workspace_revision(
         local_workspace_revision,
