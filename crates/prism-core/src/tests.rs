@@ -60,6 +60,7 @@ use crate::protected_state::repo_streams::{
 use crate::protected_state::streams::ProtectedRepoStream;
 use crate::repo_patch_events::load_repo_patch_events;
 use crate::session::HOT_OUTCOME_HYDRATION_LIMIT;
+use crate::workspace_identity::{canonical_root_repo_id, workspace_identity_for_root};
 use crate::workspace_tree::build_workspace_tree_snapshot;
 
 static NEXT_TEMP_WORKSPACE: AtomicU64 = AtomicU64::new(0);
@@ -396,8 +397,10 @@ fn prism_paths_respect_prism_home_override_and_write_metadata_manifests() {
     let root = temp_workspace();
     let prism_home = temp_workspace();
     fs::create_dir_all(&root).unwrap();
+    fs::create_dir_all(root.join(".git")).unwrap();
     fs::create_dir_all(&prism_home).unwrap();
     fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
+    fs::write(root.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
 
     let _env = PrismHomeEnvGuard::set(&prism_home);
 
@@ -419,16 +422,17 @@ fn prism_paths_respect_prism_home_override_and_write_metadata_manifests() {
     let worktree_metadata: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(&worktree_metadata_path).unwrap()).unwrap();
     let canonical_root = root.canonicalize().unwrap();
+    let canonical_git_dir = root.join(".git").canonicalize().unwrap();
 
     assert_eq!(repo_metadata["version"], json!(1));
     assert!(repo_metadata["repo_id"]
         .as_str()
         .unwrap()
         .starts_with("repo:"));
-    assert_eq!(repo_metadata["locator_kind"], json!("canonical_root"));
+    assert_eq!(repo_metadata["locator_kind"], json!("git_common_dir"));
     assert_eq!(
         repo_metadata["locator_path"],
-        json!(canonical_root.to_string_lossy().to_string())
+        json!(canonical_git_dir.to_string_lossy().to_string())
     );
     assert_eq!(
         repo_metadata["canonical_root_hint"],
@@ -485,6 +489,162 @@ fn prism_paths_default_test_home_is_temporary_and_cleans_up_after_thread_exit() 
     );
 
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn workspace_identity_primary_and_linked_worktrees_share_repo_id() {
+    let primary_root = temp_workspace();
+    let linked_root = temp_workspace();
+    fs::create_dir_all(primary_root.join(".git/worktrees/linked")).unwrap();
+    fs::create_dir_all(&linked_root).unwrap();
+    fs::write(primary_root.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
+    fs::write(
+        primary_root.join(".git/worktrees/linked/HEAD"),
+        "ref: refs/heads/feature\n",
+    )
+    .unwrap();
+    fs::write(
+        primary_root.join(".git/worktrees/linked/commondir"),
+        "../..\n",
+    )
+    .unwrap();
+    fs::write(
+        linked_root.join(".git"),
+        format!(
+            "gitdir: {}\n",
+            primary_root.join(".git/worktrees/linked").display()
+        ),
+    )
+    .unwrap();
+
+    let primary = workspace_identity_for_root(&primary_root);
+    let linked = workspace_identity_for_root(&linked_root);
+    let canonical_git_dir = primary_root.join(".git").canonicalize().unwrap();
+
+    assert_eq!(primary.repo_locator_kind, "git_common_dir");
+    assert_eq!(linked.repo_locator_kind, "git_common_dir");
+    assert_eq!(primary.repo_locator_path, canonical_git_dir);
+    assert_eq!(linked.repo_locator_path, canonical_git_dir);
+    assert_eq!(primary.repo_id, linked.repo_id);
+    assert_ne!(primary.worktree_id, linked.worktree_id);
+
+    let _ = fs::remove_dir_all(primary_root);
+    let _ = fs::remove_dir_all(linked_root);
+}
+
+#[test]
+fn prism_paths_migrates_legacy_canonical_repo_home_into_git_common_dir_repo_home() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+
+    let root = temp_workspace();
+    let prism_home = temp_workspace();
+    fs::create_dir_all(&root).unwrap();
+    fs::create_dir_all(root.join(".git")).unwrap();
+    fs::create_dir_all(&prism_home).unwrap();
+    fs::write(root.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
+
+    let _env = PrismHomeEnvGuard::set(&prism_home);
+
+    let identity = workspace_identity_for_root(&root);
+    let legacy_repo_home = prism_home
+        .join("repos")
+        .join(canonical_root_repo_id(&root).replace(':', "-"));
+    let current_repo_home = prism_home
+        .join("repos")
+        .join(identity.repo_id.replace(':', "-"));
+    let legacy_worktree_dir = legacy_repo_home
+        .join("worktrees")
+        .join(identity.worktree_id.replace(':', "-"));
+
+    fs::create_dir_all(legacy_worktree_dir.join("mcp/logs")).unwrap();
+    fs::create_dir_all(legacy_repo_home.join("feedback")).unwrap();
+    fs::write(
+        legacy_repo_home.join("repo.json"),
+        serde_json::to_string_pretty(&json!({
+            "version": 1,
+            "repo_id": "repo:legacy",
+            "locator_kind": "canonical_root",
+            "locator_path": root.to_string_lossy().to_string(),
+            "canonical_root_hint": root.to_string_lossy().to_string(),
+            "created_at": 1,
+            "last_seen_at": 1,
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    fs::write(
+        legacy_worktree_dir.join("worktree.json"),
+        serde_json::to_string_pretty(&json!({
+            "version": 1,
+            "repo_id": "repo:legacy",
+            "worktree_id": identity.worktree_id,
+            "canonical_root": root.to_string_lossy().to_string(),
+            "branch_ref": "refs/heads/main",
+            "created_at": 1,
+            "last_seen_at": 1,
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    fs::write(
+        legacy_repo_home.join("feedback/validation_feedback.jsonl"),
+        "{\"id\":\"feedback:legacy\"}\n",
+    )
+    .unwrap();
+
+    let sibling_worktree_dir = current_repo_home.join("worktrees/worktree-sibling");
+    fs::create_dir_all(sibling_worktree_dir.join("mcp/logs")).unwrap();
+    fs::create_dir_all(current_repo_home.join("feedback")).unwrap();
+    fs::write(
+        sibling_worktree_dir.join("worktree.json"),
+        serde_json::to_string_pretty(&json!({
+            "version": 1,
+            "repo_id": identity.repo_id,
+            "worktree_id": "worktree:sibling",
+            "canonical_root": "/tmp/sibling",
+            "branch_ref": "refs/heads/main",
+            "created_at": 2,
+            "last_seen_at": 2,
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    fs::write(
+        current_repo_home.join("feedback/validation_feedback.jsonl"),
+        "{\"id\":\"feedback:new\"}\n",
+    )
+    .unwrap();
+
+    let paths = PrismPaths::for_workspace_root(&root).unwrap();
+    let feedback_path = paths.validation_feedback_path().unwrap();
+
+    assert_eq!(paths.repo_home_dir(), current_repo_home.as_path());
+    assert!(
+        !legacy_repo_home.exists(),
+        "legacy canonical-root repo home should be migrated away"
+    );
+    assert!(
+        current_repo_home
+            .join("worktrees/worktree-sibling/worktree.json")
+            .exists(),
+        "existing sibling worktree metadata should be preserved"
+    );
+
+    let feedback = fs::read_to_string(&feedback_path).unwrap();
+    assert!(feedback.contains("feedback:legacy"));
+    assert!(feedback.contains("feedback:new"));
+
+    let migrated_worktree_metadata: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(paths.worktree_dir().join("worktree.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        migrated_worktree_metadata["repo_id"],
+        json!(identity.repo_id)
+    );
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(prism_home);
 }
 
 #[test]

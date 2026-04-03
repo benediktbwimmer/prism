@@ -51,6 +51,11 @@ pub(crate) fn workspace_identity_for_root(root: &Path) -> WorkspaceIdentity {
     }
 }
 
+pub(crate) fn canonical_root_repo_id(root: &Path) -> String {
+    let canonical_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    scoped_id("repo", &canonical_root.to_string_lossy())
+}
+
 pub(crate) fn coordination_persist_context_for_root(
     root: &Path,
     session_id: Option<&SessionId>,
@@ -125,7 +130,12 @@ fn resolve_git_dir(root: &Path) -> Option<PathBuf> {
 
 fn resolve_common_dir(git_dir: &Path) -> Option<PathBuf> {
     let common_dir_file = git_dir.join("commondir");
-    let relative = fs::read_to_string(common_dir_file).ok()?;
-    let candidate = git_dir.join(relative.trim());
-    candidate.canonicalize().ok().or(Some(candidate))
+    if let Ok(relative) = fs::read_to_string(common_dir_file) {
+        let candidate = git_dir.join(relative.trim());
+        return candidate.canonicalize().ok().or(Some(candidate));
+    }
+    if git_dir.join("HEAD").exists() {
+        return git_dir.canonicalize().ok().or(Some(git_dir.to_path_buf()));
+    }
+    None
 }

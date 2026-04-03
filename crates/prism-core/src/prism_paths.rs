@@ -11,10 +11,13 @@ use prism_store::migrate_worktree_cache_from_shared_runtime;
 use serde::{Deserialize, Serialize};
 
 use crate::util::current_timestamp_millis;
-use crate::workspace_identity::{workspace_identity_for_root, WorkspaceIdentity};
+use crate::workspace_identity::{
+    canonical_root_repo_id, workspace_identity_for_root, WorkspaceIdentity,
+};
 
 const PRISM_HOME_ENV: &str = "PRISM_HOME";
 const PATH_METADATA_VERSION: u32 = 1;
+const MIGRATION_CONFLICTS_DIR_NAME: &str = "migration-conflicts";
 const REPO_METADATA_FILE_NAME: &str = "repo.json";
 const SESSION_SEED_FILE_NAME: &str = "prism-mcp-session-seed.json";
 const WORKTREE_METADATA_FILE_NAME: &str = "worktree.json";
@@ -71,6 +74,7 @@ impl PrismPaths {
         let repo_home_dir = home_root
             .join("repos")
             .join(storage_component(&identity.repo_id));
+        maybe_migrate_legacy_repo_home(&home_root, &identity, &repo_home_dir)?;
         let worktree_dir = repo_home_dir
             .join("worktrees")
             .join(storage_component(&identity.worktree_id));
@@ -327,6 +331,44 @@ impl PrismPaths {
     }
 }
 
+fn maybe_migrate_legacy_repo_home(
+    home_root: &Path,
+    identity: &WorkspaceIdentity,
+    target_repo_home: &Path,
+) -> Result<()> {
+    if identity.repo_locator_kind != "git_common_dir" {
+        return Ok(());
+    }
+
+    let legacy_repo_id = canonical_root_repo_id(&identity.canonical_root);
+    if legacy_repo_id == identity.repo_id {
+        return Ok(());
+    }
+
+    let legacy_repo_home = home_root
+        .join("repos")
+        .join(storage_component(&legacy_repo_id));
+    if !legacy_repo_home.exists() || legacy_repo_home == target_repo_home {
+        return Ok(());
+    }
+
+    if let Some(parent) = target_repo_home.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
+    }
+
+    if !target_repo_home.exists() {
+        move_path(&legacy_repo_home, target_repo_home)?;
+    } else {
+        merge_repo_home_directory(&legacy_repo_home, target_repo_home, target_repo_home)?;
+        remove_dir_if_empty(&legacy_repo_home);
+    }
+
+    write_repo_metadata(&target_repo_home.join(REPO_METADATA_FILE_NAME), identity)?;
+    rewrite_worktree_repo_ids(&target_repo_home.join("worktrees"), &identity.repo_id)?;
+    Ok(())
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct RepoMetadata {
     version: u32,
@@ -471,6 +513,27 @@ fn write_worktree_metadata(path: &Path, identity: &WorkspaceIdentity) -> Result<
     )
 }
 
+fn rewrite_worktree_repo_ids(worktrees_dir: &Path, repo_id: &str) -> Result<()> {
+    if !worktrees_dir.exists() {
+        return Ok(());
+    }
+    for entry in fs::read_dir(worktrees_dir)
+        .with_context(|| format!("failed to read {}", worktrees_dir.display()))?
+    {
+        let entry = entry.with_context(|| format!("failed to read {}", worktrees_dir.display()))?;
+        let metadata_path = entry.path().join(WORKTREE_METADATA_FILE_NAME);
+        let Some(mut metadata) = read_json_file::<WorktreeMetadata>(&metadata_path) else {
+            continue;
+        };
+        if metadata.repo_id == repo_id {
+            continue;
+        }
+        metadata.repo_id = repo_id.to_string();
+        write_json_file(&metadata_path, &metadata)?;
+    }
+    Ok(())
+}
+
 fn read_json_file<T>(path: &Path) -> Option<T>
 where
     T: for<'de> Deserialize<'de>,
@@ -578,6 +641,148 @@ fn rename_or_copy(source: &Path, target: &Path) -> Result<()> {
             Ok(())
         }
     }
+}
+
+fn move_path(source: &Path, target: &Path) -> Result<()> {
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
+    }
+    match fs::rename(source, target) {
+        Ok(()) => Ok(()),
+        Err(rename_error) => {
+            if source.is_dir() {
+                copy_directory(source, target).with_context(|| {
+                    format!(
+                        "failed to copy legacy directory {} to {} after rename error: {rename_error}",
+                        source.display(),
+                        target.display()
+                    )
+                })?;
+                fs::remove_dir_all(source).with_context(|| {
+                    format!("failed to remove legacy directory {}", source.display())
+                })?;
+                Ok(())
+            } else {
+                rename_or_copy(source, target)
+            }
+        }
+    }
+}
+
+fn copy_directory(source: &Path, target: &Path) -> Result<()> {
+    fs::create_dir_all(target).with_context(|| format!("failed to create {}", target.display()))?;
+    for entry in
+        fs::read_dir(source).with_context(|| format!("failed to read {}", source.display()))?
+    {
+        let entry = entry.with_context(|| format!("failed to read {}", source.display()))?;
+        let source_path = entry.path();
+        let target_path = target.join(entry.file_name());
+        if source_path.is_dir() {
+            copy_directory(&source_path, &target_path)?;
+        } else {
+            if let Some(parent) = target_path.parent() {
+                fs::create_dir_all(parent)
+                    .with_context(|| format!("failed to create {}", parent.display()))?;
+            }
+            fs::copy(&source_path, &target_path).with_context(|| {
+                format!(
+                    "failed to copy {} to {}",
+                    source_path.display(),
+                    target_path.display()
+                )
+            })?;
+        }
+    }
+    Ok(())
+}
+
+fn merge_repo_home_directory(
+    source_dir: &Path,
+    target_dir: &Path,
+    repo_home_root: &Path,
+) -> Result<()> {
+    fs::create_dir_all(target_dir)
+        .with_context(|| format!("failed to create {}", target_dir.display()))?;
+    for entry in fs::read_dir(source_dir)
+        .with_context(|| format!("failed to read {}", source_dir.display()))?
+    {
+        let entry = entry.with_context(|| format!("failed to read {}", source_dir.display()))?;
+        let source_path = entry.path();
+        let target_path = target_dir.join(entry.file_name());
+        if source_path.is_dir() {
+            if target_path.exists() {
+                merge_repo_home_directory(&source_path, &target_path, repo_home_root)?;
+                remove_dir_if_empty(&source_path);
+            } else {
+                move_path(&source_path, &target_path)?;
+            }
+            continue;
+        }
+        if !target_path.exists() {
+            move_path(&source_path, &target_path)?;
+            continue;
+        }
+        merge_repo_home_file(&source_path, &target_path, repo_home_root)?;
+    }
+    remove_dir_if_empty(source_dir);
+    Ok(())
+}
+
+fn merge_repo_home_file(source: &Path, target: &Path, repo_home_root: &Path) -> Result<()> {
+    let file_name = source
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+    if matches!(
+        file_name,
+        REPO_METADATA_FILE_NAME | WORKTREE_METADATA_FILE_NAME
+    ) {
+        fs::remove_file(source)
+            .with_context(|| format!("failed to remove {}", source.display()))?;
+        return Ok(());
+    }
+    if is_append_safe_log(source) {
+        append_file_contents(target, source)?;
+        fs::remove_file(source)
+            .with_context(|| format!("failed to remove {}", source.display()))?;
+        return Ok(());
+    }
+    archive_conflicting_file(source, repo_home_root)
+}
+
+fn is_append_safe_log(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|extension| extension.to_str()),
+        Some("jsonl" | "log")
+    )
+}
+
+fn append_file_contents(target: &Path, source: &Path) -> Result<()> {
+    let source_bytes =
+        fs::read(source).with_context(|| format!("failed to read {}", source.display()))?;
+    if source_bytes.is_empty() {
+        return Ok(());
+    }
+
+    let mut target_bytes =
+        fs::read(target).with_context(|| format!("failed to read {}", target.display()))?;
+    if !target_bytes.is_empty() && !target_bytes.ends_with(b"\n") {
+        target_bytes.push(b'\n');
+    }
+    target_bytes.extend_from_slice(&source_bytes);
+    fs::write(target, target_bytes).with_context(|| format!("failed to write {}", target.display()))
+}
+
+fn archive_conflicting_file(source: &Path, repo_home_root: &Path) -> Result<()> {
+    let archive_path = repo_home_root
+        .join(MIGRATION_CONFLICTS_DIR_NAME)
+        .join(storage_component(&source.display().to_string()));
+    move_path(source, &archive_path)
+}
+
+fn remove_dir_if_empty(path: &Path) {
+    let _ = fs::remove_dir(path);
 }
 
 fn with_suffix(path: &Path, suffix: &str) -> PathBuf {

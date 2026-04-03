@@ -1089,6 +1089,8 @@ return {
 fn prism_mcp_log_repo_scope_merges_worktrees_and_filters_instances() {
     let root = temp_workspace();
     write_long_excerpt_workspace(&root);
+    fs::create_dir_all(root.join(".git")).unwrap();
+    fs::write(root.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
 
     host.execute(
