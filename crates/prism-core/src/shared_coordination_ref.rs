@@ -23,6 +23,7 @@ use crate::protected_state::repo_streams::{
     implicit_principal_identity, ProtectedPrincipalIdentity,
 };
 use crate::protected_state::trust::{load_active_runtime_signing_key, resolve_trusted_runtime_key};
+use crate::tracked_snapshot::load_tracked_coordination_snapshot_state;
 use crate::tracked_snapshot::{SnapshotManifestPublishSummary, TrackedSnapshotPublishContext};
 use crate::util::{current_timestamp, stable_hash_bytes};
 use crate::workspace_identity::workspace_identity_for_root;
@@ -336,7 +337,12 @@ pub(crate) fn sync_shared_coordination_ref_state(
     let ref_name = shared_coordination_ref_name(root);
     let expected_remote_head =
         refresh_local_shared_coordination_ref(root, shared_coordination_remote_name(), &ref_name)?;
-    let baseline_state = load_shared_coordination_ref_state_from_current_ref(root, &ref_name)?;
+    let baseline_state = match load_shared_coordination_ref_state_from_current_ref(root, &ref_name)
+    {
+        Ok(state) => state,
+        Err(error) if shared_coordination_ref_error_is_repairable(&error) => None,
+        Err(error) => return Err(error),
+    };
     let paths = PrismPaths::for_workspace_root(root)?;
     let stage_parent = stage_root(&paths);
     fs::create_dir_all(&stage_parent)?;
@@ -367,6 +373,17 @@ pub fn sync_live_runtime_descriptor(root: &Path) -> Result<()> {
         return Ok(());
     }
     let state = load_shared_coordination_ref_state(root)?
+        .or_else(|| {
+            load_tracked_coordination_snapshot_state(root)
+                .ok()
+                .flatten()
+                .map(|tracked| SharedCoordinationRefState {
+                    snapshot: tracked.snapshot,
+                    plan_graphs: tracked.plan_graphs,
+                    execution_overlays: tracked.execution_overlays,
+                    runtime_descriptors: Vec::new(),
+                })
+        })
         .unwrap_or_else(empty_shared_coordination_ref_state);
     sync_shared_coordination_ref_state(
         root,
@@ -485,7 +502,11 @@ pub(crate) fn load_shared_coordination_ref_state(
     let ref_name = shared_coordination_ref_name(root);
     let _ =
         refresh_local_shared_coordination_ref(root, shared_coordination_remote_name(), &ref_name)?;
-    load_shared_coordination_ref_state_from_current_ref(root, &ref_name)
+    match load_shared_coordination_ref_state_from_current_ref(root, &ref_name) {
+        Ok(state) => Ok(state),
+        Err(error) if shared_coordination_ref_error_is_repairable(&error) => Ok(None),
+        Err(error) => Err(error),
+    }
 }
 
 fn load_shared_coordination_ref_state_from_current_ref(
@@ -831,11 +852,17 @@ pub fn shared_coordination_ref_diagnostics(
         .transpose()?;
     let previous_manifest_digest = manifest.and_then(|manifest| manifest.previous_manifest_digest);
     let snapshot_file_count = list_ref_json_paths(root, &ref_name)?.len();
-    let runtime_descriptors = load_shared_coordination_ref_state_from_current_ref(root, &ref_name)?
-        .map(|state| state.runtime_descriptors)
-        .unwrap_or_default();
+    let (runtime_descriptors, invalid_manifest) =
+        match load_shared_coordination_ref_state_from_current_ref(root, &ref_name) {
+            Ok(Some(state)) => (state.runtime_descriptors, false),
+            Ok(None) => (Vec::new(), false),
+            Err(error) if shared_coordination_ref_error_is_repairable(&error) => (Vec::new(), true),
+            Err(error) => return Err(error),
+        };
     let needs_compaction = history_depth > SHARED_COORDINATION_HISTORY_MAX_COMMITS;
-    let compaction_status = if compacted_head {
+    let compaction_status = if invalid_manifest {
+        "invalid_manifest"
+    } else if compacted_head {
         "compacted"
     } else if needs_compaction {
         "compaction_recommended"
@@ -856,6 +883,13 @@ pub fn shared_coordination_ref_diagnostics(
         runtime_descriptor_count: runtime_descriptors.len(),
         runtime_descriptors,
     }))
+}
+
+fn shared_coordination_ref_error_is_repairable(error: &anyhow::Error) -> bool {
+    let message = error.to_string();
+    message.contains("shared coordination manifest digest mismatch")
+        || message.contains("shared coordination manifest signature verification failed")
+        || message.contains("failed to parse shared coordination manifest")
 }
 
 fn sync_plan_objects(
@@ -1748,6 +1782,7 @@ mod tests {
     use crate::published_plans::load_hydrated_coordination_plan_state;
     use crate::tracked_snapshot::TrackedSnapshotPublishContext;
     use crate::util::current_timestamp;
+    use crate::PrismPaths;
 
     static NEXT_TEMP_REPO: AtomicU64 = AtomicU64::new(0);
 
@@ -2764,5 +2799,72 @@ mod tests {
         let second_descriptor = &second.runtime_descriptors[0];
         assert_eq!(second_descriptor.instance_started_at, first_started_at);
         assert!(second_descriptor.last_seen_at >= first_last_seen);
+    }
+
+    #[test]
+    fn corrupted_shared_coordination_ref_falls_back_and_repairs_on_next_publish() {
+        let (root, _remote) = temp_git_repo_with_origin();
+        let (snapshot, graph, execution_map) =
+            sample_snapshot_for("plan:repair-shared", "coord-task:repair-shared");
+        sync_shared_coordination_ref_state(
+            &root,
+            &snapshot,
+            std::slice::from_ref(&graph),
+            &execution_map,
+            Some(&sample_publish_context()),
+        )
+        .unwrap();
+
+        let ref_name = super::shared_coordination_ref_name(&root);
+        let paths = PrismPaths::for_workspace_root(&root).unwrap();
+        let stage_dir = super::stage_root(&paths).join("corrupt-shared-ref");
+        let _ = fs::remove_dir_all(&stage_dir);
+        fs::create_dir_all(stage_dir.join("coordination/tasks")).unwrap();
+        fs::create_dir_all(stage_dir.join("coordination/plans")).unwrap();
+        fs::create_dir_all(stage_dir.join("coordination/indexes")).unwrap();
+        fs::create_dir_all(stage_dir.join("coordination/runtimes")).unwrap();
+        let ref_paths = super::list_ref_json_paths(&root, &ref_name).unwrap();
+        for path in &ref_paths {
+            let bytes =
+                super::git_show_file(&root, &ref_name, &format!("coordination/{path}")).unwrap();
+            let destination = stage_dir.join(path);
+            fs::create_dir_all(destination.parent().unwrap()).unwrap();
+            fs::write(destination, bytes).unwrap();
+        }
+        let remote_head = super::resolve_ref_commit(&root, &ref_name).unwrap();
+        let manifest_path = stage_dir.join("coordination/manifest.json");
+        fs::create_dir_all(manifest_path.parent().unwrap()).unwrap();
+        let manifest = super::load_shared_coordination_manifest_from_ref(&root, &ref_name)
+            .unwrap()
+            .expect("shared coordination manifest should exist");
+        let mut manifest = serde_json::to_value(manifest).unwrap();
+        let files = manifest["files"].as_object_mut().expect("manifest files object");
+        let first = files.values_mut().next().expect("manifest file entry");
+        first["sha256"] = serde_json::Value::String("sha256:deadbeef".to_string());
+        super::write_json_file(&manifest_path, &manifest).unwrap();
+        super::publish_stage_to_ref(&root, &stage_dir, &ref_name).unwrap();
+        super::push_shared_coordination_ref(&root, "origin", &ref_name, remote_head.as_deref())
+            .unwrap();
+
+        assert!(load_shared_coordination_ref_state(&root).unwrap().is_none());
+        let diagnostics = shared_coordination_ref_diagnostics(&root)
+            .unwrap()
+            .expect("shared coordination diagnostics should exist");
+        assert_eq!(diagnostics.compaction_status, "invalid_manifest");
+
+        sync_shared_coordination_ref_state(
+            &root,
+            &snapshot,
+            &[graph],
+            &execution_map,
+            Some(&sample_publish_context()),
+        )
+        .unwrap();
+
+        let repaired = load_shared_coordination_ref_state(&root)
+            .unwrap()
+            .expect("shared ref state should repair on publish");
+        assert_eq!(repaired.snapshot.tasks.len(), 1);
+        assert_eq!(repaired.snapshot.tasks[0].title, "ship it");
     }
 }
