@@ -17,10 +17,15 @@
 - Active repo concepts: 95
 - Active repo relations: 206
 - Active repo contracts: 8
+- Active repo memories: 27
+- Published plans: 45
+- Published patch events: 121
 - Full concept catalog: `docs/prism/concepts.md`
 - Full relation catalog: `docs/prism/relations.md`
-
 - Full contract catalog: `docs/prism/contracts.md`
+- Published memory catalog: `docs/prism/memory.md`
+- Published change summary: `docs/prism/changes.md`
+- Published plan catalog: `docs/prism/plans/index.md`
 
 ## How to Read This Repo
 
@@ -28,7 +33,10 @@
 - Use `docs/prism/concepts.md` when you need the full generated concept encyclopedia.
 - Use `docs/prism/relations.md` when you need the typed concept-to-concept graph.
 - Use `docs/prism/contracts.md` when you need published guarantees, assumptions, validations, and compatibility guidance.
-- Treat `.prism/concepts/events.jsonl`, `.prism/concepts/relations.jsonl`, and `.prism/contracts/events.jsonl` as the source of truth; these markdown files are derived artifacts.
+- Use `docs/prism/memory.md` when you need the current repo-published memory surface.
+- Use `docs/prism/changes.md` when you need the summarized repo-published patch history.
+- Use `docs/prism/plans/index.md` when you need the current published plan catalog and per-plan markdown projections.
+- Treat `.prism/concepts/events.jsonl`, `.prism/concepts/relations.jsonl`, `.prism/contracts/events.jsonl`, `.prism/memory/events.jsonl`, `.prism/changes/events.jsonl`, and `.prism/plans/**/*` as the source of truth; these markdown files are derived artifacts.
 
 ## Architecture
 
@@ -71,3 +79,6 @@
 - `docs/prism/concepts.md`: full concept catalog with members, evidence, and risk hints.
 - `docs/prism/relations.md`: full typed relation catalog with evidence and confidence.
 - `docs/prism/contracts.md`: full contract catalog with guarantees, assumptions, validations, and compatibility guidance.
+- `docs/prism/memory.md`: current repo-published memory entries with anchors, provenance, and trust.
+- `docs/prism/changes.md`: summarized repo-published patch events and the files they touched.
+- `docs/prism/plans/index.md`: published plan catalog plus per-plan markdown projections under `docs/prism/plans/`.

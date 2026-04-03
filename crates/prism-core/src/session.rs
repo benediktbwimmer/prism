@@ -15,8 +15,8 @@ use prism_curator::{
 };
 use prism_history::HistoryStore;
 use prism_ir::{
-    new_prefixed_id, AnchorRef, ChangeTrigger, CredentialId, EventActor, EventExecutionContext,
-    EventId, EventMeta, LineageEvent, LineageId, ObservedChangeCheckpoint,
+    new_prefixed_id, AnchorRef, ChangeTrigger, CoordinationEventKind, CredentialId, EventActor,
+    EventExecutionContext, EventId, EventMeta, LineageEvent, LineageId, ObservedChangeCheckpoint,
     ObservedChangeCheckpointEntry, ObservedChangeCheckpointTrigger, ObservedChangeSet,
     PlanExecutionOverlay, PlanGraph, PrincipalActor, PrincipalAuthorityId, PrincipalId,
     PrincipalRegistrySnapshot, SessionId, TaskId, WorkContextSnapshot,
@@ -173,6 +173,29 @@ pub struct CoordinationPlanState {
     pub snapshot: CoordinationSnapshot,
     pub plan_graphs: Vec<PlanGraph>,
     pub execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+}
+
+fn coordination_delta_affects_repo_plan_projection(
+    appended_events: &[prism_coordination::CoordinationEvent],
+) -> bool {
+    appended_events.iter().any(|event| {
+        matches!(
+            event.kind,
+            CoordinationEventKind::PlanCreated
+                | CoordinationEventKind::PlanUpdated
+                | CoordinationEventKind::TaskCreated
+                | CoordinationEventKind::TaskAssigned
+                | CoordinationEventKind::TaskStatusChanged
+                | CoordinationEventKind::TaskBlocked
+                | CoordinationEventKind::TaskUnblocked
+                | CoordinationEventKind::TaskResumed
+                | CoordinationEventKind::TaskReclaimed
+                | CoordinationEventKind::ClaimAcquired
+                | CoordinationEventKind::ClaimReleased
+                | CoordinationEventKind::HandoffRequested
+                | CoordinationEventKind::HandoffAccepted
+        )
+    })
 }
 
 pub(crate) struct WorkspaceRefreshState {
@@ -876,6 +899,8 @@ impl WorkspaceSession {
             runtime_state.apply_outcome_event(&event);
             event_ids.push(id);
         }
+        drop(runtime_state);
+        self.sync_prism_doc()?;
         Ok(event_ids)
     }
 
@@ -937,14 +962,23 @@ impl WorkspaceSession {
     }
 
     pub fn refresh_fs_with_status(&self) -> Result<WorkspaceFsRefreshOutcome> {
-        self.refresh_fs_with_scoped_paths(None)
+        let outcome = self.refresh_fs_with_scoped_paths(None)?;
+        if outcome.status != FsRefreshStatus::Clean {
+            self.sync_prism_doc()?;
+        }
+        Ok(outcome)
     }
 
     pub fn refresh_fs_with_paths(
         &self,
         dirty_paths: Vec<PathBuf>,
     ) -> Result<WorkspaceFsRefreshOutcome> {
-        self.refresh_fs_with_scoped_paths((!dirty_paths.is_empty()).then_some(dirty_paths))
+        let outcome =
+            self.refresh_fs_with_scoped_paths((!dirty_paths.is_empty()).then_some(dirty_paths))?;
+        if outcome.status != FsRefreshStatus::Clean {
+            self.sync_prism_doc()?;
+        }
+        Ok(outcome)
     }
 
     fn refresh_fs_with_scoped_paths(
@@ -1714,6 +1748,7 @@ impl WorkspaceSession {
     }
 
     pub fn append_memory_event(&self, event: MemoryEvent) -> Result<()> {
+        let should_sync_prism_doc = event.scope == prism_memory::MemoryScope::Repo;
         if event.scope == prism_memory::MemoryScope::Repo {
             validate_repo_memory_event(&event)?;
             append_repo_memory_event(&self.root, &event)?;
@@ -1781,6 +1816,9 @@ impl WorkspaceSession {
                 );
                 result?;
             }
+        }
+        if should_sync_prism_doc {
+            self.sync_prism_doc()?;
         }
         Ok(())
     }
@@ -2579,6 +2617,9 @@ impl WorkspaceSession {
                 );
                 enqueue_result?;
             }
+        }
+        if coordination_delta_affects_repo_plan_projection(&appended_events) {
+            self.sync_prism_doc()?;
         }
         result
     }

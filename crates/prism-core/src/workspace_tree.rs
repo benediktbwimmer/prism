@@ -10,7 +10,8 @@ use prism_store::{
 
 use crate::layout::WorkspaceLayout;
 use crate::util::{
-    is_relevant_workspace_file, metadata_changed_ns, stable_hash_bytes, workspace_walk,
+    is_generated_projection_path, is_relevant_workspace_file, metadata_changed_ns,
+    stable_hash_bytes, workspace_walk,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -86,7 +87,8 @@ pub(crate) fn build_workspace_tree_snapshot(
             .file_type()
             .map(|file_type| file_type.is_file())
             .unwrap_or(false);
-        if !is_file || !is_relevant_workspace_file(path) {
+        if !is_file || is_generated_projection_path(root, path) || !is_relevant_workspace_file(path)
+        {
             continue;
         }
         let fingerprint = file_fingerprint(
@@ -106,12 +108,17 @@ fn build_workspace_tree_snapshot_from_cached(
     let mut next_snapshot = cached.clone();
 
     for path in cached.files.keys().cloned().collect::<Vec<_>>() {
-        refresh_file_entry(&path, &mut next_snapshot, cached, false)?;
+        refresh_file_entry(root, &path, &mut next_snapshot, cached, false)?;
     }
 
     for directory in changed_directory_scan_roots(root, cached)? {
-        let seen =
-            collect_subtree_files_with_options(&directory, cached, &mut next_snapshot, false)?;
+        let seen = collect_subtree_files_with_options(
+            root,
+            &directory,
+            cached,
+            &mut next_snapshot,
+            false,
+        )?;
         remove_missing_subtree_files(&directory, &seen, &mut next_snapshot);
     }
 
@@ -151,13 +158,14 @@ pub(crate) fn plan_incremental_refresh(
 
         if dirty_path.exists() {
             if dirty_path.is_file() {
-                refresh_file_entry(&dirty_path, &mut next_snapshot, cached, true)?;
+                refresh_file_entry(root, &dirty_path, &mut next_snapshot, cached, true)?;
                 touched_subtree_files.insert(dirty_path);
                 continue;
             }
 
             if dirty_path.is_dir() {
-                let subtree_files = collect_subtree_files(&dirty_path, cached, &mut next_snapshot)?;
+                let subtree_files =
+                    collect_subtree_files(root, &dirty_path, cached, &mut next_snapshot)?;
                 remove_missing_subtree_files(&dirty_path, &subtree_files, &mut next_snapshot);
                 touched_subtree_files.extend(subtree_files);
                 continue;
@@ -206,14 +214,16 @@ pub(crate) fn populate_package_regions(
 }
 
 fn collect_subtree_files(
+    repo_root: &Path,
     root: &Path,
     cached_snapshot: &WorkspaceTreeSnapshot,
     next_snapshot: &mut WorkspaceTreeSnapshot,
 ) -> Result<BTreeSet<PathBuf>> {
-    collect_subtree_files_with_options(root, cached_snapshot, next_snapshot, true)
+    collect_subtree_files_with_options(repo_root, root, cached_snapshot, next_snapshot, true)
 }
 
 fn collect_subtree_files_with_options(
+    repo_root: &Path,
     root: &Path,
     cached_snapshot: &WorkspaceTreeSnapshot,
     next_snapshot: &mut WorkspaceTreeSnapshot,
@@ -226,22 +236,32 @@ fn collect_subtree_files_with_options(
             .file_type()
             .map(|file_type| file_type.is_file())
             .unwrap_or(false);
-        if !is_file || !is_relevant_workspace_file(path) {
+        if !is_file
+            || is_generated_projection_path(repo_root, path)
+            || !is_relevant_workspace_file(path)
+        {
             continue;
         }
-        refresh_file_entry(path, next_snapshot, cached_snapshot, force_rehash)?;
+        refresh_file_entry(
+            repo_root,
+            path,
+            next_snapshot,
+            cached_snapshot,
+            force_rehash,
+        )?;
         seen.insert(path.to_path_buf());
     }
     Ok(seen)
 }
 
 fn refresh_file_entry(
+    repo_root: &Path,
     path: &Path,
     next_snapshot: &mut WorkspaceTreeSnapshot,
     cached_snapshot: &WorkspaceTreeSnapshot,
     force_rehash: bool,
 ) -> Result<()> {
-    if !is_relevant_workspace_file(path) {
+    if is_generated_projection_path(repo_root, path) || !is_relevant_workspace_file(path) {
         next_snapshot.files.remove(path);
         return Ok(());
     }

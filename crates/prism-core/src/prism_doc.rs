@@ -15,6 +15,8 @@ use sha2::{Digest, Sha256};
 
 use crate::util::prism_doc_path;
 
+mod repo_state;
+
 const ARCHITECTURE_HANDLE: &str = "concept://prism_architecture";
 const ROOT_SUBSYSTEM_LIMIT: usize = 15;
 const ROOT_KEY_CONCEPT_LIMIT: usize = 12;
@@ -44,7 +46,8 @@ pub(crate) fn sync_repo_prism_doc(
     relations: &[ConceptRelation],
     contracts: &[ContractPacket],
 ) -> Result<PrismDocSyncResult> {
-    let catalog = PrismDocCatalog::new(concepts, relations, contracts);
+    let state_catalog = repo_state::RepoStateCatalog::load(root)?;
+    let catalog = PrismDocCatalog::new(concepts, relations, contracts, state_catalog.summary());
     let prism_docs_dir = root.join("docs").join("prism");
     fs::create_dir_all(&prism_docs_dir)?;
 
@@ -65,6 +68,7 @@ pub(crate) fn sync_repo_prism_doc(
         prism_docs_dir.join("contracts.md"),
         render_contracts_doc(&catalog),
     )?);
+    files.extend(repo_state::sync_repo_state_docs(root, &state_catalog)?);
 
     let status = if files
         .iter()
@@ -83,6 +87,7 @@ struct PrismDocCatalog {
     concepts: Vec<ConceptPacket>,
     relations: Vec<ConceptRelation>,
     contracts: Vec<ContractPacket>,
+    repo_state_summary: repo_state::RepoStateSummary,
     concept_names: HashMap<String, String>,
     relation_degree: HashMap<String, usize>,
     metadata: PublishedProjectionMetadata,
@@ -93,6 +98,7 @@ impl PrismDocCatalog {
         concepts: &[ConceptPacket],
         relations: &[ConceptRelation],
         contracts: &[ContractPacket],
+        repo_state_summary: repo_state::RepoStateSummary,
     ) -> Self {
         let concepts = active_repo_concepts(concepts);
         let concept_names = concepts
@@ -112,6 +118,7 @@ impl PrismDocCatalog {
             concepts,
             relations,
             contracts,
+            repo_state_summary,
             concept_names,
             relation_degree,
             metadata,
@@ -267,9 +274,24 @@ fn render_root_prism_doc(catalog: &PrismDocCatalog) -> String {
         "- Active repo contracts: {}\n",
         catalog.contracts.len()
     ));
+    markdown.push_str(&format!(
+        "- Active repo memories: {}\n",
+        catalog.repo_state_summary.memory_count
+    ));
+    markdown.push_str(&format!(
+        "- Published plans: {}\n",
+        catalog.repo_state_summary.plan_count
+    ));
+    markdown.push_str(&format!(
+        "- Published patch events: {}\n",
+        catalog.repo_state_summary.change_count
+    ));
     markdown.push_str("- Full concept catalog: `docs/prism/concepts.md`\n");
-    markdown.push_str("- Full relation catalog: `docs/prism/relations.md`\n\n");
-    markdown.push_str("- Full contract catalog: `docs/prism/contracts.md`\n\n");
+    markdown.push_str("- Full relation catalog: `docs/prism/relations.md`\n");
+    markdown.push_str("- Full contract catalog: `docs/prism/contracts.md`\n");
+    markdown.push_str("- Published memory catalog: `docs/prism/memory.md`\n");
+    markdown.push_str("- Published change summary: `docs/prism/changes.md`\n");
+    markdown.push_str("- Published plan catalog: `docs/prism/plans/index.md`\n\n");
 
     markdown.push_str("## How to Read This Repo\n\n");
     markdown.push_str("- Start with this file for the main architecture map and the most central repo concepts.\n");
@@ -283,7 +305,16 @@ fn render_root_prism_doc(catalog: &PrismDocCatalog) -> String {
         "- Use `docs/prism/contracts.md` when you need published guarantees, assumptions, validations, and compatibility guidance.\n",
     );
     markdown.push_str(
-        "- Treat `.prism/concepts/events.jsonl`, `.prism/concepts/relations.jsonl`, and `.prism/contracts/events.jsonl` as the source of truth; these markdown files are derived artifacts.\n\n",
+        "- Use `docs/prism/memory.md` when you need the current repo-published memory surface.\n",
+    );
+    markdown.push_str(
+        "- Use `docs/prism/changes.md` when you need the summarized repo-published patch history.\n",
+    );
+    markdown.push_str(
+        "- Use `docs/prism/plans/index.md` when you need the current published plan catalog and per-plan markdown projections.\n",
+    );
+    markdown.push_str(
+        "- Treat `.prism/concepts/events.jsonl`, `.prism/concepts/relations.jsonl`, `.prism/contracts/events.jsonl`, `.prism/memory/events.jsonl`, `.prism/changes/events.jsonl`, and `.prism/plans/**/*` as the source of truth; these markdown files are derived artifacts.\n\n",
     );
 
     if let Some(architecture) = catalog.architecture_concept() {
@@ -325,6 +356,15 @@ fn render_root_prism_doc(catalog: &PrismDocCatalog) -> String {
     );
     markdown.push_str(
         "- `docs/prism/contracts.md`: full contract catalog with guarantees, assumptions, validations, and compatibility guidance.\n",
+    );
+    markdown.push_str(
+        "- `docs/prism/memory.md`: current repo-published memory entries with anchors, provenance, and trust.\n",
+    );
+    markdown.push_str(
+        "- `docs/prism/changes.md`: summarized repo-published patch events and the files they touched.\n",
+    );
+    markdown.push_str(
+        "- `docs/prism/plans/index.md`: published plan catalog plus per-plan markdown projections under `docs/prism/plans/`.\n",
     );
     markdown
 }

@@ -68,7 +68,10 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::{persisted_file_hash, stable_hash_with_version, workspace_walk};
+    use super::{
+        is_generated_projection_relative_path, persisted_file_hash, stable_hash_with_version,
+        workspace_walk,
+    };
 
     static NEXT_TEMP_UTIL_WORKSPACE: AtomicU64 = AtomicU64::new(0);
 
@@ -111,12 +114,15 @@ mod tests {
     fn workspace_walk_skips_hidden_junk_roots() {
         let root = temp_workspace();
         fs::create_dir_all(root.join("src")).unwrap();
+        fs::create_dir_all(root.join("docs/prism")).unwrap();
         fs::create_dir_all(root.join(".git")).unwrap();
         fs::create_dir_all(root.join(".prism")).unwrap();
         fs::create_dir_all(root.join("target")).unwrap();
         fs::create_dir_all(root.join("node_modules")).unwrap();
         fs::create_dir_all(root.join(".codex-target-trash-123")).unwrap();
         fs::write(root.join("src/lib.rs"), "pub fn live() {}\n").unwrap();
+        fs::write(root.join("PRISM.md"), "# Derived\n").unwrap();
+        fs::write(root.join("docs/prism/plans.md"), "# Derived Plans\n").unwrap();
         fs::write(root.join(".git/ignored.rs"), "pub fn ignored() {}\n").unwrap();
         fs::write(root.join(".prism/ignored.rs"), "pub fn ignored() {}\n").unwrap();
         fs::write(root.join("target/ignored.rs"), "pub fn ignored() {}\n").unwrap();
@@ -143,11 +149,26 @@ mod tests {
         assert!(!walked.iter().any(|path| path.starts_with(".prism")));
         assert!(!walked.iter().any(|path| path.starts_with("target")));
         assert!(!walked.iter().any(|path| path.starts_with("node_modules")));
+        assert!(!walked.iter().any(|path| path == &PathBuf::from("PRISM.md")));
+        assert!(!walked.iter().any(|path| path.starts_with("docs/prism")));
         assert!(!walked
             .iter()
             .any(|path| path.starts_with(".codex-target-trash-123")));
 
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn generated_projection_paths_are_detected() {
+        assert!(is_generated_projection_relative_path(
+            PathBuf::from("PRISM.md").as_path()
+        ));
+        assert!(is_generated_projection_relative_path(
+            PathBuf::from("docs/prism/plans/index.md").as_path()
+        ));
+        assert!(!is_generated_projection_relative_path(
+            PathBuf::from("docs/notes.md").as_path()
+        ));
     }
 
     fn temp_workspace() -> PathBuf {
@@ -242,7 +263,25 @@ fn should_skip_workspace_walk_entry(root: &Path, entry: &DirEntry) -> bool {
     is_ignored_workspace_walk_relative_path(relative)
 }
 
+pub(crate) fn is_generated_projection_relative_path(relative: &Path) -> bool {
+    let components = relative
+        .components()
+        .map(|component| component.as_os_str().to_string_lossy().into_owned())
+        .collect::<Vec<_>>();
+    components.as_slice() == ["PRISM.md"]
+        || (components.len() >= 2 && components[0] == "docs" && components[1] == "prism")
+}
+
+pub(crate) fn is_generated_projection_path(root: &Path, path: &Path) -> bool {
+    path.strip_prefix(root)
+        .ok()
+        .is_some_and(is_generated_projection_relative_path)
+}
+
 fn is_ignored_workspace_walk_relative_path(relative: &Path) -> bool {
+    if is_generated_projection_relative_path(relative) {
+        return true;
+    }
     relative.components().any(|component| {
         let name = component.as_os_str().to_string_lossy();
         matches!(name.as_ref(), ".git" | ".prism" | "target" | "node_modules")

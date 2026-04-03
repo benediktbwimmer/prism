@@ -1162,6 +1162,10 @@ fn repo_patch_events_capture_provenance_and_reload_without_local_cache() {
         .as_str()
         .unwrap_or_default()
         .ends_with("src/lib.rs"));
+    let changes_doc = fs::read_to_string(root.join("docs/prism/changes.md")).unwrap();
+    assert!(changes_doc.contains("# PRISM Changes"));
+    assert!(changes_doc.contains("Rename alpha"));
+    assert!(changes_doc.contains("src/lib.rs"));
 
     let cache_db = crate::util::cache_path(&root).unwrap();
     drop(session);
@@ -3163,6 +3167,9 @@ fn repo_concept_events_auto_sync_prism_doc() {
     let concepts_doc = fs::read_to_string(root.join("docs/prism/concepts.md")).unwrap();
     let relations_doc = fs::read_to_string(root.join("docs/prism/relations.md")).unwrap();
     let contracts_doc = fs::read_to_string(root.join("docs/prism/contracts.md")).unwrap();
+    let memory_doc = fs::read_to_string(root.join("docs/prism/memory.md")).unwrap();
+    let changes_doc = fs::read_to_string(root.join("docs/prism/changes.md")).unwrap();
+    let plans_doc = fs::read_to_string(root.join("docs/prism/plans/index.md")).unwrap();
     assert!(prism_doc.contains("# PRISM"));
     assert!(prism_doc.contains("## Projection Metadata"));
     assert!(prism_doc.contains("- Projection class: `published`"));
@@ -3173,6 +3180,9 @@ fn repo_concept_events_auto_sync_prism_doc() {
     assert!(prism_doc.contains("docs/prism/concepts.md"));
     assert!(prism_doc.contains("docs/prism/relations.md"));
     assert!(prism_doc.contains("docs/prism/contracts.md"));
+    assert!(prism_doc.contains("docs/prism/memory.md"));
+    assert!(prism_doc.contains("docs/prism/changes.md"));
+    assert!(prism_doc.contains("docs/prism/plans/index.md"));
     assert!(prism_doc.contains("- Active repo concepts: 1"));
     assert!(concepts_doc.contains("# PRISM Concepts"));
     assert!(concepts_doc.contains("## Projection Metadata"));
@@ -3188,6 +3198,12 @@ fn repo_concept_events_auto_sync_prism_doc() {
     assert!(contracts_doc.contains("# PRISM Contracts"));
     assert!(contracts_doc.contains("## Projection Metadata"));
     assert!(contracts_doc.contains("No active repo-scoped contracts are currently published."));
+    assert!(memory_doc.contains("# PRISM Memory"));
+    assert!(memory_doc.contains("No active repo-scoped memories are currently published."));
+    assert!(changes_doc.contains("# PRISM Changes"));
+    assert!(changes_doc.contains("No repo-scoped patch events are currently published."));
+    assert!(plans_doc.contains("# PRISM Plans"));
+    assert!(plans_doc.contains("No repo-scoped plans are currently published."));
 
     let sync = session.sync_prism_doc().unwrap();
     assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
@@ -3437,6 +3453,124 @@ fn repo_contract_events_auto_sync_prism_doc() {
     assert!(contracts_doc.contains("Renaming alpha is breaking."));
     assert!(contracts_doc.contains("### Evidence"));
     assert!(contracts_doc.contains("Promoted from repo curation."));
+
+    let sync = session.sync_prism_doc().unwrap();
+    assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_memory_events_auto_sync_prism_doc() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    let mut entry = MemoryEntry::new(
+        MemoryKind::Structural,
+        "Alpha ownership is published repo memory for generated docs.",
+    );
+    entry.id = MemoryId("memory:alpha-owner".to_string());
+    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.scope = MemoryScope::Repo;
+    entry.source = MemorySource::User;
+    entry.trust = 0.95;
+    entry.metadata = json!({
+        "provenance": {
+            "origin": "test",
+            "kind": "repo_memory_prism_doc",
+        },
+        "publication": {
+            "publishedAt": 51,
+            "lastReviewedAt": 51,
+            "status": "active",
+        }
+    });
+    session
+        .append_memory_event(MemoryEvent::from_entry(
+            MemoryEventKind::Promoted,
+            entry,
+            Some("task:repo-memory-prism-doc".to_string()),
+            vec![MemoryId("memory:source".to_string())],
+            Vec::new(),
+        ))
+        .unwrap();
+
+    let prism_doc = fs::read_to_string(root.join("PRISM.md")).unwrap();
+    let memory_doc = fs::read_to_string(root.join("docs/prism/memory.md")).unwrap();
+    assert!(prism_doc.contains("- Active repo memories: 1"));
+    assert!(prism_doc.contains("docs/prism/memory.md"));
+    assert!(memory_doc.contains("# PRISM Memory"));
+    assert!(memory_doc.contains("memory:alpha-owner"));
+    assert!(memory_doc.contains("Alpha ownership is published repo memory for generated docs."));
+    assert!(memory_doc.contains("kind: `repo_memory_prism_doc`"));
+
+    let sync = session.sync_prism_doc().unwrap();
+    assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_plan_events_auto_sync_prism_doc() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    session
+        .mutate_coordination(|prism| {
+            prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:repo-plan-prism-doc"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:repo-plan-prism-doc")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Ship generated repo state docs".into(),
+                None,
+                Some(Default::default()),
+            )
+        })
+        .unwrap();
+
+    let prism_doc = fs::read_to_string(root.join("PRISM.md")).unwrap();
+    let plans_doc = fs::read_to_string(root.join("docs/prism/plans/index.md")).unwrap();
+    assert!(prism_doc.contains("- Published plans: 1"));
+    assert!(prism_doc.contains("docs/prism/plans/index.md"));
+    assert!(plans_doc.contains("# PRISM Plans"));
+    assert!(plans_doc.contains("Ship generated repo state docs"));
+
+    let generated_plan_doc = fs::read_dir(root.join("docs/prism/plans/active"))
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .find(|path| path.extension().and_then(|value| value.to_str()) == Some("md"))
+        .expect("plan markdown should be generated");
+    let plan_doc = fs::read_to_string(generated_plan_doc).unwrap();
+    assert!(plan_doc.contains("Ship generated repo state docs"));
+    assert!(plan_doc.contains("## Goal"));
 
     let sync = session.sync_prism_doc().unwrap();
     assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);

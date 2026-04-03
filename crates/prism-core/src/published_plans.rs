@@ -239,6 +239,16 @@ pub(crate) fn sync_repo_published_plans(
     )
 }
 
+pub(crate) fn load_repo_published_plan_index(root: &Path) -> Result<Vec<PublishedPlanIndexEntry>> {
+    let index_path = repo_plan_index_path(root);
+    if !index_path.exists() {
+        return Ok(Vec::new());
+    }
+    let mut entries = load_jsonl_file::<PublishedPlanIndexEntry>(&index_path)?;
+    entries.sort_by(|left, right| left.plan_id.0.cmp(&right.plan_id.0));
+    Ok(entries)
+}
+
 pub fn regenerate_repo_published_plan_artifacts(root: &Path) -> Result<()> {
     let plans_dir = repo_plans_dir(root);
     if !plans_dir.exists() {
