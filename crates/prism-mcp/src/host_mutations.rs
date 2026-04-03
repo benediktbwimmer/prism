@@ -33,7 +33,10 @@ use prism_query::{
 use serde_json::{json, Value};
 
 use crate::dashboard_events::MutationRun;
-use crate::git_execution::{commit_all, push_current_branch, run_preflight};
+use crate::git_execution::{
+    commit_all, commit_paths, ensure_task_branch, head_commit, push_current_branch, run_preflight,
+    user_dirty_paths,
+};
 use crate::MutationProvenance;
 use crate::{
     artifact_view, claim_view, concept_packet_view, concept_relation_view, conflict_view,
@@ -1959,7 +1962,16 @@ impl QueryHost {
         let before_events = prism.coordination_events().len();
         let now = current_timestamp();
         let require_clean_worktree = matches!(request.workflow, GitExecutionWorkflow::Start);
-        let preflight = run_preflight(root, &policy, now, require_clean_worktree)?;
+        let mut preflight = run_preflight(root, &policy, now, require_clean_worktree)?;
+        if matches!(request.workflow, GitExecutionWorkflow::Start)
+            && matches!(policy.start_mode, GitExecutionStartMode::Auto)
+            && policy.require_task_branch
+            && preflight.current_branch == policy.target_branch
+            && user_dirty_paths(&preflight.report.dirty_paths).is_empty()
+        {
+            ensure_task_branch(root, &task.title, &request.task_id)?;
+            preflight = run_preflight(root, &policy, now, require_clean_worktree)?;
+        }
         if let Some(failure) = preflight.report.failure.clone() {
             self.record_task_git_execution(
                 session,
@@ -2015,11 +2027,80 @@ impl QueryHost {
                 )?;
             }
             GitExecutionWorkflow::Complete(desired_status) => {
-                let code_commit = commit_all(root, &task.title, now)?;
-                let code_commit_sha = code_commit
-                    .code_commit
-                    .clone()
-                    .ok_or_else(|| anyhow!("missing code commit sha after git commit"))?;
+                let user_dirty_paths = user_dirty_paths(&preflight.report.dirty_paths);
+                let (code_commit, code_commit_sha) = match policy.completion_mode {
+                    GitExecutionCompletionMode::Require => {
+                        if !user_dirty_paths.is_empty() {
+                            let failure = format!(
+                                "completion mode `require` needs user changes committed before completion; dirty user paths: {}",
+                                user_dirty_paths.join(", ")
+                            );
+                            let failed_publish = GitPublishReport {
+                                attempted_at: now,
+                                code_commit: None,
+                                coordination_commit: None,
+                                pushed_ref: None,
+                                staged_paths: user_dirty_paths.clone(),
+                                protected_paths: Vec::new(),
+                                failure: Some(failure.clone()),
+                            };
+                            self.record_task_git_execution(
+                                session,
+                                authenticated,
+                                &request.task_id,
+                                TaskGitExecution {
+                                    status: prism_ir::GitExecutionStatus::PublishFailed,
+                                    pending_task_status: Some(desired_status),
+                                    target_branch: Some(policy.target_branch.clone()),
+                                    last_preflight: Some(preflight.report.clone()),
+                                    last_publish: Some(failed_publish),
+                                },
+                            )?;
+                            return Err(anyhow!(failure));
+                        }
+                        let current_head = head_commit(root)?;
+                        (
+                            GitPublishReport {
+                                attempted_at: now,
+                                code_commit: Some(current_head.clone()),
+                                coordination_commit: None,
+                                pushed_ref: None,
+                                staged_paths: Vec::new(),
+                                protected_paths: Vec::new(),
+                                failure: None,
+                            },
+                            current_head,
+                        )
+                    }
+                    GitExecutionCompletionMode::Auto => {
+                        if user_dirty_paths.is_empty() {
+                            let current_head = head_commit(root)?;
+                            (
+                                GitPublishReport {
+                                    attempted_at: now,
+                                    code_commit: Some(current_head.clone()),
+                                    coordination_commit: None,
+                                    pushed_ref: None,
+                                    staged_paths: Vec::new(),
+                                    protected_paths: Vec::new(),
+                                    failure: None,
+                                },
+                                current_head,
+                            )
+                        } else {
+                            let code_commit =
+                                commit_paths(root, &task.title, now, &user_dirty_paths)?;
+                            let code_commit_sha =
+                                code_commit.code_commit.clone().ok_or_else(|| {
+                                    anyhow!("missing code commit sha after git commit")
+                                })?;
+                            (code_commit, code_commit_sha)
+                        }
+                    }
+                    GitExecutionCompletionMode::Off => {
+                        unreachable!("completion workflow is gated above")
+                    }
+                };
                 if let Err(error) = self.run_raw_coordination_args(
                     session,
                     authenticated,
