@@ -468,6 +468,82 @@ where
     Ok(())
 }
 
+pub(crate) fn rewrite_protected_stream_events<T, I>(
+    root: &Path,
+    stream: &ProtectedRepoStream,
+    events: I,
+    principal: &ProtectedPrincipalIdentity,
+) -> Result<()>
+where
+    T: Serialize + DeserializeOwned + Clone,
+    I: IntoIterator<Item = (String, T)>,
+{
+    let paths = PrismPaths::for_workspace_root(root)?;
+    let active_key = load_active_runtime_signing_key(&paths)?;
+    let path = root.join(stream.relative_path());
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let tmp_path = path.with_extension("jsonl.tmp");
+    let mut file = File::create(&tmp_path)
+        .with_context(|| format!("failed to create {}", tmp_path.display()))?;
+    let mut prev_event_id = None;
+    let mut prev_entry_hash = None;
+    let mut sequence = 1u64;
+    let mut wrote_any = false;
+
+    for (event_id, payload) in events {
+        let mut envelope = ProtectedEventEnvelope {
+            envelope_version: PROTECTED_EVENT_ENVELOPE_VERSION,
+            stream: stream.stream().to_string(),
+            stream_id: stream.stream_id().to_string(),
+            event_id,
+            prev_event_id: prev_event_id.clone(),
+            prev_entry_hash: prev_entry_hash.clone(),
+            sequence,
+            runtime_authority_id: active_key.state.runtime_authority_id.clone(),
+            runtime_key_id: active_key.runtime_key.runtime_key_id.clone(),
+            trust_bundle_id: active_key.bundle.bundle_id.clone(),
+            principal_authority_id: principal.principal_authority_id.clone(),
+            principal_id: principal.principal_id.clone(),
+            credential_id: principal.credential_id.clone(),
+            algorithm: ProtectedSignatureAlgorithm::Ed25519,
+            payload_hash: String::new(),
+            signature: String::new(),
+            payload,
+        };
+        envelope.sign_with(&active_key.signing_key)?;
+        let entry_bytes = envelope.canonical_entry_bytes()?;
+        prev_event_id = Some(envelope.event_id.clone());
+        prev_entry_hash = Some(envelope.computed_entry_hash()?);
+        file.write_all(&entry_bytes)?;
+        file.write_all(b"\n")?;
+        sequence = sequence.saturating_add(1);
+        wrote_any = true;
+    }
+
+    file.sync_all()?;
+    drop(file);
+
+    if wrote_any {
+        fs::rename(&tmp_path, &path)
+            .with_context(|| format!("failed to replace {}", path.display()))?;
+        sync_parent_dir(&path)?;
+    } else {
+        if path.exists() {
+            fs::remove_file(&path)
+                .with_context(|| format!("failed to remove {}", path.display()))?;
+        }
+        if tmp_path.exists() {
+            fs::remove_file(&tmp_path)
+                .with_context(|| format!("failed to remove {}", tmp_path.display()))?;
+        }
+        sync_parent_dir(&path)?;
+    }
+    Ok(())
+}
+
 fn principal_actor_for_signature(actor: Option<&EventActor>) -> PrincipalActor {
     match actor
         .cloned()

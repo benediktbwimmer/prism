@@ -4,12 +4,13 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context, Result};
 use prism_core::{
     diagnose_protected_state, export_protected_state_trust_material,
-    import_protected_state_trust_material, migrate_legacy_protected_repo_state,
-    quarantine_protected_state_stream, reconcile_protected_state_stream,
-    repair_protected_state_stream_to_last_valid, verify_protected_state,
-    ProtectedStateQuarantineReport, ProtectedStateReconcileReport, ProtectedStateRepairReport,
-    ProtectedStateStreamReport, ProtectedStateTrustExport, ProtectedStateTrustImportReport,
-    ProtectedStateVerifyReport,
+    import_protected_state_trust_material, inspect_repo_published_plan_artifacts,
+    migrate_legacy_protected_repo_state, quarantine_protected_state_stream,
+    reconcile_protected_state_stream, repair_protected_state_stream_to_last_valid,
+    repair_repo_published_plan_artifacts, verify_protected_state, ProtectedStateQuarantineReport,
+    ProtectedStateReconcileReport, ProtectedStateRepairReport, ProtectedStateStreamReport,
+    ProtectedStateTrustExport, ProtectedStateTrustImportReport, ProtectedStateVerifyReport,
+    PublishedPlanArtifactRepairReport,
 };
 
 use crate::cli::{ProtectedStateCommand, ProtectedStateTrustCommand};
@@ -77,6 +78,20 @@ pub(crate) fn handle_protected_state_command(
             }
             let report = repair_protected_state_stream_to_last_valid(root, &stream)?;
             print_repair_report(&report);
+        }
+        ProtectedStateCommand::RepairPublishedPlans { check } => {
+            let report = if check {
+                inspect_repo_published_plan_artifacts(root)?
+            } else {
+                repair_repo_published_plan_artifacts(root)?
+            };
+            print_published_plan_repair_report(&report);
+            if check && report.redundant_edge_add_count != 0 {
+                bail!(
+                    "{} redundant published plan edge_added event(s) need repair",
+                    report.redundant_edge_add_count
+                );
+            }
         }
         ProtectedStateCommand::ReconcileStream {
             stream,
@@ -275,4 +290,28 @@ fn print_reconcile_report(report: &ProtectedStateReconcileReport) {
     println!("quarantine: {}", report.quarantined_path);
     println!("accepted head: {}", report.accepted_head_event_id);
     println!("restored records: {}", report.restored_record_count);
+}
+
+fn print_published_plan_repair_report(report: &PublishedPlanArtifactRepairReport) {
+    for entry in &report.entries {
+        println!(
+            "{}\t{}\tremoved_redundant_edge_adds={}\tevents={}=>{}\tlegacy_skipped={}",
+            if entry.repaired {
+                "repaired"
+            } else if entry.redundant_edge_add_count > 0 {
+                "needs_repair"
+            } else {
+                "ok"
+            },
+            entry.protected_path,
+            entry.redundant_edge_add_count,
+            entry.event_count_before,
+            entry.event_count_after,
+            entry.skipped_legacy_stream,
+        );
+    }
+    println!(
+        "scanned {} published plan stream(s); repaired {}; removed {} redundant edge_added event(s)",
+        report.scanned_plan_count, report.repaired_plan_count, report.redundant_edge_add_count
+    );
 }

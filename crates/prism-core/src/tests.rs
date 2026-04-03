@@ -43,7 +43,8 @@ use serde_json::json;
 use super::{
     hydrate_workspace_session, hydrate_workspace_session_with_options, index_workspace,
     index_workspace_session, index_workspace_session_with_curator,
-    index_workspace_session_with_options, regenerate_repo_published_plan_artifacts,
+    index_workspace_session_with_options, inspect_repo_published_plan_artifacts,
+    regenerate_repo_published_plan_artifacts, repair_repo_published_plan_artifacts,
     BootstrapOwnerInput, MintPrincipalRequest, PrismDocSyncStatus, PrismPaths,
     SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
     ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
@@ -53,6 +54,10 @@ use crate::curator_support::build_curator_context;
 use crate::materialization::summarize_workspace_materialization;
 use crate::memory_events::append_repo_memory_event;
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
+use crate::protected_state::repo_streams::{
+    append_protected_stream_event, inspect_protected_stream,
+};
+use crate::protected_state::streams::ProtectedRepoStream;
 use crate::repo_patch_events::load_repo_patch_events;
 use crate::session::HOT_OUTCOME_HYDRATION_LIMIT;
 use crate::workspace_tree::build_workspace_tree_snapshot;
@@ -5703,6 +5708,186 @@ fn regenerate_repo_published_plan_artifacts_restores_index_and_derived_log_from_
         "\"log_path\":\".prism/plans/streams/{}.jsonl\"",
         plan_id.0
     )));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repair_repo_published_plan_artifacts_removes_redundant_edge_adds() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let (plan_id, parent_id, child_id, edge_id) = session
+        .mutate_coordination(|prism| {
+            let base_revision = prism.workspace_revision();
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:repair-published-plan-artifacts"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:repair-published-plan-artifacts")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Repair published plan artifacts".into(),
+                "Repair published plan artifacts".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            let parent = prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:repair-published-plan-parent"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:repair-published-plan-artifacts")),
+                    causation: None,
+                    execution_context: None,
+                },
+                prism_coordination::TaskCreateInput {
+                    plan_id: plan_id.clone(),
+                    title: "Parent".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: base_revision.clone(),
+                },
+            )?;
+            let child = prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:repair-published-plan-child"),
+                    ts: 3,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:repair-published-plan-artifacts")),
+                    causation: None,
+                    execution_context: None,
+                },
+                prism_coordination::TaskCreateInput {
+                    plan_id: plan_id.clone(),
+                    title: "Child".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision,
+                },
+            )?;
+            prism.create_native_plan_edge(
+                &plan_id,
+                &prism_ir::PlanNodeId::new(child.id.0.clone()),
+                &prism_ir::PlanNodeId::new(parent.id.0.clone()),
+                prism_ir::PlanEdgeKind::ChildOf,
+            )?;
+            let edge_id = prism_ir::PlanEdgeId::new(format!(
+                "plan-edge:{}:child-of:{}",
+                child.id.0, parent.id.0
+            ));
+            anyhow::Ok((plan_id, parent.id, child.id, edge_id))
+        })
+        .unwrap();
+
+    let stream = ProtectedRepoStream::plan_stream(&plan_id);
+    let inspection = inspect_protected_stream::<serde_json::Value>(&root, &stream).unwrap();
+    let duplicate_event_id = format!("published:{}:duplicate-edge-add", plan_id.0);
+    let mut duplicate_payload = inspection
+        .payloads
+        .iter()
+        .find(|payload| {
+            payload.get("kind") == Some(&json!("edge_added"))
+                && payload.get("edge_id") == Some(&json!(edge_id.0))
+        })
+        .cloned()
+        .expect("expected an edge_added payload for the child edge");
+    duplicate_payload["event_id"] = json!(duplicate_event_id.clone());
+    append_protected_stream_event(
+        &root,
+        &stream,
+        &duplicate_event_id,
+        &duplicate_payload,
+        &crate::protected_state::repo_streams::implicit_principal_identity(None, None),
+    )
+    .unwrap();
+
+    let report = inspect_repo_published_plan_artifacts(&root).unwrap();
+    let entry = report
+        .entries
+        .iter()
+        .find(|entry| entry.plan_id == plan_id)
+        .expect("repair report should include the plan");
+    assert_eq!(entry.redundant_edge_add_count, 1);
+    assert!(!entry.repaired);
+
+    let repair_report = repair_repo_published_plan_artifacts(&root).unwrap();
+    let repaired_entry = repair_report
+        .entries
+        .iter()
+        .find(|entry| entry.plan_id == plan_id)
+        .expect("repair report should include the plan");
+    assert_eq!(repair_report.repaired_plan_count, 1);
+    assert_eq!(repaired_entry.redundant_edge_add_count, 1);
+    assert!(repaired_entry.repaired);
+
+    let repaired_inspection =
+        inspect_protected_stream::<serde_json::Value>(&root, &stream).unwrap();
+    let repaired_edge_add_count = repaired_inspection
+        .payloads
+        .iter()
+        .filter(|payload| {
+            payload.get("kind") == Some(&json!("edge_added"))
+                && payload.get("edge_id") == Some(&json!(edge_id.0))
+        })
+        .count();
+    assert_eq!(repaired_edge_add_count, 1);
+
+    let active_path = root
+        .join(".prism")
+        .join("plans")
+        .join("active")
+        .join(format!("{}.jsonl", plan_id.0));
+    assert_eq!(
+        fs::read(&active_path).unwrap(),
+        fs::read(root.join(stream.relative_path())).unwrap()
+    );
+
+    let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
+        .unwrap()
+        .expect("published plans should still hydrate after repair");
+    let repaired_graph = hydrated
+        .plan_graphs
+        .iter()
+        .find(|graph| graph.id == plan_id)
+        .expect("hydrated state should include the repaired plan");
+    assert!(repaired_graph
+        .nodes
+        .iter()
+        .any(|node| node.id == prism_ir::PlanNodeId::new(parent_id.0.clone())));
+    assert!(repaired_graph
+        .nodes
+        .iter()
+        .any(|node| node.id == prism_ir::PlanNodeId::new(child_id.0.clone())));
+    assert_eq!(
+        repaired_graph
+            .edges
+            .iter()
+            .filter(|edge| edge.id == edge_id)
+            .count(),
+        1
+    );
 
     let _ = fs::remove_dir_all(root);
 }

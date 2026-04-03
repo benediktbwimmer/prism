@@ -4220,6 +4220,7 @@ fn portfolio_next_ranks_actionable_nodes_across_active_plans() {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: serde_json::Value::Null,
+                authored_edges: Vec::new(),
                 root_tasks: Vec::new(),
             },
             Plan {
@@ -4235,6 +4236,7 @@ fn portfolio_next_ranks_actionable_nodes_across_active_plans() {
                 tags: Vec::new(),
                 created_from: None,
                 metadata: serde_json::Value::Null,
+                authored_edges: Vec::new(),
                 root_tasks: Vec::new(),
             },
         ],

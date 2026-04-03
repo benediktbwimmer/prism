@@ -18,6 +18,7 @@ use serde_json::{json, Value};
 
 use crate::protected_state::repo_streams::{
     append_protected_stream_event, implicit_principal_identity, inspect_protected_stream,
+    rewrite_protected_stream_events,
 };
 use crate::protected_state::streams::{classify_protected_repo_relative_path, ProtectedRepoStream};
 use crate::util::{
@@ -186,6 +187,27 @@ pub(crate) struct PublishedPlanIndexEntry {
     pub(crate) log_path: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublishedPlanArtifactRepairEntry {
+    pub plan_id: PlanId,
+    pub protected_path: String,
+    pub event_count_before: usize,
+    pub event_count_after: usize,
+    pub redundant_edge_add_count: usize,
+    pub repaired: bool,
+    pub skipped_legacy_stream: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublishedPlanArtifactRepairReport {
+    pub scanned_plan_count: usize,
+    pub repaired_plan_count: usize,
+    pub redundant_edge_add_count: usize,
+    pub entries: Vec<PublishedPlanArtifactRepairEntry>,
+}
+
 #[derive(Debug, Default)]
 struct PublishedPlanProjection {
     records: Vec<PublishedPlanRecord>,
@@ -283,6 +305,18 @@ pub fn regenerate_repo_published_plan_artifacts(root: &Path) -> Result<()> {
     write_jsonl_file(&repo_plan_index_path(root), &index_entries)?;
     cleanup_stale_derived_plan_logs(&plans_dir, &expected_derived_logs)?;
     Ok(())
+}
+
+pub fn inspect_repo_published_plan_artifacts(
+    root: &Path,
+) -> Result<PublishedPlanArtifactRepairReport> {
+    scan_or_repair_repo_published_plan_artifacts(root, false)
+}
+
+pub fn repair_repo_published_plan_artifacts(
+    root: &Path,
+) -> Result<PublishedPlanArtifactRepairReport> {
+    scan_or_repair_repo_published_plan_artifacts(root, true)
 }
 
 pub(crate) fn sync_repo_published_plan_state(
@@ -1306,6 +1340,172 @@ fn cleanup_stale_derived_plan_logs(
         }
     }
     Ok(())
+}
+
+fn scan_or_repair_repo_published_plan_artifacts(
+    root: &Path,
+    apply_repairs: bool,
+) -> Result<PublishedPlanArtifactRepairReport> {
+    let plans_dir = repo_plans_dir(root);
+    let streams_dir = plans_dir.join("streams");
+    if !streams_dir.exists() {
+        return Ok(PublishedPlanArtifactRepairReport {
+            scanned_plan_count: 0,
+            repaired_plan_count: 0,
+            redundant_edge_add_count: 0,
+            entries: Vec::new(),
+        });
+    }
+
+    let mut entries = Vec::new();
+    let principal = implicit_principal_identity(None, None);
+    let mut repaired_plan_count = 0usize;
+    let mut redundant_edge_add_count = 0usize;
+
+    for entry in fs::read_dir(&streams_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("jsonl") {
+            continue;
+        }
+        let Ok(relative) = path.strip_prefix(root) else {
+            continue;
+        };
+        let Some(stream) = classify_protected_repo_relative_path(relative) else {
+            continue;
+        };
+        if stream.stream() != "repo_plan_events" {
+            continue;
+        }
+
+        let stored_events = load_stored_plan_events(root, &path)?;
+        let Some(plan_id) = stored_events.first().map(stored_plan_event_plan_id) else {
+            continue;
+        };
+        let inspection = inspect_plan_stream_for_repair(&stored_events, &path)?;
+        if apply_repairs
+            && inspection.redundant_edge_add_count > 0
+            && !inspection.skipped_legacy_stream
+        {
+            rewrite_protected_stream_events(
+                root,
+                &stream,
+                inspection.rewritten_events.clone(),
+                &principal,
+            )?;
+            repaired_plan_count += 1;
+        }
+        redundant_edge_add_count += inspection.redundant_edge_add_count;
+        entries.push(PublishedPlanArtifactRepairEntry {
+            plan_id,
+            protected_path: normalize_relative_path(relative),
+            event_count_before: inspection.event_count_before,
+            event_count_after: inspection.event_count_after,
+            redundant_edge_add_count: inspection.redundant_edge_add_count,
+            repaired: apply_repairs
+                && inspection.redundant_edge_add_count > 0
+                && !inspection.skipped_legacy_stream,
+            skipped_legacy_stream: inspection.skipped_legacy_stream,
+        });
+    }
+
+    entries.sort_by(|left, right| left.plan_id.0.cmp(&right.plan_id.0));
+    if apply_repairs {
+        regenerate_repo_published_plan_artifacts(root)?;
+    }
+    Ok(PublishedPlanArtifactRepairReport {
+        scanned_plan_count: entries.len(),
+        repaired_plan_count,
+        redundant_edge_add_count,
+        entries,
+    })
+}
+
+#[derive(Debug, Clone)]
+struct PlanStreamRepairInspection {
+    event_count_before: usize,
+    event_count_after: usize,
+    redundant_edge_add_count: usize,
+    skipped_legacy_stream: bool,
+    rewritten_events: Vec<(String, PublishedPlanEvent)>,
+}
+
+fn inspect_plan_stream_for_repair(
+    stored_events: &[StoredPublishedPlanEvent],
+    path: &Path,
+) -> Result<PlanStreamRepairInspection> {
+    let mut edge_state = BTreeMap::<String, PlanEdge>::new();
+    let mut rewritten_events = Vec::new();
+    let mut redundant_edge_add_count = 0usize;
+    let mut skipped_legacy_stream = false;
+
+    for stored_event in stored_events {
+        let StoredPublishedPlanEvent::Native(event) = stored_event else {
+            skipped_legacy_stream = true;
+            continue;
+        };
+
+        let redundant_edge_add = matches!(
+            (&event.kind, &event.payload),
+            (PublishedPlanEventKind::EdgeAdded, PublishedPlanPayload::Edge { edge })
+                if edge_state.get(edge.id.0.as_str()) == Some(edge)
+        );
+        if redundant_edge_add {
+            redundant_edge_add_count += 1;
+            continue;
+        }
+
+        apply_edge_repair_state(event, &mut edge_state);
+        rewritten_events.push((event.event_id.clone(), event.clone()));
+    }
+
+    if skipped_legacy_stream && redundant_edge_add_count > 0 {
+        return Err(anyhow!(
+            "refused to repair mixed legacy/native plan stream {} with redundant edge additions",
+            path.display()
+        ));
+    }
+
+    Ok(PlanStreamRepairInspection {
+        event_count_before: stored_events.len(),
+        event_count_after: if skipped_legacy_stream {
+            stored_events.len()
+        } else {
+            rewritten_events.len()
+        },
+        redundant_edge_add_count,
+        skipped_legacy_stream,
+        rewritten_events,
+    })
+}
+
+fn stored_plan_event_plan_id(event: &StoredPublishedPlanEvent) -> PlanId {
+    match event {
+        StoredPublishedPlanEvent::Native(event) => event.plan_id.clone(),
+        StoredPublishedPlanEvent::Legacy(event) => event.plan_id.clone(),
+    }
+}
+
+fn apply_edge_repair_state(
+    event: &PublishedPlanEvent,
+    edge_state: &mut BTreeMap<String, PlanEdge>,
+) {
+    match (&event.kind, &event.payload) {
+        (PublishedPlanEventKind::EdgeAdded, PublishedPlanPayload::Edge { edge }) => {
+            edge_state.insert(edge.id.0.to_string(), edge.clone());
+        }
+        (PublishedPlanEventKind::EdgeRemoved, _) => {
+            if let Some(edge_id) = &event.edge_id {
+                edge_state.remove(edge_id.0.as_str());
+            }
+        }
+        (PublishedPlanEventKind::NodeRemoved, _) => {
+            if let Some(node_id) = &event.node_id {
+                edge_state.retain(|_, edge| edge.from != *node_id && edge.to != *node_id);
+            }
+        }
+        _ => {}
+    }
 }
 
 fn load_authoritative_published_plan_records(
