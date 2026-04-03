@@ -224,6 +224,8 @@ pub struct PrismMcpCli {
     pub no_coordination: bool,
     #[arg(long = "internal-developer", default_value_t = false)]
     pub internal_developer: bool,
+    #[arg(long = "ui", default_value_t = false)]
+    pub ui: bool,
     #[arg(long, value_enum, value_delimiter = ',', action = ArgAction::Append)]
     pub enable_coordination: Vec<CoordinationFeatureFlag>,
     #[arg(long, value_enum, value_delimiter = ',', action = ArgAction::Append)]
@@ -278,6 +280,7 @@ impl PrismMcpCli {
         } else {
             PrismMcpFeatures::full()
         };
+        features.ui = self.ui;
         features.internal_developer = self.internal_developer;
         for flag in &self.enable_coordination {
             features.coordination.apply(*flag, true);
@@ -321,6 +324,9 @@ impl PrismMcpCli {
         }
         if self.internal_developer {
             args.push("--internal-developer".to_string());
+        }
+        if self.ui {
+            args.push("--ui".to_string());
         }
         for flag in &self.enable_coordination {
             args.push("--enable-coordination".to_string());
@@ -961,6 +967,10 @@ impl QueryHost {
 
     pub(crate) fn workspace_runtime_binding(&self) -> Option<Arc<WorkspaceRuntimeBinding>> {
         self.workspace_runtime_binding_ref().cloned()
+    }
+
+    pub(crate) fn ui_enabled(&self) -> bool {
+        self.features.ui
     }
 
     pub(crate) fn sync_workspace_active_work_context(&self, session: &SessionState) {

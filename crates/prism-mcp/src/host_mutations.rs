@@ -1673,52 +1673,6 @@ impl QueryHost {
         authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<CoordinationMutationResult> {
         self.ensure_tool_enabled("prism_coordination", "coordination workflow mutations")?;
-        if self.workspace_session().is_some() {
-            let refresh_started = std::time::Instant::now();
-            match self.refresh_workspace_for_mutation() {
-                Ok(report) => {
-                    if let Some(trace) = trace {
-                        trace.record_phase(
-                            "mutation.coordination.refreshWorkspace",
-                            &json!({
-                                "refreshPath": report.refresh_path,
-                                "deferred": report.deferred,
-                                "episodicReloaded": report.episodic_reloaded,
-                                "inferenceReloaded": report.inference_reloaded,
-                                "coordinationReloaded": report.coordination_reloaded,
-                                "metrics": report.metrics.as_json(),
-                            }),
-                            refresh_started.elapsed(),
-                            true,
-                            None,
-                        );
-                    }
-                }
-                Err(error) => {
-                    let args = error
-                        .downcast_ref::<AdmissionBusyError>()
-                        .map(|busy| {
-                            json!({
-                                "refreshPath": "busy",
-                                "operation": busy.operation(),
-                                "resource": busy.resource(),
-                                "retryable": true,
-                            })
-                        })
-                        .unwrap_or_else(|| json!({ "refreshPath": "error" }));
-                    if let Some(trace) = trace {
-                        trace.record_phase(
-                            "mutation.coordination.refreshWorkspace",
-                            &args,
-                            refresh_started.elapsed(),
-                            false,
-                            Some(error.to_string()),
-                        );
-                    }
-                    return Err(error);
-                }
-            }
-        }
         if let Some(result) =
             self.maybe_handle_git_execution_coordination(session, &args, authenticated)?
         {

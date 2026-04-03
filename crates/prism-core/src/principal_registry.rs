@@ -75,11 +75,7 @@ impl WorkspaceSession {
         credential_id: &CredentialId,
         principal_token: &str,
     ) -> Result<AuthenticatedPrincipal> {
-        let mut snapshot = self.load_principal_registry()?.unwrap_or_default();
-        let authenticated =
-            authenticate_principal_credential(&mut snapshot, credential_id, principal_token)?;
-        self.persist_principal_registry(&snapshot)?;
-        Ok(authenticated)
+        self.authenticate_principal_credential_cached(credential_id, principal_token)
     }
 
     pub fn mint_principal_credential(
@@ -96,7 +92,7 @@ impl WorkspaceSession {
     }
 }
 
-fn authenticate_principal_credential(
+pub(crate) fn authenticate_principal_credential_without_persist(
     snapshot: &mut PrincipalRegistrySnapshot,
     credential_id: &CredentialId,
     principal_token: &str,

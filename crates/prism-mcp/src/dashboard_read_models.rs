@@ -172,6 +172,9 @@ impl QueryHost {
     }
 
     pub(crate) fn publish_dashboard_coordination_update(&self) -> Result<()> {
+        if !self.ui_enabled() {
+            return Ok(());
+        }
         let summary = self.dashboard_coordination_summary()?;
         self.dashboard_state()
             .publish_value("coordination.updated", serde_json::to_value(summary)?);
@@ -227,6 +230,7 @@ fn dashboard_session_view(host: &QueryHost, session: Option<&SessionState>) -> S
                 claims: host.features.coordination.claims,
                 artifacts: host.features.coordination.artifacts,
             },
+            ui: host.features.ui,
             internal_developer: host.features.internal_developer,
         },
     }

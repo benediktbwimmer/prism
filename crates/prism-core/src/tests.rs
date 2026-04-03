@@ -1415,6 +1415,7 @@ fn repo_patch_events_capture_provenance_and_reload_without_local_cache() {
         .as_str()
         .unwrap_or_default()
         .ends_with("src/lib.rs"));
+    session.sync_prism_doc().unwrap();
     let changes_doc = fs::read_to_string(root.join("docs/prism/changes.md")).unwrap();
     assert!(changes_doc.contains("# PRISM Changes"));
     assert!(changes_doc.contains("Rename alpha"));
@@ -1510,10 +1511,37 @@ fn binding_principal_backfills_repo_patch_events_for_active_work() {
     session
         .bind_or_validate_worktree_principal(&authenticated)
         .unwrap();
+    let repo_log = root.join(".prism/changes/events.jsonl");
+    let mut repo_log_text = String::new();
+    for _ in 0..60 {
+        if let Ok(contents) = fs::read_to_string(&repo_log) {
+            repo_log_text = contents;
+        }
+        if !repo_log_text.trim().is_empty() {
+            break;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+    assert!(!repo_log_text.trim().is_empty());
 
-    let repo_events = load_repo_patch_events(&root).unwrap();
-    assert_eq!(repo_events.len(), 1);
-    let repo_event = &repo_events[0];
+    let mut live_event = None;
+    for _ in 0..60 {
+        live_event = session
+            .prism()
+            .query_outcomes(&OutcomeRecallQuery {
+                kinds: Some(vec![OutcomeKind::PatchApplied]),
+                result: Some(OutcomeResult::Success),
+                limit: 10,
+                ..OutcomeRecallQuery::default()
+            })
+            .into_iter()
+            .find(|event| !matches!(event.meta.actor, EventActor::System));
+        if live_event.is_some() {
+            break;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+    let repo_event = live_event.expect("repo event should become principal-authored");
     let EventActor::Principal(actor) = &repo_event.meta.actor else {
         panic!("repo event should be principal-authored");
     };
@@ -1525,11 +1553,7 @@ fn binding_principal_backfills_repo_patch_events_for_active_work() {
         Some("work Late auth publish (work:late-auth)")
     );
 
-    let live_event = session
-        .load_outcome_event(&repo_event.meta.id)
-        .unwrap()
-        .expect("live runtime should expose rewritten patch event");
-    let EventActor::Principal(live_actor) = &live_event.meta.actor else {
+    let EventActor::Principal(live_actor) = &repo_event.meta.actor else {
         panic!("live event should be principal-authored after backfill");
     };
     assert_eq!(live_actor.principal_id, owner.principal.principal_id);
@@ -3782,6 +3806,7 @@ fn repo_memory_events_auto_sync_prism_doc() {
 #[test]
 fn repo_plan_events_auto_sync_prism_doc() {
     let root = temp_workspace();
+    let _guard = background_worker_test_guard();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
         root.join("Cargo.toml"),
@@ -3810,15 +3835,26 @@ fn repo_plan_events_auto_sync_prism_doc() {
         })
         .unwrap();
 
-    let prism_doc = fs::read_to_string(root.join("PRISM.md")).unwrap();
-    let plans_doc = fs::read_to_string(root.join("docs/prism/plans/index.md")).unwrap();
+    let plan_index_path = root.join(".prism/plans/index.jsonl");
+    let authoritative_plans_dir = root.join(".prism/plans/active");
+    assert!(plan_index_path.exists());
+    assert!(authoritative_plans_dir.exists());
+
+    let sync = session.sync_prism_doc().unwrap();
+    assert_eq!(sync.status, PrismDocSyncStatus::Updated);
+
+    let prism_doc_path = root.join("PRISM.md");
+    let plans_doc_path = root.join("docs/prism/plans/index.md");
+    let active_plans_dir = root.join("docs/prism/plans/active");
+    let prism_doc = fs::read_to_string(&prism_doc_path).unwrap();
+    let plans_doc = fs::read_to_string(&plans_doc_path).unwrap();
     assert!(prism_doc.contains("- Published plans: 1"));
     assert!(prism_doc.contains("docs/prism/plans/index.md"));
     assert!(plans_doc.contains("# PRISM Plans"));
     assert!(plans_doc.contains("[Project repo state docs]"));
     assert!(plans_doc.contains("Ship generated repo state docs"));
 
-    let generated_plan_doc = fs::read_dir(root.join("docs/prism/plans/active"))
+    let generated_plan_doc = fs::read_dir(active_plans_dir)
         .unwrap()
         .map(|entry| entry.unwrap().path())
         .find(|path| path.extension().and_then(|value| value.to_str()) == Some("md"))

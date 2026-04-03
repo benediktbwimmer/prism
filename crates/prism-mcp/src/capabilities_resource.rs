@@ -78,6 +78,7 @@ pub(crate) fn capabilities_resource_value(
                 claims: host.features.coordination.claims,
                 artifacts: host.features.coordination.artifacts,
             },
+            ui: host.features.ui,
             internal_developer: host.features.internal_developer,
         },
         query_methods: query_method_capabilities(&host.features),

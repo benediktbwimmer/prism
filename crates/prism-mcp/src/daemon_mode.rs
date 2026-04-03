@@ -56,6 +56,7 @@ pub async fn serve_with_mode(cli: PrismMcpCli) -> Result<()> {
 
 async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
     let started = Instant::now();
+    let features = cli.features();
     let listener = bind_listener(cli, root).await?;
     let mcp_path = normalize_route_path(&cli.http_path);
     let health_path = normalize_route_path(&cli.health_path);
@@ -69,7 +70,7 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
     };
     let server = PrismMcpServer::from_workspace_with_features_and_shared_runtime(
         root,
-        cli.features(),
+        features.clone(),
         cli.shared_runtime_backend(root)?,
     )?;
     info!(
@@ -114,11 +115,14 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
             .route_layer(middleware::from_fn(
                 crate::request_envelope::instrument_mcp_http_request,
             ));
-    let router = Router::new()
+    let mut router = Router::new()
         .route(&health_path, get(http_health))
-        .merge(mcp_router)
-        .merge(prism_ui_routes(prism_ui_state))
-        .merge(dashboard_routes(dashboard_state));
+        .merge(mcp_router);
+    if features.ui {
+        router = router
+            .merge(prism_ui_routes(prism_ui_state))
+            .merge(dashboard_routes(dashboard_state));
+    }
 
     axum::serve(listener, router)
         .await
@@ -559,6 +563,7 @@ mod tests {
             mode: PrismMcpMode::Daemon,
             no_coordination: false,
             internal_developer: false,
+            ui: false,
             shared_runtime_sqlite: None,
             shared_runtime_uri: None,
             restart_nonce: None,

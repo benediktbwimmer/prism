@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock, TryLockError};
 use std::time::{Duration, Instant};
 
@@ -467,6 +467,9 @@ pub struct WorkspaceSession {
     pub(crate) hydrate_persisted_projections: bool,
     pub(crate) hydrate_persisted_co_change: bool,
     pub(crate) shared_runtime_store: Option<Arc<Mutex<SharedRuntimeStore>>>,
+    pub(crate) principal_registry: Arc<RwLock<PrincipalRegistrySnapshot>>,
+    pub(crate) repo_projection_sync_pending: Arc<AtomicBool>,
+    pub(crate) repo_patch_provenance_sync_pending: Arc<AtomicBool>,
     pub(crate) refresh_lock: Arc<Mutex<()>>,
     pub(crate) refresh_state: Arc<WorkspaceRefreshState>,
     pub(crate) loaded_workspace_revision: Arc<AtomicU64>,
@@ -885,70 +888,52 @@ impl WorkspaceSession {
         let Some(active_work) = self.active_work_context() else {
             return Ok(Vec::new());
         };
+        publish_pending_repo_patch_provenance(
+            &self.root,
+            self.prism_arc(),
+            Arc::clone(&self.runtime_state),
+            bound_principal,
+            active_work,
+        )
+    }
 
-        let existing_repo_event_ids = load_repo_patch_events(&self.root)?
-            .into_iter()
-            .map(|event| event.meta.id)
-            .collect::<HashSet<_>>();
-        let patch_events = self.prism_arc().query_outcomes(&OutcomeRecallQuery {
-            kinds: Some(vec![OutcomeKind::PatchApplied]),
-            result: Some(OutcomeResult::Success),
-            limit: 0,
-            ..OutcomeRecallQuery::default()
-        });
-        let actor = EventActor::Principal(PrincipalActor {
-            authority_id: PrincipalAuthorityId::new(bound_principal.authority_id),
-            principal_id: PrincipalId::new(bound_principal.principal_id),
-            kind: None,
-            name: Some(bound_principal.principal_name),
-        });
-
-        let mut published = Vec::new();
-        for patch_event in patch_events {
-            if existing_repo_event_ids.contains(&patch_event.meta.id) {
-                continue;
-            }
-            if !matches!(patch_event.meta.actor, EventActor::System) {
-                continue;
-            }
-            let Some(work_context) = patch_event
-                .meta
-                .execution_context
-                .as_ref()
-                .and_then(|context| context.work_context.as_ref())
-            else {
-                continue;
-            };
-            if work_context.work_id != active_work.work_id {
-                continue;
-            }
-
-            let mut repo_event = patch_event.clone();
-            repo_event.meta.actor = actor.clone();
-            validate_repo_patch_event(&repo_event)?;
-            append_repo_patch_event(&self.root, &repo_event)?;
-            published.push(repo_event);
+    pub fn schedule_pending_repo_patch_provenance_for_active_work(&self) {
+        let Some(bound_principal) = self.bound_worktree_principal() else {
+            return;
+        };
+        let Some(active_work) = self.active_work_context() else {
+            return;
+        };
+        if self
+            .repo_patch_provenance_sync_pending
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            return;
         }
-
-        if published.is_empty() {
-            return Ok(Vec::new());
-        }
-
+        let root = self.root.clone();
         let prism = self.prism_arc();
-        let mut runtime_state = self
-            .runtime_state
-            .lock()
-            .expect("workspace runtime state lock poisoned");
-        let mut event_ids = Vec::with_capacity(published.len());
-        for event in published {
-            prism.apply_outcome_event_to_projections(&event);
-            let id = prism.outcome_memory().store_event(event.clone())?;
-            runtime_state.apply_outcome_event(&event);
-            event_ids.push(id);
-        }
-        drop(runtime_state);
-        self.sync_prism_doc()?;
-        Ok(event_ids)
+        let runtime_state = Arc::clone(&self.runtime_state);
+        let pending = Arc::clone(&self.repo_patch_provenance_sync_pending);
+        std::thread::Builder::new()
+            .name("repo-patch-provenance-sync".to_string())
+            .spawn(move || {
+                if let Err(error) = publish_pending_repo_patch_provenance(
+                    &root,
+                    prism,
+                    runtime_state,
+                    bound_principal,
+                    active_work,
+                ) {
+                    warn!(
+                        root = %root.display(),
+                        error = %error,
+                        "failed to publish pending repo patch provenance in background"
+                    );
+                }
+                pending.store(false, Ordering::Release);
+            })
+            .expect("failed to spawn repo patch provenance sync worker");
     }
 
     pub(crate) fn attach_cold_query_backends(
@@ -1011,7 +996,8 @@ impl WorkspaceSession {
     pub fn refresh_fs_with_status(&self) -> Result<WorkspaceFsRefreshOutcome> {
         let outcome = self.refresh_fs_with_scoped_paths(None)?;
         if outcome.status != FsRefreshStatus::Clean {
-            self.sync_prism_doc()?;
+            self.schedule_prism_doc_sync();
+            self.schedule_pending_repo_patch_provenance_for_active_work();
         }
         Ok(outcome)
     }
@@ -1023,7 +1009,8 @@ impl WorkspaceSession {
         let outcome =
             self.refresh_fs_with_scoped_paths((!dirty_paths.is_empty()).then_some(dirty_paths))?;
         if outcome.status != FsRefreshStatus::Clean {
-            self.sync_prism_doc()?;
+            self.schedule_prism_doc_sync();
+            self.schedule_pending_repo_patch_provenance_for_active_work();
         }
         Ok(outcome)
     }
@@ -1946,13 +1933,16 @@ impl WorkspaceSession {
     }
 
     pub fn load_principal_registry(&self) -> Result<Option<PrincipalRegistrySnapshot>> {
-        let Some(shared_runtime_store) = self.shared_runtime_store() else {
-            return Ok(None);
-        };
-        let mut store = shared_runtime_store
-            .lock()
-            .expect("shared runtime store lock poisoned");
-        prism_store::MaterializationStore::load_principal_registry_snapshot(&mut *store)
+        let snapshot = self
+            .principal_registry
+            .read()
+            .expect("principal registry lock poisoned")
+            .clone();
+        if snapshot.principals.is_empty() && snapshot.credentials.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(snapshot))
+        }
     }
 
     pub fn persist_principal_registry(&self, snapshot: &PrincipalRegistrySnapshot) -> Result<()> {
@@ -1964,7 +1954,67 @@ impl WorkspaceSession {
         let mut store = shared_runtime_store
             .lock()
             .expect("shared runtime store lock poisoned");
-        prism_store::MaterializationStore::save_principal_registry_snapshot(&mut *store, snapshot)
+        prism_store::MaterializationStore::save_principal_registry_snapshot(&mut *store, snapshot)?;
+        *self
+            .principal_registry
+            .write()
+            .expect("principal registry lock poisoned") = snapshot.clone();
+        Ok(())
+    }
+
+    pub fn schedule_prism_doc_sync(&self) {
+        if self
+            .repo_projection_sync_pending
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            return;
+        }
+        let root = self.root.clone();
+        let pending = Arc::clone(&self.repo_projection_sync_pending);
+        std::thread::Builder::new()
+            .name("prism-doc-sync".to_string())
+            .spawn(move || {
+                if let Err(error) = crate::published_plans::regenerate_repo_published_plan_artifacts(&root)
+                    .and_then(|_| {
+                        let prism = crate::protected_state::runtime_sync::load_repo_protected_knowledge(&root)?;
+                        crate::prism_doc::sync_repo_prism_doc(
+                            &root,
+                            &prism.curated_concepts,
+                            &prism.concept_relations,
+                            &prism.curated_contracts,
+                        )
+                        .map(|_| ())
+                    })
+                {
+                    warn!(
+                        root = %root.display(),
+                        error = %error,
+                        "failed to sync PRISM doc projections in background"
+                    );
+                }
+                pending.store(false, Ordering::Release);
+            })
+            .expect("failed to spawn prism doc sync worker");
+    }
+
+    pub(crate) fn authenticate_principal_credential_cached(
+        &self,
+        credential_id: &CredentialId,
+        principal_token: &str,
+    ) -> Result<crate::AuthenticatedPrincipal> {
+        let mut snapshot = self
+            .principal_registry
+            .write()
+            .expect("principal registry lock poisoned");
+        if snapshot.principals.is_empty() && snapshot.credentials.is_empty() {
+            return Err(anyhow!("principal registry is not initialized"));
+        }
+        crate::principal_registry::authenticate_principal_credential_without_persist(
+            &mut snapshot,
+            credential_id,
+            principal_token,
+        )
     }
 
     pub fn event_execution_context(
@@ -2678,7 +2728,7 @@ impl WorkspaceSession {
             }
         }
         if coordination_delta_affects_repo_plan_projection(&appended_events) {
-            self.sync_prism_doc()?;
+            self.schedule_prism_doc_sync();
         }
         result
     }
@@ -3218,6 +3268,79 @@ impl WorkspaceSession {
             dirty_paths_override,
         )
     }
+}
+
+fn publish_pending_repo_patch_provenance(
+    root: &Path,
+    prism: Arc<Prism>,
+    runtime_state: Arc<Mutex<WorkspaceRuntimeState>>,
+    bound_principal: BoundWorktreePrincipal,
+    active_work: ActiveWorkContextBinding,
+) -> Result<Vec<EventId>> {
+    let existing_repo_event_ids = load_repo_patch_events(root)?
+        .into_iter()
+        .map(|event| event.meta.id)
+        .collect::<HashSet<_>>();
+    let patch_events = prism.query_outcomes(&OutcomeRecallQuery {
+        kinds: Some(vec![OutcomeKind::PatchApplied]),
+        result: Some(OutcomeResult::Success),
+        limit: 0,
+        ..OutcomeRecallQuery::default()
+    });
+    let actor = EventActor::Principal(PrincipalActor {
+        authority_id: PrincipalAuthorityId::new(bound_principal.authority_id),
+        principal_id: PrincipalId::new(bound_principal.principal_id),
+        kind: None,
+        name: Some(bound_principal.principal_name),
+    });
+
+    let mut published = Vec::new();
+    for patch_event in patch_events {
+        if existing_repo_event_ids.contains(&patch_event.meta.id) {
+            continue;
+        }
+        if !matches!(patch_event.meta.actor, EventActor::System) {
+            continue;
+        }
+        let Some(work_context) = patch_event
+            .meta
+            .execution_context
+            .as_ref()
+            .and_then(|context| context.work_context.as_ref())
+        else {
+            continue;
+        };
+        if work_context.work_id != active_work.work_id {
+            continue;
+        }
+
+        let mut repo_event = patch_event.clone();
+        repo_event.meta.actor = actor.clone();
+        validate_repo_patch_event(&repo_event)?;
+        append_repo_patch_event(root, &repo_event)?;
+        published.push(repo_event);
+    }
+
+    if published.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    {
+        let mut runtime_state = runtime_state
+            .lock()
+            .expect("workspace runtime state lock poisoned");
+        for event in &published {
+            prism.apply_outcome_event_to_projections(event);
+            let _ = prism.outcome_memory().store_event(event.clone())?;
+            runtime_state.apply_outcome_event(event);
+        }
+    }
+
+    let concepts = prism.curated_concepts_snapshot();
+    let relations = prism.concept_relations_snapshot();
+    let contracts = prism.curated_contracts();
+    sync_repo_prism_doc(root, &concepts, &relations, &contracts)?;
+    Ok(published.into_iter().map(|event| event.meta.id).collect())
 }
 
 fn merge_patch_event_summaries(
