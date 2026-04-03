@@ -928,6 +928,7 @@ fn apply_legacy_event(
                         branch_ref: None,
                         effective_assignee: None,
                         awaiting_handoff_from: None,
+                        git_execution: None,
                     },
                 );
             } else {
@@ -1142,8 +1143,9 @@ fn repo_published_execution_overlays(
             branch_ref: None,
             effective_assignee: None,
             awaiting_handoff_from: None,
+            git_execution: overlay.git_execution,
         })
-        .filter(|overlay| overlay.pending_handoff_to.is_some())
+        .filter(|overlay| overlay.pending_handoff_to.is_some() || overlay.git_execution.is_some())
         .collect::<Vec<_>>();
     overlays.sort_by(|left, right| left.node_id.0.cmp(&right.node_id.0));
     overlays

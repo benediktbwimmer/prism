@@ -244,6 +244,11 @@ fn apply_task_patch(task: &mut CoordinationTask, metadata: &Value) {
             task.status = status;
         }
     }
+    if patch_is_set(metadata, "gitExecution") {
+        if let Some(git_execution) = metadata_path(metadata, &["patchValues", "gitExecution"]) {
+            task.git_execution = git_execution;
+        }
+    }
     if patch_is_set(metadata, "assignee") || patch_is_clear(metadata, "assignee") {
         if let Some(assignee) = metadata_optional_path(metadata, &["patchValues", "assignee"]) {
             task.assignee = assignee;
@@ -398,6 +403,9 @@ fn merge_stored_task_metadata(task: &mut CoordinationTask, stored: CoordinationT
     }
     if !stored.tags.is_empty() {
         task.tags = stored.tags;
+    }
+    if stored.git_execution != crate::TaskGitExecution::default() {
+        task.git_execution = stored.git_execution;
     }
     if !stored.metadata.is_null() {
         task.metadata = stored.metadata;

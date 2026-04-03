@@ -1,9 +1,9 @@
 use prism_coordination::BlockerKind;
 use prism_ir::{
     AnchorRef, ArtifactStatus, BlockerCauseSource, Capability, ClaimMode, ClaimStatus,
-    ConflictOverlapKind, ConflictSeverity, CoordinationTaskStatus, EdgeKind, EdgeOrigin, Language,
-    NodeKind, PlanEdgeKind, PlanKind, PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus, PlanScope,
-    PlanStatus, Span,
+    ConflictOverlapKind, ConflictSeverity, CoordinationTaskStatus, EdgeKind, EdgeOrigin,
+    GitExecutionStatus, Language, NodeKind, PlanEdgeKind, PlanKind, PlanNodeBlockerKind,
+    PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus, Span,
 };
 use prism_memory::OutcomeEvent;
 use schemars::JsonSchema;
@@ -1583,6 +1583,53 @@ pub struct PlanExecutionOverlayView {
     pub session: Option<String>,
     pub effective_assignee: Option<String>,
     pub awaiting_handoff_from: Option<String>,
+    pub git_execution: Option<GitExecutionOverlayView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GitExecutionOverlayView {
+    pub status: GitExecutionStatus,
+    pub pending_task_status: Option<CoordinationTaskStatus>,
+    pub target_branch: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GitPreflightReportView {
+    pub checked_at: u64,
+    pub target_branch: String,
+    pub current_branch: Option<String>,
+    pub head_commit: Option<String>,
+    pub target_commit: Option<String>,
+    pub merge_base_commit: Option<String>,
+    pub behind_target_commits: u32,
+    pub worktree_dirty: bool,
+    pub dirty_paths: Vec<String>,
+    pub protected_dirty_paths: Vec<String>,
+    pub failure: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GitPublishReportView {
+    pub attempted_at: u64,
+    pub code_commit: Option<String>,
+    pub coordination_commit: Option<String>,
+    pub pushed_ref: Option<String>,
+    pub staged_paths: Vec<String>,
+    pub protected_paths: Vec<String>,
+    pub failure: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskGitExecutionView {
+    pub status: GitExecutionStatus,
+    pub pending_task_status: Option<CoordinationTaskStatus>,
+    pub target_branch: Option<String>,
+    pub last_preflight: Option<GitPreflightReportView>,
+    pub last_publish: Option<GitPublishReportView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -1709,6 +1756,7 @@ pub struct CoordinationTaskView {
     pub base_revision: WorkspaceRevisionView,
     pub priority: Option<u8>,
     pub tags: Vec<String>,
+    pub git_execution: TaskGitExecutionView,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

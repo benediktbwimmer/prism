@@ -1,6 +1,9 @@
 use anyhow::{anyhow, Result};
 use prism_agent::InferredEdgeScope;
-use prism_coordination::{AcceptanceCriterion, CoordinationPolicy, PlanScheduling};
+use prism_coordination::{
+    AcceptanceCriterion, CoordinationPolicy, GitExecutionCompletionMode, GitExecutionPolicy,
+    GitExecutionStartMode, PlanScheduling,
+};
 use prism_core::WorkspaceSession;
 use prism_ir::{
     AcceptanceEvidencePolicy, AnchorRef, Capability, ClaimMode, CoordinationTaskStatus, EdgeKind,
@@ -20,10 +23,11 @@ use crate::tool_args::ValidationRefPayload;
 use crate::{
     vocabulary_error, AcceptanceCriterionPayload, AcceptanceEvidencePolicyInput, AnchorRefInput,
     CapabilityInput, ClaimModeInput, CoordinationPolicyPayload, CoordinationTaskStatusInput,
-    InferredEdgeScopeInput, LeaseRenewalModeInput, MemoryKindInput, MemorySourceInput, NodeIdInput,
-    OutcomeEvidenceInput, OutcomeKindInput, OutcomeResultInput, PlanBindingPayload,
-    PlanEdgeKindInput, PlanNodeKindInput, PlanNodeStatusInput, PlanSchedulingPayload,
-    PlanStatusInput, ReviewVerdictInput, TaskCompletionContextPayload,
+    GitExecutionCompletionModeInput, GitExecutionStartModeInput, InferredEdgeScopeInput,
+    LeaseRenewalModeInput, MemoryKindInput, MemorySourceInput, NodeIdInput, OutcomeEvidenceInput,
+    OutcomeKindInput, OutcomeResultInput, PlanBindingPayload, PlanEdgeKindInput, PlanNodeKindInput,
+    PlanNodeStatusInput, PlanSchedulingPayload, PlanStatusInput, ReviewVerdictInput,
+    TaskCompletionContextPayload,
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -889,6 +893,30 @@ pub(crate) fn convert_policy(
         policy.lease_renewal_mode = match value {
             LeaseRenewalModeInput::Strict => LeaseRenewalMode::Strict,
             LeaseRenewalModeInput::Assisted => LeaseRenewalMode::Assisted,
+        };
+    }
+    if let Some(value) = payload.git_execution {
+        policy.git_execution = GitExecutionPolicy {
+            start_mode: value
+                .start_mode
+                .map(|mode| match mode {
+                    GitExecutionStartModeInput::Off => GitExecutionStartMode::Off,
+                    GitExecutionStartModeInput::Require => GitExecutionStartMode::Require,
+                    GitExecutionStartModeInput::Auto => GitExecutionStartMode::Auto,
+                })
+                .unwrap_or_default(),
+            completion_mode: value
+                .completion_mode
+                .map(|mode| match mode {
+                    GitExecutionCompletionModeInput::Off => GitExecutionCompletionMode::Off,
+                    GitExecutionCompletionModeInput::Require => GitExecutionCompletionMode::Require,
+                    GitExecutionCompletionModeInput::Auto => GitExecutionCompletionMode::Auto,
+                })
+                .unwrap_or_default(),
+            target_branch: value
+                .target_branch
+                .unwrap_or_else(|| GitExecutionPolicy::default().target_branch),
+            require_task_branch: value.require_task_branch.unwrap_or(false),
         };
     }
     Ok(Some(policy))

@@ -44,6 +44,7 @@ mod discovery_bundle;
 mod discovery_helpers;
 mod features;
 mod file_queries;
+mod git_execution;
 mod host_mutations;
 mod host_resources;
 mod js_runtime;

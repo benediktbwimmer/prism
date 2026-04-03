@@ -84,6 +84,7 @@ pub fn execution_overlays_from_tasks(tasks: &[CoordinationTask]) -> Vec<PlanExec
             branch_ref: task.branch_ref.clone(),
             effective_assignee: None,
             awaiting_handoff_from: None,
+            git_execution: None,
         })
         .collect::<Vec<_>>();
     overlays.sort_by(|left, right| left.node_id.0.cmp(&right.node_id.0));
@@ -218,6 +219,18 @@ fn task_from_plan_node(
     execution: Option<PlanExecutionOverlay>,
 ) -> CoordinationTask {
     let anchors = node.bindings.anchors.clone();
+    let pending_handoff_to = execution
+        .as_ref()
+        .and_then(|overlay| overlay.pending_handoff_to.clone());
+    let session = execution
+        .as_ref()
+        .and_then(|overlay| overlay.session.clone());
+    let worktree_id = execution
+        .as_ref()
+        .and_then(|overlay| overlay.worktree_id.clone());
+    let branch_ref = execution
+        .as_ref()
+        .and_then(|overlay| overlay.branch_ref.clone());
     CoordinationTask {
         id: coordination_task_id_from_plan_node_id(node.id),
         plan: plan_id,
@@ -226,21 +239,15 @@ fn task_from_plan_node(
         summary: node.summary,
         status: map_plan_node_status(node.status),
         assignee: node.assignee,
-        pending_handoff_to: execution
-            .as_ref()
-            .and_then(|overlay| overlay.pending_handoff_to.clone()),
-        session: execution
-            .as_ref()
-            .and_then(|overlay| overlay.session.clone()),
+        pending_handoff_to,
+        session,
         lease_holder: None,
         lease_started_at: None,
         lease_refreshed_at: None,
         lease_stale_at: None,
         lease_expires_at: None,
-        worktree_id: execution
-            .as_ref()
-            .and_then(|overlay| overlay.worktree_id.clone()),
-        branch_ref: execution.and_then(|overlay| overlay.branch_ref),
+        worktree_id,
+        branch_ref,
         anchors,
         bindings: node.bindings,
         depends_on,
@@ -255,6 +262,7 @@ fn task_from_plan_node(
         priority: node.priority,
         tags: node.tags,
         metadata: node.metadata,
+        git_execution: crate::TaskGitExecution::default(),
     }
 }
 

@@ -187,6 +187,14 @@ fn coordination_delta_affects_repo_plan_projection(
     appended_events: &[prism_coordination::CoordinationEvent],
 ) -> bool {
     appended_events.iter().any(|event| {
+        if event
+            .metadata
+            .get("authoritativeOnly")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        {
+            return false;
+        }
         matches!(
             event.kind,
             CoordinationEventKind::PlanCreated

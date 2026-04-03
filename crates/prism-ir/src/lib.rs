@@ -34,10 +34,10 @@ pub use parse::{
     SymbolFingerprint, UnresolvedCall, UnresolvedImpl, UnresolvedImport, UnresolvedIntent,
 };
 pub use plans::{
-    AcceptanceEvidencePolicy, BlockerCause, BlockerCauseSource, HydratedPlanBindingOverlay,
-    PlanAcceptanceCriterion, PlanBinding, PlanEdge, PlanEdgeKind, PlanExecutionOverlay, PlanGraph,
-    PlanKind, PlanNode, PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus,
-    PlanScope, ValidationRef,
+    AcceptanceEvidencePolicy, BlockerCause, BlockerCauseSource, GitExecutionOverlay,
+    GitExecutionStatus, HydratedPlanBindingOverlay, PlanAcceptanceCriterion, PlanBinding, PlanEdge,
+    PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanKind, PlanNode, PlanNodeBlocker,
+    PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus, PlanScope, ValidationRef,
 };
 pub use primitives::{EdgeIndex, FileId, Language, Span, Timestamp};
 pub use principal::{

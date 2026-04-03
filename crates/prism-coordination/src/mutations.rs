@@ -1505,6 +1505,7 @@ pub(crate) fn create_task_mutation(
         priority: None,
         tags: Vec::new(),
         metadata: Value::Null,
+        git_execution: crate::TaskGitExecution::default(),
     };
     if !matches!(task.status, CoordinationTaskStatus::Proposed) {
         refresh_task_lease(&mut task, &meta, meta.ts, &plan.policy);
@@ -1558,12 +1559,33 @@ pub(crate) fn update_task_mutation(
     let update_base_revision = input.base_revision.is_some();
     let update_priority = input.priority.is_some();
     let update_tags = input.tags.is_some();
+    let git_execution_only_update = input.git_execution.is_some()
+        && input.kind.is_none()
+        && input.status.is_none()
+        && input.assignee.is_none()
+        && input.session.is_none()
+        && input.worktree_id.is_none()
+        && input.branch_ref.is_none()
+        && input.title.is_none()
+        && input.summary.is_none()
+        && input.anchors.is_none()
+        && input.bindings.is_none()
+        && input.depends_on.is_none()
+        && input.acceptance.is_none()
+        && input.validation_refs.is_none()
+        && input.is_abstract.is_none()
+        && input.priority.is_none()
+        && input.tags.is_none()
+        && input.completion_context.is_none();
     let mut patch = serde_json::Map::new();
     if input.kind.is_some() {
         push_patch_op(&mut patch, "kind", "set");
     }
     if input.status.is_some() {
         push_patch_op(&mut patch, "status", "set");
+    }
+    if input.git_execution.is_some() {
+        push_patch_op(&mut patch, "gitExecution", "set");
     }
     if let Some(assignee) = input.assignee.as_ref() {
         push_patch_op(
@@ -1649,7 +1671,7 @@ pub(crate) fn update_task_mutation(
     let Some(plan) = state.plans.get(&previous.plan).cloned() else {
         return Err(anyhow!("unknown plan `{}`", previous.plan.0));
     };
-    if plan_status_is_closed(plan.status) {
+    if plan_status_is_closed(plan.status) && !git_execution_only_update {
         let violations = vec![policy_violation(
             PolicyViolationCode::PlanClosed,
             format!(
@@ -1801,6 +1823,7 @@ pub(crate) fn update_task_mutation(
             || input.tags.is_some()
             || input.assignee.is_some()
             || input.session.is_some())
+            && !git_execution_only_update
         {
             let violations = vec![policy_violation(
                 PolicyViolationCode::TerminalTaskEdit,
@@ -1840,6 +1863,7 @@ pub(crate) fn update_task_mutation(
                 || input.assignee.is_some()
                 || input.session.is_some()
                 || input.status.is_some())
+            && !git_execution_only_update
         {
             let violations = vec![policy_violation(
                 PolicyViolationCode::HandoffPending,
@@ -1875,6 +1899,9 @@ pub(crate) fn update_task_mutation(
         }
         if let Some(status) = input.status {
             task.status = status;
+        }
+        if let Some(git_execution) = input.git_execution.clone() {
+            task.git_execution = git_execution;
         }
         if let Some(assignee) = input.assignee {
             task.assignee = assignee;
@@ -2074,6 +2101,9 @@ pub(crate) fn update_task_mutation(
             .map(|agent| Value::String(agent.0.to_string()))
             .unwrap_or(Value::Null),
     );
+    if git_execution_only_update {
+        metadata.insert("authoritativeOnly".to_string(), Value::Bool(true));
+    }
     if let Some(patch) = patch {
         metadata.insert("patch".to_string(), patch);
     }
@@ -2083,6 +2113,13 @@ pub(crate) fn update_task_mutation(
     }
     if update_status {
         insert_serialized(&mut patch_values, "status", task.status);
+    }
+    if input.git_execution.is_some() {
+        insert_serialized(
+            &mut patch_values,
+            "gitExecution",
+            task.git_execution.clone(),
+        );
     }
     if update_assignee {
         insert_serialized(&mut patch_values, "assignee", task.assignee.clone());

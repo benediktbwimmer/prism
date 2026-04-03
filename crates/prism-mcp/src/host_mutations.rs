@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use prism_coordination::{
-    HandoffAcceptInput, HandoffInput, PolicyViolation, TaskCreateInput, TaskReclaimInput,
+    GitExecutionCompletionMode, GitExecutionStartMode, GitPublishReport, HandoffAcceptInput,
+    HandoffInput, PolicyViolation, TaskCreateInput, TaskGitExecution, TaskReclaimInput,
     TaskResumeInput, TaskUpdateInput,
 };
 use prism_core::{
@@ -32,6 +33,7 @@ use prism_query::{
 use serde_json::{json, Value};
 
 use crate::dashboard_events::MutationRun;
+use crate::git_execution::{commit_all, push_current_branch, run_preflight};
 use crate::MutationProvenance;
 use crate::{
     artifact_view, claim_view, concept_packet_view, concept_relation_view, conflict_view,
@@ -421,6 +423,70 @@ enum WorkflowUpdateTarget {
         plan_id: PlanId,
         node_id: PlanNodeId,
     },
+}
+
+enum GitExecutionWorkflow {
+    Start,
+    Complete(prism_ir::CoordinationTaskStatus),
+}
+
+struct GitExecutionRequest {
+    task_id: CoordinationTaskId,
+    workflow: GitExecutionWorkflow,
+}
+
+fn git_execution_request(
+    prism: &Prism,
+    args: &PrismCoordinationArgs,
+) -> Result<Option<GitExecutionRequest>> {
+    match args.kind {
+        CoordinationMutationKindInput::Update => {
+            let payload: WorkflowUpdatePayload = serde_json::from_value(args.payload.clone())?;
+            let WorkflowUpdateTarget::CoordinationTask(task_id) =
+                resolve_workflow_update_target(prism, &payload.id)?
+            else {
+                return Ok(None);
+            };
+            let Some(status) = payload
+                .status
+                .map(convert_workflow_status_for_task)
+                .transpose()?
+            else {
+                return Ok(None);
+            };
+            let workflow = match status {
+                prism_ir::CoordinationTaskStatus::InProgress => GitExecutionWorkflow::Start,
+                prism_ir::CoordinationTaskStatus::Completed
+                | prism_ir::CoordinationTaskStatus::Abandoned => {
+                    GitExecutionWorkflow::Complete(status)
+                }
+                _ => return Ok(None),
+            };
+            Ok(Some(GitExecutionRequest { task_id, workflow }))
+        }
+        CoordinationMutationKindInput::Resume => {
+            let payload: TaskResumePayload = serde_json::from_value(args.payload.clone())?;
+            Ok(Some(GitExecutionRequest {
+                task_id: CoordinationTaskId::new(payload.task_id),
+                workflow: GitExecutionWorkflow::Start,
+            }))
+        }
+        CoordinationMutationKindInput::Reclaim => {
+            let payload: TaskReclaimPayload = serde_json::from_value(args.payload.clone())?;
+            Ok(Some(GitExecutionRequest {
+                task_id: CoordinationTaskId::new(payload.task_id),
+                workflow: GitExecutionWorkflow::Start,
+            }))
+        }
+        CoordinationMutationKindInput::HandoffAccept => {
+            let payload: HandoffAcceptPayload = serde_json::from_value(args.payload.clone())?;
+            Ok(Some(GitExecutionRequest {
+                task_id: CoordinationTaskId::new(payload.task_id),
+                workflow: GitExecutionWorkflow::Start,
+            }))
+        }
+        _ => Ok(None),
+    }
 }
 
 fn resolve_workflow_update_target(prism: &Prism, id: &str) -> Result<WorkflowUpdateTarget> {
@@ -1650,6 +1716,11 @@ impl QueryHost {
                 }
             }
         }
+        if let Some(result) =
+            self.maybe_handle_git_execution_coordination(session, &args, authenticated)?
+        {
+            return Ok(result);
+        }
         let prism = self.current_prism();
         let before_events = prism.coordination_events().len();
         let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
@@ -1850,6 +1921,323 @@ impl QueryHost {
             violations: audit.violations,
             state,
         })
+    }
+
+    fn maybe_handle_git_execution_coordination(
+        &self,
+        session: &SessionState,
+        args: &PrismCoordinationArgs,
+        authenticated: Option<&AuthenticatedPrincipal>,
+    ) -> Result<Option<CoordinationMutationResult>> {
+        let Some(_workspace) = self.workspace_session() else {
+            return Ok(None);
+        };
+        let prism = self.current_prism();
+        let Some(request) = git_execution_request(prism.as_ref(), args)? else {
+            return Ok(None);
+        };
+        let root = self
+            .workspace_root()
+            .ok_or_else(|| anyhow!("git execution workflow requires a workspace root"))?;
+        let task = prism
+            .coordination_task(&request.task_id)
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", request.task_id.0))?;
+        let plan = prism
+            .coordination_plan(&task.plan)
+            .ok_or_else(|| anyhow!("unknown coordination plan `{}`", task.plan.0))?;
+        let policy = plan.policy.git_execution.clone();
+        let mode_enabled = match request.workflow {
+            GitExecutionWorkflow::Start => !matches!(policy.start_mode, GitExecutionStartMode::Off),
+            GitExecutionWorkflow::Complete(_) => {
+                !matches!(policy.completion_mode, GitExecutionCompletionMode::Off)
+            }
+        };
+        if !mode_enabled {
+            return Ok(None);
+        }
+
+        let before_events = prism.coordination_events().len();
+        let now = current_timestamp();
+        let require_clean_worktree = matches!(request.workflow, GitExecutionWorkflow::Start);
+        let preflight = run_preflight(root, &policy, now, require_clean_worktree)?;
+        if let Some(failure) = preflight.report.failure.clone() {
+            self.record_task_git_execution(
+                session,
+                authenticated,
+                &request.task_id,
+                TaskGitExecution {
+                    status: prism_ir::GitExecutionStatus::PreflightFailed,
+                    pending_task_status: None,
+                    target_branch: Some(policy.target_branch.clone()),
+                    last_preflight: Some(preflight.report),
+                    last_publish: None,
+                },
+            )?;
+            return Err(anyhow!(failure));
+        }
+
+        match request.workflow {
+            GitExecutionWorkflow::Start => {
+                if let Err(error) = self.run_raw_coordination_args(
+                    session,
+                    authenticated,
+                    &request.task_id,
+                    args.clone(),
+                ) {
+                    let prism = self.current_prism();
+                    let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    if audit.rejected && !audit.event_ids.is_empty() {
+                        return Ok(Some(CoordinationMutationResult {
+                            event_id: audit
+                                .event_ids
+                                .last()
+                                .cloned()
+                                .unwrap_or_else(|| format!("coordination:{}", request.task_id.0)),
+                            event_ids: audit.event_ids,
+                            rejected: true,
+                            violations: audit.violations,
+                            state: Value::Null,
+                        }));
+                    }
+                    return Err(error);
+                }
+                self.record_task_git_execution(
+                    session,
+                    authenticated,
+                    &request.task_id,
+                    TaskGitExecution {
+                        status: prism_ir::GitExecutionStatus::InProgress,
+                        pending_task_status: None,
+                        target_branch: Some(policy.target_branch.clone()),
+                        last_preflight: Some(preflight.report),
+                        last_publish: None,
+                    },
+                )?;
+            }
+            GitExecutionWorkflow::Complete(desired_status) => {
+                let code_commit = commit_all(root, &task.title, now)?;
+                let code_commit_sha = code_commit
+                    .code_commit
+                    .clone()
+                    .ok_or_else(|| anyhow!("missing code commit sha after git commit"))?;
+                if let Err(error) = self.run_raw_coordination_args(
+                    session,
+                    authenticated,
+                    &request.task_id,
+                    args.clone(),
+                ) {
+                    let prism = self.current_prism();
+                    let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    if audit.rejected && !audit.event_ids.is_empty() {
+                        return Ok(Some(CoordinationMutationResult {
+                            event_id: audit
+                                .event_ids
+                                .last()
+                                .cloned()
+                                .unwrap_or_else(|| format!("coordination:{}", request.task_id.0)),
+                            event_ids: audit.event_ids,
+                            rejected: true,
+                            violations: audit.violations,
+                            state: Value::Null,
+                        }));
+                    }
+                    return Err(error);
+                }
+                self.record_task_git_execution(
+                    session,
+                    authenticated,
+                    &request.task_id,
+                    TaskGitExecution {
+                        status: prism_ir::GitExecutionStatus::PublishPending,
+                        pending_task_status: Some(desired_status),
+                        target_branch: Some(policy.target_branch.clone()),
+                        last_preflight: Some(preflight.report.clone()),
+                        last_publish: Some(code_commit.clone()),
+                    },
+                )?;
+                let coordination_commit_message = match desired_status {
+                    prism_ir::CoordinationTaskStatus::Abandoned => {
+                        format!("prism: abandon {}", task.title)
+                    }
+                    _ => format!("prism: complete {}", task.title),
+                };
+                let coordination_commit =
+                    commit_all(root, &coordination_commit_message, current_timestamp())?;
+                let coordination_commit_sha = coordination_commit
+                    .code_commit
+                    .clone()
+                    .ok_or_else(|| anyhow!("missing coordination commit sha after git commit"))?;
+                let mut published = GitPublishReport {
+                    attempted_at: current_timestamp(),
+                    code_commit: Some(code_commit_sha),
+                    coordination_commit: Some(coordination_commit_sha),
+                    pushed_ref: None,
+                    staged_paths: coordination_commit.staged_paths,
+                    protected_paths: coordination_commit.protected_paths,
+                    failure: None,
+                };
+                if let Err(error) =
+                    push_current_branch(root, &preflight.current_branch, &mut published)
+                {
+                    let failure = error.to_string();
+                    published.failure = Some(failure.clone());
+                    self.record_task_git_execution(
+                        session,
+                        authenticated,
+                        &request.task_id,
+                        TaskGitExecution {
+                            status: prism_ir::GitExecutionStatus::PublishFailed,
+                            pending_task_status: Some(desired_status),
+                            target_branch: Some(policy.target_branch.clone()),
+                            last_preflight: Some(preflight.report),
+                            last_publish: Some(published),
+                        },
+                    )?;
+                    return Err(anyhow!(failure));
+                }
+                self.record_task_git_execution(
+                    session,
+                    authenticated,
+                    &request.task_id,
+                    TaskGitExecution {
+                        status: prism_ir::GitExecutionStatus::Published,
+                        pending_task_status: None,
+                        target_branch: Some(policy.target_branch.clone()),
+                        last_preflight: Some(preflight.report),
+                        last_publish: Some(published),
+                    },
+                )?;
+            }
+        }
+
+        let prism = self.current_prism();
+        let audit = coordination_audit_since(prism.as_ref(), before_events);
+        let state = self.current_task_state_value(&request.task_id)?;
+        sync_session_after_coordination_mutation(
+            self,
+            session,
+            prism.as_ref(),
+            &args.kind,
+            &state,
+        )?;
+        self.persist_session_seed(session)?;
+        Ok(Some(CoordinationMutationResult {
+            event_id: audit
+                .event_ids
+                .last()
+                .cloned()
+                .unwrap_or_else(|| format!("coordination:{}", request.task_id.0)),
+            event_ids: audit.event_ids,
+            rejected: false,
+            violations: audit.violations,
+            state,
+        }))
+    }
+
+    fn run_raw_coordination_args(
+        &self,
+        session: &SessionState,
+        authenticated: Option<&AuthenticatedPrincipal>,
+        task_id: &CoordinationTaskId,
+        args: PrismCoordinationArgs,
+    ) -> Result<Value> {
+        self.run_workspace_coordination_step(session, authenticated, task_id, move |prism, meta| {
+            self.apply_coordination_mutation(session, prism, args, meta)
+        })
+    }
+
+    fn record_task_git_execution(
+        &self,
+        session: &SessionState,
+        authenticated: Option<&AuthenticatedPrincipal>,
+        task_id: &CoordinationTaskId,
+        git_execution: TaskGitExecution,
+    ) -> Result<prism_coordination::CoordinationTask> {
+        let task_id = task_id.clone();
+        let task_ref = task_id.clone();
+        self.run_workspace_coordination_step(
+            session,
+            authenticated,
+            &task_ref,
+            move |prism, meta| {
+                prism.update_native_task(
+                    meta,
+                    TaskUpdateInput {
+                        task_id: task_id.clone(),
+                        kind: None,
+                        status: None,
+                        git_execution: Some(git_execution),
+                        assignee: None,
+                        session: None,
+                        worktree_id: None,
+                        branch_ref: None,
+                        title: None,
+                        summary: None,
+                        anchors: None,
+                        bindings: None,
+                        depends_on: None,
+                        acceptance: None,
+                        validation_refs: None,
+                        is_abstract: None,
+                        base_revision: Some(prism.workspace_revision()),
+                        priority: None,
+                        tags: None,
+                        completion_context: None,
+                    },
+                    prism.workspace_revision(),
+                    current_timestamp(),
+                )
+            },
+        )
+    }
+
+    fn run_workspace_coordination_step<T, F>(
+        &self,
+        session: &SessionState,
+        authenticated: Option<&AuthenticatedPrincipal>,
+        task_id: &CoordinationTaskId,
+        mutate: F,
+    ) -> Result<T>
+    where
+        F: FnOnce(&Prism, EventMeta) -> Result<T>,
+    {
+        let workspace = self
+            .workspace_session()
+            .ok_or_else(|| anyhow!("git execution workflow requires a workspace-backed session"))?;
+        let event_id = session.next_event_id("coordination");
+        let meta = mutation_provenance(self, session, authenticated).event_meta(
+            event_id,
+            Some(TaskId::new(task_id.0.clone())),
+            None,
+            current_timestamp(),
+        );
+        let result = workspace.mutate_coordination_with_session_wait_observed(
+            Some(&session.session_id()),
+            |prism| {
+                self.ensure_coordination_runtime_current(workspace)?;
+                mutate(prism, meta)
+            },
+            |_operation, _duration, _args, _success, _error| {},
+        );
+        match result {
+            Ok(Some(value)) => {
+                self.sync_coordination_revision(workspace)?;
+                Ok(value)
+            }
+            Ok(None) => Err(AdmissionBusyError::refresh_lock("mutateCoordination").into()),
+            Err(error) => {
+                let _ = self.sync_coordination_revision(workspace);
+                Err(error)
+            }
+        }
+    }
+
+    fn current_task_state_value(&self, task_id: &CoordinationTaskId) -> Result<Value> {
+        let prism = self.current_prism();
+        let task = prism
+            .coordination_task(task_id)
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))?;
+        Ok(serde_json::to_value(coordination_task_view(task))?)
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
@@ -2314,6 +2702,7 @@ impl QueryHost {
                                 task_id,
                                 kind: kind.map(convert_plan_node_kind),
                                 status,
+                                git_execution: None,
                                 assignee,
                                 session: None,
                                 worktree_id: None,

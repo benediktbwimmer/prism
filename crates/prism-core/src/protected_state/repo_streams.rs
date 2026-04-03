@@ -8,6 +8,7 @@ use prism_ir::{
     EventActor, EventExecutionContext, PrincipalActor, PrincipalAuthorityId, PrincipalId,
 };
 use serde::{de::DeserializeOwned, Serialize};
+use serde_json::Value;
 
 use crate::protected_state::envelope::{
     ProtectedEventEnvelope, ProtectedSignatureAlgorithm, PROTECTED_EVENT_ENVELOPE_VERSION,
@@ -104,7 +105,7 @@ where
         .with_context(|| format!("protected stream {} is not valid UTF-8", path.display()))?;
     let mut payloads = Vec::new();
     let mut seen_entries = HashMap::new();
-    let mut previous_envelope: Option<ProtectedEventEnvelope<T>> = None;
+    let mut previous_envelope: Option<ProtectedEventEnvelope<Value>> = None;
     let mut previous_entry_hash: Option<String> = None;
 
     for (index, line) in contents.lines().enumerate() {
@@ -131,7 +132,7 @@ where
             ));
         }
 
-        let envelope = match serde_json::from_str::<ProtectedEventEnvelope<T>>(line) {
+        let envelope = match serde_json::from_str::<ProtectedEventEnvelope<Value>>(line) {
             Ok(envelope) => envelope,
             Err(envelope_error) => {
                 if serde_json::from_str::<T>(line).is_ok() {
@@ -289,6 +290,28 @@ where
         }
 
         let computed_entry_hash = envelope.computed_entry_hash()?;
+        let typed_payload = match serde_json::from_value::<T>(envelope.payload.clone()) {
+            Ok(payload) => payload,
+            Err(error) => {
+                return Ok(classified_failure(
+                    stream,
+                    ProtectedVerificationStatus::Corrupt,
+                    Some(envelope.event_id.clone()),
+                    Some(computed_entry_hash.clone()),
+                    Some(envelope.trust_bundle_id.clone()),
+                    "protected_stream_payload_deserialize_failed",
+                    format!(
+                        "protected stream {} contained an incompatible payload at line {}: {error}",
+                        path.display(),
+                        index + 1
+                    ),
+                    Some(
+                        "migrate or repair the protected stream payload before typed hydration"
+                            .to_string(),
+                    ),
+                ));
+            }
+        };
         if seen_entries
             .insert(envelope.event_id.clone(), computed_entry_hash.clone())
             .is_some()
@@ -374,7 +397,7 @@ where
             }
         }
 
-        payloads.push(envelope.payload.clone());
+        payloads.push(typed_payload);
         previous_entry_hash = Some(computed_entry_hash);
         previous_envelope = Some(envelope);
     }
@@ -643,6 +666,7 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
+    use serde::{Deserialize, Serialize};
     use serde_json::json;
 
     use super::{
@@ -768,6 +792,48 @@ mod tests {
         assert_eq!(
             inspection.verification.verification_status,
             ProtectedVerificationStatus::UnknownTrust
+        );
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    struct CompatibilityPayload {
+        required: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        optional: Option<String>,
+    }
+
+    #[test]
+    fn typed_hydration_uses_raw_verified_payload_bytes() {
+        let home = temp_workspace("home-compat");
+        let _guard = set_test_prism_home_override(&home);
+        let workspace = temp_workspace("workspace-compat");
+        let stream = ProtectedRepoStream::concept_events();
+        let principal = implicit_principal_identity(None, None);
+
+        append_protected_stream_event(
+            &workspace,
+            &stream,
+            "event:test-compat",
+            &json!({
+                "required": "alpha",
+                "optional": null
+            }),
+            &principal,
+        )
+        .unwrap();
+
+        let inspection = inspect_protected_stream::<CompatibilityPayload>(&workspace, &stream)
+            .expect("typed hydration should accept raw verified payloads");
+        assert_eq!(
+            inspection.verification.verification_status,
+            ProtectedVerificationStatus::Verified
+        );
+        assert_eq!(
+            inspection.payloads,
+            vec![CompatibilityPayload {
+                required: "alpha".to_string(),
+                optional: None,
+            }]
         );
     }
 

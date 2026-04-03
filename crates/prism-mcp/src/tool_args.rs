@@ -2154,7 +2154,7 @@ struct PrismCoordinationArgsWire {
     task_id: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct PrismCoordinationArgs {
     pub(crate) kind: CoordinationMutationKindInput,
     pub(crate) payload: Value,
@@ -2496,6 +2496,46 @@ impl_vocab_deserialize!(
 
 #[derive(Debug, Clone, JsonSchema)]
 #[serde(rename_all = "snake_case")]
+pub(crate) enum GitExecutionStartModeInput {
+    Off,
+    Require,
+    Auto,
+}
+
+impl_vocab_deserialize!(
+    GitExecutionStartModeInput,
+    "gitExecutionStartMode",
+    "git execution start mode",
+    r#"{"startMode":"auto"}"#,
+    {
+        "off" => Off,
+        "require" => Require,
+        "auto" => Auto
+    }
+);
+
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum GitExecutionCompletionModeInput {
+    Off,
+    Require,
+    Auto,
+}
+
+impl_vocab_deserialize!(
+    GitExecutionCompletionModeInput,
+    "gitExecutionCompletionMode",
+    "git execution completion mode",
+    r#"{"completionMode":"auto"}"#,
+    {
+        "off" => Off,
+        "require" => Require,
+        "auto" => Auto
+    }
+);
+
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum CoordinationTaskStatusInput {
     Proposed,
     Ready,
@@ -2764,6 +2804,18 @@ pub(crate) struct CoordinationPolicyPayload {
     pub(crate) lease_expires_after_seconds: Option<u64>,
     #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) lease_renewal_mode: Option<LeaseRenewalModeInput>,
+    pub(crate) git_execution: Option<GitExecutionPolicyPayload>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct GitExecutionPolicyPayload {
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
+    pub(crate) start_mode: Option<GitExecutionStartModeInput>,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
+    pub(crate) completion_mode: Option<GitExecutionCompletionModeInput>,
+    pub(crate) target_branch: Option<String>,
+    pub(crate) require_task_branch: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]

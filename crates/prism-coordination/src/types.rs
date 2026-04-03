@@ -9,6 +9,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::git_execution::{GitExecutionPolicy, TaskGitExecution};
+
 fn default_plan_scope() -> PlanScope {
     PlanScope::Repo
 }
@@ -59,6 +61,8 @@ pub struct CoordinationPolicy {
     pub lease_expires_after_seconds: u64,
     #[serde(default = "default_lease_renewal_mode")]
     pub lease_renewal_mode: LeaseRenewalMode,
+    #[serde(default)]
+    pub git_execution: GitExecutionPolicy,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -86,6 +90,7 @@ impl Default for CoordinationPolicy {
             lease_stale_after_seconds: default_lease_stale_after_seconds(),
             lease_expires_after_seconds: default_lease_expires_after_seconds(),
             lease_renewal_mode: default_lease_renewal_mode(),
+            git_execution: GitExecutionPolicy::default(),
         }
     }
 }
@@ -167,6 +172,8 @@ pub struct CoordinationTask {
     pub tags: Vec<String>,
     #[serde(default)]
     pub metadata: Value,
+    #[serde(default)]
+    pub git_execution: TaskGitExecution,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -375,6 +382,7 @@ pub struct TaskUpdateInput {
     pub task_id: CoordinationTaskId,
     pub kind: Option<PlanNodeKind>,
     pub status: Option<CoordinationTaskStatus>,
+    pub git_execution: Option<TaskGitExecution>,
     pub assignee: Option<Option<AgentId>>,
     pub session: Option<Option<SessionId>>,
     pub worktree_id: Option<Option<String>>,

@@ -125,6 +125,7 @@ impl NativePlanRuntimeState {
                         task.session.clone(),
                         task.worktree_id.clone(),
                         task.branch_ref.clone(),
+                        task.git_execution.clone(),
                     ),
                 )
             })
@@ -141,13 +142,14 @@ impl NativePlanRuntimeState {
             }
         }
         for task in &mut plan_snapshot.tasks {
-            if let Some((pending_handoff_to, session, worktree_id, branch_ref)) =
+            if let Some((pending_handoff_to, session, worktree_id, branch_ref, git_execution)) =
                 task_runtime_scope.get(&task.id)
             {
                 task.pending_handoff_to = pending_handoff_to.clone();
                 task.session = session.clone();
                 task.worktree_id = worktree_id.clone();
                 task.branch_ref = branch_ref.clone();
+                task.git_execution = git_execution.clone();
             }
         }
         snapshot.plans = plan_snapshot.plans;
@@ -172,6 +174,7 @@ impl NativePlanRuntimeState {
                         task.session.clone(),
                         task.worktree_id.clone(),
                         task.branch_ref.clone(),
+                        task.git_execution.clone(),
                     ),
                 )
             })
@@ -237,13 +240,14 @@ impl NativePlanRuntimeState {
         snapshot
             .tasks
             .extend(plan_snapshot.tasks.into_iter().map(|mut task| {
-                if let Some((pending_handoff_to, session, worktree_id, branch_ref)) =
+                if let Some((pending_handoff_to, session, worktree_id, branch_ref, git_execution)) =
                     task_runtime_scope.get(&task.id)
                 {
                     task.pending_handoff_to = pending_handoff_to.clone();
                     task.session = session.clone();
                     task.worktree_id = worktree_id.clone();
                     task.branch_ref = branch_ref.clone();
+                    task.git_execution = git_execution.clone();
                 }
                 task
             }));
@@ -681,6 +685,7 @@ impl NativePlanRuntimeState {
                 branch_ref: task.branch_ref.clone(),
                 effective_assignee: None,
                 awaiting_handoff_from: None,
+                git_execution: None,
             });
             *overlays = sort_execution_overlays(std::mem::take(overlays));
         }
@@ -720,6 +725,7 @@ fn derive_execution_overlays(
                 branch_ref,
                 effective_assignee,
                 awaiting_handoff_from,
+                git_execution: None,
             });
         }
     }

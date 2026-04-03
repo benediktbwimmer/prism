@@ -15,14 +15,14 @@ use prism_js::{
     ContractHealthStatusView, ContractHealthView, ContractKindView, ContractPacketView,
     ContractResolutionView, ContractStabilityView, ContractStatusView, ContractTargetView,
     ContractValidationView, CoordinationTaskView, CuratorJobView, CuratorProposalRecordView,
-    CuratorProposalView, DriftCandidateView, EdgeView, MemoryEntryView, MemoryEventView,
-    NodeIdView, PlanAcceptanceCriterionView, PlanBindingView, PlanEdgeView,
-    PlanExecutionOverlayView, PlanGraphView, PlanListEntryView, PlanNodeBlockerView,
-    PlanNodeRecommendationView, PlanNodeView, PlanSchedulingView, PlanSummaryView, PlanView,
-    PolicyViolationRecordView, PolicyViolationView, ProjectionAuthorityPlaneView,
-    ProjectionClassView, QueryDiagnostic, ScoredMemoryView, TaskIntentView, TaskRiskView,
-    TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView, ValidationRefView,
-    WorkspaceRevisionView,
+    CuratorProposalView, DriftCandidateView, EdgeView, GitExecutionOverlayView,
+    GitPreflightReportView, GitPublishReportView, MemoryEntryView, MemoryEventView, NodeIdView,
+    PlanAcceptanceCriterionView, PlanBindingView, PlanEdgeView, PlanExecutionOverlayView,
+    PlanGraphView, PlanListEntryView, PlanNodeBlockerView, PlanNodeRecommendationView,
+    PlanNodeView, PlanSchedulingView, PlanSummaryView, PlanView, PolicyViolationRecordView,
+    PolicyViolationView, ProjectionAuthorityPlaneView, ProjectionClassView, QueryDiagnostic,
+    ScoredMemoryView, TaskGitExecutionView, TaskIntentView, TaskRiskView, TaskValidationRecipeView,
+    ValidationCheckView, ValidationRecipeView, ValidationRefView, WorkspaceRevisionView,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
 use prism_projections::{ProjectionAuthorityPlane, ProjectionClass};
@@ -1358,6 +1358,45 @@ pub(crate) fn plan_execution_overlay_view(
         session: value.session.map(|session| session.0.to_string()),
         effective_assignee: value.effective_assignee.map(|agent| agent.0.to_string()),
         awaiting_handoff_from: value.awaiting_handoff_from.map(|node| node.0.to_string()),
+        git_execution: value.git_execution.map(git_execution_overlay_view),
+    }
+}
+
+fn git_execution_overlay_view(value: prism_ir::GitExecutionOverlay) -> GitExecutionOverlayView {
+    GitExecutionOverlayView {
+        status: value.status,
+        pending_task_status: value.pending_task_status,
+        target_branch: value.target_branch,
+    }
+}
+
+fn git_preflight_report_view(
+    value: prism_coordination::GitPreflightReport,
+) -> GitPreflightReportView {
+    GitPreflightReportView {
+        checked_at: value.checked_at,
+        target_branch: value.target_branch,
+        current_branch: value.current_branch,
+        head_commit: value.head_commit,
+        target_commit: value.target_commit,
+        merge_base_commit: value.merge_base_commit,
+        behind_target_commits: value.behind_target_commits,
+        worktree_dirty: value.worktree_dirty,
+        dirty_paths: value.dirty_paths,
+        protected_dirty_paths: value.protected_dirty_paths,
+        failure: value.failure,
+    }
+}
+
+fn git_publish_report_view(value: prism_coordination::GitPublishReport) -> GitPublishReportView {
+    GitPublishReportView {
+        attempted_at: value.attempted_at,
+        code_commit: value.code_commit,
+        coordination_commit: value.coordination_commit,
+        pushed_ref: value.pushed_ref,
+        staged_paths: value.staged_paths,
+        protected_paths: value.protected_paths,
+        failure: value.failure,
     }
 }
 
@@ -1626,6 +1665,19 @@ pub(crate) fn coordination_task_view(
         base_revision: workspace_revision_view(value.base_revision),
         priority: value.priority,
         tags: value.tags,
+        git_execution: TaskGitExecutionView {
+            status: value.git_execution.status,
+            pending_task_status: value.git_execution.pending_task_status,
+            target_branch: value.git_execution.target_branch,
+            last_preflight: value
+                .git_execution
+                .last_preflight
+                .map(git_preflight_report_view),
+            last_publish: value
+                .git_execution
+                .last_publish
+                .map(git_publish_report_view),
+        },
     }
 }
 

@@ -2,7 +2,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AgentId, AnchorRef, ArtifactId, PlanEdgeId, PlanId, PlanNodeId, SessionId, WorkspaceRevision,
+    AgentId, AnchorRef, ArtifactId, CoordinationTaskStatus, PlanEdgeId, PlanId, PlanNodeId,
+    SessionId, WorkspaceRevision,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -181,6 +182,34 @@ pub struct PlanEdge {
     pub metadata: serde_json::Value,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum GitExecutionStatus {
+    NotStarted,
+    PreflightFailed,
+    InProgress,
+    PublishPending,
+    PublishFailed,
+    Published,
+}
+
+impl Default for GitExecutionStatus {
+    fn default() -> Self {
+        Self::NotStarted
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct GitExecutionOverlay {
+    #[serde(default)]
+    pub status: GitExecutionStatus,
+    #[serde(default)]
+    pub pending_task_status: Option<CoordinationTaskStatus>,
+    #[serde(default)]
+    pub target_branch: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct PlanExecutionOverlay {
     pub node_id: PlanNodeId,
@@ -194,6 +223,8 @@ pub struct PlanExecutionOverlay {
     pub effective_assignee: Option<AgentId>,
     #[serde(default)]
     pub awaiting_handoff_from: Option<PlanNodeId>,
+    #[serde(default)]
+    pub git_execution: Option<GitExecutionOverlay>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
