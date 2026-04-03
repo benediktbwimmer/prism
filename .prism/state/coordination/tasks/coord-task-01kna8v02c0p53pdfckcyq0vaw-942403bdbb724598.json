@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Implement authenticated capability-scoped bounded peer runtime reads on local or trusted-network transport",
   "summary": null,
-  "status": "InProgress",
+  "status": "Completed",
   "published_task_status": null,
   "assignee": null,
   "pending_handoff_to": null,
@@ -31,7 +31,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1215,
+    "graph_version": 1242,
     "git_commit": null
   },
   "priority": null,

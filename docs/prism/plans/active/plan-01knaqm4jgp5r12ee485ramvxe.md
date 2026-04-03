@@ -8,14 +8,14 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:170b1b3125a2b70fe06c0eb3c7154990dce9c6e844e761ee7d9d444aaa680115`
+- Source head: `sha256:41843417122d330d9cc7b2757078be3f8b7bac817192478bd0119e2a5516ec16`
 - Source logical timestamp: `unknown`
-- Source snapshot: `5 nodes, 6 edges, 0 overlays`
+- Source snapshot: `5 nodes, 6 edges, 5 overlays`
 
 ## Overview
 
 - Plan id: `plan:01knaqm4jgp5r12ee485ramvxe`
-- Status: `active`
+- Status: `completed`
 - Kind: `task_execution`
 - Scope: `repo`
 - Revision: `0`
@@ -51,7 +51,7 @@ Make snapshot-era PRISM state survivable in arbitrary repos by auto-installing r
 
 - Node id: `coord-task:01knaqmkjbz69aka2dzh8yhyke`
 - Kind: `edit`
-- Status: `in_progress`
+- Status: `completed`
 
 #### Acceptance
 
@@ -61,7 +61,7 @@ Make snapshot-era PRISM state survivable in arbitrary repos by auto-installing r
 
 - Node id: `coord-task:01knaqn4pzpx278wss25zqwqma`
 - Kind: `edit`
-- Status: `proposed`
+- Status: `completed`
 
 #### Acceptance
 
@@ -71,7 +71,8 @@ Make snapshot-era PRISM state survivable in arbitrary repos by auto-installing r
 
 - Node id: `coord-task:01knaqn5gdm1syjgwvjw2a0s72`
 - Kind: `edit`
-- Status: `proposed`
+- Status: `completed`
+- Summary: Implementing the snapshot-derived merge-driver coverage and managed git-attributes expansion for tracked snapshot outputs.
 
 #### Acceptance
 
@@ -81,7 +82,7 @@ Make snapshot-era PRISM state survivable in arbitrary repos by auto-installing r
 
 - Node id: `coord-task:01knaqn6kmcv0347syd3zxjvk2`
 - Kind: `edit`
-- Status: `proposed`
+- Status: `completed`
 
 #### Acceptance
 
@@ -91,7 +92,7 @@ Make snapshot-era PRISM state survivable in arbitrary repos by auto-installing r
 
 - Node id: `coord-task:01knaqnk440qpjcssdta8anmv7`
 - Kind: `edit`
-- Status: `proposed`
+- Status: `completed`
 
 #### Acceptance
 
@@ -100,9 +101,37 @@ Make snapshot-era PRISM state survivable in arbitrary repos by auto-installing r
 ## Edges
 
 - `plan-edge:coord-task:01knaqn4pzpx278wss25zqwqma:depends-on:coord-task:01knaqmkjbz69aka2dzh8yhyke`: `coord-task:01knaqn4pzpx278wss25zqwqma` depends on `coord-task:01knaqmkjbz69aka2dzh8yhyke`
-- `plan-edge:coord-task:01knaqn5gdm1syjgwvjw2a0s72:depends-on:coord-task:01knaqmkjbz69aka2dzh8yhyke`: `coord-task:01knaqn5gdm1syjgwvjw2a0s72` depends on `coord-task:01knaqmkjbz69aka2dzh8yhyke`
 - `plan-edge:coord-task:01knaqn6kmcv0347syd3zxjvk2:depends-on:coord-task:01knaqmkjbz69aka2dzh8yhyke`: `coord-task:01knaqn6kmcv0347syd3zxjvk2` depends on `coord-task:01knaqmkjbz69aka2dzh8yhyke`
+- `plan-edge:coord-task:01knaqn5gdm1syjgwvjw2a0s72:depends-on:coord-task:01knaqmkjbz69aka2dzh8yhyke`: `coord-task:01knaqn5gdm1syjgwvjw2a0s72` depends on `coord-task:01knaqmkjbz69aka2dzh8yhyke`
 - `plan-edge:coord-task:01knaqnk440qpjcssdta8anmv7:depends-on:coord-task:01knaqn4pzpx278wss25zqwqma`: `coord-task:01knaqnk440qpjcssdta8anmv7` depends on `coord-task:01knaqn4pzpx278wss25zqwqma`
 - `plan-edge:coord-task:01knaqnk440qpjcssdta8anmv7:depends-on:coord-task:01knaqn5gdm1syjgwvjw2a0s72`: `coord-task:01knaqnk440qpjcssdta8anmv7` depends on `coord-task:01knaqn5gdm1syjgwvjw2a0s72`
 - `plan-edge:coord-task:01knaqnk440qpjcssdta8anmv7:depends-on:coord-task:01knaqn6kmcv0347syd3zxjvk2`: `coord-task:01knaqnk440qpjcssdta8anmv7` depends on `coord-task:01knaqn6kmcv0347syd3zxjvk2`
+
+## Execution Overlays
+
+- Node: `coord-task:01knaqmkjbz69aka2dzh8yhyke`
+  git execution status: `published`
+  source ref: `task/prism-merge-repair-support`
+  target ref: `origin/main`
+  publish ref: `task/prism-merge-repair-support`
+- Node: `coord-task:01knaqn4pzpx278wss25zqwqma`
+  git execution status: `published`
+  source ref: `task/prism-merge-repair-support`
+  target ref: `origin/main`
+  publish ref: `task/prism-merge-repair-support`
+- Node: `coord-task:01knaqn5gdm1syjgwvjw2a0s72`
+  git execution status: `published`
+  source ref: `task/prism-merge-repair-support`
+  target ref: `origin/main`
+  publish ref: `task/prism-merge-repair-support`
+- Node: `coord-task:01knaqn6kmcv0347syd3zxjvk2`
+  git execution status: `published`
+  source ref: `task/prism-merge-repair-support`
+  target ref: `origin/main`
+  publish ref: `task/prism-merge-repair-support`
+- Node: `coord-task:01knaqnk440qpjcssdta8anmv7`
+  git execution status: `published`
+  source ref: `task/prism-merge-repair-support`
+  target ref: `origin/main`
+  publish ref: `task/prism-merge-repair-support`
 

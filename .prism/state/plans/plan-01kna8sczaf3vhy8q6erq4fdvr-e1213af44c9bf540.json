@@ -115,7 +115,7 @@
         "kind": "Edit",
         "title": "Implement authenticated capability-scoped bounded peer runtime reads on local or trusted-network transport",
         "summary": null,
-        "status": "InProgress",
+        "status": "Completed",
         "bindings": {
           "anchors": [],
           "concept_handles": [],
@@ -128,7 +128,7 @@
         "is_abstract": false,
         "assignee": null,
         "base_revision": {
-          "graph_version": 1215,
+          "graph_version": 1242,
           "git_commit": null
         },
         "priority": null,
@@ -250,19 +250,19 @@
       "effective_assignee": null,
       "awaiting_handoff_from": null,
       "git_execution": {
-        "status": "in_progress",
+        "status": "published",
         "pendingTaskStatus": null,
         "sourceRef": "task/federated-runtime-implementation",
         "targetRef": "origin/main",
         "publishRef": "task/federated-runtime-implementation",
         "targetBranch": "main",
-        "sourceCommit": null,
-        "publishCommit": null,
-        "targetCommitAtPublish": null,
+        "sourceCommit": "6e9ff9dea125a74d8261f87d7e5dad70cf776d64",
+        "publishCommit": "62818f267deb1ae0e70eaa00a28a447dfe531d74",
+        "targetCommitAtPublish": "2d50caeaa9447eca7bc3c2bc54fce93c8ce4532b",
         "reviewArtifactRef": null,
         "integrationCommit": null,
         "integrationMode": "external",
-        "integrationStatus": "not_started"
+        "integrationStatus": "published_to_branch"
       }
     }
   ]

@@ -8,14 +8,14 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:bb68a7c19044beb176f72426a770c585d0a041df8e072feeaea1d3d0f69c6eb0`
+- Source head: `sha256:e32e5271298870b3803a0daf6a2e52a152dc836bce7989f36806ee6e93cc3d23`
 - Source logical timestamp: `unknown`
 - Source snapshot: `1 nodes, 0 edges, 1 overlays`
 
 ## Overview
 
 - Plan id: `plan:01knap36apc42jgrq3w7k300yz`
-- Status: `active`
+- Status: `completed`
 - Kind: `task_execution`
 - Scope: `repo`
 - Revision: `0`
@@ -51,7 +51,7 @@ Finish every material remaining gap from PRISM_SHARED_COORDINATION_REFS.md by co
 
 - Node id: `coord-task:01knaqpp6mxkybk88n72frrq4p`
 - Kind: `edit`
-- Status: `in_progress`
+- Status: `completed`
 - Summary: Wire shared-coordination task execution beyond branch publication by persisting target integration lifecycle, landing evidence, and verification rules for merge, rebase, and squash flows.
 
 #### Acceptance
@@ -67,4 +67,8 @@ No published plan edges are currently recorded.
 ## Execution Overlays
 
 - Node: `coord-task:01knaqpp6mxkybk88n72frrq4p`
+  git execution status: `published`
+  source ref: `task/shared-coordination-refs-gaps`
+  target ref: `origin/main`
+  publish ref: `task/shared-coordination-refs-gaps`
 

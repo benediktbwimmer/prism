@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:600879a9794b504017abb862d6eed5033d471ee23479d1b151b62e9adc177f87`
+- Source head: `sha256:ebb9f85c22f52f854fc6a3d6ab4d927bddb9afd5dd4ecf41f3f5f600cd8d56ea`
 - Source logical timestamp: `unknown`
 - Source snapshot: `4 nodes, 3 edges, 3 overlays`
 
@@ -64,7 +64,7 @@ Add shared-ref runtime descriptors and authenticated peer runtime reads, while s
 
 - Node id: `coord-task:01kna8v02c0p53pdfckcyq0vaw`
 - Kind: `edit`
-- Status: `in_progress`
+- Status: `completed`
 
 ### Validate local-machine peer observability, capability denial, and graceful fallback with no peer
 
@@ -91,7 +91,7 @@ Add shared-ref runtime descriptors and authenticated peer runtime reads, while s
   target ref: `origin/main`
   publish ref: `task/federated-runtime-implementation`
 - Node: `coord-task:01kna8v02c0p53pdfckcyq0vaw`
-  git execution status: `in_progress`
+  git execution status: `published`
   source ref: `task/federated-runtime-implementation`
   target ref: `origin/main`
   publish ref: `task/federated-runtime-implementation`

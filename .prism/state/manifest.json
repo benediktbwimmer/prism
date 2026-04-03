@@ -1,23 +1,22 @@
 {
   "version": 1,
-  "publishedAt": 1775257930,
+  "publishedAt": 1775258333,
   "publisher": {
     "principalAuthorityId": "local-daemon",
     "principalId": "principal:codex-shared-coordination-refs-gaps-2026-04-04:01knaqj9pv4p1vc9tfw82zvp6y",
     "credentialId": "credential:01knaqj9pv0vx0h59cvge430j7"
   },
   "workContext": {
-    "workId": "coord-task:01knaqpp6mxkybk88n72frrq4p",
-    "kind": "coordination",
-    "title": "Implement durable target integration lifecycle and verification",
-    "summary": "Wire shared-coordination task execution beyond branch publication by persisting target integration lifecycle, landing evidence, and verification rules for merge, rebase, and squash flows.",
-    "coordinationTaskId": "coord-task:01knaqpp6mxkybk88n72frrq4p",
+    "workId": "work:implement-shared-coordination-target-integration-lifecycle:01knaqn8e4w80jw16a4jfry0mf",
+    "kind": "ad_hoc",
+    "title": "Implement shared-coordination target integration lifecycle",
+    "summary": "Create and execute the first concrete task for the remaining shared coordination refs gaps by wiring durable target integration lifecycle and verification.",
     "planId": "plan:01knap36apc42jgrq3w7k300yz",
     "planTitle": "Close all remaining shared coordination refs gaps"
   },
   "publishSummary": {
-    "title": "Implement durable target integration lifecycle and verification",
-    "summary": "Wire shared-coordination task execution beyond branch publication by persisting target integration lifecycle, landing evidence, and verification rules for merge, rebase, and squash flows."
+    "title": "Implement shared-coordination target integration lifecycle",
+    "summary": "Create and execute the first concrete task for the remaining shared coordination refs gaps by wiring durable target integration lifecycle and verification."
   },
   "files": {
     ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json": {
@@ -1226,7 +1225,7 @@
     },
     ".prism/state/coordination/tasks/coord-task-01kna8v02c0p53pdfckcyq0vaw-942403bdbb724598.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kna8v02c0p53pdfckcyq0vaw-942403bdbb724598.json",
-      "sha256": "sha256:a1fb894f23730c999d6a049ef7dfe333b7b062a5cb13166a146c387262fd04f7"
+      "sha256": "sha256:cb804622ae0448ebca079632f805fb59eecdd7fa4f8f08bb0af36f55abc216d1"
     },
     ".prism/state/coordination/tasks/coord-task-01kna8v52e247h2xymfv8ksdb0-49ee0589d9feadf0.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kna8v52e247h2xymfv8ksdb0-49ee0589d9feadf0.json",
@@ -1402,11 +1401,11 @@
     },
     ".prism/state/indexes/coordination_tasks.json": {
       "path": ".prism/state/indexes/coordination_tasks.json",
-      "sha256": "sha256:a6501da87b76aa559eeb0e4fd5b6a1d4686bd92ffe30bf990fb91ae0eb214dcc"
+      "sha256": "sha256:5c87dddba0d215cd88910ef27661d3eea5261758391bc37c03f16a4c3a5d9d98"
     },
     ".prism/state/indexes/plans.json": {
       "path": ".prism/state/indexes/plans.json",
-      "sha256": "sha256:dc94d8533809b80bc52c4e0e1ddbd36020bcae7cbe9b572903205e606d5c31f4"
+      "sha256": "sha256:901ebe8e7f4d29d39b111482fc8d3f439b89951c937910c2345b624078f0a055"
     },
     ".prism/state/plans/plan-01kmwmwamj4y87781dsn8x7wt2-f0176c427f24cf04.json": {
       "path": ".prism/state/plans/plan-01kmwmwamj4y87781dsn8x7wt2-f0176c427f24cf04.json",
@@ -1626,7 +1625,7 @@
     },
     ".prism/state/plans/plan-01kna8sczaf3vhy8q6erq4fdvr-e1213af44c9bf540.json": {
       "path": ".prism/state/plans/plan-01kna8sczaf3vhy8q6erq4fdvr-e1213af44c9bf540.json",
-      "sha256": "sha256:1f93aac8366a0856e35be6a1b4081b9db6bb75d12475d8fcec8bb1f58e119d8e"
+      "sha256": "sha256:2ada58352707c35a0fd079875371a4fdc58c355a59261cfa8273b912b7043bd9"
     },
     ".prism/state/plans/plan-01kna9h1khpyyzjgeed0y1ggk5-68c79e37ffc18e5e.json": {
       "path": ".prism/state/plans/plan-01kna9h1khpyyzjgeed0y1ggk5-68c79e37ffc18e5e.json",
@@ -1646,7 +1645,7 @@
     },
     ".prism/state/plans/plan-01knap36apc42jgrq3w7k300yz-d10c2c0d40cfd37f.json": {
       "path": ".prism/state/plans/plan-01knap36apc42jgrq3w7k300yz-d10c2c0d40cfd37f.json",
-      "sha256": "sha256:2c0e534e474e831e4f5878255849d74cdf8189685c2a82f0d386f894e615f927"
+      "sha256": "sha256:0a7bce5d21d2f1c85871dd6521c748a14ced6e076fd3700f8d027653e7a93c18"
     },
     ".prism/state/plans/plan-01knaqm4jgp5r12ee485ramvxe-2e5222e5b9b4c3cb.json": {
       "path": ".prism/state/plans/plan-01knaqm4jgp5r12ee485ramvxe-2e5222e5b9b4c3cb.json",
@@ -1681,12 +1680,12 @@
       "sha256": "sha256:2b6eb488f1812c7d5b3812771fd8c9db2912f75d7a785d449c6f5c427cf93081"
     }
   },
-  "previousManifestDigest": "sha256:76633e991f3496feb3be13d2924560699c6d0fc15123e45eb875b139c1f56100",
+  "previousManifestDigest": "sha256:a9e39807886e8137bd141b9e00369b37029255608e979cfd54c5aaefcbf69715",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:hXo/28kUX3ipGiXYlTuDPY5SB9VbeV09zHXHDc2cgfERrFZxmB97/TLkYpPy4H/kmnwGs/Gb1LLMv1Li9fzVDg=="
+    "value": "base64:qTuDxKlNuYPlevz0CxC2B8c/4HemxaBt5k2uMJt0B5C4FAY4EinDNjrLgoqIPGbYGgPA6WpumWzncLWt9mzGAA=="
   }
 }

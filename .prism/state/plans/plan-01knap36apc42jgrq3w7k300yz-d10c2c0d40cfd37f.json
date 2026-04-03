@@ -3,7 +3,7 @@
     "id": "plan:01knap36apc42jgrq3w7k300yz",
     "goal": "Finish every material remaining gap from PRISM_SHARED_COORDINATION_REFS.md by completing target integration policy and lifecycle modeling, durable integration evidence and verification, shared-ref publication ordering for strict require, remote live-sync and reconciliation hardening, branch-local mirror demotion, and retention/compaction so cross-branch coordination becomes the unambiguous primary authority for daily development.",
     "title": "Close all remaining shared coordination refs gaps",
-    "status": "Active",
+    "status": "Completed",
     "policy": {
       "default_claim_mode": "Advisory",
       "max_parallel_editors_per_anchor": 2,
@@ -48,7 +48,7 @@
     "kind": "TaskExecution",
     "title": "Close all remaining shared coordination refs gaps",
     "goal": "Finish every material remaining gap from PRISM_SHARED_COORDINATION_REFS.md by completing target integration policy and lifecycle modeling, durable integration evidence and verification, shared-ref publication ordering for strict require, remote live-sync and reconciliation hardening, branch-local mirror demotion, and retention/compaction so cross-branch coordination becomes the unambiguous primary authority for daily development.",
-    "status": "Active",
+    "status": "Completed",
     "revision": 0,
     "root_nodes": [
       "coord-task:01knaqpp6mxkybk88n72frrq4p"
@@ -121,13 +121,13 @@
         "targetRef": "origin/main",
         "publishRef": "task/shared-coordination-refs-gaps",
         "targetBranch": "main",
-        "sourceCommit": "48eb67a2f0407b8e7f75390c7658b489ab0ba6ed",
-        "publishCommit": "36dcc32e69e0196b0b261f5223f89ed37e3ba39e",
+        "sourceCommit": "e40147d4bbe0c78eca96b36bd9080c52b0871502",
+        "publishCommit": "7f951e630ea607454a10ec7575ae4b652b49f4ea",
         "targetCommitAtPublish": "fe83a17a87055d6e904807dc298426f416db5da8",
         "reviewArtifactRef": null,
-        "integrationCommit": null,
+        "integrationCommit": "39256ebf694e8cade13757d894d4a4c602c60084",
         "integrationMode": "external",
-        "integrationStatus": "integration_pending"
+        "integrationStatus": "integrated_to_target"
       }
     }
   ]
