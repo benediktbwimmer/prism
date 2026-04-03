@@ -910,14 +910,12 @@ pub(crate) fn merge_policy_payload(
             git_execution.start_mode = match mode {
                 GitExecutionStartModeInput::Off => GitExecutionStartMode::Off,
                 GitExecutionStartModeInput::Require => GitExecutionStartMode::Require,
-                GitExecutionStartModeInput::Auto => GitExecutionStartMode::Auto,
             };
         }
         if let Some(mode) = value.completion_mode {
             git_execution.completion_mode = match mode {
                 GitExecutionCompletionModeInput::Off => GitExecutionCompletionMode::Off,
                 GitExecutionCompletionModeInput::Require => GitExecutionCompletionMode::Require,
-                GitExecutionCompletionModeInput::Auto => GitExecutionCompletionMode::Auto,
             };
         }
         if let Some(target_ref) = value.target_ref {

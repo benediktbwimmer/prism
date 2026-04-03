@@ -1086,7 +1086,6 @@ fn format_git_execution_start_mode(
     match mode {
         prism_coordination::GitExecutionStartMode::Off => "off",
         prism_coordination::GitExecutionStartMode::Require => "require",
-        prism_coordination::GitExecutionStartMode::Auto => "auto",
     }
 }
 
@@ -1096,7 +1095,6 @@ fn format_git_execution_completion_mode(
     match mode {
         prism_coordination::GitExecutionCompletionMode::Off => "off",
         prism_coordination::GitExecutionCompletionMode::Require => "require",
-        prism_coordination::GitExecutionCompletionMode::Auto => "auto",
     }
 }
 

@@ -2499,18 +2499,16 @@ impl_vocab_deserialize!(
 pub(crate) enum GitExecutionStartModeInput {
     Off,
     Require,
-    Auto,
 }
 
 impl_vocab_deserialize!(
     GitExecutionStartModeInput,
     "gitExecutionStartMode",
     "git execution start mode",
-    r#"{"startMode":"auto"}"#,
+    r#"{"startMode":"require"}"#,
     {
         "off" => Off,
-        "require" => Require,
-        "auto" => Auto
+        "require" => Require
     }
 );
 
@@ -2519,18 +2517,16 @@ impl_vocab_deserialize!(
 pub(crate) enum GitExecutionCompletionModeInput {
     Off,
     Require,
-    Auto,
 }
 
 impl_vocab_deserialize!(
     GitExecutionCompletionModeInput,
     "gitExecutionCompletionMode",
     "git execution completion mode",
-    r#"{"completionMode":"auto"}"#,
+    r#"{"completionMode":"require"}"#,
     {
         "off" => Off,
-        "require" => Require,
-        "auto" => Auto
+        "require" => Require
     }
 );
 

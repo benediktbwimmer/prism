@@ -1,6 +1,6 @@
 use prism_ir::{CoordinationTaskStatus, Timestamp};
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 fn default_target_branch() -> String {
     "main".to_string()
@@ -10,25 +10,67 @@ fn default_max_commits_behind_target() -> u32 {
     0
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum GitExecutionStartMode {
-    #[default]
     Off,
     Require,
-    Auto,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+impl Default for GitExecutionStartMode {
+    fn default() -> Self {
+        Self::Off
+    }
+}
+
+impl<'de> Deserialize<'de> for GitExecutionStartMode {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        match value.as_str() {
+            "off" => Ok(Self::Off),
+            "require" | "auto" => Ok(Self::Require),
+            _ => Err(serde::de::Error::unknown_variant(
+                &value,
+                &["off", "require"],
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum GitExecutionCompletionMode {
-    #[default]
     Off,
     Require,
-    Auto,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+impl Default for GitExecutionCompletionMode {
+    fn default() -> Self {
+        Self::Off
+    }
+}
+
+impl<'de> Deserialize<'de> for GitExecutionCompletionMode {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        match value.as_str() {
+            "off" => Ok(Self::Off),
+            "require" | "auto" => Ok(Self::Require),
+            _ => Err(serde::de::Error::unknown_variant(
+                &value,
+                &["off", "require"],
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct GitExecutionPolicy {
     #[serde(default)]
@@ -45,6 +87,20 @@ pub struct GitExecutionPolicy {
     pub max_commits_behind_target: u32,
     #[serde(default)]
     pub max_fetch_age_seconds: Option<u64>,
+}
+
+impl Default for GitExecutionPolicy {
+    fn default() -> Self {
+        Self {
+            start_mode: GitExecutionStartMode::Off,
+            completion_mode: GitExecutionCompletionMode::Off,
+            target_ref: None,
+            target_branch: default_target_branch(),
+            require_task_branch: false,
+            max_commits_behind_target: default_max_commits_behind_target(),
+            max_fetch_age_seconds: None,
+        }
+    }
 }
 
 impl GitExecutionPolicy {
@@ -129,4 +185,32 @@ pub struct TaskGitExecution {
     pub last_preflight: Option<GitPreflightReport>,
     #[serde(default)]
     pub last_publish: Option<GitPublishReport>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{GitExecutionCompletionMode, GitExecutionPolicy, GitExecutionStartMode};
+
+    #[test]
+    fn git_execution_policy_defaults_to_off() {
+        let policy = GitExecutionPolicy::default();
+        assert_eq!(policy.start_mode, GitExecutionStartMode::Off);
+        assert_eq!(policy.completion_mode, GitExecutionCompletionMode::Off);
+        assert!(!policy.require_task_branch);
+        assert_eq!(policy.target_branch, "main");
+    }
+
+    #[test]
+    fn legacy_auto_modes_deserialize_as_require() {
+        let policy: GitExecutionPolicy = serde_json::from_str(
+            r#"{
+                "startMode":"auto",
+                "completionMode":"auto",
+                "targetBranch":"main"
+            }"#,
+        )
+        .expect("legacy policy should deserialize");
+        assert_eq!(policy.start_mode, GitExecutionStartMode::Require);
+        assert_eq!(policy.completion_mode, GitExecutionCompletionMode::Require);
+    }
 }

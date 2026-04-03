@@ -4,7 +4,6 @@ use std::time::UNIX_EPOCH;
 
 use anyhow::{anyhow, Context, Result};
 use prism_coordination::{GitExecutionPolicy, GitPreflightReport, GitPublishReport};
-use prism_ir::CoordinationTaskId;
 
 fn run_git(root: &Path, args: &[&str]) -> Result<String> {
     let output = Command::new("git")
@@ -161,35 +160,6 @@ pub(crate) fn run_preflight(
     })
 }
 
-pub(crate) fn commit_all(root: &Path, message: &str, now: u64) -> Result<GitPublishReport> {
-    run_git(root, &["add", "-A"])?;
-    let staged_paths = run_git(root, &["diff", "--cached", "--name-only"])?
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .map(|line| line.trim().to_string())
-        .collect::<Vec<_>>();
-    if staged_paths.is_empty() {
-        return Err(anyhow!("no changes are staged for commit"));
-    }
-    run_git(root, &["commit", "-m", message])?;
-    let code_commit = run_git(root, &["rev-parse", "HEAD"])?;
-    let protected_paths = staged_paths
-        .iter()
-        .filter(|path| path.starts_with(".prism/"))
-        .cloned()
-        .collect::<Vec<_>>();
-    Ok(GitPublishReport {
-        attempted_at: now,
-        publish_ref: None,
-        code_commit: Some(code_commit),
-        coordination_commit: None,
-        pushed_ref: None,
-        staged_paths,
-        protected_paths,
-        failure: None,
-    })
-}
-
 pub(crate) fn commit_paths(
     root: &Path,
     message: &str,
@@ -233,62 +203,6 @@ pub(crate) fn commit_paths(
 
 pub(crate) fn head_commit(root: &Path) -> Result<String> {
     run_git(root, &["rev-parse", "HEAD"])
-}
-
-fn slugify_branch_component(value: &str) -> String {
-    let mut slug = String::new();
-    let mut last_was_dash = false;
-    for ch in value.chars() {
-        let normalized = if ch.is_ascii_alphanumeric() {
-            Some(ch.to_ascii_lowercase())
-        } else {
-            None
-        };
-        match normalized {
-            Some(ch) => {
-                slug.push(ch);
-                last_was_dash = false;
-            }
-            None if !slug.is_empty() && !last_was_dash => {
-                slug.push('-');
-                last_was_dash = true;
-            }
-            None => {}
-        }
-    }
-    slug.trim_matches('-').to_string()
-}
-
-fn suggested_task_branch(task_title: &str, task_id: &CoordinationTaskId) -> String {
-    let title_slug = slugify_branch_component(task_title);
-    let id_suffix = task_id
-        .0
-        .rsplit(':')
-        .next()
-        .unwrap_or(task_id.0.as_str())
-        .chars()
-        .take(8)
-        .collect::<String>();
-    let title_part = if title_slug.is_empty() {
-        "coord-task".to_string()
-    } else {
-        title_slug
-    };
-    format!("task/{title_part}-{id_suffix}")
-}
-
-pub(crate) fn ensure_task_branch(
-    root: &Path,
-    task_title: &str,
-    task_id: &CoordinationTaskId,
-) -> Result<String> {
-    let branch = suggested_task_branch(task_title, task_id);
-    if run_git(root, &["rev-parse", "--verify", branch.as_str()]).is_ok() {
-        run_git(root, &["checkout", branch.as_str()])?;
-    } else {
-        run_git(root, &["checkout", "-b", branch.as_str()])?;
-    }
-    Ok(branch)
 }
 
 pub(crate) fn push_current_branch(
