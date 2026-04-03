@@ -1066,6 +1066,13 @@ impl WorkspaceSession {
         self.refresh_state.dirty_paths_snapshot()
     }
 
+    pub fn mark_fs_dirty_paths<I>(&self, paths: I) -> u64
+    where
+        I: IntoIterator<Item = PathBuf>,
+    {
+        self.refresh_state.mark_fs_dirty_paths(paths)
+    }
+
     pub fn pending_refresh_path_requests(&self) -> Vec<WorkspaceRuntimePathRequest> {
         self.refresh_state.dirty_path_requests_snapshot()
     }

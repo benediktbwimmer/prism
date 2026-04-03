@@ -1313,7 +1313,12 @@ impl QueryExecution {
                     Ok(serde_json::to_value(
                         self.prism
                             .claims(
-                                &convert_anchors(&self.prism, self.workspace_root(), args.anchors)?,
+                                &convert_anchors(
+                                    &self.prism,
+                                    self.host.workspace_session_ref(),
+                                    self.workspace_root(),
+                                    args.anchors,
+                                )?,
                                 current_timestamp(),
                             )
                             .into_iter()
@@ -1326,7 +1331,12 @@ impl QueryExecution {
                     Ok(serde_json::to_value(
                         self.prism
                             .conflicts(
-                                &convert_anchors(&self.prism, self.workspace_root(), args.anchors)?,
+                                &convert_anchors(
+                                    &self.prism,
+                                    self.host.workspace_session_ref(),
+                                    self.workspace_root(),
+                                    args.anchors,
+                                )?,
                                 current_timestamp(),
                             )
                             .into_iter()
@@ -1665,7 +1675,12 @@ impl QueryExecution {
                         self.prism
                             .simulate_claim(
                                 &self.session.session_id(),
-                                &convert_anchors(&self.prism, self.workspace_root(), args.anchors)?,
+                                &convert_anchors(
+                                    &self.prism,
+                                    self.host.workspace_session_ref(),
+                                    self.workspace_root(),
+                                    args.anchors,
+                                )?,
                                 convert_capability(args.capability),
                                 args.mode.map(convert_claim_mode),
                                 args.task_id

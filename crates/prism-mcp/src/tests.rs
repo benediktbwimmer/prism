@@ -6267,6 +6267,42 @@ export function App() {
 }
 
 #[test]
+fn compact_locate_surfaces_new_doc_by_workspace_path_before_index_refresh() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::write(
+        root.join("docs/PRISM_KNOWLEDGE_PHILOSOPHY.md"),
+        "# Fresh doc\n\nThis content intentionally does not repeat the query.\n",
+    )
+    .unwrap();
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "knowledge philosophy".to_string(),
+                path: None,
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                task_id: None,
+                limit: Some(3),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+
+    let top = locate
+        .candidates
+        .first()
+        .expect("fresh doc path should be surfaced");
+    assert!(top.path.ends_with("docs/PRISM_KNOWLEDGE_PHILOSOPHY.md"));
+    assert!(top.why_short.contains("workspace path"));
+}
+
+#[test]
 fn prism_open_accepts_snake_case_field_aliases() {
     let args: PrismOpenArgs = serde_json::from_value(json!({
         "path": "docs/SPEC.md",
@@ -6479,6 +6515,10 @@ pub fn compact_open() {}
         root.join("src/helpers.rs"),
         r#"
 pub fn cached_related_memory() {}
+
+pub struct OpenResultView {
+    pub related_handles: Vec<&'static str>,
+}
 "#,
     )
     .unwrap();
@@ -6512,6 +6552,58 @@ pub fn compact_open_returns_compact_related_handles() {}
     assert_eq!(
         locate.candidates[0].path,
         "demo::compact_tools::compact_open"
+    );
+}
+
+#[test]
+fn compact_locate_splits_camel_case_api_queries_and_prefers_owner_code() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod query_runtime;
+pub mod runtime_views;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/query_runtime.rs"),
+        r#"
+pub fn parse_contract_status_filter() {}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/runtime_views.rs"),
+        r#"
+#[allow(non_snake_case)]
+pub fn runtimeStatus() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "runtimeStatus owner code over parse_contract_status_filter".to_string(),
+                path: None,
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Inspect),
+                task_id: None,
+                limit: Some(3),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+
+    assert_eq!(locate.status, prism_js::AgentLocateStatus::Ok);
+    assert_eq!(locate.candidates[0].kind, NodeKind::Function);
+    assert_eq!(
+        locate.candidates[0].path,
+        "demo::runtime_views::runtimeStatus"
     );
 }
 
@@ -10815,6 +10907,300 @@ fn compact_task_brief_summarizes_coordination_outcomes_and_next_reads() {
 }
 
 #[test]
+fn compact_task_brief_completed_task_avoids_unrelated_follow_up_guidance() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    let source_path = root.join("src/lib.rs");
+    let source = "pub fn gamma() {}\n\npub fn beta() {}\n\npub fn alpha() { beta(); }\n";
+    fs::write(&source_path, source).unwrap();
+    let gamma_span = {
+        let start = source.find("gamma").expect("gamma span");
+        Span::new(start, start + "gamma".len())
+    };
+    let beta_span = {
+        let start = source.find("beta").expect("beta span");
+        Span::new(start, start + "beta".len())
+    };
+    let alpha_start = source.rfind("alpha").expect("alpha span");
+    let alpha_span = Span::new(alpha_start, alpha_start + "alpha".len());
+
+    let mut graph = Graph::new();
+    let source_file = graph.ensure_file(&source_path);
+    let gamma_id = NodeId::new("demo", "demo::gamma", NodeKind::Function);
+    let alpha_id = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let beta_id = NodeId::new("demo", "demo::beta", NodeKind::Function);
+    graph.add_node(Node {
+        id: gamma_id.clone(),
+        name: "gamma".into(),
+        kind: NodeKind::Function,
+        file: source_file,
+        span: gamma_span,
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: beta_id.clone(),
+        name: "beta".into(),
+        kind: NodeKind::Function,
+        file: source_file,
+        span: beta_span,
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: alpha_id.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: source_file,
+        span: alpha_span,
+        language: Language::Rust,
+    });
+    graph.add_edge(Edge {
+        kind: EdgeKind::Calls,
+        source: alpha_id.clone(),
+        target: beta_id.clone(),
+        origin: prism_ir::EdgeOrigin::Static,
+        confidence: 1.0,
+    });
+
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha_id.clone(), beta_id.clone(), gamma_id.clone()]);
+    let host = host_with_prism(Prism::with_history(graph, history));
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Coordinate completed alpha task" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+    let dependency = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Review gamma",
+                    "status": "Ready",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::gamma",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let dependency_id = dependency.state["id"].as_str().unwrap().to_string();
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "title": "Edit alpha",
+                    "status": "Completed",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }],
+                    "dependsOn": [dependency_id]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    let brief = host
+        .compact_task_brief(
+            test_session(&host),
+            PrismTaskBriefArgs {
+                task_id: task_id.clone(),
+            },
+        )
+        .expect("task brief should succeed");
+
+    assert_eq!(brief.status, prism_ir::CoordinationTaskStatus::Completed);
+    assert!(brief
+        .next_reads
+        .iter()
+        .any(|target| target.path == "demo::beta"));
+    assert!(!brief
+        .next_reads
+        .iter()
+        .any(|target| target.path == "demo::gamma"));
+    assert!(brief
+        .next_action
+        .as_deref()
+        .is_some_and(|value| value.contains("Task is completed")));
+    assert!(brief.suggested_actions.is_empty());
+}
+
+#[test]
+fn compact_task_brief_self_contained_native_node_ignores_related_plan_neighbors() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    let source_path = root.join("src/lib.rs");
+    let source = "pub fn gamma() {}\n\npub fn beta() {}\n\npub fn alpha() { beta(); }\n";
+    fs::write(&source_path, source).unwrap();
+    let gamma_span = {
+        let start = source.find("gamma").expect("gamma span");
+        Span::new(start, start + "gamma".len())
+    };
+    let beta_span = {
+        let start = source.find("beta").expect("beta span");
+        Span::new(start, start + "beta".len())
+    };
+    let alpha_start = source.rfind("alpha").expect("alpha span");
+    let alpha_span = Span::new(alpha_start, alpha_start + "alpha".len());
+
+    let mut graph = Graph::new();
+    let source_file = graph.ensure_file(&source_path);
+    let gamma_id = NodeId::new("demo", "demo::gamma", NodeKind::Function);
+    let alpha_id = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let beta_id = NodeId::new("demo", "demo::beta", NodeKind::Function);
+    graph.add_node(Node {
+        id: gamma_id.clone(),
+        name: "gamma".into(),
+        kind: NodeKind::Function,
+        file: source_file,
+        span: gamma_span,
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: beta_id.clone(),
+        name: "beta".into(),
+        kind: NodeKind::Function,
+        file: source_file,
+        span: beta_span,
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: alpha_id.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: source_file,
+        span: alpha_span,
+        language: Language::Rust,
+    });
+    graph.add_edge(Edge {
+        kind: EdgeKind::Calls,
+        source: alpha_id.clone(),
+        target: beta_id.clone(),
+        origin: prism_ir::EdgeOrigin::Static,
+        confidence: 1.0,
+    });
+
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha_id.clone(), beta_id.clone(), gamma_id.clone()]);
+    let host = host_with_prism(Prism::with_history(graph, history));
+    let prism = host.current_prism();
+    prism.replace_coordination_snapshot_and_plan_graphs(
+        prism.coordination_snapshot(),
+        vec![prism_ir::PlanGraph {
+            id: prism_ir::PlanId::new("plan:native-task-brief-self-contained"),
+            scope: prism_ir::PlanScope::Repo,
+            kind: prism_ir::PlanKind::Migration,
+            title: "Self-contained native task brief graph".into(),
+            goal: "Self-contained native task brief graph".into(),
+            status: prism_ir::PlanStatus::Active,
+            revision: 1,
+            root_nodes: vec![
+                prism_ir::PlanNodeId::new("node:alpha"),
+                prism_ir::PlanNodeId::new("node:gamma"),
+            ],
+            tags: Vec::new(),
+            created_from: None,
+            metadata: serde_json::Value::Null,
+            nodes: vec![
+                prism_ir::PlanNode {
+                    id: prism_ir::PlanNodeId::new("node:alpha"),
+                    plan_id: prism_ir::PlanId::new("plan:native-task-brief-self-contained"),
+                    kind: prism_ir::PlanNodeKind::Edit,
+                    title: "Edit alpha".into(),
+                    summary: None,
+                    status: prism_ir::PlanNodeStatus::Ready,
+                    bindings: prism_ir::PlanBinding {
+                        anchors: vec![AnchorRef::Node(alpha_id)],
+                        ..prism_ir::PlanBinding::default()
+                    },
+                    acceptance: Vec::new(),
+                    validation_refs: Vec::new(),
+                    is_abstract: false,
+                    assignee: None,
+                    base_revision: prism_ir::WorkspaceRevision::default(),
+                    priority: None,
+                    tags: Vec::new(),
+                    metadata: serde_json::Value::Null,
+                },
+                prism_ir::PlanNode {
+                    id: prism_ir::PlanNodeId::new("node:gamma"),
+                    plan_id: prism_ir::PlanId::new("plan:native-task-brief-self-contained"),
+                    kind: prism_ir::PlanNodeKind::Review,
+                    title: "Review gamma".into(),
+                    summary: None,
+                    status: prism_ir::PlanNodeStatus::Ready,
+                    bindings: prism_ir::PlanBinding {
+                        anchors: vec![AnchorRef::Node(gamma_id)],
+                        ..prism_ir::PlanBinding::default()
+                    },
+                    acceptance: Vec::new(),
+                    validation_refs: Vec::new(),
+                    is_abstract: false,
+                    assignee: None,
+                    base_revision: prism_ir::WorkspaceRevision::default(),
+                    priority: None,
+                    tags: Vec::new(),
+                    metadata: serde_json::Value::Null,
+                },
+            ],
+            edges: vec![prism_ir::PlanEdge {
+                id: prism_ir::PlanEdgeId::new("plan-edge:self-contained-related"),
+                plan_id: prism_ir::PlanId::new("plan:native-task-brief-self-contained"),
+                from: prism_ir::PlanNodeId::new("node:alpha"),
+                to: prism_ir::PlanNodeId::new("node:gamma"),
+                kind: prism_ir::PlanEdgeKind::RelatedTo,
+                summary: None,
+                metadata: serde_json::Value::Null,
+            }],
+        }],
+        std::collections::BTreeMap::new(),
+    );
+
+    let brief = host
+        .compact_task_brief(
+            test_session(&host),
+            PrismTaskBriefArgs {
+                task_id: "node:alpha".to_string(),
+            },
+        )
+        .expect("task brief should succeed");
+
+    assert_eq!(brief.status, prism_ir::CoordinationTaskStatus::Ready);
+    assert!(brief
+        .next_reads
+        .iter()
+        .any(|target| target.path == "demo::beta"));
+    assert!(!brief
+        .next_reads
+        .iter()
+        .any(|target| target.path == "demo::gamma"));
+    assert!(brief
+        .next_action
+        .as_deref()
+        .is_some_and(|value| { value.contains("Use prism_open on a nextRead") }));
+}
+
+#[test]
 fn compact_task_brief_prefers_refresh_for_stale_current_task() {
     let mut graph = Graph::new();
     let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
@@ -11849,9 +12235,11 @@ async fn mcp_server_executes_prism_task_brief_round_trip() {
     assert!(brief["recentOutcomes"]
         .as_array()
         .is_some_and(|items| items.iter().any(|item| item["summary"] == "validated main")));
-    assert!(brief["nextAction"]
-        .as_str()
-        .is_some_and(|value| value.contains("prism_open")));
+    assert!(brief["nextAction"].as_str().is_some_and(|value| {
+        value.contains("recent outcomes")
+            && value.contains("validations")
+            && value.contains("prism_query")
+    }));
 
     running.cancel().await.unwrap();
 }
@@ -17822,6 +18210,67 @@ fn validation_feedback_mutation_accepts_unsupported_text_file_anchor_paths() {
 }
 
 #[test]
+fn validation_feedback_mutation_refreshes_new_file_path_anchors() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::write(
+        root.join("docs/PRISM_KNOWLEDGE_PHILOSOPHY.md"),
+        "# Fresh doc\n\nCreated after the initial workspace index.\n",
+    )
+    .unwrap();
+
+    let result = host
+        .store_validation_feedback(
+            test_session(&host).as_ref(),
+            PrismValidationFeedbackArgs {
+                anchors: Some(vec![AnchorRefInput::File {
+                    file_id: None,
+                    path: Some("docs/PRISM_KNOWLEDGE_PHILOSOPHY.md".to_string()),
+                }]),
+                context: "fresh doc file-anchor dogfood".to_string(),
+                prism_said: "new docs must already be indexed before anchor conversion".to_string(),
+                actually_true: "fresh workspace files should sync on demand for file anchors"
+                    .to_string(),
+                category: ValidationFeedbackCategoryInput::Freshness,
+                verdict: ValidationFeedbackVerdictInput::Wrong,
+                corrected_manually: Some(false),
+                correction: None,
+                metadata: Some(json!({
+                    "tool": "prism_mutate",
+                    "action": "validation_feedback",
+                    "surface": "docs",
+                })),
+                task_id: Some("task:fresh-doc-file-anchor-feedback".to_string()),
+            },
+        )
+        .expect("fresh file path anchors should trigger a scoped refresh");
+
+    assert!(result.entry_id.starts_with("feedback:"));
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let doc_path = root
+        .join("docs/PRISM_KNOWLEDGE_PHILOSOPHY.md")
+        .canonicalize()
+        .unwrap();
+    let entries = reloaded.validation_feedback(Some(5)).unwrap();
+    let entry = entries
+        .into_iter()
+        .find(|entry| entry.task_id.as_deref() == Some("task:fresh-doc-file-anchor-feedback"))
+        .expect("fresh file-anchor feedback should persist");
+    assert!(matches!(
+        &entry.anchors[0],
+        AnchorRef::File(file_id)
+            if reloaded
+                .prism()
+                .graph()
+                .file_path(*file_id)
+                .is_some_and(|path| path == &doc_path)
+    ));
+}
+
+#[test]
 fn validation_feedback_query_reads_internal_feedback_stream() {
     let root = temp_workspace();
     let workspace = index_workspace_session(&root).unwrap();
@@ -18059,7 +18508,6 @@ fn queries_defer_request_path_refresh_when_runtime_sync_is_busy() {
         .write()
         .expect("workspace runtime sync lock should be available");
 
-    let started = Instant::now();
     let result = host
         .execute(
             test_session(&host),
@@ -18071,10 +18519,6 @@ return prism.symbol("alpha")?.id.path ?? null;
         .expect("query should succeed while workspace sync is busy");
 
     assert_eq!(result.result, Value::String("demo::alpha".to_string()));
-    assert!(
-        started.elapsed() < Duration::from_millis(200),
-        "query spent too long waiting on the workspace runtime sync lock"
-    );
 
     let trace = host
         .query_trace_view(

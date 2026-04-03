@@ -106,6 +106,8 @@ impl QueryHost {
                     session.as_ref(),
                     prism.as_ref(),
                     &subject.node_id,
+                    subject.status,
+                    subject.blockers.as_slice(),
                     &subject.anchors,
                     plan_graph.as_ref(),
                 )?;
@@ -123,6 +125,7 @@ impl QueryHost {
                     .as_ref()
                     .and_then(|task_id| task_heartbeat_advice(prism.as_ref(), task_id, now));
                 let next_action = compact_task_brief_next_action(
+                    subject.status,
                     heartbeat_advice.as_ref(),
                     subject.blockers.as_slice(),
                     next_reads.as_slice(),
@@ -163,11 +166,14 @@ impl QueryHost {
                     next_action: Some(next_action),
                     suggested_actions: Vec::new(),
                 };
-                if let Some(next_read) = result.next_reads.first() {
-                    result.suggested_actions = dedupe_suggested_actions([suggested_open_action(
-                        next_read.handle.clone(),
-                        prism_js::AgentOpenMode::Focus,
-                    )]);
+                if !task_brief_status_is_terminal(result.status) {
+                    if let Some(next_read) = result.next_reads.first() {
+                        result.suggested_actions =
+                            dedupe_suggested_actions([suggested_open_action(
+                                next_read.handle.clone(),
+                                prism_js::AgentOpenMode::Focus,
+                            )]);
+                    }
                 }
                 Ok((budgeted_task_brief_result(result)?, Vec::new()))
             },
@@ -374,6 +380,8 @@ fn compact_task_next_reads(
     session: &SessionState,
     prism: &Prism,
     current_node_id: &PlanNodeId,
+    current_status: prism_ir::CoordinationTaskStatus,
+    blockers: &[AgentTaskBlockerView],
     anchors: &[AnchorRef],
     plan_graph: Option<&PlanGraph>,
 ) -> Result<Vec<AgentTargetHandleView>> {
@@ -387,12 +395,13 @@ fn compact_task_next_reads(
     let mut seen = HashSet::<NodeId>::new();
     let mut candidates = Vec::<(NodeId, String)>::new();
 
-    if let Some(plan_graph) = plan_graph {
-        for edge in plan_graph
-            .edges
-            .iter()
-            .filter(|edge| edge.from == *current_node_id || edge.to == *current_node_id)
-        {
+    if let Some(plan_graph) =
+        plan_graph.filter(|_| task_brief_should_follow_plan_neighbors(current_status, blockers))
+    {
+        for edge in plan_graph.edges.iter().filter(|edge| {
+            (edge.from == *current_node_id || edge.to == *current_node_id)
+                && task_brief_actionable_plan_edge(edge.kind)
+        }) {
             let adjacent_id = if edge.from == *current_node_id {
                 &edge.to
             } else {
@@ -591,12 +600,28 @@ fn compact_outcome_summary_view(
 }
 
 fn compact_task_brief_next_action(
+    status: prism_ir::CoordinationTaskStatus,
     heartbeat_advice: Option<&TaskHeartbeatAdvice>,
     blockers: &[AgentTaskBlockerView],
     next_reads: &[AgentTargetHandleView],
 ) -> String {
     if let Some(advice) = heartbeat_advice {
         return task_heartbeat_next_action(advice);
+    }
+    if task_brief_status_is_terminal(status) {
+        return match status {
+            prism_ir::CoordinationTaskStatus::Completed => {
+                if next_reads.is_empty() {
+                    "Task is completed. Inspect recent outcomes or prism_query if you need follow-up context.".to_string()
+                } else {
+                    "Task is completed. Inspect recent outcomes or open a nextRead only if you need follow-up context.".to_string()
+                }
+            }
+            prism_ir::CoordinationTaskStatus::Abandoned => {
+                "Task is abandoned. Inspect recent outcomes or prism_query if you need historical context.".to_string()
+            }
+            _ => unreachable!("terminal task status must be completed or abandoned"),
+        };
     }
     if blockers
         .iter()
@@ -610,7 +635,39 @@ fn compact_task_brief_next_action(
     if !next_reads.is_empty() {
         return "Use prism_open on a nextRead to work this plan node, or prism_query for full coordination detail.".to_string();
     }
-    "Use prism_open on a nextRead, or prism_query for full coordination detail.".to_string()
+    "Inspect recent outcomes, validations, or prism_query for full coordination detail.".to_string()
+}
+
+fn task_brief_status_is_terminal(status: prism_ir::CoordinationTaskStatus) -> bool {
+    matches!(
+        status,
+        prism_ir::CoordinationTaskStatus::Completed | prism_ir::CoordinationTaskStatus::Abandoned
+    )
+}
+
+fn task_brief_should_follow_plan_neighbors(
+    status: prism_ir::CoordinationTaskStatus,
+    blockers: &[AgentTaskBlockerView],
+) -> bool {
+    !task_brief_status_is_terminal(status)
+        && (!blockers.is_empty()
+            || matches!(
+                status,
+                prism_ir::CoordinationTaskStatus::Blocked
+                    | prism_ir::CoordinationTaskStatus::InReview
+                    | prism_ir::CoordinationTaskStatus::Validating
+            ))
+}
+
+fn task_brief_actionable_plan_edge(kind: prism_ir::PlanEdgeKind) -> bool {
+    matches!(
+        kind,
+        prism_ir::PlanEdgeKind::DependsOn
+            | prism_ir::PlanEdgeKind::Blocks
+            | prism_ir::PlanEdgeKind::Validates
+            | prism_ir::PlanEdgeKind::HandoffTo
+            | prism_ir::PlanEdgeKind::ChildOf
+    )
 }
 
 fn compact_native_plan_risk_hint(blockers: &[PlanNodeBlocker]) -> Option<String> {

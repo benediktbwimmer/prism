@@ -1,6 +1,7 @@
 use super::open::compact_preview_for_ranked_target;
 use super::text_fragments::{
     locate_text_candidates, locate_text_diagnostics, semantic_symbols_from_text_candidates,
+    text_candidate_from_match,
 };
 use super::*;
 use crate::{build_task_scope, candidate_task_match, TaskMatch};
@@ -38,9 +39,17 @@ impl QueryHost {
                     &args,
                     applied.saturating_mul(TEXT_LOCATE_LIMIT_MULTIPLIER),
                 )?;
+                let exact_identifier_text_candidates = exact_identifier_text_candidates(
+                    host,
+                    session.as_ref(),
+                    &args,
+                    applied.saturating_mul(TEXT_LOCATE_LIMIT_MULTIPLIER),
+                )?;
+                let mut all_text_candidates = text_candidates.clone();
+                all_text_candidates.extend(exact_identifier_text_candidates);
                 results.extend(semantic_symbols_from_text_candidates(
                     prism.as_ref(),
-                    &text_candidates,
+                    &all_text_candidates,
                     host.workspace_root(),
                     applied.saturating_mul(TEXT_LOCATE_LIMIT_MULTIPLIER),
                 )?);
@@ -50,8 +59,13 @@ impl QueryHost {
                     applied.saturating_mul(TEXT_LOCATE_LIMIT_MULTIPLIER),
                 )?);
                 dedupe_locate_symbols(&mut results);
-                let ranked =
-                    rerank_locate_results(prism.as_ref(), results, text_candidates, &args, applied);
+                let ranked = rerank_locate_results(
+                    prism.as_ref(),
+                    results,
+                    all_text_candidates,
+                    &args,
+                    applied,
+                );
                 let mut diagnostics = execution.diagnostics();
                 diagnostics.extend(locate_text_diagnostics(&ranked, applied));
                 let resolved_confidently = locate_resolved_confidently(&ranked, &diagnostics);
@@ -146,16 +160,17 @@ fn exact_identifier_locate_symbols(
 ) -> Result<Vec<SymbolView>> {
     let mut promoted = Vec::new();
     let mut seen = HashSet::<String>::new();
-    let mut queries = locate_identifier_terms(&args.query);
-    let trimmed_query = args
-        .query
+    let focused_query = locate_positive_query_text(&args.query);
+    let mut queries = locate_identifier_terms(focused_query);
+    let trimmed_query = focused_query
         .trim()
         .trim_matches(|ch: char| matches!(ch, '`' | '"' | '\''));
-    if trimmed_query.len() >= 2
-        && is_identifier_like_term(trimmed_query)
-        && !queries.iter().any(|existing| existing == trimmed_query)
-    {
-        queries.push(trimmed_query.to_string());
+    if trimmed_query.len() >= 2 && is_identifier_like_term(trimmed_query) {
+        push_exact_identifier_query(&mut queries, trimmed_query);
+        let normalized_trimmed_query = normalize_locate_text(trimmed_query);
+        if normalized_trimmed_query != trimmed_query.to_ascii_lowercase() {
+            push_exact_identifier_query(&mut queries, normalized_trimmed_query);
+        }
     }
 
     for query in queries {
@@ -177,6 +192,69 @@ fn exact_identifier_locate_symbols(
     Ok(promoted)
 }
 
+fn exact_identifier_text_candidates(
+    host: &QueryHost,
+    session: &SessionState,
+    args: &PrismLocateArgs,
+    limit: usize,
+) -> Result<Vec<TextSearchCandidate>> {
+    let focused_query = locate_positive_query_text(&args.query);
+    let mut queries = locate_identifier_terms(focused_query);
+    let trimmed_query = focused_query
+        .trim()
+        .trim_matches(|ch: char| matches!(ch, '`' | '"' | '\''));
+    if trimmed_query.len() >= 2 && is_identifier_like_term(trimmed_query) {
+        push_exact_identifier_query(&mut queries, trimmed_query);
+        let normalized_trimmed_query = normalize_locate_text(trimmed_query);
+        if normalized_trimmed_query != trimmed_query.to_ascii_lowercase() {
+            push_exact_identifier_query(&mut queries, normalized_trimmed_query);
+        }
+    }
+
+    let mut candidates = Vec::new();
+    let mut seen = HashSet::<String>::new();
+    for query in queries {
+        let outcome = search_text(
+            host,
+            SearchTextArgs {
+                query: query.clone(),
+                regex: Some(false),
+                case_sensitive: Some(false),
+                path: args.path.clone(),
+                glob: args.glob.clone(),
+                limit: Some(limit.max(1)),
+                context_lines: Some(0),
+            },
+            session.limits().max_result_nodes,
+        )?;
+        for matched in outcome.results {
+            let key = format!(
+                "{}:{}:{}:{}",
+                matched.path, matched.location.start_line, matched.location.end_line, query
+            );
+            if !seen.insert(key) {
+                continue;
+            }
+            candidates.push(text_candidate_from_match(session, &query, matched));
+            if candidates.len() >= limit {
+                return Ok(candidates);
+            }
+        }
+    }
+    Ok(candidates)
+}
+
+fn push_exact_identifier_query(queries: &mut Vec<String>, query: impl Into<String>) {
+    let query = query.into();
+    if queries
+        .iter()
+        .any(|existing| existing.eq_ignore_ascii_case(&query))
+    {
+        return;
+    }
+    queries.push(query);
+}
+
 fn dedupe_locate_symbols(results: &mut Vec<SymbolView>) {
     let mut seen = HashSet::<String>::new();
     results.retain(|symbol| {
@@ -192,6 +270,7 @@ fn symbol_exactly_matches_identifier_term(symbol: &SymbolView, term: &str) -> bo
     if normalized_term.is_empty() {
         return false;
     }
+    let semantic_term = normalize_locate_text(term);
     let name = symbol.name.trim().to_ascii_lowercase();
     let path = symbol.id.path.trim().to_ascii_lowercase();
     let path_tail = path.split("::").last().unwrap_or(path.as_str());
@@ -201,9 +280,13 @@ fn symbol_exactly_matches_identifier_term(symbol: &SymbolView, term: &str) -> bo
         .unwrap_or_default()
         .trim()
         .to_ascii_lowercase();
+    let normalized_name = normalize_locate_text(symbol.name.as_str());
+    let normalized_tail = final_segment_normalized(&symbol.id.path);
     name == normalized_term
         || path_tail == normalized_term
         || path == normalized_term
+        || normalized_name == semantic_term
+        || normalized_tail == semantic_term
         || path.ends_with(format!("::{normalized_term}").as_str())
         || Path::new(&file_path)
             .file_name()
@@ -316,9 +399,10 @@ fn rerank_locate_results(
     args: &PrismLocateArgs,
     limit: usize,
 ) -> Vec<RankedLocateCandidate> {
-    let query_normalized = normalize_locate_text(&args.query);
+    let focused_query = locate_positive_query_text(&args.query);
+    let query_normalized = normalize_locate_text(focused_query);
     let tokens = locate_query_tokens(&query_normalized);
-    let identifier_terms = locate_identifier_terms(&args.query);
+    let identifier_terms = locate_identifier_terms(focused_query);
     let path_scope = args.path.as_deref().map(str::to_ascii_lowercase);
     let profile = locate_intent_profile(args);
     let task_scope = args
@@ -417,13 +501,13 @@ fn rank_locate_candidate(
 
     for term in identifier_terms {
         if name_raw == *term {
-            score += 420;
+            score += exact_identifier_name_boost(symbol.kind, profile);
             signals.exact_identifier = true;
             reasons.push(format!(
                 "Exact identifier `{term}` matched the candidate name."
             ));
         } else if final_segment_raw == term {
-            score += 360;
+            score += exact_identifier_tail_boost(symbol.kind, profile);
             signals.exact_identifier = true;
             reasons.push(format!(
                 "Exact identifier `{term}` matched the candidate path tail."
@@ -506,12 +590,13 @@ fn rank_locate_candidate(
         ));
     }
 
-    if is_code_like_kind(symbol.kind) {
-        score += profile.code_bias;
-        if profile.code_bias > 0 {
-            signals.code_bias = true;
-            reasons.push("Locate intent favored callable or editable code.".to_string());
-        }
+    let code_bias = locate_code_bias_for_kind(symbol.kind, profile.code_bias);
+    if code_bias > 0 {
+        score += code_bias;
+        signals.code_bias = true;
+        reasons.push("Locate intent favored callable or editable code.".to_string());
+    } else if is_code_like_kind(symbol.kind) {
+        score += code_bias;
     }
     if is_docs_like_kind(symbol.kind) {
         score += profile.docs_bias;
@@ -569,6 +654,50 @@ fn rank_locate_candidate(
     }
 }
 
+fn exact_identifier_name_boost(kind: NodeKind, profile: LocateIntentProfile) -> i32 {
+    match effective_owner_friendly_kind(kind) {
+        OwnerFriendlyKind::Callable => 420 + (profile.code_bias / 8),
+        OwnerFriendlyKind::Module => 392 + (profile.code_bias / 10),
+        OwnerFriendlyKind::Other => {
+            if matches!(kind, NodeKind::Field) {
+                260 + (profile.code_bias / 14)
+            } else {
+                332 + (profile.code_bias / 12)
+            }
+        }
+    }
+}
+
+fn exact_identifier_tail_boost(kind: NodeKind, profile: LocateIntentProfile) -> i32 {
+    match effective_owner_friendly_kind(kind) {
+        OwnerFriendlyKind::Callable => 360 + (profile.code_bias / 10),
+        OwnerFriendlyKind::Module => 332 + (profile.code_bias / 12),
+        OwnerFriendlyKind::Other => {
+            if matches!(kind, NodeKind::Field) {
+                214 + (profile.code_bias / 18)
+            } else {
+                286 + (profile.code_bias / 14)
+            }
+        }
+    }
+}
+
+fn locate_code_bias_for_kind(kind: NodeKind, code_bias: i32) -> i32 {
+    match effective_owner_friendly_kind(kind) {
+        OwnerFriendlyKind::Callable => code_bias,
+        OwnerFriendlyKind::Module => (code_bias * 3) / 4,
+        OwnerFriendlyKind::Other => {
+            if matches!(kind, NodeKind::Field | NodeKind::TypeAlias) {
+                (code_bias * 2) / 5
+            } else if is_code_like_kind(kind) {
+                (code_bias * 3) / 5
+            } else {
+                0
+            }
+        }
+    }
+}
+
 fn rank_text_locate_candidate(
     index: usize,
     candidate: TextSearchCandidate,
@@ -590,11 +719,17 @@ fn rank_text_locate_candidate(
     let matched_text_normalized = normalize_locate_text(&candidate.matched_text);
     let ownership_query_terms = locate_ownership_query_terms(tokens);
     let mut score = if query_uses_identifiers { 245 } else { 208 };
-    let mut reasons = vec![format!(
-        "Exact text hit in {} near line {}.",
-        candidate.target.file_path.as_deref().unwrap_or_default(),
-        candidate.target.start_line.unwrap_or_default()
-    )];
+    let mut reasons = vec![match candidate.match_kind {
+        TextSearchCandidateKind::Content => format!(
+            "Exact text hit in {} near line {}.",
+            candidate.target.file_path.as_deref().unwrap_or_default(),
+            candidate.target.start_line.unwrap_or_default()
+        ),
+        TextSearchCandidateKind::Path => format!(
+            "Matched workspace path {}.",
+            candidate.target.file_path.as_deref().unwrap_or_default()
+        ),
+    }];
     let mut signals = LocateReasonSignals {
         exact_text_hit: true,
         ..LocateReasonSignals::default()
@@ -662,6 +797,13 @@ fn rank_text_locate_candidate(
     }
     if text_candidate_shadowed_by_semantic_result(semantic_results, &candidate, query_normalized) {
         score -= 220;
+    }
+    if candidate.match_kind == TextSearchCandidateKind::Path {
+        score += 54;
+        reasons.insert(
+            0,
+            "No indexed semantic symbol was required to match this workspace path.".to_string(),
+        );
     }
     if !ownership_query_terms.is_empty() {
         let owner_hits = ownership_term_hit_count(

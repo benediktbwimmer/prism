@@ -173,6 +173,13 @@ struct WorksetContext {
 struct TextSearchCandidate {
     target: SessionHandleTarget,
     matched_text: String,
+    match_kind: TextSearchCandidateKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TextSearchCandidateKind {
+    Content,
+    Path,
 }
 
 impl QueryHost {
@@ -390,16 +397,35 @@ fn locate_query_tokens(query_normalized: &str) -> Vec<String> {
     tokens
 }
 
+fn locate_positive_query_text(query: &str) -> &str {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return trimmed;
+    }
+    for marker in [
+        " instead of ",
+        " rather than ",
+        " versus ",
+        " vs ",
+        " over ",
+    ] {
+        if let Some(index) = trimmed.to_ascii_lowercase().find(marker.trim()) {
+            return trimmed[..index].trim_end();
+        }
+    }
+    trimmed
+}
+
 fn locate_identifier_terms(query: &str) -> Vec<String> {
     let mut terms = Vec::<String>::new();
-    for token in query.split_whitespace() {
-        let token = token
+    for raw_token in locate_positive_query_text(query).split_whitespace() {
+        let token = raw_token
             .trim_matches(|ch: char| matches!(ch, '`' | '"' | '\''))
-            .trim()
-            .to_ascii_lowercase();
-        if token.len() < 2 || !is_identifier_like_term(&token) {
+            .trim();
+        if token.len() < 2 || !is_identifier_like_term(token) {
             continue;
         }
+        let token = token.to_ascii_lowercase();
         if !terms.iter().any(|existing| existing == &token) {
             terms.push(token);
         }
@@ -408,19 +434,33 @@ fn locate_identifier_terms(query: &str) -> Vec<String> {
 }
 
 fn normalize_locate_text(value: &str) -> String {
-    value
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() {
-                ch.to_ascii_lowercase()
-            } else {
-                ' '
-            }
-        })
-        .collect::<String>()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+    let mut normalized = String::with_capacity(value.len());
+    let mut previous: Option<char> = None;
+    let mut lookbehind: Option<char> = None;
+
+    for ch in value.chars() {
+        let is_boundary = ch.is_ascii_uppercase()
+            && previous.is_some_and(|prev| {
+                prev.is_ascii_lowercase()
+                    || (prev.is_ascii_uppercase()
+                        && lookbehind.is_some_and(|before_prev| before_prev.is_ascii_lowercase()))
+            });
+
+        if is_boundary && !normalized.ends_with(' ') {
+            normalized.push(' ');
+        }
+
+        if ch.is_ascii_alphanumeric() {
+            normalized.push(ch.to_ascii_lowercase());
+        } else if !normalized.ends_with(' ') {
+            normalized.push(' ');
+        }
+
+        lookbehind = previous;
+        previous = Some(ch);
+    }
+
+    normalized.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn final_segment_normalized(path: &str) -> String {
@@ -452,6 +492,10 @@ fn is_identifier_like_term(token: &str) -> bool {
         || token.contains('/')
         || token.contains('.')
         || token.contains('-')
+        || token
+            .chars()
+            .zip(token.chars().skip(1))
+            .any(|(left, right)| left.is_ascii_lowercase() && right.is_ascii_uppercase())
 }
 
 fn is_test_like_symbol(symbol: &SymbolView) -> bool {

@@ -5,7 +5,7 @@ use prism_coordination::{
 };
 use prism_core::{
     AdmissionBusyError, AuthenticatedPrincipal, ValidationFeedbackCategory,
-    ValidationFeedbackRecord, ValidationFeedbackVerdict,
+    ValidationFeedbackRecord, ValidationFeedbackVerdict, WorkspaceSession,
 };
 use prism_curator::{
     CandidateConcept, CandidateConceptOperation, CuratorJobId, CuratorProposal,
@@ -865,6 +865,7 @@ impl QueryHost {
         if let Some(explicit) = args.anchors {
             anchors.extend(convert_anchors(
                 prism.as_ref(),
+                self.workspace_session_ref(),
                 self.workspace_root(),
                 explicit,
             )?);
@@ -981,6 +982,7 @@ impl QueryHost {
         let prism = self.current_prism();
         let anchors = prism.anchors_for(&convert_anchors(
             prism.as_ref(),
+            self.workspace_session_ref(),
             self.workspace_root(),
             args.anchors,
         )?);
@@ -1075,6 +1077,7 @@ impl QueryHost {
         let prism = self.current_prism();
         let anchors = prism.anchors_for(&convert_anchors(
             prism.as_ref(),
+            self.workspace_session_ref(),
             self.workspace_root(),
             payload.anchors,
         )?);
@@ -1337,6 +1340,7 @@ impl QueryHost {
         let packet = match operation {
             ContractMutationOperationInput::Promote => build_promoted_contract_packet(
                 prism.as_ref(),
+                Some(workspace),
                 workspace_root,
                 &task_id,
                 recorded_at,
@@ -1344,6 +1348,7 @@ impl QueryHost {
             )?,
             ContractMutationOperationInput::Update => build_updated_contract_packet(
                 prism.as_ref(),
+                Some(workspace),
                 workspace_root,
                 &task_id,
                 recorded_at,
@@ -1363,6 +1368,7 @@ impl QueryHost {
             ContractMutationOperationInput::AttachValidation => {
                 build_contract_with_validation_attached(
                     prism.as_ref(),
+                    Some(workspace),
                     workspace_root,
                     &task_id,
                     recorded_at,
@@ -1372,6 +1378,7 @@ impl QueryHost {
             ContractMutationOperationInput::RecordConsumer => {
                 build_contract_with_consumer_recorded(
                     prism.as_ref(),
+                    Some(workspace),
                     workspace_root,
                     &task_id,
                     recorded_at,
@@ -1490,6 +1497,7 @@ impl QueryHost {
         let task_id = session.task_for_mutation(args.task_id.map(TaskId::new));
         let anchors = prism.anchors_for(&convert_anchors(
             prism.as_ref(),
+            self.workspace_session_ref(),
             self.workspace_root(),
             args.anchors.unwrap_or_default(),
         )?);
@@ -2212,6 +2220,7 @@ impl QueryHost {
                         branch_ref: None,
                         anchors: convert_anchors(
                             prism,
+                            self.workspace_session_ref(),
                             workspace_root,
                             payload.anchors.unwrap_or_default(),
                         )?,
@@ -2221,7 +2230,12 @@ impl QueryHost {
                             .into_iter()
                             .map(CoordinationTaskId::new)
                             .collect(),
-                        acceptance: convert_acceptance(prism, workspace_root, payload.acceptance)?,
+                        acceptance: convert_acceptance(
+                            prism,
+                            self.workspace_session_ref(),
+                            workspace_root,
+                            payload.acceptance,
+                        )?,
                         base_revision: prism.workspace_revision(),
                     },
                 )?;
@@ -2266,10 +2280,22 @@ impl QueryHost {
                         };
                         let task_anchors = anchors
                             .clone()
-                            .map(|anchors| convert_anchors(prism, workspace_root, anchors))
+                            .map(|anchors| {
+                                convert_anchors(
+                                    prism,
+                                    self.workspace_session_ref(),
+                                    workspace_root,
+                                    anchors,
+                                )
+                            })
                             .transpose()?;
-                        let task_bindings =
-                            convert_plan_binding(prism, workspace_root, anchors, bindings)?;
+                        let task_bindings = convert_plan_binding(
+                            prism,
+                            self.workspace_session_ref(),
+                            workspace_root,
+                            anchors,
+                            bindings,
+                        )?;
                         let completion_context = convert_completion_context(completion_context)
                             .or_else(|| {
                                 status
@@ -2304,7 +2330,12 @@ impl QueryHost {
                                 }),
                                 acceptance: acceptance
                                     .map(|acceptance| {
-                                        convert_acceptance(prism, workspace_root, Some(acceptance))
+                                        convert_acceptance(
+                                            prism,
+                                            self.workspace_session_ref(),
+                                            workspace_root,
+                                            Some(acceptance),
+                                        )
                                     })
                                     .transpose()?,
                                 validation_refs: validation_refs
@@ -2348,11 +2379,22 @@ impl QueryHost {
                             title,
                             summary,
                             clear_summary,
-                            convert_plan_binding(prism, workspace_root, anchors, bindings)?,
+                            convert_plan_binding(
+                                prism,
+                                self.workspace_session_ref(),
+                                workspace_root,
+                                anchors,
+                                bindings,
+                            )?,
                             depends_on,
                             acceptance
                                 .map(|acceptance| {
-                                    convert_plan_acceptance(prism, workspace_root, Some(acceptance))
+                                    convert_plan_acceptance(
+                                        prism,
+                                        self.workspace_session_ref(),
+                                        workspace_root,
+                                        Some(acceptance),
+                                    )
                                 })
                                 .transpose()?,
                             validation_refs.map(|refs| convert_validation_refs(Some(refs))),
@@ -2384,10 +2426,21 @@ impl QueryHost {
                         .map(AgentId::new)
                         .or_else(|| session.current_agent()),
                     payload.is_abstract.unwrap_or(false),
-                    convert_plan_binding(prism, workspace_root, payload.anchors, payload.bindings)?
-                        .unwrap_or_default(),
+                    convert_plan_binding(
+                        prism,
+                        self.workspace_session_ref(),
+                        workspace_root,
+                        payload.anchors,
+                        payload.bindings,
+                    )?
+                    .unwrap_or_default(),
                     payload.depends_on.unwrap_or_default(),
-                    convert_plan_acceptance(prism, workspace_root, payload.acceptance)?,
+                    convert_plan_acceptance(
+                        prism,
+                        self.workspace_session_ref(),
+                        workspace_root,
+                        payload.acceptance,
+                    )?,
                     convert_validation_refs(payload.validation_refs),
                     prism.workspace_revision(),
                     payload.priority,
@@ -2527,6 +2580,7 @@ impl QueryHost {
                 let payload: ClaimAcquirePayload = serde_json::from_value(args.payload)?;
                 let anchors = prism.coordination_scope_anchors(&convert_anchors(
                     prism,
+                    self.workspace_session_ref(),
                     workspace_root,
                     payload.anchors,
                 )?);
@@ -2661,7 +2715,12 @@ impl QueryHost {
                 let payload: ArtifactProposePayload = serde_json::from_value(args.payload)?;
                 let task_id = CoordinationTaskId::new(payload.task_id.clone());
                 let anchors = match payload.anchors {
-                    Some(anchors) => convert_anchors(prism, workspace_root, anchors)?,
+                    Some(anchors) => convert_anchors(
+                        prism,
+                        self.workspace_session_ref(),
+                        workspace_root,
+                        anchors,
+                    )?,
                     None => prism
                         .coordination_task(&task_id)
                         .map(|task| task.anchors)
@@ -3674,6 +3733,7 @@ fn build_promoted_concept_packet(
 
 fn build_promoted_contract_packet(
     prism: &Prism,
+    workspace: Option<&WorkspaceSession>,
     workspace_root: Option<&std::path::Path>,
     task_id: &TaskId,
     recorded_at: u64,
@@ -3701,6 +3761,7 @@ fn build_promoted_contract_packet(
         .ok_or_else(|| anyhow!("contract promote requires kind"))?;
     let subject = convert_contract_target(
         prism,
+        workspace,
         workspace_root,
         args.subject
             .clone()
@@ -3732,8 +3793,13 @@ fn build_promoted_contract_packet(
         subject,
         guarantees,
         assumptions: sanitize_strings(args.assumptions.unwrap_or_default()),
-        consumers: convert_contract_targets(prism, workspace_root, args.consumers)?,
-        validations: convert_contract_validations(prism, workspace_root, args.validations)?,
+        consumers: convert_contract_targets(prism, workspace, workspace_root, args.consumers)?,
+        validations: convert_contract_validations(
+            prism,
+            workspace,
+            workspace_root,
+            args.validations,
+        )?,
         stability: args
             .stability
             .clone()
@@ -3776,6 +3842,7 @@ fn build_promoted_contract_packet(
 
 fn build_updated_contract_packet(
     prism: &Prism,
+    workspace: Option<&WorkspaceSession>,
     workspace_root: Option<&std::path::Path>,
     task_id: &TaskId,
     recorded_at: u64,
@@ -3811,7 +3878,7 @@ fn build_updated_contract_packet(
         changed = true;
     }
     if let Some(subject) = args.subject {
-        packet.subject = convert_contract_target(prism, workspace_root, subject)?;
+        packet.subject = convert_contract_target(prism, workspace, workspace_root, subject)?;
         changed = true;
     }
     if let Some(guarantees) = args.guarantees {
@@ -3823,12 +3890,13 @@ fn build_updated_contract_packet(
         changed = true;
     }
     if let Some(consumers) = args.consumers {
-        packet.consumers = convert_contract_targets(prism, workspace_root, Some(consumers))?;
+        packet.consumers =
+            convert_contract_targets(prism, workspace, workspace_root, Some(consumers))?;
         changed = true;
     }
     if let Some(validations) = args.validations {
         packet.validations =
-            convert_contract_validations(prism, workspace_root, Some(validations))?;
+            convert_contract_validations(prism, workspace, workspace_root, Some(validations))?;
         changed = true;
     }
     if let Some(stability) = args.stability {
@@ -3949,12 +4017,14 @@ fn build_contract_with_evidence_attached(
 
 fn build_contract_with_validation_attached(
     prism: &Prism,
+    workspace: Option<&WorkspaceSession>,
     workspace_root: Option<&std::path::Path>,
     task_id: &TaskId,
     recorded_at: u64,
     args: PrismContractMutationArgs,
 ) -> Result<ContractPacket> {
-    let additions = convert_contract_validations(prism, workspace_root, args.validations.clone())?;
+    let additions =
+        convert_contract_validations(prism, workspace, workspace_root, args.validations.clone())?;
     if additions.is_empty() {
         return Err(anyhow!("attach_validation requires validations"));
     }
@@ -3980,12 +4050,14 @@ fn build_contract_with_validation_attached(
 
 fn build_contract_with_consumer_recorded(
     prism: &Prism,
+    workspace: Option<&WorkspaceSession>,
     workspace_root: Option<&std::path::Path>,
     task_id: &TaskId,
     recorded_at: u64,
     args: PrismContractMutationArgs,
 ) -> Result<ContractPacket> {
-    let additions = convert_contract_targets(prism, workspace_root, args.consumers.clone())?;
+    let additions =
+        convert_contract_targets(prism, workspace, workspace_root, args.consumers.clone())?;
     if additions.is_empty() {
         return Err(anyhow!("record_consumer requires consumers"));
     }
@@ -4478,24 +4550,31 @@ fn convert_contract_guarantee_strength(
 
 fn convert_contract_target(
     prism: &Prism,
+    workspace: Option<&WorkspaceSession>,
     workspace_root: Option<&std::path::Path>,
     target: ContractTargetInput,
 ) -> Result<ContractTarget> {
     Ok(ContractTarget {
-        anchors: convert_anchors(prism, workspace_root, target.anchors.unwrap_or_default())?,
+        anchors: convert_anchors(
+            prism,
+            workspace,
+            workspace_root,
+            target.anchors.unwrap_or_default(),
+        )?,
         concept_handles: normalize_concept_handles(target.concept_handles.unwrap_or_default()),
     })
 }
 
 fn convert_contract_targets(
     prism: &Prism,
+    workspace: Option<&WorkspaceSession>,
     workspace_root: Option<&std::path::Path>,
     targets: Option<Vec<ContractTargetInput>>,
 ) -> Result<Vec<ContractTarget>> {
     targets
         .unwrap_or_default()
         .into_iter()
-        .map(|target| convert_contract_target(prism, workspace_root, target))
+        .map(|target| convert_contract_target(prism, workspace, workspace_root, target))
         .collect()
 }
 
@@ -4578,6 +4657,7 @@ fn normalize_contract_guarantee_id(value: &str) -> String {
 
 fn convert_contract_validations(
     prism: &Prism,
+    workspace: Option<&WorkspaceSession>,
     workspace_root: Option<&std::path::Path>,
     validations: Option<Vec<ContractValidationInput>>,
 ) -> Result<Vec<ContractValidation>> {
@@ -4597,6 +4677,7 @@ fn convert_contract_validations(
                     .filter(|value| !value.is_empty()),
                 anchors: convert_anchors(
                     prism,
+                    workspace,
                     workspace_root,
                     validation.anchors.unwrap_or_default(),
                 )?,

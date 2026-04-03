@@ -304,6 +304,7 @@ impl QueryRun {
         emit_compact_query_timing(&query_entry, &phases);
         self.dashboard_finish(self.dashboard.as_ref(), &query_entry);
         self.diagnostics.push_recent_query(query_entry);
+        self.diagnostics.invalidate_runtime_status();
     }
 
     pub(crate) fn finish_error(
@@ -396,6 +397,7 @@ impl QueryRun {
         emit_compact_query_timing(&query_entry, &phases);
         self.dashboard_finish(self.dashboard.as_ref(), &query_entry);
         self.diagnostics.push_recent_query(query_entry);
+        self.diagnostics.invalidate_runtime_status();
     }
 }
 
@@ -493,6 +495,7 @@ impl Drop for QueryRun {
         emit_compact_query_timing(&query_entry, &phases);
         self.dashboard_finish(self.dashboard.as_ref(), &query_entry);
         self.diagnostics.push_recent_query(query_entry);
+        self.diagnostics.invalidate_runtime_status();
     }
 }
 

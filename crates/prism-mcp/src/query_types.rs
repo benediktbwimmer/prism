@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use prism_agent::InferredEdgeScope;
 use prism_coordination::{AcceptanceCriterion, CoordinationPolicy, PlanScheduling};
+use prism_core::WorkspaceSession;
 use prism_ir::{
     AcceptanceEvidencePolicy, AnchorRef, Capability, ClaimMode, CoordinationTaskStatus, EdgeKind,
     EventActor, LeaseRenewalMode, NodeId, NodeKind, PlanAcceptanceCriterion, PlanBinding,
@@ -563,6 +564,7 @@ fn resolve_anchor_file_path(path: &str, workspace_root: Option<&Path>) -> Result
 
 pub(crate) fn convert_anchors(
     prism: &Prism,
+    workspace: Option<&WorkspaceSession>,
     workspace_root: Option<&Path>,
     inputs: Vec<AnchorRefInput>,
 ) -> Result<Vec<AnchorRef>> {
@@ -585,12 +587,8 @@ pub(crate) fn convert_anchors(
                 let resolved_from_path = match path {
                     Some(path) => {
                         let file_path = resolve_anchor_file_path(&path, workspace_root)?;
-                        let file_id = prism.graph().file_id(&file_path).ok_or_else(|| {
-                            anyhow!(
-                                "file anchor path `{}` does not match any indexed workspace file",
-                                file_path.display()
-                            )
-                        })?;
+                        let file_id =
+                            resolve_anchor_file_id(prism, workspace, workspace_root, &file_path)?;
                         Some((file_path, file_id))
                     }
                     None => None,
@@ -617,6 +615,45 @@ pub(crate) fn convert_anchors(
             AnchorRefInput::Kind { kind } => Ok(AnchorRef::Kind(parse_node_kind(&kind)?)),
         })
         .collect()
+}
+
+fn resolve_anchor_file_id(
+    prism: &Prism,
+    workspace: Option<&WorkspaceSession>,
+    workspace_root: Option<&Path>,
+    file_path: &Path,
+) -> Result<prism_ir::FileId> {
+    if let Some(file_id) = prism.graph().file_id(file_path) {
+        return Ok(file_id);
+    }
+    let Some(workspace) = workspace else {
+        return Err(anyhow!(
+            "file anchor path `{}` does not match any indexed workspace file",
+            file_path.display()
+        ));
+    };
+    let root = workspace_root
+        .ok_or_else(|| anyhow!("file anchor refresh requires a workspace-backed PRISM session"))?;
+    if !file_path.starts_with(root) {
+        return Err(anyhow!(
+            "file anchor path `{}` resolves outside the workspace root",
+            file_path.display()
+        ));
+    }
+    if !file_path.is_file() {
+        return Err(anyhow!(
+            "file anchor path `{}` does not exist",
+            file_path.display()
+        ));
+    }
+    workspace.mark_fs_dirty_paths([file_path.to_path_buf()]);
+    let _ = workspace.refresh_fs_with_paths(vec![file_path.to_path_buf()])?;
+    workspace.prism().graph().file_id(file_path).ok_or_else(|| {
+        anyhow!(
+            "file anchor path `{}` does not match any indexed workspace file",
+            file_path.display()
+        )
+    })
 }
 
 pub(crate) fn convert_outcome_kind(kind: OutcomeKindInput) -> OutcomeKind {
@@ -879,6 +916,7 @@ pub(crate) fn convert_plan_scheduling(
 
 pub(crate) fn convert_acceptance(
     prism: &Prism,
+    workspace: Option<&WorkspaceSession>,
     workspace_root: Option<&Path>,
     payload: Option<Vec<AcceptanceCriterionPayload>>,
 ) -> Result<Vec<AcceptanceCriterion>> {
@@ -890,6 +928,7 @@ pub(crate) fn convert_acceptance(
                 label: criterion.label,
                 anchors: convert_anchors(
                     prism,
+                    workspace,
                     workspace_root,
                     criterion.anchors.unwrap_or_default(),
                 )?,
@@ -900,6 +939,7 @@ pub(crate) fn convert_acceptance(
 
 pub(crate) fn convert_plan_acceptance(
     prism: &Prism,
+    workspace: Option<&WorkspaceSession>,
     workspace_root: Option<&Path>,
     payload: Option<Vec<AcceptanceCriterionPayload>>,
 ) -> Result<Vec<PlanAcceptanceCriterion>> {
@@ -911,6 +951,7 @@ pub(crate) fn convert_plan_acceptance(
                 label: criterion.label,
                 anchors: convert_anchors(
                     prism,
+                    workspace,
                     workspace_root,
                     criterion.anchors.unwrap_or_default(),
                 )?,
@@ -941,6 +982,7 @@ pub(crate) fn convert_validation_refs(
 
 pub(crate) fn convert_plan_binding(
     prism: &Prism,
+    workspace: Option<&WorkspaceSession>,
     workspace_root: Option<&Path>,
     explicit_anchors: Option<Vec<AnchorRefInput>>,
     payload: Option<PlanBindingPayload>,
@@ -950,8 +992,12 @@ pub(crate) fn convert_plan_binding(
     }
     let mut binding = PlanBinding::default();
     if let Some(payload) = payload {
-        binding.anchors =
-            convert_anchors(prism, workspace_root, payload.anchors.unwrap_or_default())?;
+        binding.anchors = convert_anchors(
+            prism,
+            workspace,
+            workspace_root,
+            payload.anchors.unwrap_or_default(),
+        )?;
         binding.concept_handles = payload.concept_handles.unwrap_or_default();
         binding.artifact_refs = payload.artifact_refs.unwrap_or_default();
         binding.memory_refs = payload.memory_refs.unwrap_or_default();
@@ -960,7 +1006,7 @@ pub(crate) fn convert_plan_binding(
     if let Some(explicit) = explicit_anchors {
         binding
             .anchors
-            .extend(convert_anchors(prism, workspace_root, explicit)?);
+            .extend(convert_anchors(prism, workspace, workspace_root, explicit)?);
     }
     Ok(Some(binding))
 }

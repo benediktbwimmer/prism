@@ -37,6 +37,13 @@ impl DiagnosticsState {
             .clone()
     }
 
+    pub(crate) fn invalidate_runtime_status(&self) {
+        *self
+            .runtime_status
+            .lock()
+            .expect("diagnostics runtime status lock poisoned") = None;
+    }
+
     pub(crate) fn last_runtime_event(&self) -> Option<RuntimeLogEventView> {
         self.last_runtime_event
             .lock()

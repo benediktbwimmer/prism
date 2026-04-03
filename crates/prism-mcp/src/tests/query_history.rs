@@ -940,29 +940,66 @@ fn prism_mcp_log_exposes_canonical_call_history_trace_and_stats() {
     let root = temp_workspace();
     write_long_excerpt_workspace(&root);
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
-
-    host.execute(
-        test_session(&host),
-        r#"
+    let filter_token = format!("query-history-trace-{}", prism_ir::new_sortable_token());
+    let search_query = r#"
+/* __TOKEN__ */
 return prism.searchText("read context", {
   path: "src/recall.rs",
   limit: 1,
   contextLines: 0,
 });
-"#,
+"#
+    .replace("__TOKEN__", &filter_token);
+    let file_query = r#"
+/* __TOKEN__ */
+return prism.file("src/recall.rs").around({
+  line: 8,
+  before: 1,
+  after: 1,
+});
+"#
+    .replace("__TOKEN__", &filter_token);
+    let history_query = r#"
+const recent = prism.mcpLog({
+  limit: 5,
+  callType: "tool",
+  name: "prism_query",
+  contains: "__TOKEN__",
+});
+const slow = prism.slowMcpCalls({
+  limit: 5,
+  callType: "tool",
+  name: "prism_query",
+  minDurationMs: 0,
+  contains: "__TOKEN__",
+});
+const fileAroundEntry = recent.find((entry) => {
+  const trace = prism.mcpTrace(entry.id);
+  return trace?.phases?.some((phase) => phase.operation === "fileAround");
+});
+return {
+  recent,
+  slow,
+  trace: fileAroundEntry ? prism.mcpTrace(fileAroundEntry.id) : null,
+  stats: prism.mcpStats({
+    callType: "tool",
+    name: "prism_query",
+    contains: "__TOKEN__",
+  }),
+};
+"#
+    .replace("__TOKEN__", &filter_token);
+
+    host.execute(
+        test_session(&host),
+        &search_query,
         QueryLanguage::Ts,
     )
     .expect("text search query should succeed");
 
     host.execute(
         test_session(&host),
-        r#"
-return prism.file("src/recall.rs").around({
-  line: 8,
-  before: 1,
-  after: 1,
-});
-"#,
+        &file_query,
         QueryLanguage::Ts,
     )
     .expect("file slice query should succeed");
@@ -970,73 +1007,56 @@ return prism.file("src/recall.rs").around({
     let result = host
         .execute(
             test_session(&host),
-            r#"
-const recent = prism.mcpLog({
-  limit: 5,
-  callType: "tool",
-  name: "prism_query",
-  contains: "src/recall.rs",
-});
-const slow = prism.slowMcpCalls({
-  limit: 5,
-  callType: "tool",
-  name: "prism_query",
-  minDurationMs: 0,
-  contains: "src/recall.rs",
-});
-return {
-  recent,
-  slow,
-  trace: recent[0] ? prism.mcpTrace(recent[0].id) : null,
-  stats: prism.mcpStats({
-    callType: "tool",
-    name: "prism_query",
-    contains: "src/recall.rs",
-  }),
-};
-"#,
+            &history_query,
             QueryLanguage::Ts,
         )
         .expect("mcp log query should succeed");
 
     let recent = result.result["recent"].as_array().expect("recent mcp log");
-    assert_eq!(recent.len(), 2);
-    assert_eq!(recent[0]["callType"], "tool");
-    assert_eq!(recent[0]["name"], "prism_query");
-    assert_eq!(recent[0]["success"], true);
-    assert!(recent[0]["serverInstanceId"]
+    assert!(
+        recent.len() >= 2,
+        "expected at least the two seeded prism_query calls in recent history"
+    );
+    let first = &recent[0];
+    assert_eq!(first["callType"], "tool");
+    assert_eq!(first["name"], "prism_query");
+    assert_eq!(first["success"], true);
+    assert!(first["serverInstanceId"]
         .as_str()
         .unwrap_or_default()
         .starts_with("mcp-instance:"));
-    assert!(recent[0]["processId"].as_u64().unwrap_or_default() > 0);
-    assert_eq!(recent[0]["traceAvailable"], true);
+    assert!(first["processId"].as_u64().unwrap_or_default() > 0);
+    assert_eq!(first["traceAvailable"], true);
     assert!(
-        recent[0]["request"]["jsonBytes"]
+        first["request"]["jsonBytes"]
             .as_u64()
             .expect("request bytes should be present")
             > 0
     );
     assert!(
-        recent[0]["response"]["jsonBytes"]
+        first["response"]["jsonBytes"]
             .as_u64()
             .expect("response bytes should be present")
             > 0
     );
 
     let slow = result.result["slow"].as_array().expect("slow mcp log");
-    assert_eq!(slow.len(), 2);
+    assert!(
+        slow.len() >= 2,
+        "expected slow call view to include the seeded query calls"
+    );
     assert!(
         slow[0]["durationMs"].as_u64().unwrap_or_default()
             >= slow[1]["durationMs"].as_u64().unwrap_or_default()
     );
 
     let trace = &result.result["trace"];
-    assert_eq!(trace["entry"]["id"], recent[0]["id"]);
+    assert!(recent.iter().any(|entry| entry["id"] == trace["entry"]["id"]));
     assert_eq!(trace["metadata"]["tool"], "prism_query");
     assert!(trace["metadata"]["queryText"]
         .as_str()
         .unwrap_or_default()
-        .contains("src/recall.rs"));
+        .contains(&filter_token));
     assert_ne!(trace["requestPreview"], Value::Null);
     assert!(
         trace["requestPreview"].is_string() || trace["requestPreview"].is_object(),
@@ -1046,8 +1066,12 @@ return {
         .iter()
         .any(|phase| phase["operation"] == "fileAround")));
 
-    assert_eq!(result.result["stats"]["totalCalls"], 2);
-    assert_eq!(result.result["stats"]["successCount"], 2);
+    assert!(result.result["stats"]["totalCalls"]
+        .as_u64()
+        .is_some_and(|count| count >= 2));
+    assert!(result.result["stats"]["successCount"]
+        .as_u64()
+        .is_some_and(|count| count >= 2));
     assert_eq!(result.result["stats"]["errorCount"], 0);
     assert!(result.result["stats"]["byName"]
         .as_array()

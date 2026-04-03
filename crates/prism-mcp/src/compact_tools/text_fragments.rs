@@ -10,6 +10,7 @@ use super::suggested_actions::{
 };
 use super::*;
 use crate::compact_followups::workspace_scoped_path;
+use crate::text_search::search_workspace_paths;
 
 impl QueryHost {
     pub(crate) fn compact_gather(
@@ -110,6 +111,7 @@ pub(super) fn semantic_symbols_for_text_target(
     let pseudo_candidate = TextSearchCandidate {
         target: target.clone(),
         matched_text,
+        match_kind: crate::compact_tools::TextSearchCandidateKind::Content,
     };
     let prism = host.current_prism();
     let workspace_root = host.workspace_root();
@@ -198,27 +200,51 @@ pub(super) fn locate_text_candidates(
     args: &PrismLocateArgs,
     limit: usize,
 ) -> Result<Vec<TextSearchCandidate>> {
-    if !should_include_text_hits(args) {
-        return Ok(Vec::new());
+    let mut candidates = Vec::new();
+    if should_include_text_hits(args) {
+        let outcome = search_text(
+            host,
+            SearchTextArgs {
+                query: args.query.clone(),
+                regex: Some(false),
+                case_sensitive: Some(false),
+                path: args.path.clone(),
+                glob: args.glob.clone(),
+                limit: Some(limit.max(1)),
+                context_lines: Some(0),
+            },
+            session.limits().max_result_nodes,
+        )?;
+        candidates.extend(
+            outcome
+                .results
+                .into_iter()
+                .map(|matched| text_candidate_from_match(session, &args.query, matched)),
+        );
     }
-    let outcome = search_text(
-        host,
-        SearchTextArgs {
-            query: args.query.clone(),
-            regex: Some(false),
-            case_sensitive: Some(false),
-            path: args.path.clone(),
-            glob: args.glob.clone(),
-            limit: Some(limit.max(1)),
-            context_lines: Some(0),
-        },
-        session.limits().max_result_nodes,
-    )?;
-    Ok(outcome
-        .results
-        .into_iter()
-        .map(|matched| text_candidate_from_match(session, &args.query, matched))
-        .collect())
+    if should_include_path_hits(args) {
+        let remaining = limit.saturating_sub(candidates.len()).max(1);
+        let outcome = search_workspace_paths(
+            host,
+            SearchTextArgs {
+                query: args.query.clone(),
+                regex: Some(false),
+                case_sensitive: Some(false),
+                path: args.path.clone(),
+                glob: args.glob.clone(),
+                limit: Some(remaining),
+                context_lines: None,
+            },
+            session.limits().max_result_nodes,
+        )?;
+        candidates.extend(
+            outcome
+                .results
+                .into_iter()
+                .map(|path| text_candidate_from_path(session, &args.query, &path)),
+        );
+    }
+    Ok(candidates)
 }
 
 fn should_include_text_hits(args: &PrismLocateArgs) -> bool {
@@ -247,6 +273,21 @@ fn should_include_text_hits(args: &PrismLocateArgs) -> bool {
                         | PrismLocateTaskIntentInput::Explain
                 )
             })
+}
+
+fn should_include_path_hits(args: &PrismLocateArgs) -> bool {
+    if args.path.is_some() || args.glob.is_some() {
+        return true;
+    }
+    let query = args.query.trim();
+    if query.is_empty() {
+        return false;
+    }
+    if should_include_text_hits(args) {
+        return true;
+    }
+    let tokens = locate_query_tokens(&normalize_locate_text(query));
+    (2..=6).contains(&tokens.len())
 }
 
 fn looks_like_ui_query(query: &str) -> bool {
@@ -294,7 +335,7 @@ pub(super) fn locate_text_diagnostics(
     diagnostics
 }
 
-fn text_candidate_from_match(
+pub(super) fn text_candidate_from_match(
     session: &SessionState,
     query: &str,
     matched: TextSearchMatchView,
@@ -304,6 +345,43 @@ fn text_candidate_from_match(
     TextSearchCandidate {
         target,
         matched_text: matched.excerpt.text,
+        match_kind: TextSearchCandidateKind::Content,
+    }
+}
+
+fn text_candidate_from_path(
+    session: &SessionState,
+    query: &str,
+    relative_path: &str,
+) -> TextSearchCandidate {
+    let kind = text_hit_kind(relative_path);
+    let basename = Path::new(relative_path)
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or(relative_path)
+        .to_string();
+    let target = SessionHandleTarget {
+        id: NodeId::new(TEXT_FRAGMENT_CRATE_NAME, relative_path.to_string(), kind),
+        lineage_id: None,
+        handle_category: crate::session_state::SessionHandleCategory::TextFragment,
+        name: basename,
+        kind,
+        file_path: Some(relative_path.to_string()),
+        query: Some(query.to_string()),
+        why_short: clamp_string(
+            &format!("Matched workspace path `{relative_path}`."),
+            MAX_WHY_SHORT_CHARS,
+        ),
+        start_line: Some(1),
+        end_line: Some(1),
+        start_column: Some(1),
+        end_column: Some(1),
+    };
+    let _ = session.intern_target_handle(target.clone());
+    TextSearchCandidate {
+        target,
+        matched_text: relative_path.to_string(),
+        match_kind: TextSearchCandidateKind::Path,
     }
 }
 

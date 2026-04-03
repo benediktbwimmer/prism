@@ -68,6 +68,15 @@ struct McpProcess {
     upstream_uri: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+struct ProcessSnapshot {
+    pid: u32,
+    ppid: u32,
+    rss_kb: u64,
+    elapsed: String,
+    command: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BridgeState {
     Connected,
@@ -889,29 +898,77 @@ fn runtime_state_processes(
     root: &Path,
     state_processes: &[RuntimeProcessRecord],
 ) -> Result<Vec<McpProcess>> {
+    let snapshots = list_process_snapshots()?;
     Ok(state_processes
         .iter()
         .filter(|record| process_is_live(record.pid))
-        .filter_map(|record| runtime_process_from_record(root, record))
+        .filter_map(|record| runtime_process_from_record(root, record, &snapshots))
         .collect())
 }
 
-fn runtime_process_from_record(root: &Path, record: &RuntimeProcessRecord) -> Option<McpProcess> {
+fn runtime_process_from_record(
+    root: &Path,
+    record: &RuntimeProcessRecord,
+    snapshots: &[ProcessSnapshot],
+) -> Option<McpProcess> {
     let kind = match record.kind.as_str() {
         "daemon" => McpProcessKind::Daemon,
         "bridge" => McpProcessKind::Bridge,
         _ => return None,
     };
+    let snapshot = snapshots.iter().find(|snapshot| snapshot.pid == record.pid);
     Some(McpProcess {
         pid: record.pid,
-        ppid: 0,
-        rss_kb: 0,
-        elapsed: elapsed_since(record.started_at),
-        command: format!("prism-mcp --mode {} --root {}", record.kind, root.display()),
+        ppid: snapshot.map(|snapshot| snapshot.ppid).unwrap_or(0),
+        rss_kb: snapshot.map(|snapshot| snapshot.rss_kb).unwrap_or(0),
+        elapsed: snapshot
+            .map(|snapshot| snapshot.elapsed.clone())
+            .unwrap_or_else(|| elapsed_since(record.started_at)),
+        command: snapshot
+            .map(|snapshot| snapshot.command.clone())
+            .unwrap_or_else(|| {
+                format!("prism-mcp --mode {} --root {}", record.kind, root.display())
+            }),
         kind,
         health_path: record.health_path.clone(),
         http_uri: record.http_uri.clone(),
         upstream_uri: record.upstream_uri.clone(),
+    })
+}
+
+fn list_process_snapshots() -> Result<Vec<ProcessSnapshot>> {
+    let output = Command::new("ps")
+        .args(["-axo", "pid=,ppid=,rss=,etime=,command="])
+        .output()
+        .context("failed to list processes with ps")?;
+    if !output.status.success() {
+        return Err(anyhow!(
+            "ps failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(parse_process_snapshot)
+        .collect())
+}
+
+fn parse_process_snapshot(line: &str) -> Option<ProcessSnapshot> {
+    let mut parts = line.split_whitespace();
+    let pid = parts.next()?.parse().ok()?;
+    let ppid = parts.next()?.parse::<u32>().ok()?;
+    let rss_kb = parts.next()?.parse().ok()?;
+    let elapsed = parts.next()?.to_string();
+    let command = parts.collect::<Vec<_>>().join(" ");
+    if command.is_empty() {
+        return None;
+    }
+    Some(ProcessSnapshot {
+        pid,
+        ppid,
+        rss_kb,
+        elapsed,
+        command,
     })
 }
 
@@ -1536,5 +1593,54 @@ mod tests {
         let processes = runtime_state_processes(root, &[live, dead]).unwrap();
         assert_eq!(processes.len(), 1);
         assert_eq!(processes[0].pid, std::process::id());
+    }
+
+    #[test]
+    fn runtime_process_from_record_prefers_live_process_snapshot_metadata() {
+        let root = Path::new("/tmp/prism-runtime-status-test");
+        let record = RuntimeProcessRecord {
+            pid: 42,
+            kind: "daemon".to_string(),
+            started_at: 1,
+            health_path: Some("/healthz".to_string()),
+            http_uri: Some("http://127.0.0.1:52695/mcp".to_string()),
+            upstream_uri: None,
+            restart_nonce: Some("live".to_string()),
+        };
+        let snapshots = vec![ProcessSnapshot {
+            pid: 42,
+            ppid: 7,
+            rss_kb: 123_456,
+            elapsed: "00:12".to_string(),
+            command: "/tmp/prism-mcp --mode daemon --root /tmp/prism-runtime-status-test"
+                .to_string(),
+        }];
+
+        let process = runtime_process_from_record(root, &record, &snapshots)
+            .expect("runtime process should be built");
+
+        assert_eq!(process.pid, 42);
+        assert_eq!(process.ppid, 7);
+        assert_eq!(process.rss_kb, 123_456);
+        assert_eq!(process.elapsed, "00:12");
+        assert!(process.command.contains("--mode daemon"));
+        assert_eq!(
+            process.http_uri.as_deref(),
+            Some("http://127.0.0.1:52695/mcp")
+        );
+    }
+
+    #[test]
+    fn parse_process_snapshot_reads_ps_layout() {
+        let snapshot = parse_process_snapshot(
+            "33725     1 1006400    05:04 /Users/bene/code/prism/target/release/prism-mcp --mode daemon --daemonize",
+        )
+        .expect("ps snapshot should parse");
+
+        assert_eq!(snapshot.pid, 33725);
+        assert_eq!(snapshot.ppid, 1);
+        assert_eq!(snapshot.rss_kb, 1_006_400);
+        assert_eq!(snapshot.elapsed, "05:04");
+        assert!(snapshot.command.contains("--mode daemon"));
     }
 }

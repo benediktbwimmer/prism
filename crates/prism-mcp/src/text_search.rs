@@ -20,6 +20,10 @@ pub(crate) struct TextSearchOutcome {
     pub(crate) limit_hit: bool,
 }
 
+pub(crate) struct PathSearchOutcome {
+    pub(crate) results: Vec<String>,
+}
+
 pub(crate) fn search_text(
     host: &QueryHost,
     args: SearchTextArgs,
@@ -89,6 +93,55 @@ pub(crate) fn search_text(
         applied,
         limit_hit,
     })
+}
+
+pub(crate) fn search_workspace_paths(
+    host: &QueryHost,
+    args: SearchTextArgs,
+    max_limit: usize,
+) -> Result<PathSearchOutcome> {
+    let workspace = host
+        .workspace_session()
+        .ok_or_else(|| anyhow!("path search requires a workspace-backed PRISM session"))?;
+    if args.query.trim().is_empty() {
+        return Err(anyhow!("query must be a non-empty string"));
+    }
+
+    let case_sensitive = args.case_sensitive.unwrap_or(false);
+    let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
+    let applied = requested.min(max_limit);
+    let glob = compile_glob_matcher(args.glob.as_deref(), case_sensitive)?;
+    let path_filter = args
+        .path
+        .filter(|value| !value.trim().is_empty())
+        .map(|value| normalize_path_filter(&value, case_sensitive));
+    let normalized_query = normalize_path_query(&args.query, case_sensitive);
+    let query_tokens = normalized_query
+        .split_whitespace()
+        .filter(|token| !token.is_empty())
+        .collect::<Vec<_>>();
+
+    let root = workspace.root();
+    let mut files = workspace_files(root, path_filter.as_deref(), glob.as_ref(), case_sensitive)?;
+    files.sort_by(|left, right| left.0.cmp(&right.0));
+
+    let mut results = Vec::new();
+    for (relative_path, _) in files {
+        if !workspace_path_matches_query(
+            &relative_path,
+            &normalized_query,
+            &query_tokens,
+            case_sensitive,
+        ) {
+            continue;
+        }
+        results.push(relative_path);
+        if results.len() >= applied {
+            break;
+        }
+    }
+
+    Ok(PathSearchOutcome { results })
 }
 
 fn workspace_files(
@@ -178,6 +231,57 @@ fn normalize_path_filter(value: &str, case_sensitive: bool) -> String {
     } else {
         normalized.to_ascii_lowercase()
     }
+}
+
+fn normalize_path_query(value: &str, case_sensitive: bool) -> String {
+    let mut normalized = String::with_capacity(value.len());
+    let mut previous_was_lower = false;
+    for ch in value.chars() {
+        if ch.is_ascii_alphanumeric() {
+            if ch.is_ascii_uppercase() && previous_was_lower {
+                normalized.push(' ');
+            }
+            normalized.push(if case_sensitive {
+                ch
+            } else {
+                ch.to_ascii_lowercase()
+            });
+            previous_was_lower = ch.is_ascii_lowercase() || ch.is_ascii_digit();
+        } else {
+            normalized.push(' ');
+            previous_was_lower = false;
+        }
+    }
+    normalized.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn workspace_path_matches_query(
+    relative_path: &str,
+    normalized_query: &str,
+    query_tokens: &[&str],
+    case_sensitive: bool,
+) -> bool {
+    if normalized_query.is_empty() {
+        return false;
+    }
+    let normalized_path = normalize_path_query(relative_path, case_sensitive);
+    if normalized_path.contains(normalized_query) {
+        return true;
+    }
+    let basename = Path::new(relative_path)
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or(relative_path);
+    let basename_without_extension = basename
+        .rsplit_once('.')
+        .map(|(stem, _)| stem)
+        .unwrap_or(basename);
+    let normalized_basename = normalize_path_query(basename_without_extension, case_sensitive);
+    normalized_basename.contains(normalized_query)
+        || (!query_tokens.is_empty()
+            && query_tokens
+                .iter()
+                .all(|token| normalized_path.contains(token)))
 }
 
 fn source_location_view(location: prism_query::SourceLocation) -> SourceLocationView {
