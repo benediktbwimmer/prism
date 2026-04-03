@@ -1605,6 +1605,8 @@ pub struct GitPreflightReportView {
     pub publish_ref: Option<String>,
     pub checked_at: u64,
     pub target_branch: String,
+    pub max_commits_behind_target: u32,
+    pub fetch_age_seconds: Option<u64>,
     pub current_branch: Option<String>,
     pub head_commit: Option<String>,
     pub target_commit: Option<String>,

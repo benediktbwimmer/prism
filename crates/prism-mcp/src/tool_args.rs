@@ -2814,8 +2814,11 @@ pub(crate) struct GitExecutionPolicyPayload {
     pub(crate) start_mode: Option<GitExecutionStartModeInput>,
     #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) completion_mode: Option<GitExecutionCompletionModeInput>,
+    pub(crate) target_ref: Option<String>,
     pub(crate) target_branch: Option<String>,
     pub(crate) require_task_branch: Option<bool>,
+    pub(crate) max_commits_behind_target: Option<u32>,
+    pub(crate) max_fetch_age_seconds: Option<u64>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]

@@ -1382,6 +1382,8 @@ fn git_preflight_report_view(
         publish_ref: value.publish_ref,
         checked_at: value.checked_at,
         target_branch: value.target_branch,
+        max_commits_behind_target: value.max_commits_behind_target,
+        fetch_age_seconds: value.fetch_age_seconds,
         current_branch: value.current_branch,
         head_commit: value.head_commit,
         target_commit: value.target_commit,

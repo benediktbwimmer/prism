@@ -913,10 +913,15 @@ pub(crate) fn convert_policy(
                     GitExecutionCompletionModeInput::Auto => GitExecutionCompletionMode::Auto,
                 })
                 .unwrap_or_default(),
+            target_ref: value.target_ref,
             target_branch: value
                 .target_branch
                 .unwrap_or_else(|| GitExecutionPolicy::default().target_branch),
             require_task_branch: value.require_task_branch.unwrap_or(false),
+            max_commits_behind_target: value
+                .max_commits_behind_target
+                .unwrap_or_else(|| GitExecutionPolicy::default().max_commits_behind_target),
+            max_fetch_age_seconds: value.max_fetch_age_seconds,
         };
     }
     Ok(Some(policy))

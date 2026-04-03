@@ -1917,6 +1917,7 @@ impl QueryHost {
         let now = current_timestamp();
         let require_clean_worktree = matches!(request.workflow, GitExecutionWorkflow::Start);
         let mut preflight = run_preflight(root, &policy, now, require_clean_worktree)?;
+        let mut post_sync_publish_branch: Option<String> = None;
         if matches!(request.workflow, GitExecutionWorkflow::Start)
             && matches!(policy.start_mode, GitExecutionStartMode::Auto)
             && policy.require_task_branch
@@ -1987,6 +1988,7 @@ impl QueryHost {
                 )?;
             }
             GitExecutionWorkflow::Complete(desired_status) => {
+                post_sync_publish_branch = Some(preflight.current_branch.clone());
                 let dirty_user_paths = user_dirty_paths(&preflight.report.dirty_paths);
                 let (code_commit, code_commit_sha) = match policy.completion_mode {
                     GitExecutionCompletionMode::Require => {
@@ -2194,28 +2196,11 @@ impl QueryHost {
                     protected_paths,
                     failure: None,
                 };
-                self.record_task_git_execution_authoritative_state(
-                    session,
-                    authenticated,
-                    &request.task_id,
-                    Some(desired_status),
-                    Some(None),
-                    TaskGitExecution {
-                        status: prism_ir::GitExecutionStatus::Published,
-                        pending_task_status: None,
-                        source_ref: preflight.report.source_ref.clone(),
-                        target_ref: preflight.report.target_ref.clone(),
-                        publish_ref: preflight.report.publish_ref.clone(),
-                        target_branch: Some(policy.target_branch.clone()),
-                        last_preflight: Some(preflight.report.clone()),
-                        last_publish: Some(published.clone()),
-                    },
-                )?;
                 let post_publish_paths = worktree_dirty_paths(root)?;
                 let unexpected_user_paths = user_dirty_paths(&post_publish_paths);
                 if !unexpected_user_paths.is_empty() {
                     let failure = format!(
-                        "published task acknowledgement left unexpected dirty user paths: {}",
+                        "publish-pending state left unexpected dirty user paths: {}",
                         unexpected_user_paths.join(", ")
                     );
                     published.failure = Some(failure.clone());
@@ -2283,10 +2268,12 @@ impl QueryHost {
                     )?;
                     return Err(anyhow!(failure));
                 }
-                self.record_task_git_execution(
+                self.record_task_git_execution_authoritative_state(
                     session,
                     authenticated,
                     &request.task_id,
+                    Some(desired_status),
+                    Some(None),
                     TaskGitExecution {
                         status: prism_ir::GitExecutionStatus::Published,
                         pending_task_status: None,
@@ -2295,9 +2282,28 @@ impl QueryHost {
                         publish_ref: preflight.report.publish_ref.clone(),
                         target_branch: Some(policy.target_branch.clone()),
                         last_preflight: Some(preflight.report),
-                        last_publish: Some(published),
+                        last_publish: Some(published.clone()),
                     },
                 )?;
+                let final_authoritative_paths = worktree_dirty_paths(root)?;
+                let unexpected_user_paths = user_dirty_paths(&final_authoritative_paths);
+                if !unexpected_user_paths.is_empty() {
+                    return Err(anyhow!(
+                        "final authoritative acknowledgement left unexpected dirty user paths: {}",
+                        unexpected_user_paths.join(", ")
+                    ));
+                }
+                let final_authoritative_prism_paths =
+                    prism_managed_paths(&final_authoritative_paths);
+                if !final_authoritative_prism_paths.is_empty() {
+                    let _ = commit_paths(
+                        root,
+                        &coordination_commit_message,
+                        current_timestamp(),
+                        &final_authoritative_prism_paths,
+                    )?;
+                    push_current_branch(root, &preflight.current_branch, &mut published)?;
+                }
             }
         }
 
@@ -2312,6 +2318,39 @@ impl QueryHost {
             &state,
         )?;
         self.persist_session_seed(session)?;
+        if let Some(branch) = post_sync_publish_branch {
+            let post_sync_paths = worktree_dirty_paths(root)?;
+            let unexpected_user_paths = user_dirty_paths(&post_sync_paths);
+            if !unexpected_user_paths.is_empty() {
+                return Err(anyhow!(
+                    "post-sync publication left unexpected dirty user paths: {}",
+                    unexpected_user_paths.join(", ")
+                ));
+            }
+            let post_sync_prism_paths = prism_managed_paths(&post_sync_paths);
+            if !post_sync_prism_paths.is_empty() {
+                let _ = commit_paths(
+                    root,
+                    "prism: finalize coordination publication",
+                    current_timestamp(),
+                    &post_sync_prism_paths,
+                )?;
+                push_current_branch(
+                    root,
+                    &branch,
+                    &mut GitPublishReport {
+                        attempted_at: current_timestamp(),
+                        publish_ref: Some(branch.clone()),
+                        code_commit: None,
+                        coordination_commit: None,
+                        pushed_ref: None,
+                        staged_paths: Vec::new(),
+                        protected_paths: Vec::new(),
+                        failure: None,
+                    },
+                )?;
+            }
+        }
         Ok(Some(CoordinationMutationResult {
             event_id: audit
                 .event_ids

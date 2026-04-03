@@ -6,6 +6,10 @@ fn default_target_branch() -> String {
     "main".to_string()
 }
 
+fn default_max_commits_behind_target() -> u32 {
+    0
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum GitExecutionStartMode {
@@ -31,10 +35,24 @@ pub struct GitExecutionPolicy {
     pub start_mode: GitExecutionStartMode,
     #[serde(default)]
     pub completion_mode: GitExecutionCompletionMode,
+    #[serde(default)]
+    pub target_ref: Option<String>,
     #[serde(default = "default_target_branch")]
     pub target_branch: String,
     #[serde(default)]
     pub require_task_branch: bool,
+    #[serde(default = "default_max_commits_behind_target")]
+    pub max_commits_behind_target: u32,
+    #[serde(default)]
+    pub max_fetch_age_seconds: Option<u64>,
+}
+
+impl GitExecutionPolicy {
+    pub fn effective_target_ref(&self) -> String {
+        self.target_ref
+            .clone()
+            .unwrap_or_else(|| format!("origin/{}", self.target_branch))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -48,6 +66,10 @@ pub struct GitPreflightReport {
     pub publish_ref: Option<String>,
     pub checked_at: Timestamp,
     pub target_branch: String,
+    #[serde(default)]
+    pub max_commits_behind_target: u32,
+    #[serde(default)]
+    pub fetch_age_seconds: Option<u64>,
     #[serde(default)]
     pub current_branch: Option<String>,
     #[serde(default)]

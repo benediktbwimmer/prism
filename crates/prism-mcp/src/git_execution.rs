@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::process::Command;
+use std::time::UNIX_EPOCH;
 
 use anyhow::{anyhow, Context, Result};
 use prism_coordination::{GitExecutionPolicy, GitPreflightReport, GitPublishReport};
@@ -78,16 +79,27 @@ pub(crate) fn run_preflight(
     now: u64,
     require_clean_worktree: bool,
 ) -> Result<GitPreflightOutcome> {
-    run_git(root, &["fetch", "origin", policy.target_branch.as_str()])?;
+    run_git(root, &["fetch", "origin"])?;
 
     let current_branch = run_git(root, &["branch", "--show-current"])?;
     let head_commit = run_git(root, &["rev-parse", "HEAD"])?;
-    let target_ref = format!("origin/{}", policy.target_branch);
+    let target_ref = policy.effective_target_ref();
     let target_commit = run_git(root, &["rev-parse", target_ref.as_str()])?;
     let merge_base_commit = run_git(root, &["merge-base", "HEAD", target_ref.as_str()])?;
-    let behind_target_commits = run_git(root, &["rev-list", "--count", "HEAD..FETCH_HEAD"])?
-        .parse::<u32>()
-        .unwrap_or(0);
+    let behind_target_commits = run_git(
+        root,
+        &["rev-list", "--count", &format!("HEAD..{target_ref}")],
+    )?
+    .parse::<u32>()
+    .unwrap_or(0);
+    let fetch_age_seconds = root
+        .join(".git")
+        .join("FETCH_HEAD")
+        .metadata()
+        .ok()
+        .and_then(|metadata| metadata.modified().ok())
+        .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+        .map(|modified| now.saturating_sub(modified.as_secs()));
     let dirty_paths = worktree_dirty_paths(root)?;
     let protected_dirty_paths = dirty_paths
         .iter()
@@ -102,10 +114,10 @@ pub(crate) fn run_preflight(
             "current branch `{}` must differ from target branch `{}`",
             current_branch, policy.target_branch
         ));
-    } else if behind_target_commits > 0 {
+    } else if behind_target_commits > policy.max_commits_behind_target {
         failure = Some(format!(
-            "branch is {} commit(s) behind `{}`",
-            behind_target_commits, target_ref
+            "branch is {} commit(s) behind `{}` which exceeds the configured limit of {}",
+            behind_target_commits, target_ref, policy.max_commits_behind_target
         ));
     } else if require_clean_worktree && !blocking_dirty_paths.is_empty() {
         failure = Some(format!(
@@ -113,12 +125,26 @@ pub(crate) fn run_preflight(
             blocking_dirty_paths.join(", ")
         ));
     }
+    if failure.is_none() {
+        if let Some(max_fetch_age_seconds) = policy.max_fetch_age_seconds {
+            if let Some(fetch_age_seconds) = fetch_age_seconds {
+                if fetch_age_seconds > max_fetch_age_seconds {
+                    failure = Some(format!(
+                        "last fetch is {} second(s) old which exceeds the configured limit of {}",
+                        fetch_age_seconds, max_fetch_age_seconds
+                    ));
+                }
+            }
+        }
+    }
     let report = GitPreflightReport {
         source_ref: Some(current_branch.clone()),
-        target_ref: Some(policy.target_branch.clone()),
+        target_ref: Some(target_ref),
         publish_ref: Some(current_branch.clone()),
         checked_at: now,
         target_branch: policy.target_branch.clone(),
+        max_commits_behind_target: policy.max_commits_behind_target,
+        fetch_age_seconds,
         current_branch: Some(current_branch.clone()),
         head_commit: Some(head_commit),
         target_commit: Some(target_commit),

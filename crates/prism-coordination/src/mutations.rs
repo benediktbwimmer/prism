@@ -1807,29 +1807,32 @@ pub(crate) fn update_task_mutation_with_options(
             .map(|status| status != previous.status)
             .unwrap_or(false);
         if let Some(status) = input.status {
-            if let Err(error) = validate_task_transition(previous.status, status) {
-                let violations = vec![policy_violation(
-                    PolicyViolationCode::InvalidTaskTransition,
-                    error.to_string(),
-                    Some(previous.plan.clone()),
-                    Some(previous.id.clone()),
-                    None,
-                    None,
-                    json!({
-                        "from": format!("{:?}", previous.status),
-                        "to": format!("{:?}", status),
-                    }),
-                )];
-                return Err(rejection_error(
-                    state,
-                    &meta,
-                    "coordination task update rejected",
-                    Some(previous.plan.clone()),
-                    Some(previous.id.clone()),
-                    None,
-                    None,
-                    violations,
-                ));
+            let skip_transition_validation = authoritative_only && input.git_execution.is_some();
+            if !skip_transition_validation {
+                if let Err(error) = validate_task_transition(previous.status, status) {
+                    let violations = vec![policy_violation(
+                        PolicyViolationCode::InvalidTaskTransition,
+                        error.to_string(),
+                        Some(previous.plan.clone()),
+                        Some(previous.id.clone()),
+                        None,
+                        None,
+                        json!({
+                            "from": format!("{:?}", previous.status),
+                            "to": format!("{:?}", status),
+                        }),
+                    )];
+                    return Err(rejection_error(
+                        state,
+                        &meta,
+                        "coordination task update rejected",
+                        Some(previous.plan.clone()),
+                        Some(previous.id.clone()),
+                        None,
+                        None,
+                        violations,
+                    ));
+                }
             }
         }
         if matches!(
