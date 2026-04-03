@@ -1,0 +1,59 @@
+{
+  "id": "coord-task:01knanp4706nc8ty9z1qzfjy1s",
+  "plan": "plan:01knannez4esfee0qx0yskagbe",
+  "kind": "Edit",
+  "title": "Implement attestation verification with GitHub high assurance and SSH moderate assurance",
+  "summary": "Add issuer abstraction, attestation verification, explicit assurance levels, GitHub-backed device-flow bootstrap as the preferred high-assurance path, and SSH/GPG signing as a clearly labeled moderate-assurance fallback.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01knannsnntbnbg3pm51nacctc"
+  ],
+  "acceptance": [
+    {
+      "label": "GitHub-backed bootstrap attestations can mint a human root with high assurance provenance.",
+      "anchors": []
+    },
+    {
+      "label": "SSH/GPG-backed bootstrap attestations remain supported as moderate assurance and are surfaced honestly in provenance.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 162,
+    "git_commit": null
+  },
+  "priority": 97,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

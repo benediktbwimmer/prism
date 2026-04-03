@@ -1,0 +1,59 @@
+{
+  "id": "coord-task:01knap5vj9ptbdhevycdp3pdh8",
+  "plan": "plan:01knap36apc42jgrq3w7k300yz",
+  "kind": "Edit",
+  "title": "Implement shared-ref retention, compaction, and bounded-history policy",
+  "summary": "Add the operational controls the design calls for so shared coordination refs remain compact over time: bounded recent history, explicit compaction points, hot-versus-cold state separation, and rules for retaining enough evidence without turning the shared ref into an unbounded append-log pain point.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01knap5b9wj7mjf6f71wv2natz"
+  ],
+  "acceptance": [
+    {
+      "label": "The live shared ref remains compact enough for daily fetch and publish workflows even as coordination history grows.",
+      "anchors": []
+    },
+    {
+      "label": "Compaction and retention preserve the evidence needed for correctness and audit without keeping the live head bloated forever.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 162,
+    "git_commit": null
+  },
+  "priority": 94,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

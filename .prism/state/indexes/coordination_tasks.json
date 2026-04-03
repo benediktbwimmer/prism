@@ -1884,6 +1884,114 @@
     "path": "tasks/coord-task-01knaddrkxtpmzwc9vsr1ykw1p-479d003eaed6284c.json"
   },
   {
+    "id": "coord-task:01knannsnntbnbg3pm51nacctc",
+    "title": "Define bootstrap authority, issuer trust, and assurance model",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knannsnntbnbg3pm51nacctc-daba8ffee69c18e2.json"
+  },
+  {
+    "id": "coord-task:01knanny5sqedpzn8jzfk9mzpz",
+    "title": "Implement bootstrap authority state and recovery gating",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knanny5sqedpzn8jzfk9mzpz-0bab7527ffb3277f.json"
+  },
+  {
+    "id": "coord-task:01knanp4706nc8ty9z1qzfjy1s",
+    "title": "Implement attestation verification with GitHub high assurance and SSH moderate assurance",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knanp4706nc8ty9z1qzfjy1s-643f84249b5e79ee.json"
+  },
+  {
+    "id": "coord-task:01knanp9q855k55awdbrckvr1j",
+    "title": "Make human principals portable and server enrollment delegation-only",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knanp9q855k55awdbrckvr1j-f9ac3191d40f363a.json"
+  },
+  {
+    "id": "coord-task:01knanpf1an4c1r36a2bpep0de",
+    "title": "Wire assurance provenance, inspection surfaces, and legacy migration",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knanpf1an4c1r36a2bpep0de-e83858b07b52c0de.json"
+  },
+  {
+    "id": "coord-task:01knanpmrbr3ap0fac36qhwtgf",
+    "title": "Validate and dogfood bootstrap, recovery, and delegated enrollment flows",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knanpmrbr3ap0fac36qhwtgf-c0174fa0d471e2a1.json"
+  },
+  {
+    "id": "coord-task:01knap3rke481tw24nh4z5g8ak",
+    "title": "Audit the design doc against the live shared-ref implementation and enumerate every remaining gap",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knap3rke481tw24nh4z5g8ak-9c4f723e4d857d93.json"
+  },
+  {
+    "id": "coord-task:01knap3yd0dnrzxxy3wkh289xd",
+    "title": "Lock the exact integration policy contract and completion-versus-integration semantics",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knap3yd0dnrzxxy3wkh289xd-f7716d477477e69b.json"
+  },
+  {
+    "id": "coord-task:01knap46bm44w78g4yv1yvdjy8",
+    "title": "Add first-class plan integration policy and task integration lifecycle to coordination types and MCP schema",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knap46bm44w78g4yv1yvdjy8-32c7db771eaa33b8.json"
+  },
+  {
+    "id": "coord-task:01knap4jw93afme0z6mbxj18qf",
+    "title": "Persist durable target-landing evidence and implement verification for merge, rebase, and squash flows",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knap4jw93afme0z6mbxj18qf-48cd79ac0364f92a.json"
+  },
+  {
+    "id": "coord-task:01knap4tnhjq47qrwd49mm0b78",
+    "title": "Implement manual_pr and auto_pr integration flows around durable review artifacts",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knap4tnhjq47qrwd49mm0b78-7c1f9c78ba691e84.json"
+  },
+  {
+    "id": "coord-task:01knap509dzfc7hzj7eafyf2hd",
+    "title": "Implement direct_integrate and external observation modes with explicit landing verification",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knap509dzfc7hzj7eafyf2hd-371491760c8b0c96.json"
+  },
+  {
+    "id": "coord-task:01knap55wwmpdm6y6chs1xmjwf",
+    "title": "Finish strict require completion ordering on top of shared coordination publication",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knap55wwmpdm6y6chs1xmjwf-e00df4e744e0d2eb.json"
+  },
+  {
+    "id": "coord-task:01knap5b9wj7mjf6f71wv2natz",
+    "title": "Harden remote live-sync, CAS retry, and shared-ref reconciliation under real concurrency",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knap5b9wj7mjf6f71wv2natz-1875416a7252fc79.json"
+  },
+  {
+    "id": "coord-task:01knap5many6kf2v5td7ka8gjm",
+    "title": "Demote branch-local PRISM mirrors and remove remaining dual-authority ambiguity",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knap5many6kf2v5td7ka8gjm-83753cee8833d72a.json"
+  },
+  {
+    "id": "coord-task:01knap5vj9ptbdhevycdp3pdh8",
+    "title": "Implement shared-ref retention, compaction, and bounded-history policy",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knap5vj9ptbdhevycdp3pdh8-ed0366236d14ab6c.json"
+  },
+  {
+    "id": "coord-task:01knap64p8w9xtz3vr5nx0g1rm",
+    "title": "Expose integration policy, lifecycle, and landing evidence cleanly in MCP, query, and published docs",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knap64p8w9xtz3vr5nx0g1rm-94d462fc0ac0d45f.json"
+  },
+  {
+    "id": "coord-task:01knap6dbtj1v4aq8gwbr9dy1x",
+    "title": "Dogfood the full cross-branch workflow and prove the shared-ref authority plane materially improves daily development UX",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knap6dbtj1v4aq8gwbr9dy1x-9e9c33e7a7fda12b.json"
+  },
+  {
     "id": "coord-task:1",
     "title": "Classify authoritative state vs derived artifacts across persistence, plans, and projections",
     "status": "Completed",

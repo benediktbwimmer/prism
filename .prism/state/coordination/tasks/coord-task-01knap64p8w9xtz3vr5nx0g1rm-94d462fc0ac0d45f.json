@@ -1,0 +1,64 @@
+{
+  "id": "coord-task:01knap64p8w9xtz3vr5nx0g1rm",
+  "plan": "plan:01knap36apc42jgrq3w7k300yz",
+  "kind": "Edit",
+  "title": "Expose integration policy, lifecycle, and landing evidence cleanly in MCP, query, and published docs",
+  "summary": "Make the new shared-ref authority model visible and inspectable by exposing integration policy, branch publication state, shared coordination publication state, target integration state, review artifacts, and landing evidence in the live MCP views, JS types, and human-readable repo docs.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01knap46bm44w78g4yv1yvdjy8",
+    "coord-task:01knap4jw93afme0z6mbxj18qf",
+    "coord-task:01knap4tnhjq47qrwd49mm0b78",
+    "coord-task:01knap509dzfc7hzj7eafyf2hd",
+    "coord-task:01knap55wwmpdm6y6chs1xmjwf",
+    "coord-task:01knap5many6kf2v5td7ka8gjm"
+  ],
+  "acceptance": [
+    {
+      "label": "Agents and humans can inspect exactly how a task moved from branch publication to shared coordination publication to target integration.",
+      "anchors": []
+    },
+    {
+      "label": "The published docs and runtime surfaces no longer hide or collapse integration state into a fuzzy single done flag.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 162,
+    "git_commit": null
+  },
+  "priority": 93,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

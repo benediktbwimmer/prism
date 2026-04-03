@@ -1,0 +1,400 @@
+{
+  "plan": {
+    "id": "plan:01knannez4esfee0qx0yskagbe",
+    "goal": "Replace weak local-empty-registry bootstrap with externally attested human-root bootstrap, portable human principals, delegated server enrollment, assurance-labeled provenance, and recovery that cannot be bypassed by wiping local runtime state.",
+    "title": "Implement external bootstrap attestation auth",
+    "status": "Active",
+    "policy": {
+      "default_claim_mode": "Advisory",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": false,
+      "stale_after_graph_change": true,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "require",
+        "completionMode": "require",
+        "targetRef": "origin/main",
+        "targetBranch": "main",
+        "requireTaskBranch": true,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": null
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 96,
+      "urgency": 88,
+      "manualBoost": 20,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01knannsnntbnbg3pm51nacctc"
+    ]
+  },
+  "graph": {
+    "id": "plan:01knannez4esfee0qx0yskagbe",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Implement external bootstrap attestation auth",
+    "goal": "Replace weak local-empty-registry bootstrap with externally attested human-root bootstrap, portable human principals, delegated server enrollment, assurance-labeled provenance, and recovery that cannot be bypassed by wiping local runtime state.",
+    "status": "Active",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01knannsnntbnbg3pm51nacctc"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01knannsnntbnbg3pm51nacctc",
+        "plan_id": "plan:01knannez4esfee0qx0yskagbe",
+        "kind": "Decide",
+        "title": "Define bootstrap authority, issuer trust, and assurance model",
+        "summary": "Lock the implementation contract for external bootstrap attestations, trusted issuers, assurance levels, consumed-attestation tracking, and the exact boundary between bootstrap, recovery, and normal principal minting.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Bootstrap authority, recovery, issuer trust, and assurance semantics are explicit enough to implement without re-opening the trust model.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 162,
+          "git_commit": null
+        },
+        "priority": 100,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01knanny5sqedpzn8jzfk9mzpz",
+        "plan_id": "plan:01knannez4esfee0qx0yskagbe",
+        "kind": "Edit",
+        "title": "Implement bootstrap authority state and recovery gating",
+        "summary": "Add durable bootstrap authority metadata separate from the ordinary principal registry so deleting runtime state cannot trigger fresh bootstrap, and route missing-registry cases into explicit recovery instead.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Fresh bootstrap is blocked once bootstrap authority exists, even if the ordinary principal registry is missing or empty.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Recovery is a distinct path from bootstrap and is keyed off bootstrap authority state rather than registry emptiness.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 162,
+          "git_commit": null
+        },
+        "priority": 98,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01knanp4706nc8ty9z1qzfjy1s",
+        "plan_id": "plan:01knannez4esfee0qx0yskagbe",
+        "kind": "Edit",
+        "title": "Implement attestation verification with GitHub high assurance and SSH moderate assurance",
+        "summary": "Add issuer abstraction, attestation verification, explicit assurance levels, GitHub-backed device-flow bootstrap as the preferred high-assurance path, and SSH/GPG signing as a clearly labeled moderate-assurance fallback.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "GitHub-backed bootstrap attestations can mint a human root with high assurance provenance.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "SSH/GPG-backed bootstrap attestations remain supported as moderate assurance and are surfaced honestly in provenance.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 162,
+          "git_commit": null
+        },
+        "priority": 97,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01knanp9q855k55awdbrckvr1j",
+        "plan_id": "plan:01knannez4esfee0qx0yskagbe",
+        "kind": "Edit",
+        "title": "Make human principals portable and server enrollment delegation-only",
+        "summary": "Keep one durable human principal identity across machines, issue machine-local credentials to act as that principal, and forbid headless/server root bootstrap in favor of explicit imported delegation from an interactive trusted machine.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "A second trusted machine can acquire a machine-local credential for the same human principal rather than minting a second human root.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Headless or server runtimes cannot bootstrap human roots and must import delegated identities or credentials instead.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 162,
+          "git_commit": null
+        },
+        "priority": 96,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01knanpf1an4c1r36a2bpep0de",
+        "plan_id": "plan:01knannez4esfee0qx0yskagbe",
+        "kind": "Edit",
+        "title": "Wire assurance provenance, inspection surfaces, and legacy migration",
+        "summary": "Persist bootstrap assurance on roots and lineage, surface it in CLI/MCP auth inspection, and add a clear migration path that records legacy roots honestly instead of silently upgrading them.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Root bootstrap provenance exposes high, moderate, or legacy assurance in auth inspection and audit surfaces.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Legacy roots migrate with explicit assurance labeling rather than being treated as externally attested.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 162,
+          "git_commit": null
+        },
+        "priority": 94,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01knanpmrbr3ap0fac36qhwtgf",
+        "plan_id": "plan:01knannez4esfee0qx0yskagbe",
+        "kind": "Validate",
+        "title": "Validate and dogfood bootstrap, recovery, and delegated enrollment flows",
+        "summary": "Exercise interactive-machine bootstrap, second-machine credential acquisition, server delegation import, recovery after registry loss, and negative cases where fresh bootstrap should be refused.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Bootstrap, recovery, multi-machine credential acquisition, and server enrollment each have passing end-to-end validation paths.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Registry deletion or loss no longer enables silent re-bootstrap in dogfooding scenarios.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 162,
+          "git_commit": null
+        },
+        "priority": 95,
+        "tags": [],
+        "metadata": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "plan-edge:coord-task:01knanny5sqedpzn8jzfk9mzpz:depends-on:coord-task:01knannsnntbnbg3pm51nacctc",
+        "plan_id": "plan:01knannez4esfee0qx0yskagbe",
+        "from": "coord-task:01knanny5sqedpzn8jzfk9mzpz",
+        "to": "coord-task:01knannsnntbnbg3pm51nacctc",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knanp4706nc8ty9z1qzfjy1s:depends-on:coord-task:01knannsnntbnbg3pm51nacctc",
+        "plan_id": "plan:01knannez4esfee0qx0yskagbe",
+        "from": "coord-task:01knanp4706nc8ty9z1qzfjy1s",
+        "to": "coord-task:01knannsnntbnbg3pm51nacctc",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knanp9q855k55awdbrckvr1j:depends-on:coord-task:01knannsnntbnbg3pm51nacctc",
+        "plan_id": "plan:01knannez4esfee0qx0yskagbe",
+        "from": "coord-task:01knanp9q855k55awdbrckvr1j",
+        "to": "coord-task:01knannsnntbnbg3pm51nacctc",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knanp9q855k55awdbrckvr1j:depends-on:coord-task:01knanny5sqedpzn8jzfk9mzpz",
+        "plan_id": "plan:01knannez4esfee0qx0yskagbe",
+        "from": "coord-task:01knanp9q855k55awdbrckvr1j",
+        "to": "coord-task:01knanny5sqedpzn8jzfk9mzpz",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knanp9q855k55awdbrckvr1j:depends-on:coord-task:01knanp4706nc8ty9z1qzfjy1s",
+        "plan_id": "plan:01knannez4esfee0qx0yskagbe",
+        "from": "coord-task:01knanp9q855k55awdbrckvr1j",
+        "to": "coord-task:01knanp4706nc8ty9z1qzfjy1s",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knanpf1an4c1r36a2bpep0de:depends-on:coord-task:01knanny5sqedpzn8jzfk9mzpz",
+        "plan_id": "plan:01knannez4esfee0qx0yskagbe",
+        "from": "coord-task:01knanpf1an4c1r36a2bpep0de",
+        "to": "coord-task:01knanny5sqedpzn8jzfk9mzpz",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knanpf1an4c1r36a2bpep0de:depends-on:coord-task:01knanp4706nc8ty9z1qzfjy1s",
+        "plan_id": "plan:01knannez4esfee0qx0yskagbe",
+        "from": "coord-task:01knanpf1an4c1r36a2bpep0de",
+        "to": "coord-task:01knanp4706nc8ty9z1qzfjy1s",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knanpf1an4c1r36a2bpep0de:depends-on:coord-task:01knanp9q855k55awdbrckvr1j",
+        "plan_id": "plan:01knannez4esfee0qx0yskagbe",
+        "from": "coord-task:01knanpf1an4c1r36a2bpep0de",
+        "to": "coord-task:01knanp9q855k55awdbrckvr1j",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knanpmrbr3ap0fac36qhwtgf:depends-on:coord-task:01knanny5sqedpzn8jzfk9mzpz",
+        "plan_id": "plan:01knannez4esfee0qx0yskagbe",
+        "from": "coord-task:01knanpmrbr3ap0fac36qhwtgf",
+        "to": "coord-task:01knanny5sqedpzn8jzfk9mzpz",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knanpmrbr3ap0fac36qhwtgf:depends-on:coord-task:01knanp4706nc8ty9z1qzfjy1s",
+        "plan_id": "plan:01knannez4esfee0qx0yskagbe",
+        "from": "coord-task:01knanpmrbr3ap0fac36qhwtgf",
+        "to": "coord-task:01knanp4706nc8ty9z1qzfjy1s",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knanpmrbr3ap0fac36qhwtgf:depends-on:coord-task:01knanp9q855k55awdbrckvr1j",
+        "plan_id": "plan:01knannez4esfee0qx0yskagbe",
+        "from": "coord-task:01knanpmrbr3ap0fac36qhwtgf",
+        "to": "coord-task:01knanp9q855k55awdbrckvr1j",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knanpmrbr3ap0fac36qhwtgf:depends-on:coord-task:01knanpf1an4c1r36a2bpep0de",
+        "plan_id": "plan:01knannez4esfee0qx0yskagbe",
+        "from": "coord-task:01knanpmrbr3ap0fac36qhwtgf",
+        "to": "coord-task:01knanpf1an4c1r36a2bpep0de",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      }
+    ]
+  },
+  "executionOverlays": []
+}

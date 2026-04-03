@@ -1,0 +1,59 @@
+{
+  "id": "coord-task:01knanny5sqedpzn8jzfk9mzpz",
+  "plan": "plan:01knannez4esfee0qx0yskagbe",
+  "kind": "Edit",
+  "title": "Implement bootstrap authority state and recovery gating",
+  "summary": "Add durable bootstrap authority metadata separate from the ordinary principal registry so deleting runtime state cannot trigger fresh bootstrap, and route missing-registry cases into explicit recovery instead.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01knannsnntbnbg3pm51nacctc"
+  ],
+  "acceptance": [
+    {
+      "label": "Fresh bootstrap is blocked once bootstrap authority exists, even if the ordinary principal registry is missing or empty.",
+      "anchors": []
+    },
+    {
+      "label": "Recovery is a distinct path from bootstrap and is keyed off bootstrap authority state rather than registry emptiness.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 162,
+    "git_commit": null
+  },
+  "priority": 98,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "id": "coord-task:01knap3yd0dnrzxxy3wkh289xd",
+  "plan": "plan:01knap36apc42jgrq3w7k300yz",
+  "kind": "Decide",
+  "title": "Lock the exact integration policy contract and completion-versus-integration semantics",
+  "summary": "Turn the target-integration parts of the shared-refs doc into a precise implementation contract: which policy lives on plans, which lifecycle lives on tasks, what counts as published versus completed versus integrated, and which downstream scheduling thresholds should depend on which state.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01knap3rke481tw24nh4z5g8ak"
+  ],
+  "acceptance": [
+    {
+      "label": "Plan-level integration policy, task-level integration lifecycle, and completion-versus-integration semantics are unambiguous enough to implement directly.",
+      "anchors": []
+    },
+    {
+      "label": "The final contract resolves how strict require, shared coordination publication, branch publication, and target landing interact.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 162,
+    "git_commit": null
+  },
+  "priority": 99,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

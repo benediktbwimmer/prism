@@ -1,0 +1,59 @@
+{
+  "id": "coord-task:01knap46bm44w78g4yv1yvdjy8",
+  "plan": "plan:01knap36apc42jgrq3w7k300yz",
+  "kind": "Edit",
+  "title": "Add first-class plan integration policy and task integration lifecycle to coordination types and MCP schema",
+  "summary": "Extend live coordination policy and plan create/update surfaces with a real integration policy block supporting manual_pr, auto_pr, direct_integrate, and external, and add task-level integration lifecycle state so the runtime can distinguish branch publication, shared coordination publication, integration pending, integration in progress, integration failed, and integrated to target.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01knap3yd0dnrzxxy3wkh289xd"
+  ],
+  "acceptance": [
+    {
+      "label": "Plans can persist and expose integration policy as first-class state rather than relying on design-doc-only intent.",
+      "anchors": []
+    },
+    {
+      "label": "Tasks can persist and expose integration lifecycle state distinctly from branch publication and ordinary completion.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 162,
+    "git_commit": null
+  },
+  "priority": 98,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

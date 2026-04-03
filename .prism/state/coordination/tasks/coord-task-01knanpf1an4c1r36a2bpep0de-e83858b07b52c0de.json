@@ -1,0 +1,61 @@
+{
+  "id": "coord-task:01knanpf1an4c1r36a2bpep0de",
+  "plan": "plan:01knannez4esfee0qx0yskagbe",
+  "kind": "Edit",
+  "title": "Wire assurance provenance, inspection surfaces, and legacy migration",
+  "summary": "Persist bootstrap assurance on roots and lineage, surface it in CLI/MCP auth inspection, and add a clear migration path that records legacy roots honestly instead of silently upgrading them.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01knanny5sqedpzn8jzfk9mzpz",
+    "coord-task:01knanp4706nc8ty9z1qzfjy1s",
+    "coord-task:01knanp9q855k55awdbrckvr1j"
+  ],
+  "acceptance": [
+    {
+      "label": "Root bootstrap provenance exposes high, moderate, or legacy assurance in auth inspection and audit surfaces.",
+      "anchors": []
+    },
+    {
+      "label": "Legacy roots migrate with explicit assurance labeling rather than being treated as externally attested.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 162,
+    "git_commit": null
+  },
+  "priority": 94,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

@@ -1,22 +1,20 @@
 {
   "version": 1,
-  "publishedAt": 1775250798,
+  "publishedAt": 1775254688,
   "publisher": {
-    "principalAuthorityId": "local-daemon",
-    "principalId": "principal:tracked-changes-rewrite:01kn9y81k21524vwvyy9y7nhbn",
-    "credentialId": "credential:01kn9y81k22x2tnr12cszr628e"
+    "principalAuthorityId": "legacy",
+    "principalId": "legacy_agent_fallback",
+    "credentialId": "credential:implicit:principal:legacy:legacy_agent_fallback"
   },
   "workContext": {
-    "workId": "work:plan-shared-coordination-refs-follow-up:01knadcjb8dvtx18pyd2fhjpxf",
-    "kind": "ad_hoc",
-    "title": "Plan shared coordination refs follow-up",
-    "summary": "Create the follow-up implementation plan for remaining shared coordination ref gaps: CAS retry, remote live sync, integration lifecycle, and compaction.",
-    "planId": "plan:01knadcr3p15he31394q1bs5wv",
-    "planTitle": "Complete shared coordination refs follow-through"
+    "workId": "work:legacy_implicit_publication",
+    "kind": "undeclared",
+    "title": "Legacy implicit repo publication",
+    "summary": "Fallback publish context for snapshot authority when no explicit declared work is available."
   },
   "publishSummary": {
-    "title": "Plan shared coordination refs follow-up",
-    "summary": "Create the follow-up implementation plan for remaining shared coordination ref gaps: CAS retry, remote live sync, integration lifecycle, and compaction."
+    "title": "Legacy implicit repo publication",
+    "summary": "Fallback publish context for snapshot authority when no explicit declared work is available."
   },
   "files": {
     ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json": {
@@ -1217,11 +1215,11 @@
     },
     ".prism/state/coordination/tasks/coord-task-01kna8tgf7s523e5edfv0gc0v9-f6864768f3c4d9d5.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kna8tgf7s523e5edfv0gc0v9-f6864768f3c4d9d5.json",
-      "sha256": "sha256:972b16dc16310139fdd6349770b88ebc6eecd1e4c4e5ae799b7111ca297d5323"
+      "sha256": "sha256:7e581ea1d3214be8f1b9b22dfe53e048514377b5753bf082153b1f2b7d9ebb34"
     },
     ".prism/state/coordination/tasks/coord-task-01kna8tv5khkd6ypdg9q6dfs87-056630de9a1a1291.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kna8tv5khkd6ypdg9q6dfs87-056630de9a1a1291.json",
-      "sha256": "sha256:2b950107c70cd41347a49dcfbefe09ff4e098405cae2879fb9c7679a79814557"
+      "sha256": "sha256:137494713b0f4d44be5528701cbf6fcca25e9b692ec741725fb21327d8594d2a"
     },
     ".prism/state/coordination/tasks/coord-task-01kna8v02c0p53pdfckcyq0vaw-942403bdbb724598.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kna8v02c0p53pdfckcyq0vaw-942403bdbb724598.json",
@@ -1377,11 +1375,11 @@
     },
     ".prism/state/indexes/coordination_tasks.json": {
       "path": ".prism/state/indexes/coordination_tasks.json",
-      "sha256": "sha256:d8c5185b511b508b78dafa52cacff4e84bc6042c3849817c585ee46573b15073"
+      "sha256": "sha256:8238a1115957c06e8ebec3545d4a00eb2dc0f4e7bf1b44bbdc30ebbb48cd8e94"
     },
     ".prism/state/indexes/plans.json": {
       "path": ".prism/state/indexes/plans.json",
-      "sha256": "sha256:c9e478f2f05e51a3ada74a712773c586108fdaf663dcb14f655fbe32506c2156"
+      "sha256": "sha256:76a8d53b303193d4e7a04b83e33dc384e5a004d9f10cc082606a69dd2086e376"
     },
     ".prism/state/plans/plan-01kmwmwamj4y87781dsn8x7wt2-f0176c427f24cf04.json": {
       "path": ".prism/state/plans/plan-01kmwmwamj4y87781dsn8x7wt2-f0176c427f24cf04.json",
@@ -1601,7 +1599,7 @@
     },
     ".prism/state/plans/plan-01kna8sczaf3vhy8q6erq4fdvr-e1213af44c9bf540.json": {
       "path": ".prism/state/plans/plan-01kna8sczaf3vhy8q6erq4fdvr-e1213af44c9bf540.json",
-      "sha256": "sha256:924a1c73524fa49e79a9db7293bdf2de9fa4eb9c15b15828df13842d8b575846"
+      "sha256": "sha256:953ed1adb4ca99391d803b154b238f3d57250931ab68b8276843394b1b15216b"
     },
     ".prism/state/plans/plan-01kna9h1khpyyzjgeed0y1ggk5-68c79e37ffc18e5e.json": {
       "path": ".prism/state/plans/plan-01kna9h1khpyyzjgeed0y1ggk5-68c79e37ffc18e5e.json",
@@ -1614,6 +1612,14 @@
     ".prism/state/plans/plan-01knadcr3p15he31394q1bs5wv-1e3f81b72bb52816.json": {
       "path": ".prism/state/plans/plan-01knadcr3p15he31394q1bs5wv-1e3f81b72bb52816.json",
       "sha256": "sha256:d5c0b6e7f5386f7a8f249e2b1327695046380475327b7a66349fd035f4c815bb"
+    },
+    ".prism/state/plans/plan-01knannez4esfee0qx0yskagbe-7f24596e8b52baca.json": {
+      "path": ".prism/state/plans/plan-01knannez4esfee0qx0yskagbe-7f24596e8b52baca.json",
+      "sha256": "sha256:198b818a8e2538cf6d85cd25c5290b764bd5d251ef02489a37db5436c0ebc7f1"
+    },
+    ".prism/state/plans/plan-01knap36apc42jgrq3w7k300yz-d10c2c0d40cfd37f.json": {
+      "path": ".prism/state/plans/plan-01knap36apc42jgrq3w7k300yz-d10c2c0d40cfd37f.json",
+      "sha256": "sha256:7661b12c8c36a97fa52375cc05b240ab6b385e05bc93b0d993e3b6545d71e81e"
     },
     ".prism/state/plans/plan-1-8fd52ae04f462646.json": {
       "path": ".prism/state/plans/plan-1-8fd52ae04f462646.json",
@@ -1644,13 +1650,11 @@
       "sha256": "sha256:2b6eb488f1812c7d5b3812771fd8c9db2912f75d7a785d449c6f5c427cf93081"
     }
   },
-  "previousManifestDigest": "sha256:38825b1f4446c9a203900bc6467e31a1d14694f0f62fa93c40076e31ae272698",
-  "migrationSourceDigest": "sha256:29be826a9e4869880d788dda166c588fd3513bcecc43c4b019205486a2115994",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:hiZg05N1qi3lO6FxDsxIF3Tl/vuMfS7s45C1GbK66AeifsZb4A2xSA6I6vddsy0zmhE15sKI/pceTLLgBAbXAA=="
+    "value": "base64:Ck2IQ1ah3FMw2DV0qrUFeauYazXvasg0qY3eRZrAY4tZhU9NcKoqkK29km73IGiSKYZ5BYlVeHbMWDeRyyuTDA=="
   }
 }

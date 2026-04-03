@@ -348,6 +348,18 @@
     "path": "plans/plan-01knadcr3p15he31394q1bs5wv-1e3f81b72bb52816.json"
   },
   {
+    "id": "plan:01knannez4esfee0qx0yskagbe",
+    "title": "Implement external bootstrap attestation auth",
+    "status": "Active",
+    "path": "plans/plan-01knannez4esfee0qx0yskagbe-7f24596e8b52baca.json"
+  },
+  {
+    "id": "plan:01knap36apc42jgrq3w7k300yz",
+    "title": "Close all remaining shared coordination refs gaps",
+    "status": "Active",
+    "path": "plans/plan-01knap36apc42jgrq3w7k300yz-d10c2c0d40cfd37f.json"
+  },
+  {
     "id": "plan:1",
     "title": "Migrate PRISM persistence toward authoritative runtime storage for memories, concepts, plans, and coordination state while preserving a three-plane model: repo-published truth in `.prism`, shared mutable runtime state in local or remote backends, and process-local ephemeral caches. Make local embedded and shared remote runtime backends first-class deployment modes, support one Prism endpoint multiplexing multiple repo/worktree contexts through explicit repo, worktree, branch, session, and instance identity, and keep snapshots plus plan compaction artifacts derived-only while native plan graphs, bindings, hydration, rebinding, compatibility projection, and multi-context coordination become explicit persistence concerns.",
     "status": "Archived",

@@ -1,0 +1,67 @@
+{
+  "id": "coord-task:01knap6dbtj1v4aq8gwbr9dy1x",
+  "plan": "plan:01knap36apc42jgrq3w7k300yz",
+  "kind": "Validate",
+  "title": "Dogfood the full cross-branch workflow and prove the shared-ref authority plane materially improves daily development UX",
+  "summary": "Validate the whole end-state against the pain points that motivated this work: two branches seeing the same claims and status, strict require publishing without false completion, target-sensitive follow-up work gating on integrated_to_target when needed, and PRISM surfaces staying legible during concurrent live development.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01knap46bm44w78g4yv1yvdjy8",
+    "coord-task:01knap4jw93afme0z6mbxj18qf",
+    "coord-task:01knap4tnhjq47qrwd49mm0b78",
+    "coord-task:01knap509dzfc7hzj7eafyf2hd",
+    "coord-task:01knap55wwmpdm6y6chs1xmjwf",
+    "coord-task:01knap5b9wj7mjf6f71wv2natz",
+    "coord-task:01knap5many6kf2v5td7ka8gjm",
+    "coord-task:01knap5vj9ptbdhevycdp3pdh8",
+    "coord-task:01knap64p8w9xtz3vr5nx0g1rm"
+  ],
+  "acceptance": [
+    {
+      "label": "Cross-branch dogfooding confirms that claims, publish state, and integration state converge through the shared ref rather than branch-local accidents.",
+      "anchors": []
+    },
+    {
+      "label": "The resulting workflow materially improves developer UX for concurrent branches, shared task visibility, and target-sensitive coordination.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 162,
+    "git_commit": null
+  },
+  "priority": 96,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "id": "coord-task:01knap5many6kf2v5td7ka8gjm",
+  "plan": "plan:01knap36apc42jgrq3w7k300yz",
+  "kind": "Edit",
+  "title": "Demote branch-local PRISM mirrors and remove remaining dual-authority ambiguity",
+  "summary": "Finish the architectural cleanup that makes shared coordination refs the unambiguous primary authority by clearly treating branch-local .prism and docs projections as mirrors or exports, not competing live truth, and by eliminating remaining code paths that can accidentally re-promote branch-local state into authority semantics.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01knap3rke481tw24nh4z5g8ak",
+    "coord-task:01knap5b9wj7mjf6f71wv2natz"
+  ],
+  "acceptance": [
+    {
+      "label": "Shared coordination refs are the primary live authority in both code and operational behavior.",
+      "anchors": []
+    },
+    {
+      "label": "Branch-local mirrors can no longer quietly act like a second coordination authority during normal development.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 162,
+    "git_commit": null
+  },
+  "priority": 95,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

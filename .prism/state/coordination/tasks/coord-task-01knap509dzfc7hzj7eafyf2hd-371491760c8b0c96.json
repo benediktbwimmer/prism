@@ -1,0 +1,60 @@
+{
+  "id": "coord-task:01knap509dzfc7hzj7eafyf2hd",
+  "plan": "plan:01knap36apc42jgrq3w7k300yz",
+  "kind": "Edit",
+  "title": "Implement direct_integrate and external observation modes with explicit landing verification",
+  "summary": "Add the agent-native direct-integrate path for trusted repos, plus the external observation path for repos whose landing is orchestrated elsewhere, while ensuring both modes still require explicit verification that the target ref contains the accepted landed work.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01knap46bm44w78g4yv1yvdjy8",
+    "coord-task:01knap4jw93afme0z6mbxj18qf"
+  ],
+  "acceptance": [
+    {
+      "label": "direct_integrate and external are real policy modes rather than only documented future ideas.",
+      "anchors": []
+    },
+    {
+      "label": "Both modes record integration lifecycle and landed evidence without pretending that branch publication alone means target integration.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 162,
+    "git_commit": null
+  },
+  "priority": 96,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}
