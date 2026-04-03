@@ -50,10 +50,10 @@ use super::{
     SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
     ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
 };
+use crate::concept_events::append_repo_concept_event;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator_support::build_curator_context;
 use crate::materialization::summarize_workspace_materialization;
-use crate::concept_events::append_repo_concept_event;
 use crate::memory_events::append_repo_memory_event;
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::protected_state::repo_streams::{
@@ -2621,6 +2621,7 @@ fn repo_published_memory_writes_tracked_snapshot_manifest() {
             work_id: "work:tracked-snapshot-memory".to_string(),
             kind: WorkContextKind::AdHoc,
             title: "Publish tracked repo memory snapshot".to_string(),
+            summary: Some("Persist repo memory into tracked snapshot state.".to_string()),
             parent_work_id: None,
             coordination_task_id: None,
             plan_id: None,
@@ -2638,10 +2639,9 @@ fn repo_published_memory_writes_tracked_snapshot_manifest() {
         .collect::<Vec<_>>();
     assert_eq!(memory_files.len(), 1);
 
-    let manifest: serde_json::Value = serde_json::from_slice(
-        &fs::read(root.join(".prism/state/manifest.json")).unwrap(),
-    )
-    .unwrap();
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join(".prism/state/manifest.json")).unwrap())
+            .unwrap();
     assert_eq!(manifest["publisher"]["principalId"], "codex-test");
     assert_eq!(
         manifest["publisher"]["principalAuthorityId"],
@@ -2650,6 +2650,18 @@ fn repo_published_memory_writes_tracked_snapshot_manifest() {
     assert_eq!(
         manifest["workContext"]["workId"],
         "work:tracked-snapshot-memory"
+    );
+    assert_eq!(
+        manifest["workContext"]["summary"],
+        "Persist repo memory into tracked snapshot state."
+    );
+    assert_eq!(
+        manifest["publishSummary"]["title"],
+        "Publish tracked repo memory snapshot"
+    );
+    assert_eq!(
+        manifest["publishSummary"]["summary"],
+        "Persist repo memory into tracked snapshot state."
     );
     assert!(manifest["migrationSourceDigest"].is_string());
     let relative_memory_path = memory_files[0]
@@ -2710,6 +2722,7 @@ fn repo_published_memory_backfills_migration_digest_when_previous_manifest_lacke
                 work_id: "work:tracked-snapshot-memory".to_string(),
                 kind: WorkContextKind::AdHoc,
                 title: "Publish tracked repo memory snapshot".to_string(),
+                summary: Some("Persist repo memory into tracked snapshot state.".to_string()),
                 parent_work_id: None,
                 coordination_task_id: None,
                 plan_id: None,
@@ -2721,7 +2734,11 @@ fn repo_published_memory_backfills_migration_digest_when_previous_manifest_lacke
         event
     };
 
-    append_repo_memory_event(&root, &make_event("structural:tracked-snapshot-memory-1", 1)).unwrap();
+    append_repo_memory_event(
+        &root,
+        &make_event("structural:tracked-snapshot-memory-1", 1),
+    )
+    .unwrap();
 
     let manifest_path = root.join(".prism/state/manifest.json");
     let mut manifest: serde_json::Value =
@@ -2734,19 +2751,35 @@ fn repo_published_memory_backfills_migration_digest_when_previous_manifest_lacke
         .as_object_mut()
         .expect("manifest should be an object")
         .remove("migrationSourceDigest");
+    manifest
+        .as_object_mut()
+        .expect("manifest should be an object")
+        .remove("publishSummary");
     fs::write(
         &manifest_path,
         serde_json::to_vec_pretty(&manifest).expect("manifest should serialize"),
     )
     .unwrap();
 
-    append_repo_memory_event(&root, &make_event("structural:tracked-snapshot-memory-2", 2)).unwrap();
+    append_repo_memory_event(
+        &root,
+        &make_event("structural:tracked-snapshot-memory-2", 2),
+    )
+    .unwrap();
 
     let refreshed: serde_json::Value =
         serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
     assert_eq!(
         refreshed["migrationSourceDigest"].as_str(),
         Some(original_digest.as_str())
+    );
+    assert_eq!(
+        refreshed["publishSummary"]["title"],
+        "Publish tracked repo memory snapshot"
+    );
+    assert_eq!(
+        refreshed["publishSummary"]["summary"],
+        "Persist repo memory into tracked snapshot state."
     );
 
     let _ = fs::remove_dir_all(root);
@@ -2844,7 +2877,11 @@ fn repo_published_memory_ignores_legacy_log_once_snapshot_authority_exists() {
     event.actor = Some(EventActor::Agent);
     append_repo_memory_event(&root, &event).unwrap();
 
-    fs::write(root.join(".prism/memory/events.jsonl"), "tampered legacy log\n").unwrap();
+    fs::write(
+        root.join(".prism/memory/events.jsonl"),
+        "tampered legacy log\n",
+    )
+    .unwrap();
 
     let loaded = crate::memory_events::load_repo_memory_events(&root).unwrap();
     assert_eq!(loaded.len(), 1);
@@ -2959,6 +2996,7 @@ fn repo_published_patch_reads_fall_back_to_tracked_snapshots() {
                     work_id: "work:tracked-snapshot-patch".to_string(),
                     kind: WorkContextKind::AdHoc,
                     title: "Publish tracked patch snapshot".to_string(),
+                    summary: Some("Persist repo patch snapshots into tracked state.".to_string()),
                     parent_work_id: None,
                     coordination_task_id: None,
                     plan_id: None,
@@ -3037,6 +3075,9 @@ fn repo_published_concepts_read_from_tracked_snapshots_without_event_log() {
                     work_id: "work:tracked-snapshot-concept".to_string(),
                     kind: WorkContextKind::AdHoc,
                     title: "Publish tracked concept snapshot".to_string(),
+                    summary: Some(
+                        "Persist curated concepts into tracked snapshot state.".to_string(),
+                    ),
                     parent_work_id: None,
                     coordination_task_id: None,
                     plan_id: None,
@@ -5090,6 +5131,7 @@ fn repo_published_plans_write_tracked_snapshot_manifest() {
             work_id: "work:tracked-snapshot-plan".to_string(),
             kind: WorkContextKind::Coordination,
             title: "Publish tracked plan snapshot".to_string(),
+            summary: Some("Persist published plan state into tracked snapshot shards.".to_string()),
             parent_work_id: None,
             coordination_task_id: None,
             plan_id: None,
@@ -5165,12 +5207,22 @@ fn repo_published_plans_write_tracked_snapshot_manifest() {
     assert_eq!(plan_files.len(), 1);
     assert_eq!(task_files.len(), 1);
 
-    let manifest: serde_json::Value = serde_json::from_slice(
-        &fs::read(root.join(".prism/state/manifest.json")).unwrap(),
-    )
-    .unwrap();
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join(".prism/state/manifest.json")).unwrap())
+            .unwrap();
     assert_eq!(manifest["publisher"]["principalId"], "codex-plan");
-    assert_eq!(manifest["workContext"]["workId"], "work:tracked-snapshot-plan");
+    assert_eq!(
+        manifest["workContext"]["workId"],
+        "work:tracked-snapshot-plan"
+    );
+    assert_eq!(
+        manifest["publishSummary"]["title"],
+        "Publish tracked plan snapshot"
+    );
+    assert_eq!(
+        manifest["publishSummary"]["summary"],
+        "Persist published plan state into tracked snapshot shards."
+    );
     assert!(manifest["migrationSourceDigest"].is_string());
     let relative_plan_path = plan_files[0]
         .strip_prefix(&root)

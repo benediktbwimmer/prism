@@ -593,6 +593,7 @@ impl WorkspaceSession {
                 work_id: change_set.work.work_id.clone(),
                 kind: change_set.work.kind,
                 title: change_set.work.title.clone(),
+                summary: change_set.work.summary.clone(),
                 parent_work_id: change_set.work.parent_work_id.clone(),
                 coordination_task_id: change_set.work.coordination_task_id.clone(),
                 plan_id: change_set.work.plan_id.clone(),

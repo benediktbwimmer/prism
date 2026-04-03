@@ -6,20 +6,25 @@ use anyhow::{Context, Result};
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
 use ed25519_dalek::Signer;
-use prism_coordination::{Artifact, CoordinationEvent, CoordinationSnapshot, CoordinationTask, Plan};
+use prism_coordination::{
+    Artifact, CoordinationEvent, CoordinationSnapshot, CoordinationTask, Plan,
+};
 use prism_ir::{
     EventActor, EventExecutionContext, PlanExecutionOverlay, PlanGraph, WorkContextKind,
     WorkContextSnapshot,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemoryEventKind, OutcomeEvent};
 use prism_projections::{
-    ConceptPacket, ConceptRelation, ConceptRelationEvent, ConceptRelationEventAction, ContractPacket,
+    ConceptPacket, ConceptRelation, ConceptRelationEvent, ConceptRelationEventAction,
+    ContractPacket,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::protected_state::canonical::{canonical_json_bytes, sha256_prefixed};
 use crate::protected_state::envelope::ProtectedSignatureAlgorithm;
-use crate::protected_state::repo_streams::{implicit_principal_identity, ProtectedPrincipalIdentity};
+use crate::protected_state::repo_streams::{
+    implicit_principal_identity, ProtectedPrincipalIdentity,
+};
 use crate::protected_state::trust::load_active_runtime_signing_key;
 use crate::PrismPaths;
 
@@ -29,6 +34,7 @@ pub(crate) struct TrackedSnapshotPublishContext {
     pub(crate) published_at: u64,
     pub(crate) principal: ProtectedPrincipalIdentity,
     pub(crate) work_context: Option<WorkContextSnapshot>,
+    pub(crate) publish_summary: Option<SnapshotManifestPublishSummary>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -48,6 +54,14 @@ struct SnapshotManifestFile {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct SnapshotManifestPublishSummary {
+    title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    summary: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SnapshotManifestSignature {
     algorithm: ProtectedSignatureAlgorithm,
     runtime_authority_id: String,
@@ -63,6 +77,8 @@ struct SnapshotManifest {
     published_at: u64,
     publisher: SnapshotManifestPublisher,
     work_context: WorkContextSnapshot,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    publish_summary: Option<SnapshotManifestPublishSummary>,
     files: BTreeMap<String, SnapshotManifestFile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     previous_manifest_digest: Option<String>,
@@ -78,6 +94,7 @@ struct SnapshotManifestSigningView<'a> {
     published_at: u64,
     publisher: &'a SnapshotManifestPublisher,
     work_context: &'a WorkContextSnapshot,
+    publish_summary: &'a Option<SnapshotManifestPublishSummary>,
     files: &'a BTreeMap<String, SnapshotManifestFile>,
     previous_manifest_digest: &'a Option<String>,
     migration_source_digest: &'a Option<String>,
@@ -264,25 +281,38 @@ pub(crate) fn publish_context_from_event(
         work_context: execution_context
             .and_then(|context| context.work_context.clone())
             .or_else(|| Some(implicit_work_context())),
+        publish_summary: execution_context
+            .and_then(|context| context.work_context.clone())
+            .or_else(|| Some(implicit_work_context()))
+            .map(|work_context| publish_summary_from_work_context(&work_context)),
     }
 }
 
 pub(crate) fn publish_context_from_coordination_events(
     appended_events: &[CoordinationEvent],
 ) -> Option<TrackedSnapshotPublishContext> {
-    appended_events.last().map(|event| TrackedSnapshotPublishContext {
-        published_at: event.meta.ts,
-        principal: implicit_principal_identity(
-            Some(&event.meta.actor),
-            event.meta.execution_context.as_ref(),
-        ),
-        work_context: event
-            .meta
-            .execution_context
-            .as_ref()
-            .and_then(|context| context.work_context.clone())
-            .or_else(|| Some(implicit_work_context())),
-    })
+    appended_events
+        .last()
+        .map(|event| TrackedSnapshotPublishContext {
+            published_at: event.meta.ts,
+            principal: implicit_principal_identity(
+                Some(&event.meta.actor),
+                event.meta.execution_context.as_ref(),
+            ),
+            work_context: event
+                .meta
+                .execution_context
+                .as_ref()
+                .and_then(|context| context.work_context.clone())
+                .or_else(|| Some(implicit_work_context())),
+            publish_summary: event
+                .meta
+                .execution_context
+                .as_ref()
+                .and_then(|context| context.work_context.clone())
+                .or_else(|| Some(implicit_work_context()))
+                .map(|work_context| publish_summary_from_work_context(&work_context)),
+        })
 }
 
 pub(crate) fn sync_concept_snapshot(
@@ -291,11 +321,9 @@ pub(crate) fn sync_concept_snapshot(
     publish: &TrackedSnapshotPublishContext,
 ) -> Result<()> {
     let path = concept_snapshot_path(root, &concept.handle);
-    if concept
-        .publication
-        .as_ref()
-        .is_some_and(|publication| publication.status == prism_projections::ConceptPublicationStatus::Retired)
-    {
+    if concept.publication.as_ref().is_some_and(|publication| {
+        publication.status == prism_projections::ConceptPublicationStatus::Retired
+    }) {
         remove_file_if_exists(&path)?;
     } else {
         write_json_file(&path, concept)?;
@@ -321,7 +349,10 @@ pub(crate) fn apply_concept_relation_snapshot(
 ) -> Result<()> {
     match event.action {
         ConceptRelationEventAction::Upsert => {
-            write_json_file(&relation_snapshot_path(root, &event.relation), &event.relation)?;
+            write_json_file(
+                &relation_snapshot_path(root, &event.relation),
+                &event.relation,
+            )?;
         }
         ConceptRelationEventAction::Retire => {
             remove_file_if_exists(&relation_snapshot_path(root, &event.relation))?;
@@ -470,7 +501,12 @@ pub(crate) fn load_tracked_coordination_snapshot_state(
         .collect::<Vec<_>>();
     let mut execution_overlays = plan_records
         .iter()
-        .map(|record| (record.plan.id.0.to_string(), record.execution_overlays.clone()))
+        .map(|record| {
+            (
+                record.plan.id.0.to_string(),
+                record.execution_overlays.clone(),
+            )
+        })
         .collect::<BTreeMap<_, _>>();
     plans.sort_by(|left, right| left.id.0.cmp(&right.id.0));
     plan_graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
@@ -488,13 +524,17 @@ pub(crate) fn load_tracked_coordination_snapshot_state(
         next_artifact: 0,
         next_review: 0,
     };
-    snapshot.tasks.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    snapshot
+        .tasks
+        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
     snapshot
         .artifacts
         .sort_by(|left, right| left.id.0.cmp(&right.id.0));
 
     for task in &snapshot.tasks {
-        execution_overlays.entry(task.plan.0.to_string()).or_default();
+        execution_overlays
+            .entry(task.plan.0.to_string())
+            .or_default();
     }
 
     Ok(Some(TrackedCoordinationSnapshotState {
@@ -666,7 +706,10 @@ fn rebuild_task_index(root: &Path) -> Result<()> {
             path,
         })
         .collect::<Vec<_>>();
-    write_json_file(&snapshot_indexes_dir(root).join("coordination_tasks.json"), &entries)
+    write_json_file(
+        &snapshot_indexes_dir(root).join("coordination_tasks.json"),
+        &entries,
+    )
 }
 
 fn rebuild_artifact_index(root: &Path) -> Result<()> {
@@ -679,7 +722,10 @@ fn rebuild_artifact_index(root: &Path) -> Result<()> {
             path,
         })
         .collect::<Vec<_>>();
-    write_json_file(&snapshot_indexes_dir(root).join("coordination_artifacts.json"), &entries)
+    write_json_file(
+        &snapshot_indexes_dir(root).join("coordination_artifacts.json"),
+        &entries,
+    )
 }
 
 fn refresh_manifest(root: &Path, publish: Option<&TrackedSnapshotPublishContext>) -> Result<()> {
@@ -690,8 +736,10 @@ fn refresh_manifest(root: &Path, publish: Option<&TrackedSnapshotPublishContext>
         return Ok(());
     }
     let previous_manifest = load_snapshot_manifest(root)?;
-    let previous_manifest_digest =
-        previous_manifest.as_ref().map(canonical_manifest_digest).transpose()?;
+    let previous_manifest_digest = previous_manifest
+        .as_ref()
+        .map(canonical_manifest_digest)
+        .transpose()?;
     let migration_source_digest = match previous_manifest
         .as_ref()
         .and_then(|manifest| manifest.migration_source_digest.clone())
@@ -701,12 +749,23 @@ fn refresh_manifest(root: &Path, publish: Option<&TrackedSnapshotPublishContext>
     };
     let publish = publish
         .cloned()
-        .or_else(|| previous_manifest.as_ref().map(publish_context_from_manifest))
+        .or_else(|| {
+            previous_manifest
+                .as_ref()
+                .map(publish_context_from_manifest)
+        })
         .unwrap_or_else(|| TrackedSnapshotPublishContext {
             published_at: crate::util::current_timestamp(),
             principal: implicit_principal_identity(None, None),
             work_context: Some(implicit_work_context()),
+            publish_summary: None,
         });
+    let work_context = publish.work_context.unwrap_or_else(implicit_work_context);
+    let publish_summary = Some(
+        publish
+            .publish_summary
+            .unwrap_or_else(|| publish_summary_from_work_context(&work_context)),
+    );
     let paths = PrismPaths::for_workspace_root(root)?;
     let active_key = load_active_runtime_signing_key(&paths)?;
     let mut manifest = SnapshotManifest {
@@ -717,7 +776,8 @@ fn refresh_manifest(root: &Path, publish: Option<&TrackedSnapshotPublishContext>
             principal_id: publish.principal.principal_id,
             credential_id: publish.principal.credential_id,
         },
-        work_context: publish.work_context.unwrap_or_else(implicit_work_context),
+        work_context,
+        publish_summary,
         files: file_map,
         previous_manifest_digest,
         migration_source_digest,
@@ -729,23 +789,25 @@ fn refresh_manifest(root: &Path, publish: Option<&TrackedSnapshotPublishContext>
             value: String::new(),
         },
     };
-    let signature = active_key.signing_key.sign(&canonical_json_bytes(
-        &SnapshotManifestSigningView {
-            version: manifest.version,
-            published_at: manifest.published_at,
-            publisher: &manifest.publisher,
-            work_context: &manifest.work_context,
-            files: &manifest.files,
-            previous_manifest_digest: &manifest.previous_manifest_digest,
-            migration_source_digest: &manifest.migration_source_digest,
-            signature: SnapshotManifestSignatureMetadata {
-                algorithm: manifest.signature.algorithm,
-                runtime_authority_id: &manifest.signature.runtime_authority_id,
-                runtime_key_id: &manifest.signature.runtime_key_id,
-                trust_bundle_id: &manifest.signature.trust_bundle_id,
-            },
-        },
-    )?);
+    let signature =
+        active_key
+            .signing_key
+            .sign(&canonical_json_bytes(&SnapshotManifestSigningView {
+                version: manifest.version,
+                published_at: manifest.published_at,
+                publisher: &manifest.publisher,
+                work_context: &manifest.work_context,
+                publish_summary: &manifest.publish_summary,
+                files: &manifest.files,
+                previous_manifest_digest: &manifest.previous_manifest_digest,
+                migration_source_digest: &manifest.migration_source_digest,
+                signature: SnapshotManifestSignatureMetadata {
+                    algorithm: manifest.signature.algorithm,
+                    runtime_authority_id: &manifest.signature.runtime_authority_id,
+                    runtime_key_id: &manifest.signature.runtime_key_id,
+                    trust_bundle_id: &manifest.signature.trust_bundle_id,
+                },
+            })?);
     manifest.signature.value = format!("base64:{}", BASE64_STANDARD.encode(signature.to_bytes()));
     write_json_file(&snapshot_manifest_path(root), &manifest)
 }
@@ -763,6 +825,10 @@ fn publish_context_from_manifest(manifest: &SnapshotManifest) -> TrackedSnapshot
             credential_id: manifest.publisher.credential_id.clone(),
         },
         work_context: Some(manifest.work_context.clone()),
+        publish_summary: manifest
+            .publish_summary
+            .clone()
+            .or_else(|| Some(publish_summary_from_work_context(&manifest.work_context))),
     }
 }
 
@@ -771,10 +837,23 @@ fn implicit_work_context() -> WorkContextSnapshot {
         work_id: "work:legacy_implicit_publication".to_string(),
         kind: WorkContextKind::Undeclared,
         title: "Legacy implicit repo publication".to_string(),
+        summary: Some(
+            "Fallback publish context for snapshot authority when no explicit declared work is available."
+                .to_string(),
+        ),
         parent_work_id: None,
         coordination_task_id: None,
         plan_id: None,
         plan_title: None,
+    }
+}
+
+fn publish_summary_from_work_context(
+    work_context: &WorkContextSnapshot,
+) -> SnapshotManifestPublishSummary {
+    SnapshotManifestPublishSummary {
+        title: work_context.title.clone(),
+        summary: work_context.summary.clone(),
     }
 }
 
@@ -796,7 +875,8 @@ fn legacy_authoritative_migration_source_digest(root: &Path) -> Result<Option<St
             .unwrap_or(path.as_path())
             .to_string_lossy()
             .replace('\\', "/");
-        let bytes = fs::read(&path).with_context(|| format!("failed to read {}", path.display()))?;
+        let bytes =
+            fs::read(&path).with_context(|| format!("failed to read {}", path.display()))?;
         digests.insert(relative, sha256_prefixed(&bytes));
     }
     if digests.is_empty() {
@@ -838,8 +918,8 @@ fn collect_snapshot_files_recursive(
     current: &Path,
     files: &mut BTreeMap<String, SnapshotManifestFile>,
 ) -> Result<()> {
-    for entry in fs::read_dir(current)
-        .with_context(|| format!("failed to read {}", current.display()))?
+    for entry in
+        fs::read_dir(current).with_context(|| format!("failed to read {}", current.display()))?
     {
         let entry = entry?;
         let path = entry.path();
@@ -847,10 +927,13 @@ fn collect_snapshot_files_recursive(
             collect_snapshot_files_recursive(root, &path, files)?;
             continue;
         }
-        if path == snapshot_manifest_path(root) || path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+        if path == snapshot_manifest_path(root)
+            || path.extension().and_then(|ext| ext.to_str()) != Some("json")
+        {
             continue;
         }
-        let bytes = fs::read(&path).with_context(|| format!("failed to read {}", path.display()))?;
+        let bytes =
+            fs::read(&path).with_context(|| format!("failed to read {}", path.display()))?;
         let relative = path
             .strip_prefix(root)
             .unwrap_or(path.as_path())
@@ -878,7 +961,8 @@ fn cleanup_directory_json_files(dir: &Path, expected: &BTreeSet<PathBuf>) -> Res
     for entry in fs::read_dir(dir).with_context(|| format!("failed to read {}", dir.display()))? {
         let entry = entry?;
         let path = entry.path();
-        if path.extension().and_then(|ext| ext.to_str()) == Some("json") && !expected.contains(&path)
+        if path.extension().and_then(|ext| ext.to_str()) == Some("json")
+            && !expected.contains(&path)
         {
             fs::remove_file(&path)
                 .with_context(|| format!("failed to remove stale snapshot {}", path.display()))?;
@@ -936,8 +1020,8 @@ where
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let mut bytes =
-        serde_json::to_vec_pretty(value).with_context(|| format!("failed to encode {}", path.display()))?;
+    let mut bytes = serde_json::to_vec_pretty(value)
+        .with_context(|| format!("failed to encode {}", path.display()))?;
     bytes.push(b'\n');
     let should_write = match fs::read(path) {
         Ok(existing) => existing != bytes,

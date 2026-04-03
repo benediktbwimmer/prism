@@ -54,6 +54,8 @@ pub struct WorkContextSnapshot {
     pub kind: WorkContextKind,
     pub title: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent_work_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub coordination_task_id: Option<String>,
