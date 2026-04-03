@@ -254,10 +254,6 @@ fn memory_snapshot_path(root: &Path, memory_id: &str) -> PathBuf {
     snapshot_memory_dir(root).join(snapshot_file_name(memory_id))
 }
 
-fn patch_snapshot_path(root: &Path, event_id: &str) -> PathBuf {
-    snapshot_changes_dir(root).join(snapshot_file_name(event_id))
-}
-
 fn plan_snapshot_path(root: &Path, plan_id: &str) -> PathBuf {
     snapshot_plans_dir(root).join(snapshot_file_name(plan_id))
 }
@@ -397,16 +393,6 @@ pub(crate) fn apply_memory_snapshot(
         }
     }
     rebuild_memory_index(root)?;
-    refresh_manifest(root, Some(publish))
-}
-
-pub(crate) fn append_patch_snapshot(
-    root: &Path,
-    event: &OutcomeEvent,
-    publish: &TrackedSnapshotPublishContext,
-) -> Result<()> {
-    write_json_file(&patch_snapshot_path(root, &event.meta.id.0), event)?;
-    rebuild_patch_index(root)?;
     refresh_manifest(root, Some(publish))
 }
 
@@ -666,19 +652,6 @@ fn rebuild_memory_index(root: &Path) -> Result<()> {
     write_json_file(&snapshot_indexes_dir(root).join("memory.json"), &entries)
 }
 
-fn rebuild_patch_index(root: &Path) -> Result<()> {
-    let entries = load_json_records::<OutcomeEvent>(&snapshot_changes_dir(root))?
-        .into_iter()
-        .map(|(path, event)| SnapshotIndexEntry {
-            id: event.meta.id.0.to_string(),
-            title: event.summary,
-            status: format!("{:?}", event.result),
-            path,
-        })
-        .collect::<Vec<_>>();
-    write_json_file(&snapshot_indexes_dir(root).join("changes.json"), &entries)
-}
-
 fn rebuild_plan_indexes(root: &Path) -> Result<()> {
     let entries = load_json_records::<SnapshotPlanRecord>(&snapshot_plans_dir(root))?
         .into_iter()
@@ -730,6 +703,7 @@ fn rebuild_artifact_index(root: &Path) -> Result<()> {
 
 fn refresh_manifest(root: &Path, publish: Option<&TrackedSnapshotPublishContext>) -> Result<()> {
     fs::create_dir_all(snapshot_root(root))?;
+    remove_obsolete_tracked_change_snapshot_artifacts(root)?;
     let file_map = collect_snapshot_file_map(root)?;
     if file_map.is_empty() {
         remove_file_if_exists(&snapshot_manifest_path(root))?;
@@ -810,6 +784,19 @@ fn refresh_manifest(root: &Path, publish: Option<&TrackedSnapshotPublishContext>
             })?);
     manifest.signature.value = format!("base64:{}", BASE64_STANDARD.encode(signature.to_bytes()));
     write_json_file(&snapshot_manifest_path(root), &manifest)
+}
+
+fn remove_obsolete_tracked_change_snapshot_artifacts(root: &Path) -> Result<()> {
+    let changes_dir = snapshot_changes_dir(root);
+    if changes_dir.exists() {
+        fs::remove_dir_all(&changes_dir).with_context(|| {
+            format!(
+                "failed to remove obsolete tracked change snapshots {}",
+                changes_dir.display()
+            )
+        })?;
+    }
+    remove_file_if_exists(&snapshot_indexes_dir(root).join("changes.json"))
 }
 
 fn canonical_manifest_digest(manifest: &SnapshotManifest) -> Result<String> {

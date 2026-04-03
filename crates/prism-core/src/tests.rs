@@ -2958,7 +2958,7 @@ fn repo_published_memory_stops_growing_legacy_log_after_snapshot_cutover() {
 }
 
 #[test]
-fn repo_published_patch_reads_fall_back_to_tracked_snapshots() {
+fn repo_published_patch_events_do_not_create_tracked_snapshots_after_snapshot_cutover() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -2977,6 +2977,26 @@ fn repo_published_patch_reads_fall_back_to_tracked_snapshots() {
         .expect("alpha should be indexed")
         .id()
         .clone();
+
+    let mut memory_entry = MemoryEntry::new(
+        MemoryKind::Structural,
+        "tracked snapshot cutover is active before patch publication",
+    );
+    memory_entry.id = MemoryId("structural:tracked-snapshot-patch-cutover".to_string());
+    memory_entry.anchors = vec![AnchorRef::Node(alpha.clone())];
+    memory_entry.scope = MemoryScope::Repo;
+    memory_entry.source = MemorySource::Agent;
+    memory_entry.trust = 0.9;
+
+    let mut memory_event = MemoryEvent::from_entry(
+        MemoryEventKind::Promoted,
+        memory_entry,
+        Some("task:tracked-snapshot-patch-cutover".to_string()),
+        Vec::new(),
+        Vec::new(),
+    );
+    memory_event.actor = Some(EventActor::Agent);
+    append_repo_memory_event(&root, &memory_event).unwrap();
 
     let event = OutcomeEvent {
         meta: EventMeta {
@@ -3016,10 +3036,110 @@ fn repo_published_patch_reads_fall_back_to_tracked_snapshots() {
     };
 
     append_repo_patch_event(&root, &event).unwrap();
-    fs::remove_file(root.join(".prism/changes/events.jsonl")).unwrap();
+    assert!(!root.join(".prism/state/changes").exists());
+    assert!(!root.join(".prism/state/indexes/changes.json").exists());
+    assert!(!root.join(".prism/changes/events.jsonl").exists());
 
-    let events = load_repo_patch_events(&root).unwrap();
-    assert_eq!(events, vec![event]);
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join(".prism/state/manifest.json")).unwrap())
+            .unwrap();
+    let files = manifest["files"]
+        .as_object()
+        .expect("manifest files should be an object");
+    assert!(files
+        .keys()
+        .all(|path| !path.starts_with(".prism/state/changes/")));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn tracked_snapshot_refresh_removes_stale_change_shards_and_indexes_from_manifest() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    fs::create_dir_all(root.join(".prism/state/changes")).unwrap();
+    fs::create_dir_all(root.join(".prism/state/indexes")).unwrap();
+    fs::write(
+        root.join(".prism/state/changes/outcome-stale.json"),
+        serde_json::to_vec_pretty(&OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:stale-change-shard"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha.clone())],
+            kind: OutcomeKind::PatchApplied,
+            summary: "stale tracked change shard".to_string(),
+            result: OutcomeResult::Success,
+            evidence: vec![OutcomeEvidence::DiffSummary {
+                text: "stale tracked change shard".to_string(),
+            }],
+            metadata: json!({}),
+        })
+        .unwrap(),
+    )
+    .unwrap();
+    fs::write(
+        root.join(".prism/state/indexes/changes.json"),
+        "[\n  {\"id\":\"stale\",\"title\":\"stale\",\"status\":\"success\",\"path\":\"changes/outcome-stale.json\"}\n]\n",
+    )
+    .unwrap();
+
+    let mut entry = MemoryEntry::new(
+        MemoryKind::Structural,
+        "refresh tracked snapshot after stale change shards exist",
+    );
+    entry.id = MemoryId("structural:tracked-snapshot-stale-changes-cleanup".to_string());
+    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.scope = MemoryScope::Repo;
+    entry.source = MemorySource::Agent;
+    entry.trust = 0.9;
+
+    let mut event = MemoryEvent::from_entry(
+        MemoryEventKind::Promoted,
+        entry,
+        Some("task:tracked-snapshot-stale-changes-cleanup".to_string()),
+        Vec::new(),
+        Vec::new(),
+    );
+    event.actor = Some(EventActor::Agent);
+    append_repo_memory_event(&root, &event).unwrap();
+
+    assert!(!root.join(".prism/state/changes").exists());
+    assert!(!root.join(".prism/state/indexes/changes.json").exists());
+
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join(".prism/state/manifest.json")).unwrap())
+            .unwrap();
+    let files = manifest["files"]
+        .as_object()
+        .expect("manifest files should be an object");
+    assert!(files
+        .keys()
+        .all(|path| !path.starts_with(".prism/state/changes/")));
+    assert!(files
+        .keys()
+        .all(|path| path != ".prism/state/indexes/changes.json"));
 
     let _ = fs::remove_dir_all(root);
 }
