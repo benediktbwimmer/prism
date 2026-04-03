@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:b825a988577bff69761184da7d48f765f92c60e3e4cb082573f77b9b03a25e44`
+- Source head: `sha256:54f482b3ad9008cbb83ce15d864705e96aa66af58042b9c56f79a2a9295f7ed7`
 - Source logical timestamp: `unknown`
 - Source snapshot: `5 nodes, 5 edges, 0 overlays`
 
@@ -24,7 +24,7 @@
 
 ## Goal
 
-Finish the git execution policy feature by exposing policy surfaces clearly, hardening start and publish transitions, validating failure recovery, and defining the recommended default behavior so agents reliably sync and publish through PRISM.
+Finish the git execution policy feature by exposing policy surfaces clearly, separating task lifecycle from publish lifecycle, hardening start and publish transitions, validating strict/manual publication recovery, proving strict `require` through dogfooding, and making strict `require` the recommended default while removing `auto` after the migration path is no longer needed.
 
 ## Source of Truth
 
@@ -41,7 +41,7 @@ Finish the git execution policy feature by exposing policy surfaces clearly, har
 
 - Node id: `coord-task:01kn8n9ssejh5kkx8zb4hjxt09`
 - Kind: `investigate`
-- Status: `ready`
+- Status: `in_progress`
 - Priority: `95`
 
 #### Acceptance
@@ -59,16 +59,19 @@ Finish the git execution policy feature by exposing policy surfaces clearly, har
 
 - Agents and humans can see active git execution policy, state, and evidence from normal PRISM read paths. [any]
 
-### Harden publish semantics and failure recovery around task completion
+### Split task lifecycle from publish lifecycle and harden strict completion semantics
 
 - Node id: `coord-task:01kn8n9w0r3ydrfs64cdy58t12`
 - Kind: `edit`
 - Status: `ready`
+- Summary: Make publish intent, publish-pending, publish-failed, and publish-ack semantics explicit so strict require mode can guarantee repo-published `.prism` state is manually committed and verified without automatic git mutations.
 - Priority: `95`
 
 #### Acceptance
 
-- Publish failures and partial git transitions are represented and recoverable without silently false completed states. [any]
+- PRISM can represent publish-pending and publish-failed states without falsely marking a task completed before the repo-published `.prism` state is actually committed and verified. [any]
+- Publish acknowledgement and verification state live outside the repo-published projection so confirming publication does not re-dirty `.prism` artifacts or create a commit loop. [any]
+- Task lifecycle and publish lifecycle are represented separately enough for strict `require` mode to avoid automatic branch, commit, and push operations while still tracking desired completion. [any]
 
 ### Dogfood start and complete flows against real task claims and branch state
 
@@ -81,16 +84,19 @@ Finish the git execution policy feature by exposing policy surfaces clearly, har
 
 - Claim/start and complete/publish flows are exercised end to end against real repo conditions. [any]
 
-### Set the recommended default policy and rollout guidance
+### Make strict require the default and remove auto after proven dogfooding
 
 - Node id: `coord-task:01kn8n9y54tz8h72ex327yyt9w`
 - Kind: `decide`
 - Status: `ready`
+- Summary: Document strict `require` as the recommended default once the publish-state model is proven, and delete `auto` rather than keeping it as a normal mode because broad auto-commit behavior is too risky for multi-task agent work.
 - Priority: `88`
 
 #### Acceptance
 
-- The repo has a documented recommendation for default git execution policy behavior and rollout posture. [any]
+- The final policy recommendation explains why commit-scope responsibility should remain with the agent or human rather than an automatic publish mode. [any]
+- The repo guidance names strict `require` as the recommended default mode for normal PRISM agent work. [any]
+- The rollout plan only keeps `auto` as a temporary migration aid, and explicitly removes it once strict `require` has been proven through dogfooding and validation. [any]
 
 ## Edges
 
@@ -99,4 +105,3 @@ Finish the git execution policy feature by exposing policy surfaces clearly, har
 - `plan-edge:coord-task:01kn8n9x2vm8c683vpx5642f3j:depends-on:coord-task:01kn8n9txdczd5dmtf1maheqpw`: `coord-task:01kn8n9x2vm8c683vpx5642f3j` depends on `coord-task:01kn8n9txdczd5dmtf1maheqpw`
 - `plan-edge:coord-task:01kn8n9x2vm8c683vpx5642f3j:depends-on:coord-task:01kn8n9w0r3ydrfs64cdy58t12`: `coord-task:01kn8n9x2vm8c683vpx5642f3j` depends on `coord-task:01kn8n9w0r3ydrfs64cdy58t12`
 - `plan-edge:coord-task:01kn8n9y54tz8h72ex327yyt9w:depends-on:coord-task:01kn8n9x2vm8c683vpx5642f3j`: `coord-task:01kn8n9y54tz8h72ex327yyt9w` depends on `coord-task:01kn8n9x2vm8c683vpx5642f3j`
-
