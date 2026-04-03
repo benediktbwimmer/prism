@@ -1,8 +1,6 @@
 use std::error::Error;
 use std::fmt;
 
-use tracing::warn;
-
 use crate::workspace_identity::workspace_identity_for_root;
 use crate::{AuthenticatedPrincipal, WorkspaceSession};
 
@@ -64,13 +62,7 @@ impl WorkspaceSession {
         drop(guard);
 
         if result.is_ok() {
-            if let Err(error) = self.publish_pending_repo_patch_provenance_for_active_work() {
-                warn!(
-                    root = %self.root.display(),
-                    error = %error,
-                    "failed to publish pending repo patch provenance after binding worktree principal"
-                );
-            }
+            self.schedule_pending_repo_patch_provenance_for_active_work();
         }
 
         result

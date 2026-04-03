@@ -141,6 +141,7 @@ impl QueryViewFeatureSet {
 pub struct PrismMcpFeatures {
     pub(crate) coordination: CoordinationFeatureSet,
     pub(crate) query_views: QueryViewFeatureSet,
+    pub(crate) ui: bool,
     pub(crate) internal_developer: bool,
 }
 
@@ -155,6 +156,7 @@ impl PrismMcpFeatures {
         Self {
             coordination: CoordinationFeatureSet::full(),
             query_views: QueryViewFeatureSet::full(),
+            ui: false,
             internal_developer: false,
         }
     }
@@ -163,8 +165,14 @@ impl PrismMcpFeatures {
         Self {
             coordination: CoordinationFeatureSet::simple(),
             query_views: QueryViewFeatureSet::default(),
+            ui: false,
             internal_developer: false,
         }
+    }
+
+    pub fn with_ui(mut self, enabled: bool) -> Self {
+        self.ui = enabled;
+        self
     }
 
     pub fn with_internal_developer(mut self, enabled: bool) -> Self {

@@ -391,6 +391,7 @@ async fn bootstrap_proxy_self_heals_stale_uri_file_from_runtime_state() {
         mode: PrismMcpMode::Bridge,
         no_coordination: false,
         internal_developer: false,
+        ui: false,
         enable_coordination: Vec::new(),
         disable_coordination: Vec::new(),
         enable_query_view: Vec::new(),

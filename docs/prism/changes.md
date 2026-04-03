@@ -8,262 +8,262 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:a69b9b518e35bf6fb41196f947c67743a1ca18657374d4bc852ffd5b576a614c`
-- Source logical timestamp: `1775189293`
-- Source snapshot: `469 published patch events, 166 unique touched files`
+- Source head: `sha256:a6558864a3fc4a89f5855e816a2ea66dbbf42bda91af5a59b399bcc89f9c126f`
+- Source logical timestamp: `1775193807`
+- Source snapshot: `507 published patch events, 167 unique touched files`
 
 ## Overview
 
-- Published patch events: 469
-- Unique files touched: 166
+- Published patch events: 507
+- Unique files touched: 167
 
 ## Most Touched Files
 
-- `/Users/bene/code/prism/crates/prism-mcp/src/tests.rs`: `40` patch event(s)
-- `/Users/bene/code/prism/crates/prism-core/src/session.rs`: `26` patch event(s)
-- `/Users/bene/code/prism/crates/prism-core/src/tests.rs`: `20` patch event(s)
+- `/Users/bene/code/prism/crates/prism-mcp/src/tests.rs`: `42` patch event(s)
+- `/Users/bene/code/prism/crates/prism-core/src/session.rs`: `32` patch event(s)
+- `/Users/bene/code/prism/crates/prism-core/src/tests.rs`: `26` patch event(s)
+- `/Users/bene/code/prism/crates/prism-mcp/src/host_mutations.rs`: `13` patch event(s)
 - `/Users/bene/code/prism/crates/prism-mcp/src/workspace_runtime.rs`: `13` patch event(s)
 - `/Users/bene/code/prism/crates/prism-core/src/watch.rs`: `12` patch event(s)
-- `/Users/bene/code/prism/crates/prism-mcp/src/host_mutations.rs`: `11` patch event(s)
 - `/Users/bene/code/prism/crates/prism-mcp/src/query_runtime.rs`: `11` patch event(s)
 - `/Users/bene/code/prism/crates/prism-mcp/src/proxy_server.rs`: `10` patch event(s)
 - `/Users/bene/code/prism/crates/prism-mcp/src/compact_tools/locate.rs`: `9` patch event(s)
-- `/Users/bene/code/prism/crates/prism-mcp/src/lib.rs`: `8` patch event(s)
+- `/Users/bene/code/prism/crates/prism-mcp/src/lib.rs`: `9` patch event(s)
 - `/Users/bene/code/prism/crates/prism-core/src/indexer.rs`: `7` patch event(s)
 - `/Users/bene/code/prism/crates/prism-mcp/src/compact_tools.rs`: `7` patch event(s)
+- `/Users/bene/code/prism/crates/prism-mcp/src/daemon_mode.rs`: `7` patch event(s)
 - `/Users/bene/code/prism/crates/prism-mcp/src/runtime_views.rs`: `7` patch event(s)
 - `/Users/bene/code/prism/crates/prism-query/src/tests.rs`: `7` patch event(s)
+- `/Users/bene/code/prism/crates/prism-core/src/indexer_support.rs`: `6` patch event(s)
 - `/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs`: `6` patch event(s)
 - `/Users/bene/code/prism/crates/prism-js/src/api_types.rs`: `6` patch event(s)
+- `/Users/bene/code/prism/crates/prism-mcp/src/tests/server_transport.rs`: `6` patch event(s)
 - `/Users/bene/code/prism/crates/prism-store/src/tests.rs`: `6` patch event(s)
-- `/Users/bene/code/prism/crates/prism-core/src/lib.rs`: `5` patch event(s)
-- `/Users/bene/code/prism/crates/prism-js/src/docs.rs`: `5` patch event(s)
-- `/Users/bene/code/prism/crates/prism-mcp/src/query_types.rs`: `5` patch event(s)
 
 ## Recent Published Patch Events
 
-### outcome:01kn8rdyqsryv4kqbnv2r5qc63
+### outcome:01kn8wqps7bd390hs74skvdgb7
 
-- Summary: observed file change: 0 added, 0 removed, 100 updated symbols
+- Summary: observed file change: 0 added, 0 removed, 45 updated symbols
 - Result: `success`
-- Recorded at: `1775189293`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
+- Recorded at: `1775193807`
+- Work: `Measure coordination mutation latency after hot-path cleanup` (work:measure-coordination-mutation-latency-after-hot-path-cleanup:01kn8wj8bykwza812pm1vprphs)
 - Files:
-  - `/Users/bene/code/prism/crates/prism-core/src/prism_paths.rs`
+  - `/Users/bene/code/prism/crates/prism-mcp/src/server_surface.rs`
 
-### outcome:01kn8rdnw4p057n7e1p91hekzq
+### outcome:01kn8wq9gfvjx3bjawkayknqa9
+
+- Summary: observed file change: 0 added, 0 removed, 45 updated symbols
+- Result: `success`
+- Recorded at: `1775193794`
+- Work: `Measure coordination mutation latency after hot-path cleanup` (work:measure-coordination-mutation-latency-after-hot-path-cleanup:01kn8wj8bykwza812pm1vprphs)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-mcp/src/server_surface.rs`
+
+### outcome:01kn8wpyggndaeb5n1kcb9t3fx
+
+- Summary: observed file change: 3 added, 0 removed, 42 updated symbols
+- Result: `success`
+- Recorded at: `1775193782`
+- Work: `Measure coordination mutation latency after hot-path cleanup` (work:measure-coordination-mutation-latency-after-hot-path-cleanup:01kn8wj8bykwza812pm1vprphs)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-mcp/src/server_surface.rs`
+
+### outcome:01kn8w9w47ft69rv7w33eb40p0
 
 - Summary: observed file change: 0 added, 0 removed, 131 updated symbols
 - Result: `success`
-- Recorded at: `1775189284`
+- Recorded at: `1775193354`
+- Work: `Plan logical repo identity layer` (work:plan-logical-repo-identity-layer:01kn8ryr4d8yq9kmn3vj7d26bm)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-core/src/tests.rs`
+
+### outcome:01kn8w7yz361xsafpmdqgcpp00
+
+- Summary: observed file change: 0 added, 0 removed, 131 updated symbols
+- Result: `success`
+- Recorded at: `1775193291`
+- Work: `Plan logical repo identity layer` (work:plan-logical-repo-identity-layer:01kn8ryr4d8yq9kmn3vj7d26bm)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-core/src/tests.rs`
+
+### outcome:01kn8w7801kjtkt6pv0dqebg3f
+
+- Summary: observed file change: 0 added, 0 removed, 47 updated symbols
+- Result: `success`
+- Recorded at: `1775193268`
+- Work: `Plan logical repo identity layer` (work:plan-logical-repo-identity-layer:01kn8ryr4d8yq9kmn3vj7d26bm)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-mcp/src/daemon_mode.rs`
+
+### outcome:01kn8w70m3k5ehh2sqprbfpkwn
+
+- Summary: observed file change: 0 added, 0 removed, 26 updated symbols
+- Result: `success`
+- Recorded at: `1775193260`
+- Work: `Plan logical repo identity layer` (work:plan-logical-repo-identity-layer:01kn8ryr4d8yq9kmn3vj7d26bm)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-core/src/indexer_support.rs`
+
+### outcome:01kn8w6qtnb850v62tkpbf3h9g
+
+- Summary: observed file change: 0 added, 0 removed, 131 updated symbols
+- Result: `success`
+- Recorded at: `1775193251`
+- Work: `Plan logical repo identity layer` (work:plan-logical-repo-identity-layer:01kn8ryr4d8yq9kmn3vj7d26bm)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-core/src/tests.rs`
+
+### outcome:01kn8w6gjw5vrt90n8sdn1az5f
+
+- Summary: observed file change: 0 added, 0 removed, 18 updated symbols
+- Result: `success`
+- Recorded at: `1775193244`
+- Work: `Plan logical repo identity layer` (work:plan-logical-repo-identity-layer:01kn8ryr4d8yq9kmn3vj7d26bm)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-core/src/worktree_principal.rs`
+
+### outcome:01kn8w68aqmsxnz10evn4ep231
+
+- Summary: observed file change: 0 added, 0 removed, 18 updated symbols
+- Result: `success`
+- Recorded at: `1775193235`
+- Work: `Plan logical repo identity layer` (work:plan-logical-repo-identity-layer:01kn8ryr4d8yq9kmn3vj7d26bm)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-core/src/worktree_principal.rs`
+
+### outcome:01kn8w60w2h6s35q5d89zqt9xg
+
+- Summary: observed file change: 1 added, 0 removed, 233 updated symbols
+- Result: `success`
+- Recorded at: `1775193228`
+- Work: `Plan logical repo identity layer` (work:plan-logical-repo-identity-layer:01kn8ryr4d8yq9kmn3vj7d26bm)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-core/src/session.rs`
+
+### outcome:01kn8w5hhs5j39x35hhmwsjraz
+
+- Summary: observed file change: 0 added, 0 removed, 233 updated symbols
+- Result: `success`
+- Recorded at: `1775193212`
+- Work: `Plan logical repo identity layer` (work:plan-logical-repo-identity-layer:01kn8ryr4d8yq9kmn3vj7d26bm)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-core/src/session.rs`
+
+### outcome:01kn8w59yndzrmd8dz15c8pnkx
+
+- Summary: observed file change: 1 added, 0 removed, 232 updated symbols
+- Result: `success`
+- Recorded at: `1775193204`
+- Work: `Plan logical repo identity layer` (work:plan-logical-repo-identity-layer:01kn8ryr4d8yq9kmn3vj7d26bm)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-core/src/session.rs`
+
+### outcome:01kn8w4k55p5f0mccnme31byz1
+
+- Summary: observed file change: 0 added, 0 removed, 26 updated symbols
+- Result: `success`
+- Recorded at: `1775193181`
+- Work: `Plan logical repo identity layer` (work:plan-logical-repo-identity-layer:01kn8ryr4d8yq9kmn3vj7d26bm)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-core/src/indexer_support.rs`
+
+### outcome:01kn8w4cxm6a9szyg9r6r2x4gj
+
+- Summary: observed file change: 1 added, 0 removed, 231 updated symbols
+- Result: `success`
+- Recorded at: `1775193174`
+- Work: `Plan logical repo identity layer` (work:plan-logical-repo-identity-layer:01kn8ryr4d8yq9kmn3vj7d26bm)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-core/src/session.rs`
+
+### outcome:01kn8v9y4dpba8xmh1q0tww3x3
+
+- Summary: observed file change: 0 added, 0 removed, 311 updated symbols
+- Result: `success`
+- Recorded at: `1775192307`
+- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-mcp/src/tests.rs`
+
+### outcome:01kn8v6trh4madsne0v2c41a9r
+
+- Summary: observed file change: 0 added, 0 removed, 311 updated symbols
+- Result: `success`
+- Recorded at: `1775192204`
+- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-mcp/src/tests.rs`
+
+### outcome:01kn8v6rvyvwyfz4xm4dz3vmyk
+
+- Summary: observed file change: 0 added, 0 removed, 159 updated symbols
+- Result: `success`
+- Recorded at: `1775192204`
+- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-mcp/src/host_mutations.rs`
+
+### outcome:01kn8v4zvb6e2sghva279fck6h
+
+- Summary: observed file change: 0 added, 0 removed, 131 updated symbols
+- Result: `success`
+- Recorded at: `1775192145`
 - Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
 - Files:
   - `/Users/bene/code/prism/crates/prism-core/src/tests.rs`
 
-### outcome:01kn8rd1sryp5rh8j898ys2165
-
-- Summary: observed file change: 6 added, 0 removed, 94 updated symbols
-- Result: `success`
-- Recorded at: `1775189264`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-core/src/prism_paths.rs`
-
-### outcome:01kn8ravnxwfgm3h4tg9zxtbwd
-
-- Summary: observed file change: 0 added, 0 removed, 10 updated symbols
-- Result: `success`
-- Recorded at: `1775189192`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-mcp/src/git_execution.rs`
-
-### outcome:01kn8ravmsykdkder1at382m3f
-
-- Summary: observed file change: 1 added, 0 removed, 310 updated symbols
-- Result: `success`
-- Recorded at: `1775189192`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-mcp/src/tests.rs`
-
-### outcome:01kn8r2zbhpzhw1cxtamffnpbn
-
-- Summary: observed file change: 0 added, 0 removed, 152 updated symbols
-- Result: `success`
-- Recorded at: `1775188933`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-mcp/src/lib.rs`
-
-### outcome:01kn8r2zavnavgmhvc2rkpwbv2
-
-- Summary: observed file change: 0 added, 0 removed, 139 updated symbols
-- Result: `success`
-- Recorded at: `1775188933`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-core/src/published_plans.rs`
-
-### outcome:01kn8r2za89gtaztk72ns08k59
-
-- Summary: observed file change: 0 added, 0 removed, 227 updated symbols
-- Result: `success`
-- Recorded at: `1775188933`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-core/src/session.rs`
-
-### outcome:01kn8r2z9369b783nyc7w2yk0k
-
-- Summary: observed file change: 4 added, 0 removed, 306 updated symbols
-- Result: `success`
-- Recorded at: `1775188933`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-mcp/src/tests.rs`
-
-### outcome:01kn8r2z7y007mhy2mtvh0a66e
-
-- Summary: observed file change: 0 added, 0 removed, 1 updated symbols
-- Result: `success`
-- Recorded at: `1775188933`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-coordination/src/lib.rs`
-
-### outcome:01kn8r2z6w8q2hdhem4kgy7mw0
-
-- Summary: observed file change: 3 added, 0 removed, 263 updated symbols
-- Result: `success`
-- Recorded at: `1775188933`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-coordination/src/types.rs`
-
-### outcome:01kn8r2z5tx7b4ty3nqz68ty39
-
-- Summary: observed file change: 0 added, 0 removed, 54 updated symbols
-- Result: `success`
-- Recorded at: `1775188933`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-query/src/tests.rs`
-
-### outcome:01kn8r2z5ex9c7wbnhhbttdba1
-
-- Summary: observed file change: 0 added, 0 removed, 44 updated symbols
-- Result: `success`
-- Recorded at: `1775188933`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-coordination/src/mutations.rs`
-
-### outcome:01kn8r2z4awyb0m6jg108d78bp
-
-- Summary: observed file change: 0 added, 0 removed, 78 updated symbols
-- Result: `success`
-- Recorded at: `1775188933`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-query/src/plan_runtime.rs`
-
-### outcome:01kn8r2z3vzh6vmk9vr36vrkb8
-
-- Summary: observed file change: 1 added, 0 removed, 16 updated symbols
-- Result: `success`
-- Recorded at: `1775188933`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-core/src/coordination_persistence.rs`
-
-### outcome:01kn8r2z2y8ghxgpk8b76mvp0j
-
-- Summary: observed file change: 35 added, 0 removed, 0 updated symbols
-- Result: `success`
-- Recorded at: `1775188933`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-coordination/src/git_execution.rs`
-
-### outcome:01kn8r2z2kh6tpyg99s76dmz5h
-
-- Summary: observed file change: 0 added, 0 removed, 259 updated symbols
-- Result: `success`
-- Recorded at: `1775188933`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-mcp/src/query_types.rs`
-
-### outcome:01kn8r2z1h1svrr1d0ejb03w8g
-
-- Summary: observed file change: 0 added, 0 removed, 21 updated symbols
-- Result: `success`
-- Recorded at: `1775188933`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-coordination/src/compat.rs`
-
-### outcome:01kn8r2z0g5cv9h0qxw3zxv1sz
-
-- Summary: observed file change: 10 added, 0 removed, 0 updated symbols
-- Result: `success`
-- Recorded at: `1775188933`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-mcp/src/git_execution.rs`
-
-### outcome:01kn8r2z04ysfh71af3hadhxg7
-
-- Summary: observed file change: 0 added, 0 removed, 27 updated symbols
-- Result: `success`
-- Recorded at: `1775188933`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-js/src/query_surface.rs`
-
-### outcome:01kn8r2yztwmbgwbqae50pktzb
-
-- Summary: observed file change: 0 added, 0 removed, 39 updated symbols
-- Result: `success`
-- Recorded at: `1775188933`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-coordination/src/tests.rs`
-
-### outcome:01kn8r2yzapr790czpqttghfwk
-
-- Summary: observed file change: 32 added, 0 removed, 1384 updated symbols
-- Result: `success`
-- Recorded at: `1775188933`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-js/src/api_types.rs`
-
-### outcome:01kn8r2yxw513am9j0nzbpdh6h
-
-- Summary: observed file change: 8 added, 0 removed, 85 updated symbols
-- Result: `success`
-- Recorded at: `1775188933`
-- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-ir/src/plans.rs`
-
-### outcome:01kn8r2ywt8h64m0hk6h9pengt
+### outcome:01kn8v33q8r1s4kc67ap9b3b6y
 
 - Summary: observed file change: 0 added, 0 removed, 14 updated symbols
 - Result: `success`
-- Recorded at: `1775188933`
+- Recorded at: `1775192078`
 - Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
 - Files:
-  - `/Users/bene/code/prism/crates/prism-coordination/src/event_replay.rs`
+  - `/Users/bene/code/prism/crates/prism-mcp/src/tests/server_transport.rs`
 
-### outcome:01kn8r2yvse5cjd1ks077e431r
+### outcome:01kn8v31qm8tznrm5vdw14czn3
 
-- Summary: observed file change: 3 added, 0 removed, 100 updated symbols
+- Summary: observed file change: 0 added, 0 removed, 131 updated symbols
 - Result: `success`
-- Recorded at: `1775188933`
+- Recorded at: `1775192078`
 - Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
 - Files:
-  - `/Users/bene/code/prism/crates/prism-mcp/src/views.rs`
+  - `/Users/bene/code/prism/crates/prism-core/src/tests.rs`
+
+### outcome:01kn8v2zt7t6vah4v9qnxe28dy
+
+- Summary: observed file change: 0 added, 0 removed, 51 updated symbols
+- Result: `success`
+- Recorded at: `1775192078`
+- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-mcp/src/runtime_state.rs`
+
+### outcome:01kn8v2xx2f3y7qp0eqwyh785q
+
+- Summary: observed file change: 0 added, 0 removed, 47 updated symbols
+- Result: `success`
+- Recorded at: `1775192078`
+- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-mcp/src/daemon_mode.rs`
+
+### outcome:01kn8v1kx5eksg3tw145ssvynp
+
+- Summary: observed file change: 0 added, 0 removed, 131 updated symbols
+- Result: `success`
+- Recorded at: `1775192035`
+- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-core/src/tests.rs`
+
+### outcome:01kn8v0qts3aaee75pf7mpb4km
+
+- Summary: observed file change: 2 added, 0 removed, 229 updated symbols
+- Result: `success`
+- Recorded at: `1775192000`
+- Work: `Plan and execute validation-feedback follow-up improvements` (work:plan-and-execute-validation-feedback-follow-up-improvements:01kn8860qc6cndwvt3zmv3zt7q)
+- Files:
+  - `/Users/bene/code/prism/crates/prism-core/src/session.rs`
 

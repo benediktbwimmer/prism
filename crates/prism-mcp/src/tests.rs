@@ -13900,7 +13900,9 @@ fn mutation_trace_records_internal_phases_for_persisted_only_mutations() {
     let root = temp_workspace();
     let server = PrismMcpServer::with_session_and_features(
         index_workspace_session(&root).unwrap(),
-        PrismMcpFeatures::full().with_internal_developer(true),
+        PrismMcpFeatures::full()
+            .with_internal_developer(true)
+            .with_ui(true),
     );
 
     let result = server
@@ -14230,7 +14232,7 @@ fn coordination_mutation_trace_records_persistence_subphases() {
         .iter()
         .map(|phase| phase.operation.as_str())
         .collect::<Vec<_>>();
-    assert!(operations.contains(&"mutation.coordination.refreshWorkspace"));
+    assert!(operations.contains(&"mutation.refreshWorkspace"));
     assert!(operations.contains(&"mutation.coordination.syncLoadedRevisionBefore"));
     assert!(operations.contains(&"mutation.coordination.waitRefreshLock"));
     assert!(operations.contains(&"mutation.coordination.readRevision"));
@@ -19053,8 +19055,8 @@ fn coordination_mutations_wait_for_runtime_sync_and_then_succeed() {
     let refresh_phase = trace
         .phases
         .iter()
-        .find(|phase| phase.operation == "mutation.coordination.refreshWorkspace")
-        .expect("coordination refresh phase should exist");
+        .find(|phase| phase.operation == "mutation.refreshWorkspace")
+        .expect("mutation refresh phase should exist");
     assert!(refresh_phase.success);
     let args = refresh_phase
         .args_summary

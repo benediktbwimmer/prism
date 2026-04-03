@@ -8,14 +8,14 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:50b8bcdf7ef18768aacd79babd57da56bdc6177bbb03ba63d128993b28a69d01`
+- Source head: `sha256:b70c6f0cd2884c855219751f0ec9d94a9d92f68c3788ae5f64f90848479eba5b`
 - Source logical timestamp: `unknown`
-- Source snapshot: `52 plans, 30 active, 22 archived`
+- Source snapshot: `56 plans, 34 active, 22 archived`
 
 ## Overview
 
-- Published plans: 52
-- Active plans: 30
+- Published plans: 56
+- Active plans: 34
 - Archived plans: 22
 
 ## Active Plans
@@ -40,6 +40,10 @@
 - [Implement the Protected State Runtime Sync design from docs/PROTECTED_STATE_RUNTIME_SYNC.md so repo-published .prism streams follow one uniform runtime import contract across bootstrap, live sync, self-write suppression, diagnostics, and recovery.](active/plan-01kn80a3trpmaewse7e2bhb1hs.md): Implement the Protected State Runtime Sync design from docs/PROTECTED_STATE_RUNTIME_SYNC.md so repo-published .prism streams follow one uniform runtime import contract across bootstrap, live sync, self-write suppression, diagnostics, and recovery. (`plan:01kn80a3trpmaewse7e2bhb1hs`)
 - [Improve PRISM’s agent-facing workflow by hardening workflow contracts, making compact discovery and editing ownership-aware and large-file-aware, and making durable knowledge publication easier to promote safely, while closing the dogfooding friction surfaced during live use.](active/plan-01kn08dk7n4ym7vrdzp2nkdjy1.md): Improve PRISM’s agent-facing workflow by hardening workflow contracts, making compact discovery and editing ownership-aware and large-file-aware, and making durable knowledge publication easier to promote safely, while closing the dogfooding friction surfaced during live use. (`plan:01kn08dk7n4ym7vrdzp2nkdjy1`)
 - [Investigate and reduce the next observed PRISM runtime and MCP performance hotspots from live daemon and MCP logs by tackling compact-task latency, refresh-lock admission stalls, oversized co-change work, startup/recovery fixed costs, and noisy bridge transport behavior, while preserving correctness and proving improvements with log-backed validation.](active/plan-01kn7cxa9tvnaa1svrgppcth4a.md): Investigate and reduce the next observed PRISM runtime and MCP performance hotspots from live daemon and MCP logs by tackling compact-task latency, refresh-lock admission stalls, oversized co-change work, startup/recovery fixed costs, and noisy bridge transport behavior, while preserving correctness and proving improvements with log-backed validation. (`plan:01kn7cxa9tvnaa1svrgppcth4a`)
+- [Latency probe plan](active/plan-01kn8wkkyfkw7veexyx5c44qjf.md): Measure live coordination mutation latency after auth and projection hot-path cleanup. (`plan:01kn8wkkyfkw7veexyx5c44qjf`)
+- [Latency probe plan 2](active/plan-01kn8wxy2wkqjs8aj6v23nsgmb.md): Measure live coordination mutation latency after auth-prelude tracing. (`plan:01kn8wxy2wkqjs8aj6v23nsgmb`)
+- [Latency probe plan 3](active/plan-01kn8wz88kerc8wjp37ra0peet.md): Measure live coordination mutation latency after restarting onto the latest binary. (`plan:01kn8wz88kerc8wjp37ra0peet`)
+- [Measure coordination mutation latency after hot-path cuts](active/plan-01kn8vnq94fsfv7pgs8401tzc9.md): Capture a live coordination mutation trace after removing auth writes, UI hot-path work, and synchronous plan projection regeneration. (`plan:01kn8vnq94fsfv7pgs8401tzc9`)
 - [plans-task-graph-node-rewrite: make coordination tasks canonical for task-execution plans, reduce task-backed plan nodes to pure projections, and preserve standalone native plan nodes for graph-native planning.](active/plan-01kn11fra3ddvjqmtw4qjrqax2.md): plans-task-graph-node-rewrite: make coordination tasks canonical for task-execution plans, reduce task-backed plan nodes to pure projections, and preserve standalone native plan nodes for graph-native planning. (`plan:01kn11fra3ddvjqmtw4qjrqax2`)
 - [Publish always-up-to-date human-readable markdown projections under docs/prism for all persisted .prism state surfaces, with a clear hierarchy for plans, memories, concepts, contracts, relations, and other current repo-state projections.](active/plan-01kn89108wb4a78p35krmyn29t.md): Publish always-up-to-date human-readable markdown projections under docs/prism for all persisted .prism state surfaces, with a clear hierarchy for plans, memories, concepts, contracts, relations, and other current repo-state projections. (`plan:01kn89108wb4a78p35krmyn29t`)
 - [Reduce full cargo test latency and improve test reliability by profiling the slowest test paths, separating heavy integration-style coverage from cheap unit-style coverage, removing avoidable setup and timing overhead, and validating the new default suite behavior with measured before/after timings.](active/plan-01kn8dprbn5qf3fjpvj1zjxfb0.md): Reduce full cargo test latency and improve test reliability by profiling the slowest test paths, separating heavy integration-style coverage from cheap unit-style coverage, removing avoidable setup and timing overhead, and validating the new default suite behavior with measured before/after timings. (`plan:01kn8dprbn5qf3fjpvj1zjxfb0`)

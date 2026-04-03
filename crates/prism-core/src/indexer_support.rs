@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
@@ -30,6 +31,7 @@ use crate::util::{persisted_file_hash, workspace_walk};
 use crate::watch::{spawn_fs_watch, spawn_protected_state_watch};
 use crate::workspace_identity::coordination_persist_context_for_root;
 use crate::workspace_runtime_state::WorkspaceRuntimeState;
+use prism_ir::PrincipalRegistrySnapshot;
 
 pub(crate) fn build_workspace_session(
     root: PathBuf,
@@ -70,6 +72,15 @@ pub(crate) fn build_workspace_session(
     let store = Arc::new(Mutex::new(store));
     let cold_query_store = Arc::new(Mutex::new(cold_query_store));
     let shared_runtime_store = shared_runtime_store.map(|store| Arc::new(Mutex::new(store)));
+    let principal_registry = if let Some(shared_runtime_store) = shared_runtime_store.as_ref() {
+        let mut store = shared_runtime_store
+            .lock()
+            .expect("shared runtime store lock poisoned");
+        prism_store::MaterializationStore::load_principal_registry_snapshot(&mut *store)?
+            .unwrap_or_default()
+    } else {
+        PrincipalRegistrySnapshot::default()
+    };
     let shared_runtime_materializer = shared_runtime_store
         .as_ref()
         .map(|store| CheckpointMaterializerHandle::new(root.clone(), Arc::clone(store)));
@@ -193,6 +204,9 @@ pub(crate) fn build_workspace_session(
         hydrate_persisted_projections,
         hydrate_persisted_co_change,
         shared_runtime_store,
+        principal_registry: Arc::new(RwLock::new(principal_registry)),
+        repo_projection_sync_pending: Arc::new(AtomicBool::new(false)),
+        repo_patch_provenance_sync_pending: Arc::new(AtomicBool::new(false)),
         refresh_lock,
         refresh_state,
         loaded_workspace_revision,

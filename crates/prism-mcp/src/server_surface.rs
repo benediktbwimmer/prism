@@ -280,6 +280,160 @@ impl PrismMcpServer {
         Ok(authenticated)
     }
 
+    fn authenticate_mutation_with_run(
+        &self,
+        run: &MutationRun,
+        credential: &PrismMutationCredentialArgs,
+        requirement: MutationCapabilityRequirement,
+    ) -> Result<AuthenticatedPrincipal, McpError> {
+        let total_started = Instant::now();
+        let workspace_started = Instant::now();
+        let workspace = self.host.workspace_session().ok_or_else(|| {
+            McpError::internal_error(
+                "prism_mutate requires a workspace-backed session",
+                Some(json!({
+                    "code": "mutation_auth_workspace_required",
+                    "nextAction": "Run the mutation against a workspace-backed PRISM MCP session so the server can verify principal credentials.",
+                })),
+            )
+        });
+        match workspace {
+            Ok(workspace) => {
+                run.record_phase(
+                    "mutation.auth.workspaceSession",
+                    &json!({ "required": true }),
+                    workspace_started.elapsed(),
+                    true,
+                    None,
+                );
+                let verify_started = Instant::now();
+                let authenticated = workspace
+                    .authenticate_principal_credential(
+                        &CredentialId::new(credential.credential_id.clone()),
+                        &credential.principal_token,
+                    )
+                    .map_err(|error| {
+                        McpError::invalid_params(
+                            "prism_mutate credential rejected",
+                            Some(json!({
+                                "code": "mutation_auth_failed",
+                                "credentialId": credential.credential_id,
+                                "error": error.to_string(),
+                                "nextAction": "Use `prism auth login` or mint a fresh credential, then retry the mutation.",
+                            })),
+                        )
+                    });
+                let authenticated = match authenticated {
+                    Ok(authenticated) => {
+                        run.record_phase(
+                            "mutation.auth.verifyCredential",
+                            &json!({ "credentialId": credential.credential_id }),
+                            verify_started.elapsed(),
+                            true,
+                            None,
+                        );
+                        authenticated
+                    }
+                    Err(error) => {
+                        run.record_phase(
+                            "mutation.auth.verifyCredential",
+                            &json!({ "credentialId": credential.credential_id }),
+                            verify_started.elapsed(),
+                            false,
+                            Some(error.to_string()),
+                        );
+                        return Err(error);
+                    }
+                };
+                let bind_started = Instant::now();
+                if let Err(error) = workspace.bind_or_validate_worktree_principal(&authenticated) {
+                    let mapped = McpError::invalid_params(
+                        "prism_mutate principal conflicts with the worktree-bound principal",
+                        Some(json!({
+                            "code": "mutation_worktree_principal_conflict",
+                            "worktreeId": error.worktree_id,
+                            "boundPrincipal": {
+                                "authorityId": error.bound_principal.authority_id,
+                                "principalId": error.bound_principal.principal_id,
+                                "name": error.bound_principal.principal_name,
+                            },
+                            "attemptedPrincipal": {
+                                "authorityId": error.attempted_principal.authority_id,
+                                "principalId": error.attempted_principal.principal_id,
+                                "name": error.attempted_principal.principal_name,
+                            },
+                            "nextAction": "Use the same principal for this worktree, or move the other principal onto a separate git worktree before attempting authenticated mutations.",
+                        })),
+                    );
+                    run.record_phase(
+                        "mutation.auth.bindWorktreePrincipal",
+                        &json!({ "credentialId": credential.credential_id }),
+                        bind_started.elapsed(),
+                        false,
+                        Some(mapped.to_string()),
+                    );
+                    return Err(mapped);
+                }
+                run.record_phase(
+                    "mutation.auth.bindWorktreePrincipal",
+                    &json!({ "credentialId": credential.credential_id }),
+                    bind_started.elapsed(),
+                    true,
+                    None,
+                );
+                let capability_started = Instant::now();
+                if !requirement.allows(&authenticated) {
+                    let mapped = McpError::invalid_params(
+                        "prism_mutate credential lacks the required capability",
+                        Some(json!({
+                            "code": "mutation_capability_denied",
+                            "requiredCapability": requirement.label(),
+                            "credentialId": authenticated.credential.credential_id.0,
+                            "principalId": authenticated.principal.principal_id.0,
+                            "nextAction": "Use a credential with the required capability or mint a new child principal with narrower capabilities for this mutation lane.",
+                        })),
+                    );
+                    run.record_phase(
+                        "mutation.auth.checkCapability",
+                        &json!({ "requiredCapability": requirement.label() }),
+                        capability_started.elapsed(),
+                        false,
+                        Some(mapped.to_string()),
+                    );
+                    return Err(mapped);
+                }
+                run.record_phase(
+                    "mutation.auth.checkCapability",
+                    &json!({ "requiredCapability": requirement.label() }),
+                    capability_started.elapsed(),
+                    true,
+                    None,
+                );
+                run.record_phase(
+                    "mutation.auth",
+                    &json!({
+                        "credentialId": credential.credential_id,
+                        "requiredCapability": requirement.label(),
+                    }),
+                    total_started.elapsed(),
+                    true,
+                    None,
+                );
+                Ok(authenticated)
+            }
+            Err(error) => {
+                run.record_phase(
+                    "mutation.auth.workspaceSession",
+                    &json!({ "required": true }),
+                    workspace_started.elapsed(),
+                    false,
+                    Some(error.to_string()),
+                );
+                Err(error)
+            }
+        }
+    }
+
     fn require_declared_work_context(
         &self,
         action_name: &'static str,
@@ -296,6 +450,27 @@ impl PrismMcpServer {
                 "nextAction": "Call `prism_mutate` with `action: \"declare_work\"` to declare intent before retrying this mutation, or provide an explicit taskId/claimId when the action supports it.",
             })),
         ))
+    }
+
+    fn require_declared_work_context_with_run(
+        &self,
+        run: &MutationRun,
+        action_name: &'static str,
+        has_explicit_work_subject: bool,
+    ) -> Result<(), McpError> {
+        let started = Instant::now();
+        let result = self.require_declared_work_context(action_name, has_explicit_work_subject);
+        run.record_phase(
+            "mutation.requireDeclaredWork",
+            &json!({
+                "action": action_name,
+                "hasExplicitWorkSubject": has_explicit_work_subject,
+            }),
+            started.elapsed(),
+            result.is_ok(),
+            result.as_ref().err().map(ToString::to_string),
+        );
+        result
     }
 
     pub(crate) fn execute_logged_mutation<T, F, G>(
@@ -326,6 +501,28 @@ impl PrismMcpServer {
         G: FnOnce(&T) -> MutationDashboardMeta,
     {
         let run = self.host.begin_mutation_run(self.session.as_ref(), action);
+        self.execute_logged_mutation_with_existing_run(
+            run,
+            action,
+            refresh_policy,
+            operation,
+            finish,
+        )
+    }
+
+    fn execute_logged_mutation_with_existing_run<T, F, G>(
+        &self,
+        run: MutationRun,
+        action: &str,
+        refresh_policy: MutationRefreshPolicy,
+        operation: F,
+        finish: G,
+    ) -> Result<T, McpError>
+    where
+        T: Serialize,
+        F: FnOnce(&MutationRun) -> Result<T, anyhow::Error>,
+        G: FnOnce(&T) -> MutationDashboardMeta,
+    {
         let refresh_started = Instant::now();
         match refresh_policy {
             MutationRefreshPolicy::None => run.record_phase(
@@ -541,7 +738,7 @@ impl PrismMcpServer {
                         return Err(mapped);
                     }
                 };
-                if meta.publish_task_update {
+                if meta.publish_task_update && self.host.ui_enabled() {
                     let publish_started = Instant::now();
                     match self
                         .host
@@ -622,7 +819,7 @@ impl PrismMcpServer {
                         }
                     }
                 }
-                if meta.publish_coordination_update {
+                if meta.publish_coordination_update && self.host.ui_enabled() {
                     let publish_started = Instant::now();
                     let _ = self.host.publish_dashboard_coordination_update();
                     run.record_phase(
@@ -1331,12 +1528,30 @@ impl PrismMcpServer {
                 self.host
                     .ensure_tool_enabled("prism_coordination", "coordination workflow mutations")
                     .map_err(map_query_error)?;
-                let authenticated = self.authenticate_mutation(
+                let run = self
+                    .host
+                    .begin_mutation_run(self.session.as_ref(), "mutate.coordination");
+                let authenticated = match self.authenticate_mutation_with_run(
+                    &run,
                     &credential,
                     MutationCapabilityRequirement::MutateCoordination,
-                )?;
-                self.require_declared_work_context("coordination", args.task_id.is_some())?;
-                let result = self.execute_logged_mutation_with_run(
+                ) {
+                    Ok(authenticated) => authenticated,
+                    Err(error) => {
+                        run.finish_error(error.to_string());
+                        return Err(error);
+                    }
+                };
+                if let Err(error) = self.require_declared_work_context_with_run(
+                    &run,
+                    "coordination",
+                    args.task_id.is_some(),
+                ) {
+                    run.finish_error(error.to_string());
+                    return Err(error);
+                }
+                let result = self.execute_logged_mutation_with_existing_run(
+                    run,
                     "mutate.coordination",
                     MutationRefreshPolicy::None,
                     |run| {
