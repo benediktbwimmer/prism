@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:ff703066c6730a6098c1f2de03f37420f4f90a5c205fa9fa01eca39c630d157f`
+- Source head: `sha256:1a06204170643778964d56e0232645fd5a8d5e6e02c548cdb1eca417aa7c4a43`
 - Source logical timestamp: `unknown`
 - Source snapshot: `5 nodes, 5 edges, 0 overlays`
 
@@ -41,7 +41,7 @@ Finish the git execution policy feature by exposing policy surfaces clearly, sep
 
 - Node id: `coord-task:01kn8n9ssejh5kkx8zb4hjxt09`
 - Kind: `investigate`
-- Status: `in_progress`
+- Status: `completed`
 - Priority: `95`
 
 #### Acceptance
@@ -105,3 +105,4 @@ Finish the git execution policy feature by exposing policy surfaces clearly, sep
 - `plan-edge:coord-task:01kn8n9x2vm8c683vpx5642f3j:depends-on:coord-task:01kn8n9txdczd5dmtf1maheqpw`: `coord-task:01kn8n9x2vm8c683vpx5642f3j` depends on `coord-task:01kn8n9txdczd5dmtf1maheqpw`
 - `plan-edge:coord-task:01kn8n9x2vm8c683vpx5642f3j:depends-on:coord-task:01kn8n9w0r3ydrfs64cdy58t12`: `coord-task:01kn8n9x2vm8c683vpx5642f3j` depends on `coord-task:01kn8n9w0r3ydrfs64cdy58t12`
 - `plan-edge:coord-task:01kn8n9y54tz8h72ex327yyt9w:depends-on:coord-task:01kn8n9x2vm8c683vpx5642f3j`: `coord-task:01kn8n9y54tz8h72ex327yyt9w` depends on `coord-task:01kn8n9x2vm8c683vpx5642f3j`
+

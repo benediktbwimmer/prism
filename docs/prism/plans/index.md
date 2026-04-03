@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:6132e80d9e5eee0f52262cab3f9921ab9f76d4148b742ae2df103e6db1f4e000`
+- Source head: `sha256:7fd35166a268fc7cba44d808e922657d87f4e4c8df3c342a2fd61c32773f52a5`
 - Source logical timestamp: `unknown`
 - Source snapshot: `52 plans, 30 active, 22 archived`
 
@@ -75,3 +75,4 @@
 - [Rewrite PRISM co-change persistence and refresh materialization boundaries so authoritative runtime state, bounded serving projections, and cold analytical evidence are separated; eliminate pathological co-change growth from the daemon hot path; and migrate existing cache state without regressing correctness, startup time, or daemon health.](archived/plan-01kn02m1dek35hmmpsxmaw5yd7.md): Rewrite PRISM co-change persistence and refresh materialization boundaries so authoritative runtime state, bounded serving projections, and cold analytical evidence are separated; eliminate pathological co-change growth from the daemon hot path; and migrate existing cache state without regressing correctness, startup time, or daemon health. (`plan:01kn02m1dek35hmmpsxmaw5yd7`)
 - [Simplify the post-redesign refresh model by removing misleading persisted-refresh naming, consolidating refresh ownership, and further demoting local snapshot/DB authority from steady-state serving.](archived/plan-3.md): Simplify the post-redesign refresh model by removing misleading persisted-refresh naming, consolidating refresh ownership, and further demoting local snapshot/DB authority from steady-state serving. (`plan:3`)
 - [test plan create from direct http](archived/plan-01kn2ead61r84t9wp7f1wmk411.md): test plan create from direct http (`plan:01kn2ead61r84t9wp7f1wmk411`)
+
