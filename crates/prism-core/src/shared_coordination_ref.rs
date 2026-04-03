@@ -11,11 +11,12 @@ use ed25519_dalek::{Signer, Verifier};
 use prism_coordination::{
     execution_overlays_from_tasks, snapshot_plan_graphs, Artifact, ArtifactReview,
     CoordinationSnapshot, CoordinationTask, Plan, RuntimeDescriptor, RuntimeDescriptorCapability,
-    RuntimeDiscoveryMode, WorkClaim,
+    WorkClaim,
 };
 use prism_ir::{PlanExecutionOverlay, PlanGraph, WorkContextKind, WorkContextSnapshot};
 use serde::{Deserialize, Serialize};
 
+use crate::peer_runtime::{local_peer_runtime_discovery_mode, local_peer_runtime_endpoint};
 use crate::protected_state::canonical::{canonical_json_bytes, sha256_prefixed};
 use crate::protected_state::envelope::ProtectedSignatureAlgorithm;
 use crate::protected_state::repo_streams::{
@@ -1068,6 +1069,12 @@ fn local_runtime_descriptor(
         .find(|descriptor| descriptor.worktree_id == identity.worktree_id);
     let continuing_instance =
         previous.filter(|descriptor| descriptor.runtime_id == identity.instance_id);
+    let peer_endpoint = local_peer_runtime_endpoint(root)?
+        .or_else(|| previous.and_then(|descriptor| descriptor.peer_endpoint.clone()));
+    let mut capabilities = vec![RuntimeDescriptorCapability::CoordinationRefPublisher];
+    if peer_endpoint.is_some() {
+        capabilities.push(RuntimeDescriptorCapability::BoundedPeerReads);
+    }
     Ok(RuntimeDescriptor {
         runtime_id: identity.instance_id,
         repo_id: identity.repo_id,
@@ -1079,9 +1086,9 @@ fn local_runtime_descriptor(
         last_seen_at: now,
         branch_ref: identity.branch_ref,
         checked_out_commit: resolve_checked_out_commit(root)?,
-        capabilities: vec![RuntimeDescriptorCapability::CoordinationRefPublisher],
-        discovery_mode: RuntimeDiscoveryMode::None,
-        peer_endpoint: previous.and_then(|descriptor| descriptor.peer_endpoint.clone()),
+        capabilities,
+        discovery_mode: local_peer_runtime_discovery_mode(peer_endpoint.as_deref()),
+        peer_endpoint,
         relay_endpoint: previous.and_then(|descriptor| descriptor.relay_endpoint.clone()),
         peer_transport_identity: previous
             .and_then(|descriptor| descriptor.peer_transport_identity.clone()),

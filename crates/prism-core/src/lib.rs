@@ -22,6 +22,7 @@ mod parse_pipeline;
 mod patch_outcomes;
 mod path_identity;
 mod path_identity_repair;
+mod peer_runtime;
 mod principal_registry;
 mod prism_doc;
 mod prism_paths;
@@ -71,6 +72,9 @@ pub use observed_change_tracker::{
 pub use path_identity_repair::{
     inspect_legacy_path_identity_state, repair_legacy_path_identity_state,
     LegacyPathIdentityRepairReport, LegacyPathIdentityRepairTargetReport,
+};
+pub use peer_runtime::{
+    local_peer_runtime_discovery_mode, local_peer_runtime_endpoint, PEER_RUNTIME_READ_PATH,
 };
 pub use principal_registry::{
     AuthenticatedPrincipal, BootstrapOwnerInput, MintPrincipalRequest, MintedPrincipalCredential,

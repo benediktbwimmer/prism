@@ -34,6 +34,7 @@ pub enum CredentialStatus {
 pub enum CredentialCapability {
     MutateCoordination,
     MutateRepoMemory,
+    ReadPeerRuntime,
     MintChildPrincipal,
     AdminPrincipals,
     All,

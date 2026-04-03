@@ -18,6 +18,7 @@ use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
 use crate::dashboard_router::{routes as dashboard_routes, DashboardAppState};
+use crate::peer_runtime_router::{routes as peer_runtime_routes, PeerRuntimeAppState};
 use crate::proxy_server::ProxyMcpServer;
 use crate::runtime_state;
 use crate::ui_router::{routes as prism_ui_routes, PrismUiState};
@@ -105,6 +106,10 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         host: Arc::clone(&server.host),
         root: root.to_path_buf(),
     };
+    let peer_runtime_state = PeerRuntimeAppState {
+        host: Arc::clone(&server.host),
+        root: root.to_path_buf(),
+    };
     let prism_ui_state = PrismUiState {
         host: Arc::clone(&server.host),
         root: root.to_path_buf(),
@@ -117,7 +122,8 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
             ));
     let mut router = Router::new()
         .route(&health_path, get(http_health))
-        .merge(mcp_router);
+        .merge(mcp_router)
+        .merge(peer_runtime_routes(peer_runtime_state));
     if features.ui {
         router = router
             .merge(prism_ui_routes(prism_ui_state))

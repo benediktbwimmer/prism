@@ -56,6 +56,7 @@ mod logging;
 mod mcp_call_log;
 mod memory_metadata;
 mod mutation_provenance;
+mod peer_runtime_router;
 mod process_lifecycle;
 mod proxy_server;
 mod query_errors;
