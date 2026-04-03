@@ -1,16 +1,16 @@
 {
   "version": 1,
-  "publishedAt": 1775233363,
+  "publishedAt": 1775233366,
   "publisher": {
     "principalAuthorityId": "local-daemon",
     "principalId": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
     "credentialId": "credential:01kn80974ndtnq6s77qk7y3v1w"
   },
   "workContext": {
-    "workId": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+    "workId": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
     "kind": "coordination",
-    "title": "Canonicalize graph and workspace file identity around file ids plus repo-relative paths",
-    "coordinationTaskId": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+    "title": "Normalize tracked snapshot, protected publication, and shared/runtime serialization to repo-relative paths",
+    "coordinationTaskId": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
     "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
     "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
   },
@@ -2321,7 +2321,7 @@
     },
     ".prism/state/coordination/tasks/coord-task-01kn9vdfjsrbzwz5w5mff8yqck-28360e8f7ddfa227.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9vdfjsrbzwz5w5mff8yqck-28360e8f7ddfa227.json",
-      "sha256": "sha256:9801082ffa69c5d6e425c6eb05e79c8ab7e3f588c5a0940bbd90e1231a04f7f2"
+      "sha256": "sha256:37f29837d9a8bd0a3166e2c556919e9bd499cb282ec864747f1a46cd7e9a3e87"
     },
     ".prism/state/coordination/tasks/coord-task-01kn9vdqfnnkkywq1bb0jk5fq8-e8f227e8f9eb292e.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9vdqfnnkkywq1bb0jk5fq8-e8f227e8f9eb292e.json",
@@ -2425,7 +2425,7 @@
     },
     ".prism/state/indexes/coordination_tasks.json": {
       "path": ".prism/state/indexes/coordination_tasks.json",
-      "sha256": "sha256:ebb0e135ad75725fbc4ba4351b55f6ebe5b9d43b89c7f173d9c57afd47fb6f24"
+      "sha256": "sha256:ed573ce8b134310e7104f650c852023be9ecec66bb76e9117047db39ff129729"
     },
     ".prism/state/indexes/plans.json": {
       "path": ".prism/state/indexes/plans.json",
@@ -2633,7 +2633,7 @@
     },
     ".prism/state/plans/plan-01kn9vcavs4jft9eqw82ysmghq-140ec859a05ac8c9.json": {
       "path": ".prism/state/plans/plan-01kn9vcavs4jft9eqw82ysmghq-140ec859a05ac8c9.json",
-      "sha256": "sha256:45a823114d9b0cecab98e6f8d4891af08d602dc4f9b1e9f5d367864772bf5e6b"
+      "sha256": "sha256:d203baeaf6d170379ea6550b6054485fe0dd36a12884c1ec7764430bf9cd5105"
     },
     ".prism/state/plans/plan-01kn9xsvp1a376w7xmq08gn4nh-36bad8e44d57f454.json": {
       "path": ".prism/state/plans/plan-01kn9xsvp1a376w7xmq08gn4nh-36bad8e44d57f454.json",
@@ -2668,13 +2668,13 @@
       "sha256": "sha256:25b396965686f9dc300002f26a9ba19c826a387a00b6e3ee799116d6a0f64457"
     }
   },
-  "previousManifestDigest": "sha256:7ba85c53178872df4d15aa1a712754cf02f6098041dd9fa7e3a50f7399d3087c",
+  "previousManifestDigest": "sha256:e3cc001619eaf05f8fca6f9f836603c6328cbc42df7c7913d843a872d9b027d3",
   "migrationSourceDigest": "sha256:29be826a9e4869880d788dda166c588fd3513bcecc43c4b019205486a2115994",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:IGICpR+l3Zb48szUr9xEjjOaZ5m8o5eJKdVTsvqZKqdeydfD+B5uC2eNNO1hFbYv1dL0igbo2lq2/CwwR6e2DA=="
+    "value": "base64:0pY7HQWrCiHXFjNN6US/Jk3eZxpNfZNItWC9iuiESM//9r5+H5e4BN3Eu/8VDiGRmiF7x/blPjCwHhSfnn4KBA=="
   }
 }

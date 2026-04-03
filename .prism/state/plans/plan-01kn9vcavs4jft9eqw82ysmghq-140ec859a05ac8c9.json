@@ -140,7 +140,7 @@
         "kind": "Edit",
         "title": "Normalize tracked snapshot, protected publication, and shared/runtime serialization to repo-relative paths",
         "summary": "Remove absolute path leakage from tracked `.prism/state/**`, protected publication flows, shared journals, and repo-published change snapshots, using anchors as the primary reference and repo-relative paths only as the fallback file-level reference.",
-        "status": "InProgress",
+        "status": "Completed",
         "bindings": {
           "anchors": [],
           "concept_handles": [],
@@ -172,7 +172,7 @@
         "is_abstract": false,
         "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
         "base_revision": {
-          "graph_version": 97,
+          "graph_version": 98,
           "git_commit": null
         },
         "priority": 1,
@@ -377,6 +377,15 @@
         "metadata": null
       },
       {
+        "id": "plan-edge:coord-task:01kn9vd88apgdq35f4hr9tmsss:depends-on:coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "from": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+        "to": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
         "id": "plan-edge:coord-task:01kn9vdfjsrbzwz5w5mff8yqck:depends-on:coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
         "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
         "from": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
@@ -390,15 +399,6 @@
         "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
         "from": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
         "to": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01kn9vd88apgdq35f4hr9tmsss:depends-on:coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
-        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
-        "from": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
-        "to": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
         "kind": "DependsOn",
         "summary": null,
         "metadata": null
@@ -425,6 +425,23 @@
     },
     {
       "node_id": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+      "pending_handoff_to": null,
+      "session": null,
+      "worktree_id": null,
+      "branch_ref": null,
+      "effective_assignee": null,
+      "awaiting_handoff_from": null,
+      "git_execution": {
+        "status": "published",
+        "pendingTaskStatus": null,
+        "sourceRef": "task/path-identity-repo-relative",
+        "targetRef": "origin/main",
+        "publishRef": "task/path-identity-repo-relative",
+        "targetBranch": "main"
+      }
+    },
+    {
+      "node_id": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
       "pending_handoff_to": null,
       "session": null,
       "worktree_id": null,
