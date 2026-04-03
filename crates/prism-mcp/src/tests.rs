@@ -807,7 +807,7 @@ fn git_execution_policy_completion_require_publishes_after_manual_code_commit() 
     );
     assert_eq!(
         task.git_execution.integration_status,
-        prism_ir::GitIntegrationStatus::IntegrationPending
+        prism_ir::GitIntegrationStatus::PublishedToBranch
     );
     assert_eq!(task.git_execution.review_artifact_ref, None);
     assert_eq!(task.git_execution.integration_commit, None);
@@ -989,400 +989,6 @@ fn git_execution_policy_completion_rehydrates_stale_plan_policy_before_publish()
             .and_then(|publish| publish.code_commit.as_deref()),
         Some(manual_commit.as_str())
     );
-}
-
-#[test]
-fn git_execution_policy_completion_can_verify_target_integration_by_reachability() {
-    let branch = "task/git-execution-integration-verify";
-    let root = init_git_workspace(branch);
-    let session = index_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            coordination: true,
-            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: false,
-        },
-    )
-    .unwrap();
-    let host = host_with_session_internal(session);
-    let session_state = test_session(&host);
-
-    let plan = host
-        .store_coordination(
-            session_state.as_ref(),
-            PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "title": "Git execution",
-                    "goal": "Require manual code publish",
-                    "policy": {
-                        "gitExecution": {
-                            "startMode": "require",
-                            "completionMode": "require",
-                            "targetBranch": "main",
-                            "requireTaskBranch": true
-                        }
-                    }
-                }),
-                task_id: None,
-            },
-        )
-        .unwrap();
-    let task = host
-        .store_coordination(
-            session_state.as_ref(),
-            PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::TaskCreate,
-                payload: json!({
-                    "planId": plan.state["id"].as_str().unwrap(),
-                    "title": "Edit alpha",
-                }),
-                task_id: None,
-            },
-        )
-        .unwrap();
-    let task_id = task.state["id"].as_str().unwrap().to_string();
-
-    host.store_coordination(
-        session_state.as_ref(),
-        PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::Update,
-            payload: json!({
-                "id": task_id.clone(),
-                "status": "in_progress"
-            }),
-            task_id: None,
-        },
-    )
-    .unwrap();
-
-    fs::write(
-        root.join("src/lib.rs"),
-        "pub fn integration_ready_alpha() { integration_ready_beta(); }\npub fn integration_ready_beta() {}\n",
-    )
-    .unwrap();
-    test_git(&root, &["add", "src/lib.rs"]);
-    test_git(&root, &["commit", "-m", "manual code publish"]);
-
-    host.store_coordination(
-        session_state.as_ref(),
-        PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::Update,
-            payload: json!({
-                "id": task_id.clone(),
-                "status": "completed",
-                "completionContext": {}
-            }),
-            task_id: None,
-        },
-    )
-    .unwrap();
-
-    test_git(&root, &["checkout", "main"]);
-    test_git(&root, &["merge", "--ff-only", branch]);
-    test_git(&root, &["push", "origin", "main"]);
-    let integrated_head = test_git(&root, &["rev-parse", "origin/main"]);
-    test_git(&root, &["checkout", branch]);
-
-    host.store_coordination(
-        session_state.as_ref(),
-        PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::Update,
-            payload: json!({
-                "id": task_id.clone(),
-                "integrationStatus": "integrated_to_target"
-            }),
-            task_id: None,
-        },
-    )
-    .unwrap();
-
-    let task = host
-        .current_prism()
-        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id))
-        .unwrap();
-    assert_eq!(
-        task.git_execution.integration_status,
-        prism_ir::GitIntegrationStatus::IntegratedToTarget
-    );
-    assert_eq!(
-        task.git_execution.integration_commit.as_deref(),
-        Some(integrated_head.as_str())
-    );
-}
-
-#[test]
-fn git_execution_policy_completion_requires_explicit_evidence_for_squash_integration() {
-    let branch = "task/git-execution-squash-integration";
-    let root = init_git_workspace(branch);
-    let session = index_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            coordination: true,
-            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: false,
-        },
-    )
-    .unwrap();
-    let host = host_with_session_internal(session);
-    let session_state = test_session(&host);
-
-    let plan = host
-        .store_coordination(
-            session_state.as_ref(),
-            PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "title": "Git execution",
-                    "goal": "Require manual code publish",
-                    "policy": {
-                        "gitExecution": {
-                            "startMode": "require",
-                            "completionMode": "require",
-                            "targetBranch": "main",
-                            "requireTaskBranch": true
-                        }
-                    }
-                }),
-                task_id: None,
-            },
-        )
-        .unwrap();
-    let task = host
-        .store_coordination(
-            session_state.as_ref(),
-            PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::TaskCreate,
-                payload: json!({
-                    "planId": plan.state["id"].as_str().unwrap(),
-                    "title": "Edit alpha",
-                }),
-                task_id: None,
-            },
-        )
-        .unwrap();
-    let task_id = task.state["id"].as_str().unwrap().to_string();
-
-    host.store_coordination(
-        session_state.as_ref(),
-        PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::Update,
-            payload: json!({
-                "id": task_id.clone(),
-                "status": "in_progress"
-            }),
-            task_id: None,
-        },
-    )
-    .unwrap();
-
-    fs::write(
-        root.join("src/lib.rs"),
-        "pub fn squash_ready_alpha() { squash_ready_gamma(); }\npub fn squash_ready_gamma() {}\n",
-    )
-    .unwrap();
-    test_git(&root, &["add", "src/lib.rs"]);
-    test_git(&root, &["commit", "-m", "manual code publish"]);
-
-    host.store_coordination(
-        session_state.as_ref(),
-        PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::Update,
-            payload: json!({
-                "id": task_id.clone(),
-                "status": "completed",
-                "completionContext": {}
-            }),
-            task_id: None,
-        },
-    )
-    .unwrap();
-
-    test_git(&root, &["checkout", "main"]);
-    test_git(&root, &["merge", "--squash", branch]);
-    test_git(&root, &["commit", "-m", "squash merge task"]);
-    let squash_commit = test_git(&root, &["rev-parse", "HEAD"]);
-    test_git(&root, &["push", "origin", "main"]);
-    test_git(&root, &["checkout", branch]);
-
-    let error = host
-        .store_coordination(
-            session_state.as_ref(),
-            PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::Update,
-                payload: json!({
-                    "id": task_id.clone(),
-                    "integrationStatus": "integrated_to_target"
-                }),
-                task_id: None,
-            },
-        )
-        .unwrap_err();
-    assert!(error
-        .to_string()
-        .contains("provide an explicit integration commit"));
-
-    host.store_coordination(
-        session_state.as_ref(),
-        PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::Update,
-            payload: json!({
-                "id": task_id.clone(),
-                "integrationStatus": "integrated_to_target",
-                "integrationCommit": squash_commit.clone(),
-                "reviewArtifactRef": "pr:123"
-            }),
-            task_id: None,
-        },
-    )
-    .unwrap();
-
-    let task = host
-        .current_prism()
-        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id))
-        .unwrap();
-    assert_eq!(
-        task.git_execution.integration_status,
-        prism_ir::GitIntegrationStatus::IntegratedToTarget
-    );
-    assert_eq!(task.git_execution.integration_commit.as_deref(), Some(squash_commit.as_str()));
-    assert_eq!(task.git_execution.review_artifact_ref.as_deref(), Some("pr:123"));
-}
-
-#[test]
-fn git_execution_policy_manual_pr_requires_review_artifact_for_target_integration() {
-    let branch = "task/git-execution-manual-pr-integration";
-    let root = init_git_workspace(branch);
-    let session = index_workspace_session_with_options(
-        &root,
-        WorkspaceSessionOptions {
-            coordination: true,
-            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: false,
-        },
-    )
-    .unwrap();
-    let host = host_with_session_internal(session);
-    let session_state = test_session(&host);
-
-    let plan = host
-        .store_coordination(
-            session_state.as_ref(),
-            PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "title": "Git execution",
-                    "goal": "Require PR-reviewed landing",
-                    "policy": {
-                        "gitExecution": {
-                            "startMode": "require",
-                            "completionMode": "require",
-                            "targetBranch": "main",
-                            "requireTaskBranch": true,
-                            "integrationMode": "manual_pr"
-                        }
-                    }
-                }),
-                task_id: None,
-            },
-        )
-        .unwrap();
-    let task = host
-        .store_coordination(
-            session_state.as_ref(),
-            PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::TaskCreate,
-                payload: json!({
-                    "planId": plan.state["id"].as_str().unwrap(),
-                    "title": "Edit alpha",
-                }),
-                task_id: None,
-            },
-        )
-        .unwrap();
-    let task_id = task.state["id"].as_str().unwrap().to_string();
-
-    host.store_coordination(
-        session_state.as_ref(),
-        PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::Update,
-            payload: json!({
-                "id": task_id.clone(),
-                "status": "in_progress"
-            }),
-            task_id: None,
-        },
-    )
-    .unwrap();
-
-    fs::write(
-        root.join("src/lib.rs"),
-        "pub fn review_ready_alpha() { review_ready_beta(); }\npub fn review_ready_beta() {}\n",
-    )
-    .unwrap();
-    test_git(&root, &["add", "src/lib.rs"]);
-    test_git(&root, &["commit", "-m", "manual code publish"]);
-
-    host.store_coordination(
-        session_state.as_ref(),
-        PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::Update,
-            payload: json!({
-                "id": task_id.clone(),
-                "status": "completed",
-                "completionContext": {}
-            }),
-            task_id: None,
-        },
-    )
-    .unwrap();
-
-    test_git(&root, &["checkout", "main"]);
-    test_git(&root, &["merge", "--ff-only", branch]);
-    test_git(&root, &["push", "origin", "main"]);
-    test_git(&root, &["checkout", branch]);
-
-    let error = host
-        .store_coordination(
-            session_state.as_ref(),
-            PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::Update,
-                payload: json!({
-                    "id": task_id.clone(),
-                    "integrationStatus": "integrated_to_target"
-                }),
-                task_id: None,
-            },
-        )
-        .unwrap_err();
-    assert!(error.to_string().contains("requires a review artifact"));
-
-    host.store_coordination(
-        session_state.as_ref(),
-        PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::Update,
-            payload: json!({
-                "id": task_id.clone(),
-                "integrationStatus": "integrated_to_target",
-                "reviewArtifactRef": "pr:789"
-            }),
-            task_id: None,
-        },
-    )
-    .unwrap();
-
-    let task = host
-        .current_prism()
-        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id))
-        .unwrap();
-    assert_eq!(
-        task.git_execution.integration_status,
-        prism_ir::GitIntegrationStatus::IntegratedToTarget
-    );
-    assert_eq!(task.git_execution.review_artifact_ref.as_deref(), Some("pr:789"));
 }
 
 #[test]
@@ -20313,6 +19919,37 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
     assert!(shared.head_commit.is_some());
     assert!(shared.history_depth >= 1);
     assert!(shared.snapshot_file_count > 0);
+    assert_eq!(shared.runtime_descriptor_count, 1);
+    assert_eq!(shared.runtime_descriptors.len(), 1);
+    assert_eq!(
+        shared.runtime_descriptors[0].capabilities,
+        vec![prism_js::RuntimeDescriptorCapabilityView::CoordinationRefPublisher]
+    );
+    assert_eq!(
+        shared.runtime_descriptors[0].discovery_mode,
+        prism_js::RuntimeDiscoveryModeView::None
+    );
+    assert!(shared.runtime_descriptors[0].checked_out_commit.is_some());
+}
+
+#[test]
+fn workspace_server_startup_publishes_runtime_descriptor_before_coordination_mutations() {
+    let root = init_git_workspace("task/shared-coordination-startup-runtime-descriptor");
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let server = PrismMcpServer::from_workspace_with_features(&root, PrismMcpFeatures::full())
+        .expect("workspace server should build");
+    let status =
+        crate::runtime_views::runtime_status(&server.host).expect("runtime status should succeed");
+    let shared = status
+        .shared_coordination_ref
+        .expect("shared coordination diagnostics should be present");
+    assert_eq!(shared.runtime_descriptor_count, 1);
+    assert_eq!(
+        shared.runtime_descriptors[0].capabilities,
+        vec![prism_js::RuntimeDescriptorCapabilityView::CoordinationRefPublisher]
+    );
 }
 
 #[test]

@@ -484,6 +484,15 @@ impl PrismMcpServer {
         let prism_started = std::time::Instant::now();
         let prism = session.prism_arc();
         let get_prism_ms = prism_started.elapsed().as_millis();
+        if features.coordination_layer_enabled() {
+            if let Err(error) = prism_core::sync_live_runtime_descriptor(root) {
+                debug!(
+                    error = %error,
+                    root = %root.display(),
+                    "failed to publish shared coordination runtime descriptor on server startup"
+                );
+            }
+        }
         info!(
             root = %root.display(),
             node_count = prism.graph().node_count(),

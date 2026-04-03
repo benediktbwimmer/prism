@@ -99,7 +99,8 @@ pub use session::{
     WorkspaceSnapshotRevisions,
 };
 pub use shared_coordination_ref::{
-    shared_coordination_ref_diagnostics, SharedCoordinationRefDiagnostics,
+    shared_coordination_ref_diagnostics, sync_live_runtime_descriptor,
+    SharedCoordinationRefDiagnostics,
 };
 pub use shared_runtime_backend::SharedRuntimeBackend;
 pub use snapshot_artifact_repair::regenerate_repo_snapshot_derived_artifacts;
