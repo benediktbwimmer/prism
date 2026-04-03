@@ -393,6 +393,11 @@ Two small metadata files make the hierarchy manageable:
 These files are for discovery, cleanup, and debugging. They do not replace the
 actual runtime records inside the database.
 
+They are also an explicit exception to the repo-portable path contract in
+[`PATH_IDENTITY_CONTRACT.md`](PATH_IDENTITY_CONTRACT.md):
+`repo.json` and `worktree.json` may store canonical locator paths because they
+are local discovery metadata, not portable semantic repo state.
+
 ## Identity Derivation
 
 `repo_id` and `worktree_id` need stricter rules than simple path-joins.
