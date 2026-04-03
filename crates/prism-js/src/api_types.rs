@@ -2,9 +2,8 @@ use prism_coordination::BlockerKind;
 use prism_ir::{
     AnchorRef, ArtifactStatus, BlockerCauseSource, Capability, ClaimMode, ClaimStatus,
     ConflictOverlapKind, ConflictSeverity, CoordinationTaskStatus, EdgeKind, EdgeOrigin,
-    GitExecutionStatus, GitIntegrationMode, GitIntegrationStatus, Language, NodeKind,
-    PlanEdgeKind, PlanKind, PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus, PlanScope,
-    PlanStatus, Span,
+    GitExecutionStatus, GitIntegrationMode, GitIntegrationStatus, Language, NodeKind, PlanEdgeKind,
+    PlanKind, PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus, Span,
 };
 use prism_memory::OutcomeEvent;
 use schemars::JsonSchema;

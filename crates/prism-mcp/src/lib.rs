@@ -270,7 +270,9 @@ impl PrismMcpCli {
                 "shared runtime backend must be configured with either --shared-runtime-sqlite or --shared-runtime-uri, not both"
             )),
             (Some(path), None) => Ok(SharedRuntimeBackend::Sqlite { path: path.clone() }),
-            (None, Some(uri)) => Ok(SharedRuntimeBackend::Remote { uri: uri.clone() }),
+            (None, Some(_)) => Err(anyhow!(
+                "the old --shared-runtime-uri backend split is disabled in the federated runtime architecture; use shared coordination refs with the local shared runtime sqlite instead"
+            )),
             (None, None) => default_workspace_shared_runtime(root),
         }
     }

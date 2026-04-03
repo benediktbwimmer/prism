@@ -78,7 +78,7 @@ pub(crate) fn spawn_fs_watch(
     store: Arc<Mutex<SqliteStore>>,
     cold_query_store: Arc<Mutex<SqliteStore>>,
     shared_runtime_store: Option<Arc<Mutex<SharedRuntimeStore>>>,
-    shared_runtime_sqlite: Option<PathBuf>,
+    shared_runtime: SharedRuntimeBackend,
     refresh_lock: Arc<Mutex<()>>,
     refresh_state: Arc<WorkspaceRefreshState>,
     loaded_workspace_revision: Arc<AtomicU64>,
@@ -170,7 +170,7 @@ pub(crate) fn spawn_fs_watch(
                     &store,
                     &cold_query_store,
                     shared_runtime_store.as_ref(),
-                    shared_runtime_sqlite.as_deref(),
+                    &shared_runtime,
                     &refresh_lock,
                     &refresh_state,
                     &loaded_workspace_revision,
@@ -211,7 +211,7 @@ pub(crate) fn spawn_protected_state_watch(
     store: Arc<Mutex<SqliteStore>>,
     cold_query_store: Arc<Mutex<SqliteStore>>,
     shared_runtime_store: Option<Arc<Mutex<SharedRuntimeStore>>>,
-    shared_runtime_sqlite: Option<PathBuf>,
+    shared_runtime: SharedRuntimeBackend,
     refresh_lock: Arc<Mutex<()>>,
     loaded_workspace_revision: Arc<AtomicU64>,
     coordination_enabled: bool,
@@ -282,7 +282,7 @@ pub(crate) fn spawn_protected_state_watch(
                 &store,
                 &cold_query_store,
                 shared_runtime_store.as_ref(),
-                shared_runtime_sqlite.as_deref(),
+                &shared_runtime,
                 &refresh_lock,
                 &loaded_workspace_revision,
                 coordination_enabled,
@@ -360,7 +360,7 @@ pub(crate) fn refresh_prism_snapshot(
     store: &Arc<Mutex<SqliteStore>>,
     cold_query_store: &Arc<Mutex<SqliteStore>>,
     shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
-    shared_runtime_sqlite: Option<&Path>,
+    shared_runtime: &SharedRuntimeBackend,
     refresh_lock: &Arc<Mutex<()>>,
     refresh_state: &Arc<WorkspaceRefreshState>,
     loaded_workspace_revision: &Arc<AtomicU64>,
@@ -385,7 +385,7 @@ pub(crate) fn refresh_prism_snapshot(
         store,
         cold_query_store,
         shared_runtime_store,
-        shared_runtime_sqlite,
+        shared_runtime,
         refresh_state,
         loaded_workspace_revision,
         fs_snapshot,
@@ -409,7 +409,7 @@ pub(crate) fn try_refresh_prism_snapshot(
     store: &Arc<Mutex<SqliteStore>>,
     cold_query_store: &Arc<Mutex<SqliteStore>>,
     shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
-    shared_runtime_sqlite: Option<&Path>,
+    shared_runtime: &SharedRuntimeBackend,
     refresh_lock: &Arc<Mutex<()>>,
     refresh_state: &Arc<WorkspaceRefreshState>,
     loaded_workspace_revision: &Arc<AtomicU64>,
@@ -434,7 +434,7 @@ pub(crate) fn try_refresh_prism_snapshot(
         store,
         cold_query_store,
         shared_runtime_store,
-        shared_runtime_sqlite,
+        shared_runtime,
         refresh_state,
         loaded_workspace_revision,
         fs_snapshot,
@@ -459,7 +459,7 @@ fn refresh_prism_snapshot_with_guard(
     store: &Arc<Mutex<SqliteStore>>,
     cold_query_store: &Arc<Mutex<SqliteStore>>,
     shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
-    shared_runtime_sqlite: Option<&Path>,
+    shared_runtime: &SharedRuntimeBackend,
     refresh_state: &Arc<WorkspaceRefreshState>,
     loaded_workspace_revision: &Arc<AtomicU64>,
     fs_snapshot: &Arc<Mutex<WorkspaceTreeSnapshot>>,
@@ -566,16 +566,10 @@ fn refresh_prism_snapshot_with_guard(
         refresh_runtime_roots,
         Some(cached_snapshot),
         checkpoint_materializer,
-        crate::WorkspaceSessionOptions {
-            coordination: coordination_enabled,
-            shared_runtime: shared_runtime_sqlite
-                .map(|path| SharedRuntimeBackend::Sqlite {
-                    path: path.to_path_buf(),
-                })
-                .unwrap_or(SharedRuntimeBackend::Disabled),
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
-        },
+        crate::workspace_session_defaults::runtime_rebuild_session_options(
+            coordination_enabled,
+            shared_runtime,
+        ),
     )?;
     indexer.shared_runtime_materializer = shared_runtime_materializer;
     populate_package_regions(&mut plan.delta, &indexer.layout);
@@ -1222,7 +1216,7 @@ pub(crate) fn sync_protected_state_watch_update(
     store: &Arc<Mutex<SqliteStore>>,
     cold_query_store: &Arc<Mutex<SqliteStore>>,
     shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
-    shared_runtime_sqlite: Option<&Path>,
+    shared_runtime: &SharedRuntimeBackend,
     refresh_lock: &Arc<Mutex<()>>,
     loaded_workspace_revision: &Arc<AtomicU64>,
     coordination_enabled: bool,
@@ -1237,7 +1231,7 @@ pub(crate) fn sync_protected_state_watch_update(
         .expect("protected-state refresh lock poisoned");
     let workspace_cache_path = cache_path(root)?;
     let shared_runtime_aliases_workspace_store =
-        shared_runtime_sqlite == Some(workspace_cache_path.as_path());
+        shared_runtime.aliases_sqlite_path(workspace_cache_path.as_path());
 
     let (report, local_workspace_revision, shared_workspace_revision, plan_state) =
         if let Some(shared_runtime_store) = shared_runtime_store {
@@ -1381,7 +1375,8 @@ pub(crate) fn sync_shared_coordination_ref_watch_update(
             .expect("shared runtime store lock poisoned")
             .coordination_revision()?
     } else {
-        store.lock()
+        store
+            .lock()
             .expect("workspace store lock poisoned")
             .coordination_revision()?
     };

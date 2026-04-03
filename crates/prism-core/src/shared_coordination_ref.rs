@@ -174,7 +174,9 @@ fn record_observed_shared_coordination_head(root: &Path, head: Option<String>) {
         .expect("shared coordination live sync state lock poisoned")
         .insert(
             root.to_path_buf(),
-            SharedCoordinationLiveSyncState { observed_head: head },
+            SharedCoordinationLiveSyncState {
+                observed_head: head,
+            },
         );
 }
 
@@ -211,9 +213,11 @@ pub(crate) fn poll_shared_coordination_ref_live_sync(
     if current_head.is_none() {
         return Ok(SharedCoordinationRefLiveSync::Unchanged);
     }
-    Ok(load_shared_coordination_ref_state_from_current_ref(root, &ref_name)?
-        .map(SharedCoordinationRefLiveSync::Changed)
-        .unwrap_or(SharedCoordinationRefLiveSync::Unchanged))
+    Ok(
+        load_shared_coordination_ref_state_from_current_ref(root, &ref_name)?
+            .map(SharedCoordinationRefLiveSync::Changed)
+            .unwrap_or(SharedCoordinationRefLiveSync::Unchanged),
+    )
 }
 
 fn stage_root(paths: &PrismPaths) -> PathBuf {
@@ -748,7 +752,9 @@ pub(crate) fn shared_coordination_ref_exists(root: &Path) -> Result<bool> {
     Ok(resolve_ref_commit(root, &shared_coordination_ref_name(root))?.is_some())
 }
 
-pub fn shared_coordination_ref_diagnostics(root: &Path) -> Result<Option<SharedCoordinationRefDiagnostics>> {
+pub fn shared_coordination_ref_diagnostics(
+    root: &Path,
+) -> Result<Option<SharedCoordinationRefDiagnostics>> {
     if !git_repo_available(root) {
         return Ok(None);
     }
@@ -1157,13 +1163,7 @@ fn push_shared_coordination_ref(
     ref_name: &str,
     expected_remote_head: Option<&str>,
 ) -> Result<()> {
-    push_commit_to_shared_coordination_ref(
-        root,
-        remote,
-        ref_name,
-        ref_name,
-        expected_remote_head,
-    )
+    push_commit_to_shared_coordination_ref(root, remote, ref_name, ref_name, expected_remote_head)
 }
 
 fn push_commit_to_shared_coordination_ref(
@@ -1276,7 +1276,14 @@ fn update_ref_to_commit(
         Some(old_commit) => {
             let _ = run_git(
                 root,
-                &["update-ref", "-m", message, ref_name, new_commit, old_commit],
+                &[
+                    "update-ref",
+                    "-m",
+                    message,
+                    ref_name,
+                    new_commit,
+                    old_commit,
+                ],
             )?;
         }
         None => {
@@ -1571,8 +1578,7 @@ mod tests {
         implicit_principal_identity, initialize_shared_coordination_ref_live_sync,
         load_shared_coordination_ref_state, poll_shared_coordination_ref_live_sync,
         shared_coordination_ref_diagnostics, shared_coordination_ref_exists,
-        sync_shared_coordination_ref_state,
-        SharedCoordinationRefLiveSync,
+        sync_shared_coordination_ref_state, SharedCoordinationRefLiveSync,
     };
     use crate::index_workspace_session;
     use crate::published_plans::load_hydrated_coordination_plan_state;
@@ -1671,7 +1677,14 @@ mod tests {
         }
     }
 
-    fn sample_snapshot_for(plan_id: &str, task_id: &str) -> (CoordinationSnapshot, PlanGraph, BTreeMap<String, Vec<PlanExecutionOverlay>>) {
+    fn sample_snapshot_for(
+        plan_id: &str,
+        task_id: &str,
+    ) -> (
+        CoordinationSnapshot,
+        PlanGraph,
+        BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    ) {
         let plan_id = PlanId::new(plan_id.to_string());
         let task_id = CoordinationTaskId::new(task_id.to_string());
         let plan = Plan {
@@ -2382,7 +2395,9 @@ mod tests {
             SharedCoordinationRefLiveSync::Unchanged
         ));
 
-        let before_revision = session.coordination_runtime_revision.load(Ordering::Relaxed);
+        let before_revision = session
+            .coordination_runtime_revision
+            .load(Ordering::Relaxed);
         crate::watch::sync_shared_coordination_ref_watch_update(
             &root_a,
             &session.published_generation,
@@ -2397,7 +2412,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            session.coordination_runtime_revision.load(Ordering::Relaxed),
+            session
+                .coordination_runtime_revision
+                .load(Ordering::Relaxed),
             before_revision
         );
 
@@ -2463,14 +2480,12 @@ mod tests {
             session.coordination_enabled,
         )
         .unwrap();
-        assert!(
-            session
-                .prism()
-                .coordination_snapshot()
-                .claims
-                .iter()
-                .any(|claim| claim.id.0 == "claim:shared-live-sync")
-        );
+        assert!(session
+            .prism()
+            .coordination_snapshot()
+            .claims
+            .iter()
+            .any(|claim| claim.id.0 == "claim:shared-live-sync"));
         assert_eq!(
             session.prism().coordination_snapshot().tasks[0].status,
             CoordinationTaskStatus::Completed

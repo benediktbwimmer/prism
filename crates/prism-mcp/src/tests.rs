@@ -20304,7 +20304,8 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
     )
     .expect("task create should succeed");
 
-    let status = crate::runtime_views::runtime_status(&host).expect("runtime status should succeed");
+    let status =
+        crate::runtime_views::runtime_status(&host).expect("runtime status should succeed");
     let shared = status
         .shared_coordination_ref
         .expect("shared coordination diagnostics should be present");

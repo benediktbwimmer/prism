@@ -242,6 +242,11 @@ fn bridge(
     if shared_runtime_sqlite.is_some() && shared_runtime_uri.is_some() {
         bail!("configure either shared runtime sqlite or shared runtime uri, not both");
     }
+    if shared_runtime_uri.is_some() {
+        bail!(
+            "the old --shared-runtime-uri backend split is disabled in the federated runtime architecture; use shared coordination refs with the local shared runtime sqlite instead"
+        );
+    }
 
     let paths = McpPaths::for_root(root)?;
     let binary = prism_mcp_binary()?;
@@ -306,7 +311,10 @@ fn status(root: &Path) -> Result<()> {
         println!("cache_path: {} (missing)", paths.cache_path.display());
     }
     if let Some(shared_coordination_ref) = shared_coordination_ref_diagnostics(root)? {
-        println!("shared_coordination_ref: {}", shared_coordination_ref.ref_name);
+        println!(
+            "shared_coordination_ref: {}",
+            shared_coordination_ref.ref_name
+        );
         println!(
             "shared_coordination_head: {}",
             shared_coordination_ref
@@ -394,6 +402,11 @@ fn start(
     restart_nonce: Option<&str>,
     startup_marker: Option<StartupMarkerGuard>,
 ) -> Result<()> {
+    if shared_runtime_uri.is_some() {
+        bail!(
+            "the old --shared-runtime-uri backend split is disabled in the federated runtime architecture; use shared coordination refs with the local shared runtime sqlite instead"
+        );
+    }
     let paths = McpPaths::for_root(root)?;
     let mut processes = list_processes(root)?;
     let orphaned = orphaned_bridges(&processes);
@@ -1904,6 +1917,25 @@ mod tests {
                 ]
         }));
         assert!(args.contains(&"--no-coordination".to_string()));
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn bridge_rejects_legacy_shared_runtime_uri_split() {
+        let root = temp_root("bridge-shared-runtime-uri-disabled");
+        let error = bridge(
+            &root,
+            false,
+            false,
+            None,
+            Some("postgres://runtime.example/prism".to_string()),
+            false,
+            None,
+        )
+        .expect_err("legacy shared runtime uri split should be rejected");
+        assert!(error
+            .to_string()
+            .contains("old --shared-runtime-uri backend split is disabled"));
         fs::remove_dir_all(root).ok();
     }
 

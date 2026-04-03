@@ -2814,7 +2814,7 @@ fn protected_state_watcher_imports_repo_memory_without_source_refresh() {
         &session.store,
         &session.cold_query_store,
         session.shared_runtime_store.as_ref(),
-        session.shared_runtime.sqlite_path(),
+        &session.shared_runtime,
         &session.refresh_lock,
         &session.loaded_workspace_revision,
         session.coordination_enabled,
@@ -3667,7 +3667,7 @@ fn protected_state_watcher_imports_repo_concepts_without_source_refresh() {
         &session.store,
         &session.cold_query_store,
         session.shared_runtime_store.as_ref(),
-        session.shared_runtime.sqlite_path(),
+        &session.shared_runtime,
         &session.refresh_lock,
         &session.loaded_workspace_revision,
         session.coordination_enabled,
@@ -4905,7 +4905,11 @@ fn source_refresh_does_not_auto_sync_prism_doc() {
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
 
     let session = index_workspace_session(&root).unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\npub fn beta() {}\n").unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() {}\npub fn beta() {}\n",
+    )
+    .unwrap();
 
     let outcome = session.refresh_fs_with_status().unwrap();
     assert_ne!(outcome.status, crate::session::FsRefreshStatus::Clean);
