@@ -54,11 +54,14 @@ pub(crate) fn build_workspace_session(
     backend: Option<Arc<dyn CuratorBackend>>,
 ) -> Result<WorkspaceSession> {
     let started = Instant::now();
+    let sync_protected_started = Instant::now();
     if let Some(shared_store) = shared_runtime_store.as_mut() {
         sync_repo_protected_state(&root, shared_store)?;
     } else {
         sync_repo_protected_state(&root, &mut store)?;
     }
+    let sync_repo_protected_state_ms = sync_protected_started.elapsed().as_millis();
+    let workspace_revision_started = Instant::now();
     let workspace_revision = composite_workspace_revision(
         store.workspace_revision()?,
         shared_runtime_store
@@ -66,12 +69,16 @@ pub(crate) fn build_workspace_session(
             .map(SharedRuntimeStore::workspace_revision)
             .transpose()?,
     );
+    let workspace_revision_ms = workspace_revision_started.elapsed().as_millis();
+    let reopen_stores_started = Instant::now();
     let cold_query_store = store.reopen_runtime_reader()?;
     let curator_store = store.reopen_runtime_reader()?;
+    let reopen_runtime_readers_ms = reopen_stores_started.elapsed().as_millis();
     let loaded_workspace_revision = Arc::new(AtomicU64::new(workspace_revision));
     let store = Arc::new(Mutex::new(store));
     let cold_query_store = Arc::new(Mutex::new(cold_query_store));
     let shared_runtime_store = shared_runtime_store.map(|store| Arc::new(Mutex::new(store)));
+    let load_principal_registry_started = Instant::now();
     let principal_registry = if let Some(shared_runtime_store) = shared_runtime_store.as_ref() {
         let mut store = shared_runtime_store
             .lock()
@@ -81,9 +88,11 @@ pub(crate) fn build_workspace_session(
     } else {
         PrincipalRegistrySnapshot::default()
     };
+    let load_principal_registry_ms = load_principal_registry_started.elapsed().as_millis();
     let shared_runtime_materializer = shared_runtime_store
         .as_ref()
         .map(|store| CheckpointMaterializerHandle::new(root.clone(), Arc::clone(store)));
+    let runtime_state_started = Instant::now();
     let runtime_state = Arc::new(Mutex::new(WorkspaceRuntimeState::new(
         layout,
         graph,
@@ -94,6 +103,8 @@ pub(crate) fn build_workspace_session(
         plan_execution_overlays,
         projections,
     )));
+    let build_runtime_state_ms = runtime_state_started.elapsed().as_millis();
+    let publish_generation_started = Instant::now();
     let published_generation = Arc::new(RwLock::new(
         runtime_state
             .lock()
@@ -109,6 +120,8 @@ pub(crate) fn build_workspace_session(
                 Some(coordination_persist_context_for_root(&root, None)),
             ),
     ));
+    let publish_generation_ms = publish_generation_started.elapsed().as_millis();
+    let attach_cold_backends_started = Instant::now();
     WorkspaceSession::attach_cold_query_backends(
         published_generation
             .read()
@@ -118,6 +131,7 @@ pub(crate) fn build_workspace_session(
         &cold_query_store,
         shared_runtime_store.as_ref(),
     );
+    let attach_cold_query_backends_ms = attach_cold_backends_started.elapsed().as_millis();
     let refresh_lock = Arc::new(Mutex::new(()));
     let refresh_state = Arc::new(WorkspaceRefreshState::new());
     if let Some(refresh) = initial_refresh {
@@ -189,6 +203,13 @@ pub(crate) fn build_workspace_session(
         node_count,
         edge_count,
         file_count,
+        sync_repo_protected_state_ms,
+        workspace_revision_ms,
+        reopen_runtime_readers_ms,
+        load_principal_registry_ms,
+        build_runtime_state_ms,
+        publish_generation_ms,
+        attach_cold_query_backends_ms,
         load_curator_snapshot_ms,
         watch_start_ms,
         total_ms = started.elapsed().as_millis(),

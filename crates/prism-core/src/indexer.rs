@@ -132,15 +132,28 @@ impl WorkspaceIndexer<SqliteStore> {
         cleanup_legacy_cache(&root)?;
         let workspace_store_path = cache_path(&root)?;
         let store = SqliteStore::open(&workspace_store_path)?;
+        let started = Instant::now();
+        let build_local_indexer_started = Instant::now();
         let mut indexer = Self::with_store_and_options(root.clone(), store, options.clone())?;
+        let build_local_indexer_ms = build_local_indexer_started.elapsed().as_millis();
         let shared_runtime_aliases_workspace_store = options
             .shared_runtime
             .aliases_sqlite_path(&workspace_store_path);
+        let open_shared_runtime_started = Instant::now();
         let mut shared_runtime_store = SharedRuntimeStore::open(&options.shared_runtime)?;
+        let open_shared_runtime_store_ms = open_shared_runtime_started.elapsed().as_millis();
+        let mut sync_repo_protected_state_ms = 0_u128;
+        let mut load_shared_plan_state_ms = 0_u128;
+        let mut load_shared_projection_snapshot_ms = 0_u128;
+        let mut load_shared_outcomes_ms = 0_u128;
+        let mut merge_shared_projection_knowledge_ms = 0_u128;
         if let Some(shared_store) = shared_runtime_store.as_mut() {
+            let sync_protected_started = Instant::now();
             let repo_knowledge = load_repo_protected_knowledge(&root)?;
             sync_repo_protected_state(&root, shared_store)?;
+            sync_repo_protected_state_ms = sync_protected_started.elapsed().as_millis();
             if options.coordination && !shared_runtime_aliases_workspace_store {
+                let load_shared_plan_state_started = Instant::now();
                 let plan_state = load_repo_protected_plan_state(&root, shared_store)?;
                 indexer.coordination_snapshot = plan_state
                     .as_ref()
@@ -153,6 +166,7 @@ impl WorkspaceIndexer<SqliteStore> {
                 indexer.plan_execution_overlays = plan_state
                     .map(|state| state.execution_overlays)
                     .unwrap_or_default();
+                load_shared_plan_state_ms = load_shared_plan_state_started.elapsed().as_millis();
             }
             let projection_metadata = indexer.store.load_projection_materialization_metadata()?;
             let local_projection_snapshot = if options.hydrate_persisted_projections {
@@ -167,11 +181,14 @@ impl WorkspaceIndexer<SqliteStore> {
                 options.hydrate_persisted_projections,
                 options.hydrate_persisted_co_change,
             );
+            let load_shared_projection_started = Instant::now();
             let shared_projection_snapshot = if shared_runtime_aliases_workspace_store {
                 None
             } else {
                 shared_store.load_projection_knowledge_snapshot()?
             };
+            load_shared_projection_snapshot_ms =
+                load_shared_projection_started.elapsed().as_millis();
             let base_local_projection_snapshot =
                 local_projection_snapshot.clone().map(|snapshot| {
                     if options.hydrate_persisted_projections {
@@ -185,6 +202,7 @@ impl WorkspaceIndexer<SqliteStore> {
             } else {
                 None
             };
+            let load_shared_outcomes_started = Instant::now();
             indexer.outcomes = if load_plan.load_full_outcomes {
                 shared_store.load_outcome_snapshot()?
             } else {
@@ -192,7 +210,9 @@ impl WorkspaceIndexer<SqliteStore> {
             }
             .map(OutcomeMemory::from_snapshot)
             .unwrap_or_else(OutcomeMemory::new);
+            load_shared_outcomes_ms = load_shared_outcomes_started.elapsed().as_millis();
             merge_repo_patch_events_into_memory(&root, &indexer.outcomes)?;
+            let merge_shared_projection_knowledge_started = Instant::now();
             indexer.projections = merged_projection_index(
                 base_local_projection_snapshot,
                 base_shared_projection_snapshot,
@@ -210,9 +230,28 @@ impl WorkspaceIndexer<SqliteStore> {
                         .chain(shared_projection_snapshot),
                 );
             }
+            merge_shared_projection_knowledge_ms = merge_shared_projection_knowledge_started
+                .elapsed()
+                .as_millis();
         }
         indexer.shared_runtime = options.shared_runtime.clone();
         indexer.shared_runtime_store = shared_runtime_store;
+        info!(
+            root = %root.display(),
+            coordination_enabled = options.coordination,
+            node_count = indexer.graph.node_count(),
+            edge_count = indexer.graph.edge_count(),
+            file_count = indexer.graph.file_count(),
+            build_local_indexer_ms,
+            open_shared_runtime_store_ms,
+            sync_repo_protected_state_ms,
+            load_shared_plan_state_ms,
+            load_shared_projection_snapshot_ms,
+            load_shared_outcomes_ms,
+            merge_shared_projection_knowledge_ms,
+            total_ms = started.elapsed().as_millis(),
+            "finalized prism workspace indexer startup state"
+        );
         Ok(indexer)
     }
 

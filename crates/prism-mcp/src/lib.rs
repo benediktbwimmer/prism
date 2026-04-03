@@ -466,6 +466,7 @@ impl PrismMcpServer {
             coordination = %features.mode_label(),
             "building prism-mcp workspace server"
         );
+        let hydrate_session_started = std::time::Instant::now();
         let session = hydrate_workspace_session_with_options(
             root,
             WorkspaceSessionOptions {
@@ -475,12 +476,18 @@ impl PrismMcpServer {
                 hydrate_persisted_co_change: false,
             },
         )?;
+        let hydrate_workspace_session_ms = hydrate_session_started.elapsed().as_millis();
+        let prism_started = std::time::Instant::now();
         let prism = session.prism_arc();
+        let get_prism_ms = prism_started.elapsed().as_millis();
         info!(
             root = %root.display(),
             node_count = prism.graph().node_count(),
             edge_count = prism.graph().edge_count(),
             file_count = prism.graph().file_count(),
+            hydrate_workspace_session_ms,
+            get_prism_ms,
+            total_ms = started.elapsed().as_millis(),
             "built prism-mcp workspace server"
         );
         if let Err(error) = record_workspace_server_built(
