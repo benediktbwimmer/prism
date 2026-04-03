@@ -1471,6 +1471,7 @@ pub struct PlanView {
     pub kind: PlanKind,
     pub revision: u64,
     pub scheduling: PlanSchedulingView,
+    pub git_execution_policy: GitExecutionPolicyView,
     pub tags: Vec<String>,
     pub created_from: Option<String>,
     pub root_node_ids: Vec<String>,
@@ -1486,6 +1487,7 @@ pub struct PlanListEntryView {
     pub scope: PlanScope,
     pub kind: PlanKind,
     pub scheduling: PlanSchedulingView,
+    pub git_execution_policy: GitExecutionPolicyView,
     pub root_node_ids: Vec<String>,
     pub summary: String,
     pub plan_summary: PlanSummaryView,
@@ -1498,6 +1500,18 @@ pub struct PlanSchedulingView {
     pub urgency: u8,
     pub manual_boost: i16,
     pub due_at: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GitExecutionPolicyView {
+    pub start_mode: String,
+    pub completion_mode: String,
+    pub target_ref: Option<String>,
+    pub target_branch: String,
+    pub require_task_branch: bool,
+    pub max_commits_behind_target: u32,
+    pub max_fetch_age_seconds: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -1591,14 +1605,22 @@ pub struct PlanExecutionOverlayView {
 pub struct GitExecutionOverlayView {
     pub status: GitExecutionStatus,
     pub pending_task_status: Option<CoordinationTaskStatus>,
+    pub source_ref: Option<String>,
+    pub target_ref: Option<String>,
+    pub publish_ref: Option<String>,
     pub target_branch: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct GitPreflightReportView {
+    pub source_ref: Option<String>,
+    pub target_ref: Option<String>,
+    pub publish_ref: Option<String>,
     pub checked_at: u64,
     pub target_branch: String,
+    pub max_commits_behind_target: u32,
+    pub fetch_age_seconds: Option<u64>,
     pub current_branch: Option<String>,
     pub head_commit: Option<String>,
     pub target_commit: Option<String>,
@@ -1614,6 +1636,7 @@ pub struct GitPreflightReportView {
 #[serde(rename_all = "camelCase")]
 pub struct GitPublishReportView {
     pub attempted_at: u64,
+    pub publish_ref: Option<String>,
     pub code_commit: Option<String>,
     pub coordination_commit: Option<String>,
     pub pushed_ref: Option<String>,
@@ -1627,6 +1650,9 @@ pub struct GitPublishReportView {
 pub struct TaskGitExecutionView {
     pub status: GitExecutionStatus,
     pub pending_task_status: Option<CoordinationTaskStatus>,
+    pub source_ref: Option<String>,
+    pub target_ref: Option<String>,
+    pub publish_ref: Option<String>,
     pub target_branch: Option<String>,
     pub last_preflight: Option<GitPreflightReportView>,
     pub last_publish: Option<GitPublishReportView>,
@@ -1746,6 +1772,7 @@ pub struct CoordinationTaskView {
     pub title: String,
     pub summary: Option<String>,
     pub status: CoordinationTaskStatus,
+    pub published_task_status: Option<CoordinationTaskStatus>,
     pub assignee: Option<String>,
     pub pending_handoff_to: Option<String>,
     pub anchors: Vec<AnchorRef>,

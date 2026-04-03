@@ -1482,6 +1482,7 @@ pub(crate) fn create_task_mutation(
         title: input.title.clone(),
         summary: None,
         status: input.status.unwrap_or(CoordinationTaskStatus::Ready),
+        published_task_status: None,
         assignee: input.assignee,
         pending_handoff_to: None,
         session: input.session,
@@ -1542,6 +1543,17 @@ pub(crate) fn update_task_mutation(
     current_revision: WorkspaceRevision,
     now: Timestamp,
 ) -> Result<CoordinationTask> {
+    update_task_mutation_with_options(state, meta, input, current_revision, now, false)
+}
+
+pub(crate) fn update_task_mutation_with_options(
+    state: &mut CoordinationState,
+    meta: EventMeta,
+    input: TaskUpdateInput,
+    current_revision: WorkspaceRevision,
+    now: Timestamp,
+    authoritative_only: bool,
+) -> Result<CoordinationTask> {
     let update_kind = input.kind.is_some();
     let update_status = input.status.is_some();
     let update_assignee = input.assignee.is_some();
@@ -1559,9 +1571,11 @@ pub(crate) fn update_task_mutation(
     let update_base_revision = input.base_revision.is_some();
     let update_priority = input.priority.is_some();
     let update_tags = input.tags.is_some();
+    let update_published_task_status = input.published_task_status.is_some();
     let git_execution_only_update = input.git_execution.is_some()
         && input.kind.is_none()
         && input.status.is_none()
+        && input.published_task_status.is_none()
         && input.assignee.is_none()
         && input.session.is_none()
         && input.worktree_id.is_none()
@@ -1583,6 +1597,17 @@ pub(crate) fn update_task_mutation(
     }
     if input.status.is_some() {
         push_patch_op(&mut patch, "status", "set");
+    }
+    if let Some(published_task_status) = input.published_task_status.as_ref() {
+        push_patch_op(
+            &mut patch,
+            "publishedTaskStatus",
+            if published_task_status.is_some() {
+                "set"
+            } else {
+                "clear"
+            },
+        );
     }
     if input.git_execution.is_some() {
         push_patch_op(&mut patch, "gitExecution", "set");
@@ -1782,29 +1807,32 @@ pub(crate) fn update_task_mutation(
             .map(|status| status != previous.status)
             .unwrap_or(false);
         if let Some(status) = input.status {
-            if let Err(error) = validate_task_transition(previous.status, status) {
-                let violations = vec![policy_violation(
-                    PolicyViolationCode::InvalidTaskTransition,
-                    error.to_string(),
-                    Some(previous.plan.clone()),
-                    Some(previous.id.clone()),
-                    None,
-                    None,
-                    json!({
-                        "from": format!("{:?}", previous.status),
-                        "to": format!("{:?}", status),
-                    }),
-                )];
-                return Err(rejection_error(
-                    state,
-                    &meta,
-                    "coordination task update rejected",
-                    Some(previous.plan.clone()),
-                    Some(previous.id.clone()),
-                    None,
-                    None,
-                    violations,
-                ));
+            let skip_transition_validation = authoritative_only && input.git_execution.is_some();
+            if !skip_transition_validation {
+                if let Err(error) = validate_task_transition(previous.status, status) {
+                    let violations = vec![policy_violation(
+                        PolicyViolationCode::InvalidTaskTransition,
+                        error.to_string(),
+                        Some(previous.plan.clone()),
+                        Some(previous.id.clone()),
+                        None,
+                        None,
+                        json!({
+                            "from": format!("{:?}", previous.status),
+                            "to": format!("{:?}", status),
+                        }),
+                    )];
+                    return Err(rejection_error(
+                        state,
+                        &meta,
+                        "coordination task update rejected",
+                        Some(previous.plan.clone()),
+                        Some(previous.id.clone()),
+                        None,
+                        None,
+                        violations,
+                    ));
+                }
             }
         }
         if matches!(
@@ -1900,6 +1928,9 @@ pub(crate) fn update_task_mutation(
         if let Some(status) = input.status {
             task.status = status;
         }
+        if let Some(published_task_status) = input.published_task_status {
+            task.published_task_status = published_task_status;
+        }
         if let Some(git_execution) = input.git_execution.clone() {
             task.git_execution = git_execution;
         }
@@ -1981,19 +2012,29 @@ pub(crate) fn update_task_mutation(
             plan.root_tasks.retain(|task_id| task_id != &previous.id);
         }
     }
+    let completion_candidate_status = task_snapshot
+        .published_task_status
+        .unwrap_or(task_snapshot.status);
+    let completion_candidate = if completion_candidate_status == task_snapshot.status {
+        task_snapshot.clone()
+    } else {
+        let mut candidate = task_snapshot.clone();
+        candidate.status = completion_candidate_status;
+        candidate
+    };
     let completion_blockers =
-        completion_blockers(state, &task_snapshot, current_revision.clone(), now);
-    let mut policy_blockers = if task_snapshot.status == CoordinationTaskStatus::Completed {
+        completion_blockers(state, &completion_candidate, current_revision.clone(), now);
+    let mut policy_blockers = if completion_candidate.status == CoordinationTaskStatus::Completed {
         completion_policy_blockers(
             state,
-            &task_snapshot,
+            &completion_candidate,
             current_revision,
             completion_context.as_ref(),
         )
     } else {
         Vec::new()
     };
-    if task_snapshot.status == CoordinationTaskStatus::Completed
+    if completion_candidate.status == CoordinationTaskStatus::Completed
         && (!completion_blockers.is_empty() || !policy_blockers.is_empty())
     {
         let mut blockers = completion_blockers;
@@ -2101,7 +2142,7 @@ pub(crate) fn update_task_mutation(
             .map(|agent| Value::String(agent.0.to_string()))
             .unwrap_or(Value::Null),
     );
-    if git_execution_only_update {
+    if authoritative_only || git_execution_only_update {
         metadata.insert("authoritativeOnly".to_string(), Value::Bool(true));
     }
     if let Some(patch) = patch {
@@ -2113,6 +2154,13 @@ pub(crate) fn update_task_mutation(
     }
     if update_status {
         insert_serialized(&mut patch_values, "status", task.status);
+    }
+    if update_published_task_status {
+        insert_serialized(
+            &mut patch_values,
+            "publishedTaskStatus",
+            task.published_task_status,
+        );
     }
     if input.git_execution.is_some() {
         insert_serialized(
@@ -3050,6 +3098,20 @@ impl CoordinationStore {
             .write()
             .expect("coordination store lock poisoned");
         update_task_mutation(&mut state, meta, input, current_revision, now)
+    }
+
+    pub fn update_task_authoritative_only(
+        &self,
+        meta: EventMeta,
+        input: TaskUpdateInput,
+        current_revision: WorkspaceRevision,
+        now: Timestamp,
+    ) -> Result<CoordinationTask> {
+        let mut state = self
+            .state
+            .write()
+            .expect("coordination store lock poisoned");
+        update_task_mutation_with_options(&mut state, meta, input, current_revision, now, true)
     }
 
     pub fn handoff(

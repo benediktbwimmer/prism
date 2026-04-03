@@ -207,6 +207,12 @@ pub struct GitExecutionOverlay {
     #[serde(default)]
     pub pending_task_status: Option<CoordinationTaskStatus>,
     #[serde(default)]
+    pub source_ref: Option<String>,
+    #[serde(default)]
+    pub target_ref: Option<String>,
+    #[serde(default)]
+    pub publish_ref: Option<String>,
+    #[serde(default)]
     pub target_branch: Option<String>,
 }
 

@@ -17,7 +17,7 @@ use crate::mutations::{
     handoff_mutation, heartbeat_task_mutation, propose_artifact_mutation, reclaim_task_mutation,
     release_claim_mutation, renew_claim_mutation, resume_task_mutation, review_artifact_mutation,
     set_plan_scheduling_mutation, supersede_artifact_mutation, update_plan_mutation,
-    update_task_mutation,
+    update_task_mutation, update_task_mutation_with_options,
 };
 use crate::state::CoordinationState;
 use crate::types::{
@@ -92,6 +92,16 @@ impl CoordinationRuntimeState {
         now: Timestamp,
     ) -> Result<CoordinationTask> {
         update_task_mutation(&mut self.state, meta, input, current_revision, now)
+    }
+
+    pub fn update_task_authoritative_only(
+        &mut self,
+        meta: EventMeta,
+        input: TaskUpdateInput,
+        current_revision: WorkspaceRevision,
+        now: Timestamp,
+    ) -> Result<CoordinationTask> {
+        update_task_mutation_with_options(&mut self.state, meta, input, current_revision, now, true)
     }
 
     pub fn handoff(

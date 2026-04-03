@@ -3,9 +3,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
+use prism_coordination::CoordinationPolicy;
 use prism_ir::{
-    AcceptanceEvidencePolicy, PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanKind, PlanNode,
-    PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus,
+    AcceptanceEvidencePolicy, CoordinationTaskStatus, GitExecutionStatus, PlanEdgeKind,
+    PlanExecutionOverlay, PlanGraph, PlanKind, PlanNode, PlanNodeKind, PlanNodeStatus, PlanScope,
+    PlanStatus,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemoryEventKind, OutcomeEvent, OutcomeEvidence};
 use serde::Serialize;
@@ -46,6 +48,17 @@ impl RepoStateCatalog {
             .into_iter()
             .map(|entry| (entry.plan_id.0.clone(), entry))
             .collect::<HashMap<_, _>>();
+        let plan_policies = plan_state
+            .as_ref()
+            .map(|state| {
+                state
+                    .snapshot
+                    .plans
+                    .iter()
+                    .map(|plan| (plan.id.0.clone(), plan.policy.clone()))
+                    .collect::<HashMap<_, _>>()
+            })
+            .unwrap_or_default();
         let execution_overlays = plan_state
             .as_ref()
             .map(|state| state.execution_overlays.clone())
@@ -64,6 +77,7 @@ impl RepoStateCatalog {
                     .unwrap_or_default();
                 PublishedPlanDoc {
                     graph,
+                    policy: plan_policies.get(&key).cloned().unwrap_or_default(),
                     index,
                     overlays,
                     bucket,
@@ -134,6 +148,7 @@ struct PublishedMemoryRecord {
 #[derive(Debug, Clone, Serialize)]
 struct PublishedPlanDoc {
     graph: PlanGraph,
+    policy: CoordinationPolicy,
     index: Option<PublishedPlanIndexEntry>,
     overlays: Vec<PlanExecutionOverlay>,
     bucket: PlanDocBucket,
@@ -516,6 +531,28 @@ fn render_plan_doc(plan: &PublishedPlanDoc) -> String {
     markdown.push_str(&plan.graph.goal);
     markdown.push_str("\n\n");
 
+    markdown.push_str("## Git Execution Policy\n\n");
+    markdown.push_str(&format!(
+        "- Start mode: `{}`\n- Completion mode: `{}`\n- Target branch: `{}`\n",
+        format_git_execution_start_mode(plan.policy.git_execution.start_mode),
+        format_git_execution_completion_mode(plan.policy.git_execution.completion_mode),
+        plan.policy.git_execution.target_branch,
+    ));
+    if let Some(target_ref) = plan.policy.git_execution.target_ref.as_ref() {
+        markdown.push_str(&format!("- Target ref: `{target_ref}`\n"));
+    }
+    markdown.push_str(&format!(
+        "- Require task branch: `{}`\n- Max commits behind target: `{}`\n",
+        plan.policy.git_execution.require_task_branch,
+        plan.policy.git_execution.max_commits_behind_target,
+    ));
+    if let Some(max_fetch_age_seconds) = plan.policy.git_execution.max_fetch_age_seconds {
+        markdown.push_str(&format!(
+            "- Max fetch age seconds: `{max_fetch_age_seconds}`\n"
+        ));
+    }
+    markdown.push('\n');
+
     markdown.push_str("## Source of Truth\n\n");
     markdown.push_str("- Index path: `.prism/plans/index.jsonl`\n");
     if let Some(index) = &plan.index {
@@ -578,6 +615,27 @@ fn render_plan_doc(plan: &PublishedPlanDoc) -> String {
             }
             if let Some(node_id) = overlay.awaiting_handoff_from.as_ref() {
                 markdown.push_str(&format!("  awaiting handoff from: `{}`\n", node_id.0));
+            }
+            if let Some(git_execution) = overlay.git_execution.as_ref() {
+                markdown.push_str(&format!(
+                    "  git execution status: `{}`\n",
+                    format_git_execution_status(git_execution.status)
+                ));
+                if let Some(status) = git_execution.pending_task_status {
+                    markdown.push_str(&format!(
+                        "  pending task status: `{}`\n",
+                        format_coordination_task_status(status)
+                    ));
+                }
+                if let Some(source_ref) = git_execution.source_ref.as_ref() {
+                    markdown.push_str(&format!("  source ref: `{}`\n", source_ref));
+                }
+                if let Some(target_ref) = git_execution.target_ref.as_ref() {
+                    markdown.push_str(&format!("  target ref: `{}`\n", target_ref));
+                }
+                if let Some(publish_ref) = git_execution.publish_ref.as_ref() {
+                    markdown.push_str(&format!("  publish ref: `{}`\n", publish_ref));
+                }
             }
         }
         markdown.push('\n');
@@ -977,6 +1035,50 @@ fn format_plan_edge_kind(kind: PlanEdgeKind) -> &'static str {
         PlanEdgeKind::HandoffTo => "handoff to",
         PlanEdgeKind::ChildOf => "child of",
         PlanEdgeKind::RelatedTo => "related to",
+    }
+}
+
+fn format_git_execution_status(status: GitExecutionStatus) -> &'static str {
+    match status {
+        GitExecutionStatus::NotStarted => "not_started",
+        GitExecutionStatus::PreflightFailed => "preflight_failed",
+        GitExecutionStatus::InProgress => "in_progress",
+        GitExecutionStatus::PublishPending => "publish_pending",
+        GitExecutionStatus::PublishFailed => "publish_failed",
+        GitExecutionStatus::Published => "published",
+    }
+}
+
+fn format_git_execution_start_mode(
+    mode: prism_coordination::GitExecutionStartMode,
+) -> &'static str {
+    match mode {
+        prism_coordination::GitExecutionStartMode::Off => "off",
+        prism_coordination::GitExecutionStartMode::Require => "require",
+        prism_coordination::GitExecutionStartMode::Auto => "auto",
+    }
+}
+
+fn format_git_execution_completion_mode(
+    mode: prism_coordination::GitExecutionCompletionMode,
+) -> &'static str {
+    match mode {
+        prism_coordination::GitExecutionCompletionMode::Off => "off",
+        prism_coordination::GitExecutionCompletionMode::Require => "require",
+        prism_coordination::GitExecutionCompletionMode::Auto => "auto",
+    }
+}
+
+fn format_coordination_task_status(status: CoordinationTaskStatus) -> &'static str {
+    match status {
+        CoordinationTaskStatus::Proposed => "proposed",
+        CoordinationTaskStatus::Ready => "ready",
+        CoordinationTaskStatus::InProgress => "in_progress",
+        CoordinationTaskStatus::Blocked => "blocked",
+        CoordinationTaskStatus::InReview => "in_review",
+        CoordinationTaskStatus::Validating => "validating",
+        CoordinationTaskStatus::Completed => "completed",
+        CoordinationTaskStatus::Abandoned => "abandoned",
     }
 }
 

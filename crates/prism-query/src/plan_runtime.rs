@@ -672,10 +672,20 @@ impl NativePlanRuntimeState {
         let node_id = plan_node_id_from_task_id(task.id.clone());
         let overlays = self.execution_overlays.entry(plan_key).or_default();
         overlays.retain(|overlay| overlay.node_id != node_id);
+        let git_execution = (task.git_execution != prism_coordination::TaskGitExecution::default())
+            .then(|| prism_ir::GitExecutionOverlay {
+                status: task.git_execution.status,
+                pending_task_status: task.git_execution.pending_task_status,
+                source_ref: task.git_execution.source_ref.clone(),
+                target_ref: task.git_execution.target_ref.clone(),
+                publish_ref: task.git_execution.publish_ref.clone(),
+                target_branch: task.git_execution.target_branch.clone(),
+            });
         if task.pending_handoff_to.is_some()
             || task.session.is_some()
             || task.worktree_id.is_some()
             || task.branch_ref.is_some()
+            || git_execution.is_some()
         {
             overlays.push(PlanExecutionOverlay {
                 node_id,
@@ -685,7 +695,7 @@ impl NativePlanRuntimeState {
                 branch_ref: task.branch_ref.clone(),
                 effective_assignee: None,
                 awaiting_handoff_from: None,
-                git_execution: None,
+                git_execution,
             });
             *overlays = sort_execution_overlays(std::mem::take(overlays));
         }
@@ -708,12 +718,14 @@ fn derive_execution_overlays(
         let session = stored.and_then(|overlay| overlay.session.clone());
         let worktree_id = stored.and_then(|overlay| overlay.worktree_id.clone());
         let branch_ref = stored.and_then(|overlay| overlay.branch_ref.clone());
+        let git_execution = stored.and_then(|overlay| overlay.git_execution.clone());
         let effective_assignee = effective_assignee_for_node(graph, overlays, node);
         let awaiting_handoff_from = awaiting_handoff_from_node(graph, node);
         if pending_handoff_to.is_some()
             || session.is_some()
             || worktree_id.is_some()
             || branch_ref.is_some()
+            || git_execution.is_some()
             || effective_assignee.is_some()
             || awaiting_handoff_from.is_some()
         {
@@ -725,7 +737,7 @@ fn derive_execution_overlays(
                 branch_ref,
                 effective_assignee,
                 awaiting_handoff_from,
-                git_execution: None,
+                git_execution,
             });
         }
     }
@@ -1110,7 +1122,7 @@ fn plan_node_from_coordination_task(task: &CoordinationTask) -> PlanNode {
         kind: task.kind,
         title: String::new(),
         summary: task.summary.clone(),
-        status: map_coordination_task_status(task.status),
+        status: map_coordination_task_status(effective_coordination_task_status(task)),
         bindings: task_bindings(task),
         acceptance: task
             .acceptance
@@ -1138,7 +1150,7 @@ fn populate_plan_node_from_coordination_task(node: &mut PlanNode, task: &Coordin
     if task.summary.is_some() {
         node.summary = task.summary.clone();
     }
-    node.status = map_coordination_task_status(task.status);
+    node.status = map_coordination_task_status(effective_coordination_task_status(task));
     let mut bindings = if task_has_authored_binding_metadata(task) {
         normalize_plan_binding(task.bindings.clone())
     } else {
@@ -1226,6 +1238,10 @@ fn map_coordination_task_status(status: prism_ir::CoordinationTaskStatus) -> Pla
         prism_ir::CoordinationTaskStatus::Completed => PlanNodeStatus::Completed,
         prism_ir::CoordinationTaskStatus::Abandoned => PlanNodeStatus::Abandoned,
     }
+}
+
+fn effective_coordination_task_status(task: &CoordinationTask) -> prism_ir::CoordinationTaskStatus {
+    task.published_task_status.unwrap_or(task.status)
 }
 
 fn ensure_node_in_graph(graph: &PlanGraph, node_id: &PlanNodeId) -> Result<()> {

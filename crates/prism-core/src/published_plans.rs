@@ -344,7 +344,7 @@ pub(crate) fn sync_repo_published_plan_state_observed<O>(
     previous_snapshot: Option<&CoordinationSnapshot>,
     previous_graphs: Option<&[PlanGraph]>,
     mut graphs: Vec<PlanGraph>,
-    _overlays_by_plan: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    overlays_by_plan: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     mut observe_phase: O,
 ) -> Result<()>
 where
@@ -373,6 +373,8 @@ where
         )),
         _ => None,
     };
+    let previous_execution_overlays =
+        previous_snapshot.map(|snapshot| execution_overlays_by_plan(&snapshot.tasks));
     let existing_projection = if previous_records.is_none() {
         observe_published_plan_step(
             &mut observe_phase,
@@ -423,10 +425,31 @@ where
             } else {
                 existing_projection.record(&graph.id)
             };
+            let current_overlays = overlays_by_plan
+                .get(plan_key.as_str())
+                .cloned()
+                .unwrap_or_default();
+            let previous_overlays = previous_execution_overlays
+                .as_ref()
+                .and_then(|map| map.get(plan_key.as_str()).cloned())
+                .or_else(|| {
+                    existing_projection
+                        .execution_overlays
+                        .get(plan_key.as_str())
+                        .cloned()
+                })
+                .unwrap_or_default();
             let mut preview_events = if previous_record.is_none() {
-                published_plan_events(0, &header, &graph)
+                published_plan_events(0, &header, &graph, &current_overlays)
             } else {
-                append_plan_delta_events(0, previous_record.as_ref(), &header, &graph)
+                append_plan_delta_events(
+                    0,
+                    previous_record.as_ref(),
+                    &previous_overlays,
+                    &header,
+                    &graph,
+                    &current_overlays,
+                )
             };
             let starting_sequence = if preview_events.is_empty() || !authoritative_log_exists {
                 0
@@ -443,14 +466,16 @@ where
             let events = if starting_sequence == 0 {
                 preview_events
             } else if previous_record.is_none() {
-                published_plan_events(starting_sequence, &header, &graph)
+                published_plan_events(starting_sequence, &header, &graph, &current_overlays)
             } else {
                 preview_events.clear();
                 append_plan_delta_events(
                     starting_sequence,
                     previous_record.as_ref(),
+                    &previous_overlays,
                     &header,
                     &graph,
+                    &current_overlays,
                 )
             };
             if !events.is_empty() {
@@ -865,7 +890,10 @@ fn apply_native_event(
             edges.insert(edge.id.0.to_string(), edge.clone());
         }
         PublishedPlanPayload::Execution { execution } => {
-            if execution.pending_handoff_to.is_some() || execution.session.is_some() {
+            if execution.pending_handoff_to.is_some()
+                || execution.session.is_some()
+                || execution.git_execution.is_some()
+            {
                 overlays.insert(execution.node_id.0.to_string(), execution.clone());
             } else {
                 overlays.remove(execution.node_id.0.as_str());
@@ -942,6 +970,7 @@ fn published_plan_events(
     starting_sequence: u64,
     header: &PublishedPlanHeader,
     graph: &PlanGraph,
+    overlays: &[PlanExecutionOverlay],
 ) -> Vec<PublishedPlanEvent> {
     let mut sequence = starting_sequence;
     let mut events = Vec::with_capacity(graph.nodes.len() + graph.edges.len() + 1);
@@ -975,14 +1004,26 @@ fn published_plan_events(
             payload: PublishedPlanPayload::Edge { edge },
         });
     }
+    for execution in repo_published_execution_overlays(overlays.to_vec()) {
+        events.push(PublishedPlanEvent {
+            event_id: next_published_event_id(&header.id, &mut sequence),
+            kind: PublishedPlanEventKind::ExecutionUpdated,
+            plan_id: header.id.clone(),
+            node_id: Some(execution.node_id.clone()),
+            edge_id: None,
+            payload: PublishedPlanPayload::Execution { execution },
+        });
+    }
     events
 }
 
 fn append_plan_delta_events(
     starting_sequence: u64,
     previous_record: Option<&PublishedPlanRecord>,
+    previous_overlays: &[PlanExecutionOverlay],
     header: &PublishedPlanHeader,
     graph: &PlanGraph,
+    overlays: &[PlanExecutionOverlay],
 ) -> Vec<PublishedPlanEvent> {
     let mut sequence = starting_sequence;
     let mut events = Vec::new();
@@ -1124,31 +1165,73 @@ fn append_plan_delta_events(
         }
     }
 
-    events
-}
-
-fn repo_published_execution_overlays(
-    overlays: Vec<PlanExecutionOverlay>,
-) -> Vec<PlanExecutionOverlay> {
-    let mut overlays = overlays
+    let previous_execution = repo_published_execution_overlays(previous_overlays.to_vec())
         .into_iter()
-        // Repo-published plan streams must stay self-contained and repo-semantic. Runtime
-        // correlation like session/worktree/branch remains in the shared runtime snapshot and is
-        // never serialized into `.prism` plan logs.
-        .map(|overlay| PlanExecutionOverlay {
-            node_id: overlay.node_id,
-            pending_handoff_to: overlay.pending_handoff_to,
+        .map(|overlay| (overlay.node_id.0.to_string(), overlay))
+        .collect::<BTreeMap<_, _>>();
+    let current_execution = repo_published_execution_overlays(overlays.to_vec())
+        .into_iter()
+        .map(|overlay| (overlay.node_id.0.to_string(), overlay))
+        .collect::<BTreeMap<_, _>>();
+    for node_id in previous_execution
+        .keys()
+        .filter(|node_id| !current_execution.contains_key(*node_id))
+    {
+        let execution = PlanExecutionOverlay {
+            node_id: PlanNodeId::new((*node_id).clone()),
+            pending_handoff_to: None,
             session: None,
             worktree_id: None,
             branch_ref: None,
             effective_assignee: None,
             awaiting_handoff_from: None,
-            git_execution: overlay.git_execution,
-        })
-        .filter(|overlay| overlay.pending_handoff_to.is_some() || overlay.git_execution.is_some())
-        .collect::<Vec<_>>();
-    overlays.sort_by(|left, right| left.node_id.0.cmp(&right.node_id.0));
-    overlays
+            git_execution: None,
+        };
+        events.push(PublishedPlanEvent {
+            event_id: next_published_event_id(&header.id, &mut sequence),
+            kind: PublishedPlanEventKind::ExecutionUpdated,
+            plan_id: header.id.clone(),
+            node_id: Some(execution.node_id.clone()),
+            edge_id: None,
+            payload: PublishedPlanPayload::Execution { execution },
+        });
+    }
+    for execution in current_execution.values() {
+        match previous_execution.get(execution.node_id.0.as_str()) {
+            None => events.push(PublishedPlanEvent {
+                event_id: next_published_event_id(&header.id, &mut sequence),
+                kind: PublishedPlanEventKind::ExecutionUpdated,
+                plan_id: header.id.clone(),
+                node_id: Some(execution.node_id.clone()),
+                edge_id: None,
+                payload: PublishedPlanPayload::Execution {
+                    execution: execution.clone(),
+                },
+            }),
+            Some(previous) if previous != execution => events.push(PublishedPlanEvent {
+                event_id: next_published_event_id(&header.id, &mut sequence),
+                kind: PublishedPlanEventKind::ExecutionUpdated,
+                plan_id: header.id.clone(),
+                node_id: Some(execution.node_id.clone()),
+                edge_id: None,
+                payload: PublishedPlanPayload::Execution {
+                    execution: execution.clone(),
+                },
+            }),
+            _ => {}
+        }
+    }
+
+    events
+}
+
+fn repo_published_execution_overlays(
+    _overlays: Vec<PlanExecutionOverlay>,
+) -> Vec<PlanExecutionOverlay> {
+    // Repo-published plan artifacts must remain repo-semantic. Live execution bookkeeping like
+    // git preflight/publish state stays authoritative-only so task publication can be finalized
+    // without creating a follow-up `.prism` commit loop.
+    Vec::new()
 }
 
 fn execution_overlays_by_plan(

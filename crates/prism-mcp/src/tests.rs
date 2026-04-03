@@ -280,7 +280,7 @@ fn git_execution_policy_start_rejects_main_branch_and_records_failure() {
                     "goal": "Enforce task start preflight",
                     "policy": {
                         "gitExecution": {
-                            "startMode": "auto",
+                            "startMode": "require",
                             "completionMode": "auto",
                             "targetBranch": "main",
                             "requireTaskBranch": true
@@ -333,6 +333,208 @@ fn git_execution_policy_start_rejects_main_branch_and_records_failure() {
 }
 
 #[test]
+fn git_execution_policy_start_auto_creates_task_branch() {
+    let root = init_git_workspace("main");
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
+    let host = host_with_session_internal(session);
+    let session_state = test_session(&host);
+
+    let plan = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Git execution",
+                    "goal": "Auto-branch task start",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "auto",
+                            "completionMode": "off",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "in_progress"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let task = host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id))
+        .unwrap();
+    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::InProgress);
+    assert_eq!(
+        task.git_execution.status,
+        prism_ir::GitExecutionStatus::InProgress
+    );
+    assert_eq!(
+        task.git_execution.target_ref.as_deref(),
+        Some("origin/main")
+    );
+    assert_ne!(
+        task.git_execution
+            .last_preflight
+            .as_ref()
+            .and_then(|report| report.current_branch.as_deref()),
+        Some("main")
+    );
+    assert!(test_git(&root, &["branch", "--show-current"]).starts_with("task/edit-alpha-"));
+}
+
+#[test]
+fn git_execution_policy_task_create_rejects_direct_in_progress_creation() {
+    let root = init_git_workspace("task/git-execution-task-create");
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
+    let host = host_with_session_internal(session);
+    let session_state = test_session(&host);
+
+    let plan = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Git execution",
+                    "goal": "Reject direct active task creation",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "require",
+                            "completionMode": "require",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+
+    let error = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                    "status": "in_progress"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("cannot be created directly in `inprogress`"));
+}
+
+#[test]
+fn git_execution_policy_plan_node_create_rejects_direct_in_progress_creation() {
+    let root = init_git_workspace("task/git-execution-plan-node-create");
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
+    let host = host_with_session_internal(session);
+    let session_state = test_session(&host);
+
+    let plan = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Git execution",
+                    "goal": "Reject direct active node creation",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "require",
+                            "completionMode": "require",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+
+    let error = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Live require completion dogfood",
+                    "status": "in_progress"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("cannot be created directly in `inprogress`"));
+}
+
+#[test]
 fn git_execution_preflight_ignores_tracked_prism_managed_paths() {
     let branch = "task/git-execution-preflight";
     let root = init_git_workspace(branch);
@@ -346,8 +548,11 @@ fn git_execution_preflight_ignores_tracked_prism_managed_paths() {
     let policy = prism_coordination::GitExecutionPolicy {
         start_mode: prism_coordination::GitExecutionStartMode::Auto,
         completion_mode: prism_coordination::GitExecutionCompletionMode::Off,
+        target_ref: None,
         target_branch: "main".into(),
         require_task_branch: true,
+        max_commits_behind_target: 0,
+        max_fetch_age_seconds: None,
     };
     let preflight = crate::git_execution::run_preflight(&root, &policy, 123, true).unwrap();
 
@@ -364,6 +569,142 @@ fn git_execution_preflight_ignores_tracked_prism_managed_paths() {
         .protected_dirty_paths
         .iter()
         .any(|path| path == ".prism/plans/active/managed.jsonl"));
+}
+
+#[test]
+fn git_execution_preflight_respects_max_commits_behind_target() {
+    let branch = "task/git-execution-behind";
+    let root = init_git_workspace(branch);
+
+    test_git(&root, &["checkout", "main"]);
+    fs::write(root.join("src/lib.rs"), "pub fn advanced_main() {}\n").unwrap();
+    test_git(&root, &["add", "src/lib.rs"]);
+    test_git(&root, &["commit", "-m", "advance main"]);
+    test_git(&root, &["push", "origin", "main"]);
+    test_git(&root, &["checkout", branch]);
+
+    let policy = prism_coordination::GitExecutionPolicy {
+        start_mode: prism_coordination::GitExecutionStartMode::Require,
+        completion_mode: prism_coordination::GitExecutionCompletionMode::Off,
+        target_ref: Some("origin/main".into()),
+        target_branch: "main".into(),
+        require_task_branch: true,
+        max_commits_behind_target: 0,
+        max_fetch_age_seconds: Some(60),
+    };
+    let preflight = crate::git_execution::run_preflight(&root, &policy, 123, false).unwrap();
+
+    assert_eq!(preflight.report.target_ref.as_deref(), Some("origin/main"));
+    assert_eq!(preflight.report.behind_target_commits, 1);
+    assert_eq!(preflight.report.max_commits_behind_target, 0);
+    assert_eq!(preflight.report.fetch_age_seconds, Some(0));
+    assert!(preflight
+        .report
+        .failure
+        .as_deref()
+        .unwrap_or_default()
+        .contains("exceeds the configured limit of 0"));
+}
+
+#[test]
+fn git_execution_policy_completion_require_rejects_dirty_user_changes() {
+    let branch = "task/git-execution-require";
+    let root = init_git_workspace(branch);
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
+    let host = host_with_session_internal(session);
+    let session_state = test_session(&host);
+
+    let plan = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Git execution",
+                    "goal": "Require manual code publish",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "require",
+                            "completionMode": "require",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "in_progress"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { beta(); gamma(); }\npub fn beta() {}\npub fn gamma() {}\n",
+    )
+    .unwrap();
+
+    let error = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Update,
+                payload: json!({
+                    "id": task_id.clone(),
+                    "status": "completed",
+                    "completionContext": {}
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("completion mode `require` needs user changes committed before completion"));
+
+    let task = host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id))
+        .unwrap();
+    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::InProgress);
+    assert_eq!(
+        task.git_execution.status,
+        prism_ir::GitExecutionStatus::PublishFailed
+    );
 }
 
 #[test]
@@ -472,6 +813,266 @@ fn git_execution_policy_completion_commits_pushes_and_leaves_clean_worktree() {
         test_git(&root, &["rev-parse", "HEAD"]),
         test_git(&root, &["rev-parse", &format!("origin/{branch}")])
     );
+}
+
+#[test]
+fn git_execution_policy_completion_require_publishes_after_manual_code_commit() {
+    let branch = "task/git-execution-require-publish";
+    let root = init_git_workspace(branch);
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
+    let host = host_with_session_internal(session);
+    let session_state = test_session(&host);
+
+    let plan = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Git execution",
+                    "goal": "Require manual code publish",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "require",
+                            "completionMode": "require",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "in_progress"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { beta(); gamma(); }\npub fn beta() {}\npub fn gamma() {}\n",
+    )
+    .unwrap();
+    test_git(&root, &["add", "src/lib.rs"]);
+    test_git(&root, &["commit", "-m", "manual code publish"]);
+    let manual_commit = test_git(&root, &["rev-parse", "HEAD"]);
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "completed",
+                "completionContext": {}
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let task = host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id))
+        .unwrap();
+    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::Completed);
+    assert_eq!(
+        task.git_execution.status,
+        prism_ir::GitExecutionStatus::Published
+    );
+    assert_eq!(
+        task.git_execution
+            .last_publish
+            .as_ref()
+            .and_then(|publish| publish.code_commit.as_deref()),
+        Some(manual_commit.as_str())
+    );
+    assert_eq!(task.git_execution.source_ref.as_deref(), Some(branch));
+    assert_eq!(
+        task.git_execution.target_ref.as_deref(),
+        Some("origin/main")
+    );
+    assert_eq!(task.git_execution.publish_ref.as_deref(), Some(branch));
+    assert!(task
+        .git_execution
+        .last_publish
+        .as_ref()
+        .and_then(|publish| publish.coordination_commit.as_ref())
+        .is_some());
+    assert!(task
+        .git_execution
+        .last_publish
+        .as_ref()
+        .map(
+            |publish| publish.staged_paths.iter().all(|path| path == "PRISM.md"
+                || path.starts_with(".prism/")
+                || path.starts_with("docs/prism/"))
+        )
+        .unwrap_or(false));
+    assert_eq!(test_git(&root, &["status", "--short"]), "");
+    assert_eq!(
+        test_git(&root, &["rev-parse", "HEAD"]),
+        test_git(&root, &["rev-parse", &format!("origin/{branch}")])
+    );
+}
+
+#[test]
+fn git_execution_policy_completion_require_push_failure_keeps_task_in_progress() {
+    let branch = "task/git-execution-require-push-failure";
+    let root = init_git_workspace(branch);
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
+    let host = host_with_session_internal(session);
+    let session_state = test_session(&host);
+
+    let plan = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Git execution",
+                    "goal": "Require manual code publish",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "require",
+                            "completionMode": "require",
+                            "targetRef": "origin/main",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true,
+                            "maxCommitsBehindTarget": 0
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "in_progress"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { beta(); gamma(); }\npub fn beta() {}\npub fn gamma() {}\n",
+    )
+    .unwrap();
+    test_git(&root, &["add", "src/lib.rs"]);
+    test_git(&root, &["commit", "-m", "manual code publish"]);
+
+    test_git(
+        &root,
+        &[
+            "remote",
+            "set-url",
+            "--push",
+            "origin",
+            "/definitely/missing/prism-push-remote.git",
+        ],
+    );
+
+    let error = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Update,
+                payload: json!({
+                    "id": task_id.clone(),
+                    "status": "completed",
+                    "completionContext": {}
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap_err();
+    assert!(!error.to_string().is_empty());
+
+    let task = host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id))
+        .unwrap();
+    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::InProgress);
+    assert_eq!(task.published_task_status, None);
+    assert_eq!(
+        task.git_execution.status,
+        prism_ir::GitExecutionStatus::PublishFailed
+    );
+    assert_eq!(
+        task.git_execution.pending_task_status,
+        Some(prism_ir::CoordinationTaskStatus::Completed)
+    );
+    assert!(task
+        .git_execution
+        .last_publish
+        .as_ref()
+        .and_then(|publish| publish.failure.as_ref())
+        .is_some());
+    assert_eq!(test_git(&root, &["status", "--short"]), "");
 }
 
 #[test]
@@ -2617,6 +3218,17 @@ fn mcp_plan_create_and_update_surface_scheduling_metadata() {
                 payload: json!({
                     "title": "Portfolio scheduling",
                     "goal": "Portfolio scheduling",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "require",
+                            "completionMode": "require",
+                            "targetRef": "origin/main",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true,
+                            "maxCommitsBehindTarget": 2,
+                            "maxFetchAgeSeconds": 300
+                        }
+                    },
                     "scheduling": {
                         "importance": 40,
                         "urgency": 25,
@@ -2631,6 +3243,23 @@ fn mcp_plan_create_and_update_surface_scheduling_metadata() {
     assert_eq!(created.state["scheduling"]["importance"], 40);
     assert_eq!(created.state["scheduling"]["urgency"], 25);
     assert_eq!(created.state["scheduling"]["manualBoost"], 15);
+    assert_eq!(created.state["gitExecutionPolicy"]["startMode"], "require");
+    assert_eq!(
+        created.state["gitExecutionPolicy"]["completionMode"],
+        "require"
+    );
+    assert_eq!(
+        created.state["gitExecutionPolicy"]["targetRef"],
+        "origin/main"
+    );
+    assert_eq!(
+        created.state["gitExecutionPolicy"]["maxCommitsBehindTarget"],
+        2
+    );
+    assert_eq!(
+        created.state["gitExecutionPolicy"]["maxFetchAgeSeconds"],
+        300
+    );
 
     let plan_id = created.state["id"].as_str().unwrap().to_string();
     let updated = retry_on_transient_sqlite_lock(|| {
@@ -2640,6 +3269,13 @@ fn mcp_plan_create_and_update_surface_scheduling_metadata() {
                 kind: CoordinationMutationKindInput::PlanUpdate,
                 payload: json!({
                     "planId": plan_id,
+                    "policy": {
+                        "gitExecution": {
+                            "targetRef": "refs/heads/release",
+                            "maxCommitsBehindTarget": 0,
+                            "maxFetchAgeSeconds": 120
+                        }
+                    },
                     "scheduling": {
                         "importance": 60,
                         "urgency": 10,
@@ -2656,6 +3292,18 @@ fn mcp_plan_create_and_update_surface_scheduling_metadata() {
     assert_eq!(updated.state["scheduling"]["urgency"], 10);
     assert_eq!(updated.state["scheduling"]["manualBoost"], 5);
     assert_eq!(updated.state["scheduling"]["dueAt"], 1_700_000_000u64);
+    assert_eq!(
+        updated.state["gitExecutionPolicy"]["targetRef"],
+        "refs/heads/release"
+    );
+    assert_eq!(
+        updated.state["gitExecutionPolicy"]["maxCommitsBehindTarget"],
+        0
+    );
+    assert_eq!(
+        updated.state["gitExecutionPolicy"]["maxFetchAgeSeconds"],
+        120
+    );
 
     let execution = QueryExecution::new(
         host.clone(),
@@ -2666,6 +3314,16 @@ fn mcp_plan_create_and_update_surface_scheduling_metadata() {
     let plans = execution.dispatch("plans", "{}").unwrap();
     let plans = plans.as_array().unwrap();
     assert_eq!(plans[0]["scheduling"]["importance"], 60);
+    assert_eq!(plans[0]["gitExecutionPolicy"]["startMode"], "require");
+    assert_eq!(plans[0]["gitExecutionPolicy"]["completionMode"], "require");
+    assert_eq!(
+        plans[0]["gitExecutionPolicy"]["targetRef"],
+        "refs/heads/release"
+    );
+    assert_eq!(plans[0]["gitExecutionPolicy"]["targetBranch"], "main");
+    assert_eq!(plans[0]["gitExecutionPolicy"]["requireTaskBranch"], true);
+    assert_eq!(plans[0]["gitExecutionPolicy"]["maxCommitsBehindTarget"], 0);
+    assert_eq!(plans[0]["gitExecutionPolicy"]["maxFetchAgeSeconds"], 120);
 }
 
 #[test]
@@ -21389,7 +22047,21 @@ fn plans_resource_payload_surfaces_filters_and_root_nodes() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "title": "Migrate persistence storage semantics", "goal": "Migrate persistence storage semantics" }),
+                payload: json!({
+                    "title": "Migrate persistence storage semantics",
+                    "goal": "Migrate persistence storage semantics",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "require",
+                            "completionMode": "require",
+                            "targetRef": "origin/main",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true,
+                            "maxCommitsBehindTarget": 1,
+                            "maxFetchAgeSeconds": 600
+                        }
+                    }
+                }),
                 task_id: None,
             },
         )
@@ -21431,6 +22103,27 @@ fn plans_resource_payload_surfaces_filters_and_root_nodes() {
         payload.plans[0].root_node_ids,
         vec![root_node.state["id"].as_str().unwrap()]
     );
+    assert_eq!(payload.plans[0].git_execution_policy.start_mode, "require");
+    assert_eq!(
+        payload.plans[0].git_execution_policy.completion_mode,
+        "require"
+    );
+    assert_eq!(
+        payload.plans[0].git_execution_policy.target_ref.as_deref(),
+        Some("origin/main")
+    );
+    assert_eq!(payload.plans[0].git_execution_policy.target_branch, "main");
+    assert!(payload.plans[0].git_execution_policy.require_task_branch);
+    assert_eq!(
+        payload.plans[0]
+            .git_execution_policy
+            .max_commits_behind_target,
+        1
+    );
+    assert_eq!(
+        payload.plans[0].git_execution_policy.max_fetch_age_seconds,
+        Some(600)
+    );
 }
 
 #[test]
@@ -21471,7 +22164,21 @@ fn plan_resource_payload_surfaces_detail_summary_and_navigation_links() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "title": "Migrate persistence storage semantics", "goal": "Migrate persistence storage semantics" }),
+                payload: json!({
+                    "title": "Migrate persistence storage semantics",
+                    "goal": "Migrate persistence storage semantics",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "require",
+                            "completionMode": "require",
+                            "targetRef": "origin/main",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true,
+                            "maxCommitsBehindTarget": 1,
+                            "maxFetchAgeSeconds": 600
+                        }
+                    }
+                }),
                 task_id: None,
             },
         )
@@ -21499,6 +22206,14 @@ fn plan_resource_payload_surfaces_detail_summary_and_navigation_links() {
         payload.plan.root_node_ids,
         vec![root_node.state["id"].as_str().unwrap()]
     );
+    assert_eq!(payload.plan.git_execution_policy.start_mode, "require");
+    assert_eq!(payload.plan.git_execution_policy.completion_mode, "require");
+    assert_eq!(
+        payload.plan.git_execution_policy.target_ref.as_deref(),
+        Some("origin/main")
+    );
+    assert_eq!(payload.plan.git_execution_policy.target_branch, "main");
+    assert!(payload.plan.git_execution_policy.require_task_branch);
     assert_eq!(
         payload
             .summary

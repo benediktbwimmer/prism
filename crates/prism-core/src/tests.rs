@@ -3830,7 +3830,18 @@ fn repo_plan_events_auto_sync_prism_doc() {
                 "Project repo state docs".into(),
                 "Ship generated repo state docs".into(),
                 None,
-                Some(Default::default()),
+                Some(prism_coordination::CoordinationPolicy {
+                    git_execution: prism_coordination::GitExecutionPolicy {
+                        start_mode: prism_coordination::GitExecutionStartMode::Require,
+                        completion_mode: prism_coordination::GitExecutionCompletionMode::Require,
+                        target_ref: Some("origin/main".into()),
+                        target_branch: "main".into(),
+                        require_task_branch: true,
+                        max_commits_behind_target: 2,
+                        max_fetch_age_seconds: Some(300),
+                    },
+                    ..Default::default()
+                }),
             )
         })
         .unwrap();
@@ -3863,6 +3874,12 @@ fn repo_plan_events_auto_sync_prism_doc() {
     assert!(plan_doc.contains("# Project repo state docs"));
     assert!(plan_doc.contains("Ship generated repo state docs"));
     assert!(plan_doc.contains("## Goal"));
+    assert!(plan_doc.contains("## Git Execution Policy"));
+    assert!(plan_doc.contains("- Start mode: `require`"));
+    assert!(plan_doc.contains("- Completion mode: `require`"));
+    assert!(plan_doc.contains("- Target ref: `origin/main`"));
+    assert!(plan_doc.contains("- Max commits behind target: `2`"));
+    assert!(plan_doc.contains("- Max fetch age seconds: `300`"));
 
     let sync = session.sync_prism_doc().unwrap();
     assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
@@ -5096,6 +5113,7 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
                 task_id: task_id.clone(),
                 kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::InReview),
+                published_task_status: None,
                 git_execution: None,
                 assignee: None,
                 session: None,
@@ -5759,6 +5777,7 @@ fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
                     task_id: task_id.clone(),
                     kind: None,
                     status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                    published_task_status: None,
                     git_execution: None,
                     assignee: None,
                     session: None,
@@ -5894,6 +5913,7 @@ fn repo_published_plan_logs_do_not_reemit_existing_child_of_edges() {
                     task_id: child_id.clone(),
                     kind: None,
                     status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                    published_task_status: None,
                     git_execution: None,
                     assignee: None,
                     session: None,
@@ -6248,6 +6268,7 @@ fn completing_last_task_appends_plan_completion_to_published_plan_log() {
                     task_id: task_id.clone(),
                     kind: None,
                     status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                    published_task_status: None,
                     git_execution: None,
                     assignee: None,
                     session: None,
@@ -6385,6 +6406,7 @@ fn releasing_last_claim_appends_plan_completion_to_published_plan_log() {
                     task_id: task_id.clone(),
                     kind: None,
                     status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                    published_task_status: None,
                     git_execution: None,
                     assignee: None,
                     session: None,

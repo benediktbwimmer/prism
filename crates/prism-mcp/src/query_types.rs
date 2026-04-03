@@ -1,8 +1,8 @@
 use anyhow::{anyhow, Result};
 use prism_agent::InferredEdgeScope;
 use prism_coordination::{
-    AcceptanceCriterion, CoordinationPolicy, GitExecutionCompletionMode, GitExecutionPolicy,
-    GitExecutionStartMode, PlanScheduling,
+    AcceptanceCriterion, CoordinationPolicy, GitExecutionCompletionMode, GitExecutionStartMode,
+    PlanScheduling,
 };
 use prism_core::WorkspaceSession;
 use prism_ir::{
@@ -864,7 +864,16 @@ pub(crate) fn convert_policy(
     let Some(payload) = payload else {
         return Ok(None);
     };
-    let mut policy = CoordinationPolicy::default();
+    Ok(Some(merge_policy_payload(
+        CoordinationPolicy::default(),
+        payload,
+    )))
+}
+
+pub(crate) fn merge_policy_payload(
+    mut policy: CoordinationPolicy,
+    payload: CoordinationPolicyPayload,
+) -> CoordinationPolicy {
     if let Some(mode) = payload.default_claim_mode {
         policy.default_claim_mode = convert_claim_mode(mode);
     }
@@ -896,37 +905,55 @@ pub(crate) fn convert_policy(
         };
     }
     if let Some(value) = payload.git_execution {
-        policy.git_execution = GitExecutionPolicy {
-            start_mode: value
-                .start_mode
-                .map(|mode| match mode {
-                    GitExecutionStartModeInput::Off => GitExecutionStartMode::Off,
-                    GitExecutionStartModeInput::Require => GitExecutionStartMode::Require,
-                    GitExecutionStartModeInput::Auto => GitExecutionStartMode::Auto,
-                })
-                .unwrap_or_default(),
-            completion_mode: value
-                .completion_mode
-                .map(|mode| match mode {
-                    GitExecutionCompletionModeInput::Off => GitExecutionCompletionMode::Off,
-                    GitExecutionCompletionModeInput::Require => GitExecutionCompletionMode::Require,
-                    GitExecutionCompletionModeInput::Auto => GitExecutionCompletionMode::Auto,
-                })
-                .unwrap_or_default(),
-            target_branch: value
-                .target_branch
-                .unwrap_or_else(|| GitExecutionPolicy::default().target_branch),
-            require_task_branch: value.require_task_branch.unwrap_or(false),
-        };
+        let mut git_execution = policy.git_execution;
+        if let Some(mode) = value.start_mode {
+            git_execution.start_mode = match mode {
+                GitExecutionStartModeInput::Off => GitExecutionStartMode::Off,
+                GitExecutionStartModeInput::Require => GitExecutionStartMode::Require,
+                GitExecutionStartModeInput::Auto => GitExecutionStartMode::Auto,
+            };
+        }
+        if let Some(mode) = value.completion_mode {
+            git_execution.completion_mode = match mode {
+                GitExecutionCompletionModeInput::Off => GitExecutionCompletionMode::Off,
+                GitExecutionCompletionModeInput::Require => GitExecutionCompletionMode::Require,
+                GitExecutionCompletionModeInput::Auto => GitExecutionCompletionMode::Auto,
+            };
+        }
+        if let Some(target_ref) = value.target_ref {
+            git_execution.target_ref = Some(target_ref);
+        }
+        if let Some(target_branch) = value.target_branch {
+            git_execution.target_branch = target_branch;
+        }
+        if let Some(require_task_branch) = value.require_task_branch {
+            git_execution.require_task_branch = require_task_branch;
+        }
+        if let Some(max_commits_behind_target) = value.max_commits_behind_target {
+            git_execution.max_commits_behind_target = max_commits_behind_target;
+        }
+        if let Some(max_fetch_age_seconds) = value.max_fetch_age_seconds {
+            git_execution.max_fetch_age_seconds = Some(max_fetch_age_seconds);
+        }
+        policy.git_execution = git_execution;
     }
-    Ok(Some(policy))
+    policy
 }
 
 pub(crate) fn convert_plan_scheduling(
     payload: Option<PlanSchedulingPayload>,
 ) -> Option<PlanScheduling> {
     let payload = payload?;
-    let mut scheduling = PlanScheduling::default();
+    Some(merge_plan_scheduling_payload(
+        PlanScheduling::default(),
+        payload,
+    ))
+}
+
+pub(crate) fn merge_plan_scheduling_payload(
+    mut scheduling: PlanScheduling,
+    payload: PlanSchedulingPayload,
+) -> PlanScheduling {
     if let Some(value) = payload.importance {
         scheduling.importance = value;
     }
@@ -939,7 +966,7 @@ pub(crate) fn convert_plan_scheduling(
     if let Some(value) = payload.due_at {
         scheduling.due_at = Some(value);
     }
-    Some(scheduling)
+    scheduling
 }
 
 pub(crate) fn convert_acceptance(

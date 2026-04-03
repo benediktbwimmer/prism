@@ -72,6 +72,7 @@ impl Prism {
                         status: graph.status,
                         scope: graph.scope,
                         kind: graph.kind,
+                        policy: runtime.policy(&graph.id).unwrap_or_default(),
                         scheduling: runtime.scheduling(&graph.id).unwrap_or_default(),
                         root_node_ids: graph.root_nodes,
                         summary: plan_discovery_summary(&summary),

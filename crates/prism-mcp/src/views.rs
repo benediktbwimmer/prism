@@ -16,13 +16,14 @@ use prism_js::{
     ContractResolutionView, ContractStabilityView, ContractStatusView, ContractTargetView,
     ContractValidationView, CoordinationTaskView, CuratorJobView, CuratorProposalRecordView,
     CuratorProposalView, DriftCandidateView, EdgeView, GitExecutionOverlayView,
-    GitPreflightReportView, GitPublishReportView, MemoryEntryView, MemoryEventView, NodeIdView,
-    PlanAcceptanceCriterionView, PlanBindingView, PlanEdgeView, PlanExecutionOverlayView,
-    PlanGraphView, PlanListEntryView, PlanNodeBlockerView, PlanNodeRecommendationView,
-    PlanNodeView, PlanSchedulingView, PlanSummaryView, PlanView, PolicyViolationRecordView,
-    PolicyViolationView, ProjectionAuthorityPlaneView, ProjectionClassView, QueryDiagnostic,
-    ScoredMemoryView, TaskGitExecutionView, TaskIntentView, TaskRiskView, TaskValidationRecipeView,
-    ValidationCheckView, ValidationRecipeView, ValidationRefView, WorkspaceRevisionView,
+    GitExecutionPolicyView, GitPreflightReportView, GitPublishReportView, MemoryEntryView,
+    MemoryEventView, NodeIdView, PlanAcceptanceCriterionView, PlanBindingView, PlanEdgeView,
+    PlanExecutionOverlayView, PlanGraphView, PlanListEntryView, PlanNodeBlockerView,
+    PlanNodeRecommendationView, PlanNodeView, PlanSchedulingView, PlanSummaryView, PlanView,
+    PolicyViolationRecordView, PolicyViolationView, ProjectionAuthorityPlaneView,
+    ProjectionClassView, QueryDiagnostic, ScoredMemoryView, TaskGitExecutionView, TaskIntentView,
+    TaskRiskView, TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView,
+    ValidationRefView, WorkspaceRevisionView,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
 use prism_projections::{ProjectionAuthorityPlane, ProjectionClass};
@@ -1288,6 +1289,7 @@ pub(crate) fn plan_view(
         kind: value.kind,
         revision: value.revision,
         scheduling: plan_scheduling_view(value.scheduling),
+        git_execution_policy: git_execution_policy_view(value.policy.git_execution),
         tags: value.tags,
         created_from: value.created_from,
         root_node_ids: root_node_ids
@@ -1306,6 +1308,7 @@ pub(crate) fn plan_list_entry_view(value: PlanListEntry) -> PlanListEntryView {
         scope: value.scope,
         kind: value.kind,
         scheduling: plan_scheduling_view(value.scheduling),
+        git_execution_policy: git_execution_policy_view(value.policy.git_execution),
         root_node_ids: value
             .root_node_ids
             .into_iter()
@@ -1324,6 +1327,20 @@ pub(crate) fn plan_scheduling_view(
         urgency: value.urgency,
         manual_boost: value.manual_boost,
         due_at: value.due_at,
+    }
+}
+
+fn git_execution_policy_view(
+    value: prism_coordination::GitExecutionPolicy,
+) -> GitExecutionPolicyView {
+    GitExecutionPolicyView {
+        start_mode: format!("{:?}", value.start_mode).to_ascii_lowercase(),
+        completion_mode: format!("{:?}", value.completion_mode).to_ascii_lowercase(),
+        target_ref: value.target_ref,
+        target_branch: value.target_branch,
+        require_task_branch: value.require_task_branch,
+        max_commits_behind_target: value.max_commits_behind_target,
+        max_fetch_age_seconds: value.max_fetch_age_seconds,
     }
 }
 
@@ -1366,6 +1383,9 @@ fn git_execution_overlay_view(value: prism_ir::GitExecutionOverlay) -> GitExecut
     GitExecutionOverlayView {
         status: value.status,
         pending_task_status: value.pending_task_status,
+        source_ref: value.source_ref,
+        target_ref: value.target_ref,
+        publish_ref: value.publish_ref,
         target_branch: value.target_branch,
     }
 }
@@ -1374,8 +1394,13 @@ fn git_preflight_report_view(
     value: prism_coordination::GitPreflightReport,
 ) -> GitPreflightReportView {
     GitPreflightReportView {
+        source_ref: value.source_ref,
+        target_ref: value.target_ref,
+        publish_ref: value.publish_ref,
         checked_at: value.checked_at,
         target_branch: value.target_branch,
+        max_commits_behind_target: value.max_commits_behind_target,
+        fetch_age_seconds: value.fetch_age_seconds,
         current_branch: value.current_branch,
         head_commit: value.head_commit,
         target_commit: value.target_commit,
@@ -1391,6 +1416,7 @@ fn git_preflight_report_view(
 fn git_publish_report_view(value: prism_coordination::GitPublishReport) -> GitPublishReportView {
     GitPublishReportView {
         attempted_at: value.attempted_at,
+        publish_ref: value.publish_ref,
         code_commit: value.code_commit,
         coordination_commit: value.coordination_commit,
         pushed_ref: value.pushed_ref,
@@ -1647,6 +1673,7 @@ pub(crate) fn coordination_task_view(
         title: value.title,
         summary: value.summary,
         status: value.status,
+        published_task_status: value.published_task_status,
         assignee: value.assignee.map(|agent| agent.0.to_string()),
         pending_handoff_to: value.pending_handoff_to.map(|agent| agent.0.to_string()),
         anchors: value.anchors,
@@ -1668,6 +1695,9 @@ pub(crate) fn coordination_task_view(
         git_execution: TaskGitExecutionView {
             status: value.git_execution.status,
             pending_task_status: value.git_execution.pending_task_status,
+            source_ref: value.git_execution.source_ref,
+            target_ref: value.git_execution.target_ref,
+            publish_ref: value.git_execution.publish_ref,
             target_branch: value.git_execution.target_branch,
             last_preflight: value
                 .git_execution

@@ -68,25 +68,39 @@ pub fn plan_graph_from_coordination(plan: Plan, mut tasks: Vec<CoordinationTask>
 }
 
 pub fn execution_overlays_from_tasks(tasks: &[CoordinationTask]) -> Vec<PlanExecutionOverlay> {
-    let mut overlays = tasks
-        .iter()
-        .filter(|task| {
-            task.pending_handoff_to.is_some()
-                || task.session.is_some()
-                || task.worktree_id.is_some()
-                || task.branch_ref.is_some()
-        })
-        .map(|task| PlanExecutionOverlay {
-            node_id: plan_node_id_from_task_id(task.id.clone()),
-            pending_handoff_to: task.pending_handoff_to.clone(),
-            session: task.session.clone(),
-            worktree_id: task.worktree_id.clone(),
-            branch_ref: task.branch_ref.clone(),
-            effective_assignee: None,
-            awaiting_handoff_from: None,
-            git_execution: None,
-        })
-        .collect::<Vec<_>>();
+    let mut overlays =
+        tasks
+            .iter()
+            .filter_map(|task| {
+                let git_execution = (task.git_execution != crate::TaskGitExecution::default())
+                    .then(|| prism_ir::GitExecutionOverlay {
+                        status: task.git_execution.status,
+                        pending_task_status: task.git_execution.pending_task_status,
+                        source_ref: task.git_execution.source_ref.clone(),
+                        target_ref: task.git_execution.target_ref.clone(),
+                        publish_ref: task.git_execution.publish_ref.clone(),
+                        target_branch: task.git_execution.target_branch.clone(),
+                    });
+                if task.pending_handoff_to.is_none()
+                    && task.session.is_none()
+                    && task.worktree_id.is_none()
+                    && task.branch_ref.is_none()
+                    && git_execution.is_none()
+                {
+                    return None;
+                }
+                Some(PlanExecutionOverlay {
+                    node_id: plan_node_id_from_task_id(task.id.clone()),
+                    pending_handoff_to: task.pending_handoff_to.clone(),
+                    session: task.session.clone(),
+                    worktree_id: task.worktree_id.clone(),
+                    branch_ref: task.branch_ref.clone(),
+                    effective_assignee: None,
+                    awaiting_handoff_from: None,
+                    git_execution,
+                })
+            })
+            .collect::<Vec<_>>();
     overlays.sort_by(|left, right| left.node_id.0.cmp(&right.node_id.0));
     overlays
 }
@@ -160,13 +174,14 @@ impl CoordinationStore {
 
 fn plan_node_from_task(task: CoordinationTask) -> PlanNode {
     let bindings = task_bindings(&task);
+    let effective_status = effective_task_status(&task);
     PlanNode {
         id: plan_node_id_from_task_id(task.id),
         plan_id: task.plan,
         kind: task.kind,
         title: task.title,
         summary: task.summary,
-        status: map_task_status(task.status),
+        status: map_task_status(effective_status),
         bindings,
         acceptance: task
             .acceptance
@@ -231,6 +246,20 @@ fn task_from_plan_node(
     let branch_ref = execution
         .as_ref()
         .and_then(|overlay| overlay.branch_ref.clone());
+    let git_execution = execution
+        .as_ref()
+        .and_then(|overlay| overlay.git_execution.clone())
+        .map(|overlay| crate::TaskGitExecution {
+            status: overlay.status,
+            pending_task_status: overlay.pending_task_status,
+            source_ref: overlay.source_ref,
+            target_ref: overlay.target_ref,
+            publish_ref: overlay.publish_ref,
+            target_branch: overlay.target_branch,
+            last_preflight: None,
+            last_publish: None,
+        })
+        .unwrap_or_default();
     CoordinationTask {
         id: coordination_task_id_from_plan_node_id(node.id),
         plan: plan_id,
@@ -238,6 +267,7 @@ fn task_from_plan_node(
         title: node.title,
         summary: node.summary,
         status: map_plan_node_status(node.status),
+        published_task_status: None,
         assignee: node.assignee,
         pending_handoff_to,
         session,
@@ -262,7 +292,7 @@ fn task_from_plan_node(
         priority: node.priority,
         tags: node.tags,
         metadata: node.metadata,
-        git_execution: crate::TaskGitExecution::default(),
+        git_execution,
     }
 }
 
@@ -333,6 +363,10 @@ fn map_task_status(status: prism_ir::CoordinationTaskStatus) -> PlanNodeStatus {
         prism_ir::CoordinationTaskStatus::Completed => PlanNodeStatus::Completed,
         prism_ir::CoordinationTaskStatus::Abandoned => PlanNodeStatus::Abandoned,
     }
+}
+
+fn effective_task_status(task: &CoordinationTask) -> prism_ir::CoordinationTaskStatus {
+    task.published_task_status.unwrap_or(task.status)
 }
 
 fn map_plan_node_status(status: PlanNodeStatus) -> prism_ir::CoordinationTaskStatus {
