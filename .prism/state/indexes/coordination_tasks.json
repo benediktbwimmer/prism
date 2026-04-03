@@ -1688,7 +1688,7 @@
   {
     "id": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
     "title": "Canonicalize graph and workspace file identity around file ids plus repo-relative paths",
-    "status": "InProgress",
+    "status": "Completed",
     "path": "tasks/coord-task-01kn9vd88apgdq35f4hr9tmsss-ff41bf160cc41b2a.json"
   },
   {

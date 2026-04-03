@@ -1,16 +1,16 @@
 {
   "version": 1,
-  "publishedAt": 1775232895,
+  "publishedAt": 1775233363,
   "publisher": {
     "principalAuthorityId": "local-daemon",
     "principalId": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
-    "credentialId": "credential:implicit:principal:local-daemon:principal:codex-b:01kn80974nee67v9zbjf28q67a"
+    "credentialId": "credential:01kn80974ndtnq6s77qk7y3v1w"
   },
   "workContext": {
-    "workId": "work:normalize-durable-patch-outcome-and-publication-paths:01kna1f36b22n6hn2qqsn45zsn",
-    "kind": "ad_hoc",
-    "title": "Normalize durable patch outcome and publication paths",
-    "coordinationTaskId": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+    "workId": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+    "kind": "coordination",
+    "title": "Canonicalize graph and workspace file identity around file ids plus repo-relative paths",
+    "coordinationTaskId": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
     "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
     "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
   },
@@ -2317,7 +2317,7 @@
     },
     ".prism/state/coordination/tasks/coord-task-01kn9vd88apgdq35f4hr9tmsss-ff41bf160cc41b2a.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9vd88apgdq35f4hr9tmsss-ff41bf160cc41b2a.json",
-      "sha256": "sha256:c5e6936df8a19e5cf520ad4fe07557d170d8342d7906d6238935819d82e66548"
+      "sha256": "sha256:b89c639c2ce7672b47f8b0792b582fd4680eb11ae257a6b6a6ddfe9ac3a46240"
     },
     ".prism/state/coordination/tasks/coord-task-01kn9vdfjsrbzwz5w5mff8yqck-28360e8f7ddfa227.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9vdfjsrbzwz5w5mff8yqck-28360e8f7ddfa227.json",
@@ -2425,7 +2425,7 @@
     },
     ".prism/state/indexes/coordination_tasks.json": {
       "path": ".prism/state/indexes/coordination_tasks.json",
-      "sha256": "sha256:cf7a49bcca73bf3190e155cf1f9819de00f935147ff08d4da37e8b8e0425ba8e"
+      "sha256": "sha256:ebb0e135ad75725fbc4ba4351b55f6ebe5b9d43b89c7f173d9c57afd47fb6f24"
     },
     ".prism/state/indexes/plans.json": {
       "path": ".prism/state/indexes/plans.json",
@@ -2633,7 +2633,7 @@
     },
     ".prism/state/plans/plan-01kn9vcavs4jft9eqw82ysmghq-140ec859a05ac8c9.json": {
       "path": ".prism/state/plans/plan-01kn9vcavs4jft9eqw82ysmghq-140ec859a05ac8c9.json",
-      "sha256": "sha256:4438625f2a32f9070a97381adc61ccca29275c5f54794b7832f8dbda7749d64d"
+      "sha256": "sha256:45a823114d9b0cecab98e6f8d4891af08d602dc4f9b1e9f5d367864772bf5e6b"
     },
     ".prism/state/plans/plan-01kn9xsvp1a376w7xmq08gn4nh-36bad8e44d57f454.json": {
       "path": ".prism/state/plans/plan-01kn9xsvp1a376w7xmq08gn4nh-36bad8e44d57f454.json",
@@ -2668,13 +2668,13 @@
       "sha256": "sha256:25b396965686f9dc300002f26a9ba19c826a387a00b6e3ee799116d6a0f64457"
     }
   },
-  "previousManifestDigest": "sha256:a886bde6b0d9cc60073af119cbdac983d01c81c74c55f4e440a000a9ae7e8f70",
+  "previousManifestDigest": "sha256:7ba85c53178872df4d15aa1a712754cf02f6098041dd9fa7e3a50f7399d3087c",
   "migrationSourceDigest": "sha256:29be826a9e4869880d788dda166c588fd3513bcecc43c4b019205486a2115994",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:UOQIrk+0WL/PRizllRTy3oIKvVjtRUk8mVCrhrxywDpaptBpbbxxGN0ZuXyf5LvH6x9F38mnJvY2ZdRT9d/UAg=="
+    "value": "base64:IGICpR+l3Zb48szUr9xEjjOaZ5m8o5eJKdVTsvqZKqdeydfD+B5uC2eNNO1hFbYv1dL0igbo2lq2/CwwR6e2DA=="
   }
 }

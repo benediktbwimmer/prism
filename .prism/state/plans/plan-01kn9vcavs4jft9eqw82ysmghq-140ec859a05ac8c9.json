@@ -101,7 +101,7 @@
         "kind": "Edit",
         "title": "Canonicalize graph and workspace file identity around file ids plus repo-relative paths",
         "summary": "Make file ids the primary internal key, make repo-relative paths the canonical stored path identity, and ensure absolute paths are derived only in local worktree runtime code that actually touches the filesystem.",
-        "status": "InProgress",
+        "status": "Completed",
         "bindings": {
           "anchors": [],
           "concept_handles": [],
@@ -127,7 +127,7 @@
         "is_abstract": false,
         "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
         "base_revision": {
-          "graph_version": 81,
+          "graph_version": 98,
           "git_commit": null
         },
         "priority": 1,
@@ -377,15 +377,6 @@
         "metadata": null
       },
       {
-        "id": "plan-edge:coord-task:01kn9vd88apgdq35f4hr9tmsss:depends-on:coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
-        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
-        "from": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
-        "to": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
         "id": "plan-edge:coord-task:01kn9vdfjsrbzwz5w5mff8yqck:depends-on:coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
         "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
         "from": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
@@ -399,6 +390,15 @@
         "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
         "from": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
         "to": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn9vd88apgdq35f4hr9tmsss:depends-on:coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "from": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+        "to": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
         "kind": "DependsOn",
         "summary": null,
         "metadata": null
@@ -417,6 +417,23 @@
       "git_execution": {
         "status": "published",
         "pendingTaskStatus": null,
+        "sourceRef": "task/path-identity-repo-relative",
+        "targetRef": "origin/main",
+        "publishRef": "task/path-identity-repo-relative",
+        "targetBranch": "main"
+      }
+    },
+    {
+      "node_id": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+      "pending_handoff_to": null,
+      "session": null,
+      "worktree_id": null,
+      "branch_ref": null,
+      "effective_assignee": null,
+      "awaiting_handoff_from": null,
+      "git_execution": {
+        "status": "publish_pending",
+        "pendingTaskStatus": "Completed",
         "sourceRef": "task/path-identity-repo-relative",
         "targetRef": "origin/main",
         "publishRef": "task/path-identity-repo-relative",
