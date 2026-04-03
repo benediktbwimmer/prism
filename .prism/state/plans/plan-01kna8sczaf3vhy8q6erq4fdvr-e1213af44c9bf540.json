@@ -274,19 +274,19 @@
       "effective_assignee": null,
       "awaiting_handoff_from": null,
       "git_execution": {
-        "status": "publish_pending",
-        "pendingTaskStatus": "Completed",
+        "status": "published",
+        "pendingTaskStatus": null,
         "sourceRef": "task/federated-runtime-implementation",
         "targetRef": "origin/main",
         "publishRef": "task/federated-runtime-implementation",
         "targetBranch": "main",
         "sourceCommit": "8b9d27b6d8fa593837dfd18b8fb7c8c7c8fb1fb0",
-        "publishCommit": "8b9d27b6d8fa593837dfd18b8fb7c8c7c8fb1fb0",
+        "publishCommit": "acae0827fefb935eace46e521662a015261c840c",
         "targetCommitAtPublish": "6a64dbf883cf97b0c1e32fa4927c9d6b4bd50310",
         "reviewArtifactRef": null,
         "integrationCommit": null,
         "integrationMode": "external",
-        "integrationStatus": "not_started"
+        "integrationStatus": "integration_pending"
       }
     }
   ]
