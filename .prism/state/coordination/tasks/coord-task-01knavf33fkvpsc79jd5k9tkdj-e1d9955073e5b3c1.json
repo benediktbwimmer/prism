@@ -1,0 +1,74 @@
+{
+  "id": "coord-task:01knavf33fkvpsc79jd5k9tkdj",
+  "plan": "plan:01knav51cj8vgw0zp49qgktzps",
+  "kind": "Edit",
+  "title": "Complete direct_integrate mode with trusted direct landing execution and immediate verification",
+  "summary": "Finish the direct integration mode so PRISM can land eligible task branches itself under policy, emit trusted landing metadata, and verify the target branch update immediately.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01knavdeaf5qs3zp6vycxgkg9t"
+  ],
+  "acceptance": [
+    {
+      "label": "`direct_integrate` mode checks freshness, validation, branch policy, and target movement preconditions before landing.",
+      "anchors": []
+    },
+    {
+      "label": "Allowed direct landings emit trusted landing metadata that can be verified without external manual repair.",
+      "anchors": []
+    },
+    {
+      "label": "Immediate post-land verification and failure reporting are explicit and tested.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 173,
+    "git_commit": null
+  },
+  "priority": 93,
+  "tags": [
+    "direct",
+    "integration",
+    "shared-ref"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "sourceCommit": null,
+    "publishCommit": null,
+    "targetCommitAtPublish": null,
+    "reviewArtifactRef": null,
+    "integrationCommit": null,
+    "integrationMode": "external",
+    "integrationStatus": "not_started",
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}
