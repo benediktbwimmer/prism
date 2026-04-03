@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:b066d7ad1eedc4896178f52957e3462dbe213403ff3f833e4346e193569a98f3`
+- Source head: `sha256:8c321d19fb13004cbcb16f381de0f828dae0926dd7020d82581d2d2c6f82e892`
 - Source logical timestamp: `unknown`
 - Source snapshot: `6 nodes, 11 edges, 6 overlays`
 
@@ -38,7 +38,7 @@ Define one correct path identity model for PRISM so tracked snapshots, shared/ru
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn9vcavs4jft9eqw82ysmghq.json`
-- Legacy migration log path: unavailable in the current projection
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 
