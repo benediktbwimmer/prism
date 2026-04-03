@@ -497,7 +497,8 @@ impl ProjectionIndex {
     }
 
     pub fn resolve_concepts(&self, query: &str, limit: usize) -> Vec<ConceptResolution> {
-        let mut resolutions = resolve_concepts(&self.concept_packets, query, 0);
+        let candidate_limit = concept_relation_rerank_candidate_limit(limit);
+        let mut resolutions = resolve_concepts(&self.concept_packets, query, candidate_limit);
         for resolution in &mut resolutions {
             let (bonus, reasons) = concept_relation_query_bonus(
                 &resolution.packet.handle,
@@ -959,6 +960,16 @@ impl ProjectionIndex {
             }
             AnchorRef::File(_) | AnchorRef::Kind(_) => true,
         }
+    }
+}
+
+fn concept_relation_rerank_candidate_limit(limit: usize) -> usize {
+    if limit == 0 {
+        0
+    } else {
+        // Keep enough lexical headroom for relation bonuses to rerank near-misses
+        // without paying a full-concept scan on every small concept lookup.
+        limit.saturating_mul(4).max(12)
     }
 }
 

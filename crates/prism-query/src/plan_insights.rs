@@ -1,8 +1,8 @@
 use std::collections::BTreeSet;
 
 use prism_ir::{
-    PlanEdgeKind, PlanId, PlanNode, PlanNodeBlockerKind, PlanNodeId, PlanNodeStatus, PlanStatus,
-    Timestamp,
+    PlanEdgeKind, PlanGraph, PlanId, PlanNode, PlanNodeBlockerKind, PlanNodeId, PlanNodeStatus,
+    PlanStatus, Timestamp,
 };
 
 use crate::plan_completion::current_timestamp;
@@ -22,13 +22,14 @@ impl Prism {
         if graph.status != PlanStatus::Active {
             return Vec::new();
         }
+        let overlays = runtime.plan_execution(&graph.id);
 
         let mut nodes = graph
             .nodes
             .iter()
             .filter(|node| is_actionable_candidate(node))
             .filter(|node| {
-                self.plan_node_blockers_for_runtime(runtime, &graph.id, &node.id, now)
+                self.plan_node_blockers_for_hydrated_graph(runtime, &graph, &overlays, node, now)
                     .is_empty()
             })
             .cloned()
@@ -61,12 +62,16 @@ impl Prism {
         plan_id: &PlanId,
     ) -> Option<PlanSummary> {
         let graph = self.hydrated_plan_graph_for_runtime(runtime, plan_id)?;
+        Some(self.plan_summary_for_hydrated_graph(runtime, &graph))
+    }
+
+    pub(crate) fn plan_summary_for_hydrated_graph(
+        &self,
+        runtime: &NativePlanRuntimeState,
+        graph: &PlanGraph,
+    ) -> PlanSummary {
         let now = current_timestamp();
-        let actionable_ids = self
-            .actionable_plan_nodes_for_runtime(runtime, plan_id, now)
-            .into_iter()
-            .map(|node| node.id)
-            .collect::<BTreeSet<_>>();
+        let overlays = runtime.plan_execution(&graph.id);
 
         let mut summary = PlanSummary {
             plan_id: graph.id.clone(),
@@ -98,12 +103,16 @@ impl Prism {
                 _ => {}
             }
 
-            let blockers = self.plan_node_blockers_for_runtime(runtime, &graph.id, &node.id, now);
+            let blockers =
+                self.plan_node_blockers_for_hydrated_graph(runtime, graph, &overlays, node, now);
             let has_completion_gates = blockers
                 .iter()
                 .any(|blocker| is_completion_gate(blocker.kind));
+            let actionable = graph.status == PlanStatus::Active
+                && is_actionable_candidate(node)
+                && blockers.is_empty();
 
-            if actionable_ids.contains(&node.id) {
+            if actionable {
                 summary.actionable_nodes += 1;
             } else {
                 summary.execution_blocked_nodes += 1;
@@ -132,7 +141,7 @@ impl Prism {
             }
         }
 
-        Some(summary)
+        summary
     }
 
     fn plan_next_for_runtime(

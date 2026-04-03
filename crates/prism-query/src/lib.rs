@@ -44,6 +44,7 @@ use tracing::info;
 
 use crate::common::{anchor_sort_key, dedupe_node_ids, sort_node_ids};
 use crate::plan_bindings::validate_authored_plan_binding;
+use crate::plan_discovery::PlanDiscoveryCache;
 use crate::plan_runtime::NativePlanRuntimeState;
 
 pub use crate::source::{
@@ -76,6 +77,7 @@ pub struct Prism {
     outcome_backend: RwLock<Option<Arc<dyn OutcomeReadBackend>>>,
     workspace_revision: RwLock<WorkspaceRevision>,
     plan_runtime: RwLock<NativePlanRuntimeState>,
+    plan_discovery_cache: RwLock<Option<PlanDiscoveryCache>>,
     continuity_runtime: RwLock<CoordinationRuntimeState>,
     coordination_context: RwLock<Option<CoordinationPersistContext>>,
     projections: RwLock<ProjectionIndex>,
@@ -250,6 +252,7 @@ impl Prism {
             outcome_backend: RwLock::new(None),
             workspace_revision: RwLock::new(default_workspace_revision),
             plan_runtime: RwLock::new(native_plans),
+            plan_discovery_cache: RwLock::new(None),
             continuity_runtime: RwLock::new(continuity_runtime),
             coordination_context: RwLock::new(None),
             projections: RwLock::new(projections),
@@ -328,6 +331,7 @@ impl Prism {
             .coordination_context
             .write()
             .expect("coordination context lock poisoned") = context;
+        self.invalidate_plan_discovery_cache();
     }
 
     pub fn coordination_context(&self) -> Option<CoordinationPersistContext> {
@@ -342,6 +346,7 @@ impl Prism {
             .workspace_revision
             .write()
             .expect("workspace revision lock poisoned") = revision;
+        self.invalidate_plan_discovery_cache();
     }
 
     pub fn anchors_for(&self, anchors: &[AnchorRef]) -> Vec<AnchorRef> {
@@ -395,6 +400,7 @@ impl Prism {
             .continuity_runtime
             .write()
             .expect("continuity runtime lock poisoned") = continuity_runtime;
+        self.invalidate_plan_discovery_cache();
     }
 
     pub fn replace_coordination_snapshot_and_plan_graphs(
@@ -419,6 +425,7 @@ impl Prism {
             .continuity_runtime
             .write()
             .expect("continuity runtime lock poisoned") = continuity_runtime;
+        self.invalidate_plan_discovery_cache();
     }
 
     pub fn refresh_plan_runtime_from_coordination(&self) {
@@ -433,6 +440,7 @@ impl Prism {
             .write()
             .expect("continuity runtime lock poisoned") =
             CoordinationRuntimeState::from_snapshot(snapshot);
+        self.invalidate_plan_discovery_cache();
     }
 
     fn mutate_native_plan_runtime<T, F>(&self, mutate: F) -> Result<T>
@@ -473,6 +481,7 @@ impl Prism {
             .write()
             .expect("continuity runtime lock poisoned")
             .replace_from_snapshot(snapshot);
+        self.invalidate_plan_discovery_cache();
     }
 
     fn persist_coordination_snapshot(&self, snapshot: CoordinationSnapshot) -> Result<()> {
@@ -1074,6 +1083,7 @@ impl Prism {
         );
         next.replace_curated_contracts(contracts);
         *self.projections.write().expect("projection lock poisoned") = next;
+        self.invalidate_plan_discovery_cache();
     }
 
     pub fn replace_curated_concepts(&self, concepts: Vec<ConceptPacket>) {
@@ -1081,6 +1091,7 @@ impl Prism {
             .write()
             .expect("projection lock poisoned")
             .replace_curated_concepts(concepts);
+        self.invalidate_plan_discovery_cache();
     }
 
     pub fn curated_concepts_snapshot(&self) -> Vec<ConceptPacket> {
@@ -1096,6 +1107,7 @@ impl Prism {
             .write()
             .expect("projection lock poisoned")
             .upsert_curated_concept(concept);
+        self.invalidate_plan_discovery_cache();
     }
 
     pub fn replace_curated_contracts(&self, contracts: Vec<ContractPacket>) {
@@ -1103,6 +1115,7 @@ impl Prism {
             .write()
             .expect("projection lock poisoned")
             .replace_curated_contracts(contracts);
+        self.invalidate_plan_discovery_cache();
     }
 
     pub fn upsert_curated_contract(&self, contract: ContractPacket) {
@@ -1110,6 +1123,7 @@ impl Prism {
             .write()
             .expect("projection lock poisoned")
             .upsert_curated_contract(contract);
+        self.invalidate_plan_discovery_cache();
     }
 
     pub fn replace_concept_relations(&self, relations: Vec<ConceptRelation>) {
@@ -1117,6 +1131,7 @@ impl Prism {
             .write()
             .expect("projection lock poisoned")
             .replace_concept_relations(relations);
+        self.invalidate_plan_discovery_cache();
     }
 
     pub fn concept_relations_snapshot(&self) -> Vec<ConceptRelation> {
@@ -1132,6 +1147,7 @@ impl Prism {
             .write()
             .expect("projection lock poisoned")
             .upsert_concept_relation(relation);
+        self.invalidate_plan_discovery_cache();
     }
 
     pub fn remove_concept_relation(
@@ -1144,6 +1160,7 @@ impl Prism {
             .write()
             .expect("projection lock poisoned")
             .remove_concept_relation(source_handle, target_handle, kind);
+        self.invalidate_plan_discovery_cache();
     }
 
     pub fn apply_outcome_event_to_projections(&self, event: &OutcomeEvent) {
@@ -1151,6 +1168,7 @@ impl Prism {
             .write()
             .expect("projection lock poisoned")
             .apply_outcome_event(event, |node| self.history.lineage_of(node));
+        self.invalidate_plan_discovery_cache();
     }
 
     pub fn apply_lineage_events_to_projections(&self, events: &[LineageEvent]) {
@@ -1158,6 +1176,7 @@ impl Prism {
             .write()
             .expect("projection lock poisoned")
             .apply_lineage_events(events);
+        self.invalidate_plan_discovery_cache();
     }
 
     pub(crate) fn expand_anchors(&self, anchors: &[AnchorRef]) -> Vec<AnchorRef> {

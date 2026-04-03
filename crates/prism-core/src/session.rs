@@ -987,7 +987,10 @@ impl WorkspaceSession {
     ) -> Result<WorkspaceFsRefreshOutcome> {
         let now_ms = current_timestamp_millis();
         let fs_fallback_due = self.refresh_state.should_run_fallback_check(now_ms);
-        if !self.refresh_state.needs_refresh() && !fs_fallback_due {
+        let has_scoped_override = dirty_paths_override
+            .as_ref()
+            .is_some_and(|dirty_paths| !dirty_paths.is_empty());
+        if !self.refresh_state.needs_refresh() && !fs_fallback_due && !has_scoped_override {
             return Ok(WorkspaceFsRefreshOutcome {
                 status: FsRefreshStatus::Clean,
                 observed: Vec::new(),
@@ -997,7 +1000,9 @@ impl WorkspaceSession {
         let dirty_paths = dirty_paths_override
             .clone()
             .unwrap_or_else(|| self.refresh_state.dirty_paths_snapshot());
-        let refreshed = if self.refresh_state.needs_refresh() && !dirty_paths.is_empty() {
+        let refreshed = if (self.refresh_state.needs_refresh() || has_scoped_override)
+            && !dirty_paths.is_empty()
+        {
             self.refresh_with_trigger(ChangeTrigger::FsWatch, None, Some(dirty_paths))?
         } else {
             let known_snapshot = self

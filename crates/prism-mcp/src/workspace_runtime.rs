@@ -844,17 +844,19 @@ fn sync_workspace_runtime_with_guard(
         workspace_reloaded: refresh_path == "full",
         ..WorkspaceRefreshMetrics::default()
     };
-    publish_runtime_generation(
-        config,
-        &revisions,
-        refresh_path,
-        Vec::new(),
-        if matches!(refresh_path, "incremental" | "rescan" | "full") {
-            Some(true)
-        } else {
-            None
-        },
-    );
+    if should_publish_runtime_generation(refresh_path, &[]) {
+        publish_runtime_generation(
+            config,
+            &revisions,
+            refresh_path,
+            Vec::new(),
+            if matches!(refresh_path, "incremental" | "rescan" | "full") {
+                Some(true)
+            } else {
+                None
+            },
+        );
+    }
     if deferred {
         config
             .workspace
@@ -1002,7 +1004,9 @@ fn sync_workspace_runtime_for_read_with_guard(
         workspace_reloaded: false,
         ..WorkspaceRefreshMetrics::default()
     };
-    publish_runtime_generation(config, &revisions, refresh_path, Vec::new(), None);
+    if should_publish_runtime_generation(refresh_path, &[]) {
+        publish_runtime_generation(config, &revisions, refresh_path, Vec::new(), None);
+    }
     if deferred {
         config
             .workspace
@@ -1226,17 +1230,21 @@ pub(crate) fn sync_persisted_workspace_state(
     };
     let mut metrics = metrics;
     apply_refresh_breakdown(&mut metrics, refresh_outcome.breakdown);
-    publish_runtime_generation(
-        config,
-        &revisions,
-        refresh_path,
-        file_deltas_from_observed(config.workspace.as_ref(), &refresh_outcome.observed),
-        if matches!(refresh_path, "incremental" | "rescan" | "full") {
-            Some(true)
-        } else {
-            None
-        },
-    );
+    let file_deltas =
+        file_deltas_from_observed(config.workspace.as_ref(), &refresh_outcome.observed);
+    if should_publish_runtime_generation(refresh_path, &file_deltas) {
+        publish_runtime_generation(
+            config,
+            &revisions,
+            refresh_path,
+            file_deltas,
+            if matches!(refresh_path, "incremental" | "rescan" | "full") {
+                Some(true)
+            } else {
+                None
+            },
+        );
+    }
     if deferred {
         config
             .workspace
@@ -1441,18 +1449,32 @@ fn apply_prepared_workspace_delta_command(
         ));
     };
     let checkpoint_pending = prepared.report.refresh_path != "none";
-    let batch = publish_runtime_generation(
-        config,
-        &prepared.revisions,
-        prepared.report.refresh_path,
-        prepared.file_deltas,
-        Some(checkpoint_pending),
-    );
+    let batch =
+        if should_publish_runtime_generation(prepared.report.refresh_path, &prepared.file_deltas) {
+            Some(publish_runtime_generation(
+                config,
+                &prepared.revisions,
+                prepared.report.refresh_path,
+                prepared.file_deltas,
+                Some(checkpoint_pending),
+            ))
+        } else {
+            None
+        };
     let follow_up_commands = follow_up_runtime_commands(
         config,
         &prepared.revisions,
         prepared.report.refresh_path,
-        batch.committed_generation,
+        batch
+            .map(|value| value.committed_generation)
+            .unwrap_or_else(|| {
+                config
+                    .runtime_engine
+                    .lock()
+                    .expect("workspace runtime engine lock poisoned")
+                    .published_generation()
+                    .id
+            }),
     );
     let duration_ms = u128::from(prepared.report.metrics.lock_hold_ms);
     log_refresh_workspace(
@@ -1998,6 +2020,13 @@ fn file_deltas_from_observed(
             edge_removed: change.edge_removed.len(),
         })
         .collect()
+}
+
+fn should_publish_runtime_generation(
+    refresh_path: &str,
+    file_deltas: &[WorkspaceFileDelta],
+) -> bool {
+    refresh_path != "none" || !file_deltas.is_empty()
 }
 
 fn changed_paths_from_file_deltas(file_deltas: &[WorkspaceFileDelta]) -> Vec<PathBuf> {

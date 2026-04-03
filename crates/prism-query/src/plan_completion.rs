@@ -62,20 +62,31 @@ impl Prism {
         let Some(graph) = self.hydrated_plan_graph_for_runtime(runtime, plan_id) else {
             return Vec::new();
         };
-        let Some(node) = graph.nodes.iter().find(|node| node.id == *node_id).cloned() else {
+        let Some(node) = graph.nodes.iter().find(|node| node.id == *node_id) else {
             return Vec::new();
         };
         let overlays = runtime.plan_execution(plan_id);
-        let mut blockers = node_blockers_for_graph(&graph, &overlays, node_id);
-        if let Some(task_blockers) = self.task_backed_policy_blockers(plan_id, node_id, now) {
+        self.plan_node_blockers_for_hydrated_graph(runtime, &graph, &overlays, node, now)
+    }
+
+    pub(crate) fn plan_node_blockers_for_hydrated_graph(
+        &self,
+        runtime: &NativePlanRuntimeState,
+        graph: &PlanGraph,
+        overlays: &[PlanExecutionOverlay],
+        node: &PlanNode,
+        now: Timestamp,
+    ) -> Vec<PlanNodeBlocker> {
+        let mut blockers = node_blockers_for_graph(graph, overlays, &node.id);
+        if let Some(task_blockers) = self.task_backed_policy_blockers(&graph.id, &node.id, now) {
             blockers.retain(|blocker| blocker.kind != PlanNodeBlockerKind::Dependency);
             blockers.extend(task_blockers);
         } else {
             blockers.extend(self.native_policy_blockers_for_node(
-                runtime.policy(plan_id),
-                &graph,
-                &node,
-                &overlays,
+                runtime.policy(&graph.id),
+                graph,
+                node,
+                overlays,
                 now,
             ));
         }

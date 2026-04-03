@@ -18445,6 +18445,32 @@ fn workspace_binding_seeds_cached_runtime_status_on_startup() {
 }
 
 #[test]
+fn observe_workspace_for_read_reuses_published_generation_when_runtime_is_current() {
+    let root = temp_workspace();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let binding = host
+        .workspace_runtime_binding_ref()
+        .expect("workspace runtime binding should exist");
+    let initial_generation = binding.published_generation_snapshot().id;
+
+    let first = host
+        .observe_workspace_for_read()
+        .expect("workspace read observation should succeed");
+    let after_first = binding.published_generation_snapshot().id;
+    assert_eq!(first.refresh_path, "none");
+    assert_eq!(after_first, initial_generation);
+
+    let second = host
+        .observe_workspace_for_read()
+        .expect("repeated workspace read observation should succeed");
+    let after_second = binding.published_generation_snapshot().id;
+    assert_eq!(second.refresh_path, "none");
+    assert_eq!(after_second, initial_generation);
+}
+
+#[test]
 fn runtime_status_surfaces_published_generation_and_domain_freshness() {
     let root = temp_workspace();
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();

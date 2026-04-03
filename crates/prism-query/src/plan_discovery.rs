@@ -1,9 +1,31 @@
 use prism_ir::{PlanScope, PlanStatus};
 use std::collections::BTreeSet;
 
+use crate::plan_completion::current_timestamp;
 use crate::{NativePlanRuntimeState, PlanListEntry, Prism};
 
+const PLAN_DISCOVERY_CACHE_TTL_SECS: u64 = 5;
+
+#[derive(Debug, Clone)]
+pub(crate) struct PlanDiscoveryCache {
+    built_at: u64,
+    entries: Vec<PlanListEntry>,
+}
+
+impl PlanDiscoveryCache {
+    fn is_fresh(&self, now: u64) -> bool {
+        now.saturating_sub(self.built_at) <= PLAN_DISCOVERY_CACHE_TTL_SECS
+    }
+}
+
 impl Prism {
+    pub(crate) fn invalidate_plan_discovery_cache(&self) {
+        *self
+            .plan_discovery_cache
+            .write()
+            .expect("plan discovery cache lock poisoned") = None;
+    }
+
     pub fn plans(
         &self,
         status: Option<PlanStatus>,
@@ -29,19 +51,15 @@ impl Prism {
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(|value| value.to_ascii_lowercase());
+        if let Some(entries) = self.cached_plan_entries(status, scope, contains.as_deref()) {
+            return entries;
+        }
 
         let mut plans = self
             .hydrated_plan_graphs_for_runtime(runtime)
             .into_iter()
-            .filter(|graph| status.is_none_or(|expected| graph.status == expected))
-            .filter(|graph| scope.is_none_or(|expected| graph.scope == expected))
-            .filter(|graph| {
-                contains
-                    .as_ref()
-                    .is_none_or(|needle| plan_matches_contains_filter(graph, needle))
-            })
             .filter_map(|graph| {
-                let summary = self.plan_summary_for_runtime(runtime, &graph.id)?;
+                let summary = self.plan_summary_for_hydrated_graph(runtime, &graph);
                 Some(PlanListEntry {
                     plan_id: graph.id.clone(),
                     title: graph.title,
@@ -68,14 +86,43 @@ impl Prism {
                 .then_with(|| left.title.cmp(&right.title))
                 .then_with(|| left.plan_id.0.cmp(&right.plan_id.0))
         });
-        plans
+        self.store_plan_entries_cache(&plans);
+        filter_plan_entries(&plans, status, scope, contains.as_deref())
+    }
+
+    fn cached_plan_entries(
+        &self,
+        status: Option<PlanStatus>,
+        scope: Option<PlanScope>,
+        contains: Option<&str>,
+    ) -> Option<Vec<PlanListEntry>> {
+        let now = current_timestamp();
+        let cache = self
+            .plan_discovery_cache
+            .read()
+            .expect("plan discovery cache lock poisoned");
+        let cache = cache.as_ref()?;
+        if !cache.is_fresh(now) {
+            return None;
+        }
+        Some(filter_plan_entries(&cache.entries, status, scope, contains))
+    }
+
+    fn store_plan_entries_cache(&self, entries: &[PlanListEntry]) {
+        *self
+            .plan_discovery_cache
+            .write()
+            .expect("plan discovery cache lock poisoned") = Some(PlanDiscoveryCache {
+            built_at: current_timestamp(),
+            entries: entries.to_vec(),
+        });
     }
 }
 
-fn plan_matches_contains_filter(graph: &prism_ir::PlanGraph, needle: &str) -> bool {
-    let id = graph.id.0.to_ascii_lowercase();
-    let title = graph.title.to_ascii_lowercase();
-    let goal = graph.goal.to_ascii_lowercase();
+fn plan_list_entry_matches_contains_filter(entry: &PlanListEntry, needle: &str) -> bool {
+    let id = entry.plan_id.0.to_ascii_lowercase();
+    let title = entry.title.to_ascii_lowercase();
+    let goal = entry.goal.to_ascii_lowercase();
     if id.contains(needle) || title.contains(needle) || goal.contains(needle) {
         return true;
     }
@@ -86,6 +133,23 @@ fn plan_matches_contains_filter(graph: &prism_ir::PlanGraph, needle: &str) -> bo
         && query_terms
             .iter()
             .all(|term| plan_terms.contains(term.as_str()))
+}
+
+fn filter_plan_entries(
+    entries: &[PlanListEntry],
+    status: Option<PlanStatus>,
+    scope: Option<PlanScope>,
+    contains: Option<&str>,
+) -> Vec<PlanListEntry> {
+    entries
+        .iter()
+        .filter(|entry| status.is_none_or(|expected| entry.status == expected))
+        .filter(|entry| scope.is_none_or(|expected| entry.scope == expected))
+        .filter(|entry| {
+            contains.is_none_or(|needle| plan_list_entry_matches_contains_filter(entry, needle))
+        })
+        .cloned()
+        .collect()
 }
 
 fn normalized_plan_terms(value: &str) -> BTreeSet<String> {

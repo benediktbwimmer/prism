@@ -4308,6 +4308,108 @@ fn published_plan_unbound_tasks_stay_actionable_across_unrelated_graph_drift() {
 }
 
 #[test]
+fn plans_cache_invalidates_when_workspace_revision_changes() {
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha.clone()]);
+
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:plans-cache-invalidation"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            PlanCreateInput {
+                goal: "Invalidate cached plan summaries on workspace revision changes".into(),
+                status: None,
+                policy: Some(CoordinationPolicy {
+                    stale_after_graph_change: true,
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+    coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:plans-cache-invalidation"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Track alpha".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![AnchorRef::Node(alpha)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision {
+                    graph_version: 0,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        history,
+        outcomes,
+        coordination.snapshot(),
+        ProjectionIndex::default(),
+    );
+    prism.set_workspace_revision(WorkspaceRevision {
+        graph_version: 0,
+        git_commit: None,
+    });
+
+    let initial = prism
+        .plans(None, None, None)
+        .into_iter()
+        .find(|entry| entry.plan_id == plan_id)
+        .expect("plan should be listed before workspace drift");
+    assert_eq!(initial.plan_summary.actionable_nodes, 1);
+    assert_eq!(initial.plan_summary.stale_nodes, 0);
+
+    prism.set_workspace_revision(WorkspaceRevision {
+        graph_version: 1,
+        git_commit: None,
+    });
+
+    let updated = prism
+        .plans(None, None, None)
+        .into_iter()
+        .find(|entry| entry.plan_id == plan_id)
+        .expect("plan should still be listed after workspace drift");
+    assert_eq!(updated.plan_summary.actionable_nodes, 0);
+    assert_eq!(updated.plan_summary.execution_blocked_nodes, 1);
+    assert_eq!(updated.plan_summary.stale_nodes, 1);
+}
+
+#[test]
 fn replace_coordination_snapshot_and_plan_graphs_preserves_stale_policy() {
     let mut graph = Graph::new();
     let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
