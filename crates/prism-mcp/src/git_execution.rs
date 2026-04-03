@@ -17,7 +17,10 @@ fn run_git(root: &Path, args: &[&str]) -> Result<String> {
             String::from_utf8_lossy(&output.stderr).trim()
         ));
     }
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    // Preserve leading spaces for porcelain formats like `git status --porcelain`.
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .trim_end()
+        .to_string())
 }
 
 fn is_prism_managed_path(path: &str) -> bool {

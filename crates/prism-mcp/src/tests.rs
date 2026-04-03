@@ -333,6 +333,40 @@ fn git_execution_policy_start_rejects_main_branch_and_records_failure() {
 }
 
 #[test]
+fn git_execution_preflight_ignores_tracked_prism_managed_paths() {
+    let branch = "task/git-execution-preflight";
+    let root = init_git_workspace(branch);
+    let tracked_path = root.join(".prism/plans/active/managed.jsonl");
+    fs::create_dir_all(tracked_path.parent().unwrap()).unwrap();
+    fs::write(&tracked_path, "{\"managed\":true}\n").unwrap();
+    test_git(&root, &["add", ".prism/plans/active/managed.jsonl"]);
+    test_git(&root, &["commit", "-m", "add tracked managed plan file"]);
+    fs::write(&tracked_path, "{\"managed\":false}\n").unwrap();
+
+    let policy = prism_coordination::GitExecutionPolicy {
+        start_mode: prism_coordination::GitExecutionStartMode::Auto,
+        completion_mode: prism_coordination::GitExecutionCompletionMode::Off,
+        target_branch: "main".into(),
+        require_task_branch: true,
+    };
+    let preflight = crate::git_execution::run_preflight(&root, &policy, 123, true).unwrap();
+
+    assert!(preflight.report.worktree_dirty);
+    assert_eq!(preflight.current_branch, branch);
+    assert_eq!(preflight.report.failure, None);
+    assert!(preflight
+        .report
+        .dirty_paths
+        .iter()
+        .any(|path| path == ".prism/plans/active/managed.jsonl"));
+    assert!(preflight
+        .report
+        .protected_dirty_paths
+        .iter()
+        .any(|path| path == ".prism/plans/active/managed.jsonl"));
+}
+
+#[test]
 fn git_execution_policy_completion_commits_pushes_and_leaves_clean_worktree() {
     let branch = "task/git-execution-test";
     let root = init_git_workspace(branch);
