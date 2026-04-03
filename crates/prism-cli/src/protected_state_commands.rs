@@ -4,13 +4,14 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context, Result};
 use prism_core::{
     diagnose_protected_state, export_protected_state_trust_material,
-    import_protected_state_trust_material, inspect_repo_published_plan_artifacts,
-    migrate_legacy_protected_repo_state, quarantine_protected_state_stream,
-    reconcile_protected_state_stream, repair_protected_state_stream_to_last_valid,
-    repair_repo_published_plan_artifacts, verify_protected_state, ProtectedStateQuarantineReport,
-    ProtectedStateReconcileReport, ProtectedStateRepairReport, ProtectedStateStreamReport,
-    ProtectedStateTrustExport, ProtectedStateTrustImportReport, ProtectedStateVerifyReport,
-    PublishedPlanArtifactRepairReport,
+    import_protected_state_trust_material, inspect_legacy_path_identity_state,
+    inspect_repo_published_plan_artifacts, migrate_legacy_protected_repo_state,
+    quarantine_protected_state_stream, reconcile_protected_state_stream,
+    repair_legacy_path_identity_state, repair_protected_state_stream_to_last_valid,
+    repair_repo_published_plan_artifacts, verify_protected_state, LegacyPathIdentityRepairReport,
+    ProtectedStateQuarantineReport, ProtectedStateReconcileReport, ProtectedStateRepairReport,
+    ProtectedStateStreamReport, ProtectedStateTrustExport, ProtectedStateTrustImportReport,
+    ProtectedStateVerifyReport, PublishedPlanArtifactRepairReport,
 };
 
 use crate::cli::{ProtectedStateCommand, ProtectedStateTrustCommand};
@@ -90,6 +91,20 @@ pub(crate) fn handle_protected_state_command(
                 bail!(
                     "{} redundant published plan edge_added event(s) need repair",
                     report.redundant_edge_add_count
+                );
+            }
+        }
+        ProtectedStateCommand::RepairPathIdentity { check } => {
+            let report = if check {
+                inspect_legacy_path_identity_state(root)?
+            } else {
+                repair_legacy_path_identity_state(root)?
+            };
+            print_path_identity_repair_report(&report, check);
+            if check && report.total_entries_needing_repair != 0 {
+                bail!(
+                    "{} path-identity record(s) need repair",
+                    report.total_entries_needing_repair
                 );
             }
         }
@@ -313,5 +328,34 @@ fn print_published_plan_repair_report(report: &PublishedPlanArtifactRepairReport
     println!(
         "scanned {} published plan stream(s); repaired {}; removed {} redundant edge_added event(s)",
         report.scanned_plan_count, report.repaired_plan_count, report.redundant_edge_add_count
+    );
+}
+
+fn print_path_identity_repair_report(report: &LegacyPathIdentityRepairReport, check: bool) {
+    for target in &report.targets {
+        let status = if target.entries_needing_repair == 0 {
+            "clean"
+        } else if check {
+            "needs_repair"
+        } else if target.repaired {
+            "repaired"
+        } else {
+            "pending"
+        };
+        println!(
+            "{}\t{}\t{}\t{} scanned, {} need repair",
+            status,
+            target.label,
+            target.location,
+            target.scanned_entry_count,
+            target.entries_needing_repair
+        );
+    }
+    println!(
+        "scanned {} target(s), {} entry(s); {} need repair, {} repaired",
+        report.scanned_target_count,
+        report.total_scanned_entry_count,
+        report.total_entries_needing_repair,
+        report.repaired_target_count
     );
 }

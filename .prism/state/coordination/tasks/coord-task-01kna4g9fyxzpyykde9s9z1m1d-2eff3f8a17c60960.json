@@ -1,10 +1,10 @@
 {
-  "id": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
-  "plan": "plan:01kn9vcavs4jft9eqw82ysmghq",
+  "id": "coord-task:01kna4g9fyxzpyykde9s9z1m1d",
+  "plan": "plan:01kna4g4q0xn8znaa7bn7s6vq0",
   "kind": "Edit",
-  "title": "Lock the canonical path identity contract and no-absolute-path boundary",
-  "summary": "Define where absolute paths may exist, where only repo-relative paths are allowed, and where anchors must replace raw paths entirely across tracked state, shared runtime, and local runtime.",
-  "status": "Completed",
+  "title": "Lock the final no-legacy-append-log authority contract",
+  "summary": null,
+  "status": "Ready",
   "published_task_status": null,
   "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
   "pending_handoff_to": null,
@@ -25,23 +25,14 @@
     "outcome_refs": []
   },
   "depends_on": [],
-  "acceptance": [
-    {
-      "label": "Specs and contracts explicitly state that tracked `.prism` and shared/logical runtime data must not persist absolute filesystem paths",
-      "anchors": []
-    },
-    {
-      "label": "The canonical identity model distinguishes file ids, repo-relative paths, anchors, and local derived absolute paths without ambiguity",
-      "anchors": []
-    }
-  ],
+  "acceptance": [],
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 123,
+    "graph_version": 1046,
     "git_commit": null
   },
-  "priority": 1,
+  "priority": null,
   "tags": [],
   "metadata": null,
   "git_execution": {

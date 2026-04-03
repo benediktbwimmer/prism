@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use prism_js::AgentSuggestedActionView;
 
 use super::concept::compact_concept_selection;
@@ -161,7 +159,8 @@ fn compact_open_symbol_result(
         .file_path
         .clone()
         .ok_or_else(|| anyhow!("target `{}` has no workspace file path", target.id.path))?;
-    let _ = host.ensure_workspace_paths_deep([PathBuf::from(&file_path)])?;
+    let runtime_file_path = prism.graph().runtime_path(std::path::Path::new(&file_path));
+    let _ = host.ensure_workspace_paths_deep([runtime_file_path])?;
     let base_next_action = next_action;
 
     match mode {
@@ -315,6 +314,12 @@ fn compact_open_exact_path(
         ));
     }
     let scoped_path = workspace_scoped_path(host.workspace_root(), path);
+    let display_path = host
+        .current_prism()
+        .graph()
+        .portable_path(std::path::Path::new(&scoped_path))
+        .to_string_lossy()
+        .into_owned();
     let max_chars = Some(args.max_chars.unwrap_or(match mode {
         AgentOpenMode::Focus => RAW_OPEN_MAX_CHARS,
         AgentOpenMode::Edit => EDIT_OPEN_OPTIONS.max_chars,
@@ -339,12 +344,12 @@ fn compact_open_exact_path(
                 max_chars,
             },
         )?;
-        let target = session_target_from_exact_path_slice(&scoped_path, &slice);
+        let target = session_target_from_exact_path_slice(&display_path, &slice);
         let handle = session.intern_target_handle(target);
         return compact_open_result_from_slice(
             &handle,
             crate::session_state::SessionHandleCategory::TextFragment,
-            &scoped_path,
+            &display_path,
             slice,
             false,
             "Use prism_locate with `path` if you need a semantic symbol in this file, or prism_open again with a tighter `line` window.",
@@ -368,12 +373,12 @@ fn compact_open_exact_path(
             max_chars,
         },
     )?;
-    let target = session_target_from_exact_path_excerpt(&scoped_path, &excerpt);
+    let target = session_target_from_exact_path_excerpt(&display_path, &excerpt);
     let handle = session.intern_target_handle(target);
     compact_open_result_from_excerpt(
         &handle,
         crate::session_state::SessionHandleCategory::TextFragment,
-        &scoped_path,
+        &display_path,
         excerpt,
         false,
         "Use prism_open with `line` for a tighter file window, or prism_locate with `path` for a semantic target in this file.",

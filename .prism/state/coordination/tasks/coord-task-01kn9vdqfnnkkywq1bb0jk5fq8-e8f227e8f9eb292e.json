@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Audit MCP/query/docs/projection surfaces for path leakage and anchor misuse",
   "summary": "Update public schemas, PRISM query surfaces, docs, generated projections, and read models so portable repo-relative paths and semantic anchors are exposed consistently, and machine-local absolute paths never leak into durable or shared surfaces.",
-  "status": "Ready",
+  "status": "Completed",
   "published_task_status": null,
   "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
   "pending_handoff_to": null,
@@ -42,7 +42,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1015,
+    "graph_version": 123,
     "git_commit": null
   },
   "priority": 1,

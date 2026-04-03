@@ -44,11 +44,12 @@ use serde_json::json;
 use super::{
     hydrate_workspace_session, hydrate_workspace_session_with_options, index_workspace,
     index_workspace_session, index_workspace_session_with_curator,
-    index_workspace_session_with_options, inspect_repo_published_plan_artifacts,
-    regenerate_repo_published_plan_artifacts, repair_repo_published_plan_artifacts,
-    BootstrapOwnerInput, MintPrincipalRequest, PrismDocSyncStatus, PrismPaths,
-    SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
-    ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
+    index_workspace_session_with_options, inspect_legacy_path_identity_state,
+    inspect_repo_published_plan_artifacts, regenerate_repo_published_plan_artifacts,
+    repair_legacy_path_identity_state, repair_repo_published_plan_artifacts, BootstrapOwnerInput,
+    MintPrincipalRequest, PrismDocSyncStatus, PrismPaths, SharedRuntimeBackend,
+    ValidationFeedbackCategory, ValidationFeedbackRecord, ValidationFeedbackVerdict,
+    WorkspaceIndexer, WorkspaceSessionOptions,
 };
 use crate::concept_events::append_repo_concept_event;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
@@ -57,9 +58,10 @@ use crate::materialization::summarize_workspace_materialization;
 use crate::memory_events::append_repo_memory_event;
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::protected_state::repo_streams::{
-    append_protected_stream_event, inspect_protected_stream,
+    append_protected_stream_event, implicit_principal_identity, inspect_protected_stream,
 };
 use crate::protected_state::streams::ProtectedRepoStream;
+use crate::published_knowledge::validate_repo_patch_event;
 use crate::repo_patch_events::{append_repo_patch_event, load_repo_patch_events};
 use crate::session::HOT_OUTCOME_HYDRATION_LIMIT;
 use crate::workspace_identity::{canonical_root_repo_id, workspace_identity_for_root};
@@ -1413,15 +1415,24 @@ fn repo_patch_events_capture_provenance_and_reload_without_local_cache() {
         event.metadata["reason"].as_str(),
         Some("work Rename alpha (work:rename-alpha)")
     );
-    assert!(event.metadata["filePaths"][0]
-        .as_str()
-        .unwrap_or_default()
-        .ends_with("src/lib.rs"));
+    assert_eq!(event.metadata["filePaths"][0].as_str(), Some("src/lib.rs"));
+    assert_eq!(
+        event.metadata["changedFilesSummary"][0]["filePath"].as_str(),
+        Some("src/lib.rs")
+    );
+    let changed_symbols = event.metadata["changedSymbols"]
+        .as_array()
+        .expect("patch metadata should include changed symbols");
+    assert!(!changed_symbols.is_empty());
+    assert!(changed_symbols
+        .iter()
+        .all(|symbol| symbol["filePath"].as_str() == Some("src/lib.rs")));
     session.sync_prism_doc().unwrap();
     let changes_doc = fs::read_to_string(root.join("docs/prism/changes.md")).unwrap();
     assert!(changes_doc.contains("# PRISM Changes"));
     assert!(changes_doc.contains("Rename alpha"));
     assert!(changes_doc.contains("src/lib.rs"));
+    assert!(!changes_doc.contains(root.to_string_lossy().as_ref()));
 
     let cache_db = crate::util::cache_path(&root).unwrap();
     drop(session);
@@ -1450,6 +1461,258 @@ fn repo_patch_events_capture_provenance_and_reload_without_local_cache() {
     );
 
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_published_patch_validation_rejects_absolute_file_paths() {
+    let event = OutcomeEvent {
+        meta: EventMeta {
+            id: EventId::new("outcome:absolute-paths"),
+            ts: 7,
+            actor: EventActor::Principal(prism_ir::PrincipalActor {
+                authority_id: PrincipalAuthorityId::new("local-daemon"),
+                principal_id: PrincipalId::new("codex-patch"),
+                kind: Some(PrincipalKind::Agent),
+                name: Some("codex-patch".to_string()),
+            }),
+            correlation: Some(TaskId::new("task:absolute-paths")),
+            causation: None,
+            execution_context: Some(EventExecutionContext {
+                credential_id: Some(CredentialId::new("credential:absolute-paths")),
+                work_context: Some(WorkContextSnapshot {
+                    work_id: "work:absolute-paths".to_string(),
+                    kind: WorkContextKind::AdHoc,
+                    title: "Reject absolute patch paths".to_string(),
+                    summary: Some("Reject absolute patch paths".to_string()),
+                    parent_work_id: None,
+                    coordination_task_id: None,
+                    plan_id: None,
+                    plan_title: None,
+                }),
+                ..Default::default()
+            }),
+        },
+        anchors: vec![AnchorRef::File(prism_ir::FileId(1))],
+        kind: OutcomeKind::PatchApplied,
+        summary: "Absolute path should fail validation".to_string(),
+        result: OutcomeResult::Success,
+        evidence: Vec::new(),
+        metadata: json!({
+            "reason": "work Reject absolute patch paths (work:absolute-paths)",
+            "filePaths": ["/tmp/demo/src/lib.rs"],
+            "changedFilesSummary": [
+                {
+                    "filePath": "/tmp/demo/src/lib.rs",
+                    "changedSymbolCount": 1,
+                    "addedCount": 0,
+                    "removedCount": 0,
+                    "updatedCount": 1
+                }
+            ],
+            "changedSymbols": [
+                {
+                    "filePath": "/tmp/demo/src/lib.rs",
+                    "id": {
+                        "crate_name": "demo",
+                        "kind": "Function",
+                        "path": "demo::alpha"
+                    },
+                    "kind": "Function",
+                    "name": "alpha",
+                    "span": {
+                        "start": 0,
+                        "end": 1
+                    },
+                    "status": "updated_after"
+                }
+            ]
+        }),
+    };
+
+    let error = validate_repo_patch_event(&event).unwrap_err().to_string();
+    assert!(error.contains("repo-relative"));
+    assert!(error.contains("filePaths[0]"));
+}
+
+#[test]
+fn legacy_path_identity_repair_rewrites_patch_logs_and_graph_snapshots() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+
+    let root = temp_workspace();
+    let prism_home = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::create_dir_all(root.join(".git")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    fs::create_dir_all(&prism_home).unwrap();
+    let _env = PrismHomeEnvGuard::set(&prism_home);
+
+    let absolute_source = root.join("src/lib.rs").canonicalize().unwrap();
+    let patch_event = OutcomeEvent {
+        meta: EventMeta {
+            id: EventId::new("outcome:legacy-absolute-path"),
+            ts: 7,
+            actor: EventActor::Principal(prism_ir::PrincipalActor {
+                authority_id: PrincipalAuthorityId::new("local-daemon"),
+                principal_id: PrincipalId::new("agent:legacy-path-repair"),
+                kind: Some(PrincipalKind::Agent),
+                name: Some("legacy-path-repair".to_string()),
+            }),
+            correlation: Some(TaskId::new("task:legacy-path-repair")),
+            causation: None,
+            execution_context: Some(EventExecutionContext {
+                credential_id: Some(CredentialId::new("credential:legacy-path-repair")),
+                work_context: Some(WorkContextSnapshot {
+                    work_id: "work:legacy-path-repair".to_string(),
+                    kind: WorkContextKind::AdHoc,
+                    title: "Repair legacy path identity".to_string(),
+                    summary: Some("repair legacy absolute paths".to_string()),
+                    parent_work_id: None,
+                    coordination_task_id: None,
+                    plan_id: None,
+                    plan_title: None,
+                }),
+                ..Default::default()
+            }),
+        },
+        anchors: vec![AnchorRef::File(prism_ir::FileId(1))],
+        kind: OutcomeKind::PatchApplied,
+        summary: "legacy absolute patch".to_string(),
+        result: OutcomeResult::Success,
+        evidence: Vec::new(),
+        metadata: json!({
+            "trigger": "FsWatch",
+            "reason": "work Repair legacy path identity (work:legacy-path-repair)",
+            "filePaths": [absolute_source.to_string_lossy().into_owned()],
+            "changedFilesSummary": [{
+                "filePath": absolute_source.to_string_lossy().into_owned(),
+                "changedSymbolCount": 1,
+                "addedCount": 0,
+                "removedCount": 0,
+                "updatedCount": 1,
+            }],
+            "changedSymbols": [{
+                "status": "updated_after",
+                "id": {
+                    "crate_name": "demo",
+                    "kind": "Function",
+                    "path": "demo::alpha"
+                },
+                "kind": "Function",
+                "name": "alpha",
+                "filePath": absolute_source.to_string_lossy().into_owned(),
+                "span": {
+                    "start": 0,
+                    "end": 1
+                }
+            }]
+        }),
+    };
+
+    append_protected_stream_event(
+        &root,
+        &ProtectedRepoStream::patch_events(),
+        patch_event.meta.id.0.as_str(),
+        &patch_event,
+        &implicit_principal_identity(
+            Some(&patch_event.meta.actor),
+            patch_event.meta.execution_context.as_ref(),
+        ),
+    )
+    .unwrap();
+
+    let paths = PrismPaths::for_workspace_root(&root).unwrap();
+    let mut shared_runtime = SqliteStore::open(paths.shared_runtime_db_path().unwrap()).unwrap();
+    shared_runtime
+        .save_outcome_snapshot(&OutcomeMemorySnapshot {
+            events: vec![patch_event.clone()],
+        })
+        .unwrap();
+
+    let mut worktree_cache = SqliteStore::open(paths.worktree_cache_db_path().unwrap()).unwrap();
+    worktree_cache
+        .save_outcome_snapshot(&OutcomeMemorySnapshot {
+            events: vec![patch_event.clone()],
+        })
+        .unwrap();
+    let mut legacy_graph = Graph::new();
+    legacy_graph.upsert_file(
+        &absolute_source,
+        1,
+        vec![prism_ir::Node {
+            id: NodeId::new("demo", "demo::alpha", NodeKind::Function),
+            name: "alpha".into(),
+            kind: NodeKind::Function,
+            file: prism_ir::FileId(0),
+            span: prism_ir::Span::line(1),
+            language: prism_ir::Language::Rust,
+        }],
+        Vec::new(),
+        std::collections::HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+    worktree_cache.save_graph_snapshot(&legacy_graph).unwrap();
+
+    let inspection = inspect_legacy_path_identity_state(&root).unwrap();
+    assert!(inspection
+        .targets
+        .iter()
+        .any(|target| target.label == "repo patch stream" && target.entries_needing_repair > 0));
+    assert!(inspection.targets.iter().any(|target| {
+        target.label == "shared runtime patch log" && target.entries_needing_repair > 0
+    }));
+    assert!(inspection.targets.iter().any(|target| {
+        target.label == "worktree cache patch log" && target.entries_needing_repair > 0
+    }));
+
+    let repair = repair_legacy_path_identity_state(&root).unwrap();
+    assert!(repair.repaired_target_count >= 3);
+
+    let repo_events = load_repo_patch_events(&root).unwrap();
+    assert_eq!(
+        repo_events[0].metadata["filePaths"][0].as_str(),
+        Some("src/lib.rs")
+    );
+
+    let repaired_shared_runtime =
+        SqliteStore::open(paths.shared_runtime_db_path().unwrap()).unwrap();
+    let shared_event = repaired_shared_runtime
+        .load_outcome_event(&EventId::new("outcome:legacy-absolute-path"))
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        shared_event.metadata["filePaths"][0].as_str(),
+        Some("src/lib.rs")
+    );
+
+    let mut repaired_worktree_cache =
+        SqliteStore::open(paths.worktree_cache_db_path().unwrap()).unwrap();
+    let worktree_event = repaired_worktree_cache
+        .load_outcome_event(&EventId::new("outcome:legacy-absolute-path"))
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        worktree_event.metadata["filePaths"][0].as_str(),
+        Some("src/lib.rs")
+    );
+    let repaired_graph = repaired_worktree_cache.load_graph().unwrap().unwrap();
+    let repaired_paths = repaired_graph
+        .snapshot()
+        .file_records
+        .into_keys()
+        .collect::<Vec<_>>();
+    assert_eq!(repaired_paths, vec![PathBuf::from("src/lib.rs")]);
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(prism_home);
 }
 
 #[test]
@@ -9003,10 +9266,10 @@ fn workspace_materialization_summary_reports_sparse_boundary_regions() {
     assert_eq!(boundary.id, "boundary:src:in_scope");
     assert_eq!(boundary.path, PathBuf::from("src"));
     assert_eq!(boundary.provenance, "workspace_tree");
-    assert_eq!(boundary.materialization_state, "known_unmaterialized");
+    assert_eq!(boundary.materialization_state, "sparse");
     assert_eq!(boundary.scope_state, "in_scope");
     assert_eq!(boundary.known_file_count, 2);
-    assert_eq!(boundary.materialized_file_count, 0);
+    assert_eq!(boundary.materialized_file_count, 1);
 }
 
 #[test]
@@ -9250,9 +9513,14 @@ fn index_workspace_tracks_unsupported_text_files_for_file_anchors() {
         .map(|record| record.file_id)
         .expect("unsupported text files should still produce file records");
     assert_eq!(
+        session.prism().graph().runtime_file_path(file_id),
+        Some(app_path.clone()),
+        "runtime file paths should still resolve to the local checkout"
+    );
+    assert_eq!(
         session.prism().graph().file_path(file_id),
-        Some(&app_path),
-        "file ids for unsupported text files should round-trip to paths"
+        Some(&PathBuf::from("www/dashboard/src/App.tsx")),
+        "file ids should now resolve to repo-relative stored paths"
     );
 
     let reloaded = index_workspace_session(&root).unwrap();

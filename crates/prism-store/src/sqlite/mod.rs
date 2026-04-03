@@ -9,6 +9,7 @@ mod memory_entries;
 mod migration;
 mod outcome_events;
 mod outcome_patch_projection;
+mod path_identity_repair;
 mod projections;
 mod schema;
 mod snapshots;
@@ -99,6 +100,7 @@ pub struct SqliteStore {
 }
 
 pub use migration::migrate_worktree_cache_from_shared_runtime;
+pub use path_identity_repair::PatchPathIdentityRepairReport;
 
 impl SqliteStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
@@ -159,6 +161,42 @@ impl SqliteStore {
         query: &PatchFileSummaryQuery,
     ) -> Result<Vec<PatchFileSummary>> {
         outcome_patch_projection::load_patch_file_summaries(&self.conn, query)
+    }
+
+    pub fn inspect_patch_path_identity(
+        &mut self,
+        root: &Path,
+    ) -> Result<PatchPathIdentityRepairReport> {
+        self.inspect_patch_path_identity_for_roots(&[root.to_path_buf()])
+    }
+
+    pub fn repair_patch_path_identity(
+        &mut self,
+        root: &Path,
+    ) -> Result<PatchPathIdentityRepairReport> {
+        self.repair_patch_path_identity_for_roots(&[root.to_path_buf()])
+    }
+
+    pub fn inspect_patch_path_identity_for_roots(
+        &mut self,
+        roots: &[PathBuf],
+    ) -> Result<PatchPathIdentityRepairReport> {
+        path_identity_repair::inspect_or_repair_patch_path_identity(&mut self.conn, roots, false)
+    }
+
+    pub fn repair_patch_path_identity_for_roots(
+        &mut self,
+        roots: &[PathBuf],
+    ) -> Result<PatchPathIdentityRepairReport> {
+        let report = path_identity_repair::inspect_or_repair_patch_path_identity(
+            &mut self.conn,
+            roots,
+            true,
+        )?;
+        if report.repaired {
+            self.outcome_snapshot_cache = None;
+        }
+        Ok(report)
     }
 
     pub fn append_shared_outcome_events(

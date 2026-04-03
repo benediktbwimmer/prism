@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Validate no absolute paths survive in published or shared PRISM state",
   "summary": "Prove through regression coverage and live inspection that tracked `.prism`, publish manifests, repo-published changes, and portable/shared runtime exports contain no absolute filesystem paths while local runtime still functions correctly from derived worktree paths.",
-  "status": "Ready",
+  "status": "Completed",
   "published_task_status": null,
   "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
   "pending_handoff_to": null,
@@ -46,7 +46,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1015,
+    "graph_version": 153,
     "git_commit": null
   },
   "priority": 1,

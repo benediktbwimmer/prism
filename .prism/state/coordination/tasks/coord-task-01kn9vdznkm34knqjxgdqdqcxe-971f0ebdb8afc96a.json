@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Add migration, auditing, and repair paths for legacy absolute-path data",
   "summary": "Detect and repair existing absolute-path leakage in tracked snapshot state, shared/runtime records, and caches so current repos can converge onto the corrected path model without carrying machine-specific artifacts forward.",
-  "status": "Ready",
+  "status": "Completed",
   "published_task_status": null,
   "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
   "pending_handoff_to": null,
@@ -41,7 +41,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1015,
+    "graph_version": 153,
     "git_commit": null
   },
   "priority": 1,

@@ -15,7 +15,7 @@ pub(crate) fn detect_moved_files(
     pending: &mut [PendingFileParse],
 ) -> HashSet<PathBuf> {
     let mut old_by_hash = HashMap::<u64, Vec<PathBuf>>::new();
-    for tracked in graph.tracked_files() {
+    for tracked in graph.runtime_tracked_files() {
         if refresh_scope.is_some_and(|scope| !path_matches_refresh_scope(&tracked, scope)) {
             continue;
         }

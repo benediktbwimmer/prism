@@ -8453,7 +8453,7 @@ pub fn beta() {
     assert!(open.handle.starts_with("handle:"));
     assert!(open.text.contains("pub fn beta()"));
     assert!(open.text.contains("let value = 42;"));
-    assert!(open.file_path.ends_with("/src/lib.rs"));
+    assert_eq!(open.file_path, "src/lib.rs");
     assert_eq!(open.freshness, prism_js::AgentResultFreshnessView::Current);
 
     let reopened = host
@@ -9340,7 +9340,7 @@ pub fn validation_recipe_test() {}
         open.handle_category,
         prism_js::AgentHandleCategoryView::Concept
     );
-    assert!(open.file_path.ends_with("/src/lib.rs"));
+    assert_eq!(open.file_path, "src/lib.rs");
     assert!(open.text.contains("pub fn validation_recipe()"));
     assert_eq!(
         open.promoted_handle
@@ -13534,9 +13534,7 @@ async fn mcp_server_allows_path_based_prism_open_edit_mode_when_line_is_provided
         .unwrap();
 
     let payload = first_tool_content_json(client.receive().await.unwrap());
-    assert!(payload["filePath"]
-        .as_str()
-        .is_some_and(|path| path.ends_with("/src/lib.rs")));
+    assert_eq!(payload["filePath"], "src/lib.rs");
     assert_eq!(payload["startLine"], 2);
     assert_eq!(payload["endLine"], 7);
     assert!(payload["text"]
@@ -16697,10 +16695,7 @@ return {
         .expect("toml query should succeed");
 
     assert_eq!(result.result["workspaceKey"]["name"], "workspace");
-    assert!(result.result["workspaceKey"]["filePath"]
-        .as_str()
-        .unwrap_or_default()
-        .ends_with("/Cargo.toml"));
+    assert_eq!(result.result["workspaceKey"]["filePath"], "Cargo.toml");
     assert_eq!(result.result["membersKey"]["name"], "members");
     assert_eq!(result.result["serdeKey"]["name"], "serde");
     let workspace_contains = result.result["workspaceContains"]
@@ -16772,10 +16767,7 @@ return {
         .as_str()
         .unwrap_or_default()
         .ends_with("::workspace"));
-    assert!(top_level[0]["filePath"]
-        .as_str()
-        .unwrap_or_default()
-        .ends_with("/Cargo.toml"));
+    assert_eq!(top_level[0]["filePath"], "Cargo.toml");
 
     let nested = result.result["nested"].as_array().expect("nested results");
     assert_eq!(nested.len(), 1);
@@ -16870,7 +16862,7 @@ return {
         candidate["symbol"]["filePath"]
             .as_str()
             .unwrap_or_default()
-            .contains("/tests/")
+            .contains("tests/")
     }));
 
     let next_reads = result.result["drift"]["nextReads"]
@@ -19288,8 +19280,8 @@ fn validation_feedback_mutation_accepts_unsupported_text_file_anchor_paths() {
             if reloaded
                 .prism()
                 .graph()
-                .file_path(*file_id)
-                .is_some_and(|path| path == &app_path)
+                .runtime_file_path(*file_id)
+                .is_some_and(|path| path == app_path)
     ));
 }
 
@@ -19349,8 +19341,8 @@ fn validation_feedback_mutation_refreshes_new_file_path_anchors() {
             if reloaded
                 .prism()
                 .graph()
-                .file_path(*file_id)
-                .is_some_and(|path| path == &doc_path)
+                .runtime_file_path(*file_id)
+                .is_some_and(|path| path == doc_path)
     ));
 }
 

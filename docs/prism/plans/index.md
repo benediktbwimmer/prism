@@ -8,14 +8,14 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:d182ee1699b5cc498cfcc85e5d73c155deec9ec936d14a61c30fd47e65374a74`
+- Source head: `sha256:c147bba489d35819b336a6c7f9274fd7a6be293bb6c50128d65422a15165d533`
 - Source logical timestamp: `unknown`
-- Source snapshot: `59 plans, 37 active, 22 archived`
+- Source snapshot: `60 plans, 38 active, 22 archived`
 
 ## Overview
 
-- Published plans: 59
-- Active plans: 37
+- Published plans: 60
+- Active plans: 38
 - Archived plans: 22
 
 ## Active Plans
@@ -31,6 +31,7 @@
 - [Explicit logical repo identity layer for clone-safe shared runtime](active/plan-01kn8rmbb3qf6bxw45w0141rkr.md): Implement a stable repo-published logical_repo_id in .prism, separate it cleanly from local repo-instance and worktree identity, and use it as the future namespace boundary for shared runtime coordination across clones and machines. (`plan:01kn8rmbb3qf6bxw45w0141rkr`)
 - [Extend PRISM runtime and MCP log query views so agents can analyze daemon and MCP call state at worktree scope, repo-wide across all worktrees for the same repo on one machine, and across all available log files, while preserving current worktree-local behavior as the default.](active/plan-01kn82nwqnv42m6fw33pgrabss.md): Extend PRISM runtime and MCP log query views so agents can analyze daemon and MCP call state at worktree scope, repo-wide across all worktrees for the same repo on one machine, and across all available log files, while preserving current worktree-local behavior as the default. (`plan:01kn82nwqnv42m6fw33pgrabss`)
 - [Finish portfolio dispatch with cross-plan dependencies and a ranked actionable inbox](active/plan-01kn8n8wvmcvrqx1tvd6x93qpg.md): Complete the portfolio dispatch feature by modeling cross-plan dependencies explicitly, ranking actionable work across plans with explainable scoring, and exposing a practical inbox/next-work surface for agents. (`plan:01kn8n8wvmcvrqx1tvd6x93qpg`)
+- [Finish removing legacy tracked .prism append logs](active/plan-01kna4g4q0xn8znaa7bn7s6vq0.md): Make tracked .prism/state the only repo-published authority by removing the remaining tracked legacy append-log surfaces for memory, concepts, contracts, and plans; keep append-only history in shared runtime only; and preserve cold-clone restore, manifest trust semantics, and startup performance. (`plan:01kna4g4q0xn8znaa7bn7s6vq0`)
 - [first-class-plans-spec-alignment](active/plan-01kn2nhn3trvbxej8av70jrvx2.md): first-class-plans-spec-alignment (`plan:01kn2nhn3trvbxej8av70jrvx2`)
 - [Follow up on remaining PRISM usability gaps by improving compact-tool ranking transparency, strengthening concept-to-doc-to-code continuity, hardening workspace/path edge cases, and tightening stale-context repair loops.](active/plan-01kn3cceq1sh4s78yj4m34rww2.md): Follow up on remaining PRISM usability gaps by improving compact-tool ranking transparency, strengthening concept-to-doc-to-code continuity, hardening workspace/path edge cases, and tightening stale-context repair loops. (`plan:01kn3cceq1sh4s78yj4m34rww2`)
 - [Hit the refresh latency targets in docs/RUNTIME_REWRITE_ARCHITECTURE.md by replacing reconstructive workspace refresh with a true parallel-prepare / tiny-commit / parallel-settle runtime path, reducing hot-path persistence and lock contention, and validating the resulting daemon behavior against explicit p50/p95 budgets.](active/plan-01kn55dg8tfv1ybq9nga9md1ye.md): Hit the refresh latency targets in docs/RUNTIME_REWRITE_ARCHITECTURE.md by replacing reconstructive workspace refresh with a true parallel-prepare / tiny-commit / parallel-settle runtime path, reducing hot-path persistence and lock contention, and validating the resulting daemon behavior against explicit p50/p95 budgets. (`plan:01kn55dg8tfv1ybq9nga9md1ye`)

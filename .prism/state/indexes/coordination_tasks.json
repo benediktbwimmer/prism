@@ -1682,37 +1682,37 @@
   {
     "id": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
     "title": "Lock the canonical path identity contract and no-absolute-path boundary",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01kn9vd1qxxaht9ap1ygbmd23g-d9269388d653f53f.json"
   },
   {
     "id": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
     "title": "Canonicalize graph and workspace file identity around file ids plus repo-relative paths",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01kn9vd88apgdq35f4hr9tmsss-ff41bf160cc41b2a.json"
   },
   {
     "id": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
     "title": "Normalize tracked snapshot, protected publication, and shared/runtime serialization to repo-relative paths",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01kn9vdfjsrbzwz5w5mff8yqck-28360e8f7ddfa227.json"
   },
   {
     "id": "coord-task:01kn9vdqfnnkkywq1bb0jk5fq8",
     "title": "Audit MCP/query/docs/projection surfaces for path leakage and anchor misuse",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01kn9vdqfnnkkywq1bb0jk5fq8-e8f227e8f9eb292e.json"
   },
   {
     "id": "coord-task:01kn9vdznkm34knqjxgdqdqcxe",
     "title": "Add migration, auditing, and repair paths for legacy absolute-path data",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01kn9vdznkm34knqjxgdqdqcxe-971f0ebdb8afc96a.json"
   },
   {
     "id": "coord-task:01kn9ve8ants7rmt18m4rpf25b",
     "title": "Validate no absolute paths survive in published or shared PRISM state",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01kn9ve8ants7rmt18m4rpf25b-1b4143028d395cb8.json"
   },
   {
@@ -1750,6 +1750,12 @@
     "title": "Validate clone size, startup behavior, signed publish semantics, and runtime-only change history ownership",
     "status": "Completed",
     "path": "tasks/coord-task-01kn9xvmrn86qb17qz7w97na8n-9d7710759c599d94.json"
+  },
+  {
+    "id": "coord-task:01kna4g9fyxzpyykde9s9z1m1d",
+    "title": "Lock the final no-legacy-append-log authority contract",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna4g9fyxzpyykde9s9z1m1d-2eff3f8a17c60960.json"
   },
   {
     "id": "coord-task:1",

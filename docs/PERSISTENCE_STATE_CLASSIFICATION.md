@@ -48,6 +48,7 @@ The runtime should therefore be memory-authoritative while it is live:
 - Runtime-only hydration details such as fresh handles, resolved overlays, or process-local caches must not be published as authored repo truth.
 - Snapshots and compaction outputs are allowed as accelerators, bootstrap aids, or exports, but not as a second semantic authority.
 - A shared backend should be treated as the mutable runtime state plane for collaboration, not as a replacement for repo-published knowledge.
+- Repo-published state and shared logical runtime state must use portable identity forms such as anchors and repo-relative paths, not machine-specific absolute filesystem paths. The local exceptions are defined in [`PATH_IDENTITY_CONTRACT.md`](PATH_IDENTITY_CONTRACT.md).
 - Scope should be modeled explicitly through identity and context, not inferred accidentally from storage location.
 - The live daemon should answer authoritative queries from hot memory unless a surface is explicitly classified as hot-plus-cold or cold-backed.
 - A crash-safe write path should append or persist the minimum authoritative fact, not force every rebuildable projection onto the request path.

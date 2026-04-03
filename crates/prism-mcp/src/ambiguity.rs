@@ -1179,7 +1179,7 @@ fn matches_module(symbol: &SymbolView, module: &str) -> bool {
 fn is_test_symbol(symbol: &SymbolView) -> bool {
     symbol.id.path.contains("::tests::")
         || symbol.file_path.as_deref().is_some_and(|path| {
-            path.contains("/tests/")
+            path_contains_dir(path, "tests")
                 || path.ends_with("_test.rs")
                 || path.ends_with("_tests.rs")
                 || path.ends_with("_test.py")
@@ -1201,8 +1201,8 @@ fn is_replay_or_fixture_symbol(symbol: &SymbolView) -> bool {
     symbol_path.contains("query_replay_cases")
         || symbol_path.contains("fixture")
         || file_path.contains("query_replay_cases")
-        || file_path.contains("/fixtures/")
-        || file_path.contains("/testdata/")
+        || path_contains_dir(&file_path, "fixtures")
+        || path_contains_dir(&file_path, "testdata")
         || file_path.ends_with("_fixture.rs")
         || file_path.ends_with("_fixtures.rs")
         || file_path.ends_with("_fixture.py")
@@ -1228,7 +1228,7 @@ fn is_facade_file_symbol(symbol: &SymbolView) -> bool {
         .as_deref()
         .unwrap_or_default()
         .to_ascii_lowercase();
-    file_path.ends_with("/src/lib.rs") || file_path.ends_with("/src/main.rs")
+    path_matches_suffix(&file_path, "src/lib.rs") || path_matches_suffix(&file_path, "src/main.rs")
 }
 
 fn is_schema_example_surface_symbol(symbol: &SymbolView) -> bool {
@@ -1255,7 +1255,7 @@ fn is_schema_example_surface_symbol(symbol: &SymbolView) -> bool {
             "schema_examples",
             "payload_example",
             "payload_examples",
-            "/examples/",
+            "examples/",
             "_example.rs",
             "_examples.rs",
         ],
@@ -1466,6 +1466,14 @@ fn path_inherits_query(path_lower: &str, query_lower: &str) -> bool {
             || identifier_stem(token) == identifier_stem(query_lower)
             || token.starts_with(query_lower)
     })
+}
+
+fn path_contains_dir(path: &str, dir: &str) -> bool {
+    path == dir || path.starts_with(&format!("{dir}/")) || path.contains(&format!("/{dir}/"))
+}
+
+fn path_matches_suffix(path: &str, suffix: &str) -> bool {
+    path == suffix || path.ends_with(&format!("/{suffix}"))
 }
 
 fn identifier_stem(value: &str) -> String {

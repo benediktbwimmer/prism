@@ -1,23 +1,23 @@
 {
   "version": 1,
-  "publishedAt": 1775233594,
+  "publishedAt": 1775237312,
   "publisher": {
     "principalAuthorityId": "local-daemon",
-    "principalId": "principal:tracked-changes-rewrite:01kn9y81k21524vwvyy9y7nhbn",
-    "credentialId": "credential:01kn9y81k22x2tnr12cszr628e"
+    "principalId": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+    "credentialId": "credential:01kn80974ndtnq6s77qk7y3v1w"
   },
   "workContext": {
-    "workId": "coord-task:01kn9xvmrn86qb17qz7w97na8n",
+    "workId": "coord-task:01kn9ve8ants7rmt18m4rpf25b",
     "kind": "coordination",
-    "title": "Validate clone size, startup behavior, signed publish semantics, and runtime-only change history ownership",
-    "summary": "Prove that tracked `changes` is gone from repo-owned state, cold clones still load current semantic state correctly, hot and cold startup no longer pay for tracked change history, signed Git plus manifest metadata cover the publish boundary, and fine-grained change history remains available from shared runtime.",
-    "coordinationTaskId": "coord-task:01kn9xvmrn86qb17qz7w97na8n",
-    "planId": "plan:01kn9xsvp1a376w7xmq08gn4nh",
-    "planTitle": "Remove tracked changes from .prism state and rely on signed commit history plus manifest metadata"
+    "title": "Validate no absolute paths survive in published or shared PRISM state",
+    "summary": "Prove through regression coverage and live inspection that tracked `.prism`, publish manifests, repo-published changes, and portable/shared runtime exports contain no absolute filesystem paths while local runtime still functions correctly from derived worktree paths.",
+    "coordinationTaskId": "coord-task:01kn9ve8ants7rmt18m4rpf25b",
+    "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
+    "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
   },
   "publishSummary": {
-    "title": "Validate clone size, startup behavior, signed publish semantics, and runtime-only change history ownership",
-    "summary": "Prove that tracked `changes` is gone from repo-owned state, cold clones still load current semantic state correctly, hot and cold startup no longer pay for tracked change history, signed Git plus manifest metadata cover the publish boundary, and fine-grained change history remains available from shared runtime."
+    "title": "Validate no absolute paths survive in published or shared PRISM state",
+    "summary": "Prove through regression coverage and live inspection that tracked `.prism`, publish manifests, repo-published changes, and portable/shared runtime exports contain no absolute filesystem paths while local runtime still functions correctly from derived worktree paths."
   },
   "files": {
     ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json": {
@@ -1150,27 +1150,27 @@
     },
     ".prism/state/coordination/tasks/coord-task-01kn9vd1qxxaht9ap1ygbmd23g-d9269388d653f53f.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9vd1qxxaht9ap1ygbmd23g-d9269388d653f53f.json",
-      "sha256": "sha256:61bd8df38e66786651d2b0ad114a9c7c5c057c113ee6daad48c9f55800a106a6"
+      "sha256": "sha256:c81eae9b091a2e948aaa831492788d1631ce7d8775bbb4aab24e64dc60516f57"
     },
     ".prism/state/coordination/tasks/coord-task-01kn9vd88apgdq35f4hr9tmsss-ff41bf160cc41b2a.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9vd88apgdq35f4hr9tmsss-ff41bf160cc41b2a.json",
-      "sha256": "sha256:39f1c006291f750863a45e51be7d750b45e605308206ef5f6047bdb869704179"
+      "sha256": "sha256:f171dc549194780f509ca1f7f6d5a536bef38ed4363af4c996946c3669c285d9"
     },
     ".prism/state/coordination/tasks/coord-task-01kn9vdfjsrbzwz5w5mff8yqck-28360e8f7ddfa227.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9vdfjsrbzwz5w5mff8yqck-28360e8f7ddfa227.json",
-      "sha256": "sha256:6c020f1c240b9b09295786c0acbc70f13b9f7f6279ff732103196b0558e3e2f9"
+      "sha256": "sha256:b6547ce4e902fd778254c74b53bec97c17202d7582b220f5b925e2ff4e657040"
     },
     ".prism/state/coordination/tasks/coord-task-01kn9vdqfnnkkywq1bb0jk5fq8-e8f227e8f9eb292e.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9vdqfnnkkywq1bb0jk5fq8-e8f227e8f9eb292e.json",
-      "sha256": "sha256:c3d598f79aa5ee7e23d61eced15cfd3db5064792c15affa9b04cfae2bc1e5f94"
+      "sha256": "sha256:f307d0d798050186b27009c1bf03b3dd1f564248c979a2c62e23b2d6df8f19d1"
     },
     ".prism/state/coordination/tasks/coord-task-01kn9vdznkm34knqjxgdqdqcxe-971f0ebdb8afc96a.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9vdznkm34knqjxgdqdqcxe-971f0ebdb8afc96a.json",
-      "sha256": "sha256:8240bb0ac8c334a4e129e3f88caf8ac04a72fa5f1d72fc52ada6d07b323bf323"
+      "sha256": "sha256:d3a99bb2d975cde664eeeb9a2b21cb8a861fde2934a235bc7d2636dd898b86f6"
     },
     ".prism/state/coordination/tasks/coord-task-01kn9ve8ants7rmt18m4rpf25b-1b4143028d395cb8.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9ve8ants7rmt18m4rpf25b-1b4143028d395cb8.json",
-      "sha256": "sha256:ab36972577b35a4941d34faa2c4291ed5b08eefaa7e221a68ca5c29681c007f5"
+      "sha256": "sha256:89dc5c6bb79a252d2a90df7e6a9d4548ff7b0a32466de3c392cd3909a6467858"
     },
     ".prism/state/coordination/tasks/coord-task-01kn9xt9h76645shp4jcmt0bsv-b278826451d81676.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9xt9h76645shp4jcmt0bsv-b278826451d81676.json",
@@ -1195,6 +1195,10 @@
     ".prism/state/coordination/tasks/coord-task-01kn9xvmrn86qb17qz7w97na8n-9d7710759c599d94.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9xvmrn86qb17qz7w97na8n-9d7710759c599d94.json",
       "sha256": "sha256:e9e0981bda57747243c9b11576c653935f175b42bd11d1e50606deaf703f6048"
+    },
+    ".prism/state/coordination/tasks/coord-task-01kna4g9fyxzpyykde9s9z1m1d-2eff3f8a17c60960.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01kna4g9fyxzpyykde9s9z1m1d-2eff3f8a17c60960.json",
+      "sha256": "sha256:308eb76383b509dfffb15032e97f1b0f5d4edb3b3b35b374de5eb65e3c154e57"
     },
     ".prism/state/coordination/tasks/coord-task-1-12761fa8e93c5cba.json": {
       "path": ".prism/state/coordination/tasks/coord-task-1-12761fa8e93c5cba.json",
@@ -1290,11 +1294,11 @@
     },
     ".prism/state/indexes/coordination_tasks.json": {
       "path": ".prism/state/indexes/coordination_tasks.json",
-      "sha256": "sha256:9acecb2053e0e9a4ae4d6eecf79a8e9927d1b17def8d251f012978351f689703"
+      "sha256": "sha256:4738b0bb4fc21ba23cd9b0094d7465144911598730d8360f58a18a9ea8d924b9"
     },
     ".prism/state/indexes/plans.json": {
       "path": ".prism/state/indexes/plans.json",
-      "sha256": "sha256:d78570fbf41ae2e20df0a6886842c237cad829c080c463cbd848503bd2238832"
+      "sha256": "sha256:c95d6d8db0380262b8f175bf34c69769eec217d5248447fb179a64a3b89dcd2d"
     },
     ".prism/state/plans/plan-01kmwmwamj4y87781dsn8x7wt2-f0176c427f24cf04.json": {
       "path": ".prism/state/plans/plan-01kmwmwamj4y87781dsn8x7wt2-f0176c427f24cf04.json",
@@ -1498,11 +1502,15 @@
     },
     ".prism/state/plans/plan-01kn9vcavs4jft9eqw82ysmghq-140ec859a05ac8c9.json": {
       "path": ".prism/state/plans/plan-01kn9vcavs4jft9eqw82ysmghq-140ec859a05ac8c9.json",
-      "sha256": "sha256:33a64ac87561e8f26bb174fc22e9ea5fbf5a355d2c02b412e59b7e4f1c5f8dea"
+      "sha256": "sha256:79f15fd740aa670a3ec781ece6e14dd059a41445abe7ce8e5532b3f92e3b27fa"
     },
     ".prism/state/plans/plan-01kn9xsvp1a376w7xmq08gn4nh-36bad8e44d57f454.json": {
       "path": ".prism/state/plans/plan-01kn9xsvp1a376w7xmq08gn4nh-36bad8e44d57f454.json",
       "sha256": "sha256:3d88902fad00b64162d1e5bba0150765e23d29fce52365e8a30de46326fffcfc"
+    },
+    ".prism/state/plans/plan-01kna4g4q0xn8znaa7bn7s6vq0-8e470bc040455517.json": {
+      "path": ".prism/state/plans/plan-01kna4g4q0xn8znaa7bn7s6vq0-8e470bc040455517.json",
+      "sha256": "sha256:6b9a4ee163952d3da16d4f27e215588c45c077d63b7984ce4cfc61070de90a80"
     },
     ".prism/state/plans/plan-1-8fd52ae04f462646.json": {
       "path": ".prism/state/plans/plan-1-8fd52ae04f462646.json",
@@ -1533,13 +1541,13 @@
       "sha256": "sha256:25b396965686f9dc300002f26a9ba19c826a387a00b6e3ee799116d6a0f64457"
     }
   },
-  "previousManifestDigest": "sha256:f817563bf1210c2d9acd5717132ae80e007c70ca1b719ed690239dbf171af2a5",
+  "previousManifestDigest": "sha256:40b325f802cbb29989a94ed6c4d7d07aefc4cfd31e80c720a70c029b8d231d24",
   "migrationSourceDigest": "sha256:29be826a9e4869880d788dda166c588fd3513bcecc43c4b019205486a2115994",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:4Aksjrj0t6asLykBUs75xaYY8sfkKpkiXUVCpyU5brXs1wnMBF4KFCer7ZtdkxlpM2aN0TgckEtF8Lzem6JNDQ=="
+    "value": "base64:UJcmO5MetDOY6ut0FRErDV3XRoQ2IDqq3P2TYUFzwJCN5fpnQD4k6XgssQRETBiVHiezgKgJfFryaJMQE+SkCA=="
   }
 }

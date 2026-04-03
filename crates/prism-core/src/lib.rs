@@ -20,6 +20,8 @@ mod observed_change_tracker;
 mod outcome_backend;
 mod parse_pipeline;
 mod patch_outcomes;
+mod path_identity;
+mod path_identity_repair;
 mod principal_registry;
 mod prism_doc;
 mod prism_paths;
@@ -63,6 +65,10 @@ pub use materialization::{
 pub use observed_change_tracker::{
     AccumulatedObservedChange, ActiveWorkContextBinding, FlushedObservedChangeSet,
     ObservedChangeFlushTrigger,
+};
+pub use path_identity_repair::{
+    inspect_legacy_path_identity_state, repair_legacy_path_identity_state,
+    LegacyPathIdentityRepairReport, LegacyPathIdentityRepairTargetReport,
 };
 pub use principal_registry::{
     AuthenticatedPrincipal, BootstrapOwnerInput, MintPrincipalRequest, MintedPrincipalCredential,

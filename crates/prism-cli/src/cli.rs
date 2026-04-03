@@ -268,6 +268,11 @@ pub enum ProtectedStateCommand {
         #[arg(long, default_value_t = false)]
         check: bool,
     },
+    #[command(name = "repair-path-identity")]
+    RepairPathIdentity {
+        #[arg(long, default_value_t = false)]
+        check: bool,
+    },
     ReconcileStream {
         #[arg(long)]
         stream: String,
@@ -712,6 +717,23 @@ mod tests {
         match cli.command {
             Command::ProtectedState {
                 command: ProtectedStateCommand::RepairPublishedPlans { check },
+            } => assert!(check),
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn protected_state_repair_path_identity_accepts_check_mode() {
+        let cli = Cli::parse_from([
+            "prism",
+            "protected-state",
+            "repair-path-identity",
+            "--check",
+        ]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::ProtectedState {
+                command: ProtectedStateCommand::RepairPathIdentity { check },
             } => assert!(check),
             _ => panic!("unexpected command"),
         }

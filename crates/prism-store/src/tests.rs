@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -51,6 +52,40 @@ fn coordination_context() -> CoordinationPersistContext {
         session_id: Some("session:test".to_string()),
         instance_id: Some("instance:test".to_string()),
     }
+}
+
+#[test]
+fn workspace_bound_graph_stores_repo_relative_paths_and_derives_runtime_paths() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!("prism-store-paths-{unique}"));
+    fs::create_dir_all(root.join("src")).unwrap();
+    let source_path = root.join("src/lib.rs");
+    fs::write(&source_path, "fn alpha() {}\n").unwrap();
+    let runtime_source_path = source_path.canonicalize().unwrap();
+
+    let mut graph = Graph::new();
+    graph.bind_workspace_root(&root);
+    let file_id = graph.upsert_file(
+        &source_path,
+        1,
+        vec![node("alpha")],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+
+    assert_eq!(graph.file_path(file_id), Some(&PathBuf::from("src/lib.rs")));
+    assert_eq!(graph.runtime_file_path(file_id), Some(runtime_source_path));
+    assert_eq!(graph.file_id(&source_path), Some(file_id));
+    assert!(graph.file_record(&source_path).is_some());
+
+    let _ = fs::remove_dir_all(root);
 }
 
 #[test]
@@ -3529,6 +3564,109 @@ fn sqlite_store_queries_patch_projection_summaries() {
     let _ = std::fs::remove_file(&path);
     let _ = std::fs::remove_file(path.with_extension("db-wal"));
     let _ = std::fs::remove_file(path.with_extension("db-shm"));
+}
+
+#[test]
+fn sqlite_store_repairs_legacy_patch_path_identity_and_projection_rows() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!("prism-store-patch-path-repair-root-{unique}"));
+    fs::create_dir_all(root.join("src")).unwrap();
+    let source_path = root.join("src/lib.rs");
+    fs::write(&source_path, "fn alpha() {}\n").unwrap();
+
+    let db_path = std::env::temp_dir().join(format!("prism-store-patch-path-repair-{unique}.db"));
+    let outcomes = OutcomeMemorySnapshot {
+        events: vec![prism_memory::OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:absolute-patch"),
+                ts: 7,
+                actor: EventActor::System,
+                correlation: Some(TaskId::new("task:patch")),
+                causation: None,
+                execution_context: None,
+            },
+            anchors: Vec::new(),
+            kind: prism_memory::OutcomeKind::PatchApplied,
+            result: prism_memory::OutcomeResult::Success,
+            summary: "patched absolute path".to_string(),
+            evidence: Vec::new(),
+            metadata: serde_json::json!({
+                "trigger": "FsWatch",
+                "filePaths": [source_path.to_string_lossy().into_owned()],
+                "changedFilesSummary": [{
+                    "filePath": source_path.to_string_lossy().into_owned(),
+                    "changedSymbolCount": 1,
+                    "addedCount": 0,
+                    "removedCount": 0,
+                    "updatedCount": 1,
+                }],
+                "changedSymbols": [{
+                    "status": "updated_after",
+                    "id": {
+                        "crate_name": "demo",
+                        "path": "demo::alpha",
+                        "kind": "Function",
+                    },
+                    "name": "alpha",
+                    "kind": "Function",
+                    "filePath": source_path.to_string_lossy().into_owned(),
+                    "span": {
+                        "start": 0,
+                        "end": 10,
+                    },
+                }],
+            }),
+        }],
+    };
+
+    let mut store = SqliteStore::open(&db_path).unwrap();
+    store.save_outcome_snapshot(&outcomes).unwrap();
+
+    let inspection = store.inspect_patch_path_identity(&root).unwrap();
+    assert_eq!(inspection.scanned_patch_event_count, 1);
+    assert_eq!(inspection.patch_events_needing_repair, 1);
+    assert!(!inspection.repaired);
+
+    let repair = store.repair_patch_path_identity(&root).unwrap();
+    assert_eq!(repair.patch_events_needing_repair, 1);
+    assert!(repair.repaired);
+
+    let repaired = store
+        .load_outcome_event(&EventId::new("outcome:absolute-patch"))
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        repaired.metadata["filePaths"][0].as_str(),
+        Some("src/lib.rs")
+    );
+    assert_eq!(
+        repaired.metadata["changedFilesSummary"][0]["filePath"].as_str(),
+        Some("src/lib.rs")
+    );
+    assert_eq!(
+        repaired.metadata["changedSymbols"][0]["filePath"].as_str(),
+        Some("src/lib.rs")
+    );
+
+    let file_summaries = store
+        .load_patch_file_summaries(&PatchFileSummaryQuery {
+            task_id: Some(TaskId::new("task:patch")),
+            since: None,
+            path: Some("src/lib.rs".to_string()),
+            limit: 10,
+        })
+        .unwrap();
+    assert_eq!(file_summaries.len(), 1);
+    assert_eq!(file_summaries[0].path, "src/lib.rs");
+
+    drop(store);
+    let _ = fs::remove_dir_all(root);
+    let _ = std::fs::remove_file(&db_path);
+    let _ = std::fs::remove_file(db_path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(db_path.with_extension("db-shm"));
 }
 
 #[test]

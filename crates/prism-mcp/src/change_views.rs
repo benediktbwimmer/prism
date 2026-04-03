@@ -312,8 +312,9 @@ fn patch_files(prism: &Prism, event: &OutcomeEvent, metadata: &PatchMetadata) ->
     let mut files = Vec::new();
     if let Some(file_paths) = metadata.file_paths.as_ref() {
         for file_path in file_paths {
+            let file_path = portable_file_path(prism, file_path);
             if seen.insert(file_path.clone()) {
-                files.push(file_path.clone());
+                files.push(file_path);
             }
         }
     }
@@ -561,7 +562,7 @@ fn changed_symbol_view(
     let source = if file_path.is_empty() {
         None
     } else {
-        cached_source(source_cache, &file_path)
+        cached_source(prism, source_cache, &file_path)
     };
     let (location, excerpt) = source
         .map(|source| {
@@ -618,10 +619,11 @@ fn changed_symbol_status_bucket(status: &str) -> ChangedSymbolStatusBucket {
 }
 
 fn symbol_file_path_equals(prism: &Prism, symbol: &PatchChangedSymbol, expected: &str) -> bool {
+    let expected = portable_file_path(prism, expected);
     symbol
         .file_path
         .as_deref()
-        .map(|path| path == expected)
+        .map(|path| portable_file_path(prism, path) == expected)
         .unwrap_or_else(|| {
             symbol
                 .id
@@ -633,44 +635,59 @@ fn symbol_file_path_equals(prism: &Prism, symbol: &PatchChangedSymbol, expected:
 }
 
 fn symbol_file_path_matches(prism: &Prism, symbol: &PatchChangedSymbol, filter: &str) -> bool {
+    let filter = portable_file_path(prism, filter);
     symbol
         .file_path
         .as_deref()
-        .map(|path| matches_path(path, filter))
+        .map(|path| matches_path(&portable_file_path(prism, path), &filter))
         .unwrap_or_else(|| {
             symbol
                 .id
                 .as_ref()
                 .and_then(|id| prism.graph().node(id))
                 .and_then(|node| prism.graph().file_path(node.file))
-                .is_some_and(|path| matches_path(path.to_string_lossy().as_ref(), filter))
+                .is_some_and(|path| matches_path(path.to_string_lossy().as_ref(), &filter))
         })
 }
 
 fn symbol_file_path(prism: &Prism, symbol: &PatchChangedSymbol) -> Option<String> {
-    symbol.file_path.clone().or_else(|| {
-        symbol.id.as_ref().and_then(|id| {
-            prism
-                .graph()
-                .node(id)
-                .and_then(|node| prism.graph().file_path(node.file))
-                .map(|path| path.to_string_lossy().into_owned())
+    symbol
+        .file_path
+        .as_deref()
+        .map(|path| portable_file_path(prism, path))
+        .or_else(|| {
+            symbol.id.as_ref().and_then(|id| {
+                prism
+                    .graph()
+                    .node(id)
+                    .and_then(|node| prism.graph().file_path(node.file))
+                    .map(|path| path.to_string_lossy().into_owned())
+            })
         })
-    })
 }
 
 fn cached_source<'a>(
+    prism: &Prism,
     cache: &'a mut HashMap<String, Option<String>>,
     path: &str,
 ) -> Option<&'a str> {
     if !cache.contains_key(path) {
-        cache.insert(path.to_string(), fs::read_to_string(path).ok());
+        let runtime_path = prism.graph().runtime_path(std::path::Path::new(path));
+        cache.insert(path.to_string(), fs::read_to_string(runtime_path).ok());
     }
     cache.get(path).and_then(|value| value.as_deref())
 }
 
 fn matches_path(candidate: &str, filter: &str) -> bool {
     candidate == filter || candidate.ends_with(filter) || candidate.contains(filter)
+}
+
+fn portable_file_path(prism: &Prism, path: &str) -> String {
+    prism
+        .graph()
+        .portable_path(std::path::Path::new(path))
+        .to_string_lossy()
+        .into_owned()
 }
 
 fn source_location_view(location: prism_query::SourceLocation) -> SourceLocationView {
