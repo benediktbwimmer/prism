@@ -335,7 +335,67 @@ Peers should not be mandatory for:
 
 Those must already be recoverable from shared refs plus repo-published state.
 
-### 8.3 Query preference order
+### 8.3 Motivating workflows
+
+The federated peer layer matters because it lets agents collaborate before state is reduced to Git.
+
+High-value examples:
+
+- pre-commit conflict avoidance
+  - before starting a broad refactor, a runtime can ask peers for bounded draft-scope signals such
+    as touched paths, active edit focus, or claimed local draft areas
+  - this lets agents detect likely conflicts and block or narrow work before either side commits
+- speculative branching with live consensus
+  - when two implementation directions are plausible, two runtimes can take bounded speculative
+    passes in parallel, exchange uncommitted diffs and local validation results over peer transport,
+    and commit only the winning direction
+  - this keeps Git history clean by confining exploratory loser branches to ephemeral peer exchange
+- live API contract negotiation
+  - a producer runtime can expose bounded draft interface state such as type signatures or local
+    schema fragments while a consumer runtime attempts integration against that draft
+  - peers can negotiate missing fields, contract changes, and integration fixes before either side
+    publishes a commit, so the first durable commit is already closer to a validated contract
+- unsticking and thrash detection
+  - if another agent has held a lease for a long time without publishing, a peer query can reveal
+    bounded diagnostics such as repeated failed checks, current validation loops, or stuck replay
+    state
+  - that makes intervention, assistance, or handoff decisions possible without blind waiting
+- distributed test partitioning
+  - one runtime can distribute bounded validation slices across other idle runtimes, gather the
+    partial results over peer transport, and aggregate them into one shared validation conclusion
+  - this turns local multi-machine availability into a lightweight parallel validation fabric
+- expensive ephemeral index sharing
+  - one runtime may already hold a costly local semantic index, replay slice, or deep diagnostic
+    materialization in SQLite
+  - another runtime should be able to reuse that bounded artifact through peer exchange instead of
+    rebuilding it from scratch
+- experience transfer without durable memory pollution
+  - a runtime that just finished a subtle debugging session can expose bounded recent traces,
+    hypotheses, and failed attempts to another peer working on a related surface
+  - this lets peers benefit from raw local experience without prematurely promoting every useful
+    but still-contextual lesson into durable repo memory
+- live debugging and "rubber ducking"
+  - a stuck agent should be able to send a bounded debug packet containing local scratch context,
+    selected uncommitted file state, terminal output, and current diagnostics
+  - another runtime can inspect that packet and respond without the first runtime having to publish
+    noisy intermediate state into Git
+- human-agent live pairing
+  - a human using PRISM CLI or a future UI should be able to act as a bounded peer, inspect a
+    runtime's current working packet, and send high-priority corrective feedback or pairing input
+  - this keeps human intervention inside the same capability-scoped coordination fabric instead of
+    forcing process restarts or prompt resets
+- seamless shift-change handoffs
+  - when an agent rotates out, hits a token limit, or moves from one machine to another, the next
+    runtime can inherit a bounded handoff packet containing open work context, temporary notes, and
+    uncommitted progress summaries
+  - this preserves continuity without pretending that unfinished operational context belongs in the
+    permanent repository history
+
+These scenarios are the reason the peer layer exists. It is not just a transport convenience. It
+is the mechanism that lets PRISM share rich operational context without turning that context into
+repo-published authority.
+
+### 8.4 Query preference order
 
 For a rich historical or local-diagnostic query, PRISM should prefer:
 
@@ -350,7 +410,7 @@ For authoritative shared coordination queries, PRISM should prefer:
 2. repo-published `.prism` if relevant
 3. local/peer enrichment only as additional context
 
-### 8.4 Authentication and trust
+### 8.5 Authentication and trust
 
 Peer queries must be authenticated and policy-controlled.
 
