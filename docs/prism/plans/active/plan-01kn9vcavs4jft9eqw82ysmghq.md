@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:a16fa099552efd9435d7dc0b8ceef7a9d4d0c761ac7233aecdd8f4d34e4df3f6`
+- Source head: `sha256:77d148b5aeb0827ec3e4dc517816ff64f3313c43d8811d6059ee162ba5e7fd63`
 - Source logical timestamp: `unknown`
-- Source snapshot: `6 nodes, 11 edges, 2 overlays`
+- Source snapshot: `6 nodes, 11 edges, 3 overlays`
 
 ## Overview
 
@@ -80,7 +80,7 @@ Define one correct path identity model for PRISM so tracked snapshots, shared/ru
 
 - Node id: `coord-task:01kn9vdfjsrbzwz5w5mff8yqck`
 - Kind: `edit`
-- Status: `in_progress`
+- Status: `completed`
 - Summary: Remove absolute path leakage from tracked `.prism/state/**`, protected publication flows, shared journals, and repo-published change snapshots, using anchors as the primary reference and repo-relative paths only as the fallback file-level reference.
 - Priority: `1`
 - Assignee: `codex-runtime-storage-boundary-redesign-2026-04-01`
@@ -144,9 +144,9 @@ Define one correct path identity model for PRISM so tracked snapshots, shared/ru
 - `plan-edge:coord-task:01kn9ve8ants7rmt18m4rpf25b:depends-on:coord-task:01kn9vdfjsrbzwz5w5mff8yqck`: `coord-task:01kn9ve8ants7rmt18m4rpf25b` depends on `coord-task:01kn9vdfjsrbzwz5w5mff8yqck`
 - `plan-edge:coord-task:01kn9ve8ants7rmt18m4rpf25b:depends-on:coord-task:01kn9vdqfnnkkywq1bb0jk5fq8`: `coord-task:01kn9ve8ants7rmt18m4rpf25b` depends on `coord-task:01kn9vdqfnnkkywq1bb0jk5fq8`
 - `plan-edge:coord-task:01kn9ve8ants7rmt18m4rpf25b:depends-on:coord-task:01kn9vdznkm34knqjxgdqdqcxe`: `coord-task:01kn9ve8ants7rmt18m4rpf25b` depends on `coord-task:01kn9vdznkm34knqjxgdqdqcxe`
+- `plan-edge:coord-task:01kn9vd88apgdq35f4hr9tmsss:depends-on:coord-task:01kn9vd1qxxaht9ap1ygbmd23g`: `coord-task:01kn9vd88apgdq35f4hr9tmsss` depends on `coord-task:01kn9vd1qxxaht9ap1ygbmd23g`
 - `plan-edge:coord-task:01kn9vdfjsrbzwz5w5mff8yqck:depends-on:coord-task:01kn9vd1qxxaht9ap1ygbmd23g`: `coord-task:01kn9vdfjsrbzwz5w5mff8yqck` depends on `coord-task:01kn9vd1qxxaht9ap1ygbmd23g`
 - `plan-edge:coord-task:01kn9vdfjsrbzwz5w5mff8yqck:depends-on:coord-task:01kn9vd88apgdq35f4hr9tmsss`: `coord-task:01kn9vdfjsrbzwz5w5mff8yqck` depends on `coord-task:01kn9vd88apgdq35f4hr9tmsss`
-- `plan-edge:coord-task:01kn9vd88apgdq35f4hr9tmsss:depends-on:coord-task:01kn9vd1qxxaht9ap1ygbmd23g`: `coord-task:01kn9vd88apgdq35f4hr9tmsss` depends on `coord-task:01kn9vd1qxxaht9ap1ygbmd23g`
 
 ## Execution Overlays
 
@@ -156,6 +156,11 @@ Define one correct path identity model for PRISM so tracked snapshots, shared/ru
   target ref: `origin/main`
   publish ref: `task/path-identity-repo-relative`
 - Node: `coord-task:01kn9vd88apgdq35f4hr9tmsss`
+  git execution status: `published`
+  source ref: `task/path-identity-repo-relative`
+  target ref: `origin/main`
+  publish ref: `task/path-identity-repo-relative`
+- Node: `coord-task:01kn9vdfjsrbzwz5w5mff8yqck`
   git execution status: `publish_pending`
   pending task status: `completed`
   source ref: `task/path-identity-repo-relative`
