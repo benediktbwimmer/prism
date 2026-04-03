@@ -1,0 +1,564 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdwjs5vzmnxymb65j0srd",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 476
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::git_execution_policy",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md",
+        "kind": "Document"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::validate_runtimestatus_end_to_end_under_daemon_restart_stale_runtime_state_records_and_live_dogfooding_before_closing_the_cleanup_plan",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::goal",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::nodes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::tighten_runtimestatus_process_and_connection_reporting_semantics_so_cheap_introspection_stays_correct_for_one_or_many_local_mcp_daemons_sharing_the_machine",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::root_nodes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::implement_stale_runtime_state_process_pruning_and_live_process_filtering_so_daemon_and_bridge_counts_stay_accurate_without_expensive_broad_process_scans",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::edges",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::source_of_truth",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::audit_runtime_state_process_lifecycle_and_define_the_canonical_pruning_update_rules_for_cheap_multi_instance_safe_runtimestatus_reporting",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::runtime_status_cleanup_make_runtimestatus_cheap_accurate_and_trustworthy_by_pruning_stale_runtime_state_process_records_tightening_process_count_reporting_and_validating_the_cleaned_status_surface_under_real_daemon_usage",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::overview",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::projection_metadata",
+        "kind": "MarkdownHeading"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 1 added, 0 removed, 13 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 1,
+        "changedSymbolCount": 27,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "removedCount": 0,
+        "updatedCount": 26
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::git_execution_policy"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Git Execution Policy",
+        "span": {
+          "end": 1219,
+          "start": 1064
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md"
+        },
+        "kind": "Document",
+        "name": "docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "span": {
+          "end": 3228,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md"
+        },
+        "kind": "Document",
+        "name": "docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "span": {
+          "end": 3542,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::validate_runtimestatus_end_to_end_under_daemon_restart_stale_runtime_state_records_and_live_dogfooding_before_closing_the_cleanup_plan"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Validate runtimeStatus end to end under daemon restart, stale runtime-state records, and live dogfooding before closing the cleanup plan",
+        "span": {
+          "end": 2697,
+          "start": 2257
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::validate_runtimestatus_end_to_end_under_daemon_restart_stale_runtime_state_records_and_live_dogfooding_before_closing_the_cleanup_plan"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Validate runtimeStatus end to end under daemon restart, stale runtime-state records, and live dogfooding before closing the cleanup plan",
+        "span": {
+          "end": 3011,
+          "start": 2571
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::goal"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Goal",
+        "span": {
+          "end": 1064,
+          "start": 827
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::goal"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Goal",
+        "span": {
+          "end": 1064,
+          "start": 827
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::nodes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Nodes",
+        "span": {
+          "end": 3169,
+          "start": 1383
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::nodes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Nodes",
+        "span": {
+          "end": 3483,
+          "start": 1697
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::tighten_runtimestatus_process_and_connection_reporting_semantics_so_cheap_introspection_stays_correct_for_one_or_many_local_mcp_daemons_sharing_the_machine"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Tighten runtimeStatus process and connection reporting semantics so cheap introspection stays correct for one or many local MCP daemons sharing the machine",
+        "span": {
+          "end": 3169,
+          "start": 2697
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::tighten_runtimestatus_process_and_connection_reporting_semantics_so_cheap_introspection_stays_correct_for_one_or_many_local_mcp_daemons_sharing_the_machine"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Tighten runtimeStatus process and connection reporting semantics so cheap introspection stays correct for one or many local MCP daemons sharing the machine",
+        "span": {
+          "end": 3483,
+          "start": 3011
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::root_nodes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Root Nodes",
+        "span": {
+          "end": 1383,
+          "start": 1199
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::root_nodes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Root Nodes",
+        "span": {
+          "end": 1697,
+          "start": 1513
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::implement_stale_runtime_state_process_pruning_and_live_process_filtering_so_daemon_and_bridge_counts_stay_accurate_without_expensive_broad_process_scans"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Implement stale runtime-state process pruning and live-process filtering so daemon and bridge counts stay accurate without expensive broad process scans",
+        "span": {
+          "end": 2257,
+          "start": 1818
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::implement_stale_runtime_state_process_pruning_and_live_process_filtering_so_daemon_and_bridge_counts_stay_accurate_without_expensive_broad_process_scans"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Implement stale runtime-state process pruning and live-process filtering so daemon and bridge counts stay accurate without expensive broad process scans",
+        "span": {
+          "end": 2571,
+          "start": 2132
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::edges"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Edges",
+        "span": {
+          "end": 3228,
+          "start": 3169
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::edges"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Edges",
+        "span": {
+          "end": 3542,
+          "start": 3483
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::source_of_truth"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Source of Truth",
+        "span": {
+          "end": 1199,
+          "start": 1064
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::source_of_truth"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Source of Truth",
+        "span": {
+          "end": 1513,
+          "start": 1219
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::audit_runtime_state_process_lifecycle_and_define_the_canonical_pruning_update_rules_for_cheap_multi_instance_safe_runtimestatus_reporting"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Audit runtime-state process lifecycle and define the canonical pruning/update rules for cheap multi-instance-safe runtimeStatus reporting",
+        "span": {
+          "end": 1818,
+          "start": 1393
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::audit_runtime_state_process_lifecycle_and_define_the_canonical_pruning_update_rules_for_cheap_multi_instance_safe_runtimestatus_reporting"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Audit runtime-state process lifecycle and define the canonical pruning/update rules for cheap multi-instance-safe runtimeStatus reporting",
+        "span": {
+          "end": 2132,
+          "start": 1707
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::runtime_status_cleanup_make_runtimestatus_cheap_accurate_and_trustworthy_by_pruning_stale_runtime_state_process_records_tightening_process_count_reporting_and_validating_the_cleaned_status_surface_under_real_daemon_usage"
+        },
+        "kind": "MarkdownHeading",
+        "name": "runtime-status-cleanup: make runtimeStatus cheap, accurate, and trustworthy by pruning stale runtime-state process records, tightening process/count reporting, and validating the cleaned status surface under real daemon usage.",
+        "span": {
+          "end": 3228,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::runtime_status_cleanup_make_runtimestatus_cheap_accurate_and_trustworthy_by_pruning_stale_runtime_state_process_records_tightening_process_count_reporting_and_validating_the_cleaned_status_surface_under_real_daemon_usage"
+        },
+        "kind": "MarkdownHeading",
+        "name": "runtime-status-cleanup: make runtimeStatus cheap, accurate, and trustworthy by pruning stale runtime-state process records, tightening process/count reporting, and validating the cleaned status surface under real daemon usage.",
+        "span": {
+          "end": 3542,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::overview"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Overview",
+        "span": {
+          "end": 827,
+          "start": 666
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::overview"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Overview",
+        "span": {
+          "end": 827,
+          "start": 666
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::projection_metadata"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Projection Metadata",
+        "span": {
+          "end": 666,
+          "start": 369
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn2nhs48pj2kqeqqgtrqsded_md::projection_metadata"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Projection Metadata",
+        "span": {
+          "end": 666,
+          "start": 369
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 27,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn2nhs48pj2kqeqqgtrqsded.md"
+    ],
+    "files": [
+      476
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

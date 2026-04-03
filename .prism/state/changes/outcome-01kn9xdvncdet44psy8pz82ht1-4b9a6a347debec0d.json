@@ -1,0 +1,209 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdvncdet44psy8pz82ht1",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 79
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::concept_events::load_repo_curated_concepts",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::concept_events::append_repo_concept_event",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::concept_events::load_repo_concept_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::concept_events",
+        "kind": "Module"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 4 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 8,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/concept_events.rs",
+        "removedCount": 0,
+        "updatedCount": 8
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/concept_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::concept_events::load_repo_curated_concepts"
+        },
+        "kind": "Function",
+        "name": "load_repo_curated_concepts",
+        "span": {
+          "end": 1656,
+          "start": 1483
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/concept_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::concept_events::load_repo_curated_concepts"
+        },
+        "kind": "Function",
+        "name": "load_repo_curated_concepts",
+        "span": {
+          "end": 2318,
+          "start": 1960
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/concept_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::concept_events::append_repo_concept_event"
+        },
+        "kind": "Function",
+        "name": "append_repo_concept_event",
+        "span": {
+          "end": 728,
+          "start": 405
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/concept_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::concept_events::append_repo_concept_event"
+        },
+        "kind": "Function",
+        "name": "append_repo_concept_event",
+        "span": {
+          "end": 1205,
+          "start": 564
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/concept_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::concept_events::load_repo_concept_events"
+        },
+        "kind": "Function",
+        "name": "load_repo_concept_events",
+        "span": {
+          "end": 1481,
+          "start": 730
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/concept_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::concept_events::load_repo_concept_events"
+        },
+        "kind": "Function",
+        "name": "load_repo_concept_events",
+        "span": {
+          "end": 1958,
+          "start": 1207
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/concept_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::concept_events"
+        },
+        "kind": "Module",
+        "name": "concept_events",
+        "span": {
+          "end": 1657,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/concept_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::concept_events"
+        },
+        "kind": "Module",
+        "name": "concept_events",
+        "span": {
+          "end": 2319,
+          "start": 0
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 8,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/concept_events.rs"
+    ],
+    "files": [
+      79
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

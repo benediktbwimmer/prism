@@ -1,0 +1,675 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdvthj4ztg7p0g0emr9gm",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 82
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::coordination_persistence::authoritative_only_coordination_delta",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::coordination_persistence",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::load_hydrated_coordination_snapshot_for_root",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::persist_coordination_mutation_state_for_root_with_session_observed",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::coordination_persistence::CoordinationCompactionBackend",
+        "kind": "Trait"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::coordination_persistence::observe_coordination_step",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::coordination_persistence::coordination_event_delta",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::coordination_persistence::CoordinationCompactionBackend::maybe_compact_coordination_events",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend",
+        "kind": "Trait"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::coordination_persistence::T::impl::CoordinationCompactionBackend",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::load_hydrated_coordination_plan_state_for_root",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::persist_coordination_state_for_root",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::coordination_persistence::T::impl::CoordinationPersistenceBackend",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::persist_coordination_snapshot_for_root",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::persist_coordination_authoritative_state_for_root",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::persist_coordination_mutation_state_for_root_with_session",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::persist_coordination_authoritative_mutation_state_for_root_with_session_observed",
+        "kind": "Method"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 1 added, 0 removed, 16 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 1,
+        "changedSymbolCount": 33,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "removedCount": 0,
+        "updatedCount": 32
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::coordination_persistence::authoritative_only_coordination_delta"
+        },
+        "kind": "Function",
+        "name": "authoritative_only_coordination_delta",
+        "span": {
+          "end": 1324,
+          "start": 980
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::coordination_persistence"
+        },
+        "kind": "Module",
+        "name": "coordination_persistence",
+        "span": {
+          "end": 14696,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::coordination_persistence"
+        },
+        "kind": "Module",
+        "name": "coordination_persistence",
+        "span": {
+          "end": 15815,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::load_hydrated_coordination_snapshot_for_root"
+        },
+        "kind": "Method",
+        "name": "load_hydrated_coordination_snapshot_for_root",
+        "span": {
+          "end": 3405,
+          "start": 3023
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::load_hydrated_coordination_snapshot_for_root"
+        },
+        "kind": "Method",
+        "name": "load_hydrated_coordination_snapshot_for_root",
+        "span": {
+          "end": 3850,
+          "start": 3468
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::persist_coordination_mutation_state_for_root_with_session_observed"
+        },
+        "kind": "Method",
+        "name": "persist_coordination_mutation_state_for_root_with_session_observed",
+        "span": {
+          "end": 13668,
+          "start": 9756
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::persist_coordination_mutation_state_for_root_with_session_observed"
+        },
+        "kind": "Method",
+        "name": "persist_coordination_mutation_state_for_root_with_session_observed",
+        "span": {
+          "end": 14787,
+          "start": 10875
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Trait",
+          "path": "prism_core::coordination_persistence::CoordinationCompactionBackend"
+        },
+        "kind": "Trait",
+        "name": "CoordinationCompactionBackend",
+        "span": {
+          "end": 14216,
+          "start": 13786
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Trait",
+          "path": "prism_core::coordination_persistence::CoordinationCompactionBackend"
+        },
+        "kind": "Trait",
+        "name": "CoordinationCompactionBackend",
+        "span": {
+          "end": 15335,
+          "start": 14905
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::coordination_persistence::observe_coordination_step"
+        },
+        "kind": "Function",
+        "name": "observe_coordination_step",
+        "span": {
+          "end": 1778,
+          "start": 909
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::coordination_persistence::observe_coordination_step"
+        },
+        "kind": "Function",
+        "name": "observe_coordination_step",
+        "span": {
+          "end": 2195,
+          "start": 1326
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::coordination_persistence::coordination_event_delta"
+        },
+        "kind": "Function",
+        "name": "coordination_event_delta",
+        "span": {
+          "end": 14695,
+          "start": 14331
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::coordination_persistence::coordination_event_delta"
+        },
+        "kind": "Function",
+        "name": "coordination_event_delta",
+        "span": {
+          "end": 15814,
+          "start": 15450
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::coordination_persistence::CoordinationCompactionBackend::maybe_compact_coordination_events"
+        },
+        "kind": "Method",
+        "name": "maybe_compact_coordination_events",
+        "span": {
+          "end": 14214,
+          "start": 13879
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::coordination_persistence::CoordinationCompactionBackend::maybe_compact_coordination_events"
+        },
+        "kind": "Method",
+        "name": "maybe_compact_coordination_events",
+        "span": {
+          "end": 15333,
+          "start": 14998
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Trait",
+          "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend"
+        },
+        "kind": "Trait",
+        "name": "CoordinationPersistenceBackend",
+        "span": {
+          "end": 13670,
+          "start": 1780
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Trait",
+          "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend"
+        },
+        "kind": "Trait",
+        "name": "CoordinationPersistenceBackend",
+        "span": {
+          "end": 14789,
+          "start": 2197
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::coordination_persistence::T::impl::CoordinationCompactionBackend"
+        },
+        "kind": "Impl",
+        "name": "CoordinationCompactionBackend for T",
+        "span": {
+          "end": 14329,
+          "start": 14218
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::coordination_persistence::T::impl::CoordinationCompactionBackend"
+        },
+        "kind": "Impl",
+        "name": "CoordinationCompactionBackend for T",
+        "span": {
+          "end": 15448,
+          "start": 15337
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::load_hydrated_coordination_plan_state_for_root"
+        },
+        "kind": "Method",
+        "name": "load_hydrated_coordination_plan_state_for_root",
+        "span": {
+          "end": 3806,
+          "start": 3411
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::load_hydrated_coordination_plan_state_for_root"
+        },
+        "kind": "Method",
+        "name": "load_hydrated_coordination_plan_state_for_root",
+        "span": {
+          "end": 4251,
+          "start": 3856
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::persist_coordination_state_for_root"
+        },
+        "kind": "Method",
+        "name": "persist_coordination_state_for_root",
+        "span": {
+          "end": 5360,
+          "start": 4046
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::persist_coordination_state_for_root"
+        },
+        "kind": "Method",
+        "name": "persist_coordination_state_for_root",
+        "span": {
+          "end": 5805,
+          "start": 4491
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::coordination_persistence::T::impl::CoordinationPersistenceBackend"
+        },
+        "kind": "Impl",
+        "name": "CoordinationPersistenceBackend for T",
+        "span": {
+          "end": 13784,
+          "start": 13672
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::coordination_persistence::T::impl::CoordinationPersistenceBackend"
+        },
+        "kind": "Impl",
+        "name": "CoordinationPersistenceBackend for T",
+        "span": {
+          "end": 14903,
+          "start": 14791
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::persist_coordination_snapshot_for_root"
+        },
+        "kind": "Method",
+        "name": "persist_coordination_snapshot_for_root",
+        "span": {
+          "end": 4040,
+          "start": 3812
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::persist_coordination_snapshot_for_root"
+        },
+        "kind": "Method",
+        "name": "persist_coordination_snapshot_for_root",
+        "span": {
+          "end": 4485,
+          "start": 4257
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::persist_coordination_authoritative_state_for_root"
+        },
+        "kind": "Method",
+        "name": "persist_coordination_authoritative_state_for_root",
+        "span": {
+          "end": 3017,
+          "start": 1889
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::persist_coordination_authoritative_state_for_root"
+        },
+        "kind": "Method",
+        "name": "persist_coordination_authoritative_state_for_root",
+        "span": {
+          "end": 3462,
+          "start": 2306
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::persist_coordination_mutation_state_for_root_with_session"
+        },
+        "kind": "Method",
+        "name": "persist_coordination_mutation_state_for_root_with_session",
+        "span": {
+          "end": 9750,
+          "start": 8801
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::persist_coordination_mutation_state_for_root_with_session"
+        },
+        "kind": "Method",
+        "name": "persist_coordination_mutation_state_for_root_with_session",
+        "span": {
+          "end": 10869,
+          "start": 9920
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::persist_coordination_authoritative_mutation_state_for_root_with_session_observed"
+        },
+        "kind": "Method",
+        "name": "persist_coordination_authoritative_mutation_state_for_root_with_session_observed",
+        "span": {
+          "end": 8750,
+          "start": 5366
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::coordination_persistence::CoordinationPersistenceBackend::persist_coordination_authoritative_mutation_state_for_root_with_session_observed"
+        },
+        "kind": "Method",
+        "name": "persist_coordination_authoritative_mutation_state_for_root_with_session_observed",
+        "span": {
+          "end": 9869,
+          "start": 5811
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 33,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/coordination_persistence.rs"
+    ],
+    "files": [
+      82
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

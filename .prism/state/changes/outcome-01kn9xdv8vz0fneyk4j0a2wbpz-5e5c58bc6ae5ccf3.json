@@ -1,0 +1,579 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdv8vz0fneyk4j0a2wbpz",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 258
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::server_transport::query_host_uses_configured_worker_pool_size",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::server_transport::stdio_proxy_stays_alive_while_idle_until_client_disconnects",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::server_transport::stdio_proxy_marks_bridge_auth_stale_after_upstream_rejects_bound_credential",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::server_transport::stdio_proxy_reconnects_after_upstream_restart_from_uri_file",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::server_transport::bootstrap_proxy_self_heals_stale_uri_file_from_runtime_state",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::server_transport::failed_bootstrap_proxy_recovers_once_an_upstream_becomes_available",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::server_transport::mcp_server_executes_prism_query_tool_round_trip",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::server_transport::mcp_server_simple_mode_keeps_minimal_surface_and_reports_features",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::server_transport::stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::server_transport::stdio_proxy_can_adopt_local_profile_and_mutate_without_explicit_credential",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::server_transport::simple_mode_disables_coordination_host_paths",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::server_transport::stdio_proxy_forwards_to_streamable_http_upstream",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::server_transport",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::server_transport::bootstrap_proxy_exposes_startup_resource_and_warmup_errors_before_ready",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 14 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 28,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "removedCount": 0,
+        "updatedCount": 28
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::query_host_uses_configured_worker_pool_size"
+        },
+        "kind": "Function",
+        "name": "query_host_uses_configured_worker_pool_size",
+        "span": {
+          "end": 51104,
+          "start": 50571
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::query_host_uses_configured_worker_pool_size"
+        },
+        "kind": "Function",
+        "name": "query_host_uses_configured_worker_pool_size",
+        "span": {
+          "end": 51123,
+          "start": 50590
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::stdio_proxy_stays_alive_while_idle_until_client_disconnects"
+        },
+        "kind": "Function",
+        "name": "stdio_proxy_stays_alive_while_idle_until_client_disconnects",
+        "span": {
+          "end": 5865,
+          "start": 4139
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::stdio_proxy_stays_alive_while_idle_until_client_disconnects"
+        },
+        "kind": "Function",
+        "name": "stdio_proxy_stays_alive_while_idle_until_client_disconnects",
+        "span": {
+          "end": 5865,
+          "start": 4139
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::stdio_proxy_marks_bridge_auth_stale_after_upstream_rejects_bound_credential"
+        },
+        "kind": "Function",
+        "name": "stdio_proxy_marks_bridge_auth_stale_after_upstream_rejects_bound_credential",
+        "span": {
+          "end": 49351,
+          "start": 36070
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::stdio_proxy_marks_bridge_auth_stale_after_upstream_rejects_bound_credential"
+        },
+        "kind": "Function",
+        "name": "stdio_proxy_marks_bridge_auth_stale_after_upstream_rejects_bound_credential",
+        "span": {
+          "end": 49370,
+          "start": 36089
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::stdio_proxy_reconnects_after_upstream_restart_from_uri_file"
+        },
+        "kind": "Function",
+        "name": "stdio_proxy_reconnects_after_upstream_restart_from_uri_file",
+        "span": {
+          "end": 15023,
+          "start": 11593
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::stdio_proxy_reconnects_after_upstream_restart_from_uri_file"
+        },
+        "kind": "Function",
+        "name": "stdio_proxy_reconnects_after_upstream_restart_from_uri_file",
+        "span": {
+          "end": 15023,
+          "start": 11593
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::bootstrap_proxy_self_heals_stale_uri_file_from_runtime_state"
+        },
+        "kind": "Function",
+        "name": "bootstrap_proxy_self_heals_stale_uri_file_from_runtime_state",
+        "span": {
+          "end": 21581,
+          "start": 15040
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::bootstrap_proxy_self_heals_stale_uri_file_from_runtime_state"
+        },
+        "kind": "Function",
+        "name": "bootstrap_proxy_self_heals_stale_uri_file_from_runtime_state",
+        "span": {
+          "end": 21600,
+          "start": 15040
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::failed_bootstrap_proxy_recovers_once_an_upstream_becomes_available"
+        },
+        "kind": "Function",
+        "name": "failed_bootstrap_proxy_recovers_once_an_upstream_becomes_available",
+        "span": {
+          "end": 11576,
+          "start": 8284
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::failed_bootstrap_proxy_recovers_once_an_upstream_becomes_available"
+        },
+        "kind": "Function",
+        "name": "failed_bootstrap_proxy_recovers_once_an_upstream_becomes_available",
+        "span": {
+          "end": 11576,
+          "start": 8284
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::mcp_server_executes_prism_query_tool_round_trip"
+        },
+        "kind": "Function",
+        "name": "mcp_server_executes_prism_query_tool_round_trip",
+        "span": {
+          "end": 56728,
+          "start": 55323
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::mcp_server_executes_prism_query_tool_round_trip"
+        },
+        "kind": "Function",
+        "name": "mcp_server_executes_prism_query_tool_round_trip",
+        "span": {
+          "end": 56747,
+          "start": 55342
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::mcp_server_simple_mode_keeps_minimal_surface_and_reports_features"
+        },
+        "kind": "Function",
+        "name": "mcp_server_simple_mode_keeps_minimal_surface_and_reports_features",
+        "span": {
+          "end": 55306,
+          "start": 51121
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::mcp_server_simple_mode_keeps_minimal_surface_and_reports_features"
+        },
+        "kind": "Function",
+        "name": "mcp_server_simple_mode_keeps_minimal_surface_and_reports_features",
+        "span": {
+          "end": 55325,
+          "start": 51140
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap"
+        },
+        "kind": "Function",
+        "name": "stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap",
+        "span": {
+          "end": 36053,
+          "start": 28698
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap"
+        },
+        "kind": "Function",
+        "name": "stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap",
+        "span": {
+          "end": 36072,
+          "start": 28717
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::stdio_proxy_can_adopt_local_profile_and_mutate_without_explicit_credential"
+        },
+        "kind": "Function",
+        "name": "stdio_proxy_can_adopt_local_profile_and_mutate_without_explicit_credential",
+        "span": {
+          "end": 28681,
+          "start": 21598
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::stdio_proxy_can_adopt_local_profile_and_mutate_without_explicit_credential"
+        },
+        "kind": "Function",
+        "name": "stdio_proxy_can_adopt_local_profile_and_mutate_without_explicit_credential",
+        "span": {
+          "end": 28700,
+          "start": 21617
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::simple_mode_disables_coordination_host_paths"
+        },
+        "kind": "Function",
+        "name": "simple_mode_disables_coordination_host_paths",
+        "span": {
+          "end": 50561,
+          "start": 49361
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::simple_mode_disables_coordination_host_paths"
+        },
+        "kind": "Function",
+        "name": "simple_mode_disables_coordination_host_paths",
+        "span": {
+          "end": 50580,
+          "start": 49380
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::stdio_proxy_forwards_to_streamable_http_upstream"
+        },
+        "kind": "Function",
+        "name": "stdio_proxy_forwards_to_streamable_http_upstream",
+        "span": {
+          "end": 4122,
+          "start": 974
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::stdio_proxy_forwards_to_streamable_http_upstream"
+        },
+        "kind": "Function",
+        "name": "stdio_proxy_forwards_to_streamable_http_upstream",
+        "span": {
+          "end": 4122,
+          "start": 974
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::tests::server_transport"
+        },
+        "kind": "Module",
+        "name": "server_transport",
+        "span": {
+          "end": 56729,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::tests::server_transport"
+        },
+        "kind": "Module",
+        "name": "server_transport",
+        "span": {
+          "end": 56748,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::bootstrap_proxy_exposes_startup_resource_and_warmup_errors_before_ready"
+        },
+        "kind": "Function",
+        "name": "bootstrap_proxy_exposes_startup_resource_and_warmup_errors_before_ready",
+        "span": {
+          "end": 8267,
+          "start": 5882
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::server_transport::bootstrap_proxy_exposes_startup_resource_and_warmup_errors_before_ready"
+        },
+        "kind": "Function",
+        "name": "bootstrap_proxy_exposes_startup_resource_and_warmup_errors_before_ready",
+        "span": {
+          "end": 8267,
+          "start": 5882
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 28,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/server_transport.rs"
+    ],
+    "files": [
+      258
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

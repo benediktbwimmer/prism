@@ -1,0 +1,2849 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdy5zj0b16frmb5chsmz1",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 471
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_68",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:4",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:2",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:15",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:5",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:17",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_28",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:5",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_67",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:6",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:17",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:24",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:25",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_78",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::structural_13",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:6",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:21",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:27",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:5",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_21",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:25",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:23",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::structural_12",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:26",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:13",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:12",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:8",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_74",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::structural_10",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:12",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:6",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:22",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:19",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::published_memories",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:13",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:20",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:11",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:2",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::structural_9",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:14",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_73",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:6",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_34",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:19",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:3",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:16",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:9",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:11",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:7",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_70",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::structural_15",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:22",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:4",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_24",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:13",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:4",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:26",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:15",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:10",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:5",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_01kmwpc4w3rp0pfy6pce3w3816",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:7",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:2",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:20",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:12",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:10",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_01kn07e726myjcgr1rsj33nf6j",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:2",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:4",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:19",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:7",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:13",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_01kn07e7gtqccwq2yj9fhy2r1k",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:8",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:8",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:18",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:18",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:9",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:21",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:24",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::structural_14",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:23",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:14",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:24",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::structural_11",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_69",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:3",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_01kmwfk9m5skznfys67588df6j",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:16",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:14",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:20",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:16",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:22",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:11",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:15",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:11",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:9",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:7",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:8",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:14",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:3",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:10",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:3",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_81",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:17",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_75",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:12",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:23",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:21",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::semantic_1",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_26",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:18",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:10",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:25",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_01kn07e79gh5je3z1zk8zgg3qf",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:9",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::overview",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::projection_metadata",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md",
+        "kind": "Document"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::prism_memory",
+        "kind": "MarkdownHeading"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 120 removed, 4 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 128,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "removedCount": 120,
+        "updatedCount": 8
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_68"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:68",
+        "span": {
+          "end": 22455,
+          "start": 21484
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:4"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 14258,
+          "start": 14130
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:2"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Publication",
+        "span": {
+          "end": 22261,
+          "start": 22169
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:15"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 22455,
+          "start": 22327
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:5"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Publication",
+        "span": {
+          "end": 25638,
+          "start": 25546
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:17"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 24708,
+          "start": 24580
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_28"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:28",
+        "span": {
+          "end": 20016,
+          "start": 19362
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:5"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 14984,
+          "start": 14647
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_67"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:67",
+        "span": {
+          "end": 21484,
+          "start": 20610
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:6"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 16030,
+          "start": 15902
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:17"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 25546,
+          "start": 25315
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:24"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 34213,
+          "start": 34147
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:25"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 34506,
+          "start": 34371
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_78"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:78",
+        "span": {
+          "end": 30473,
+          "start": 29342
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::structural_13"
+        },
+        "kind": "MarkdownHeading",
+        "name": "structural:13",
+        "span": {
+          "end": 16776,
+          "start": 16030
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:6"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Publication",
+        "span": {
+          "end": 27423,
+          "start": 27331
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:21"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 32519,
+          "start": 32453
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:27"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 36374,
+          "start": 36239
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:5"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 15178,
+          "start": 15050
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_21"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:21",
+        "span": {
+          "end": 13615,
+          "start": 12880
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:25"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 35105,
+          "start": 35052
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:23"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 32654,
+          "start": 32519
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::structural_12"
+        },
+        "kind": "MarkdownHeading",
+        "name": "structural:12",
+        "span": {
+          "end": 15178,
+          "start": 14258
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:26"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 35398,
+          "start": 35263
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:13"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 21198,
+          "start": 20995
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:12"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 19822,
+          "start": 19756
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:8"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 17501,
+          "start": 17373
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_74"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:74",
+        "span": {
+          "end": 27617,
+          "start": 25832
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::structural_10"
+        },
+        "kind": "MarkdownHeading",
+        "name": "structural:10",
+        "span": {
+          "end": 12880,
+          "start": 12212
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:12"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 21356,
+          "start": 21290
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:6"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 17373,
+          "start": 17307
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:22"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 31653,
+          "start": 31525
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:19"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 27617,
+          "start": 27489
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::published_memories"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Published Memories",
+        "span": {
+          "end": 11651,
+          "start": 504
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:13"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Publication",
+        "span": {
+          "end": 35197,
+          "start": 35105
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:20"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 30187,
+          "start": 29939
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:11"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Publication",
+        "span": {
+          "end": 33362,
+          "start": 33270
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:2"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 12686,
+          "start": 12543
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::structural_9"
+        },
+        "kind": "MarkdownHeading",
+        "name": "structural:9",
+        "span": {
+          "end": 12212,
+          "start": 11651
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:14"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 22169,
+          "start": 21900
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_73"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:73",
+        "span": {
+          "end": 25832,
+          "start": 24708
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:6"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 15836,
+          "start": 15608
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_34"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:34",
+        "span": {
+          "end": 20610,
+          "start": 20016
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:19"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 30345,
+          "start": 30279
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:3"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 13615,
+          "start": 13487
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:16"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 25704,
+          "start": 25638
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:9"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 19234,
+          "start": 19168
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:11"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 19362,
+          "start": 19234
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:7"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 16582,
+          "start": 16354
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_70"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:70",
+        "span": {
+          "end": 24708,
+          "start": 23732
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::structural_15"
+        },
+        "kind": "MarkdownHeading",
+        "name": "structural:15",
+        "span": {
+          "end": 18757,
+          "start": 18100
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:22"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 32361,
+          "start": 32255
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:4"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Publication",
+        "span": {
+          "end": 24514,
+          "start": 24422
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_24"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:24",
+        "span": {
+          "end": 17501,
+          "start": 16776
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:13"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 22327,
+          "start": 22261
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:4"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 14130,
+          "start": 14008
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:26"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 36081,
+          "start": 36018
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:15"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 23446,
+          "start": 23162
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:10"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 19888,
+          "start": 19822
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:5"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 16648,
+          "start": 16582
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_01kmwpc4w3rp0pfy6pce3w3816"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:01kmwpc4w3rp0pfy6pce3w3816",
+        "span": {
+          "end": 33563,
+          "start": 32654
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:7"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Publication",
+        "span": {
+          "end": 29148,
+          "start": 29056
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:2"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 12880,
+          "start": 12752
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:20"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 31525,
+          "start": 31459
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:12"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 20016,
+          "start": 19888
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:10"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Publication",
+        "span": {
+          "end": 32453,
+          "start": 32361
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_01kn07e726myjcgr1rsj33nf6j"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:01kn07e726myjcgr1rsj33nf6j",
+        "span": {
+          "end": 34506,
+          "start": 33563
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:2"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 13487,
+          "start": 13421
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:4"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 15902,
+          "start": 15836
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:19"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 29056,
+          "start": 28496
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:7"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 16776,
+          "start": 16648
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:13"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 20610,
+          "start": 20482
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_01kn07e7gtqccwq2yj9fhy2r1k"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:01kn07e7gtqccwq2yj9fhy2r1k",
+        "span": {
+          "end": 36374,
+          "start": 35398
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Publication",
+        "span": {
+          "end": 21290,
+          "start": 21198
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:8"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Publication",
+        "span": {
+          "end": 30279,
+          "start": 30187
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:8"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 18629,
+          "start": 18563
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:18"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 27331,
+          "start": 26822
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:18"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 25832,
+          "start": 25704
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:9"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Publication",
+        "span": {
+          "end": 31459,
+          "start": 31367
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:21"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 31367,
+          "start": 31141
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:24"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 33563,
+          "start": 33428
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::structural_14"
+        },
+        "kind": "MarkdownHeading",
+        "name": "structural:14",
+        "span": {
+          "end": 18100,
+          "start": 17501
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:23"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 33270,
+          "start": 33140
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:14"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 23604,
+          "start": 23538
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:24"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 35263,
+          "start": 35197
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::structural_11"
+        },
+        "kind": "MarkdownHeading",
+        "name": "structural:11",
+        "span": {
+          "end": 14258,
+          "start": 13615
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_69"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:69",
+        "span": {
+          "end": 23732,
+          "start": 22455
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:3"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 15050,
+          "start": 14984
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_01kmwfk9m5skznfys67588df6j"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:01kmwfk9m5skznfys67588df6j",
+        "span": {
+          "end": 32654,
+          "start": 31653
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:16"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 23732,
+          "start": 23604
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:14"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 21484,
+          "start": 21356
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:20"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 29342,
+          "start": 29214
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:16"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 24422,
+          "start": 24207
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:22"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 33428,
+          "start": 33362
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 12752,
+          "start": 12686
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:11"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 20482,
+          "start": 20416
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:15"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 24580,
+          "start": 24514
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:11"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 19168,
+          "start": 19105
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:9"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 17906,
+          "start": 17780
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:7"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 17972,
+          "start": 17906
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:8"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 17307,
+          "start": 17074
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:14"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Publication",
+        "span": {
+          "end": 36173,
+          "start": 36081
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:3"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 13421,
+          "start": 13196
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:10"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 18757,
+          "start": 18629
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:3"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Publication",
+        "span": {
+          "end": 23538,
+          "start": 23446
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_81"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:81",
+        "span": {
+          "end": 31653,
+          "start": 30473
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:17"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 27489,
+          "start": 27423
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_75"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:75",
+        "span": {
+          "end": 29342,
+          "start": 27617
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::publication:12"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Publication",
+        "span": {
+          "end": 34305,
+          "start": 34213
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:23"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 34371,
+          "start": 34305
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:21"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 30473,
+          "start": 30345
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::semantic_1"
+        },
+        "kind": "MarkdownHeading",
+        "name": "semantic:1",
+        "span": {
+          "end": 16030,
+          "start": 15178
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_26"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:26",
+        "span": {
+          "end": 19362,
+          "start": 18757
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 12084,
+          "start": 11952
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:18"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 29214,
+          "start": 29148
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::anchors:10"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Anchors",
+        "span": {
+          "end": 18563,
+          "start": 18441
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::provenance:25"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Provenance",
+        "span": {
+          "end": 36239,
+          "start": 36173
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::memory_01kn07e79gh5je3z1zk8zgg3qf"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory:01kn07e79gh5je3z1zk8zgg3qf",
+        "span": {
+          "end": 35398,
+          "start": 34506
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 12212,
+          "start": 12084
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::event_summary:9"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Event Summary",
+        "span": {
+          "end": 18100,
+          "start": 17972
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::overview"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Overview",
+        "span": {
+          "end": 504,
+          "start": 431
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::overview"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Overview",
+        "span": {
+          "end": 553,
+          "start": 426
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::projection_metadata"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Projection Metadata",
+        "span": {
+          "end": 431,
+          "start": 123
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::projection_metadata"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Projection Metadata",
+        "span": {
+          "end": 426,
+          "start": 123
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md"
+        },
+        "kind": "Document",
+        "name": "docs/prism/memory.md",
+        "span": {
+          "end": 36374,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md"
+        },
+        "kind": "Document",
+        "name": "docs/prism/memory.md",
+        "span": {
+          "end": 553,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::prism_memory"
+        },
+        "kind": "MarkdownHeading",
+        "name": "PRISM Memory",
+        "span": {
+          "end": 36374,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::memory_md::prism_memory"
+        },
+        "kind": "MarkdownHeading",
+        "name": "PRISM Memory",
+        "span": {
+          "end": 553,
+          "start": 0
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 128,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/memory.md"
+    ],
+    "files": [
+      471
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

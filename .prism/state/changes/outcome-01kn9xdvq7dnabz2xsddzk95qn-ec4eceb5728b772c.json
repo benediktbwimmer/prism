@@ -1,0 +1,3448 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdvq7dnabz2xsddzk95qn",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 157
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::GitExecutionOverlay::target_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::GitExecutionOverlay::source_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::GitExecutionOverlay::pending_task_status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::GitExecutionOverlay::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::GitExecutionOverlay",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::GitExecutionStatus::impl::Default",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::GitExecutionOverlay::target_branch",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::GitExecutionStatus",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::GitExecutionStatus::default",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::GitExecutionOverlay::publish_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanExecutionOverlay::git_execution",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNode::validation_refs",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanExecutionOverlay::node_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::HydratedPlanBindingOverlay::handles",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNode::is_abstract",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanEdgeKind",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::BlockerCause::acceptance_label",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanBinding::anchors",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNode::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanGraph::metadata",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanBinding::memory_refs",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNode::bindings",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNodeBlocker::validation_checks",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanGraph::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanGraph::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::ValidationRef::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanEdge",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNodeBlocker::related_artifact_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNode::acceptance",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanEdge::summary",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::BlockerCause::threshold_metric",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::AcceptanceEvidencePolicy",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNode::metadata",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNode::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanAcceptanceCriterion::anchors",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNode::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNodeBlocker::related_node_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNode::plan_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanEdge::from",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanEdge::plan_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::BlockerCause::code",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::BlockerCause",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::BlockerCause::threshold_value",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNode::base_revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanEdge::metadata",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanScope",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanGraph::created_from",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNode",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanAcceptanceCriterion::evidence_policy",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanGraph::scope",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanExecutionOverlay::pending_handoff_to",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanGraph::tags",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanGraph::title",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanAcceptanceCriterion",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanAcceptanceCriterion::label",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanGraph",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanAcceptanceCriterion::required_checks",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanBinding::artifact_refs",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanGraph::root_nodes",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanGraph::nodes",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanBinding::concept_handles",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNodeBlocker::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanGraph::goal",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNode::priority",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::BlockerCause::observed_value",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNodeBlocker",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanBinding",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNodeBlocker::causes",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::HydratedPlanBindingOverlay",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanGraph::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNode::summary",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::BlockerCause::source",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanExecutionOverlay",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanExecutionOverlay::awaiting_handoff_from",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNode::title",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanBinding::outcome_refs",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::BlockerCauseSource",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::ValidationRef",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanGraph::edges",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNode::tags",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNodeKind",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanGraph::revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanExecutionOverlay::branch_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNodeBlockerKind",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanExecutionOverlay::effective_assignee",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanEdge::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNodeBlocker::summary",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNode::assignee",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNodeBlocker::risk_score",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanExecutionOverlay::session",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanEdge::to",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanEdge::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanKind",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanNodeStatus",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_ir",
+        "path": "prism_ir::plans::PlanExecutionOverlay::worktree_id",
+        "kind": "Field"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 11 added, 0 removed, 85 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 11,
+        "changedSymbolCount": 181,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "removedCount": 0,
+        "updatedCount": 170
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::GitExecutionOverlay::target_ref"
+        },
+        "kind": "Field",
+        "name": "target_ref",
+        "span": {
+          "end": 5564,
+          "start": 5534
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::GitExecutionOverlay::source_ref"
+        },
+        "kind": "Field",
+        "name": "source_ref",
+        "span": {
+          "end": 5506,
+          "start": 5476
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::GitExecutionOverlay::pending_task_status"
+        },
+        "kind": "Field",
+        "name": "pending_task_status",
+        "span": {
+          "end": 5448,
+          "start": 5393
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::GitExecutionOverlay::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 5365,
+          "start": 5335
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::GitExecutionOverlay"
+        },
+        "kind": "Struct",
+        "name": "GitExecutionOverlay",
+        "span": {
+          "end": 5687,
+          "start": 5276
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Impl",
+          "path": "prism_ir::plans::GitExecutionStatus::impl::Default"
+        },
+        "kind": "Impl",
+        "name": "Default for GitExecutionStatus",
+        "span": {
+          "end": 5155,
+          "start": 5058
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::GitExecutionOverlay::target_branch"
+        },
+        "kind": "Field",
+        "name": "target_branch",
+        "span": {
+          "end": 5684,
+          "start": 5651
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Enum",
+          "path": "prism_ir::plans::GitExecutionStatus"
+        },
+        "kind": "Enum",
+        "name": "GitExecutionStatus",
+        "span": {
+          "end": 5056,
+          "start": 4918
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Method",
+          "path": "prism_ir::plans::GitExecutionStatus::default"
+        },
+        "kind": "Method",
+        "name": "default",
+        "span": {
+          "end": 5153,
+          "start": 5100
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::GitExecutionOverlay::publish_ref"
+        },
+        "kind": "Field",
+        "name": "publish_ref",
+        "span": {
+          "end": 5623,
+          "start": 5592
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanExecutionOverlay::git_execution"
+        },
+        "kind": "Field",
+        "name": "git_execution",
+        "span": {
+          "end": 6233,
+          "start": 6187
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::validation_refs"
+        },
+        "kind": "Field",
+        "name": "validation_refs",
+        "span": {
+          "end": 4277,
+          "start": 4238
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::validation_refs"
+        },
+        "kind": "Field",
+        "name": "validation_refs",
+        "span": {
+          "end": 4305,
+          "start": 4266
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanExecutionOverlay::node_id"
+        },
+        "kind": "Field",
+        "name": "node_id",
+        "span": {
+          "end": 4905,
+          "start": 4882
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanExecutionOverlay::node_id"
+        },
+        "kind": "Field",
+        "name": "node_id",
+        "span": {
+          "end": 5821,
+          "start": 5798
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::HydratedPlanBindingOverlay::handles"
+        },
+        "kind": "Field",
+        "name": "handles",
+        "span": {
+          "end": 1781,
+          "start": 1757
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::HydratedPlanBindingOverlay::handles"
+        },
+        "kind": "Field",
+        "name": "handles",
+        "span": {
+          "end": 1809,
+          "start": 1785
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::is_abstract"
+        },
+        "kind": "Field",
+        "name": "is_abstract",
+        "span": {
+          "end": 4304,
+          "start": 4283
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::is_abstract"
+        },
+        "kind": "Field",
+        "name": "is_abstract",
+        "span": {
+          "end": 4332,
+          "start": 4311
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Enum",
+          "path": "prism_ir::plans::PlanEdgeKind"
+        },
+        "kind": "Enum",
+        "name": "PlanEdgeKind",
+        "span": {
+          "end": 1214,
+          "start": 1091
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Enum",
+          "path": "prism_ir::plans::PlanEdgeKind"
+        },
+        "kind": "Enum",
+        "name": "PlanEdgeKind",
+        "span": {
+          "end": 1242,
+          "start": 1119
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::BlockerCause::acceptance_label"
+        },
+        "kind": "Field",
+        "name": "acceptance_label",
+        "span": {
+          "end": 3175,
+          "start": 3139
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::BlockerCause::acceptance_label"
+        },
+        "kind": "Field",
+        "name": "acceptance_label",
+        "span": {
+          "end": 3203,
+          "start": 3167
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanBinding::anchors"
+        },
+        "kind": "Field",
+        "name": "anchors",
+        "span": {
+          "end": 1481,
+          "start": 1454
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanBinding::anchors"
+        },
+        "kind": "Field",
+        "name": "anchors",
+        "span": {
+          "end": 1509,
+          "start": 1482
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 4129,
+          "start": 4103
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 4157,
+          "start": 4131
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::metadata"
+        },
+        "kind": "Field",
+        "name": "metadata",
+        "span": {
+          "end": 5652,
+          "start": 5621
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::metadata"
+        },
+        "kind": "Field",
+        "name": "metadata",
+        "span": {
+          "end": 6642,
+          "start": 6611
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanBinding::memory_refs"
+        },
+        "kind": "Field",
+        "name": "memory_refs",
+        "span": {
+          "end": 1589,
+          "start": 1561
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanBinding::memory_refs"
+        },
+        "kind": "Field",
+        "name": "memory_refs",
+        "span": {
+          "end": 1617,
+          "start": 1589
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::bindings"
+        },
+        "kind": "Field",
+        "name": "bindings",
+        "span": {
+          "end": 4160,
+          "start": 4135
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::bindings"
+        },
+        "kind": "Field",
+        "name": "bindings",
+        "span": {
+          "end": 4188,
+          "start": 4163
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNodeBlocker::validation_checks"
+        },
+        "kind": "Field",
+        "name": "validation_checks",
+        "span": {
+          "end": 3811,
+          "start": 3777
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNodeBlocker::validation_checks"
+        },
+        "kind": "Field",
+        "name": "validation_checks",
+        "span": {
+          "end": 3839,
+          "start": 3805
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 5410,
+          "start": 5392
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 6400,
+          "start": 6382
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 5360,
+          "start": 5346
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 6350,
+          "start": 6336
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::ValidationRef::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 1336,
+          "start": 1322
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::ValidationRef::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 1364,
+          "start": 1350
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::PlanEdge"
+        },
+        "kind": "Struct",
+        "name": "PlanEdge",
+        "span": {
+          "end": 4771,
+          "start": 4551
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::PlanEdge"
+        },
+        "kind": "Struct",
+        "name": "PlanEdge",
+        "span": {
+          "end": 4799,
+          "start": 4579
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNodeBlocker::related_artifact_id"
+        },
+        "kind": "Field",
+        "name": "related_artifact_id",
+        "span": {
+          "end": 3738,
+          "start": 3695
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNodeBlocker::related_artifact_id"
+        },
+        "kind": "Field",
+        "name": "related_artifact_id",
+        "span": {
+          "end": 3766,
+          "start": 3723
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::acceptance"
+        },
+        "kind": "Field",
+        "name": "acceptance",
+        "span": {
+          "end": 4210,
+          "start": 4166
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::acceptance"
+        },
+        "kind": "Field",
+        "name": "acceptance",
+        "span": {
+          "end": 4238,
+          "start": 4194
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanEdge::summary"
+        },
+        "kind": "Field",
+        "name": "summary",
+        "span": {
+          "end": 4731,
+          "start": 4704
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanEdge::summary"
+        },
+        "kind": "Field",
+        "name": "summary",
+        "span": {
+          "end": 4759,
+          "start": 4732
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::BlockerCause::threshold_metric"
+        },
+        "kind": "Field",
+        "name": "threshold_metric",
+        "span": {
+          "end": 3280,
+          "start": 3244
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::BlockerCause::threshold_metric"
+        },
+        "kind": "Field",
+        "name": "threshold_metric",
+        "span": {
+          "end": 3308,
+          "start": 3272
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Enum",
+          "path": "prism_ir::plans::AcceptanceEvidencePolicy"
+        },
+        "kind": "Enum",
+        "name": "AcceptanceEvidencePolicy",
+        "span": {
+          "end": 2250,
+          "start": 2134
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Enum",
+          "path": "prism_ir::plans::AcceptanceEvidencePolicy"
+        },
+        "kind": "Enum",
+        "name": "AcceptanceEvidencePolicy",
+        "span": {
+          "end": 2278,
+          "start": 2162
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::metadata"
+        },
+        "kind": "Field",
+        "name": "metadata",
+        "span": {
+          "end": 4475,
+          "start": 4444
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::metadata"
+        },
+        "kind": "Field",
+        "name": "metadata",
+        "span": {
+          "end": 4503,
+          "start": 4472
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 3988,
+          "start": 3970
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 4016,
+          "start": 3998
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanAcceptanceCriterion::anchors"
+        },
+        "kind": "Field",
+        "name": "anchors",
+        "span": {
+          "end": 1952,
+          "start": 1925
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanAcceptanceCriterion::anchors"
+        },
+        "kind": "Field",
+        "name": "anchors",
+        "span": {
+          "end": 1980,
+          "start": 1953
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 4041,
+          "start": 4019
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 4069,
+          "start": 4047
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNodeBlocker::related_node_id"
+        },
+        "kind": "Field",
+        "name": "related_node_id",
+        "span": {
+          "end": 3689,
+          "start": 3650
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNodeBlocker::related_node_id"
+        },
+        "kind": "Field",
+        "name": "related_node_id",
+        "span": {
+          "end": 3717,
+          "start": 3678
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::plan_id"
+        },
+        "kind": "Field",
+        "name": "plan_id",
+        "span": {
+          "end": 4013,
+          "start": 3994
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::plan_id"
+        },
+        "kind": "Field",
+        "name": "plan_id",
+        "span": {
+          "end": 4041,
+          "start": 4022
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanEdge::from"
+        },
+        "kind": "Field",
+        "name": "from",
+        "span": {
+          "end": 4646,
+          "start": 4626
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanEdge::from"
+        },
+        "kind": "Field",
+        "name": "from",
+        "span": {
+          "end": 4674,
+          "start": 4654
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanEdge::plan_id"
+        },
+        "kind": "Field",
+        "name": "plan_id",
+        "span": {
+          "end": 4620,
+          "start": 4601
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanEdge::plan_id"
+        },
+        "kind": "Field",
+        "name": "plan_id",
+        "span": {
+          "end": 4648,
+          "start": 4629
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::BlockerCause::code"
+        },
+        "kind": "Field",
+        "name": "code",
+        "span": {
+          "end": 3070,
+          "start": 3046
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::BlockerCause::code"
+        },
+        "kind": "Field",
+        "name": "code",
+        "span": {
+          "end": 3098,
+          "start": 3074
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::BlockerCause"
+        },
+        "kind": "Struct",
+        "name": "BlockerCause",
+        "span": {
+          "end": 3484,
+          "start": 2917
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::BlockerCause"
+        },
+        "kind": "Struct",
+        "name": "BlockerCause",
+        "span": {
+          "end": 3512,
+          "start": 2945
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::BlockerCause::threshold_value"
+        },
+        "kind": "Field",
+        "name": "threshold_value",
+        "span": {
+          "end": 3381,
+          "start": 3349
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::BlockerCause::threshold_value"
+        },
+        "kind": "Field",
+        "name": "threshold_value",
+        "span": {
+          "end": 3409,
+          "start": 3377
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::base_revision"
+        },
+        "kind": "Field",
+        "name": "base_revision",
+        "span": {
+          "end": 4381,
+          "start": 4345
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::base_revision"
+        },
+        "kind": "Field",
+        "name": "base_revision",
+        "span": {
+          "end": 4409,
+          "start": 4373
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanEdge::metadata"
+        },
+        "kind": "Field",
+        "name": "metadata",
+        "span": {
+          "end": 4768,
+          "start": 4737
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanEdge::metadata"
+        },
+        "kind": "Field",
+        "name": "metadata",
+        "span": {
+          "end": 4796,
+          "start": 4765
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Enum",
+          "path": "prism_ir::plans::PlanScope"
+        },
+        "kind": "Enum",
+        "name": "PlanScope",
+        "span": {
+          "end": 316,
+          "start": 260
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Enum",
+          "path": "prism_ir::plans::PlanScope"
+        },
+        "kind": "Enum",
+        "name": "PlanScope",
+        "span": {
+          "end": 344,
+          "start": 288
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::created_from"
+        },
+        "kind": "Field",
+        "name": "created_from",
+        "span": {
+          "end": 5615,
+          "start": 5583
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::created_from"
+        },
+        "kind": "Field",
+        "name": "created_from",
+        "span": {
+          "end": 6605,
+          "start": 6573
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::PlanNode"
+        },
+        "kind": "Struct",
+        "name": "PlanNode",
+        "span": {
+          "end": 4478,
+          "start": 3944
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::PlanNode"
+        },
+        "kind": "Struct",
+        "name": "PlanNode",
+        "span": {
+          "end": 4506,
+          "start": 3972
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanAcceptanceCriterion::evidence_policy"
+        },
+        "kind": "Field",
+        "name": "evidence_policy",
+        "span": {
+          "end": 2048,
+          "start": 2003
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanAcceptanceCriterion::evidence_policy"
+        },
+        "kind": "Field",
+        "name": "evidence_policy",
+        "span": {
+          "end": 2076,
+          "start": 2031
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::scope"
+        },
+        "kind": "Field",
+        "name": "scope",
+        "span": {
+          "end": 5386,
+          "start": 5366
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::scope"
+        },
+        "kind": "Field",
+        "name": "scope",
+        "span": {
+          "end": 6376,
+          "start": 6356
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanExecutionOverlay::pending_handoff_to"
+        },
+        "kind": "Field",
+        "name": "pending_handoff_to",
+        "span": {
+          "end": 4950,
+          "start": 4911
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanExecutionOverlay::pending_handoff_to"
+        },
+        "kind": "Field",
+        "name": "pending_handoff_to",
+        "span": {
+          "end": 5866,
+          "start": 5827
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::tags"
+        },
+        "kind": "Field",
+        "name": "tags",
+        "span": {
+          "end": 5577,
+          "start": 5556
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::tags"
+        },
+        "kind": "Field",
+        "name": "tags",
+        "span": {
+          "end": 6567,
+          "start": 6546
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 5433,
+          "start": 5416
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 6423,
+          "start": 6406
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::PlanAcceptanceCriterion"
+        },
+        "kind": "Struct",
+        "name": "PlanAcceptanceCriterion",
+        "span": {
+          "end": 2051,
+          "start": 1861
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::PlanAcceptanceCriterion"
+        },
+        "kind": "Struct",
+        "name": "PlanAcceptanceCriterion",
+        "span": {
+          "end": 2079,
+          "start": 1889
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanAcceptanceCriterion::label"
+        },
+        "kind": "Field",
+        "name": "label",
+        "span": {
+          "end": 1919,
+          "start": 1902
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanAcceptanceCriterion::label"
+        },
+        "kind": "Field",
+        "name": "label",
+        "span": {
+          "end": 1947,
+          "start": 1930
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::PlanGraph"
+        },
+        "kind": "Struct",
+        "name": "PlanGraph",
+        "span": {
+          "end": 5715,
+          "start": 5319
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::PlanGraph"
+        },
+        "kind": "Struct",
+        "name": "PlanGraph",
+        "span": {
+          "end": 6705,
+          "start": 6309
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanAcceptanceCriterion::required_checks"
+        },
+        "kind": "Field",
+        "name": "required_checks",
+        "span": {
+          "end": 1997,
+          "start": 1958
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanAcceptanceCriterion::required_checks"
+        },
+        "kind": "Field",
+        "name": "required_checks",
+        "span": {
+          "end": 2025,
+          "start": 1986
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanBinding::artifact_refs"
+        },
+        "kind": "Field",
+        "name": "artifact_refs",
+        "span": {
+          "end": 1555,
+          "start": 1525
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanBinding::artifact_refs"
+        },
+        "kind": "Field",
+        "name": "artifact_refs",
+        "span": {
+          "end": 1583,
+          "start": 1553
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::root_nodes"
+        },
+        "kind": "Field",
+        "name": "root_nodes",
+        "span": {
+          "end": 5550,
+          "start": 5519
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::root_nodes"
+        },
+        "kind": "Field",
+        "name": "root_nodes",
+        "span": {
+          "end": 6540,
+          "start": 6509
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::nodes"
+        },
+        "kind": "Field",
+        "name": "nodes",
+        "span": {
+          "end": 5682,
+          "start": 5658
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::nodes"
+        },
+        "kind": "Field",
+        "name": "nodes",
+        "span": {
+          "end": 6672,
+          "start": 6648
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanBinding::concept_handles"
+        },
+        "kind": "Field",
+        "name": "concept_handles",
+        "span": {
+          "end": 1519,
+          "start": 1487
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanBinding::concept_handles"
+        },
+        "kind": "Field",
+        "name": "concept_handles",
+        "span": {
+          "end": 1547,
+          "start": 1515
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNodeBlocker::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 3619,
+          "start": 3590
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNodeBlocker::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 3647,
+          "start": 3618
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::goal"
+        },
+        "kind": "Field",
+        "name": "goal",
+        "span": {
+          "end": 5455,
+          "start": 5439
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::goal"
+        },
+        "kind": "Field",
+        "name": "goal",
+        "span": {
+          "end": 6445,
+          "start": 6429
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::priority"
+        },
+        "kind": "Field",
+        "name": "priority",
+        "span": {
+          "end": 4411,
+          "start": 4387
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::priority"
+        },
+        "kind": "Field",
+        "name": "priority",
+        "span": {
+          "end": 4439,
+          "start": 4415
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::BlockerCause::observed_value"
+        },
+        "kind": "Field",
+        "name": "observed_value",
+        "span": {
+          "end": 3481,
+          "start": 3450
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::BlockerCause::observed_value"
+        },
+        "kind": "Field",
+        "name": "observed_value",
+        "span": {
+          "end": 3509,
+          "start": 3478
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::PlanNodeBlocker"
+        },
+        "kind": "Struct",
+        "name": "PlanNodeBlocker",
+        "span": {
+          "end": 3871,
+          "start": 3557
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::PlanNodeBlocker"
+        },
+        "kind": "Struct",
+        "name": "PlanNodeBlocker",
+        "span": {
+          "end": 3899,
+          "start": 3585
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::PlanBinding"
+        },
+        "kind": "Struct",
+        "name": "PlanBinding",
+        "span": {
+          "end": 1627,
+          "start": 1425
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::PlanBinding"
+        },
+        "kind": "Struct",
+        "name": "PlanBinding",
+        "span": {
+          "end": 1655,
+          "start": 1453
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNodeBlocker::causes"
+        },
+        "kind": "Field",
+        "name": "causes",
+        "span": {
+          "end": 3868,
+          "start": 3839
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNodeBlocker::causes"
+        },
+        "kind": "Field",
+        "name": "causes",
+        "span": {
+          "end": 3896,
+          "start": 3867
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::HydratedPlanBindingOverlay"
+        },
+        "kind": "Struct",
+        "name": "HydratedPlanBindingOverlay",
+        "span": {
+          "end": 1784,
+          "start": 1713
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::HydratedPlanBindingOverlay"
+        },
+        "kind": "Struct",
+        "name": "HydratedPlanBindingOverlay",
+        "span": {
+          "end": 1812,
+          "start": 1741
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 5490,
+          "start": 5461
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 6480,
+          "start": 6451
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::summary"
+        },
+        "kind": "Field",
+        "name": "summary",
+        "span": {
+          "end": 4097,
+          "start": 4070
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::summary"
+        },
+        "kind": "Field",
+        "name": "summary",
+        "span": {
+          "end": 4125,
+          "start": 4098
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::BlockerCause::source"
+        },
+        "kind": "Field",
+        "name": "source",
+        "span": {
+          "end": 2977,
+          "start": 2947
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::BlockerCause::source"
+        },
+        "kind": "Field",
+        "name": "source",
+        "span": {
+          "end": 3005,
+          "start": 2975
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::PlanExecutionOverlay"
+        },
+        "kind": "Struct",
+        "name": "PlanExecutionOverlay",
+        "span": {
+          "end": 5246,
+          "start": 4844
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::PlanExecutionOverlay"
+        },
+        "kind": "Struct",
+        "name": "PlanExecutionOverlay",
+        "span": {
+          "end": 6236,
+          "start": 5760
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanExecutionOverlay::awaiting_handoff_from"
+        },
+        "kind": "Field",
+        "name": "awaiting_handoff_from",
+        "span": {
+          "end": 5243,
+          "start": 5198
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanExecutionOverlay::awaiting_handoff_from"
+        },
+        "kind": "Field",
+        "name": "awaiting_handoff_from",
+        "span": {
+          "end": 6159,
+          "start": 6114
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 4064,
+          "start": 4047
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 4092,
+          "start": 4075
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanBinding::outcome_refs"
+        },
+        "kind": "Field",
+        "name": "outcome_refs",
+        "span": {
+          "end": 1624,
+          "start": 1595
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanBinding::outcome_refs"
+        },
+        "kind": "Field",
+        "name": "outcome_refs",
+        "span": {
+          "end": 1652,
+          "start": 1623
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Enum",
+          "path": "prism_ir::plans::BlockerCauseSource"
+        },
+        "kind": "Enum",
+        "name": "BlockerCauseSource",
+        "span": {
+          "end": 2844,
+          "start": 2697
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Enum",
+          "path": "prism_ir::plans::BlockerCauseSource"
+        },
+        "kind": "Enum",
+        "name": "BlockerCauseSource",
+        "span": {
+          "end": 2872,
+          "start": 2725
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Module",
+          "path": "prism_ir::plans"
+        },
+        "kind": "Module",
+        "name": "plans",
+        "span": {
+          "end": 5716,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Module",
+          "path": "prism_ir::plans"
+        },
+        "kind": "Module",
+        "name": "plans",
+        "span": {
+          "end": 6706,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::ValidationRef"
+        },
+        "kind": "Struct",
+        "name": "ValidationRef",
+        "span": {
+          "end": 1339,
+          "start": 1291
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Struct",
+          "path": "prism_ir::plans::ValidationRef"
+        },
+        "kind": "Struct",
+        "name": "ValidationRef",
+        "span": {
+          "end": 1367,
+          "start": 1319
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::edges"
+        },
+        "kind": "Field",
+        "name": "edges",
+        "span": {
+          "end": 5712,
+          "start": 5688
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::edges"
+        },
+        "kind": "Field",
+        "name": "edges",
+        "span": {
+          "end": 6702,
+          "start": 6678
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::tags"
+        },
+        "kind": "Field",
+        "name": "tags",
+        "span": {
+          "end": 4438,
+          "start": 4417
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::tags"
+        },
+        "kind": "Field",
+        "name": "tags",
+        "span": {
+          "end": 4466,
+          "start": 4445
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Enum",
+          "path": "prism_ir::plans::PlanNodeKind"
+        },
+        "kind": "Enum",
+        "name": "PlanNodeKind",
+        "span": {
+          "end": 771,
+          "start": 634
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Enum",
+          "path": "prism_ir::plans::PlanNodeKind"
+        },
+        "kind": "Enum",
+        "name": "PlanNodeKind",
+        "span": {
+          "end": 799,
+          "start": 662
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::revision"
+        },
+        "kind": "Field",
+        "name": "revision",
+        "span": {
+          "end": 5513,
+          "start": 5496
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanGraph::revision"
+        },
+        "kind": "Field",
+        "name": "revision",
+        "span": {
+          "end": 6503,
+          "start": 6486
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanExecutionOverlay::branch_ref"
+        },
+        "kind": "Field",
+        "name": "branch_ref",
+        "span": {
+          "end": 5103,
+          "start": 5073
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanExecutionOverlay::branch_ref"
+        },
+        "kind": "Field",
+        "name": "branch_ref",
+        "span": {
+          "end": 6019,
+          "start": 5989
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Enum",
+          "path": "prism_ir::plans::PlanNodeBlockerKind"
+        },
+        "kind": "Enum",
+        "name": "PlanNodeBlockerKind",
+        "span": {
+          "end": 2578,
+          "start": 2333
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Enum",
+          "path": "prism_ir::plans::PlanNodeBlockerKind"
+        },
+        "kind": "Enum",
+        "name": "PlanNodeBlockerKind",
+        "span": {
+          "end": 2606,
+          "start": 2361
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanExecutionOverlay::effective_assignee"
+        },
+        "kind": "Field",
+        "name": "effective_assignee",
+        "span": {
+          "end": 5170,
+          "start": 5131
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanExecutionOverlay::effective_assignee"
+        },
+        "kind": "Field",
+        "name": "effective_assignee",
+        "span": {
+          "end": 6086,
+          "start": 6047
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanEdge::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 4698,
+          "start": 4676
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanEdge::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 4726,
+          "start": 4704
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNodeBlocker::summary"
+        },
+        "kind": "Field",
+        "name": "summary",
+        "span": {
+          "end": 3644,
+          "start": 3625
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNodeBlocker::summary"
+        },
+        "kind": "Field",
+        "name": "summary",
+        "span": {
+          "end": 3672,
+          "start": 3653
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::assignee"
+        },
+        "kind": "Field",
+        "name": "assignee",
+        "span": {
+          "end": 4339,
+          "start": 4310
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNode::assignee"
+        },
+        "kind": "Field",
+        "name": "assignee",
+        "span": {
+          "end": 4367,
+          "start": 4338
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNodeBlocker::risk_score"
+        },
+        "kind": "Field",
+        "name": "risk_score",
+        "span": {
+          "end": 3771,
+          "start": 3744
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanNodeBlocker::risk_score"
+        },
+        "kind": "Field",
+        "name": "risk_score",
+        "span": {
+          "end": 3799,
+          "start": 3772
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanExecutionOverlay::session"
+        },
+        "kind": "Field",
+        "name": "session",
+        "span": {
+          "end": 4986,
+          "start": 4956
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanExecutionOverlay::session"
+        },
+        "kind": "Field",
+        "name": "session",
+        "span": {
+          "end": 5902,
+          "start": 5872
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanEdge::to"
+        },
+        "kind": "Field",
+        "name": "to",
+        "span": {
+          "end": 4670,
+          "start": 4652
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanEdge::to"
+        },
+        "kind": "Field",
+        "name": "to",
+        "span": {
+          "end": 4698,
+          "start": 4680
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanEdge::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 4595,
+          "start": 4577
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanEdge::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 4623,
+          "start": 4605
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Enum",
+          "path": "prism_ir::plans::PlanKind"
+        },
+        "kind": "Enum",
+        "name": "PlanKind",
+        "span": {
+          "end": 551,
+          "start": 399
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Enum",
+          "path": "prism_ir::plans::PlanKind"
+        },
+        "kind": "Enum",
+        "name": "PlanKind",
+        "span": {
+          "end": 579,
+          "start": 427
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Enum",
+          "path": "prism_ir::plans::PlanNodeStatus"
+        },
+        "kind": "Enum",
+        "name": "PlanNodeStatus",
+        "span": {
+          "end": 1008,
+          "start": 854
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Enum",
+          "path": "prism_ir::plans::PlanNodeStatus"
+        },
+        "kind": "Enum",
+        "name": "PlanNodeStatus",
+        "span": {
+          "end": 1036,
+          "start": 882
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanExecutionOverlay::worktree_id"
+        },
+        "kind": "Field",
+        "name": "worktree_id",
+        "span": {
+          "end": 5045,
+          "start": 5014
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs",
+        "id": {
+          "crate_name": "prism_ir",
+          "kind": "Field",
+          "path": "prism_ir::plans::PlanExecutionOverlay::worktree_id"
+        },
+        "kind": "Field",
+        "name": "worktree_id",
+        "span": {
+          "end": 5961,
+          "start": 5930
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 181,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-ir/src/plans.rs"
+    ],
+    "files": [
+      157
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

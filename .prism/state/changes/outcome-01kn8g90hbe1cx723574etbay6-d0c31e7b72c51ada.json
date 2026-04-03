@@ -1,0 +1,823 @@
+{
+  "meta": {
+    "id": "outcome:01kn8g90hbe1cx723574etbay6",
+    "ts": 1775180743,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn8g90b7mzcxh03dzd1pn7e4",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6167:1775180633341",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 64
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::dedupe_and_sort_edges",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::CoordinationStore::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::authored_plan_title",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::map_acceptance",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::plan_node_id_from_task_id",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::execution_overlays_from_tasks",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::plan_graph_from_coordination",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::dependency_edges_for_task",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::plan_node_from_task",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::task_from_plan_node",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::map_plan_acceptance",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::map_task_status",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::CoordinationStore::plan_execution_overlays",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::map_plan_node_status",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::CoordinationStore::plan_graph",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::coordination_snapshot_from_plan_graphs",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::task_bindings",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::plan_from_graph",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::coordination_task_id_from_plan_node_id",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::compat::snapshot_plan_graphs",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 1 added, 0 removed, 20 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 1,
+        "changedSymbolCount": 41,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "removedCount": 0,
+        "updatedCount": 40
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::dedupe_and_sort_edges"
+        },
+        "kind": "Function",
+        "name": "dedupe_and_sort_edges",
+        "span": {
+          "end": 9608,
+          "start": 9437
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Impl",
+          "path": "prism_coordination::compat::CoordinationStore::impl"
+        },
+        "kind": "Impl",
+        "name": "CoordinationStore",
+        "span": {
+          "end": 5109,
+          "start": 4223
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Impl",
+          "path": "prism_coordination::compat::CoordinationStore::impl"
+        },
+        "kind": "Impl",
+        "name": "CoordinationStore",
+        "span": {
+          "end": 5248,
+          "start": 4362
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::authored_plan_title"
+        },
+        "kind": "Function",
+        "name": "authored_plan_title",
+        "span": {
+          "end": 8102,
+          "start": 8030
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::authored_plan_title"
+        },
+        "kind": "Function",
+        "name": "authored_plan_title",
+        "span": {
+          "end": 8482,
+          "start": 8410
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::map_acceptance"
+        },
+        "kind": "Function",
+        "name": "map_acceptance",
+        "span": {
+          "end": 9351,
+          "start": 9057
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::map_acceptance"
+        },
+        "kind": "Function",
+        "name": "map_acceptance",
+        "span": {
+          "end": 9904,
+          "start": 9610
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Module",
+          "path": "prism_coordination::compat"
+        },
+        "kind": "Module",
+        "name": "compat",
+        "span": {
+          "end": 11366,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Module",
+          "path": "prism_coordination::compat"
+        },
+        "kind": "Module",
+        "name": "compat",
+        "span": {
+          "end": 11919,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::plan_node_id_from_task_id"
+        },
+        "kind": "Function",
+        "name": "plan_node_id_from_task_id",
+        "span": {
+          "end": 11216,
+          "start": 11100
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::plan_node_id_from_task_id"
+        },
+        "kind": "Function",
+        "name": "plan_node_id_from_task_id",
+        "span": {
+          "end": 11769,
+          "start": 11653
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::execution_overlays_from_tasks"
+        },
+        "kind": "Function",
+        "name": "execution_overlays_from_tasks",
+        "span": {
+          "end": 2717,
+          "start": 1837
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::execution_overlays_from_tasks"
+        },
+        "kind": "Function",
+        "name": "execution_overlays_from_tasks",
+        "span": {
+          "end": 2856,
+          "start": 1976
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::plan_graph_from_coordination"
+        },
+        "kind": "Function",
+        "name": "plan_graph_from_coordination",
+        "span": {
+          "end": 1835,
+          "start": 860
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::plan_graph_from_coordination"
+        },
+        "kind": "Function",
+        "name": "plan_graph_from_coordination",
+        "span": {
+          "end": 1974,
+          "start": 860
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::dependency_edges_for_task"
+        },
+        "kind": "Function",
+        "name": "dependency_edges_for_task",
+        "span": {
+          "end": 9055,
+          "start": 8317
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::dependency_edges_for_task"
+        },
+        "kind": "Function",
+        "name": "dependency_edges_for_task",
+        "span": {
+          "end": 9435,
+          "start": 8697
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::plan_node_from_task"
+        },
+        "kind": "Function",
+        "name": "plan_node_from_task",
+        "span": {
+          "end": 5852,
+          "start": 5111
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::plan_node_from_task"
+        },
+        "kind": "Function",
+        "name": "plan_node_from_task",
+        "span": {
+          "end": 5991,
+          "start": 5250
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::task_from_plan_node"
+        },
+        "kind": "Function",
+        "name": "task_from_plan_node",
+        "span": {
+          "end": 8028,
+          "start": 6500
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::task_from_plan_node"
+        },
+        "kind": "Function",
+        "name": "task_from_plan_node",
+        "span": {
+          "end": 8408,
+          "start": 6880
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::map_plan_acceptance"
+        },
+        "kind": "Function",
+        "name": "map_plan_acceptance",
+        "span": {
+          "end": 9538,
+          "start": 9353
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::map_plan_acceptance"
+        },
+        "kind": "Function",
+        "name": "map_plan_acceptance",
+        "span": {
+          "end": 10091,
+          "start": 9906
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::map_task_status"
+        },
+        "kind": "Function",
+        "name": "map_task_status",
+        "span": {
+          "end": 10291,
+          "start": 9540
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::map_task_status"
+        },
+        "kind": "Function",
+        "name": "map_task_status",
+        "span": {
+          "end": 10844,
+          "start": 10093
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::compat::CoordinationStore::plan_execution_overlays"
+        },
+        "kind": "Method",
+        "name": "plan_execution_overlays",
+        "span": {
+          "end": 5107,
+          "start": 4704
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::compat::CoordinationStore::plan_execution_overlays"
+        },
+        "kind": "Method",
+        "name": "plan_execution_overlays",
+        "span": {
+          "end": 5246,
+          "start": 4843
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::map_plan_node_status"
+        },
+        "kind": "Function",
+        "name": "map_plan_node_status",
+        "span": {
+          "end": 11098,
+          "start": 10293
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::map_plan_node_status"
+        },
+        "kind": "Function",
+        "name": "map_plan_node_status",
+        "span": {
+          "end": 11651,
+          "start": 10846
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::compat::CoordinationStore::plan_graph"
+        },
+        "kind": "Method",
+        "name": "plan_graph",
+        "span": {
+          "end": 4698,
+          "start": 4252
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::compat::CoordinationStore::plan_graph"
+        },
+        "kind": "Method",
+        "name": "plan_graph",
+        "span": {
+          "end": 4837,
+          "start": 4391
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::coordination_snapshot_from_plan_graphs"
+        },
+        "kind": "Function",
+        "name": "coordination_snapshot_from_plan_graphs",
+        "span": {
+          "end": 4221,
+          "start": 2719
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::coordination_snapshot_from_plan_graphs"
+        },
+        "kind": "Function",
+        "name": "coordination_snapshot_from_plan_graphs",
+        "span": {
+          "end": 4360,
+          "start": 2858
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::task_bindings"
+        },
+        "kind": "Function",
+        "name": "task_bindings",
+        "span": {
+          "end": 8315,
+          "start": 8104
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::task_bindings"
+        },
+        "kind": "Function",
+        "name": "task_bindings",
+        "span": {
+          "end": 8695,
+          "start": 8484
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::plan_from_graph"
+        },
+        "kind": "Function",
+        "name": "plan_from_graph",
+        "span": {
+          "end": 6498,
+          "start": 5854
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::plan_from_graph"
+        },
+        "kind": "Function",
+        "name": "plan_from_graph",
+        "span": {
+          "end": 6878,
+          "start": 5993
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::coordination_task_id_from_plan_node_id"
+        },
+        "kind": "Function",
+        "name": "coordination_task_id_from_plan_node_id",
+        "span": {
+          "end": 11365,
+          "start": 11218
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::coordination_task_id_from_plan_node_id"
+        },
+        "kind": "Function",
+        "name": "coordination_task_id_from_plan_node_id",
+        "span": {
+          "end": 11918,
+          "start": 11771
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::snapshot_plan_graphs"
+        },
+        "kind": "Function",
+        "name": "snapshot_plan_graphs",
+        "span": {
+          "end": 858,
+          "start": 411
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::compat::snapshot_plan_graphs"
+        },
+        "kind": "Function",
+        "name": "snapshot_plan_graphs",
+        "span": {
+          "end": 858,
+          "start": 411
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 41,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/compat.rs"
+    ],
+    "files": [
+      64
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

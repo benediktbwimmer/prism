@@ -1,0 +1,1060 @@
+{
+  "meta": {
+    "id": "outcome:01kn8g916vnak1j33k5wxnsbe2",
+    "ts": 1775180743,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn8g90b7mzcxh03dzd1pn7e4",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6167:1775180633341",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 163
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::extend_manual_surface_types",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::nullable_or_unknown",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::prism_api_method_specs",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::PrismSurfaceType",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::prism_surface_type_for_method",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::PrismRecordArgBundle",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::PrismRecordArgBundle::bundle_name",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::prism_method_spec",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::PrismRecordArgBundle::arg_name",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::resolve_schema_ref",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::PrismSurfaceTypeRef",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::PrismApiMethodSpec::return_type",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::surface_type_from_schema",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::prism_object_property_type",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::PrismApiMethodSpec::record_arg",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::prism_api_declaration_block",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::PrismRecordArgBundle::arg_index",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::prism_named_surface_types",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::PrismApiMethodSpec",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::prism_api_paths",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::prism_record_arg_bundle",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::PrismRecordArgBundle::allowed_keys",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::runtime_option_keys_js_object",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::resolve_surface_type",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::PrismApiMethodSpec::path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_js",
+        "path": "prism_js::query_surface::PrismApiMethodSpec::declaration",
+        "kind": "Field"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 27 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 54,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "removedCount": 0,
+        "updatedCount": 54
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::extend_manual_surface_types"
+        },
+        "kind": "Function",
+        "name": "extend_manual_surface_types",
+        "span": {
+          "end": 42415,
+          "start": 41690
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::extend_manual_surface_types"
+        },
+        "kind": "Function",
+        "name": "extend_manual_surface_types",
+        "span": {
+          "end": 42639,
+          "start": 41914
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::nullable_or_unknown"
+        },
+        "kind": "Function",
+        "name": "nullable_or_unknown",
+        "span": {
+          "end": 46174,
+          "start": 45495
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::nullable_or_unknown"
+        },
+        "kind": "Function",
+        "name": "nullable_or_unknown",
+        "span": {
+          "end": 46398,
+          "start": 45719
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::prism_api_method_specs"
+        },
+        "kind": "Function",
+        "name": "prism_api_method_specs",
+        "span": {
+          "end": 31977,
+          "start": 7787
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::prism_api_method_specs"
+        },
+        "kind": "Function",
+        "name": "prism_api_method_specs",
+        "span": {
+          "end": 32146,
+          "start": 7787
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Enum",
+          "path": "prism_js::query_surface::PrismSurfaceType"
+        },
+        "kind": "Enum",
+        "name": "PrismSurfaceType",
+        "span": {
+          "end": 1099,
+          "start": 909
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Enum",
+          "path": "prism_js::query_surface::PrismSurfaceType"
+        },
+        "kind": "Enum",
+        "name": "PrismSurfaceType",
+        "span": {
+          "end": 1099,
+          "start": 909
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::prism_surface_type_for_method"
+        },
+        "kind": "Function",
+        "name": "prism_surface_type_for_method",
+        "span": {
+          "end": 35439,
+          "start": 35265
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::prism_surface_type_for_method"
+        },
+        "kind": "Function",
+        "name": "prism_surface_type_for_method",
+        "span": {
+          "end": 35608,
+          "start": 35434
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Struct",
+          "path": "prism_js::query_surface::PrismRecordArgBundle"
+        },
+        "kind": "Struct",
+        "name": "PrismRecordArgBundle",
+        "span": {
+          "end": 625,
+          "start": 450
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Struct",
+          "path": "prism_js::query_surface::PrismRecordArgBundle"
+        },
+        "kind": "Struct",
+        "name": "PrismRecordArgBundle",
+        "span": {
+          "end": 625,
+          "start": 450
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Field",
+          "path": "prism_js::query_surface::PrismRecordArgBundle::bundle_name"
+        },
+        "kind": "Field",
+        "name": "bundle_name",
+        "span": {
+          "end": 517,
+          "start": 488
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Field",
+          "path": "prism_js::query_surface::PrismRecordArgBundle::bundle_name"
+        },
+        "kind": "Field",
+        "name": "bundle_name",
+        "span": {
+          "end": 517,
+          "start": 488
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::prism_method_spec"
+        },
+        "kind": "Function",
+        "name": "prism_method_spec",
+        "span": {
+          "end": 32693,
+          "start": 32529
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::prism_method_spec"
+        },
+        "kind": "Function",
+        "name": "prism_method_spec",
+        "span": {
+          "end": 32862,
+          "start": 32698
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Field",
+          "path": "prism_js::query_surface::PrismRecordArgBundle::arg_name"
+        },
+        "kind": "Field",
+        "name": "arg_name",
+        "span": {
+          "end": 549,
+          "start": 523
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Field",
+          "path": "prism_js::query_surface::PrismRecordArgBundle::arg_name"
+        },
+        "kind": "Field",
+        "name": "arg_name",
+        "span": {
+          "end": 549,
+          "start": 523
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::resolve_schema_ref"
+        },
+        "kind": "Function",
+        "name": "resolve_schema_ref",
+        "span": {
+          "end": 46588,
+          "start": 46176
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::resolve_schema_ref"
+        },
+        "kind": "Function",
+        "name": "resolve_schema_ref",
+        "span": {
+          "end": 46812,
+          "start": 46400
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Enum",
+          "path": "prism_js::query_surface::PrismSurfaceTypeRef"
+        },
+        "kind": "Enum",
+        "name": "PrismSurfaceTypeRef",
+        "span": {
+          "end": 403,
+          "start": 202
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Enum",
+          "path": "prism_js::query_surface::PrismSurfaceTypeRef"
+        },
+        "kind": "Enum",
+        "name": "PrismSurfaceTypeRef",
+        "span": {
+          "end": 403,
+          "start": 202
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Field",
+          "path": "prism_js::query_surface::PrismApiMethodSpec::return_type"
+        },
+        "kind": "Field",
+        "name": "return_type",
+        "span": {
+          "end": 815,
+          "start": 779
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Field",
+          "path": "prism_js::query_surface::PrismApiMethodSpec::return_type"
+        },
+        "kind": "Field",
+        "name": "return_type",
+        "span": {
+          "end": 815,
+          "start": 779
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::surface_type_from_schema"
+        },
+        "kind": "Function",
+        "name": "surface_type_from_schema",
+        "span": {
+          "end": 45493,
+          "start": 42417
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::surface_type_from_schema"
+        },
+        "kind": "Function",
+        "name": "surface_type_from_schema",
+        "span": {
+          "end": 45717,
+          "start": 42641
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::prism_object_property_type"
+        },
+        "kind": "Function",
+        "name": "prism_object_property_type",
+        "span": {
+          "end": 35779,
+          "start": 35441
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::prism_object_property_type"
+        },
+        "kind": "Function",
+        "name": "prism_object_property_type",
+        "span": {
+          "end": 35948,
+          "start": 35610
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Field",
+          "path": "prism_js::query_surface::PrismApiMethodSpec::record_arg"
+        },
+        "kind": "Field",
+        "name": "record_arg",
+        "span": {
+          "end": 865,
+          "start": 821
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Field",
+          "path": "prism_js::query_surface::PrismApiMethodSpec::record_arg"
+        },
+        "kind": "Field",
+        "name": "record_arg",
+        "span": {
+          "end": 865,
+          "start": 821
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::prism_api_declaration_block"
+        },
+        "kind": "Function",
+        "name": "prism_api_declaration_block",
+        "span": {
+          "end": 34403,
+          "start": 32695
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::prism_api_declaration_block"
+        },
+        "kind": "Function",
+        "name": "prism_api_declaration_block",
+        "span": {
+          "end": 34572,
+          "start": 32864
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Field",
+          "path": "prism_js::query_surface::PrismRecordArgBundle::arg_index"
+        },
+        "kind": "Field",
+        "name": "arg_index",
+        "span": {
+          "end": 575,
+          "start": 555
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Field",
+          "path": "prism_js::query_surface::PrismRecordArgBundle::arg_index"
+        },
+        "kind": "Field",
+        "name": "arg_index",
+        "span": {
+          "end": 575,
+          "start": 555
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::prism_named_surface_types"
+        },
+        "kind": "Function",
+        "name": "prism_named_surface_types",
+        "span": {
+          "end": 37068,
+          "start": 36844
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::prism_named_surface_types"
+        },
+        "kind": "Function",
+        "name": "prism_named_surface_types",
+        "span": {
+          "end": 37237,
+          "start": 37013
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Struct",
+          "path": "prism_js::query_surface::PrismApiMethodSpec"
+        },
+        "kind": "Struct",
+        "name": "PrismApiMethodSpec",
+        "span": {
+          "end": 868,
+          "start": 672
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Struct",
+          "path": "prism_js::query_surface::PrismApiMethodSpec"
+        },
+        "kind": "Struct",
+        "name": "PrismApiMethodSpec",
+        "span": {
+          "end": 868,
+          "start": 672
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::prism_api_paths"
+        },
+        "kind": "Function",
+        "name": "prism_api_paths",
+        "span": {
+          "end": 32293,
+          "start": 31979
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::prism_api_paths"
+        },
+        "kind": "Function",
+        "name": "prism_api_paths",
+        "span": {
+          "end": 32462,
+          "start": 32148
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::prism_record_arg_bundle"
+        },
+        "kind": "Function",
+        "name": "prism_record_arg_bundle",
+        "span": {
+          "end": 32527,
+          "start": 32295
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::prism_record_arg_bundle"
+        },
+        "kind": "Function",
+        "name": "prism_record_arg_bundle",
+        "span": {
+          "end": 32696,
+          "start": 32464
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Module",
+          "path": "prism_js::query_surface"
+        },
+        "kind": "Module",
+        "name": "query_surface",
+        "span": {
+          "end": 46589,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Module",
+          "path": "prism_js::query_surface"
+        },
+        "kind": "Module",
+        "name": "query_surface",
+        "span": {
+          "end": 46813,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Field",
+          "path": "prism_js::query_surface::PrismRecordArgBundle::allowed_keys"
+        },
+        "kind": "Field",
+        "name": "allowed_keys",
+        "span": {
+          "end": 622,
+          "start": 581
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Field",
+          "path": "prism_js::query_surface::PrismRecordArgBundle::allowed_keys"
+        },
+        "kind": "Field",
+        "name": "allowed_keys",
+        "span": {
+          "end": 622,
+          "start": 581
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::runtime_option_keys_js_object"
+        },
+        "kind": "Function",
+        "name": "runtime_option_keys_js_object",
+        "span": {
+          "end": 35263,
+          "start": 34405
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::runtime_option_keys_js_object"
+        },
+        "kind": "Function",
+        "name": "runtime_option_keys_js_object",
+        "span": {
+          "end": 35432,
+          "start": 34574
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::resolve_surface_type"
+        },
+        "kind": "Function",
+        "name": "resolve_surface_type",
+        "span": {
+          "end": 36842,
+          "start": 35781
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Function",
+          "path": "prism_js::query_surface::resolve_surface_type"
+        },
+        "kind": "Function",
+        "name": "resolve_surface_type",
+        "span": {
+          "end": 37011,
+          "start": 35950
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Field",
+          "path": "prism_js::query_surface::PrismApiMethodSpec::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 730,
+          "start": 708
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Field",
+          "path": "prism_js::query_surface::PrismApiMethodSpec::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 730,
+          "start": 708
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Field",
+          "path": "prism_js::query_surface::PrismApiMethodSpec::declaration"
+        },
+        "kind": "Field",
+        "name": "declaration",
+        "span": {
+          "end": 773,
+          "start": 736
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs",
+        "id": {
+          "crate_name": "prism_js",
+          "kind": "Field",
+          "path": "prism_js::query_surface::PrismApiMethodSpec::declaration"
+        },
+        "kind": "Field",
+        "name": "declaration",
+        "span": {
+          "end": 773,
+          "start": 736
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 54,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-js/src/query_surface.rs"
+    ],
+    "files": [
+      163
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

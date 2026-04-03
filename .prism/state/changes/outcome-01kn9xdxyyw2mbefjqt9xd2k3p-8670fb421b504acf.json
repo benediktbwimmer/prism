@@ -1,0 +1,5777 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdxyyw2mbefjqt9xd2k3p",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 76
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::published_task_status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::git_execution",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::git_execution",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationPolicy::git_execution",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::published_task_status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::title",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PlanUpdateInput::title",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::priority",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Plan::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::HandoffAcceptInput::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ClaimAcquireInput::branch_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::branch_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PolicyViolation::code",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactReview",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::BlockerKind",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskBlocker::related_artifact_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Plan::policy",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Plan::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::LeaseHolder::principal",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ClaimAcquireInput::anchors",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::lease_stale_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskResumeInput::worktree_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::depends_on",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::metadata",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::LeaseHolder::session_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::lease_expires_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskCreateInput::assignee",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationEvent::task",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::WorkClaim::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PolicyViolation::artifact_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::lease_holder",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskResumeInput::agent",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskBlocker::related_task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactReview::meta",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Plan::authored_edges",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskReclaimInput::agent",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationEvent::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::base_revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::HandoffAcceptInput::agent",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Artifact::evidence",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Plan::title",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::completion_context",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PlanCreateInput::goal",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PlanUpdateInput",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactReview::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PlanUpdateInput::policy",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PlanCreateInput::policy",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PolicyViolationRecord::summary",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactReview::verdict",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationEvent::plan",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PolicyViolation::plan_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::WorkClaim::expires_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::default_plan_node_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationConflict",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskCreateInput::title",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationPolicy::default_claim_mode",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Artifact::worktree_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Artifact::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PlanScheduling::manual_boost",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactProposeInput::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PolicyViolationRecord::plan_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::HandoffAcceptInput::branch_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::WorkClaim",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactProposeInput::base_revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PolicyViolation",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PolicyViolationRecord",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ClaimAcquireInput::base_revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Artifact::validated_checks",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::acceptance",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PlanCreateInput::title",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::LeaseHolder::agent_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationSnapshot::plans",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationPolicy::require_validation_for_completion",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Plan",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::session",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Artifact",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskResumeInput::branch_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Plan::metadata",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactProposeInput::branch_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskCreateInput::anchors",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskCompletionContext",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::bindings",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskBlocker",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::session",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationSnapshot::artifacts",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::WorkClaim::stale_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::WorkClaim::mode",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PolicyViolation::claim_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactReviewInput::verdict",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::WorkClaim::capability",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PolicyViolationRecord::claim_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::anchors",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskBlocker::validation_checks",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::pending_handoff_to",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::default_lease_renewal_mode",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationSnapshot::next_claim",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskCreateInput::branch_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskBlocker::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::WorkClaim::base_revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Plan::goal",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationConflict::summary",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationPolicy::lease_stale_after_seconds",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskCreateInput::worktree_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::acceptance",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationPolicy::max_parallel_editors_per_anchor",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::WorkClaim::since",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::assignee",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PlanCreateInput",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactProposeInput::worktree_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ClaimAcquireInput::worktree_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskBlocker::summary",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::default_lease_stale_after_seconds",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationSnapshot",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationPolicy",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::AcceptanceCriterion::anchors",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::WorkClaim::refreshed_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PolicyViolationCode",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::tags",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskCreateInput::session",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationSnapshot::claims",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskBlocker::causes",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskCreateInput::base_revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactReview::artifact",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::AcceptanceCriterion::label",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::HandoffInput::base_revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationSnapshot::next_task",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Plan::tags",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::HandoffInput::to_agent",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Artifact::base_revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::lease_refreshed_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactProposeInput::evidence",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationPolicy::require_review_for_completion",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactReviewInput",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PlanScheduling::importance",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::HandoffAcceptInput::worktree_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PlanUpdateInput::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskCreateInput::depends_on",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationPolicy::stale_after_graph_change",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PlanCreateInput::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationEvent::claim",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskCompletionContext::required_validations",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PolicyViolation::summary",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Artifact::risk_score",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Artifact::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactProposeInput::validated_checks",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskBlocker::risk_score",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskCreateInput::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::depends_on",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::validation_refs",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::worktree_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskCreateInput::plan_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PolicyViolationRecord::artifact_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ClaimAcquireInput::current_revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactReviewInput::validated_checks",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PolicyViolationRecord::violations",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskResumeInput",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Artifact::branch_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::default_plan_scope",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ClaimAcquireInput::agent",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::tags",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationConflict::anchors",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationPolicy::lease_expires_after_seconds",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ClaimAcquireInput::ttl_seconds",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationConflict::severity",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ClaimAcquireInput::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::HandoffInput::summary",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactProposeInput::anchors",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationSnapshot::next_plan",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PolicyViolationRecord::event_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::worktree_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::HandoffInput",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Artifact::reviews",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Plan::created_from",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationEvent::summary",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationConflict::overlap_kinds",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::WorkClaim::holder",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationPolicy::impl::Default",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationSnapshot::events",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationEvent::meta",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Artifact::required_validations",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationSnapshot::reviews",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Plan::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Plan::scheduling",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PlanScheduling::urgency",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::is_abstract",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationConflict::blocking_claims",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Plan::root_tasks",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationPolicy::review_required_above_risk_score",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactReviewInput::summary",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactProposeInput::current_revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::WorkClaim::task",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::LeaseHolder",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationEvent::artifact",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskCreateInput::acceptance",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::anchors",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::base_revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::assignee",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ClaimAcquireInput::mode",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PolicyViolation::details",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactReviewInput::risk_score",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationPolicy::lease_renewal_mode",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationEvent",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::default_plan_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::WorkClaim::worktree_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactProposeInput::risk_score",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationSnapshot::tasks",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PlanScheduling::due_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ClaimAcquireInput",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::HandoffInput::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::branch_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PolicyViolationRecord::ts",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskReclaimInput",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PolicyViolation::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::summary",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::WorkClaim::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::plan",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PolicyViolationRecord::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Artifact::task",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::WorkClaim::branch_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskResumeInput::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationEvent::review",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PlanUpdateInput::plan_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskCompletionContext::risk_score",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Artifact::diff_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactReviewInput::required_validations",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::WorkClaim::anchors",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::default_lease_expires_after_seconds",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationEvent::metadata",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ClaimAcquireInput::capability",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactReview::summary",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationSnapshot::next_review",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PlanScheduling",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskReclaimInput::worktree_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskReclaimInput::branch_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Plan::revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationPolicy::default",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactReviewInput::artifact_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::is_abstract",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactSupersedeInput",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::WorkClaim::agent",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Artifact::anchors",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactProposeInput::required_validations",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskReclaimInput::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::bindings",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::PlanUpdateInput::goal",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::title",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::priority",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::lease_started_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::WorkClaim::lease_holder",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactProposeInput::diff_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationSnapshot::next_artifact",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactProposeInput",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskCreateInput",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::Plan::scope",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::HandoffAcceptInput",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::ArtifactSupersedeInput::artifact_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::TaskUpdateInput::summary",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::CoordinationTask::validation_refs",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::types::AcceptanceCriterion",
+        "kind": "Struct"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 5 added, 0 removed, 263 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 5,
+        "changedSymbolCount": 531,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "removedCount": 0,
+        "updatedCount": 526
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::published_task_status"
+        },
+        "kind": "Field",
+        "name": "published_task_status",
+        "span": {
+          "end": 4421,
+          "start": 4364
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskUpdateInput::git_execution"
+        },
+        "kind": "Field",
+        "name": "git_execution",
+        "span": {
+          "end": 11449,
+          "start": 11406
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::git_execution"
+        },
+        "kind": "Field",
+        "name": "git_execution",
+        "span": {
+          "end": 5555,
+          "start": 5520
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationPolicy::git_execution"
+        },
+        "kind": "Field",
+        "name": "git_execution",
+        "span": {
+          "end": 2088,
+          "start": 2051
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskUpdateInput::published_task_status"
+        },
+        "kind": "Field",
+        "name": "published_task_status",
+        "span": {
+          "end": 11400,
+          "start": 11335
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 4051,
+          "start": 4034
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 4241,
+          "start": 4224
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PlanUpdateInput::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 10242,
+          "start": 10217
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PlanUpdateInput::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 10580,
+          "start": 10555
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::priority"
+        },
+        "kind": "Field",
+        "name": "priority",
+        "span": {
+          "end": 5121,
+          "start": 5097
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::priority"
+        },
+        "kind": "Field",
+        "name": "priority",
+        "span": {
+          "end": 5396,
+          "start": 5372
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Plan::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 3170,
+          "start": 3156
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Plan::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 3360,
+          "start": 3346
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::HandoffAcceptInput::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 12131,
+          "start": 12100
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::HandoffAcceptInput::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 12589,
+          "start": 12558
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ClaimAcquireInput::branch_ref"
+        },
+        "kind": "Field",
+        "name": "branch_ref",
+        "span": {
+          "end": 13060,
+          "start": 13030
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ClaimAcquireInput::branch_ref"
+        },
+        "kind": "Field",
+        "name": "branch_ref",
+        "span": {
+          "end": 13518,
+          "start": 13488
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskUpdateInput::branch_ref"
+        },
+        "kind": "Field",
+        "name": "branch_ref",
+        "span": {
+          "end": 11167,
+          "start": 11129
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskUpdateInput::branch_ref"
+        },
+        "kind": "Field",
+        "name": "branch_ref",
+        "span": {
+          "end": 11625,
+          "start": 11587
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PolicyViolation::code"
+        },
+        "kind": "Field",
+        "name": "code",
+        "span": {
+          "end": 7003,
+          "start": 6974
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PolicyViolation::code"
+        },
+        "kind": "Field",
+        "name": "code",
+        "span": {
+          "end": 7341,
+          "start": 7312
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::ArtifactReview"
+        },
+        "kind": "Struct",
+        "name": "ArtifactReview",
+        "span": {
+          "end": 8468,
+          "start": 8305
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::ArtifactReview"
+        },
+        "kind": "Struct",
+        "name": "ArtifactReview",
+        "span": {
+          "end": 8806,
+          "start": 8643
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Enum",
+          "path": "prism_coordination::types::BlockerKind"
+        },
+        "kind": "Enum",
+        "name": "BlockerKind",
+        "span": {
+          "end": 9512,
+          "start": 9347
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Enum",
+          "path": "prism_coordination::types::BlockerKind"
+        },
+        "kind": "Enum",
+        "name": "BlockerKind",
+        "span": {
+          "end": 9850,
+          "start": 9685
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskBlocker::related_artifact_id"
+        },
+        "kind": "Field",
+        "name": "related_artifact_id",
+        "span": {
+          "end": 9087,
+          "start": 9044
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskBlocker::related_artifact_id"
+        },
+        "kind": "Field",
+        "name": "related_artifact_id",
+        "span": {
+          "end": 9425,
+          "start": 9382
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Plan::policy"
+        },
+        "kind": "Field",
+        "name": "policy",
+        "span": {
+          "end": 3301,
+          "start": 3271
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Plan::policy"
+        },
+        "kind": "Field",
+        "name": "policy",
+        "span": {
+          "end": 3491,
+          "start": 3461
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Plan::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 3440,
+          "start": 3422
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Plan::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 3630,
+          "start": 3612
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::LeaseHolder::principal"
+        },
+        "kind": "Field",
+        "name": "principal",
+        "span": {
+          "end": 1123,
+          "start": 1086
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::LeaseHolder::principal"
+        },
+        "kind": "Field",
+        "name": "principal",
+        "span": {
+          "end": 1190,
+          "start": 1153
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ClaimAcquireInput::anchors"
+        },
+        "kind": "Field",
+        "name": "anchors",
+        "span": {
+          "end": 12769,
+          "start": 12742
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ClaimAcquireInput::anchors"
+        },
+        "kind": "Field",
+        "name": "anchors",
+        "span": {
+          "end": 13227,
+          "start": 13200
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskUpdateInput::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 10991,
+          "start": 10949
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskUpdateInput::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 11329,
+          "start": 11287
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::CoordinationTask"
+        },
+        "kind": "Struct",
+        "name": "CoordinationTask",
+        "span": {
+          "end": 5220,
+          "start": 3869
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::CoordinationTask"
+        },
+        "kind": "Struct",
+        "name": "CoordinationTask",
+        "span": {
+          "end": 5558,
+          "start": 4059
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::lease_stale_at"
+        },
+        "kind": "Field",
+        "name": "lease_stale_at",
+        "span": {
+          "end": 4550,
+          "start": 4513
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::lease_stale_at"
+        },
+        "kind": "Field",
+        "name": "lease_stale_at",
+        "span": {
+          "end": 4825,
+          "start": 4788
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskResumeInput::worktree_id"
+        },
+        "kind": "Field",
+        "name": "worktree_id",
+        "span": {
+          "end": 12398,
+          "start": 12367
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskResumeInput::worktree_id"
+        },
+        "kind": "Field",
+        "name": "worktree_id",
+        "span": {
+          "end": 12856,
+          "start": 12825
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::depends_on"
+        },
+        "kind": "Field",
+        "name": "depends_on",
+        "span": {
+          "end": 4865,
+          "start": 4826
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::depends_on"
+        },
+        "kind": "Field",
+        "name": "depends_on",
+        "span": {
+          "end": 5140,
+          "start": 5101
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::metadata"
+        },
+        "kind": "Field",
+        "name": "metadata",
+        "span": {
+          "end": 5217,
+          "start": 5198
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::metadata"
+        },
+        "kind": "Field",
+        "name": "metadata",
+        "span": {
+          "end": 5492,
+          "start": 5473
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::LeaseHolder::session_id"
+        },
+        "kind": "Field",
+        "name": "session_id",
+        "span": {
+          "end": 1184,
+          "start": 1151
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::LeaseHolder::session_id"
+        },
+        "kind": "Field",
+        "name": "session_id",
+        "span": {
+          "end": 1251,
+          "start": 1218
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::lease_expires_at"
+        },
+        "kind": "Field",
+        "name": "lease_expires_at",
+        "span": {
+          "end": 4617,
+          "start": 4578
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::lease_expires_at"
+        },
+        "kind": "Field",
+        "name": "lease_expires_at",
+        "span": {
+          "end": 4892,
+          "start": 4853
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskCreateInput::assignee"
+        },
+        "kind": "Field",
+        "name": "assignee",
+        "span": {
+          "end": 10539,
+          "start": 10510
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskCreateInput::assignee"
+        },
+        "kind": "Field",
+        "name": "assignee",
+        "span": {
+          "end": 10877,
+          "start": 10848
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationEvent::task"
+        },
+        "kind": "Field",
+        "name": "task",
+        "span": {
+          "end": 8717,
+          "start": 8681
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationEvent::task"
+        },
+        "kind": "Field",
+        "name": "task",
+        "span": {
+          "end": 9055,
+          "start": 9019
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::WorkClaim::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 5904,
+          "start": 5881
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::WorkClaim::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 6242,
+          "start": 6219
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PolicyViolation::artifact_id"
+        },
+        "kind": "Field",
+        "name": "artifact_id",
+        "span": {
+          "end": 7182,
+          "start": 7147
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PolicyViolation::artifact_id"
+        },
+        "kind": "Field",
+        "name": "artifact_id",
+        "span": {
+          "end": 7520,
+          "start": 7485
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::lease_holder"
+        },
+        "kind": "Field",
+        "name": "lease_holder",
+        "span": {
+          "end": 4349,
+          "start": 4312
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::lease_holder"
+        },
+        "kind": "Field",
+        "name": "lease_holder",
+        "span": {
+          "end": 4624,
+          "start": 4587
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskResumeInput::agent"
+        },
+        "kind": "Field",
+        "name": "agent",
+        "span": {
+          "end": 12361,
+          "start": 12335
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskResumeInput::agent"
+        },
+        "kind": "Field",
+        "name": "agent",
+        "span": {
+          "end": 12819,
+          "start": 12793
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskBlocker::related_task_id"
+        },
+        "kind": "Field",
+        "name": "related_task_id",
+        "span": {
+          "end": 9038,
+          "start": 8991
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskBlocker::related_task_id"
+        },
+        "kind": "Field",
+        "name": "related_task_id",
+        "span": {
+          "end": 9376,
+          "start": 9329
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ArtifactReview::meta"
+        },
+        "kind": "Field",
+        "name": "meta",
+        "span": {
+          "end": 8465,
+          "start": 8446
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ArtifactReview::meta"
+        },
+        "kind": "Field",
+        "name": "meta",
+        "span": {
+          "end": 8803,
+          "start": 8784
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Plan::authored_edges"
+        },
+        "kind": "Field",
+        "name": "authored_edges",
+        "span": {
+          "end": 3760,
+          "start": 3727
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Plan::authored_edges"
+        },
+        "kind": "Field",
+        "name": "authored_edges",
+        "span": {
+          "end": 3950,
+          "start": 3917
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskReclaimInput::agent"
+        },
+        "kind": "Field",
+        "name": "agent",
+        "span": {
+          "end": 12560,
+          "start": 12534
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskReclaimInput::agent"
+        },
+        "kind": "Field",
+        "name": "agent",
+        "span": {
+          "end": 13018,
+          "start": 12992
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationEvent::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 8620,
+          "start": 8589
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationEvent::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 8958,
+          "start": 8927
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::base_revision"
+        },
+        "kind": "Field",
+        "name": "base_revision",
+        "span": {
+          "end": 5069,
+          "start": 5033
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::base_revision"
+        },
+        "kind": "Field",
+        "name": "base_revision",
+        "span": {
+          "end": 5344,
+          "start": 5308
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::HandoffAcceptInput::agent"
+        },
+        "kind": "Field",
+        "name": "agent",
+        "span": {
+          "end": 12163,
+          "start": 12137
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::HandoffAcceptInput::agent"
+        },
+        "kind": "Field",
+        "name": "agent",
+        "span": {
+          "end": 12621,
+          "start": 12595
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Artifact::evidence"
+        },
+        "kind": "Field",
+        "name": "evidence",
+        "span": {
+          "end": 8028,
+          "start": 8002
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Artifact::evidence"
+        },
+        "kind": "Field",
+        "name": "evidence",
+        "span": {
+          "end": 8366,
+          "start": 8340
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Plan::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 3237,
+          "start": 3220
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Plan::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 3427,
+          "start": 3410
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskUpdateInput::completion_context"
+        },
+        "kind": "Field",
+        "name": "completion_context",
+        "span": {
+          "end": 11696,
+          "start": 11643
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskUpdateInput::completion_context"
+        },
+        "kind": "Field",
+        "name": "completion_context",
+        "span": {
+          "end": 12154,
+          "start": 12101
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PlanCreateInput::goal"
+        },
+        "kind": "Field",
+        "name": "goal",
+        "span": {
+          "end": 10050,
+          "start": 10034
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PlanCreateInput::goal"
+        },
+        "kind": "Field",
+        "name": "goal",
+        "span": {
+          "end": 10388,
+          "start": 10372
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::PlanUpdateInput"
+        },
+        "kind": "Struct",
+        "name": "PlanUpdateInput",
+        "span": {
+          "end": 10355,
+          "start": 10159
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::PlanUpdateInput"
+        },
+        "kind": "Struct",
+        "name": "PlanUpdateInput",
+        "span": {
+          "end": 10693,
+          "start": 10497
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ArtifactReview::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 8353,
+          "start": 8337
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ArtifactReview::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 8691,
+          "start": 8675
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PlanUpdateInput::policy"
+        },
+        "kind": "Field",
+        "name": "policy",
+        "span": {
+          "end": 10352,
+          "start": 10314
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PlanUpdateInput::policy"
+        },
+        "kind": "Field",
+        "name": "policy",
+        "span": {
+          "end": 10690,
+          "start": 10652
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PlanCreateInput::policy"
+        },
+        "kind": "Field",
+        "name": "policy",
+        "span": {
+          "end": 10130,
+          "start": 10092
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PlanCreateInput::policy"
+        },
+        "kind": "Field",
+        "name": "policy",
+        "span": {
+          "end": 10468,
+          "start": 10430
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PolicyViolationRecord::summary"
+        },
+        "kind": "Field",
+        "name": "summary",
+        "span": {
+          "end": 7400,
+          "start": 7381
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PolicyViolationRecord::summary"
+        },
+        "kind": "Field",
+        "name": "summary",
+        "span": {
+          "end": 7738,
+          "start": 7719
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ArtifactReview::verdict"
+        },
+        "kind": "Field",
+        "name": "verdict",
+        "span": {
+          "end": 8415,
+          "start": 8389
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ArtifactReview::verdict"
+        },
+        "kind": "Field",
+        "name": "verdict",
+        "span": {
+          "end": 8753,
+          "start": 8727
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationEvent::plan"
+        },
+        "kind": "Field",
+        "name": "plan",
+        "span": {
+          "end": 8675,
+          "start": 8651
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationEvent::plan"
+        },
+        "kind": "Field",
+        "name": "plan",
+        "span": {
+          "end": 9013,
+          "start": 8989
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PolicyViolation::plan_id"
+        },
+        "kind": "Field",
+        "name": "plan_id",
+        "span": {
+          "end": 7061,
+          "start": 7034
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PolicyViolation::plan_id"
+        },
+        "kind": "Field",
+        "name": "plan_id",
+        "span": {
+          "end": 7399,
+          "start": 7372
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::WorkClaim::expires_at"
+        },
+        "kind": "Field",
+        "name": "expires_at",
+        "span": {
+          "end": 5875,
+          "start": 5850
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::WorkClaim::expires_at"
+        },
+        "kind": "Field",
+        "name": "expires_at",
+        "span": {
+          "end": 6213,
+          "start": 6188
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::types::default_plan_node_kind"
+        },
+        "kind": "Function",
+        "name": "default_plan_node_kind",
+        "span": {
+          "end": 752,
+          "start": 682
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::types::default_plan_node_kind"
+        },
+        "kind": "Function",
+        "name": "default_plan_node_kind",
+        "span": {
+          "end": 819,
+          "start": 749
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::CoordinationConflict"
+        },
+        "kind": "Struct",
+        "name": "CoordinationConflict",
+        "span": {
+          "end": 6227,
+          "start": 6010
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::CoordinationConflict"
+        },
+        "kind": "Struct",
+        "name": "CoordinationConflict",
+        "span": {
+          "end": 6565,
+          "start": 6348
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskCreateInput::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 10456,
+          "start": 10439
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskCreateInput::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 10794,
+          "start": 10777
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationPolicy::default_claim_mode"
+        },
+        "kind": "Field",
+        "name": "default_claim_mode",
+        "span": {
+          "end": 1374,
+          "start": 1341
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationPolicy::default_claim_mode"
+        },
+        "kind": "Field",
+        "name": "default_claim_mode",
+        "span": {
+          "end": 1441,
+          "start": 1408
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Artifact::worktree_id"
+        },
+        "kind": "Field",
+        "name": "worktree_id",
+        "span": {
+          "end": 7797,
+          "start": 7766
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Artifact::worktree_id"
+        },
+        "kind": "Field",
+        "name": "worktree_id",
+        "span": {
+          "end": 8135,
+          "start": 8104
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Artifact::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 7996,
+          "start": 7970
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Artifact::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 8334,
+          "start": 8308
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::TaskUpdateInput"
+        },
+        "kind": "Struct",
+        "name": "TaskUpdateInput",
+        "span": {
+          "end": 11699,
+          "start": 10843
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::TaskUpdateInput"
+        },
+        "kind": "Struct",
+        "name": "TaskUpdateInput",
+        "span": {
+          "end": 12157,
+          "start": 11181
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PlanScheduling::manual_boost"
+        },
+        "kind": "Field",
+        "name": "manual_boost",
+        "span": {
+          "end": 2244,
+          "start": 2223
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PlanScheduling::manual_boost"
+        },
+        "kind": "Field",
+        "name": "manual_boost",
+        "span": {
+          "end": 2376,
+          "start": 2355
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ArtifactProposeInput::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 13158,
+          "start": 13127
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ArtifactProposeInput::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 13616,
+          "start": 13585
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PolicyViolationRecord::plan_id"
+        },
+        "kind": "Field",
+        "name": "plan_id",
+        "span": {
+          "end": 7433,
+          "start": 7406
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PolicyViolationRecord::plan_id"
+        },
+        "kind": "Field",
+        "name": "plan_id",
+        "span": {
+          "end": 7771,
+          "start": 7744
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::HandoffAcceptInput::branch_ref"
+        },
+        "kind": "Field",
+        "name": "branch_ref",
+        "span": {
+          "end": 12236,
+          "start": 12206
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::HandoffAcceptInput::branch_ref"
+        },
+        "kind": "Field",
+        "name": "branch_ref",
+        "span": {
+          "end": 12694,
+          "start": 12664
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::WorkClaim"
+        },
+        "kind": "Struct",
+        "name": "WorkClaim",
+        "span": {
+          "end": 5949,
+          "start": 5281
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::WorkClaim"
+        },
+        "kind": "Struct",
+        "name": "WorkClaim",
+        "span": {
+          "end": 6287,
+          "start": 5619
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ArtifactProposeInput::base_revision"
+        },
+        "kind": "Field",
+        "name": "base_revision",
+        "span": {
+          "end": 13299,
+          "start": 13263
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ArtifactProposeInput::base_revision"
+        },
+        "kind": "Field",
+        "name": "base_revision",
+        "span": {
+          "end": 13757,
+          "start": 13721
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::PolicyViolation"
+        },
+        "kind": "Struct",
+        "name": "PolicyViolation",
+        "span": {
+          "end": 7231,
+          "start": 6941
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::PolicyViolation"
+        },
+        "kind": "Struct",
+        "name": "PolicyViolation",
+        "span": {
+          "end": 7569,
+          "start": 7279
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::PolicyViolationRecord"
+        },
+        "kind": "Struct",
+        "name": "PolicyViolationRecord",
+        "span": {
+          "end": 7599,
+          "start": 7292
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::PolicyViolationRecord"
+        },
+        "kind": "Struct",
+        "name": "PolicyViolationRecord",
+        "span": {
+          "end": 7937,
+          "start": 7630
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ClaimAcquireInput::base_revision"
+        },
+        "kind": "Field",
+        "name": "base_revision",
+        "span": {
+          "end": 12910,
+          "start": 12874
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ClaimAcquireInput::base_revision"
+        },
+        "kind": "Field",
+        "name": "base_revision",
+        "span": {
+          "end": 13368,
+          "start": 13332
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Artifact::validated_checks"
+        },
+        "kind": "Field",
+        "name": "validated_checks",
+        "span": {
+          "end": 8186,
+          "start": 8153
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Artifact::validated_checks"
+        },
+        "kind": "Field",
+        "name": "validated_checks",
+        "span": {
+          "end": 8524,
+          "start": 8491
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskUpdateInput::acceptance"
+        },
+        "kind": "Field",
+        "name": "acceptance",
+        "span": {
+          "end": 11426,
+          "start": 11378
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskUpdateInput::acceptance"
+        },
+        "kind": "Field",
+        "name": "acceptance",
+        "span": {
+          "end": 11884,
+          "start": 11836
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PlanCreateInput::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 10028,
+          "start": 10011
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PlanCreateInput::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 10366,
+          "start": 10349
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::LeaseHolder::agent_id"
+        },
+        "kind": "Field",
+        "name": "agent_id",
+        "span": {
+          "end": 1241,
+          "start": 1212
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::LeaseHolder::agent_id"
+        },
+        "kind": "Field",
+        "name": "agent_id",
+        "span": {
+          "end": 1308,
+          "start": 1279
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationSnapshot::plans"
+        },
+        "kind": "Field",
+        "name": "plans",
+        "span": {
+          "end": 9640,
+          "start": 9620
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationSnapshot::plans"
+        },
+        "kind": "Field",
+        "name": "plans",
+        "span": {
+          "end": 9978,
+          "start": 9958
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationPolicy::require_validation_for_completion"
+        },
+        "kind": "Field",
+        "name": "require_validation_for_completion",
+        "span": {
+          "end": 1536,
+          "start": 1493
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationPolicy::require_validation_for_completion"
+        },
+        "kind": "Field",
+        "name": "require_validation_for_completion",
+        "span": {
+          "end": 1603,
+          "start": 1560
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::Plan"
+        },
+        "kind": "Struct",
+        "name": "Plan",
+        "span": {
+          "end": 3808,
+          "start": 3134
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::Plan"
+        },
+        "kind": "Struct",
+        "name": "Plan",
+        "span": {
+          "end": 3998,
+          "start": 3324
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskUpdateInput::session"
+        },
+        "kind": "Field",
+        "name": "session",
+        "span": {
+          "end": 11078,
+          "start": 11040
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskUpdateInput::session"
+        },
+        "kind": "Field",
+        "name": "session",
+        "span": {
+          "end": 11536,
+          "start": 11498
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::Artifact"
+        },
+        "kind": "Struct",
+        "name": "Artifact",
+        "span": {
+          "end": 8244,
+          "start": 7660
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::Artifact"
+        },
+        "kind": "Struct",
+        "name": "Artifact",
+        "span": {
+          "end": 8582,
+          "start": 7998
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskResumeInput::branch_ref"
+        },
+        "kind": "Field",
+        "name": "branch_ref",
+        "span": {
+          "end": 12434,
+          "start": 12404
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskResumeInput::branch_ref"
+        },
+        "kind": "Field",
+        "name": "branch_ref",
+        "span": {
+          "end": 12892,
+          "start": 12862
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Plan::metadata"
+        },
+        "kind": "Field",
+        "name": "metadata",
+        "span": {
+          "end": 3699,
+          "start": 3680
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Plan::metadata"
+        },
+        "kind": "Field",
+        "name": "metadata",
+        "span": {
+          "end": 3889,
+          "start": 3870
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ArtifactProposeInput::branch_ref"
+        },
+        "kind": "Field",
+        "name": "branch_ref",
+        "span": {
+          "end": 13532,
+          "start": 13502
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ArtifactProposeInput::branch_ref"
+        },
+        "kind": "Field",
+        "name": "branch_ref",
+        "span": {
+          "end": 13990,
+          "start": 13960
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskCreateInput::anchors"
+        },
+        "kind": "Field",
+        "name": "anchors",
+        "span": {
+          "end": 10681,
+          "start": 10654
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskCreateInput::anchors"
+        },
+        "kind": "Field",
+        "name": "anchors",
+        "span": {
+          "end": 11019,
+          "start": 10992
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::TaskCompletionContext"
+        },
+        "kind": "Struct",
+        "name": "TaskCompletionContext",
+        "span": {
+          "end": 11846,
+          "start": 11734
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::TaskCompletionContext"
+        },
+        "kind": "Struct",
+        "name": "TaskCompletionContext",
+        "span": {
+          "end": 12304,
+          "start": 12192
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskUpdateInput::bindings"
+        },
+        "kind": "Field",
+        "name": "bindings",
+        "span": {
+          "end": 11319,
+          "start": 11286
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskUpdateInput::bindings"
+        },
+        "kind": "Field",
+        "name": "bindings",
+        "span": {
+          "end": 11777,
+          "start": 11744
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::TaskBlocker"
+        },
+        "kind": "Struct",
+        "name": "TaskBlocker",
+        "span": {
+          "end": 9264,
+          "start": 8910
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::TaskBlocker"
+        },
+        "kind": "Struct",
+        "name": "TaskBlocker",
+        "span": {
+          "end": 9602,
+          "start": 9248
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::session"
+        },
+        "kind": "Field",
+        "name": "session",
+        "span": {
+          "end": 4284,
+          "start": 4254
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::session"
+        },
+        "kind": "Field",
+        "name": "session",
+        "span": {
+          "end": 4559,
+          "start": 4529
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationSnapshot::artifacts"
+        },
+        "kind": "Field",
+        "name": "artifacts",
+        "span": {
+          "end": 9744,
+          "start": 9716
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationSnapshot::artifacts"
+        },
+        "kind": "Field",
+        "name": "artifacts",
+        "span": {
+          "end": 10082,
+          "start": 10054
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::WorkClaim::stale_at"
+        },
+        "kind": "Field",
+        "name": "stale_at",
+        "span": {
+          "end": 5844,
+          "start": 5813
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::WorkClaim::stale_at"
+        },
+        "kind": "Field",
+        "name": "stale_at",
+        "span": {
+          "end": 6182,
+          "start": 6151
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::WorkClaim::mode"
+        },
+        "kind": "Field",
+        "name": "mode",
+        "span": {
+          "end": 5696,
+          "start": 5677
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::WorkClaim::mode"
+        },
+        "kind": "Field",
+        "name": "mode",
+        "span": {
+          "end": 6034,
+          "start": 6015
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PolicyViolation::claim_id"
+        },
+        "kind": "Field",
+        "name": "claim_id",
+        "span": {
+          "end": 7141,
+          "start": 7112
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PolicyViolation::claim_id"
+        },
+        "kind": "Field",
+        "name": "claim_id",
+        "span": {
+          "end": 7479,
+          "start": 7450
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ArtifactReviewInput::verdict"
+        },
+        "kind": "Field",
+        "name": "verdict",
+        "span": {
+          "end": 13753,
+          "start": 13727
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ArtifactReviewInput::verdict"
+        },
+        "kind": "Field",
+        "name": "verdict",
+        "span": {
+          "end": 14211,
+          "start": 14185
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::WorkClaim::capability"
+        },
+        "kind": "Field",
+        "name": "capability",
+        "span": {
+          "end": 5671,
+          "start": 5645
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::WorkClaim::capability"
+        },
+        "kind": "Field",
+        "name": "capability",
+        "span": {
+          "end": 6009,
+          "start": 5983
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Module",
+          "path": "prism_coordination::types"
+        },
+        "kind": "Module",
+        "name": "types",
+        "span": {
+          "end": 13897,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Module",
+          "path": "prism_coordination::types"
+        },
+        "kind": "Module",
+        "name": "types",
+        "span": {
+          "end": 14355,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PolicyViolationRecord::claim_id"
+        },
+        "kind": "Field",
+        "name": "claim_id",
+        "span": {
+          "end": 7513,
+          "start": 7484
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::PolicyViolationRecord::claim_id"
+        },
+        "kind": "Field",
+        "name": "claim_id",
+        "span": {
+          "end": 7851,
+          "start": 7822
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskUpdateInput::anchors"
+        },
+        "kind": "Field",
+        "name": "anchors",
+        "span": {
+          "end": 11280,
+          "start": 11245
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskUpdateInput::anchors"
+        },
+        "kind": "Field",
+        "name": "anchors",
+        "span": {
+          "end": 11738,
+          "start": 11703
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskBlocker::validation_checks"
+        },
+        "kind": "Field",
+        "name": "validation_checks",
+        "span": {
+          "end": 9204,
+          "start": 9170
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskBlocker::validation_checks"
+        },
+        "kind": "Field",
+        "name": "validation_checks",
+        "span": {
+          "end": 9542,
+          "start": 9508
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::pending_handoff_to"
+        },
+        "kind": "Field",
+        "name": "pending_handoff_to",
+        "span": {
+          "end": 4248,
+          "start": 4209
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::pending_handoff_to"
+        },
+        "kind": "Field",
+        "name": "pending_handoff_to",
+        "span": {
+          "end": 4523,
+          "start": 4484
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::types::default_lease_renewal_mode"
+        },
+        "kind": "Function",
+        "name": "default_lease_renewal_mode",
+        "span": {
+          "end": 970,
+          "start": 886
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::types::default_lease_renewal_mode"
+        },
+        "kind": "Function",
+        "name": "default_lease_renewal_mode",
+        "span": {
+          "end": 1037,
+          "start": 953
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationSnapshot::next_claim"
+        },
+        "kind": "Field",
+        "name": "next_claim",
+        "span": {
+          "end": 9895,
+          "start": 9876
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationSnapshot::next_claim"
+        },
+        "kind": "Field",
+        "name": "next_claim",
+        "span": {
+          "end": 10233,
+          "start": 10214
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskCreateInput::branch_ref"
+        },
+        "kind": "Field",
+        "name": "branch_ref",
+        "span": {
+          "end": 10648,
+          "start": 10618
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskCreateInput::branch_ref"
+        },
+        "kind": "Field",
+        "name": "branch_ref",
+        "span": {
+          "end": 10986,
+          "start": 10956
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskBlocker::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 8960,
+          "start": 8939
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskBlocker::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 9298,
+          "start": 9277
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::WorkClaim::base_revision"
+        },
+        "kind": "Field",
+        "name": "base_revision",
+        "span": {
+          "end": 5946,
+          "start": 5910
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::WorkClaim::base_revision"
+        },
+        "kind": "Field",
+        "name": "base_revision",
+        "span": {
+          "end": 6284,
+          "start": 6248
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 4028,
+          "start": 4006
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 4218,
+          "start": 4196
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Plan::goal"
+        },
+        "kind": "Field",
+        "name": "goal",
+        "span": {
+          "end": 3192,
+          "start": 3176
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::Plan::goal"
+        },
+        "kind": "Field",
+        "name": "goal",
+        "span": {
+          "end": 3382,
+          "start": 3366
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationConflict::summary"
+        },
+        "kind": "Field",
+        "name": "summary",
+        "span": {
+          "end": 6185,
+          "start": 6166
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationConflict::summary"
+        },
+        "kind": "Field",
+        "name": "summary",
+        "span": {
+          "end": 6523,
+          "start": 6504
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationPolicy::lease_stale_after_seconds"
+        },
+        "kind": "Field",
+        "name": "lease_stale_after_seconds",
+        "span": {
+          "end": 1753,
+          "start": 1719
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationPolicy::lease_stale_after_seconds"
+        },
+        "kind": "Field",
+        "name": "lease_stale_after_seconds",
+        "span": {
+          "end": 1820,
+          "start": 1786
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskCreateInput::worktree_id"
+        },
+        "kind": "Field",
+        "name": "worktree_id",
+        "span": {
+          "end": 10612,
+          "start": 10581
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskCreateInput::worktree_id"
+        },
+        "kind": "Field",
+        "name": "worktree_id",
+        "span": {
+          "end": 10950,
+          "start": 10919
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::acceptance"
+        },
+        "kind": "Field",
+        "name": "acceptance",
+        "span": {
+          "end": 4911,
+          "start": 4871
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::acceptance"
+        },
+        "kind": "Field",
+        "name": "acceptance",
+        "span": {
+          "end": 5186,
+          "start": 5146
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationPolicy::max_parallel_editors_per_anchor"
+        },
+        "kind": "Field",
+        "name": "max_parallel_editors_per_anchor",
+        "span": {
+          "end": 1420,
+          "start": 1380
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationPolicy::max_parallel_editors_per_anchor"
+        },
+        "kind": "Field",
+        "name": "max_parallel_editors_per_anchor",
+        "span": {
+          "end": 1487,
+          "start": 1447
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::WorkClaim::since"
+        },
+        "kind": "Field",
+        "name": "since",
+        "span": {
+          "end": 5722,
+          "start": 5702
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::WorkClaim::since"
+        },
+        "kind": "Field",
+        "name": "since",
+        "span": {
+          "end": 6060,
+          "start": 6040
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskUpdateInput::assignee"
+        },
+        "kind": "Field",
+        "name": "assignee",
+        "span": {
+          "end": 11034,
+          "start": 10997
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskUpdateInput::assignee"
+        },
+        "kind": "Field",
+        "name": "assignee",
+        "span": {
+          "end": 11492,
+          "start": 11455
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::PlanCreateInput"
+        },
+        "kind": "Struct",
+        "name": "PlanCreateInput",
+        "span": {
+          "end": 10133,
+          "start": 9978
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::PlanCreateInput"
+        },
+        "kind": "Struct",
+        "name": "PlanCreateInput",
+        "span": {
+          "end": 10471,
+          "start": 10316
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ArtifactProposeInput::worktree_id"
+        },
+        "kind": "Field",
+        "name": "worktree_id",
+        "span": {
+          "end": 13496,
+          "start": 13465
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ArtifactProposeInput::worktree_id"
+        },
+        "kind": "Field",
+        "name": "worktree_id",
+        "span": {
+          "end": 13954,
+          "start": 13923
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ClaimAcquireInput::worktree_id"
+        },
+        "kind": "Field",
+        "name": "worktree_id",
+        "span": {
+          "end": 13024,
+          "start": 12993
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ClaimAcquireInput::worktree_id"
+        },
+        "kind": "Field",
+        "name": "worktree_id",
+        "span": {
+          "end": 13482,
+          "start": 13451
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskBlocker::summary"
+        },
+        "kind": "Field",
+        "name": "summary",
+        "span": {
+          "end": 8985,
+          "start": 8966
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskBlocker::summary"
+        },
+        "kind": "Field",
+        "name": "summary",
+        "span": {
+          "end": 9323,
+          "start": 9304
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::types::default_lease_stale_after_seconds"
+        },
+        "kind": "Function",
+        "name": "default_lease_stale_after_seconds",
+        "span": {
+          "end": 815,
+          "start": 754
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::types::default_lease_stale_after_seconds"
+        },
+        "kind": "Function",
+        "name": "default_lease_stale_after_seconds",
+        "span": {
+          "end": 882,
+          "start": 821
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::CoordinationSnapshot"
+        },
+        "kind": "Struct",
+        "name": "CoordinationSnapshot",
+        "span": {
+          "end": 9952,
+          "start": 9582
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::CoordinationSnapshot"
+        },
+        "kind": "Struct",
+        "name": "CoordinationSnapshot",
+        "span": {
+          "end": 10290,
+          "start": 9920
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::CoordinationPolicy"
+        },
+        "kind": "Struct",
+        "name": "CoordinationPolicy",
+        "span": {
+          "end": 1959,
+          "start": 1305
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::types::CoordinationPolicy"
+        },
+        "kind": "Struct",
+        "name": "CoordinationPolicy",
+        "span": {
+          "end": 2091,
+          "start": 1372
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::AcceptanceCriterion::anchors"
+        },
+        "kind": "Field",
+        "name": "anchors",
+        "span": {
+          "end": 3070,
+          "start": 3043
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::AcceptanceCriterion::anchors"
+        },
+        "kind": "Field",
+        "name": "anchors",
+        "span": {
+          "end": 3260,
+          "start": 3233
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::WorkClaim::refreshed_at"
+        },
+        "kind": "Field",
+        "name": "refreshed_at",
+        "span": {
+          "end": 5785,
+          "start": 5750
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::WorkClaim::refreshed_at"
+        },
+        "kind": "Field",
+        "name": "refreshed_at",
+        "span": {
+          "end": 6123,
+          "start": 6088
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Enum",
+          "path": "prism_coordination::types::PolicyViolationCode"
+        },
+        "kind": "Enum",
+        "name": "PolicyViolationCode",
+        "span": {
+          "end": 6880,
+          "start": 6346
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Enum",
+          "path": "prism_coordination::types::PolicyViolationCode"
+        },
+        "kind": "Enum",
+        "name": "PolicyViolationCode",
+        "span": {
+          "end": 7218,
+          "start": 6684
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::tags"
+        },
+        "kind": "Field",
+        "name": "tags",
+        "span": {
+          "end": 5170,
+          "start": 5149
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationTask::tags"
+        },
+        "kind": "Field",
+        "name": "tags",
+        "span": {
+          "end": 5445,
+          "start": 5424
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskCreateInput::session"
+        },
+        "kind": "Field",
+        "name": "session",
+        "span": {
+          "end": 10575,
+          "start": 10545
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskCreateInput::session"
+        },
+        "kind": "Field",
+        "name": "session",
+        "span": {
+          "end": 10913,
+          "start": 10883
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationSnapshot::claims"
+        },
+        "kind": "Field",
+        "name": "claims",
+        "span": {
+          "end": 9710,
+          "start": 9684
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationSnapshot::claims"
+        },
+        "kind": "Field",
+        "name": "claims",
+        "span": {
+          "end": 10048,
+          "start": 10022
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskBlocker::causes"
+        },
+        "kind": "Field",
+        "name": "causes",
+        "span": {
+          "end": 9261,
+          "start": 9232
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskBlocker::causes"
+        },
+        "kind": "Field",
+        "name": "causes",
+        "span": {
+          "end": 9599,
+          "start": 9570
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskCreateInput::base_revision"
+        },
+        "kind": "Field",
+        "name": "base_revision",
+        "span": {
+          "end": 10814,
+          "start": 10778
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::TaskCreateInput::base_revision"
+        },
+        "kind": "Field",
+        "name": "base_revision",
+        "span": {
+          "end": 11152,
+          "start": 11116
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ArtifactReview::artifact"
+        },
+        "kind": "Field",
+        "name": "artifact",
+        "span": {
+          "end": 8383,
+          "start": 8359
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::ArtifactReview::artifact"
+        },
+        "kind": "Field",
+        "name": "artifact",
+        "span": {
+          "end": 8721,
+          "start": 8697
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::AcceptanceCriterion::label"
+        },
+        "kind": "Field",
+        "name": "label",
+        "span": {
+          "end": 3037,
+          "start": 3020
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::AcceptanceCriterion::label"
+        },
+        "kind": "Field",
+        "name": "label",
+        "span": {
+          "end": 3227,
+          "start": 3210
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::HandoffInput::base_revision"
+        },
+        "kind": "Field",
+        "name": "base_revision",
+        "span": {
+          "end": 12035,
+          "start": 11999
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::HandoffInput::base_revision"
+        },
+        "kind": "Field",
+        "name": "base_revision",
+        "span": {
+          "end": 12493,
+          "start": 12457
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::types::CoordinationSnapshot::next_task"
+        },
+        "kind": "Field",
+        "name": "next_task",
+        "span": {
+          "end": 9870,
+          "start": 9852
+        },
+        "status": "updated_before"
+      }
+    ],
+    "changedSymbolsTotalCount": 531,
+    "changedSymbolsTruncated": true,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs"
+    ],
+    "files": [
+      76
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

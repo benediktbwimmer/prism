@@ -1,0 +1,283 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdxszhm3ggm10wm8s2v9z",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 93
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::memory_events::filter_memory_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::memory_events::load_repo_memory_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::memory_events::append_repo_memory_event",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::memory_events",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::memory_events::event_matches_anchor",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::memory_events::event_matches_text",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 6 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 12,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/memory_events.rs",
+        "removedCount": 0,
+        "updatedCount": 12
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/memory_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::memory_events::filter_memory_events"
+        },
+        "kind": "Function",
+        "name": "filter_memory_events",
+        "span": {
+          "end": 3766,
+          "start": 1985
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/memory_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::memory_events::filter_memory_events"
+        },
+        "kind": "Function",
+        "name": "filter_memory_events",
+        "span": {
+          "end": 4401,
+          "start": 2620
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/memory_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::memory_events::load_repo_memory_events"
+        },
+        "kind": "Function",
+        "name": "load_repo_memory_events",
+        "span": {
+          "end": 1983,
+          "start": 867
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/memory_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::memory_events::load_repo_memory_events"
+        },
+        "kind": "Function",
+        "name": "load_repo_memory_events",
+        "span": {
+          "end": 2618,
+          "start": 1378
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/memory_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::memory_events::append_repo_memory_event"
+        },
+        "kind": "Function",
+        "name": "append_repo_memory_event",
+        "span": {
+          "end": 865,
+          "start": 426
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/memory_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::memory_events::append_repo_memory_event"
+        },
+        "kind": "Function",
+        "name": "append_repo_memory_event",
+        "span": {
+          "end": 1376,
+          "start": 620
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/memory_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::memory_events"
+        },
+        "kind": "Module",
+        "name": "memory_events",
+        "span": {
+          "end": 4831,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/memory_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::memory_events"
+        },
+        "kind": "Module",
+        "name": "memory_events",
+        "span": {
+          "end": 5466,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/memory_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::memory_events::event_matches_anchor"
+        },
+        "kind": "Function",
+        "name": "event_matches_anchor",
+        "span": {
+          "end": 3975,
+          "start": 3768
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/memory_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::memory_events::event_matches_anchor"
+        },
+        "kind": "Function",
+        "name": "event_matches_anchor",
+        "span": {
+          "end": 4610,
+          "start": 4403
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/memory_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::memory_events::event_matches_text"
+        },
+        "kind": "Function",
+        "name": "event_matches_text",
+        "span": {
+          "end": 4830,
+          "start": 3977
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/memory_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::memory_events::event_matches_text"
+        },
+        "kind": "Function",
+        "name": "event_matches_text",
+        "span": {
+          "end": 5465,
+          "start": 4612
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 12,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/memory_events.rs"
+    ],
+    "files": [
+      93
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

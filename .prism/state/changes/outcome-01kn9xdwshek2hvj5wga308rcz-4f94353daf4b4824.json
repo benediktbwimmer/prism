@@ -1,0 +1,1244 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdwshek2hvj5wga308rcz",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 109
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::tests::CompatibilityPayload",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::rewrite_protected_stream_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::tests::typed_hydration_uses_raw_verified_payload_bytes",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::tests::CompatibilityPayload::required",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::tests::CompatibilityPayload::optional",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::ProtectedPrincipalIdentity",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::ProtectedStreamInspection::payloads",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::classified_failure",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::ProtectedPrincipalIdentity::principal_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::tests::temp_workspace",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::ProtectedStreamInspection::verification",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::ProtectedPrincipalIdentity::credential_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::tests::TempTestDirState::drop",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::implicit_principal_identity",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::sync_parent_dir",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::ProtectedStreamInspection::last_event_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::ProtectedStreamInspection::next_sequence",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::tests::TempTestDirState::paths",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::tests::TempTestDirState",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::ProtectedStreamInspection",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::tests",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::tests::TempTestDirState::impl::Drop",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::inspect_protected_stream",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::principal_actor_for_signature",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::ProtectedPrincipalIdentity::principal_authority_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::tests::legacy_unsigned_streams_are_classified_without_hydrating",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::tests::unterminated_final_record_is_truncated",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::append_protected_stream_event",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::verified_inspection",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::ProtectedStreamInspection::last_entry_hash",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::tests::track_temp_dir",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::tests::appending_and_loading_signed_stream_round_trips_payloads",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::repo_streams::tests::missing_imported_bundle_yields_unknown_trust",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 5 added, 0 removed, 29 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 5,
+        "changedSymbolCount": 63,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "removedCount": 0,
+        "updatedCount": 58
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::protected_state::repo_streams::tests::CompatibilityPayload"
+        },
+        "kind": "Struct",
+        "name": "CompatibilityPayload",
+        "span": {
+          "end": 30237,
+          "start": 30075
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::rewrite_protected_stream_events"
+        },
+        "kind": "Function",
+        "name": "rewrite_protected_stream_events",
+        "span": {
+          "end": 22191,
+          "start": 19378
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::tests::typed_hydration_uses_raw_verified_payload_bytes"
+        },
+        "kind": "Function",
+        "name": "typed_hydration_uses_raw_verified_payload_bytes",
+        "span": {
+          "end": 31394,
+          "start": 30255
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::tests::CompatibilityPayload::required"
+        },
+        "kind": "Field",
+        "name": "required",
+        "span": {
+          "end": 30129,
+          "start": 30113
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::tests::CompatibilityPayload::optional"
+        },
+        "kind": "Field",
+        "name": "optional",
+        "span": {
+          "end": 30230,
+          "start": 30206
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::protected_state::repo_streams::ProtectedPrincipalIdentity"
+        },
+        "kind": "Struct",
+        "name": "ProtectedPrincipalIdentity",
+        "span": {
+          "end": 897,
+          "start": 727
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::protected_state::repo_streams::ProtectedPrincipalIdentity"
+        },
+        "kind": "Struct",
+        "name": "ProtectedPrincipalIdentity",
+        "span": {
+          "end": 920,
+          "start": 750
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::ProtectedStreamInspection::payloads"
+        },
+        "kind": "Field",
+        "name": "payloads",
+        "span": {
+          "end": 1061,
+          "start": 1034
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::ProtectedStreamInspection::payloads"
+        },
+        "kind": "Field",
+        "name": "payloads",
+        "span": {
+          "end": 1084,
+          "start": 1057
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::classified_failure"
+        },
+        "kind": "Function",
+        "name": "classified_failure",
+        "span": {
+          "end": 21670,
+          "start": 20676
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::classified_failure"
+        },
+        "kind": "Function",
+        "name": "classified_failure",
+        "span": {
+          "end": 25485,
+          "start": 24491
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::ProtectedPrincipalIdentity::principal_id"
+        },
+        "kind": "Field",
+        "name": "principal_id",
+        "span": {
+          "end": 856,
+          "start": 825
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::ProtectedPrincipalIdentity::principal_id"
+        },
+        "kind": "Field",
+        "name": "principal_id",
+        "span": {
+          "end": 879,
+          "start": 848
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::tests::temp_workspace"
+        },
+        "kind": "Function",
+        "name": "temp_workspace",
+        "span": {
+          "end": 23190,
+          "start": 22642
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::tests::temp_workspace"
+        },
+        "kind": "Function",
+        "name": "temp_workspace",
+        "span": {
+          "end": 27046,
+          "start": 26498
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::ProtectedStreamInspection::verification"
+        },
+        "kind": "Field",
+        "name": "verification",
+        "span": {
+          "end": 1028,
+          "start": 976
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::ProtectedStreamInspection::verification"
+        },
+        "kind": "Field",
+        "name": "verification",
+        "span": {
+          "end": 1051,
+          "start": 999
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::ProtectedPrincipalIdentity::credential_id"
+        },
+        "kind": "Field",
+        "name": "credential_id",
+        "span": {
+          "end": 894,
+          "start": 862
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::ProtectedPrincipalIdentity::credential_id"
+        },
+        "kind": "Field",
+        "name": "credential_id",
+        "span": {
+          "end": 917,
+          "start": 885
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::protected_state::repo_streams::tests::TempTestDirState::drop"
+        },
+        "kind": "Method",
+        "name": "drop",
+        "span": {
+          "end": 22487,
+          "start": 22340
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::protected_state::repo_streams::tests::TempTestDirState::drop"
+        },
+        "kind": "Method",
+        "name": "drop",
+        "span": {
+          "end": 26343,
+          "start": 26196
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::implicit_principal_identity"
+        },
+        "kind": "Function",
+        "name": "implicit_principal_identity",
+        "span": {
+          "end": 1947,
+          "start": 1195
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::implicit_principal_identity"
+        },
+        "kind": "Function",
+        "name": "implicit_principal_identity",
+        "span": {
+          "end": 1970,
+          "start": 1218
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::sync_parent_dir"
+        },
+        "kind": "Function",
+        "name": "sync_parent_dir",
+        "span": {
+          "end": 20039,
+          "start": 19691
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::sync_parent_dir"
+        },
+        "kind": "Function",
+        "name": "sync_parent_dir",
+        "span": {
+          "end": 23854,
+          "start": 23506
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::ProtectedStreamInspection::last_event_id"
+        },
+        "kind": "Field",
+        "name": "last_event_id",
+        "span": {
+          "end": 1142,
+          "start": 1102
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::ProtectedStreamInspection::last_event_id"
+        },
+        "kind": "Field",
+        "name": "last_event_id",
+        "span": {
+          "end": 1165,
+          "start": 1125
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::ProtectedStreamInspection::next_sequence"
+        },
+        "kind": "Field",
+        "name": "next_sequence",
+        "span": {
+          "end": 1096,
+          "start": 1067
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::ProtectedStreamInspection::next_sequence"
+        },
+        "kind": "Field",
+        "name": "next_sequence",
+        "span": {
+          "end": 1119,
+          "start": 1090
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::tests::TempTestDirState::paths"
+        },
+        "kind": "Field",
+        "name": "paths",
+        "span": {
+          "end": 22286,
+          "start": 22267
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::tests::TempTestDirState::paths"
+        },
+        "kind": "Field",
+        "name": "paths",
+        "span": {
+          "end": 26142,
+          "start": 26123
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::protected_state::repo_streams::tests::TempTestDirState"
+        },
+        "kind": "Struct",
+        "name": "TempTestDirState",
+        "span": {
+          "end": 22293,
+          "start": 22233
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::protected_state::repo_streams::tests::TempTestDirState"
+        },
+        "kind": "Struct",
+        "name": "TempTestDirState",
+        "span": {
+          "end": 26149,
+          "start": 26089
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::protected_state::repo_streams::ProtectedStreamInspection"
+        },
+        "kind": "Struct",
+        "name": "ProtectedStreamInspection",
+        "span": {
+          "end": 1193,
+          "start": 923
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::protected_state::repo_streams::ProtectedStreamInspection"
+        },
+        "kind": "Struct",
+        "name": "ProtectedStreamInspection",
+        "span": {
+          "end": 1216,
+          "start": 946
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::protected_state::repo_streams::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 26891,
+          "start": 21685
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::protected_state::repo_streams::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 32139,
+          "start": 25500
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::protected_state::repo_streams"
+        },
+        "kind": "Module",
+        "name": "repo_streams",
+        "span": {
+          "end": 26892,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::protected_state::repo_streams"
+        },
+        "kind": "Module",
+        "name": "repo_streams",
+        "span": {
+          "end": 32140,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::protected_state::repo_streams::tests::TempTestDirState::impl::Drop"
+        },
+        "kind": "Impl",
+        "name": "Drop for TempTestDirState",
+        "span": {
+          "end": 22493,
+          "start": 22299
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::protected_state::repo_streams::tests::TempTestDirState::impl::Drop"
+        },
+        "kind": "Impl",
+        "name": "Drop for TempTestDirState",
+        "span": {
+          "end": 26349,
+          "start": 26155
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::inspect_protected_stream"
+        },
+        "kind": "Function",
+        "name": "inspect_protected_stream",
+        "span": {
+          "end": 15890,
+          "start": 1949
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::inspect_protected_stream"
+        },
+        "kind": "Function",
+        "name": "inspect_protected_stream",
+        "span": {
+          "end": 16890,
+          "start": 1972
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::principal_actor_for_signature"
+        },
+        "kind": "Function",
+        "name": "principal_actor_for_signature",
+        "span": {
+          "end": 19689,
+          "start": 18378
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::principal_actor_for_signature"
+        },
+        "kind": "Function",
+        "name": "principal_actor_for_signature",
+        "span": {
+          "end": 23504,
+          "start": 22193
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::ProtectedPrincipalIdentity::principal_authority_id"
+        },
+        "kind": "Field",
+        "name": "principal_authority_id",
+        "span": {
+          "end": 819,
+          "start": 778
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::ProtectedPrincipalIdentity::principal_authority_id"
+        },
+        "kind": "Field",
+        "name": "principal_authority_id",
+        "span": {
+          "end": 842,
+          "start": 801
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::tests::legacy_unsigned_streams_are_classified_without_hydrating"
+        },
+        "kind": "Function",
+        "name": "legacy_unsigned_streams_are_classified_without_hydrating",
+        "span": {
+          "end": 25186,
+          "start": 24390
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::tests::legacy_unsigned_streams_are_classified_without_hydrating"
+        },
+        "kind": "Function",
+        "name": "legacy_unsigned_streams_are_classified_without_hydrating",
+        "span": {
+          "end": 29042,
+          "start": 28246
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::tests::unterminated_final_record_is_truncated"
+        },
+        "kind": "Function",
+        "name": "unterminated_final_record_is_truncated",
+        "span": {
+          "end": 26889,
+          "start": 26164
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::tests::unterminated_final_record_is_truncated"
+        },
+        "kind": "Function",
+        "name": "unterminated_final_record_is_truncated",
+        "span": {
+          "end": 32137,
+          "start": 31412
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::append_protected_stream_event"
+        },
+        "kind": "Function",
+        "name": "append_protected_stream_event",
+        "span": {
+          "end": 18376,
+          "start": 15892
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::append_protected_stream_event"
+        },
+        "kind": "Function",
+        "name": "append_protected_stream_event",
+        "span": {
+          "end": 19376,
+          "start": 16892
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::verified_inspection"
+        },
+        "kind": "Function",
+        "name": "verified_inspection",
+        "span": {
+          "end": 20674,
+          "start": 20041
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::verified_inspection"
+        },
+        "kind": "Function",
+        "name": "verified_inspection",
+        "span": {
+          "end": 24489,
+          "start": 23856
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::ProtectedStreamInspection::last_entry_hash"
+        },
+        "kind": "Field",
+        "name": "last_entry_hash",
+        "span": {
+          "end": 1190,
+          "start": 1148
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::repo_streams::ProtectedStreamInspection::last_entry_hash"
+        },
+        "kind": "Field",
+        "name": "last_entry_hash",
+        "span": {
+          "end": 1213,
+          "start": 1171
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::tests::track_temp_dir"
+        },
+        "kind": "Function",
+        "name": "track_temp_dir",
+        "span": {
+          "end": 22636,
+          "start": 22499
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::tests::track_temp_dir"
+        },
+        "kind": "Function",
+        "name": "track_temp_dir",
+        "span": {
+          "end": 26492,
+          "start": 26355
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::tests::appending_and_loading_signed_stream_round_trips_payloads"
+        },
+        "kind": "Function",
+        "name": "appending_and_loading_signed_stream_round_trips_payloads",
+        "span": {
+          "end": 24372,
+          "start": 23208
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::tests::appending_and_loading_signed_stream_round_trips_payloads"
+        },
+        "kind": "Function",
+        "name": "appending_and_loading_signed_stream_round_trips_payloads",
+        "span": {
+          "end": 28228,
+          "start": 27064
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::tests::missing_imported_bundle_yields_unknown_trust"
+        },
+        "kind": "Function",
+        "name": "missing_imported_bundle_yields_unknown_trust",
+        "span": {
+          "end": 26146,
+          "start": 25204
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::repo_streams::tests::missing_imported_bundle_yields_unknown_trust"
+        },
+        "kind": "Function",
+        "name": "missing_imported_bundle_yields_unknown_trust",
+        "span": {
+          "end": 30002,
+          "start": 29060
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 63,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/protected_state/repo_streams.rs"
+    ],
+    "files": [
+      109
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

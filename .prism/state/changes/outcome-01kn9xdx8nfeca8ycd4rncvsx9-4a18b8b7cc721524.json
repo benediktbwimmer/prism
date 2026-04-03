@@ -1,0 +1,1504 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdx8nfeca8ycd4rncvsx9",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 75
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::incremental_coordination_queue_read_model_matches_snapshot_rebuild",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::closed_plan_rejects_new_task_and_records_violation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::validation_policy_requires_approved_artifact_checks",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::completing_one_of_multiple_tasks_keeps_plan_active",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::handoff_acceptance_blocks_updates_until_target_accepts",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::invalid_task_transition_is_rejected",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::claim_conflicts_block_hard_exclusive_overlap",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::revision",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::stale_claim_no_longer_blocks_new_acquire",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::archived_plan_transition_requires_terminal_status_and_stays_closed",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::approving_stale_artifact_is_rejected",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::plan_graph_compat_preserves_task_ids_and_dependency_edges",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::stale_task_requires_reclaim_for_different_principal",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::plan_update_events_record_patch_metadata",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::plan_completion_requires_terminal_tasks_and_no_active_claims",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::snapshot_load_replays_plan_and_task_patch_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::incremental_coordination_read_model_matches_snapshot_rebuild",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::review_policy_gates_completion_but_not_ready_work",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::task_update_events_record_sparse_patch_metadata",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::draft_plan_hides_ready_work_until_activation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::coordination_snapshot_round_trips_authored_plan_edges_and_child_roots",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::heartbeat_task_refreshes_active_lease_for_same_principal",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::claim_ownership_is_enforced_and_audited",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::risk_threshold_requires_review_before_completion",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::plan_graph_execution_overlays_keep_runtime_state_outside_canonical_nodes",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::edit_capacity_limit_blocks_extra_claims",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::overlap_kind_changes_conflict_severity",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::releasing_last_active_claim_auto_completes_plan",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::snapshot_replay_reconstructs_continuity_state_from_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::principal_meta",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::stale_task_heartbeat_requires_resume",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::meta",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::completing_last_task_auto_completes_task_execution_plan",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::stale_claim_and_artifact_mutations_are_rejected",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::expired_claim_can_be_renewed_by_same_principal",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::snapshot_load_replays_handoff_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::tests::expired_task_requires_resume_for_same_principal",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 39 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 78,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "removedCount": 0,
+        "updatedCount": 78
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::incremental_coordination_queue_read_model_matches_snapshot_rebuild"
+        },
+        "kind": "Function",
+        "name": "incremental_coordination_queue_read_model_matches_snapshot_rebuild",
+        "span": {
+          "end": 30740,
+          "start": 26840
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::incremental_coordination_queue_read_model_matches_snapshot_rebuild"
+        },
+        "kind": "Function",
+        "name": "incremental_coordination_queue_read_model_matches_snapshot_rebuild",
+        "span": {
+          "end": 31322,
+          "start": 27422
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::closed_plan_rejects_new_task_and_records_violation"
+        },
+        "kind": "Function",
+        "name": "closed_plan_rejects_new_task_and_records_violation",
+        "span": {
+          "end": 75493,
+          "start": 73617
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::closed_plan_rejects_new_task_and_records_violation"
+        },
+        "kind": "Function",
+        "name": "closed_plan_rejects_new_task_and_records_violation",
+        "span": {
+          "end": 76657,
+          "start": 74781
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::validation_policy_requires_approved_artifact_checks"
+        },
+        "kind": "Function",
+        "name": "validation_policy_requires_approved_artifact_checks",
+        "span": {
+          "end": 41763,
+          "start": 36863
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::validation_policy_requires_approved_artifact_checks"
+        },
+        "kind": "Function",
+        "name": "validation_policy_requires_approved_artifact_checks",
+        "span": {
+          "end": 42435,
+          "start": 37445
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::completing_one_of_multiple_tasks_keeps_plan_active"
+        },
+        "kind": "Function",
+        "name": "completing_one_of_multiple_tasks_keeps_plan_active",
+        "span": {
+          "end": 70071,
+          "start": 66988
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::completing_one_of_multiple_tasks_keeps_plan_active"
+        },
+        "kind": "Function",
+        "name": "completing_one_of_multiple_tasks_keeps_plan_active",
+        "span": {
+          "end": 71153,
+          "start": 67988
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::handoff_acceptance_blocks_updates_until_target_accepts"
+        },
+        "kind": "Function",
+        "name": "handoff_acceptance_blocks_updates_until_target_accepts",
+        "span": {
+          "end": 110516,
+          "start": 105695
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::handoff_acceptance_blocks_updates_until_target_accepts"
+        },
+        "kind": "Function",
+        "name": "handoff_acceptance_blocks_updates_until_target_accepts",
+        "span": {
+          "end": 112104,
+          "start": 107201
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::invalid_task_transition_is_rejected"
+        },
+        "kind": "Function",
+        "name": "invalid_task_transition_is_rejected",
+        "span": {
+          "end": 56295,
+          "start": 53855
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::invalid_task_transition_is_rejected"
+        },
+        "kind": "Function",
+        "name": "invalid_task_transition_is_rejected",
+        "span": {
+          "end": 57131,
+          "start": 54609
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::claim_conflicts_block_hard_exclusive_overlap"
+        },
+        "kind": "Function",
+        "name": "claim_conflicts_block_hard_exclusive_overlap",
+        "span": {
+          "end": 4453,
+          "start": 1363
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::claim_conflicts_block_hard_exclusive_overlap"
+        },
+        "kind": "Function",
+        "name": "claim_conflicts_block_hard_exclusive_overlap",
+        "span": {
+          "end": 4453,
+          "start": 1363
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::revision"
+        },
+        "kind": "Function",
+        "name": "revision",
+        "span": {
+          "end": 1353,
+          "start": 1213
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::revision"
+        },
+        "kind": "Function",
+        "name": "revision",
+        "span": {
+          "end": 1353,
+          "start": 1213
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::stale_claim_no_longer_blocks_new_acquire"
+        },
+        "kind": "Function",
+        "name": "stale_claim_no_longer_blocks_new_acquire",
+        "span": {
+          "end": 16514,
+          "start": 13768
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::stale_claim_no_longer_blocks_new_acquire"
+        },
+        "kind": "Function",
+        "name": "stale_claim_no_longer_blocks_new_acquire",
+        "span": {
+          "end": 16760,
+          "start": 14014
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::archived_plan_transition_requires_terminal_status_and_stays_closed"
+        },
+        "kind": "Function",
+        "name": "archived_plan_transition_requires_terminal_status_and_stays_closed",
+        "span": {
+          "end": 78208,
+          "start": 75503
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::archived_plan_transition_requires_terminal_status_and_stays_closed"
+        },
+        "kind": "Function",
+        "name": "archived_plan_transition_requires_terminal_status_and_stays_closed",
+        "span": {
+          "end": 79372,
+          "start": 76667
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::approving_stale_artifact_is_rejected"
+        },
+        "kind": "Function",
+        "name": "approving_stale_artifact_is_rejected",
+        "span": {
+          "end": 36853,
+          "start": 34036
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::approving_stale_artifact_is_rejected"
+        },
+        "kind": "Function",
+        "name": "approving_stale_artifact_is_rejected",
+        "span": {
+          "end": 37435,
+          "start": 34618
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::plan_graph_compat_preserves_task_ids_and_dependency_edges"
+        },
+        "kind": "Function",
+        "name": "plan_graph_compat_preserves_task_ids_and_dependency_edges",
+        "span": {
+          "end": 46919,
+          "start": 44258
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::plan_graph_compat_preserves_task_ids_and_dependency_edges"
+        },
+        "kind": "Function",
+        "name": "plan_graph_compat_preserves_task_ids_and_dependency_edges",
+        "span": {
+          "end": 47673,
+          "start": 45012
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::stale_task_requires_reclaim_for_different_principal"
+        },
+        "kind": "Function",
+        "name": "stale_task_requires_reclaim_for_different_principal",
+        "span": {
+          "end": 11346,
+          "start": 8386
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::stale_task_requires_reclaim_for_different_principal"
+        },
+        "kind": "Function",
+        "name": "stale_task_requires_reclaim_for_different_principal",
+        "span": {
+          "end": 11592,
+          "start": 8550
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::plan_update_events_record_patch_metadata"
+        },
+        "kind": "Function",
+        "name": "plan_update_events_record_patch_metadata",
+        "span": {
+          "end": 79807,
+          "start": 78218
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::plan_update_events_record_patch_metadata"
+        },
+        "kind": "Function",
+        "name": "plan_update_events_record_patch_metadata",
+        "span": {
+          "end": 80971,
+          "start": 79382
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::plan_completion_requires_terminal_tasks_and_no_active_claims"
+        },
+        "kind": "Function",
+        "name": "plan_completion_requires_terminal_tasks_and_no_active_claims",
+        "span": {
+          "end": 64380,
+          "start": 59631
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::plan_completion_requires_terminal_tasks_and_no_active_claims"
+        },
+        "kind": "Function",
+        "name": "plan_completion_requires_terminal_tasks_and_no_active_claims",
+        "span": {
+          "end": 65298,
+          "start": 60467
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::snapshot_load_replays_plan_and_task_patch_events"
+        },
+        "kind": "Function",
+        "name": "snapshot_load_replays_plan_and_task_patch_events",
+        "span": {
+          "end": 89879,
+          "start": 85002
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::snapshot_load_replays_plan_and_task_patch_events"
+        },
+        "kind": "Function",
+        "name": "snapshot_load_replays_plan_and_task_patch_events",
+        "span": {
+          "end": 91207,
+          "start": 86248
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::incremental_coordination_read_model_matches_snapshot_rebuild"
+        },
+        "kind": "Function",
+        "name": "incremental_coordination_read_model_matches_snapshot_rebuild",
+        "span": {
+          "end": 26830,
+          "start": 21871
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::incremental_coordination_read_model_matches_snapshot_rebuild"
+        },
+        "kind": "Function",
+        "name": "incremental_coordination_read_model_matches_snapshot_rebuild",
+        "span": {
+          "end": 27412,
+          "start": 22289
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata"
+        },
+        "kind": "Function",
+        "name": "snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata",
+        "span": {
+          "end": 98496,
+          "start": 89889
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata"
+        },
+        "kind": "Function",
+        "name": "snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata",
+        "span": {
+          "end": 100002,
+          "start": 91217
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::review_policy_gates_completion_but_not_ready_work"
+        },
+        "kind": "Function",
+        "name": "review_policy_gates_completion_but_not_ready_work",
+        "span": {
+          "end": 21861,
+          "start": 16524
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::review_policy_gates_completion_but_not_ready_work"
+        },
+        "kind": "Function",
+        "name": "review_policy_gates_completion_but_not_ready_work",
+        "span": {
+          "end": 22279,
+          "start": 16770
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::task_update_events_record_sparse_patch_metadata"
+        },
+        "kind": "Function",
+        "name": "task_update_events_record_sparse_patch_metadata",
+        "span": {
+          "end": 84992,
+          "start": 82016
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::task_update_events_record_sparse_patch_metadata"
+        },
+        "kind": "Function",
+        "name": "task_update_events_record_sparse_patch_metadata",
+        "span": {
+          "end": 86238,
+          "start": 83180
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::draft_plan_hides_ready_work_until_activation"
+        },
+        "kind": "Function",
+        "name": "draft_plan_hides_ready_work_until_activation",
+        "span": {
+          "end": 82006,
+          "start": 79817
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::draft_plan_hides_ready_work_until_activation"
+        },
+        "kind": "Function",
+        "name": "draft_plan_hides_ready_work_until_activation",
+        "span": {
+          "end": 83170,
+          "start": 80981
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::coordination_snapshot_round_trips_authored_plan_edges_and_child_roots"
+        },
+        "kind": "Function",
+        "name": "coordination_snapshot_round_trips_authored_plan_edges_and_child_roots",
+        "span": {
+          "end": 53845,
+          "start": 49482
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::coordination_snapshot_round_trips_authored_plan_edges_and_child_roots"
+        },
+        "kind": "Function",
+        "name": "coordination_snapshot_round_trips_authored_plan_edges_and_child_roots",
+        "span": {
+          "end": 54599,
+          "start": 50236
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::heartbeat_task_refreshes_active_lease_for_same_principal"
+        },
+        "kind": "Function",
+        "name": "heartbeat_task_refreshes_active_lease_for_same_principal",
+        "span": {
+          "end": 119862,
+          "start": 117958
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::heartbeat_task_refreshes_active_lease_for_same_principal"
+        },
+        "kind": "Function",
+        "name": "heartbeat_task_refreshes_active_lease_for_same_principal",
+        "span": {
+          "end": 121450,
+          "start": 119546
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::claim_ownership_is_enforced_and_audited"
+        },
+        "kind": "Function",
+        "name": "claim_ownership_is_enforced_and_audited",
+        "span": {
+          "end": 117948,
+          "start": 114657
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::claim_ownership_is_enforced_and_audited"
+        },
+        "kind": "Function",
+        "name": "claim_ownership_is_enforced_and_audited",
+        "span": {
+          "end": 119536,
+          "start": 116245
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::risk_threshold_requires_review_before_completion"
+        },
+        "kind": "Function",
+        "name": "risk_threshold_requires_review_before_completion",
+        "span": {
+          "end": 44248,
+          "start": 41773
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::risk_threshold_requires_review_before_completion"
+        },
+        "kind": "Function",
+        "name": "risk_threshold_requires_review_before_completion",
+        "span": {
+          "end": 45002,
+          "start": 42445
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::plan_graph_execution_overlays_keep_runtime_state_outside_canonical_nodes"
+        },
+        "kind": "Function",
+        "name": "plan_graph_execution_overlays_keep_runtime_state_outside_canonical_nodes",
+        "span": {
+          "end": 49472,
+          "start": 46929
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::plan_graph_execution_overlays_keep_runtime_state_outside_canonical_nodes"
+        },
+        "kind": "Function",
+        "name": "plan_graph_execution_overlays_keep_runtime_state_outside_canonical_nodes",
+        "span": {
+          "end": 50226,
+          "start": 47683
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::edit_capacity_limit_blocks_extra_claims"
+        },
+        "kind": "Function",
+        "name": "edit_capacity_limit_blocks_extra_claims",
+        "span": {
+          "end": 34026,
+          "start": 30750
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::edit_capacity_limit_blocks_extra_claims"
+        },
+        "kind": "Function",
+        "name": "edit_capacity_limit_blocks_extra_claims",
+        "span": {
+          "end": 34608,
+          "start": 31332
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::overlap_kind_changes_conflict_severity"
+        },
+        "kind": "Function",
+        "name": "overlap_kind_changes_conflict_severity",
+        "span": {
+          "end": 114647,
+          "start": 110526
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::overlap_kind_changes_conflict_severity"
+        },
+        "kind": "Function",
+        "name": "overlap_kind_changes_conflict_severity",
+        "span": {
+          "end": 116235,
+          "start": 112114
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::releasing_last_active_claim_auto_completes_plan"
+        },
+        "kind": "Function",
+        "name": "releasing_last_active_claim_auto_completes_plan",
+        "span": {
+          "end": 73607,
+          "start": 70081
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::releasing_last_active_claim_auto_completes_plan"
+        },
+        "kind": "Function",
+        "name": "releasing_last_active_claim_auto_completes_plan",
+        "span": {
+          "end": 74771,
+          "start": 71163
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::snapshot_replay_reconstructs_continuity_state_from_events"
+        },
+        "kind": "Function",
+        "name": "snapshot_replay_reconstructs_continuity_state_from_events",
+        "span": {
+          "end": 105685,
+          "start": 101465
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::snapshot_replay_reconstructs_continuity_state_from_events"
+        },
+        "kind": "Function",
+        "name": "snapshot_replay_reconstructs_continuity_state_from_events",
+        "span": {
+          "end": 107191,
+          "start": 102971
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::principal_meta"
+        },
+        "kind": "Function",
+        "name": "principal_meta",
+        "span": {
+          "end": 1211,
+          "start": 293
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::principal_meta"
+        },
+        "kind": "Function",
+        "name": "principal_meta",
+        "span": {
+          "end": 1211,
+          "start": 293
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::stale_task_heartbeat_requires_resume"
+        },
+        "kind": "Function",
+        "name": "stale_task_heartbeat_requires_resume",
+        "span": {
+          "end": 121890,
+          "start": 119872
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::stale_task_heartbeat_requires_resume"
+        },
+        "kind": "Function",
+        "name": "stale_task_heartbeat_requires_resume",
+        "span": {
+          "end": 123478,
+          "start": 121460
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::meta"
+        },
+        "kind": "Function",
+        "name": "meta",
+        "span": {
+          "end": 291,
+          "start": 55
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::meta"
+        },
+        "kind": "Function",
+        "name": "meta",
+        "span": {
+          "end": 291,
+          "start": 55
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::completing_last_task_auto_completes_task_execution_plan"
+        },
+        "kind": "Function",
+        "name": "completing_last_task_auto_completes_task_execution_plan",
+        "span": {
+          "end": 66978,
+          "start": 64390
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::completing_last_task_auto_completes_task_execution_plan"
+        },
+        "kind": "Function",
+        "name": "completing_last_task_auto_completes_task_execution_plan",
+        "span": {
+          "end": 67978,
+          "start": 65308
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::stale_claim_and_artifact_mutations_are_rejected"
+        },
+        "kind": "Function",
+        "name": "stale_claim_and_artifact_mutations_are_rejected",
+        "span": {
+          "end": 59621,
+          "start": 56305
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::stale_claim_and_artifact_mutations_are_rejected"
+        },
+        "kind": "Function",
+        "name": "stale_claim_and_artifact_mutations_are_rejected",
+        "span": {
+          "end": 60457,
+          "start": 57141
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Module",
+          "path": "prism_coordination::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 121891,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Module",
+          "path": "prism_coordination::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 123479,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::expired_claim_can_be_renewed_by_same_principal"
+        },
+        "kind": "Function",
+        "name": "expired_claim_can_be_renewed_by_same_principal",
+        "span": {
+          "end": 13758,
+          "start": 11356
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::expired_claim_can_be_renewed_by_same_principal"
+        },
+        "kind": "Function",
+        "name": "expired_claim_can_be_renewed_by_same_principal",
+        "span": {
+          "end": 14004,
+          "start": 11602
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::snapshot_load_replays_handoff_events"
+        },
+        "kind": "Function",
+        "name": "snapshot_load_replays_handoff_events",
+        "span": {
+          "end": 101455,
+          "start": 98506
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::snapshot_load_replays_handoff_events"
+        },
+        "kind": "Function",
+        "name": "snapshot_load_replays_handoff_events",
+        "span": {
+          "end": 102961,
+          "start": 100012
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::expired_task_requires_resume_for_same_principal"
+        },
+        "kind": "Function",
+        "name": "expired_task_requires_resume_for_same_principal",
+        "span": {
+          "end": 8376,
+          "start": 4463
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::tests::expired_task_requires_resume_for_same_principal"
+        },
+        "kind": "Function",
+        "name": "expired_task_requires_resume_for_same_principal",
+        "span": {
+          "end": 8540,
+          "start": 4463
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 78,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/tests.rs"
+    ],
+    "files": [
+      75
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

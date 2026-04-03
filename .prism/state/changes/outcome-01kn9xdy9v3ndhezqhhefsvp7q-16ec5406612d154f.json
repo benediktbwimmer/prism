@@ -1,0 +1,1023 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdy9v3ndhezqhhefsvp7q",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 87
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::build_workspace_session",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::resolve_graph_edges",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::ResolveGraphEdgesStats::resolve_impls_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::ResolveGraphEdgesStats::clear_derived_edges_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::path_matches_refresh_scope",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::ResolveGraphEdgesStats::unresolved_impl_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::tests::unresolved_call",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::ResolveGraphEdgesStats::resolve_imports_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::ResolveGraphEdgesStats::unresolved_intent_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::ResolveGraphEdgesStats::resolution_scope_path_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::ResolveGraphEdgesStats::extend_edges_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::ResolveGraphEdgesStats::collect_unresolved_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::collect_refresh_scope_paths",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::tests::scoped_edge_resolution_replaces_only_edges_for_scoped_files",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::tests",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::ResolveGraphEdgesStats::resolution_scope_node_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::tests::function",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::ResolveGraphEdgesStats::collect_scope_nodes_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::ResolveGraphEdgesStats::unresolved_import_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::ResolveGraphEdgesStats",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::ResolveGraphEdgesStats::resolve_calls_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::collect_pending_file_parses",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::ResolveGraphEdgesStats::resolve_intents_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::ResolveGraphEdgesStats::cleared_derived_edge_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::indexer_support::ResolveGraphEdgesStats::unresolved_call_count",
+        "kind": "Field"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 26 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 52,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "removedCount": 0,
+        "updatedCount": 52
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::indexer_support::build_workspace_session"
+        },
+        "kind": "Function",
+        "name": "build_workspace_session",
+        "span": {
+          "end": 7962,
+          "start": 1446
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::indexer_support::build_workspace_session"
+        },
+        "kind": "Function",
+        "name": "build_workspace_session",
+        "span": {
+          "end": 9866,
+          "start": 1522
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::indexer_support::resolve_graph_edges"
+        },
+        "kind": "Function",
+        "name": "resolve_graph_edges",
+        "span": {
+          "end": 15222,
+          "start": 11290
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::indexer_support::resolve_graph_edges"
+        },
+        "kind": "Function",
+        "name": "resolve_graph_edges",
+        "span": {
+          "end": 17126,
+          "start": 13194
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::resolve_impls_ms"
+        },
+        "kind": "Field",
+        "name": "resolve_impls_ms",
+        "span": {
+          "end": 11206,
+          "start": 11173
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::resolve_impls_ms"
+        },
+        "kind": "Field",
+        "name": "resolve_impls_ms",
+        "span": {
+          "end": 13110,
+          "start": 13077
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::clear_derived_edges_ms"
+        },
+        "kind": "Field",
+        "name": "clear_derived_edges_ms",
+        "span": {
+          "end": 11043,
+          "start": 11004
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::clear_derived_edges_ms"
+        },
+        "kind": "Field",
+        "name": "clear_derived_edges_ms",
+        "span": {
+          "end": 12947,
+          "start": 12908
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::indexer_support::path_matches_refresh_scope"
+        },
+        "kind": "Function",
+        "name": "path_matches_refresh_scope",
+        "span": {
+          "end": 10535,
+          "start": 10298
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::indexer_support::path_matches_refresh_scope"
+        },
+        "kind": "Function",
+        "name": "path_matches_refresh_scope",
+        "span": {
+          "end": 12439,
+          "start": 12202
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::unresolved_impl_count"
+        },
+        "kind": "Field",
+        "name": "unresolved_impl_count",
+        "span": {
+          "end": 10906,
+          "start": 10867
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::unresolved_impl_count"
+        },
+        "kind": "Field",
+        "name": "unresolved_impl_count",
+        "span": {
+          "end": 12810,
+          "start": 12771
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::indexer_support::tests::unresolved_call"
+        },
+        "kind": "Function",
+        "name": "unresolved_call",
+        "span": {
+          "end": 16081,
+          "start": 15808
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::indexer_support::tests::unresolved_call"
+        },
+        "kind": "Function",
+        "name": "unresolved_call",
+        "span": {
+          "end": 17985,
+          "start": 17712
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::resolve_imports_ms"
+        },
+        "kind": "Field",
+        "name": "resolve_imports_ms",
+        "span": {
+          "end": 11167,
+          "start": 11132
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::resolve_imports_ms"
+        },
+        "kind": "Field",
+        "name": "resolve_imports_ms",
+        "span": {
+          "end": 13071,
+          "start": 13036
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::indexer_support"
+        },
+        "kind": "Module",
+        "name": "indexer_support",
+        "span": {
+          "end": 19489,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::indexer_support"
+        },
+        "kind": "Module",
+        "name": "indexer_support",
+        "span": {
+          "end": 21393,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::unresolved_intent_count"
+        },
+        "kind": "Field",
+        "name": "unresolved_intent_count",
+        "span": {
+          "end": 10953,
+          "start": 10912
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::unresolved_intent_count"
+        },
+        "kind": "Field",
+        "name": "unresolved_intent_count",
+        "span": {
+          "end": 12857,
+          "start": 12816
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::resolution_scope_path_count"
+        },
+        "kind": "Field",
+        "name": "resolution_scope_path_count",
+        "span": {
+          "end": 10718,
+          "start": 10673
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::resolution_scope_path_count"
+        },
+        "kind": "Field",
+        "name": "resolution_scope_path_count",
+        "span": {
+          "end": 12622,
+          "start": 12577
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::extend_edges_ms"
+        },
+        "kind": "Field",
+        "name": "extend_edges_ms",
+        "span": {
+          "end": 11285,
+          "start": 11253
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::extend_edges_ms"
+        },
+        "kind": "Field",
+        "name": "extend_edges_ms",
+        "span": {
+          "end": 13189,
+          "start": 13157
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::collect_unresolved_ms"
+        },
+        "kind": "Field",
+        "name": "collect_unresolved_ms",
+        "span": {
+          "end": 11087,
+          "start": 11049
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::collect_unresolved_ms"
+        },
+        "kind": "Field",
+        "name": "collect_unresolved_ms",
+        "span": {
+          "end": 12991,
+          "start": 12953
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::indexer_support::collect_refresh_scope_paths"
+        },
+        "kind": "Function",
+        "name": "collect_refresh_scope_paths",
+        "span": {
+          "end": 10296,
+          "start": 9392
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::indexer_support::collect_refresh_scope_paths"
+        },
+        "kind": "Function",
+        "name": "collect_refresh_scope_paths",
+        "span": {
+          "end": 12200,
+          "start": 11296
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::indexer_support::tests::scoped_edge_resolution_replaces_only_edges_for_scoped_files"
+        },
+        "kind": "Function",
+        "name": "scoped_edge_resolution_replaces_only_edges_for_scoped_files",
+        "span": {
+          "end": 19486,
+          "start": 16099
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::indexer_support::tests::scoped_edge_resolution_replaces_only_edges_for_scoped_files"
+        },
+        "kind": "Function",
+        "name": "scoped_edge_resolution_replaces_only_edges_for_scoped_files",
+        "span": {
+          "end": 21390,
+          "start": 18003
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::indexer_support::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 19488,
+          "start": 15237
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::indexer_support::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 21392,
+          "start": 17141
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::resolution_scope_node_count"
+        },
+        "kind": "Field",
+        "name": "resolution_scope_node_count",
+        "span": {
+          "end": 10769,
+          "start": 10724
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::resolution_scope_node_count"
+        },
+        "kind": "Field",
+        "name": "resolution_scope_node_count",
+        "span": {
+          "end": 12673,
+          "start": 12628
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::indexer_support::tests::function"
+        },
+        "kind": "Function",
+        "name": "function",
+        "span": {
+          "end": 15802,
+          "start": 15484
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::indexer_support::tests::function"
+        },
+        "kind": "Function",
+        "name": "function",
+        "span": {
+          "end": 17706,
+          "start": 17388
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::collect_scope_nodes_ms"
+        },
+        "kind": "Field",
+        "name": "collect_scope_nodes_ms",
+        "span": {
+          "end": 10998,
+          "start": 10959
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::collect_scope_nodes_ms"
+        },
+        "kind": "Field",
+        "name": "collect_scope_nodes_ms",
+        "span": {
+          "end": 12902,
+          "start": 12863
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::unresolved_import_count"
+        },
+        "kind": "Field",
+        "name": "unresolved_import_count",
+        "span": {
+          "end": 10861,
+          "start": 10820
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::unresolved_import_count"
+        },
+        "kind": "Field",
+        "name": "unresolved_import_count",
+        "span": {
+          "end": 12765,
+          "start": 12724
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats"
+        },
+        "kind": "Struct",
+        "name": "ResolveGraphEdgesStats",
+        "span": {
+          "end": 11288,
+          "start": 10576
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats"
+        },
+        "kind": "Struct",
+        "name": "ResolveGraphEdgesStats",
+        "span": {
+          "end": 13192,
+          "start": 12480
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::resolve_calls_ms"
+        },
+        "kind": "Field",
+        "name": "resolve_calls_ms",
+        "span": {
+          "end": 11126,
+          "start": 11093
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::resolve_calls_ms"
+        },
+        "kind": "Field",
+        "name": "resolve_calls_ms",
+        "span": {
+          "end": 13030,
+          "start": 12997
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::indexer_support::collect_pending_file_parses"
+        },
+        "kind": "Function",
+        "name": "collect_pending_file_parses",
+        "span": {
+          "end": 9390,
+          "start": 7964
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::indexer_support::collect_pending_file_parses"
+        },
+        "kind": "Function",
+        "name": "collect_pending_file_parses",
+        "span": {
+          "end": 11294,
+          "start": 9868
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::resolve_intents_ms"
+        },
+        "kind": "Field",
+        "name": "resolve_intents_ms",
+        "span": {
+          "end": 11247,
+          "start": 11212
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::resolve_intents_ms"
+        },
+        "kind": "Field",
+        "name": "resolve_intents_ms",
+        "span": {
+          "end": 13151,
+          "start": 13116
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::cleared_derived_edge_count"
+        },
+        "kind": "Field",
+        "name": "cleared_derived_edge_count",
+        "span": {
+          "end": 10667,
+          "start": 10623
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::cleared_derived_edge_count"
+        },
+        "kind": "Field",
+        "name": "cleared_derived_edge_count",
+        "span": {
+          "end": 12571,
+          "start": 12527
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::unresolved_call_count"
+        },
+        "kind": "Field",
+        "name": "unresolved_call_count",
+        "span": {
+          "end": 10814,
+          "start": 10775
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::indexer_support::ResolveGraphEdgesStats::unresolved_call_count"
+        },
+        "kind": "Field",
+        "name": "unresolved_call_count",
+        "span": {
+          "end": 12718,
+          "start": 12679
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 52,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/indexer_support.rs"
+    ],
+    "files": [
+      87
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

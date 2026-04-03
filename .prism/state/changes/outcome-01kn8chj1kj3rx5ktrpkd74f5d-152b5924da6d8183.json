@@ -1,0 +1,5434 @@
+{
+  "meta": {
+    "id": "outcome:01kn8chj1kj3rx5ktrpkd74f5d",
+    "ts": 1775176828,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn8chj038srd31027mscvwwj",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/codex/b",
+      "instance_id": "instance:36757:1775176443682",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 122
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceFsRefreshOutcome::observed",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::refresh_with_trigger",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::pending_refresh_paths",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::prism_arc",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::append_concept_event",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::workspace_revision",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::ensure_paths_deep_with_guard",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_task_replay",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::dirty_paths_snapshot",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::append_concept_event_guarded",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::set_curator_proposal_state",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::set_curator_proposal_state_guarded",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_hot_outcome_event",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::persist_history",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::mutate_coordination_with_session",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::recover_runtime_from_persisted_state_locked",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshBreakdown::plan_refresh_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshResult::mode",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::default_observed_change_checkpoint_summary",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceFsRefreshOutcome::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::last_refresh",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::observed_change_checkpoint_trigger",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::root",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::workspace_materialization_summary",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::refresh_fs_nonblocking",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshWork::full_rebuild_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::bind_active_work_context",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_outcome_event",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::ensure_paths_deep",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::shared_runtime_store",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::append_validation_feedback",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::attach_cold_query_backends",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::mark_refreshed_revision",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::published_generation",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceLastRefresh::workspace_revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::memory_events",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshWork::loaded_bytes",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::append_outcome_with_auxiliary",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::mutate_coordination",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshBreakdown::curator_enqueue_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::try_mutate_coordination_with_session",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::scoped_refresh_paths_for_requests",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceLastRefresh::fs_applied_revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::workspace_materialization_coverage",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::observed_fs_revision",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::flush_materializations",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshResult::observed",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshBreakdown",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::observed_fs_revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::inference_revision",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::runtime_state",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::CoordinationPlanState",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::flush_observed_changes",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::try_refresh_with_trigger",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshResult::breakdown",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::coordination_revision",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceLastRefresh::changed_directories",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::try_append_concept_relation_event",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::mutate_coordination_with_session_wait_observed",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::hydrate_coordination_runtime",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::append_concept_relation_event",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceFsRefreshOutcome",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshSeed::work",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::is_curator_snapshot_loaded",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::shared_runtime_materializer",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::shared_runtime",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceLastRefresh::replay_volume",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::refresh_fs_with_scoped_paths",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::refresh_fs_with_status",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::checkpoint_materializer",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshBreakdown::publish_generation_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshWork",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::persist_principal_registry",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_principal_registry",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::hydrate_persisted_co_change",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshSeed::path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::impl::Drop",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::last_refresh",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::validation_feedback",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::observed_change_tracker",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceLastRefresh::unaffected_directories",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshSeed",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::record_runtime_refresh_observation",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::applied_fs_revision",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::CoordinationPlanState::snapshot",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_hot_task_replay",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::watch",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::pending_refresh_path_requests",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::try_set_curator_proposal_state",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceLastRefresh",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_cold_task_replay",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::record_runtime_refresh_observation",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::try_recover_runtime_from_persisted_state",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_outcomes",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceLastRefresh::changed_packages",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::persist_coordination",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_cold_outcome_event",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::loaded_workspace_revision_handle",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::append_contract_event_guarded",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceFsRefreshOutcome::breakdown",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceLastRefresh::unaffected_packages",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::append_outcome_with_auxiliary_guarded",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceLastRefresh::workspace_reloaded",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::try_lock_refresh_for_mutation",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::merge_patch_event_summaries",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::persist_episodic",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::try_append_outcome_with_auxiliary",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshBreakdown::attach_cold_query_backends_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::merge_patch_file_summaries",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::refresh_fs_with_paths",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_coordination_queue_read_model",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::episodic_revision",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::prism",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::last_refresh",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::needs_refresh",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::hydrate_persisted_projections",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::snapshot_revisions",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::record_refresh",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::delete_persisted_projection_relation_everywhere",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_hot_lineage_history",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshResult",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::CoordinationPlanState::plan_graphs",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::try_append_contract_event",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_episodic_snapshot_for_runtime",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::append_concept_relation_event_guarded",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_coordination_plan_state",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::append_outcome",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::root",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::append_outcome_event_to_persistent_stores",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::scoped_dirty_paths_for_requests",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceLastRefresh::removed_files",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::delete_persisted_projection_concept_everywhere",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::refresh_state",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::try_lock_refresh_for_phase",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::active_work_context",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshWork::replay_volume",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::try_append_outcome",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::curator_snapshot",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::persist_outcomes",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::recover_runtime_from_persisted_state_with_guard",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_episodic_snapshot",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::record_runtime_refresh_observation_with_work",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::try_mutate_coordination_with_session_observed",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshWork::workspace_reloaded",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::take_flushed_observed_changes",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::cold_query_store",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::refresh_fs",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::curator",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::persist_current_coordination",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_inference_snapshot",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::fs_snapshot",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::persist_inference",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::is_fallback_check_due_now",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_hot_outcomes",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::loaded_workspace_revision",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::should_run_fallback_check",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::worktree_principal_binding",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::append_outcome_guarded",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::lock_refresh_for_mutation",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshSeed::duration_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_coordination_snapshot",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceLastRefresh::changed_files",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::mutate_coordination_with_session_guarded",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::CoordinationPlanState::execution_overlays",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::snapshot_revisions_for_runtime",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::append_inference_records",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::coordination_enabled",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::publish_pending_repo_patch_provenance_for_active_work",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::fallback_check_due",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::observed_fs_revision",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::FsRefreshStatus",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::shared_runtime_store",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshBreakdown::finalize_refresh_state_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::try_ensure_paths_deep",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::refresh_lock",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::persist_flushed_observed_change_checkpoints",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::lock_store_for_mutation",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceLastRefresh::full_rebuild_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::record_runtime_refresh_observation_with_work",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_cold_outcomes",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::mark_fs_dirty_paths",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::new",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceLastRefresh::loaded_bytes",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::publish_runtime_state",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceLastRefresh::fs_observed_revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshBreakdown::assisted_lease_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::protected_state_watch",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::applied_fs_revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_patch_file_summaries",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::dirty_path_requests_snapshot",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::clear_active_work_context",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceLastRefresh::timestamp",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_cold_lineage_history",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::loaded_workspace_revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::drop",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::wait_lock_refresh_for_phase",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::dirty_paths",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_lineage_history",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::mutate_coordination_with_session_observed",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::append_contract_event",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::event_execution_context",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::needs_refresh",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::applied_fs_revision",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshState::last_fallback_check_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshBreakdown::build_indexer_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::append_memory_event",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::try_append_concept_event",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::store",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_patch_event_summaries",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceLastRefresh::duration_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::sync_prism_doc",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceLastRefresh::path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceSession::load_coordination_read_model",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::session::WorkspaceRefreshBreakdown::index_workspace_ms",
+        "kind": "Field"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 219 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 438,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "removedCount": 0,
+        "updatedCount": 438
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceFsRefreshOutcome::observed"
+        },
+        "kind": "Field",
+        "name": "observed",
+        "span": {
+          "end": 5197,
+          "start": 5161
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceFsRefreshOutcome::observed"
+        },
+        "kind": "Field",
+        "name": "observed",
+        "span": {
+          "end": 5197,
+          "start": 5161
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::refresh_with_trigger"
+        },
+        "kind": "Method",
+        "name": "refresh_with_trigger",
+        "span": {
+          "end": 117925,
+          "start": 116839
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::refresh_with_trigger"
+        },
+        "kind": "Method",
+        "name": "refresh_with_trigger",
+        "span": {
+          "end": 118136,
+          "start": 117050
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::pending_refresh_paths"
+        },
+        "kind": "Method",
+        "name": "pending_refresh_paths",
+        "span": {
+          "end": 38253,
+          "start": 38144
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::pending_refresh_paths"
+        },
+        "kind": "Method",
+        "name": "pending_refresh_paths",
+        "span": {
+          "end": 38464,
+          "start": 38355
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::prism_arc"
+        },
+        "kind": "Method",
+        "name": "prism_arc",
+        "span": {
+          "end": 29727,
+          "start": 29535
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::prism_arc"
+        },
+        "kind": "Method",
+        "name": "prism_arc",
+        "span": {
+          "end": 29727,
+          "start": 29535
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::append_concept_event"
+        },
+        "kind": "Method",
+        "name": "append_concept_event",
+        "span": {
+          "end": 72441,
+          "start": 72181
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::append_concept_event"
+        },
+        "kind": "Method",
+        "name": "append_concept_event",
+        "span": {
+          "end": 72652,
+          "start": 72392
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::workspace_revision"
+        },
+        "kind": "Method",
+        "name": "workspace_revision",
+        "span": {
+          "end": 58476,
+          "start": 57852
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::workspace_revision"
+        },
+        "kind": "Method",
+        "name": "workspace_revision",
+        "span": {
+          "end": 58687,
+          "start": 58063
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::ensure_paths_deep_with_guard"
+        },
+        "kind": "Method",
+        "name": "ensure_paths_deep_with_guard",
+        "span": {
+          "end": 45449,
+          "start": 39831
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::ensure_paths_deep_with_guard"
+        },
+        "kind": "Method",
+        "name": "ensure_paths_deep_with_guard",
+        "span": {
+          "end": 45660,
+          "start": 40042
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_task_replay"
+        },
+        "kind": "Method",
+        "name": "load_task_replay",
+        "span": {
+          "end": 26272,
+          "start": 26144
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_task_replay"
+        },
+        "kind": "Method",
+        "name": "load_task_replay",
+        "span": {
+          "end": 26272,
+          "start": 26144
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceRefreshState::dirty_paths_snapshot"
+        },
+        "kind": "Method",
+        "name": "dirty_paths_snapshot",
+        "span": {
+          "end": 8415,
+          "start": 8181
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceRefreshState::dirty_paths_snapshot"
+        },
+        "kind": "Method",
+        "name": "dirty_paths_snapshot",
+        "span": {
+          "end": 8415,
+          "start": 8181
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::append_concept_event_guarded"
+        },
+        "kind": "Method",
+        "name": "append_concept_event_guarded",
+        "span": {
+          "end": 74260,
+          "start": 72743
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::append_concept_event_guarded"
+        },
+        "kind": "Method",
+        "name": "append_concept_event_guarded",
+        "span": {
+          "end": 74471,
+          "start": 72954
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::set_curator_proposal_state"
+        },
+        "kind": "Method",
+        "name": "set_curator_proposal_state",
+        "span": {
+          "end": 103848,
+          "start": 103234
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::set_curator_proposal_state"
+        },
+        "kind": "Method",
+        "name": "set_curator_proposal_state",
+        "span": {
+          "end": 104059,
+          "start": 103445
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::set_curator_proposal_state_guarded"
+        },
+        "kind": "Method",
+        "name": "set_curator_proposal_state_guarded",
+        "span": {
+          "end": 106449,
+          "start": 104509
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::set_curator_proposal_state_guarded"
+        },
+        "kind": "Method",
+        "name": "set_curator_proposal_state_guarded",
+        "span": {
+          "end": 106660,
+          "start": 104720
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_hot_outcome_event"
+        },
+        "kind": "Method",
+        "name": "load_hot_outcome_event",
+        "span": {
+          "end": 27007,
+          "start": 26854
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_hot_outcome_event"
+        },
+        "kind": "Method",
+        "name": "load_hot_outcome_event",
+        "span": {
+          "end": 27007,
+          "start": 26854
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::persist_history"
+        },
+        "kind": "Method",
+        "name": "persist_history",
+        "span": {
+          "end": 49263,
+          "start": 48559
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::persist_history"
+        },
+        "kind": "Method",
+        "name": "persist_history",
+        "span": {
+          "end": 49474,
+          "start": 48770
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::mutate_coordination_with_session"
+        },
+        "kind": "Method",
+        "name": "mutate_coordination_with_session",
+        "span": {
+          "end": 90613,
+          "start": 90237
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::mutate_coordination_with_session"
+        },
+        "kind": "Method",
+        "name": "mutate_coordination_with_session",
+        "span": {
+          "end": 90824,
+          "start": 90448
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::recover_runtime_from_persisted_state_locked"
+        },
+        "kind": "Method",
+        "name": "recover_runtime_from_persisted_state_locked",
+        "span": {
+          "end": 57846,
+          "start": 51252
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::recover_runtime_from_persisted_state_locked"
+        },
+        "kind": "Method",
+        "name": "recover_runtime_from_persisted_state_locked",
+        "span": {
+          "end": 58057,
+          "start": 51463
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshBreakdown::plan_refresh_ms"
+        },
+        "kind": "Field",
+        "name": "plan_refresh_ms",
+        "span": {
+          "end": 5369,
+          "start": 5345
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshBreakdown::plan_refresh_ms"
+        },
+        "kind": "Field",
+        "name": "plan_refresh_ms",
+        "span": {
+          "end": 5369,
+          "start": 5345
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshResult::mode"
+        },
+        "kind": "Field",
+        "name": "mode",
+        "span": {
+          "end": 5952,
+          "start": 5907
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshResult::mode"
+        },
+        "kind": "Field",
+        "name": "mode",
+        "span": {
+          "end": 5952,
+          "start": 5907
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::session::default_observed_change_checkpoint_summary"
+        },
+        "kind": "Function",
+        "name": "default_observed_change_checkpoint_summary",
+        "span": {
+          "end": 122547,
+          "start": 122220
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::session::default_observed_change_checkpoint_summary"
+        },
+        "kind": "Function",
+        "name": "default_observed_change_checkpoint_summary",
+        "span": {
+          "end": 122758,
+          "start": 122431
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceFsRefreshOutcome::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 5155,
+          "start": 5128
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceFsRefreshOutcome::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 5155,
+          "start": 5128
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceRefreshState::last_refresh"
+        },
+        "kind": "Method",
+        "name": "last_refresh",
+        "span": {
+          "end": 14248,
+          "start": 14048
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceRefreshState::last_refresh"
+        },
+        "kind": "Method",
+        "name": "last_refresh",
+        "span": {
+          "end": 14248,
+          "start": 14048
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::session::observed_change_checkpoint_trigger"
+        },
+        "kind": "Function",
+        "name": "observed_change_checkpoint_trigger",
+        "span": {
+          "end": 122218,
+          "start": 121587
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::session::observed_change_checkpoint_trigger"
+        },
+        "kind": "Function",
+        "name": "observed_change_checkpoint_trigger",
+        "span": {
+          "end": 122429,
+          "start": 121798
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::root"
+        },
+        "kind": "Method",
+        "name": "root",
+        "span": {
+          "end": 25378,
+          "start": 25324
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::root"
+        },
+        "kind": "Method",
+        "name": "root",
+        "span": {
+          "end": 25378,
+          "start": 25324
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::workspace_materialization_summary"
+        },
+        "kind": "Method",
+        "name": "workspace_materialization_summary",
+        "span": {
+          "end": 39456,
+          "start": 39091
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::workspace_materialization_summary"
+        },
+        "kind": "Method",
+        "name": "workspace_materialization_summary",
+        "span": {
+          "end": 39667,
+          "start": 39302
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::refresh_fs_nonblocking"
+        },
+        "kind": "Method",
+        "name": "refresh_fs_nonblocking",
+        "span": {
+          "end": 38046,
+          "start": 36872
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::refresh_fs_nonblocking"
+        },
+        "kind": "Method",
+        "name": "refresh_fs_nonblocking",
+        "span": {
+          "end": 38257,
+          "start": 37083
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshWork::full_rebuild_count"
+        },
+        "kind": "Field",
+        "name": "full_rebuild_count",
+        "span": {
+          "end": 5797,
+          "start": 5770
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshWork::full_rebuild_count"
+        },
+        "kind": "Field",
+        "name": "full_rebuild_count",
+        "span": {
+          "end": 5797,
+          "start": 5770
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::bind_active_work_context"
+        },
+        "kind": "Method",
+        "name": "bind_active_work_context",
+        "span": {
+          "end": 16541,
+          "start": 16309
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::bind_active_work_context"
+        },
+        "kind": "Method",
+        "name": "bind_active_work_context",
+        "span": {
+          "end": 16541,
+          "start": 16309
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_outcome_event"
+        },
+        "kind": "Method",
+        "name": "load_outcome_event",
+        "span": {
+          "end": 27319,
+          "start": 27174
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_outcome_event"
+        },
+        "kind": "Method",
+        "name": "load_outcome_event",
+        "span": {
+          "end": 27319,
+          "start": 27174
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::ensure_paths_deep"
+        },
+        "kind": "Method",
+        "name": "ensure_paths_deep",
+        "span": {
+          "end": 45752,
+          "start": 45455
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::ensure_paths_deep"
+        },
+        "kind": "Method",
+        "name": "ensure_paths_deep",
+        "span": {
+          "end": 45963,
+          "start": 45666
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::shared_runtime_store"
+        },
+        "kind": "Method",
+        "name": "shared_runtime_store",
+        "span": {
+          "end": 21473,
+          "start": 21349
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::shared_runtime_store"
+        },
+        "kind": "Method",
+        "name": "shared_runtime_store",
+        "span": {
+          "end": 21473,
+          "start": 21349
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::append_validation_feedback"
+        },
+        "kind": "Method",
+        "name": "append_validation_feedback",
+        "span": {
+          "end": 107119,
+          "start": 106924
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::append_validation_feedback"
+        },
+        "kind": "Method",
+        "name": "append_validation_feedback",
+        "span": {
+          "end": 107330,
+          "start": 107135
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::attach_cold_query_backends"
+        },
+        "kind": "Method",
+        "name": "attach_cold_query_backends",
+        "span": {
+          "end": 32865,
+          "start": 32379
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::attach_cold_query_backends"
+        },
+        "kind": "Method",
+        "name": "attach_cold_query_backends",
+        "span": {
+          "end": 32865,
+          "start": 32379
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceRefreshState::mark_refreshed_revision"
+        },
+        "kind": "Method",
+        "name": "mark_refreshed_revision",
+        "span": {
+          "end": 10277,
+          "start": 9625
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceRefreshState::mark_refreshed_revision"
+        },
+        "kind": "Method",
+        "name": "mark_refreshed_revision",
+        "span": {
+          "end": 10277,
+          "start": 9625
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceSession::published_generation"
+        },
+        "kind": "Field",
+        "name": "published_generation",
+        "span": {
+          "end": 15142,
+          "start": 15068
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceSession::published_generation"
+        },
+        "kind": "Field",
+        "name": "published_generation",
+        "span": {
+          "end": 15142,
+          "start": 15068
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceLastRefresh::workspace_revision"
+        },
+        "kind": "Field",
+        "name": "workspace_revision",
+        "span": {
+          "end": 6292,
+          "start": 6265
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceLastRefresh::workspace_revision"
+        },
+        "kind": "Field",
+        "name": "workspace_revision",
+        "span": {
+          "end": 6292,
+          "start": 6265
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::memory_events"
+        },
+        "kind": "Method",
+        "name": "memory_events",
+        "span": {
+          "end": 70526,
+          "start": 69790
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::memory_events"
+        },
+        "kind": "Method",
+        "name": "memory_events",
+        "span": {
+          "end": 70737,
+          "start": 70001
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshWork::loaded_bytes"
+        },
+        "kind": "Field",
+        "name": "loaded_bytes",
+        "span": {
+          "end": 5736,
+          "start": 5715
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshWork::loaded_bytes"
+        },
+        "kind": "Field",
+        "name": "loaded_bytes",
+        "span": {
+          "end": 5736,
+          "start": 5715
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::append_outcome_with_auxiliary"
+        },
+        "kind": "Method",
+        "name": "append_outcome_with_auxiliary",
+        "span": {
+          "end": 107976,
+          "start": 107453
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::append_outcome_with_auxiliary"
+        },
+        "kind": "Method",
+        "name": "append_outcome_with_auxiliary",
+        "span": {
+          "end": 108187,
+          "start": 107664
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::mutate_coordination"
+        },
+        "kind": "Method",
+        "name": "mutate_coordination",
+        "span": {
+          "end": 90231,
+          "start": 90046
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::mutate_coordination"
+        },
+        "kind": "Method",
+        "name": "mutate_coordination",
+        "span": {
+          "end": 90442,
+          "start": 90257
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshBreakdown::curator_enqueue_ms"
+        },
+        "kind": "Field",
+        "name": "curator_enqueue_ms",
+        "span": {
+          "end": 5534,
+          "start": 5507
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshBreakdown::curator_enqueue_ms"
+        },
+        "kind": "Field",
+        "name": "curator_enqueue_ms",
+        "span": {
+          "end": 5534,
+          "start": 5507
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::try_mutate_coordination_with_session"
+        },
+        "kind": "Method",
+        "name": "try_mutate_coordination_with_session",
+        "span": {
+          "end": 100937,
+          "start": 100545
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::try_mutate_coordination_with_session"
+        },
+        "kind": "Method",
+        "name": "try_mutate_coordination_with_session",
+        "span": {
+          "end": 101148,
+          "start": 100756
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::scoped_refresh_paths_for_requests"
+        },
+        "kind": "Method",
+        "name": "scoped_refresh_paths_for_requests",
+        "span": {
+          "end": 38615,
+          "start": 38410
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::scoped_refresh_paths_for_requests"
+        },
+        "kind": "Method",
+        "name": "scoped_refresh_paths_for_requests",
+        "span": {
+          "end": 38826,
+          "start": 38621
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceLastRefresh::fs_applied_revision"
+        },
+        "kind": "Field",
+        "name": "fs_applied_revision",
+        "span": {
+          "end": 6259,
+          "start": 6231
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceLastRefresh::fs_applied_revision"
+        },
+        "kind": "Field",
+        "name": "fs_applied_revision",
+        "span": {
+          "end": 6259,
+          "start": 6231
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::workspace_materialization_coverage"
+        },
+        "kind": "Method",
+        "name": "workspace_materialization_coverage",
+        "span": {
+          "end": 39825,
+          "start": 39462
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::workspace_materialization_coverage"
+        },
+        "kind": "Method",
+        "name": "workspace_materialization_coverage",
+        "span": {
+          "end": 40036,
+          "start": 39673
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceRefreshState::observed_fs_revision"
+        },
+        "kind": "Method",
+        "name": "observed_fs_revision",
+        "span": {
+          "end": 10575,
+          "start": 10461
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceRefreshState::observed_fs_revision"
+        },
+        "kind": "Method",
+        "name": "observed_fs_revision",
+        "span": {
+          "end": 10575,
+          "start": 10461
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::flush_materializations"
+        },
+        "kind": "Method",
+        "name": "flush_materializations",
+        "span": {
+          "end": 113858,
+          "start": 113555
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::flush_materializations"
+        },
+        "kind": "Method",
+        "name": "flush_materializations",
+        "span": {
+          "end": 114069,
+          "start": 113766
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshResult::observed"
+        },
+        "kind": "Field",
+        "name": "observed",
+        "span": {
+          "end": 6001,
+          "start": 5958
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshResult::observed"
+        },
+        "kind": "Field",
+        "name": "observed",
+        "span": {
+          "end": 6001,
+          "start": 5958
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::session::WorkspaceRefreshBreakdown"
+        },
+        "kind": "Struct",
+        "name": "WorkspaceRefreshBreakdown",
+        "span": {
+          "end": 5621,
+          "start": 5302
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::session::WorkspaceRefreshBreakdown"
+        },
+        "kind": "Struct",
+        "name": "WorkspaceRefreshBreakdown",
+        "span": {
+          "end": 5621,
+          "start": 5302
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshState::observed_fs_revision"
+        },
+        "kind": "Field",
+        "name": "observed_fs_revision",
+        "span": {
+          "end": 7133,
+          "start": 7102
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshState::observed_fs_revision"
+        },
+        "kind": "Field",
+        "name": "observed_fs_revision",
+        "span": {
+          "end": 7133,
+          "start": 7102
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::inference_revision"
+        },
+        "kind": "Method",
+        "name": "inference_revision",
+        "span": {
+          "end": 79222,
+          "start": 79041
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::inference_revision"
+        },
+        "kind": "Method",
+        "name": "inference_revision",
+        "span": {
+          "end": 79433,
+          "start": 79252
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::session::WorkspaceRefreshState::impl"
+        },
+        "kind": "Impl",
+        "name": "WorkspaceRefreshState",
+        "span": {
+          "end": 15002,
+          "start": 7367
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::session::WorkspaceRefreshState::impl"
+        },
+        "kind": "Impl",
+        "name": "WorkspaceRefreshState",
+        "span": {
+          "end": 15002,
+          "start": 7367
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceSession::runtime_state"
+        },
+        "kind": "Field",
+        "name": "runtime_state",
+        "span": {
+          "end": 15207,
+          "start": 15148
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceSession::runtime_state"
+        },
+        "kind": "Field",
+        "name": "runtime_state",
+        "span": {
+          "end": 15207,
+          "start": 15148
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::session::CoordinationPlanState"
+        },
+        "kind": "Struct",
+        "name": "CoordinationPlanState",
+        "span": {
+          "end": 7054,
+          "start": 6868
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::session::CoordinationPlanState"
+        },
+        "kind": "Struct",
+        "name": "CoordinationPlanState",
+        "span": {
+          "end": 7054,
+          "start": 6868
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::flush_observed_changes"
+        },
+        "kind": "Method",
+        "name": "flush_observed_changes",
+        "span": {
+          "end": 17208,
+          "start": 16980
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::flush_observed_changes"
+        },
+        "kind": "Method",
+        "name": "flush_observed_changes",
+        "span": {
+          "end": 17208,
+          "start": 16980
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::try_refresh_with_trigger"
+        },
+        "kind": "Method",
+        "name": "try_refresh_with_trigger",
+        "span": {
+          "end": 119002,
+          "start": 117931
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::try_refresh_with_trigger"
+        },
+        "kind": "Method",
+        "name": "try_refresh_with_trigger",
+        "span": {
+          "end": 119213,
+          "start": 118142
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshResult::breakdown"
+        },
+        "kind": "Field",
+        "name": "breakdown",
+        "span": {
+          "end": 6054,
+          "start": 6007
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshResult::breakdown"
+        },
+        "kind": "Field",
+        "name": "breakdown",
+        "span": {
+          "end": 6054,
+          "start": 6007
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::coordination_revision"
+        },
+        "kind": "Method",
+        "name": "coordination_revision",
+        "span": {
+          "end": 79817,
+          "start": 79228
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::coordination_revision"
+        },
+        "kind": "Method",
+        "name": "coordination_revision",
+        "span": {
+          "end": 80028,
+          "start": 79439
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceLastRefresh::changed_directories"
+        },
+        "kind": "Field",
+        "name": "changed_directories",
+        "span": {
+          "end": 6528,
+          "start": 6492
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceLastRefresh::changed_directories"
+        },
+        "kind": "Field",
+        "name": "changed_directories",
+        "span": {
+          "end": 6528,
+          "start": 6492
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::try_append_concept_relation_event"
+        },
+        "kind": "Method",
+        "name": "try_append_concept_relation_event",
+        "span": {
+          "end": 76372,
+          "start": 76048
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::try_append_concept_relation_event"
+        },
+        "kind": "Method",
+        "name": "try_append_concept_relation_event",
+        "span": {
+          "end": 76583,
+          "start": 76259
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::mutate_coordination_with_session_wait_observed"
+        },
+        "kind": "Method",
+        "name": "mutate_coordination_with_session_wait_observed",
+        "span": {
+          "end": 102620,
+          "start": 101762
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::mutate_coordination_with_session_wait_observed"
+        },
+        "kind": "Method",
+        "name": "mutate_coordination_with_session_wait_observed",
+        "span": {
+          "end": 102831,
+          "start": 101973
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::hydrate_coordination_runtime"
+        },
+        "kind": "Method",
+        "name": "hydrate_coordination_runtime",
+        "span": {
+          "end": 85217,
+          "start": 83799
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::hydrate_coordination_runtime"
+        },
+        "kind": "Method",
+        "name": "hydrate_coordination_runtime",
+        "span": {
+          "end": 85428,
+          "start": 84010
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::append_concept_relation_event"
+        },
+        "kind": "Method",
+        "name": "append_concept_relation_event",
+        "span": {
+          "end": 76042,
+          "start": 75756
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::append_concept_relation_event"
+        },
+        "kind": "Method",
+        "name": "append_concept_relation_event",
+        "span": {
+          "end": 76253,
+          "start": 75967
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::session::WorkspaceFsRefreshOutcome"
+        },
+        "kind": "Struct",
+        "name": "WorkspaceFsRefreshOutcome",
+        "span": {
+          "end": 5246,
+          "start": 5085
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::session::WorkspaceFsRefreshOutcome"
+        },
+        "kind": "Struct",
+        "name": "WorkspaceFsRefreshOutcome",
+        "span": {
+          "end": 5246,
+          "start": 5085
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::session::WorkspaceRefreshState"
+        },
+        "kind": "Struct",
+        "name": "WorkspaceRefreshState",
+        "span": {
+          "end": 7313,
+          "start": 7056
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::session::WorkspaceRefreshState"
+        },
+        "kind": "Struct",
+        "name": "WorkspaceRefreshState",
+        "span": {
+          "end": 7313,
+          "start": 7056
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshSeed::work"
+        },
+        "kind": "Field",
+        "name": "work",
+        "span": {
+          "end": 6839,
+          "start": 6802
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshSeed::work"
+        },
+        "kind": "Field",
+        "name": "work",
+        "span": {
+          "end": 6839,
+          "start": 6802
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::is_curator_snapshot_loaded"
+        },
+        "kind": "Method",
+        "name": "is_curator_snapshot_loaded",
+        "span": {
+          "end": 103228,
+          "start": 102882
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::is_curator_snapshot_loaded"
+        },
+        "kind": "Method",
+        "name": "is_curator_snapshot_loaded",
+        "span": {
+          "end": 103439,
+          "start": 103093
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceSession::shared_runtime_materializer"
+        },
+        "kind": "Field",
+        "name": "shared_runtime_materializer",
+        "span": {
+          "end": 16077,
+          "start": 16001
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceSession::shared_runtime_materializer"
+        },
+        "kind": "Field",
+        "name": "shared_runtime_materializer",
+        "span": {
+          "end": 16077,
+          "start": 16001
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceSession::shared_runtime"
+        },
+        "kind": "Field",
+        "name": "shared_runtime",
+        "span": {
+          "end": 15365,
+          "start": 15318
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceSession::shared_runtime"
+        },
+        "kind": "Field",
+        "name": "shared_runtime",
+        "span": {
+          "end": 15365,
+          "start": 15318
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceLastRefresh::replay_volume"
+        },
+        "kind": "Field",
+        "name": "replay_volume",
+        "span": {
+          "end": 6347,
+          "start": 6325
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceLastRefresh::replay_volume"
+        },
+        "kind": "Field",
+        "name": "replay_volume",
+        "span": {
+          "end": 6347,
+          "start": 6325
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::refresh_fs_with_scoped_paths"
+        },
+        "kind": "Method",
+        "name": "refresh_fs_with_scoped_paths",
+        "span": {
+          "end": 36866,
+          "start": 34773
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::refresh_fs_with_scoped_paths"
+        },
+        "kind": "Method",
+        "name": "refresh_fs_with_scoped_paths",
+        "span": {
+          "end": 37077,
+          "start": 34773
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::refresh_fs_with_status"
+        },
+        "kind": "Method",
+        "name": "refresh_fs_with_status",
+        "span": {
+          "end": 34539,
+          "start": 34410
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::refresh_fs_with_status"
+        },
+        "kind": "Method",
+        "name": "refresh_fs_with_status",
+        "span": {
+          "end": 34539,
+          "start": 34410
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceSession::checkpoint_materializer"
+        },
+        "kind": "Field",
+        "name": "checkpoint_materializer",
+        "span": {
+          "end": 15995,
+          "start": 15923
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceSession::checkpoint_materializer"
+        },
+        "kind": "Field",
+        "name": "checkpoint_materializer",
+        "span": {
+          "end": 15995,
+          "start": 15923
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshBreakdown::publish_generation_ms"
+        },
+        "kind": "Field",
+        "name": "publish_generation_ms",
+        "span": {
+          "end": 5469,
+          "start": 5439
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshBreakdown::publish_generation_ms"
+        },
+        "kind": "Field",
+        "name": "publish_generation_ms",
+        "span": {
+          "end": 5469,
+          "start": 5439
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::session::WorkspaceRefreshWork"
+        },
+        "kind": "Struct",
+        "name": "WorkspaceRefreshWork",
+        "span": {
+          "end": 5834,
+          "start": 5677
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::session::WorkspaceRefreshWork"
+        },
+        "kind": "Struct",
+        "name": "WorkspaceRefreshWork",
+        "span": {
+          "end": 5834,
+          "start": 5677
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::persist_principal_registry"
+        },
+        "kind": "Method",
+        "name": "persist_principal_registry",
+        "span": {
+          "end": 71498,
+          "start": 70957
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::persist_principal_registry"
+        },
+        "kind": "Method",
+        "name": "persist_principal_registry",
+        "span": {
+          "end": 71709,
+          "start": 71168
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_principal_registry"
+        },
+        "kind": "Method",
+        "name": "load_principal_registry",
+        "span": {
+          "end": 70951,
+          "start": 70532
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_principal_registry"
+        },
+        "kind": "Method",
+        "name": "load_principal_registry",
+        "span": {
+          "end": 71162,
+          "start": 70743
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceSession::hydrate_persisted_co_change"
+        },
+        "kind": "Field",
+        "name": "hydrate_persisted_co_change",
+        "span": {
+          "end": 15467,
+          "start": 15423
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceSession::hydrate_persisted_co_change"
+        },
+        "kind": "Field",
+        "name": "hydrate_persisted_co_change",
+        "span": {
+          "end": 15467,
+          "start": 15423
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshSeed::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 6763,
+          "start": 6734
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshSeed::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 6763,
+          "start": 6734
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::session::WorkspaceSession::impl::Drop"
+        },
+        "kind": "Impl",
+        "name": "Drop for WorkspaceSession",
+        "span": {
+          "end": 121585,
+          "start": 120610
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::session::WorkspaceSession::impl::Drop"
+        },
+        "kind": "Impl",
+        "name": "Drop for WorkspaceSession",
+        "span": {
+          "end": 121796,
+          "start": 120821
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshState::last_refresh"
+        },
+        "kind": "Field",
+        "name": "last_refresh",
+        "span": {
+          "end": 7310,
+          "start": 7261
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshState::last_refresh"
+        },
+        "kind": "Field",
+        "name": "last_refresh",
+        "span": {
+          "end": 7310,
+          "start": 7261
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::validation_feedback"
+        },
+        "kind": "Method",
+        "name": "validation_feedback",
+        "span": {
+          "end": 107447,
+          "start": 107125
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::validation_feedback"
+        },
+        "kind": "Method",
+        "name": "validation_feedback",
+        "span": {
+          "end": 107658,
+          "start": 107336
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceSession::observed_change_tracker"
+        },
+        "kind": "Field",
+        "name": "observed_change_tracker",
+        "span": {
+          "end": 16276,
+          "start": 16213
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceSession::observed_change_tracker"
+        },
+        "kind": "Field",
+        "name": "observed_change_tracker",
+        "span": {
+          "end": 16276,
+          "start": 16213
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceLastRefresh::unaffected_directories"
+        },
+        "kind": "Field",
+        "name": "unaffected_directories",
+        "span": {
+          "end": 6612,
+          "start": 6573
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceLastRefresh::unaffected_directories"
+        },
+        "kind": "Field",
+        "name": "unaffected_directories",
+        "span": {
+          "end": 6612,
+          "start": 6573
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::session::WorkspaceRefreshSeed"
+        },
+        "kind": "Struct",
+        "name": "WorkspaceRefreshSeed",
+        "span": {
+          "end": 6842,
+          "start": 6689
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::session::WorkspaceRefreshSeed"
+        },
+        "kind": "Struct",
+        "name": "WorkspaceRefreshSeed",
+        "span": {
+          "end": 6842,
+          "start": 6689
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceRefreshState::record_runtime_refresh_observation"
+        },
+        "kind": "Method",
+        "name": "record_runtime_refresh_observation",
+        "span": {
+          "end": 14042,
+          "start": 13695
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceRefreshState::record_runtime_refresh_observation"
+        },
+        "kind": "Method",
+        "name": "record_runtime_refresh_observation",
+        "span": {
+          "end": 14042,
+          "start": 13695
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceRefreshState::applied_fs_revision"
+        },
+        "kind": "Method",
+        "name": "applied_fs_revision",
+        "span": {
+          "end": 10693,
+          "start": 10581
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceRefreshState::applied_fs_revision"
+        },
+        "kind": "Method",
+        "name": "applied_fs_revision",
+        "span": {
+          "end": 10693,
+          "start": 10581
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::CoordinationPlanState::snapshot"
+        },
+        "kind": "Field",
+        "name": "snapshot",
+        "span": {
+          "end": 6941,
+          "start": 6907
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::CoordinationPlanState::snapshot"
+        },
+        "kind": "Field",
+        "name": "snapshot",
+        "span": {
+          "end": 6941,
+          "start": 6907
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_hot_task_replay"
+        },
+        "kind": "Method",
+        "name": "load_hot_task_replay",
+        "span": {
+          "end": 25994,
+          "start": 25858
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_hot_task_replay"
+        },
+        "kind": "Method",
+        "name": "load_hot_task_replay",
+        "span": {
+          "end": 25994,
+          "start": 25858
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceSession::watch"
+        },
+        "kind": "Field",
+        "name": "watch",
+        "span": {
+          "end": 15811,
+          "start": 15774
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceSession::watch"
+        },
+        "kind": "Field",
+        "name": "watch",
+        "span": {
+          "end": 15811,
+          "start": 15774
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::pending_refresh_path_requests"
+        },
+        "kind": "Method",
+        "name": "pending_refresh_path_requests",
+        "span": {
+          "end": 38404,
+          "start": 38259
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::pending_refresh_path_requests"
+        },
+        "kind": "Method",
+        "name": "pending_refresh_path_requests",
+        "span": {
+          "end": 38615,
+          "start": 38470
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::try_set_curator_proposal_state"
+        },
+        "kind": "Method",
+        "name": "try_set_curator_proposal_state",
+        "span": {
+          "end": 104503,
+          "start": 103854
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::try_set_curator_proposal_state"
+        },
+        "kind": "Method",
+        "name": "try_set_curator_proposal_state",
+        "span": {
+          "end": 104714,
+          "start": 104065
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::session::WorkspaceLastRefresh"
+        },
+        "kind": "Struct",
+        "name": "WorkspaceLastRefresh",
+        "span": {
+          "end": 6657,
+          "start": 6083
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::session::WorkspaceLastRefresh"
+        },
+        "kind": "Struct",
+        "name": "WorkspaceLastRefresh",
+        "span": {
+          "end": 6657,
+          "start": 6083
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_cold_task_replay"
+        },
+        "kind": "Method",
+        "name": "load_cold_task_replay",
+        "span": {
+          "end": 26138,
+          "start": 26000
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_cold_task_replay"
+        },
+        "kind": "Method",
+        "name": "load_cold_task_replay",
+        "span": {
+          "end": 26138,
+          "start": 26000
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::session"
+        },
+        "kind": "Module",
+        "name": "session",
+        "span": {
+          "end": 122548,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::session"
+        },
+        "kind": "Module",
+        "name": "session",
+        "span": {
+          "end": 122759,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::record_runtime_refresh_observation"
+        },
+        "kind": "Method",
+        "name": "record_runtime_refresh_observation",
+        "span": {
+          "end": 58984,
+          "start": 58735
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::record_runtime_refresh_observation"
+        },
+        "kind": "Method",
+        "name": "record_runtime_refresh_observation",
+        "span": {
+          "end": 59195,
+          "start": 58946
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::try_recover_runtime_from_persisted_state"
+        },
+        "kind": "Method",
+        "name": "try_recover_runtime_from_persisted_state",
+        "span": {
+          "end": 51003,
+          "start": 50730
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::try_recover_runtime_from_persisted_state"
+        },
+        "kind": "Method",
+        "name": "try_recover_runtime_from_persisted_state",
+        "span": {
+          "end": 51214,
+          "start": 50941
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_outcomes"
+        },
+        "kind": "Method",
+        "name": "load_outcomes",
+        "span": {
+          "end": 26848,
+          "start": 26668
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_outcomes"
+        },
+        "kind": "Method",
+        "name": "load_outcomes",
+        "span": {
+          "end": 26848,
+          "start": 26668
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceLastRefresh::changed_packages"
+        },
+        "kind": "Field",
+        "name": "changed_packages",
+        "span": {
+          "end": 6567,
+          "start": 6534
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceLastRefresh::changed_packages"
+        },
+        "kind": "Field",
+        "name": "changed_packages",
+        "span": {
+          "end": 6567,
+          "start": 6534
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::persist_coordination"
+        },
+        "kind": "Method",
+        "name": "persist_coordination",
+        "span": {
+          "end": 86026,
+          "start": 85223
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::persist_coordination"
+        },
+        "kind": "Method",
+        "name": "persist_coordination",
+        "span": {
+          "end": 86237,
+          "start": 85434
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_cold_outcome_event"
+        },
+        "kind": "Method",
+        "name": "load_cold_outcome_event",
+        "span": {
+          "end": 27168,
+          "start": 27013
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_cold_outcome_event"
+        },
+        "kind": "Method",
+        "name": "load_cold_outcome_event",
+        "span": {
+          "end": 27168,
+          "start": 27013
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::loaded_workspace_revision_handle"
+        },
+        "kind": "Method",
+        "name": "loaded_workspace_revision_handle",
+        "span": {
+          "end": 58729,
+          "start": 58605
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::loaded_workspace_revision_handle"
+        },
+        "kind": "Method",
+        "name": "loaded_workspace_revision_handle",
+        "span": {
+          "end": 58940,
+          "start": 58816
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::append_contract_event_guarded"
+        },
+        "kind": "Method",
+        "name": "append_contract_event_guarded",
+        "span": {
+          "end": 75750,
+          "start": 74835
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::append_contract_event_guarded"
+        },
+        "kind": "Method",
+        "name": "append_contract_event_guarded",
+        "span": {
+          "end": 75961,
+          "start": 75046
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceFsRefreshOutcome::breakdown"
+        },
+        "kind": "Field",
+        "name": "breakdown",
+        "span": {
+          "end": 5243,
+          "start": 5203
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceFsRefreshOutcome::breakdown"
+        },
+        "kind": "Field",
+        "name": "breakdown",
+        "span": {
+          "end": 5243,
+          "start": 5203
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceLastRefresh::unaffected_packages"
+        },
+        "kind": "Field",
+        "name": "unaffected_packages",
+        "span": {
+          "end": 6654,
+          "start": 6618
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceLastRefresh::unaffected_packages"
+        },
+        "kind": "Field",
+        "name": "unaffected_packages",
+        "span": {
+          "end": 6654,
+          "start": 6618
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::append_outcome_with_auxiliary_guarded"
+        },
+        "kind": "Method",
+        "name": "append_outcome_with_auxiliary_guarded",
+        "span": {
+          "end": 113549,
+          "start": 108599
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::append_outcome_with_auxiliary_guarded"
+        },
+        "kind": "Method",
+        "name": "append_outcome_with_auxiliary_guarded",
+        "span": {
+          "end": 113760,
+          "start": 108810
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceLastRefresh::workspace_reloaded"
+        },
+        "kind": "Field",
+        "name": "workspace_reloaded",
+        "span": {
+          "end": 6414,
+          "start": 6386
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceLastRefresh::workspace_reloaded"
+        },
+        "kind": "Field",
+        "name": "workspace_reloaded",
+        "span": {
+          "end": 6414,
+          "start": 6386
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::try_lock_refresh_for_mutation"
+        },
+        "kind": "Method",
+        "name": "try_lock_refresh_for_mutation",
+        "span": {
+          "end": 23230,
+          "start": 23024
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::try_lock_refresh_for_mutation"
+        },
+        "kind": "Method",
+        "name": "try_lock_refresh_for_mutation",
+        "span": {
+          "end": 23230,
+          "start": 23024
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::session::merge_patch_event_summaries"
+        },
+        "kind": "Function",
+        "name": "merge_patch_event_summaries",
+        "span": {
+          "end": 119649,
+          "start": 119006
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::session::merge_patch_event_summaries"
+        },
+        "kind": "Function",
+        "name": "merge_patch_event_summaries",
+        "span": {
+          "end": 119860,
+          "start": 119217
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::persist_episodic"
+        },
+        "kind": "Method",
+        "name": "persist_episodic",
+        "span": {
+          "end": 65041,
+          "start": 61791
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::persist_episodic"
+        },
+        "kind": "Method",
+        "name": "persist_episodic",
+        "span": {
+          "end": 65252,
+          "start": 62002
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::try_append_outcome_with_auxiliary"
+        },
+        "kind": "Method",
+        "name": "try_append_outcome_with_auxiliary",
+        "span": {
+          "end": 108593,
+          "start": 107982
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::try_append_outcome_with_auxiliary"
+        },
+        "kind": "Method",
+        "name": "try_append_outcome_with_auxiliary",
+        "span": {
+          "end": 108804,
+          "start": 108193
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshBreakdown::attach_cold_query_backends_ms"
+        },
+        "kind": "Field",
+        "name": "attach_cold_query_backends_ms",
+        "span": {
+          "end": 5578,
+          "start": 5540
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceRefreshBreakdown::attach_cold_query_backends_ms"
+        },
+        "kind": "Field",
+        "name": "attach_cold_query_backends_ms",
+        "span": {
+          "end": 5578,
+          "start": 5540
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::session::merge_patch_file_summaries"
+        },
+        "kind": "Function",
+        "name": "merge_patch_file_summaries",
+        "span": {
+          "end": 120608,
+          "start": 119651
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::session::merge_patch_file_summaries"
+        },
+        "kind": "Function",
+        "name": "merge_patch_file_summaries",
+        "span": {
+          "end": 120819,
+          "start": 119862
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::refresh_fs_with_paths"
+        },
+        "kind": "Method",
+        "name": "refresh_fs_with_paths",
+        "span": {
+          "end": 34767,
+          "start": 34545
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::refresh_fs_with_paths"
+        },
+        "kind": "Method",
+        "name": "refresh_fs_with_paths",
+        "span": {
+          "end": 34767,
+          "start": 34545
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_coordination_queue_read_model"
+        },
+        "kind": "Method",
+        "name": "load_coordination_queue_read_model",
+        "span": {
+          "end": 83001,
+          "start": 82116
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_coordination_queue_read_model"
+        },
+        "kind": "Method",
+        "name": "load_coordination_queue_read_model",
+        "span": {
+          "end": 83212,
+          "start": 82327
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::episodic_revision"
+        },
+        "kind": "Method",
+        "name": "episodic_revision",
+        "span": {
+          "end": 61785,
+          "start": 61243
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::episodic_revision"
+        },
+        "kind": "Method",
+        "name": "episodic_revision",
+        "span": {
+          "end": 61996,
+          "start": 61454
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::prism"
+        },
+        "kind": "Method",
+        "name": "prism",
+        "span": {
+          "end": 29529,
+          "start": 29463
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::prism"
+        },
+        "kind": "Method",
+        "name": "prism",
+        "span": {
+          "end": 29529,
+          "start": 29463
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::last_refresh"
+        },
+        "kind": "Method",
+        "name": "last_refresh",
+        "span": {
+          "end": 38937,
+          "start": 38829
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::last_refresh"
+        },
+        "kind": "Method",
+        "name": "last_refresh",
+        "span": {
+          "end": 39148,
+          "start": 39040
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceRefreshState::needs_refresh"
+        },
+        "kind": "Method",
+        "name": "needs_refresh",
+        "span": {
+          "end": 10455,
+          "start": 10283
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceRefreshState::needs_refresh"
+        },
+        "kind": "Method",
+        "name": "needs_refresh",
+        "span": {
+          "end": 10455,
+          "start": 10283
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceSession::hydrate_persisted_projections"
+        },
+        "kind": "Field",
+        "name": "hydrate_persisted_projections",
+        "span": {
+          "end": 15417,
+          "start": 15371
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::WorkspaceSession::hydrate_persisted_projections"
+        },
+        "kind": "Field",
+        "name": "hydrate_persisted_projections",
+        "span": {
+          "end": 15417,
+          "start": 15371
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::snapshot_revisions"
+        },
+        "kind": "Method",
+        "name": "snapshot_revisions",
+        "span": {
+          "end": 60315,
+          "start": 59383
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::snapshot_revisions"
+        },
+        "kind": "Method",
+        "name": "snapshot_revisions",
+        "span": {
+          "end": 60526,
+          "start": 59594
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceRefreshState::record_refresh"
+        },
+        "kind": "Method",
+        "name": "record_refresh",
+        "span": {
+          "end": 12552,
+          "start": 10699
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceRefreshState::record_refresh"
+        },
+        "kind": "Method",
+        "name": "record_refresh",
+        "span": {
+          "end": 12552,
+          "start": 10699
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::delete_persisted_projection_relation_everywhere"
+        },
+        "kind": "Method",
+        "name": "delete_persisted_projection_relation_everywhere",
+        "span": {
+          "end": 69784,
+          "start": 69092
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::delete_persisted_projection_relation_everywhere"
+        },
+        "kind": "Method",
+        "name": "delete_persisted_projection_relation_everywhere",
+        "span": {
+          "end": 69995,
+          "start": 69303
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_hot_lineage_history"
+        },
+        "kind": "Method",
+        "name": "load_hot_lineage_history",
+        "span": {
+          "end": 25538,
+          "start": 25384
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_hot_lineage_history"
+        },
+        "kind": "Method",
+        "name": "load_hot_lineage_history",
+        "span": {
+          "end": 25538,
+          "start": 25384
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::session::WorkspaceRefreshResult"
+        },
+        "kind": "Struct",
+        "name": "WorkspaceRefreshResult",
+        "span": {
+          "end": 6057,
+          "start": 5860
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::session::WorkspaceRefreshResult"
+        },
+        "kind": "Struct",
+        "name": "WorkspaceRefreshResult",
+        "span": {
+          "end": 6057,
+          "start": 5860
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::CoordinationPlanState::plan_graphs"
+        },
+        "kind": "Field",
+        "name": "plan_graphs",
+        "span": {
+          "end": 6978,
+          "start": 6947
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::session::CoordinationPlanState::plan_graphs"
+        },
+        "kind": "Field",
+        "name": "plan_graphs",
+        "span": {
+          "end": 6978,
+          "start": 6947
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::try_append_contract_event"
+        },
+        "kind": "Method",
+        "name": "try_append_contract_event",
+        "span": {
+          "end": 74829,
+          "start": 74535
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::try_append_contract_event"
+        },
+        "kind": "Method",
+        "name": "try_append_contract_event",
+        "span": {
+          "end": 75040,
+          "start": 74746
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_episodic_snapshot_for_runtime"
+        },
+        "kind": "Method",
+        "name": "load_episodic_snapshot_for_runtime",
+        "span": {
+          "end": 50700,
+          "start": 50005
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::load_episodic_snapshot_for_runtime"
+        },
+        "kind": "Method",
+        "name": "load_episodic_snapshot_for_runtime",
+        "span": {
+          "end": 50911,
+          "start": 50216
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::append_concept_relation_event_guarded"
+        },
+        "kind": "Method",
+        "name": "append_concept_relation_event_guarded",
+        "span": {
+          "end": 78816,
+          "start": 76378
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::session::WorkspaceSession::append_concept_relation_event_guarded"
+        },
+        "kind": "Method",
+        "name": "append_concept_relation_event_guarded",
+        "span": {
+          "end": 79027,
+          "start": 76589
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 438,
+    "changedSymbolsTruncated": true,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/session.rs"
+    ],
+    "files": [
+      122
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

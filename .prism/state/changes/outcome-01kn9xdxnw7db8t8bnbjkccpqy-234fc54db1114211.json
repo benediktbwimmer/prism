@@ -1,0 +1,579 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdxnw7db8t8bnbjkccpqy",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 65
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::event_replay::metadata_field",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::event_replay::metadata_optional_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::event_replay::metadata_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::event_replay::recompute_root_tasks",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::event_replay::merge_stored_plan_metadata",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::event_replay::merge_stored_task_metadata",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::event_replay::patch_is_set",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::event_replay",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::event_replay::apply_plan_patch",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::event_replay::apply_task_patch",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::event_replay::rehydrate_coordination_snapshot",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::event_replay::next_counter",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::event_replay::patch_is_clear",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::event_replay::coordination_snapshot_from_events",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 14 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 28,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "removedCount": 0,
+        "updatedCount": 28
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::metadata_field"
+        },
+        "kind": "Function",
+        "name": "metadata_field",
+        "span": {
+          "end": 17875,
+          "start": 17633
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::metadata_field"
+        },
+        "kind": "Function",
+        "name": "metadata_field",
+        "span": {
+          "end": 18548,
+          "start": 18306
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::metadata_optional_path"
+        },
+        "kind": "Function",
+        "name": "metadata_optional_path",
+        "span": {
+          "end": 18375,
+          "start": 18113
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::metadata_optional_path"
+        },
+        "kind": "Function",
+        "name": "metadata_optional_path",
+        "span": {
+          "end": 19048,
+          "start": 18786
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::metadata_path"
+        },
+        "kind": "Function",
+        "name": "metadata_path",
+        "span": {
+          "end": 18111,
+          "start": 17877
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::metadata_path"
+        },
+        "kind": "Function",
+        "name": "metadata_path",
+        "span": {
+          "end": 18784,
+          "start": 18550
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::recompute_root_tasks"
+        },
+        "kind": "Function",
+        "name": "recompute_root_tasks",
+        "span": {
+          "end": 17165,
+          "start": 15849
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::recompute_root_tasks"
+        },
+        "kind": "Function",
+        "name": "recompute_root_tasks",
+        "span": {
+          "end": 17838,
+          "start": 16522
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::merge_stored_plan_metadata"
+        },
+        "kind": "Function",
+        "name": "merge_stored_plan_metadata",
+        "span": {
+          "end": 14214,
+          "start": 13787
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::merge_stored_plan_metadata"
+        },
+        "kind": "Function",
+        "name": "merge_stored_plan_metadata",
+        "span": {
+          "end": 14762,
+          "start": 14335
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::merge_stored_task_metadata"
+        },
+        "kind": "Function",
+        "name": "merge_stored_task_metadata",
+        "span": {
+          "end": 15847,
+          "start": 14216
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::merge_stored_task_metadata"
+        },
+        "kind": "Function",
+        "name": "merge_stored_task_metadata",
+        "span": {
+          "end": 16520,
+          "start": 14764
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::patch_is_set"
+        },
+        "kind": "Function",
+        "name": "patch_is_set",
+        "span": {
+          "end": 17396,
+          "start": 17167
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::patch_is_set"
+        },
+        "kind": "Function",
+        "name": "patch_is_set",
+        "span": {
+          "end": 18069,
+          "start": 17840
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Module",
+          "path": "prism_coordination::event_replay"
+        },
+        "kind": "Module",
+        "name": "event_replay",
+        "span": {
+          "end": 18615,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Module",
+          "path": "prism_coordination::event_replay"
+        },
+        "kind": "Module",
+        "name": "event_replay",
+        "span": {
+          "end": 19288,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::apply_plan_patch"
+        },
+        "kind": "Function",
+        "name": "apply_plan_patch",
+        "span": {
+          "end": 8195,
+          "start": 7227
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::apply_plan_patch"
+        },
+        "kind": "Function",
+        "name": "apply_plan_patch",
+        "span": {
+          "end": 8195,
+          "start": 7227
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::apply_task_patch"
+        },
+        "kind": "Function",
+        "name": "apply_task_patch",
+        "span": {
+          "end": 13785,
+          "start": 8197
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::apply_task_patch"
+        },
+        "kind": "Function",
+        "name": "apply_task_patch",
+        "span": {
+          "end": 14333,
+          "start": 8197
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::rehydrate_coordination_snapshot"
+        },
+        "kind": "Function",
+        "name": "rehydrate_coordination_snapshot",
+        "span": {
+          "end": 7225,
+          "start": 768
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::rehydrate_coordination_snapshot"
+        },
+        "kind": "Function",
+        "name": "rehydrate_coordination_snapshot",
+        "span": {
+          "end": 7225,
+          "start": 768
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::next_counter"
+        },
+        "kind": "Function",
+        "name": "next_counter",
+        "span": {
+          "end": 18614,
+          "start": 18377
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::next_counter"
+        },
+        "kind": "Function",
+        "name": "next_counter",
+        "span": {
+          "end": 19287,
+          "start": 19050
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::patch_is_clear"
+        },
+        "kind": "Function",
+        "name": "patch_is_clear",
+        "span": {
+          "end": 17631,
+          "start": 17398
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::patch_is_clear"
+        },
+        "kind": "Function",
+        "name": "patch_is_clear",
+        "span": {
+          "end": 18304,
+          "start": 18071
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::coordination_snapshot_from_events"
+        },
+        "kind": "Function",
+        "name": "coordination_snapshot_from_events",
+        "span": {
+          "end": 766,
+          "start": 370
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::event_replay::coordination_snapshot_from_events"
+        },
+        "kind": "Function",
+        "name": "coordination_snapshot_from_events",
+        "span": {
+          "end": 766,
+          "start": 370
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 28,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs"
+    ],
+    "files": [
+      65
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

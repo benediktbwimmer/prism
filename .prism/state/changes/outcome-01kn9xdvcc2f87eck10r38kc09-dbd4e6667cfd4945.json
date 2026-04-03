@@ -1,0 +1,468 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdvcc2f87eck10r38kc09",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 201
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::dashboard_read_models::current_task_journal",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::dashboard_read_models::QueryHost::publish_dashboard_coordination_update",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::dashboard_read_models::dashboard_session_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::dashboard_read_models::fallback_coordination_read_model",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::dashboard_read_models::QueryHost::dashboard_task_snapshot",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::dashboard_read_models::QueryHost::dashboard_coordination_queues",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::dashboard_read_models::QueryHost::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::dashboard_read_models::QueryHost::dashboard_coordination_summary",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::dashboard_read_models::fallback_coordination_queue_read_model",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::dashboard_read_models::QueryHost::dashboard_summary_view",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::dashboard_read_models",
+        "kind": "Module"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 11 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 22,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "removedCount": 0,
+        "updatedCount": 22
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::dashboard_read_models::current_task_journal"
+        },
+        "kind": "Function",
+        "name": "current_task_journal",
+        "span": {
+          "end": 9459,
+          "start": 8952
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::dashboard_read_models::current_task_journal"
+        },
+        "kind": "Function",
+        "name": "current_task_journal",
+        "span": {
+          "end": 9562,
+          "start": 9055
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::dashboard_read_models::QueryHost::publish_dashboard_coordination_update"
+        },
+        "kind": "Method",
+        "name": "publish_dashboard_coordination_update",
+        "span": {
+          "end": 7008,
+          "start": 6555
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::dashboard_read_models::QueryHost::publish_dashboard_coordination_update"
+        },
+        "kind": "Method",
+        "name": "publish_dashboard_coordination_update",
+        "span": {
+          "end": 7077,
+          "start": 6555
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::dashboard_read_models::dashboard_session_view"
+        },
+        "kind": "Function",
+        "name": "dashboard_session_view",
+        "span": {
+          "end": 8950,
+          "start": 7405
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::dashboard_read_models::dashboard_session_view"
+        },
+        "kind": "Function",
+        "name": "dashboard_session_view",
+        "span": {
+          "end": 9053,
+          "start": 7474
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::dashboard_read_models::fallback_coordination_read_model"
+        },
+        "kind": "Function",
+        "name": "fallback_coordination_read_model",
+        "span": {
+          "end": 7208,
+          "start": 7012
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::dashboard_read_models::fallback_coordination_read_model"
+        },
+        "kind": "Function",
+        "name": "fallback_coordination_read_model",
+        "span": {
+          "end": 7277,
+          "start": 7081
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::dashboard_read_models::QueryHost::dashboard_task_snapshot"
+        },
+        "kind": "Method",
+        "name": "dashboard_task_snapshot",
+        "span": {
+          "end": 2496,
+          "start": 1935
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::dashboard_read_models::QueryHost::dashboard_task_snapshot"
+        },
+        "kind": "Method",
+        "name": "dashboard_task_snapshot",
+        "span": {
+          "end": 2496,
+          "start": 1935
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::dashboard_read_models::QueryHost::dashboard_coordination_queues"
+        },
+        "kind": "Method",
+        "name": "dashboard_coordination_queues",
+        "span": {
+          "end": 6549,
+          "start": 4998
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::dashboard_read_models::QueryHost::dashboard_coordination_queues"
+        },
+        "kind": "Method",
+        "name": "dashboard_coordination_queues",
+        "span": {
+          "end": 6549,
+          "start": 4998
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::dashboard_read_models::QueryHost::impl"
+        },
+        "kind": "Impl",
+        "name": "QueryHost",
+        "span": {
+          "end": 7010,
+          "start": 1044
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::dashboard_read_models::QueryHost::impl"
+        },
+        "kind": "Impl",
+        "name": "QueryHost",
+        "span": {
+          "end": 7079,
+          "start": 1044
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::dashboard_read_models::QueryHost::dashboard_coordination_summary"
+        },
+        "kind": "Method",
+        "name": "dashboard_coordination_summary",
+        "span": {
+          "end": 4992,
+          "start": 2502
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::dashboard_read_models::QueryHost::dashboard_coordination_summary"
+        },
+        "kind": "Method",
+        "name": "dashboard_coordination_summary",
+        "span": {
+          "end": 4992,
+          "start": 2502
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::dashboard_read_models::fallback_coordination_queue_read_model"
+        },
+        "kind": "Function",
+        "name": "fallback_coordination_queue_read_model",
+        "span": {
+          "end": 7403,
+          "start": 7210
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::dashboard_read_models::fallback_coordination_queue_read_model"
+        },
+        "kind": "Function",
+        "name": "fallback_coordination_queue_read_model",
+        "span": {
+          "end": 7472,
+          "start": 7279
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::dashboard_read_models::QueryHost::dashboard_summary_view"
+        },
+        "kind": "Method",
+        "name": "dashboard_summary_view",
+        "span": {
+          "end": 1929,
+          "start": 1065
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::dashboard_read_models::QueryHost::dashboard_summary_view"
+        },
+        "kind": "Method",
+        "name": "dashboard_summary_view",
+        "span": {
+          "end": 1929,
+          "start": 1065
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::dashboard_read_models"
+        },
+        "kind": "Module",
+        "name": "dashboard_read_models",
+        "span": {
+          "end": 9460,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::dashboard_read_models"
+        },
+        "kind": "Module",
+        "name": "dashboard_read_models",
+        "span": {
+          "end": 9563,
+          "start": 0
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 22,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/dashboard_read_models.rs"
+    ],
+    "files": [
+      201
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

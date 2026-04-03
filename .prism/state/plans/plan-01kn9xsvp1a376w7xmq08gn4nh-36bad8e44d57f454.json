@@ -1,0 +1,58 @@
+{
+  "plan": {
+    "id": "plan:01kn9xsvp1a376w7xmq08gn4nh",
+    "goal": "Make shared runtime the sole owner of append-only change history, remove tracked `.prism/state/changes/**`, keep tracked `.prism/state` as stable semantic state only, and rely on signed Git commit history plus PRISM manifest metadata for durable coarse-grained publish history.",
+    "title": "Remove tracked changes from .prism state and rely on signed commit history plus manifest metadata",
+    "status": "Active",
+    "policy": {
+      "default_claim_mode": "Advisory",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": false,
+      "stale_after_graph_change": true,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "require",
+        "completionMode": "require",
+        "targetRef": null,
+        "targetBranch": "main",
+        "requireTaskBranch": true,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": null
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": []
+  },
+  "graph": {
+    "id": "plan:01kn9xsvp1a376w7xmq08gn4nh",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Remove tracked changes from .prism state and rely on signed commit history plus manifest metadata",
+    "goal": "Make shared runtime the sole owner of append-only change history, remove tracked `.prism/state/changes/**`, keep tracked `.prism/state` as stable semantic state only, and rely on signed Git commit history plus PRISM manifest metadata for durable coarse-grained publish history.",
+    "status": "Active",
+    "revision": 0,
+    "root_nodes": [],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [],
+    "edges": []
+  },
+  "executionOverlays": []
+}

@@ -1,0 +1,2007 @@
+{
+  "meta": {
+    "id": "outcome:01kn8agzjgzp0the0jdpy33g2m",
+    "ts": 1775174712,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn8agzh2hb51te63mkbrej79",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/codex/b",
+      "instance_id": "instance:64747:1775174298250",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 320
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::plans_cache_invalidates_when_workspace_revision_changes",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::broad_identifier_search_suppresses_test_noise_when_non_test_code_exists",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::policy_violations_expose_rejected_coordination_mutations",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::replace_coordination_snapshot_and_plan_graphs_preserves_stale_policy",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::native_plan_updates_validate_completion_and_preserve_non_dependency_edges",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::native_plan_node_bindings_reject_runtime_handles_and_unstable_refs",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::native_plan_next_prefers_actionable_nodes_that_unblock_more_follow_up_work",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::symbol_by_id_returns_exact_symbol_without_searching",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::native_task_mutations_preserve_non_dependency_plan_edges",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::hydrated_plan_graph_recovers_concept_bound_runtime_anchors",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::native_plan_node_bindings_reject_missing_published_refs",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::ad_hoc_plan_projection_diff_reports_added_and_changed_nodes",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::outcome_query_filters_expand_node_focus_with_additional_filters",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::native_plan_node_mutations_preserve_authored_bindings_and_metadata",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::ready_tasks_and_handoff_acceptance_respect_worktree_scope",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::outcome_queries_expand_node_to_lineage",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::concept_health_flags_ambiguous_stale_validation_concepts",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::native_plan_node_completion_accepts_task_correlated_validations_without_anchors",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::validation_recipe_reuses_blast_radius_signal",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::task_and_artifact_risk_join_coordination_with_change_intelligence",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::blast_radius_uses_co_change_history_and_neighbor_validations",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::prefers_exact_name_matches_before_fuzzy_matches",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::exposes_lineage_queries_when_history_is_present",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::plans_contains_filter_matches_singular_and_plural_plan_terms",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::native_plan_ready_nodes_and_blockers_follow_edge_semantics",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::published_plan_unbound_tasks_stay_actionable_across_unrelated_graph_drift",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::task_backed_native_graph_blockers_follow_published_validation_fields",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::concept_relation_lookup_returns_direct_neighbors",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::claim_reads_and_simulation_respect_worktree_scope",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::task_backed_plan_nodes_must_complete_through_coordination_tasks",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::blast_radius_includes_validations_and_neighbors",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::native_plan_node_completion_rejects_missing_review_and_acceptance_validation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::resume_task_returns_correlated_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::exposes_intent_links_and_task_intent",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::native_plan_metadata_survives_compatibility_write_and_reload",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::ad_hoc_plan_projection_replays_plan_state_at_timestamp",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::coordination_queries_expand_into_neighboring_symbols",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::search_can_filter_by_kind_and_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::continuity_reads_native_runtime_state_before_coordination_projection",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::broad_identifier_search_prefers_owner_module_over_path_inherited_functions",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::native_plan_node_completion_accepts_successful_outcome_validations_without_artifact",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::search_respects_limit",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::drift_candidates_flag_specs_without_validations",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::finds_documents_by_file_stem_and_path_fragment",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::concept_lookup_returns_curated_validation_packet",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::task_execution_plan_graph_prefers_published_authored_fields_for_task_backed_nodes",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::broad_identifier_search_prefers_code_over_replay_and_lockfile_noise",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::native_plan_edge_validation_enforces_kind_and_hierarchy_semantics",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::artifact_reads_and_pending_reviews_respect_worktree_scope",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::native_plan_child_hierarchy_gates_parent_completion_and_recommendations",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::tests::native_plan_edge_validation_rejects_self_cycles_and_multiple_child_parents",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 1 added, 0 removed, 52 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 1,
+        "changedSymbolCount": 105,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "removedCount": 0,
+        "updatedCount": 104
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::plans_cache_invalidates_when_workspace_revision_changes"
+        },
+        "kind": "Function",
+        "name": "plans_cache_invalidates_when_workspace_revision_changes",
+        "span": {
+          "end": 152501,
+          "start": 149150
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::broad_identifier_search_suppresses_test_noise_when_non_test_code_exists"
+        },
+        "kind": "Function",
+        "name": "broad_identifier_search_suppresses_test_noise_when_non_test_code_exists",
+        "span": {
+          "end": 29584,
+          "start": 28212
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::broad_identifier_search_suppresses_test_noise_when_non_test_code_exists"
+        },
+        "kind": "Function",
+        "name": "broad_identifier_search_suppresses_test_noise_when_non_test_code_exists",
+        "span": {
+          "end": 29584,
+          "start": 28212
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::policy_violations_expose_rejected_coordination_mutations"
+        },
+        "kind": "Function",
+        "name": "policy_violations_expose_rejected_coordination_mutations",
+        "span": {
+          "end": 212034,
+          "start": 208492
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::policy_violations_expose_rejected_coordination_mutations"
+        },
+        "kind": "Function",
+        "name": "policy_violations_expose_rejected_coordination_mutations",
+        "span": {
+          "end": 215395,
+          "start": 211853
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::replace_coordination_snapshot_and_plan_graphs_preserves_stale_policy"
+        },
+        "kind": "Function",
+        "name": "replace_coordination_snapshot_and_plan_graphs_preserves_stale_policy",
+        "span": {
+          "end": 153867,
+          "start": 149150
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::replace_coordination_snapshot_and_plan_graphs_preserves_stale_policy"
+        },
+        "kind": "Function",
+        "name": "replace_coordination_snapshot_and_plan_graphs_preserves_stale_policy",
+        "span": {
+          "end": 157228,
+          "start": 152511
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_updates_validate_completion_and_preserve_non_dependency_edges"
+        },
+        "kind": "Function",
+        "name": "native_plan_updates_validate_completion_and_preserve_non_dependency_edges",
+        "span": {
+          "end": 114796,
+          "start": 108920
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_updates_validate_completion_and_preserve_non_dependency_edges"
+        },
+        "kind": "Function",
+        "name": "native_plan_updates_validate_completion_and_preserve_non_dependency_edges",
+        "span": {
+          "end": 114796,
+          "start": 108920
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_node_bindings_reject_runtime_handles_and_unstable_refs"
+        },
+        "kind": "Function",
+        "name": "native_plan_node_bindings_reject_runtime_handles_and_unstable_refs",
+        "span": {
+          "end": 99085,
+          "start": 94147
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_node_bindings_reject_runtime_handles_and_unstable_refs"
+        },
+        "kind": "Function",
+        "name": "native_plan_node_bindings_reject_runtime_handles_and_unstable_refs",
+        "span": {
+          "end": 99085,
+          "start": 94147
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_next_prefers_actionable_nodes_that_unblock_more_follow_up_work"
+        },
+        "kind": "Function",
+        "name": "native_plan_next_prefers_actionable_nodes_that_unblock_more_follow_up_work",
+        "span": {
+          "end": 141831,
+          "start": 138516
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_next_prefers_actionable_nodes_that_unblock_more_follow_up_work"
+        },
+        "kind": "Function",
+        "name": "native_plan_next_prefers_actionable_nodes_that_unblock_more_follow_up_work",
+        "span": {
+          "end": 141831,
+          "start": 138516
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::symbol_by_id_returns_exact_symbol_without_searching"
+        },
+        "kind": "Function",
+        "name": "symbol_by_id_returns_exact_symbol_without_searching",
+        "span": {
+          "end": 13892,
+          "start": 13278
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::symbol_by_id_returns_exact_symbol_without_searching"
+        },
+        "kind": "Function",
+        "name": "symbol_by_id_returns_exact_symbol_without_searching",
+        "span": {
+          "end": 13892,
+          "start": 13278
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Module",
+          "path": "prism_query::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 212035,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Module",
+          "path": "prism_query::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 215396,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_task_mutations_preserve_non_dependency_plan_edges"
+        },
+        "kind": "Function",
+        "name": "native_task_mutations_preserve_non_dependency_plan_edges",
+        "span": {
+          "end": 71537,
+          "start": 62106
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_task_mutations_preserve_non_dependency_plan_edges"
+        },
+        "kind": "Function",
+        "name": "native_task_mutations_preserve_non_dependency_plan_edges",
+        "span": {
+          "end": 71537,
+          "start": 62106
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::hydrated_plan_graph_recovers_concept_bound_runtime_anchors"
+        },
+        "kind": "Function",
+        "name": "hydrated_plan_graph_recovers_concept_bound_runtime_anchors",
+        "span": {
+          "end": 108910,
+          "start": 105193
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::hydrated_plan_graph_recovers_concept_bound_runtime_anchors"
+        },
+        "kind": "Function",
+        "name": "hydrated_plan_graph_recovers_concept_bound_runtime_anchors",
+        "span": {
+          "end": 108910,
+          "start": 105193
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_node_bindings_reject_missing_published_refs"
+        },
+        "kind": "Function",
+        "name": "native_plan_node_bindings_reject_missing_published_refs",
+        "span": {
+          "end": 105183,
+          "start": 99095
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_node_bindings_reject_missing_published_refs"
+        },
+        "kind": "Function",
+        "name": "native_plan_node_bindings_reject_missing_published_refs",
+        "span": {
+          "end": 105183,
+          "start": 99095
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::ad_hoc_plan_projection_diff_reports_added_and_changed_nodes"
+        },
+        "kind": "Function",
+        "name": "ad_hoc_plan_projection_diff_reports_added_and_changed_nodes",
+        "span": {
+          "end": 12638,
+          "start": 7950
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::ad_hoc_plan_projection_diff_reports_added_and_changed_nodes"
+        },
+        "kind": "Function",
+        "name": "ad_hoc_plan_projection_diff_reports_added_and_changed_nodes",
+        "span": {
+          "end": 12638,
+          "start": 7950
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::outcome_query_filters_expand_node_focus_with_additional_filters"
+        },
+        "kind": "Function",
+        "name": "outcome_query_filters_expand_node_focus_with_additional_filters",
+        "span": {
+          "end": 37618,
+          "start": 34698
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::outcome_query_filters_expand_node_focus_with_additional_filters"
+        },
+        "kind": "Function",
+        "name": "outcome_query_filters_expand_node_focus_with_additional_filters",
+        "span": {
+          "end": 37618,
+          "start": 34698
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_node_mutations_preserve_authored_bindings_and_metadata"
+        },
+        "kind": "Function",
+        "name": "native_plan_node_mutations_preserve_authored_bindings_and_metadata",
+        "span": {
+          "end": 94137,
+          "start": 84133
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_node_mutations_preserve_authored_bindings_and_metadata"
+        },
+        "kind": "Function",
+        "name": "native_plan_node_mutations_preserve_authored_bindings_and_metadata",
+        "span": {
+          "end": 94137,
+          "start": 84133
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::ready_tasks_and_handoff_acceptance_respect_worktree_scope"
+        },
+        "kind": "Function",
+        "name": "ready_tasks_and_handoff_acceptance_respect_worktree_scope",
+        "span": {
+          "end": 84123,
+          "start": 78823
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::ready_tasks_and_handoff_acceptance_respect_worktree_scope"
+        },
+        "kind": "Function",
+        "name": "ready_tasks_and_handoff_acceptance_respect_worktree_scope",
+        "span": {
+          "end": 84123,
+          "start": 78823
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::outcome_queries_expand_node_to_lineage"
+        },
+        "kind": "Function",
+        "name": "outcome_queries_expand_node_to_lineage",
+        "span": {
+          "end": 34688,
+          "start": 31625
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::outcome_queries_expand_node_to_lineage"
+        },
+        "kind": "Function",
+        "name": "outcome_queries_expand_node_to_lineage",
+        "span": {
+          "end": 34688,
+          "start": 31625
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::concept_health_flags_ambiguous_stale_validation_concepts"
+        },
+        "kind": "Function",
+        "name": "concept_health_flags_ambiguous_stale_validation_concepts",
+        "span": {
+          "end": 26268,
+          "start": 22319
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::concept_health_flags_ambiguous_stale_validation_concepts"
+        },
+        "kind": "Function",
+        "name": "concept_health_flags_ambiguous_stale_validation_concepts",
+        "span": {
+          "end": 26268,
+          "start": 22319
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_node_completion_accepts_task_correlated_validations_without_anchors"
+        },
+        "kind": "Function",
+        "name": "native_plan_node_completion_accepts_task_correlated_validations_without_anchors",
+        "span": {
+          "end": 172083,
+          "start": 166510
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_node_completion_accepts_task_correlated_validations_without_anchors"
+        },
+        "kind": "Function",
+        "name": "native_plan_node_completion_accepts_task_correlated_validations_without_anchors",
+        "span": {
+          "end": 175444,
+          "start": 169871
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::validation_recipe_reuses_blast_radius_signal"
+        },
+        "kind": "Function",
+        "name": "validation_recipe_reuses_blast_radius_signal",
+        "span": {
+          "end": 188042,
+          "start": 186254
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::validation_recipe_reuses_blast_radius_signal"
+        },
+        "kind": "Function",
+        "name": "validation_recipe_reuses_blast_radius_signal",
+        "span": {
+          "end": 191403,
+          "start": 189615
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::task_and_artifact_risk_join_coordination_with_change_intelligence"
+        },
+        "kind": "Function",
+        "name": "task_and_artifact_risk_join_coordination_with_change_intelligence",
+        "span": {
+          "end": 198199,
+          "start": 189722
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::task_and_artifact_risk_join_coordination_with_change_intelligence"
+        },
+        "kind": "Function",
+        "name": "task_and_artifact_risk_join_coordination_with_change_intelligence",
+        "span": {
+          "end": 201560,
+          "start": 193083
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::blast_radius_uses_co_change_history_and_neighbor_validations"
+        },
+        "kind": "Function",
+        "name": "blast_radius_uses_co_change_history_and_neighbor_validations",
+        "span": {
+          "end": 44840,
+          "start": 39825
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::blast_radius_uses_co_change_history_and_neighbor_validations"
+        },
+        "kind": "Function",
+        "name": "blast_radius_uses_co_change_history_and_neighbor_validations",
+        "span": {
+          "end": 44840,
+          "start": 39825
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::prefers_exact_name_matches_before_fuzzy_matches"
+        },
+        "kind": "Function",
+        "name": "prefers_exact_name_matches_before_fuzzy_matches",
+        "span": {
+          "end": 4124,
+          "start": 3302
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::prefers_exact_name_matches_before_fuzzy_matches"
+        },
+        "kind": "Function",
+        "name": "prefers_exact_name_matches_before_fuzzy_matches",
+        "span": {
+          "end": 4124,
+          "start": 3302
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::exposes_lineage_queries_when_history_is_present"
+        },
+        "kind": "Function",
+        "name": "exposes_lineage_queries_when_history_is_present",
+        "span": {
+          "end": 31615,
+          "start": 30983
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::exposes_lineage_queries_when_history_is_present"
+        },
+        "kind": "Function",
+        "name": "exposes_lineage_queries_when_history_is_present",
+        "span": {
+          "end": 31615,
+          "start": 30983
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::plans_contains_filter_matches_singular_and_plural_plan_terms"
+        },
+        "kind": "Function",
+        "name": "plans_contains_filter_matches_singular_and_plural_plan_terms",
+        "span": {
+          "end": 57162,
+          "start": 56041
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::plans_contains_filter_matches_singular_and_plural_plan_terms"
+        },
+        "kind": "Function",
+        "name": "plans_contains_filter_matches_singular_and_plural_plan_terms",
+        "span": {
+          "end": 57162,
+          "start": 56041
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_ready_nodes_and_blockers_follow_edge_semantics"
+        },
+        "kind": "Function",
+        "name": "native_plan_ready_nodes_and_blockers_follow_edge_semantics",
+        "span": {
+          "end": 135058,
+          "start": 126058
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_ready_nodes_and_blockers_follow_edge_semantics"
+        },
+        "kind": "Function",
+        "name": "native_plan_ready_nodes_and_blockers_follow_edge_semantics",
+        "span": {
+          "end": 135058,
+          "start": 126058
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::published_plan_unbound_tasks_stay_actionable_across_unrelated_graph_drift"
+        },
+        "kind": "Function",
+        "name": "published_plan_unbound_tasks_stay_actionable_across_unrelated_graph_drift",
+        "span": {
+          "end": 149140,
+          "start": 144840
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::published_plan_unbound_tasks_stay_actionable_across_unrelated_graph_drift"
+        },
+        "kind": "Function",
+        "name": "published_plan_unbound_tasks_stay_actionable_across_unrelated_graph_drift",
+        "span": {
+          "end": 149140,
+          "start": 144840
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::task_backed_native_graph_blockers_follow_published_validation_fields"
+        },
+        "kind": "Function",
+        "name": "task_backed_native_graph_blockers_follow_published_validation_fields",
+        "span": {
+          "end": 203748,
+          "start": 198209
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::task_backed_native_graph_blockers_follow_published_validation_fields"
+        },
+        "kind": "Function",
+        "name": "task_backed_native_graph_blockers_follow_published_validation_fields",
+        "span": {
+          "end": 207109,
+          "start": 201570
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::concept_relation_lookup_returns_direct_neighbors"
+        },
+        "kind": "Function",
+        "name": "concept_relation_lookup_returns_direct_neighbors",
+        "span": {
+          "end": 22309,
+          "start": 19033
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::concept_relation_lookup_returns_direct_neighbors"
+        },
+        "kind": "Function",
+        "name": "concept_relation_lookup_returns_direct_neighbors",
+        "span": {
+          "end": 22309,
+          "start": 19033
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::claim_reads_and_simulation_respect_worktree_scope"
+        },
+        "kind": "Function",
+        "name": "claim_reads_and_simulation_respect_worktree_scope",
+        "span": {
+          "end": 74480,
+          "start": 71547
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::claim_reads_and_simulation_respect_worktree_scope"
+        },
+        "kind": "Function",
+        "name": "claim_reads_and_simulation_respect_worktree_scope",
+        "span": {
+          "end": 74480,
+          "start": 71547
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::task_backed_plan_nodes_must_complete_through_coordination_tasks"
+        },
+        "kind": "Function",
+        "name": "task_backed_plan_nodes_must_complete_through_coordination_tasks",
+        "span": {
+          "end": 160247,
+          "start": 153877
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::task_backed_plan_nodes_must_complete_through_coordination_tasks"
+        },
+        "kind": "Function",
+        "name": "task_backed_plan_nodes_must_complete_through_coordination_tasks",
+        "span": {
+          "end": 163608,
+          "start": 157238
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::blast_radius_includes_validations_and_neighbors"
+        },
+        "kind": "Function",
+        "name": "blast_radius_includes_validations_and_neighbors",
+        "span": {
+          "end": 39815,
+          "start": 37628
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::blast_radius_includes_validations_and_neighbors"
+        },
+        "kind": "Function",
+        "name": "blast_radius_includes_validations_and_neighbors",
+        "span": {
+          "end": 39815,
+          "start": 37628
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_node_completion_rejects_missing_review_and_acceptance_validation"
+        },
+        "kind": "Function",
+        "name": "native_plan_node_completion_rejects_missing_review_and_acceptance_validation",
+        "span": {
+          "end": 144830,
+          "start": 141841
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_node_completion_rejects_missing_review_and_acceptance_validation"
+        },
+        "kind": "Function",
+        "name": "native_plan_node_completion_rejects_missing_review_and_acceptance_validation",
+        "span": {
+          "end": 144830,
+          "start": 141841
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::resume_task_returns_correlated_events"
+        },
+        "kind": "Function",
+        "name": "resume_task_returns_correlated_events",
+        "span": {
+          "end": 189712,
+          "start": 188052
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::resume_task_returns_correlated_events"
+        },
+        "kind": "Function",
+        "name": "resume_task_returns_correlated_events",
+        "span": {
+          "end": 193073,
+          "start": 191413
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::exposes_intent_links_and_task_intent"
+        },
+        "kind": "Function",
+        "name": "exposes_intent_links_and_task_intent",
+        "span": {
+          "end": 207281,
+          "start": 203758
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::exposes_intent_links_and_task_intent"
+        },
+        "kind": "Function",
+        "name": "exposes_intent_links_and_task_intent",
+        "span": {
+          "end": 210642,
+          "start": 207119
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_metadata_survives_compatibility_write_and_reload"
+        },
+        "kind": "Function",
+        "name": "native_plan_metadata_survives_compatibility_write_and_reload",
+        "span": {
+          "end": 186244,
+          "start": 179804
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_metadata_survives_compatibility_write_and_reload"
+        },
+        "kind": "Function",
+        "name": "native_plan_metadata_survives_compatibility_write_and_reload",
+        "span": {
+          "end": 189605,
+          "start": 183165
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::ad_hoc_plan_projection_replays_plan_state_at_timestamp"
+        },
+        "kind": "Function",
+        "name": "ad_hoc_plan_projection_replays_plan_state_at_timestamp",
+        "span": {
+          "end": 7940,
+          "start": 4134
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::ad_hoc_plan_projection_replays_plan_state_at_timestamp"
+        },
+        "kind": "Function",
+        "name": "ad_hoc_plan_projection_replays_plan_state_at_timestamp",
+        "span": {
+          "end": 7940,
+          "start": 4134
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::coordination_queries_expand_into_neighboring_symbols"
+        },
+        "kind": "Function",
+        "name": "coordination_queries_expand_into_neighboring_symbols",
+        "span": {
+          "end": 49452,
+          "start": 44850
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::coordination_queries_expand_into_neighboring_symbols"
+        },
+        "kind": "Function",
+        "name": "coordination_queries_expand_into_neighboring_symbols",
+        "span": {
+          "end": 49452,
+          "start": 44850
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::search_can_filter_by_kind_and_path"
+        },
+        "kind": "Function",
+        "name": "search_can_filter_by_kind_and_path",
+        "span": {
+          "end": 15127,
+          "start": 13902
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::search_can_filter_by_kind_and_path"
+        },
+        "kind": "Function",
+        "name": "search_can_filter_by_kind_and_path",
+        "span": {
+          "end": 15127,
+          "start": 13902
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::continuity_reads_native_runtime_state_before_coordination_projection"
+        },
+        "kind": "Function",
+        "name": "continuity_reads_native_runtime_state_before_coordination_projection",
+        "span": {
+          "end": 62096,
+          "start": 57172
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::continuity_reads_native_runtime_state_before_coordination_projection"
+        },
+        "kind": "Function",
+        "name": "continuity_reads_native_runtime_state_before_coordination_projection",
+        "span": {
+          "end": 62096,
+          "start": 57172
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::broad_identifier_search_prefers_owner_module_over_path_inherited_functions"
+        },
+        "kind": "Function",
+        "name": "broad_identifier_search_prefers_owner_module_over_path_inherited_functions",
+        "span": {
+          "end": 30973,
+          "start": 29594
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::broad_identifier_search_prefers_owner_module_over_path_inherited_functions"
+        },
+        "kind": "Function",
+        "name": "broad_identifier_search_prefers_owner_module_over_path_inherited_functions",
+        "span": {
+          "end": 30973,
+          "start": 29594
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_node_completion_accepts_successful_outcome_validations_without_artifact"
+        },
+        "kind": "Function",
+        "name": "native_plan_node_completion_accepts_successful_outcome_validations_without_artifact",
+        "span": {
+          "end": 166500,
+          "start": 160257
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_node_completion_accepts_successful_outcome_validations_without_artifact"
+        },
+        "kind": "Function",
+        "name": "native_plan_node_completion_accepts_successful_outcome_validations_without_artifact",
+        "span": {
+          "end": 169861,
+          "start": 163618
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges"
+        },
+        "kind": "Function",
+        "name": "native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges",
+        "span": {
+          "end": 179794,
+          "start": 172093
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges"
+        },
+        "kind": "Function",
+        "name": "native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges",
+        "span": {
+          "end": 183155,
+          "start": 175454
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::search_respects_limit"
+        },
+        "kind": "Function",
+        "name": "search_respects_limit",
+        "span": {
+          "end": 13268,
+          "start": 12648
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::search_respects_limit"
+        },
+        "kind": "Function",
+        "name": "search_respects_limit",
+        "span": {
+          "end": 13268,
+          "start": 12648
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::drift_candidates_flag_specs_without_validations"
+        },
+        "kind": "Function",
+        "name": "drift_candidates_flag_specs_without_validations",
+        "span": {
+          "end": 208482,
+          "start": 207291
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::drift_candidates_flag_specs_without_validations"
+        },
+        "kind": "Function",
+        "name": "drift_candidates_flag_specs_without_validations",
+        "span": {
+          "end": 211843,
+          "start": 210652
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::finds_documents_by_file_stem_and_path_fragment"
+        },
+        "kind": "Function",
+        "name": "finds_documents_by_file_stem_and_path_fragment",
+        "span": {
+          "end": 3292,
+          "start": 1224
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::finds_documents_by_file_stem_and_path_fragment"
+        },
+        "kind": "Function",
+        "name": "finds_documents_by_file_stem_and_path_fragment",
+        "span": {
+          "end": 3292,
+          "start": 1224
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::concept_lookup_returns_curated_validation_packet"
+        },
+        "kind": "Function",
+        "name": "concept_lookup_returns_curated_validation_packet",
+        "span": {
+          "end": 19023,
+          "start": 15137
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::concept_lookup_returns_curated_validation_packet"
+        },
+        "kind": "Function",
+        "name": "concept_lookup_returns_curated_validation_packet",
+        "span": {
+          "end": 19023,
+          "start": 15137
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::task_execution_plan_graph_prefers_published_authored_fields_for_task_backed_nodes"
+        },
+        "kind": "Function",
+        "name": "task_execution_plan_graph_prefers_published_authored_fields_for_task_backed_nodes",
+        "span": {
+          "end": 56031,
+          "start": 49462
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::task_execution_plan_graph_prefers_published_authored_fields_for_task_backed_nodes"
+        },
+        "kind": "Function",
+        "name": "task_execution_plan_graph_prefers_published_authored_fields_for_task_backed_nodes",
+        "span": {
+          "end": 56031,
+          "start": 49462
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::broad_identifier_search_prefers_code_over_replay_and_lockfile_noise"
+        },
+        "kind": "Function",
+        "name": "broad_identifier_search_prefers_code_over_replay_and_lockfile_noise",
+        "span": {
+          "end": 28202,
+          "start": 26278
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::broad_identifier_search_prefers_code_over_replay_and_lockfile_noise"
+        },
+        "kind": "Function",
+        "name": "broad_identifier_search_prefers_code_over_replay_and_lockfile_noise",
+        "span": {
+          "end": 28202,
+          "start": 26278
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_edge_validation_enforces_kind_and_hierarchy_semantics"
+        },
+        "kind": "Function",
+        "name": "native_plan_edge_validation_enforces_kind_and_hierarchy_semantics",
+        "span": {
+          "end": 126048,
+          "start": 119245
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_edge_validation_enforces_kind_and_hierarchy_semantics"
+        },
+        "kind": "Function",
+        "name": "native_plan_edge_validation_enforces_kind_and_hierarchy_semantics",
+        "span": {
+          "end": 126048,
+          "start": 119245
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::artifact_reads_and_pending_reviews_respect_worktree_scope"
+        },
+        "kind": "Function",
+        "name": "artifact_reads_and_pending_reviews_respect_worktree_scope",
+        "span": {
+          "end": 78813,
+          "start": 74490
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::artifact_reads_and_pending_reviews_respect_worktree_scope"
+        },
+        "kind": "Function",
+        "name": "artifact_reads_and_pending_reviews_respect_worktree_scope",
+        "span": {
+          "end": 78813,
+          "start": 74490
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_child_hierarchy_gates_parent_completion_and_recommendations"
+        },
+        "kind": "Function",
+        "name": "native_plan_child_hierarchy_gates_parent_completion_and_recommendations",
+        "span": {
+          "end": 138506,
+          "start": 135068
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_child_hierarchy_gates_parent_completion_and_recommendations"
+        },
+        "kind": "Function",
+        "name": "native_plan_child_hierarchy_gates_parent_completion_and_recommendations",
+        "span": {
+          "end": 138506,
+          "start": 135068
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_edge_validation_rejects_self_cycles_and_multiple_child_parents"
+        },
+        "kind": "Function",
+        "name": "native_plan_edge_validation_rejects_self_cycles_and_multiple_child_parents",
+        "span": {
+          "end": 119235,
+          "start": 114806
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::tests::native_plan_edge_validation_rejects_self_cycles_and_multiple_child_parents"
+        },
+        "kind": "Function",
+        "name": "native_plan_edge_validation_rejects_self_cycles_and_multiple_child_parents",
+        "span": {
+          "end": 119235,
+          "start": 114806
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 105,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs"
+    ],
+    "files": [
+      320
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

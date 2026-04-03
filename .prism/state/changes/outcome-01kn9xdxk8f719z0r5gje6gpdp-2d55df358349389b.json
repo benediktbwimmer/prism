@@ -1,0 +1,786 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdxk8f719z0r5gje6gpdp",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 446
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::git_execution_policy",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::root_nodes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::add_scalable_architectural_ranking_signals_for_broad_query_and_impact_precision",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md",
+        "kind": "Document"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::edges",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::rewrite_the_prism_runtime_around_incremental_invalidation_partial_materialization_explicit_boundary_semantics_worktree_aware_overlays_lazy_deep_parsing_and_scalable_ranking_so_the_daemon_stays_radically_efficient_on_small_repos_and_scales_cleanly_to_large_monorepos_excluding_the_remote_shared_runtime_backend_and_database_pushed_traversals",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::make_runtime_projections_and_overlays_explicitly_repo_worktree_and_session_scoped",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::complete_the_incremental_invalidation_substrate_with_formal_dependency_aware_propagation_and_localized_reprojection",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::projection_metadata",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::define_the_runtime_rewrite_contracts_and_migration_invariants",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::replace_broad_runtime_reloads_with_region_scoped_incremental_mutation_and_bounded_hot_state_hydration",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::source_of_truth",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::overview",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::goal",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::introduce_partial_materialization_and_explicit_index_depth_tiers_across_the_runtime",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::add_explicit_boundary_node_semantics_for_non_materialized_sparse_and_out_of_scope_regions",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::move_history_outcomes_curator_and_analytical_evidence_onto_warm_and_cold_lazy_read_paths",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::measure_and_validate_the_rewrite_against_startup_incremental_latency_memory_and_retrieval_quality",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::add_lazy_jit_deep_parsing_and_selective_structural_enrichment_on_first_touch",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::nodes",
+        "kind": "MarkdownHeading"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 1 added, 0 removed, 19 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 1,
+        "changedSymbolCount": 39,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "removedCount": 0,
+        "updatedCount": 38
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::git_execution_policy"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Git Execution Policy",
+        "span": {
+          "end": 1465,
+          "start": 1310
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::root_nodes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Root Nodes",
+        "span": {
+          "end": 1503,
+          "start": 1445
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::root_nodes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Root Nodes",
+        "span": {
+          "end": 1817,
+          "start": 1759
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::add_scalable_architectural_ranking_signals_for_broad_query_and_impact_precision"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Add scalable architectural ranking signals for broad-query and impact precision",
+        "span": {
+          "end": 4322,
+          "start": 3978
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::add_scalable_architectural_ranking_signals_for_broad_query_and_impact_precision"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Add scalable architectural ranking signals for broad-query and impact precision",
+        "span": {
+          "end": 4636,
+          "start": 4292
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md"
+        },
+        "kind": "Document",
+        "name": "docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "span": {
+          "end": 9549,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md"
+        },
+        "kind": "Document",
+        "name": "docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "span": {
+          "end": 9863,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::edges"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Edges",
+        "span": {
+          "end": 9549,
+          "start": 4520
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::edges"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Edges",
+        "span": {
+          "end": 9863,
+          "start": 4834
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::rewrite_the_prism_runtime_around_incremental_invalidation_partial_materialization_explicit_boundary_semantics_worktree_aware_overlays_lazy_deep_parsing_and_scalable_ranking_so_the_daemon_stays_radically_efficient_on_small_repos_and_scales_cleanly_to_large_monorepos_excluding_the_remote_shared_runtime_backend_and_database_pushed_traversals"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Rewrite the PRISM runtime around incremental invalidation, partial materialization, explicit boundary semantics, worktree-aware overlays, lazy deep parsing, and scalable ranking so the daemon stays radically efficient on small repos and scales cleanly to large monorepos, excluding the remote shared runtime backend and database-pushed traversals.",
+        "span": {
+          "end": 9549,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::rewrite_the_prism_runtime_around_incremental_invalidation_partial_materialization_explicit_boundary_semantics_worktree_aware_overlays_lazy_deep_parsing_and_scalable_ranking_so_the_daemon_stays_radically_efficient_on_small_repos_and_scales_cleanly_to_large_monorepos_excluding_the_remote_shared_runtime_backend_and_database_pushed_traversals"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Rewrite the PRISM runtime around incremental invalidation, partial materialization, explicit boundary semantics, worktree-aware overlays, lazy deep parsing, and scalable ranking so the daemon stays radically efficient on small repos and scales cleanly to large monorepos, excluding the remote shared runtime backend and database-pushed traversals.",
+        "span": {
+          "end": 9863,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::make_runtime_projections_and_overlays_explicitly_repo_worktree_and_session_scoped"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Make runtime projections and overlays explicitly repo-, worktree-, and session-scoped",
+        "span": {
+          "end": 3626,
+          "start": 3235
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::make_runtime_projections_and_overlays_explicitly_repo_worktree_and_session_scoped"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Make runtime projections and overlays explicitly repo-, worktree-, and session-scoped",
+        "span": {
+          "end": 3940,
+          "start": 3549
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::complete_the_incremental_invalidation_substrate_with_formal_dependency_aware_propagation_and_localized_reprojection"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Complete the incremental invalidation substrate with formal dependency-aware propagation and localized reprojection",
+        "span": {
+          "end": 1881,
+          "start": 1671
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::complete_the_incremental_invalidation_substrate_with_formal_dependency_aware_propagation_and_localized_reprojection"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Complete the incremental invalidation substrate with formal dependency-aware propagation and localized reprojection",
+        "span": {
+          "end": 2195,
+          "start": 1985
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::projection_metadata"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Projection Metadata",
+        "span": {
+          "end": 789,
+          "start": 490
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::projection_metadata"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Projection Metadata",
+        "span": {
+          "end": 789,
+          "start": 490
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::define_the_runtime_rewrite_contracts_and_migration_invariants"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Define the runtime rewrite contracts and migration invariants",
+        "span": {
+          "end": 1671,
+          "start": 1513
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::define_the_runtime_rewrite_contracts_and_migration_invariants"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Define the runtime rewrite contracts and migration invariants",
+        "span": {
+          "end": 1985,
+          "start": 1827
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::replace_broad_runtime_reloads_with_region_scoped_incremental_mutation_and_bounded_hot_state_hydration"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Replace broad runtime reloads with region-scoped incremental mutation and bounded hot-state hydration",
+        "span": {
+          "end": 2077,
+          "start": 1881
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::replace_broad_runtime_reloads_with_region_scoped_incremental_mutation_and_bounded_hot_state_hydration"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Replace broad runtime reloads with region-scoped incremental mutation and bounded hot-state hydration",
+        "span": {
+          "end": 2391,
+          "start": 2195
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::source_of_truth"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Source of Truth",
+        "span": {
+          "end": 1445,
+          "start": 1310
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::source_of_truth"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Source of Truth",
+        "span": {
+          "end": 1759,
+          "start": 1465
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::overview"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Overview",
+        "span": {
+          "end": 952,
+          "start": 789
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::overview"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Overview",
+        "span": {
+          "end": 952,
+          "start": 789
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::goal"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Goal",
+        "span": {
+          "end": 1310,
+          "start": 952
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::goal"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Goal",
+        "span": {
+          "end": 1310,
+          "start": 952
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::introduce_partial_materialization_and_explicit_index_depth_tiers_across_the_runtime"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Introduce partial materialization and explicit index-depth tiers across the runtime",
+        "span": {
+          "end": 2458,
+          "start": 2077
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::introduce_partial_materialization_and_explicit_index_depth_tiers_across_the_runtime"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Introduce partial materialization and explicit index-depth tiers across the runtime",
+        "span": {
+          "end": 2772,
+          "start": 2391
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::add_explicit_boundary_node_semantics_for_non_materialized_sparse_and_out_of_scope_regions"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Add explicit boundary-node semantics for non-materialized, sparse, and out-of-scope regions",
+        "span": {
+          "end": 2825,
+          "start": 2458
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::add_explicit_boundary_node_semantics_for_non_materialized_sparse_and_out_of_scope_regions"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Add explicit boundary-node semantics for non-materialized, sparse, and out-of-scope regions",
+        "span": {
+          "end": 3139,
+          "start": 2772
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::move_history_outcomes_curator_and_analytical_evidence_onto_warm_and_cold_lazy_read_paths"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Move history, outcomes, curator, and analytical evidence onto warm and cold lazy-read paths",
+        "span": {
+          "end": 3235,
+          "start": 2825
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::move_history_outcomes_curator_and_analytical_evidence_onto_warm_and_cold_lazy_read_paths"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Move history, outcomes, curator, and analytical evidence onto warm and cold lazy-read paths",
+        "span": {
+          "end": 3549,
+          "start": 3139
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::measure_and_validate_the_rewrite_against_startup_incremental_latency_memory_and_retrieval_quality"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Measure and validate the rewrite against startup, incremental latency, memory, and retrieval quality",
+        "span": {
+          "end": 4520,
+          "start": 4322
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::measure_and_validate_the_rewrite_against_startup_incremental_latency_memory_and_retrieval_quality"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Measure and validate the rewrite against startup, incremental latency, memory, and retrieval quality",
+        "span": {
+          "end": 4834,
+          "start": 4636
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::add_lazy_jit_deep_parsing_and_selective_structural_enrichment_on_first_touch"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Add lazy JIT deep parsing and selective structural enrichment on first touch",
+        "span": {
+          "end": 3978,
+          "start": 3626
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::add_lazy_jit_deep_parsing_and_selective_structural_enrichment_on_first_touch"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Add lazy JIT deep parsing and selective structural enrichment on first touch",
+        "span": {
+          "end": 4292,
+          "start": 3940
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::nodes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Nodes",
+        "span": {
+          "end": 4520,
+          "start": 1503
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn09gyzw4e8wzwvgvbbj9mkk_md::nodes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Nodes",
+        "span": {
+          "end": 4834,
+          "start": 1817
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 39,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md"
+    ],
+    "files": [
+      446
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

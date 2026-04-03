@@ -1,0 +1,1341 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdvxmkrtnb98w8681jc6k",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 52
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::protected_state_repair_published_plans_accepts_check_mode",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::mcp_stop_preserves_bridges_by_default",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::mcp_endpoint_parses",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::PrincipalCommand",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::ProtectedStateCommand",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::mcp_restart_internal_developer_flag_is_opt_in",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::mcp_cleanup_parses",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::protected_state_verify_accepts_optional_stream",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::principal_mint_parses_capabilities_and_parent",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::Cli::command",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::McpCommand",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::protected_state_install_git_support_parses",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::mcp_restart_kill_bridges_flag_is_opt_in",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::FeedbackCommand",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::auth_init_parses",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::OutcomeCommand",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::protected_state_repair_to_last_valid_is_opt_in",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::Command",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::ProtectedStateTrustCommand",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::protected_state_trust_export_parses",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::protected_state_migrate_sign_parses",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::mcp_start_accepts_http_bind_override",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::Cli::root",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::AuthCommand",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::mcp_restart_preserves_bridges_by_default",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::hidden_merge_driver_stream_parses",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::DocsCommand",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::Cli",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::TaskCommand",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::docs_generate_parses",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::explicit_root_still_parses",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::MemoryCommand",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::cli::tests::auth_login_parses_principal_selector",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 1 added, 0 removed, 34 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 1,
+        "changedSymbolCount": 69,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "removedCount": 0,
+        "updatedCount": 68
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::protected_state_repair_published_plans_accepts_check_mode"
+        },
+        "kind": "Function",
+        "name": "protected_state_repair_published_plans_accepts_check_mode",
+        "span": {
+          "end": 19648,
+          "start": 19144
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::mcp_stop_preserves_bridges_by_default"
+        },
+        "kind": "Function",
+        "name": "mcp_stop_preserves_bridges_by_default",
+        "span": {
+          "end": 9950,
+          "start": 9589
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::mcp_stop_preserves_bridges_by_default"
+        },
+        "kind": "Function",
+        "name": "mcp_stop_preserves_bridges_by_default",
+        "span": {
+          "end": 10099,
+          "start": 9738
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::mcp_endpoint_parses"
+        },
+        "kind": "Function",
+        "name": "mcp_endpoint_parses",
+        "span": {
+          "end": 11963,
+          "start": 11650
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::mcp_endpoint_parses"
+        },
+        "kind": "Function",
+        "name": "mcp_endpoint_parses",
+        "span": {
+          "end": 12112,
+          "start": 11799
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::PrincipalCommand"
+        },
+        "kind": "Enum",
+        "name": "PrincipalCommand",
+        "span": {
+          "end": 5584,
+          "start": 5088
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::PrincipalCommand"
+        },
+        "kind": "Enum",
+        "name": "PrincipalCommand",
+        "span": {
+          "end": 5584,
+          "start": 5088
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::ProtectedStateCommand"
+        },
+        "kind": "Enum",
+        "name": "ProtectedStateCommand",
+        "span": {
+          "end": 6886,
+          "start": 5670
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::ProtectedStateCommand"
+        },
+        "kind": "Enum",
+        "name": "ProtectedStateCommand",
+        "span": {
+          "end": 7035,
+          "start": 5670
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::mcp_restart_internal_developer_flag_is_opt_in"
+        },
+        "kind": "Function",
+        "name": "mcp_restart_internal_developer_flag_is_opt_in",
+        "span": {
+          "end": 10854,
+          "start": 10376
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::mcp_restart_internal_developer_flag_is_opt_in"
+        },
+        "kind": "Function",
+        "name": "mcp_restart_internal_developer_flag_is_opt_in",
+        "span": {
+          "end": 11003,
+          "start": 10525
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::mcp_cleanup_parses"
+        },
+        "kind": "Function",
+        "name": "mcp_cleanup_parses",
+        "span": {
+          "end": 11632,
+          "start": 11322
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::mcp_cleanup_parses"
+        },
+        "kind": "Function",
+        "name": "mcp_cleanup_parses",
+        "span": {
+          "end": 11781,
+          "start": 11471
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::protected_state_verify_accepts_optional_stream"
+        },
+        "kind": "Function",
+        "name": "protected_state_verify_accepts_optional_stream",
+        "span": {
+          "end": 16090,
+          "start": 15554
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::protected_state_verify_accepts_optional_stream"
+        },
+        "kind": "Function",
+        "name": "protected_state_verify_accepts_optional_stream",
+        "span": {
+          "end": 16239,
+          "start": 15703
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::principal_mint_parses_capabilities_and_parent"
+        },
+        "kind": "Function",
+        "name": "principal_mint_parses_capabilities_and_parent",
+        "span": {
+          "end": 14740,
+          "start": 13653
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::principal_mint_parses_capabilities_and_parent"
+        },
+        "kind": "Function",
+        "name": "principal_mint_parses_capabilities_and_parent",
+        "span": {
+          "end": 14889,
+          "start": 13802
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Field",
+          "path": "prism_cli::cli::Cli::command"
+        },
+        "kind": "Field",
+        "name": "command",
+        "span": {
+          "end": 484,
+          "start": 464
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Field",
+          "path": "prism_cli::cli::Cli::command"
+        },
+        "kind": "Field",
+        "name": "command",
+        "span": {
+          "end": 484,
+          "start": 464
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::McpCommand"
+        },
+        "kind": "Enum",
+        "name": "McpCommand",
+        "span": {
+          "end": 4583,
+          "start": 2593
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::McpCommand"
+        },
+        "kind": "Enum",
+        "name": "McpCommand",
+        "span": {
+          "end": 4583,
+          "start": 2593
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::protected_state_install_git_support_parses"
+        },
+        "kind": "Function",
+        "name": "protected_state_install_git_support_parses",
+        "span": {
+          "end": 15536,
+          "start": 15146
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::protected_state_install_git_support_parses"
+        },
+        "kind": "Function",
+        "name": "protected_state_install_git_support_parses",
+        "span": {
+          "end": 15685,
+          "start": 15295
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::mcp_restart_kill_bridges_flag_is_opt_in"
+        },
+        "kind": "Function",
+        "name": "mcp_restart_kill_bridges_flag_is_opt_in",
+        "span": {
+          "end": 10358,
+          "start": 9968
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::mcp_restart_kill_bridges_flag_is_opt_in"
+        },
+        "kind": "Function",
+        "name": "mcp_restart_kill_bridges_flag_is_opt_in",
+        "span": {
+          "end": 10507,
+          "start": 10117
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::FeedbackCommand"
+        },
+        "kind": "Enum",
+        "name": "FeedbackCommand",
+        "span": {
+          "end": 20039,
+          "start": 19395
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::FeedbackCommand"
+        },
+        "kind": "Enum",
+        "name": "FeedbackCommand",
+        "span": {
+          "end": 20710,
+          "start": 20066
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::auth_init_parses"
+        },
+        "kind": "Function",
+        "name": "auth_init_parses",
+        "span": {
+          "end": 12929,
+          "start": 12316
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::auth_init_parses"
+        },
+        "kind": "Function",
+        "name": "auth_init_parses",
+        "span": {
+          "end": 13078,
+          "start": 12465
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Module",
+          "path": "prism_cli::cli"
+        },
+        "kind": "Module",
+        "name": "cli",
+        "span": {
+          "end": 21333,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Module",
+          "path": "prism_cli::cli"
+        },
+        "kind": "Module",
+        "name": "cli",
+        "span": {
+          "end": 22004,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::OutcomeCommand"
+        },
+        "kind": "Enum",
+        "name": "OutcomeCommand",
+        "span": {
+          "end": 21332,
+          "start": 20063
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::OutcomeCommand"
+        },
+        "kind": "Enum",
+        "name": "OutcomeCommand",
+        "span": {
+          "end": 22003,
+          "start": 20734
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::protected_state_repair_to_last_valid_is_opt_in"
+        },
+        "kind": "Function",
+        "name": "protected_state_repair_to_last_valid_is_opt_in",
+        "span": {
+          "end": 18977,
+          "start": 18251
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::protected_state_repair_to_last_valid_is_opt_in"
+        },
+        "kind": "Function",
+        "name": "protected_state_repair_to_last_valid_is_opt_in",
+        "span": {
+          "end": 19126,
+          "start": 18400
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::Command"
+        },
+        "kind": "Enum",
+        "name": "Command",
+        "span": {
+          "end": 2143,
+          "start": 511
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::Command"
+        },
+        "kind": "Enum",
+        "name": "Command",
+        "span": {
+          "end": 2143,
+          "start": 511
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::ProtectedStateTrustCommand"
+        },
+        "kind": "Enum",
+        "name": "ProtectedStateTrustCommand",
+        "span": {
+          "end": 7278,
+          "start": 6910
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::ProtectedStateTrustCommand"
+        },
+        "kind": "Enum",
+        "name": "ProtectedStateTrustCommand",
+        "span": {
+          "end": 7427,
+          "start": 7059
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::protected_state_trust_export_parses"
+        },
+        "kind": "Function",
+        "name": "protected_state_trust_export_parses",
+        "span": {
+          "end": 18233,
+          "start": 17191
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::protected_state_trust_export_parses"
+        },
+        "kind": "Function",
+        "name": "protected_state_trust_export_parses",
+        "span": {
+          "end": 18382,
+          "start": 17340
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::protected_state_migrate_sign_parses"
+        },
+        "kind": "Function",
+        "name": "protected_state_migrate_sign_parses",
+        "span": {
+          "end": 15128,
+          "start": 14758
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::protected_state_migrate_sign_parses"
+        },
+        "kind": "Function",
+        "name": "protected_state_migrate_sign_parses",
+        "span": {
+          "end": 15277,
+          "start": 14907
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::mcp_start_accepts_http_bind_override"
+        },
+        "kind": "Function",
+        "name": "mcp_start_accepts_http_bind_override",
+        "span": {
+          "end": 11304,
+          "start": 10872
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::mcp_start_accepts_http_bind_override"
+        },
+        "kind": "Function",
+        "name": "mcp_start_accepts_http_bind_override",
+        "span": {
+          "end": 11453,
+          "start": 11021
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Field",
+          "path": "prism_cli::cli::Cli::root"
+        },
+        "kind": "Field",
+        "name": "root",
+        "span": {
+          "end": 431,
+          "start": 406
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Field",
+          "path": "prism_cli::cli::Cli::root"
+        },
+        "kind": "Field",
+        "name": "root",
+        "span": {
+          "end": 431,
+          "start": 406
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::AuthCommand"
+        },
+        "kind": "Enum",
+        "name": "AuthCommand",
+        "span": {
+          "end": 2569,
+          "start": 2167
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::AuthCommand"
+        },
+        "kind": "Enum",
+        "name": "AuthCommand",
+        "span": {
+          "end": 2569,
+          "start": 2167
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::mcp_restart_preserves_bridges_by_default"
+        },
+        "kind": "Function",
+        "name": "mcp_restart_preserves_bridges_by_default",
+        "span": {
+          "end": 9571,
+          "start": 8645
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::mcp_restart_preserves_bridges_by_default"
+        },
+        "kind": "Function",
+        "name": "mcp_restart_preserves_bridges_by_default",
+        "span": {
+          "end": 9720,
+          "start": 8794
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::hidden_merge_driver_stream_parses"
+        },
+        "kind": "Function",
+        "name": "hidden_merge_driver_stream_parses",
+        "span": {
+          "end": 17173,
+          "start": 16108
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::hidden_merge_driver_stream_parses"
+        },
+        "kind": "Function",
+        "name": "hidden_merge_driver_stream_parses",
+        "span": {
+          "end": 17322,
+          "start": 16257
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Module",
+          "path": "prism_cli::cli::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 19371,
+          "start": 8403
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Module",
+          "path": "prism_cli::cli::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 20042,
+          "start": 8552
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::DocsCommand"
+        },
+        "kind": "Enum",
+        "name": "DocsCommand",
+        "span": {
+          "end": 5646,
+          "start": 5608
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::DocsCommand"
+        },
+        "kind": "Enum",
+        "name": "DocsCommand",
+        "span": {
+          "end": 5646,
+          "start": 5608
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Struct",
+          "path": "prism_cli::cli::Cli"
+        },
+        "kind": "Struct",
+        "name": "Cli",
+        "span": {
+          "end": 487,
+          "start": 167
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Struct",
+          "path": "prism_cli::cli::Cli"
+        },
+        "kind": "Struct",
+        "name": "Cli",
+        "span": {
+          "end": 487,
+          "start": 167
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::TaskCommand"
+        },
+        "kind": "Enum",
+        "name": "TaskCommand",
+        "span": {
+          "end": 5064,
+          "start": 4607
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::TaskCommand"
+        },
+        "kind": "Enum",
+        "name": "TaskCommand",
+        "span": {
+          "end": 5064,
+          "start": 4607
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::docs_generate_parses"
+        },
+        "kind": "Function",
+        "name": "docs_generate_parses",
+        "span": {
+          "end": 12298,
+          "start": 11981
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::docs_generate_parses"
+        },
+        "kind": "Function",
+        "name": "docs_generate_parses",
+        "span": {
+          "end": 12447,
+          "start": 12130
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::explicit_root_still_parses"
+        },
+        "kind": "Function",
+        "name": "explicit_root_still_parses",
+        "span": {
+          "end": 19369,
+          "start": 18995
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::explicit_root_still_parses"
+        },
+        "kind": "Function",
+        "name": "explicit_root_still_parses",
+        "span": {
+          "end": 20040,
+          "start": 19666
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::MemoryCommand"
+        },
+        "kind": "Enum",
+        "name": "MemoryCommand",
+        "span": {
+          "end": 8388,
+          "start": 7302
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Enum",
+          "path": "prism_cli::cli::MemoryCommand"
+        },
+        "kind": "Enum",
+        "name": "MemoryCommand",
+        "span": {
+          "end": 8537,
+          "start": 7451
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::auth_login_parses_principal_selector"
+        },
+        "kind": "Function",
+        "name": "auth_login_parses_principal_selector",
+        "span": {
+          "end": 13635,
+          "start": 12947
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::cli::tests::auth_login_parses_principal_selector"
+        },
+        "kind": "Function",
+        "name": "auth_login_parses_principal_selector",
+        "span": {
+          "end": 13784,
+          "start": 13096
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 69,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/cli.rs"
+    ],
+    "files": [
+      52
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

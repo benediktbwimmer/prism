@@ -1,0 +1,3936 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdvshzfa0ar0j3czkz94n",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 362
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_2_why_shard_oriented_snapshots",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_4_publish_manifest_and_continuity",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_5_publication_rules",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_6_archived_plans",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_7_runtime_journals_and_compaction",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_3_snapshot_publication_policy",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_7_archived_plans",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_5_plan_event_envelope",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_3_event_sourcing_policy",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_2_why_an_event_log",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_4_plan_events",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_6_publication_rules",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_8_compaction_and_snapshots",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::11_mcp_and_js_runtime_surface",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_integration_with_concepts_memories_outcomes_impact_and_validation",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::15_suggested_file_level_schema_layout",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::coordination_tests",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::concrete_ownership_contract",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_8_plans_must_survive_repo_motion",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::4_terminology",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_8_binding_model",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_3_claims_and_contention",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::8_2_rebinding_behavior",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_5_outcome_overlay",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_2_execution_overlay",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::17_testing_requirements",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::mapping",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::20_final_philosophy",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::9_relationship_to_existing_coordination_state",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::validation_invariants",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::binding_invariants",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::8_4_branch_semantics",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::12_2_safe_parallelism",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::plan_overlay",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::8_hydration_model",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::dag_tests",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_5_plans_are_branch_aware",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::18_migration_from_current_coordination_model",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::19_non_goals",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::plan_node",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::plan_edge",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::graph_invariants",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_6_plan_node_status",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_7_plan_edge_kinds",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_6_freshness_overlay",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::prism_first_class_plans_specification",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_3_plan_publication_scope",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_1_plan_blockers",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::contract_tests",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::published_plan",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::11_3_mutation_surface",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::13_what_should_and_should_not_be_committed",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md",
+        "kind": "Document"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::2_why_plans_must_become_first_class",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_the_plan_object_model",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::16_4_node_local_next_actions",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::16_2_critical_path",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::11_2_runtime_query_surface",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_4_plans_are_published_active_intent",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_1_directory_layout",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::16_1_ready_node_calculation",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::16_5_plan_health",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_1_plans_are_shared_dags_of_work",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::13_1_commit_to_prism",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_1_concepts",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::agent_ergonomics_tests",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_9_plans_must_stay_inspectable",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::scratch_plan",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::plan",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_core_design_principles",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_2_memories",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_4_blast_radius_and_risk",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::multi_agent_invariants",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_12_plan_root_object",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::branching_tests",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_7_plans_are_handle_native",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_3_outcomes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_2_plan_status",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::16_3_parallelism_hints",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::11_1_resource_and_query_discovery_surface",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::8_5_local_scratch_plans",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::status_invariants",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_10_plan_node",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::hydration_tests",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_persistence_model_in_prism",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::14_invariants",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::13_2_keep_in_runtime_state_only",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_5_validation_recipes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_5_plan_node_kinds",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::plan_hydration",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_9_acceptance_model",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::12_1_cold_start_resume",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_derived_overlays_and_runtime_views",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::16_query_and_derived_behavior_requirements",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::12_3_grounded_handoff",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::publication_invariants",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_7_critical_path_overlay",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::8_1_startup",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::active_intent",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_1_identity_types",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_4_risk_overlay",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::8_3_staleness_semantics",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_2_a_plan_is_more_than_a_dag",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::1_summary",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_3_plans_are_grounded_not_prose_only",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_11_plan_edge",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::12_4_better_self_review",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_6_runtime_state_and_published_state_are_distinct",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_4_plan_kind",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::12_agent_ergonomics",
+        "kind": "MarkdownHeading"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 6 added, 7 removed, 97 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 6,
+        "changedSymbolCount": 207,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "removedCount": 7,
+        "updatedCount": 194
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_2_why_shard_oriented_snapshots"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.2 Why shard-oriented snapshots",
+        "span": {
+          "end": 16425,
+          "start": 15796
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_4_publish_manifest_and_continuity"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.4 Publish manifest and continuity",
+        "span": {
+          "end": 18071,
+          "start": 17604
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_5_publication_rules"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.5 Publication rules",
+        "span": {
+          "end": 18437,
+          "start": 18071
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_6_archived_plans"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.6 Archived plans",
+        "span": {
+          "end": 18641,
+          "start": 18437
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_7_runtime_journals_and_compaction"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.7 Runtime journals and compaction",
+        "span": {
+          "end": 18978,
+          "start": 18641
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_3_snapshot_publication_policy"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.3 Snapshot publication policy",
+        "span": {
+          "end": 17604,
+          "start": 16425
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_7_archived_plans"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.7 Archived plans",
+        "span": {
+          "end": 19186,
+          "start": 18944
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_5_plan_event_envelope"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.5 Plan event envelope",
+        "span": {
+          "end": 18582,
+          "start": 17757
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_3_event_sourcing_policy"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.3 Event sourcing policy",
+        "span": {
+          "end": 17381,
+          "start": 16313
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_2_why_an_event_log"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.2 Why an event log",
+        "span": {
+          "end": 16313,
+          "start": 15690
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_4_plan_events"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.4 Plan events",
+        "span": {
+          "end": 17757,
+          "start": 17381
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_6_publication_rules"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.6 Publication rules",
+        "span": {
+          "end": 18944,
+          "start": 18582
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_8_compaction_and_snapshots"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.8 Compaction and snapshots",
+        "span": {
+          "end": 19554,
+          "start": 19186
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::11_mcp_and_js_runtime_surface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "11. MCP and JS runtime surface",
+        "span": {
+          "end": 26383,
+          "start": 26251
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::11_mcp_and_js_runtime_surface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "11. MCP and JS runtime surface",
+        "span": {
+          "end": 25836,
+          "start": 25704
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_integration_with_concepts_memories_outcomes_impact_and_validation"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10. Integration with concepts, memories, outcomes, impact, and validation",
+        "span": {
+          "end": 25012,
+          "start": 24934
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_integration_with_concepts_memories_outcomes_impact_and_validation"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10. Integration with concepts, memories, outcomes, impact, and validation",
+        "span": {
+          "end": 24465,
+          "start": 24387
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::15_suggested_file_level_schema_layout"
+        },
+        "kind": "MarkdownHeading",
+        "name": "15. Suggested file-level schema layout",
+        "span": {
+          "end": 33688,
+          "start": 32579
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::15_suggested_file_level_schema_layout"
+        },
+        "kind": "MarkdownHeading",
+        "name": "15. Suggested file-level schema layout",
+        "span": {
+          "end": 33141,
+          "start": 32032
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::coordination_tests"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Coordination tests",
+        "span": {
+          "end": 35568,
+          "start": 35390
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::coordination_tests"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Coordination tests",
+        "span": {
+          "end": 35021,
+          "start": 34843
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::concrete_ownership_contract"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Concrete ownership contract",
+        "span": {
+          "end": 24934,
+          "start": 22865
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::concrete_ownership_contract"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Concrete ownership contract",
+        "span": {
+          "end": 24387,
+          "start": 22309
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_8_plans_must_survive_repo_motion"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.8 Plans must survive repo motion",
+        "span": {
+          "end": 3877,
+          "start": 3705
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_8_plans_must_survive_repo_motion"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.8 Plans must survive repo motion",
+        "span": {
+          "end": 3877,
+          "start": 3705
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::4_terminology"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4. Terminology",
+        "span": {
+          "end": 5049,
+          "start": 4215
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::4_terminology"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4. Terminology",
+        "span": {
+          "end": 5049,
+          "start": 4215
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_8_binding_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.8 Binding model",
+        "span": {
+          "end": 10519,
+          "start": 9039
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_8_binding_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.8 Binding model",
+        "span": {
+          "end": 10519,
+          "start": 9039
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_3_claims_and_contention"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.3 Claims and contention",
+        "span": {
+          "end": 14292,
+          "start": 14041
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_3_claims_and_contention"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.3 Claims and contention",
+        "span": {
+          "end": 14292,
+          "start": 14041
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::8_2_rebinding_behavior"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.2 Rebinding behavior",
+        "span": {
+          "end": 20397,
+          "start": 20110
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::8_2_rebinding_behavior"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.2 Rebinding behavior",
+        "span": {
+          "end": 19863,
+          "start": 19576
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_5_outcome_overlay"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.5 Outcome overlay",
+        "span": {
+          "end": 14588,
+          "start": 14438
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_5_outcome_overlay"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.5 Outcome overlay",
+        "span": {
+          "end": 14588,
+          "start": 14438
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_2_execution_overlay"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.2 Execution overlay",
+        "span": {
+          "end": 14041,
+          "start": 13670
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_2_execution_overlay"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.2 Execution overlay",
+        "span": {
+          "end": 14041,
+          "start": 13670
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::17_testing_requirements"
+        },
+        "kind": "MarkdownHeading",
+        "name": "17. Testing requirements",
+        "span": {
+          "end": 35949,
+          "start": 34829
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::17_testing_requirements"
+        },
+        "kind": "MarkdownHeading",
+        "name": "17. Testing requirements",
+        "span": {
+          "end": 35402,
+          "start": 34282
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::mapping"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Mapping",
+        "span": {
+          "end": 22865,
+          "start": 21932
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::mapping"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Mapping",
+        "span": {
+          "end": 22309,
+          "start": 21376
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::20_final_philosophy"
+        },
+        "kind": "MarkdownHeading",
+        "name": "20. Final philosophy",
+        "span": {
+          "end": 37854,
+          "start": 37394
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::20_final_philosophy"
+        },
+        "kind": "MarkdownHeading",
+        "name": "20. Final philosophy",
+        "span": {
+          "end": 37307,
+          "start": 36847
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::9_relationship_to_existing_coordination_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "9. Relationship to existing coordination state",
+        "span": {
+          "end": 24934,
+          "start": 21596
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::9_relationship_to_existing_coordination_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "9. Relationship to existing coordination state",
+        "span": {
+          "end": 24387,
+          "start": 21040
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::validation_invariants"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Validation invariants",
+        "span": {
+          "end": 32119,
+          "start": 31868
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::validation_invariants"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Validation invariants",
+        "span": {
+          "end": 31572,
+          "start": 31321
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::binding_invariants"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Binding invariants",
+        "span": {
+          "end": 31868,
+          "start": 31597
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::binding_invariants"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Binding invariants",
+        "span": {
+          "end": 31321,
+          "start": 31050
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::8_4_branch_semantics"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.4 Branch semantics",
+        "span": {
+          "end": 21303,
+          "start": 20799
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::8_4_branch_semantics"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.4 Branch semantics",
+        "span": {
+          "end": 20694,
+          "start": 20265
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::12_2_safe_parallelism"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.2 Safe parallelism",
+        "span": {
+          "end": 29064,
+          "start": 28947
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::12_2_safe_parallelism"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.2 Safe parallelism",
+        "span": {
+          "end": 28517,
+          "start": 28400
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::plan_overlay"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Plan overlay",
+        "span": {
+          "end": 4577,
+          "start": 4415
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::plan_overlay"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Plan overlay",
+        "span": {
+          "end": 4577,
+          "start": 4415
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::8_hydration_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8. Hydration model",
+        "span": {
+          "end": 19577,
+          "start": 19554
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::8_hydration_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8. Hydration model",
+        "span": {
+          "end": 19001,
+          "start": 18978
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::dag_tests"
+        },
+        "kind": "MarkdownHeading",
+        "name": "DAG tests",
+        "span": {
+          "end": 35209,
+          "start": 35083
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::dag_tests"
+        },
+        "kind": "MarkdownHeading",
+        "name": "DAG tests",
+        "span": {
+          "end": 34662,
+          "start": 34536
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_5_plans_are_branch_aware"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.5 Plans are branch-aware",
+        "span": {
+          "end": 3099,
+          "start": 2956
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_5_plans_are_branch_aware"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.5 Plans are branch-aware",
+        "span": {
+          "end": 3099,
+          "start": 2956
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::18_migration_from_current_coordination_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "18. Migration from current coordination model",
+        "span": {
+          "end": 36886,
+          "start": 35949
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::18_migration_from_current_coordination_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "18. Migration from current coordination model",
+        "span": {
+          "end": 36339,
+          "start": 35402
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::19_non_goals"
+        },
+        "kind": "MarkdownHeading",
+        "name": "19. Non-goals",
+        "span": {
+          "end": 37394,
+          "start": 36886
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::19_non_goals"
+        },
+        "kind": "MarkdownHeading",
+        "name": "19. Non-goals",
+        "span": {
+          "end": 36847,
+          "start": 36339
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::plan_node"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Plan node",
+        "span": {
+          "end": 4355,
+          "start": 4296
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::plan_node"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Plan node",
+        "span": {
+          "end": 4355,
+          "start": 4296
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::plan_edge"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Plan edge",
+        "span": {
+          "end": 4415,
+          "start": 4355
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::plan_edge"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Plan edge",
+        "span": {
+          "end": 4415,
+          "start": 4355
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::graph_invariants"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Graph invariants",
+        "span": {
+          "end": 31377,
+          "start": 31151
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::graph_invariants"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Graph invariants",
+        "span": {
+          "end": 30830,
+          "start": 30604
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_6_plan_node_status"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.6 Plan node status",
+        "span": {
+          "end": 7734,
+          "start": 7388
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_6_plan_node_status"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.6 Plan node status",
+        "span": {
+          "end": 7734,
+          "start": 7388
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_7_plan_edge_kinds"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.7 Plan edge kinds",
+        "span": {
+          "end": 9039,
+          "start": 7734
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_7_plan_edge_kinds"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.7 Plan edge kinds",
+        "span": {
+          "end": 9039,
+          "start": 7734
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_6_freshness_overlay"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.6 Freshness overlay",
+        "span": {
+          "end": 14801,
+          "start": 14588
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_6_freshness_overlay"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.6 Freshness overlay",
+        "span": {
+          "end": 14801,
+          "start": 14588
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::prism_first_class_plans_specification"
+        },
+        "kind": "MarkdownHeading",
+        "name": "PRISM First-Class Plans Specification",
+        "span": {
+          "end": 37854,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::prism_first_class_plans_specification"
+        },
+        "kind": "MarkdownHeading",
+        "name": "PRISM First-Class Plans Specification",
+        "span": {
+          "end": 37307,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_3_plan_publication_scope"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.3 Plan publication scope",
+        "span": {
+          "end": 6445,
+          "start": 6095
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_3_plan_publication_scope"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.3 Plan publication scope",
+        "span": {
+          "end": 6445,
+          "start": 6095
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_1_plan_blockers"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.1 Plan blockers",
+        "span": {
+          "end": 13670,
+          "start": 13385
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_1_plan_blockers"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.1 Plan blockers",
+        "span": {
+          "end": 13670,
+          "start": 13385
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::contract_tests"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Contract tests",
+        "span": {
+          "end": 35083,
+          "start": 34912
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::contract_tests"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Contract tests",
+        "span": {
+          "end": 34536,
+          "start": 34365
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::published_plan"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Published plan",
+        "span": {
+          "end": 4696,
+          "start": 4577
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::published_plan"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Published plan",
+        "span": {
+          "end": 4696,
+          "start": 4577
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::11_3_mutation_surface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "11.3 Mutation surface",
+        "span": {
+          "end": 28644,
+          "start": 28179
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::11_3_mutation_surface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "11.3 Mutation surface",
+        "span": {
+          "end": 28097,
+          "start": 27632
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::13_what_should_and_should_not_be_committed"
+        },
+        "kind": "MarkdownHeading",
+        "name": "13. What should and should not be committed",
+        "span": {
+          "end": 29478,
+          "start": 29430
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::13_what_should_and_should_not_be_committed"
+        },
+        "kind": "MarkdownHeading",
+        "name": "13. What should and should not be committed",
+        "span": {
+          "end": 28931,
+          "start": 28883
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md"
+        },
+        "kind": "Document",
+        "name": "docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "span": {
+          "end": 37854,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md"
+        },
+        "kind": "Document",
+        "name": "docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "span": {
+          "end": 37307,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::2_why_plans_must_become_first_class"
+        },
+        "kind": "MarkdownHeading",
+        "name": "2. Why plans must become first-class",
+        "span": {
+          "end": 2275,
+          "start": 1276
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::2_why_plans_must_become_first_class"
+        },
+        "kind": "MarkdownHeading",
+        "name": "2. Why plans must become first-class",
+        "span": {
+          "end": 2275,
+          "start": 1276
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_the_plan_object_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5. The plan object model",
+        "span": {
+          "end": 5078,
+          "start": 5049
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_the_plan_object_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5. The plan object model",
+        "span": {
+          "end": 5078,
+          "start": 5049
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::16_4_node_local_next_actions"
+        },
+        "kind": "MarkdownHeading",
+        "name": "16.4 Node-local next actions",
+        "span": {
+          "end": 34639,
+          "start": 34418
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::16_4_node_local_next_actions"
+        },
+        "kind": "MarkdownHeading",
+        "name": "16.4 Node-local next actions",
+        "span": {
+          "end": 34092,
+          "start": 33871
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::16_2_critical_path"
+        },
+        "kind": "MarkdownHeading",
+        "name": "16.2 Critical path",
+        "span": {
+          "end": 34209,
+          "start": 34065
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::16_2_critical_path"
+        },
+        "kind": "MarkdownHeading",
+        "name": "16.2 Critical path",
+        "span": {
+          "end": 33662,
+          "start": 33518
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::11_2_runtime_query_surface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "11.2 Runtime query surface",
+        "span": {
+          "end": 28179,
+          "start": 27856
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::11_2_runtime_query_surface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "11.2 Runtime query surface",
+        "span": {
+          "end": 27632,
+          "start": 27309
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_4_plans_are_published_active_intent"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.4 Plans are published active intent",
+        "span": {
+          "end": 2956,
+          "start": 2825
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_4_plans_are_published_active_intent"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.4 Plans are published active intent",
+        "span": {
+          "end": 2956,
+          "start": 2825
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_1_directory_layout"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.1 Directory layout",
+        "span": {
+          "end": 15690,
+          "start": 15357
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_1_directory_layout"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.1 Directory layout",
+        "span": {
+          "end": 15796,
+          "start": 15357
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::16_1_ready_node_calculation"
+        },
+        "kind": "MarkdownHeading",
+        "name": "16.1 Ready node calculation",
+        "span": {
+          "end": 34065,
+          "start": 33814
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::16_1_ready_node_calculation"
+        },
+        "kind": "MarkdownHeading",
+        "name": "16.1 Ready node calculation",
+        "span": {
+          "end": 33518,
+          "start": 33267
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::16_5_plan_health"
+        },
+        "kind": "MarkdownHeading",
+        "name": "16.5 Plan health",
+        "span": {
+          "end": 34829,
+          "start": 34639
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::16_5_plan_health"
+        },
+        "kind": "MarkdownHeading",
+        "name": "16.5 Plan health",
+        "span": {
+          "end": 34282,
+          "start": 34092
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_1_plans_are_shared_dags_of_work"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.1 Plans are shared DAGs of work",
+        "span": {
+          "end": 2430,
+          "start": 2305
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_1_plans_are_shared_dags_of_work"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.1 Plans are shared DAGs of work",
+        "span": {
+          "end": 2430,
+          "start": 2305
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::13_1_commit_to_prism"
+        },
+        "kind": "MarkdownHeading",
+        "name": "13.1 Commit to `.prism`",
+        "span": {
+          "end": 30641,
+          "start": 29478
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::13_1_commit_to_prism"
+        },
+        "kind": "MarkdownHeading",
+        "name": "13.1 Commit to `.prism`",
+        "span": {
+          "end": 30094,
+          "start": 28931
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_1_concepts"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10.1 Concepts",
+        "span": {
+          "end": 25395,
+          "start": 25012
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_1_concepts"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10.1 Concepts",
+        "span": {
+          "end": 24848,
+          "start": 24465
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::agent_ergonomics_tests"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Agent-ergonomics tests",
+        "span": {
+          "end": 35949,
+          "start": 35729
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::agent_ergonomics_tests"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Agent-ergonomics tests",
+        "span": {
+          "end": 35402,
+          "start": 35182
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_9_plans_must_stay_inspectable"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.9 Plans must stay inspectable",
+        "span": {
+          "end": 4215,
+          "start": 3877
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_9_plans_must_stay_inspectable"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.9 Plans must stay inspectable",
+        "span": {
+          "end": 4215,
+          "start": 3877
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::scratch_plan"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Scratch plan",
+        "span": {
+          "end": 4791,
+          "start": 4696
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::scratch_plan"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Scratch plan",
+        "span": {
+          "end": 4791,
+          "start": 4696
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::plan"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Plan",
+        "span": {
+          "end": 4296,
+          "start": 4234
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::plan"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Plan",
+        "span": {
+          "end": 4296,
+          "start": 4234
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_core_design_principles"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3. Core design principles",
+        "span": {
+          "end": 4215,
+          "start": 2275
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_core_design_principles"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3. Core design principles",
+        "span": {
+          "end": 4215,
+          "start": 2275
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_2_memories"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10.2 Memories",
+        "span": {
+          "end": 25636,
+          "start": 25395
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_2_memories"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10.2 Memories",
+        "span": {
+          "end": 25089,
+          "start": 24848
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_4_blast_radius_and_risk"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10.4 Blast radius and risk",
+        "span": {
+          "end": 26081,
+          "start": 25869
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_4_blast_radius_and_risk"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10.4 Blast radius and risk",
+        "span": {
+          "end": 25534,
+          "start": 25322
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::multi_agent_invariants"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Multi-agent invariants",
+        "span": {
+          "end": 32579,
+          "start": 32373
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::multi_agent_invariants"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Multi-agent invariants",
+        "span": {
+          "end": 32032,
+          "start": 31826
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_12_plan_root_object"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.12 Plan root object",
+        "span": {
+          "end": 13230,
+          "start": 12816
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_12_plan_root_object"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.12 Plan root object",
+        "span": {
+          "end": 13230,
+          "start": 12816
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::branching_tests"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Branching tests",
+        "span": {
+          "end": 35729,
+          "start": 35568
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::branching_tests"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Branching tests",
+        "span": {
+          "end": 35182,
+          "start": 35021
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_7_plans_are_handle_native"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.7 Plans are handle-native",
+        "span": {
+          "end": 3705,
+          "start": 3537
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_7_plans_are_handle_native"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.7 Plans are handle-native",
+        "span": {
+          "end": 3705,
+          "start": 3537
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_3_outcomes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10.3 Outcomes",
+        "span": {
+          "end": 25869,
+          "start": 25636
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_3_outcomes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10.3 Outcomes",
+        "span": {
+          "end": 25322,
+          "start": 25089
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_2_plan_status"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.2 Plan status",
+        "span": {
+          "end": 6095,
+          "start": 5839
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_2_plan_status"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.2 Plan status",
+        "span": {
+          "end": 6095,
+          "start": 5839
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::16_3_parallelism_hints"
+        },
+        "kind": "MarkdownHeading",
+        "name": "16.3 Parallelism hints",
+        "span": {
+          "end": 34418,
+          "start": 34209
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::16_3_parallelism_hints"
+        },
+        "kind": "MarkdownHeading",
+        "name": "16.3 Parallelism hints",
+        "span": {
+          "end": 33871,
+          "start": 33662
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::11_1_resource_and_query_discovery_surface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "11.1 Resource and query discovery surface",
+        "span": {
+          "end": 27856,
+          "start": 26383
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::11_1_resource_and_query_discovery_surface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "11.1 Resource and query discovery surface",
+        "span": {
+          "end": 27309,
+          "start": 25836
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::8_5_local_scratch_plans"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.5 Local scratch plans",
+        "span": {
+          "end": 21596,
+          "start": 21303
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::8_5_local_scratch_plans"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.5 Local scratch plans",
+        "span": {
+          "end": 21040,
+          "start": 20694
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::status_invariants"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Status invariants",
+        "span": {
+          "end": 31597,
+          "start": 31377
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::status_invariants"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Status invariants",
+        "span": {
+          "end": 31050,
+          "start": 30830
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_10_plan_node"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.10 Plan node",
+        "span": {
+          "end": 12563,
+          "start": 11628
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_10_plan_node"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.10 Plan node",
+        "span": {
+          "end": 12563,
+          "start": 11628
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::hydration_tests"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Hydration tests",
+        "span": {
+          "end": 35390,
+          "start": 35209
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::hydration_tests"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Hydration tests",
+        "span": {
+          "end": 34843,
+          "start": 34662
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_persistence_model_in_prism"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7. Persistence model in `.prism`",
+        "span": {
+          "end": 15357,
+          "start": 15320
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::7_persistence_model_in_prism"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7. Persistence model in `.prism`",
+        "span": {
+          "end": 15357,
+          "start": 15320
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::14_invariants"
+        },
+        "kind": "MarkdownHeading",
+        "name": "14. Invariants",
+        "span": {
+          "end": 32579,
+          "start": 31063
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::14_invariants"
+        },
+        "kind": "MarkdownHeading",
+        "name": "14. Invariants",
+        "span": {
+          "end": 32032,
+          "start": 30516
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::13_2_keep_in_runtime_state_only"
+        },
+        "kind": "MarkdownHeading",
+        "name": "13.2 Keep in runtime state only",
+        "span": {
+          "end": 31063,
+          "start": 30641
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::13_2_keep_in_runtime_state_only"
+        },
+        "kind": "MarkdownHeading",
+        "name": "13.2 Keep in runtime state only",
+        "span": {
+          "end": 30516,
+          "start": 30094
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_5_validation_recipes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10.5 Validation recipes",
+        "span": {
+          "end": 26251,
+          "start": 26081
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::10_5_validation_recipes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10.5 Validation recipes",
+        "span": {
+          "end": 25704,
+          "start": 25534
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_5_plan_node_kinds"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.5 Plan node kinds",
+        "span": {
+          "end": 7388,
+          "start": 6744
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_5_plan_node_kinds"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.5 Plan node kinds",
+        "span": {
+          "end": 7388,
+          "start": 6744
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::plan_hydration"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Plan hydration",
+        "span": {
+          "end": 5049,
+          "start": 4875
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::plan_hydration"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Plan hydration",
+        "span": {
+          "end": 5049,
+          "start": 4875
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_9_acceptance_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.9 Acceptance model",
+        "span": {
+          "end": 11628,
+          "start": 10519
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_9_acceptance_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.9 Acceptance model",
+        "span": {
+          "end": 11628,
+          "start": 10519
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::12_1_cold_start_resume"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.1 Cold-start resume",
+        "span": {
+          "end": 28947,
+          "start": 28746
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::12_1_cold_start_resume"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.1 Cold-start resume",
+        "span": {
+          "end": 28400,
+          "start": 28199
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_derived_overlays_and_runtime_views"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6. Derived overlays and runtime views",
+        "span": {
+          "end": 13385,
+          "start": 13230
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_derived_overlays_and_runtime_views"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6. Derived overlays and runtime views",
+        "span": {
+          "end": 13385,
+          "start": 13230
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::16_query_and_derived_behavior_requirements"
+        },
+        "kind": "MarkdownHeading",
+        "name": "16. Query and derived behavior requirements",
+        "span": {
+          "end": 34829,
+          "start": 33688
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::16_query_and_derived_behavior_requirements"
+        },
+        "kind": "MarkdownHeading",
+        "name": "16. Query and derived behavior requirements",
+        "span": {
+          "end": 34282,
+          "start": 33141
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::12_3_grounded_handoff"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.3 Grounded handoff",
+        "span": {
+          "end": 29231,
+          "start": 29064
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::12_3_grounded_handoff"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.3 Grounded handoff",
+        "span": {
+          "end": 28684,
+          "start": 28517
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::publication_invariants"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Publication invariants",
+        "span": {
+          "end": 32373,
+          "start": 32119
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::publication_invariants"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Publication invariants",
+        "span": {
+          "end": 31826,
+          "start": 31572
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_7_critical_path_overlay"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.7 Critical-path overlay",
+        "span": {
+          "end": 15320,
+          "start": 14801
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_7_critical_path_overlay"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.7 Critical-path overlay",
+        "span": {
+          "end": 15320,
+          "start": 14801
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::8_1_startup"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.1 Startup",
+        "span": {
+          "end": 20110,
+          "start": 19577
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::8_1_startup"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.1 Startup",
+        "span": {
+          "end": 19576,
+          "start": 19001
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::active_intent"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Active intent",
+        "span": {
+          "end": 4875,
+          "start": 4791
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::active_intent"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Active intent",
+        "span": {
+          "end": 4875,
+          "start": 4791
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_1_identity_types"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.1 Identity types",
+        "span": {
+          "end": 5839,
+          "start": 5078
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_1_identity_types"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.1 Identity types",
+        "span": {
+          "end": 5839,
+          "start": 5078
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_4_risk_overlay"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.4 Risk overlay",
+        "span": {
+          "end": 14438,
+          "start": 14292
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::6_4_risk_overlay"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.4 Risk overlay",
+        "span": {
+          "end": 14438,
+          "start": 14292
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::8_3_staleness_semantics"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.3 Staleness semantics",
+        "span": {
+          "end": 20799,
+          "start": 20397
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::8_3_staleness_semantics"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.3 Staleness semantics",
+        "span": {
+          "end": 20265,
+          "start": 19863
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_2_a_plan_is_more_than_a_dag"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.2 A plan is more than a DAG",
+        "span": {
+          "end": 2627,
+          "start": 2430
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_2_a_plan_is_more_than_a_dag"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.2 A plan is more than a DAG",
+        "span": {
+          "end": 2627,
+          "start": 2430
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::1_summary"
+        },
+        "kind": "MarkdownHeading",
+        "name": "1. Summary",
+        "span": {
+          "end": 1276,
+          "start": 235
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::1_summary"
+        },
+        "kind": "MarkdownHeading",
+        "name": "1. Summary",
+        "span": {
+          "end": 1276,
+          "start": 235
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_3_plans_are_grounded_not_prose_only"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.3 Plans are grounded, not prose-only",
+        "span": {
+          "end": 2825,
+          "start": 2627
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_3_plans_are_grounded_not_prose_only"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.3 Plans are grounded, not prose-only",
+        "span": {
+          "end": 2825,
+          "start": 2627
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_11_plan_edge"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.11 Plan edge",
+        "span": {
+          "end": 12816,
+          "start": 12563
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_11_plan_edge"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.11 Plan edge",
+        "span": {
+          "end": 12816,
+          "start": 12563
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::12_4_better_self_review"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.4 Better self-review",
+        "span": {
+          "end": 29430,
+          "start": 29231
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::12_4_better_self_review"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.4 Better self-review",
+        "span": {
+          "end": 28883,
+          "start": 28684
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_6_runtime_state_and_published_state_are_distinct"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.6 Runtime state and published state are distinct",
+        "span": {
+          "end": 3537,
+          "start": 3099
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::3_6_runtime_state_and_published_state_are_distinct"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.6 Runtime state and published state are distinct",
+        "span": {
+          "end": 3537,
+          "start": 3099
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_4_plan_kind"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.4 Plan kind",
+        "span": {
+          "end": 6744,
+          "start": 6445
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::5_4_plan_kind"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.4 Plan kind",
+        "span": {
+          "end": 6744,
+          "start": 6445
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::12_agent_ergonomics"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12. Agent ergonomics",
+        "span": {
+          "end": 29430,
+          "start": 28644
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_FIRST_CLASS_PLANS_SPEC_md::12_agent_ergonomics"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12. Agent ergonomics",
+        "span": {
+          "end": 28883,
+          "start": 28097
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 207,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md"
+    ],
+    "files": [
+      362
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

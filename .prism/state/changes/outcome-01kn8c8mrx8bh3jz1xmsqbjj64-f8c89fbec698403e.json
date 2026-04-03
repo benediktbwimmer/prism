@@ -1,0 +1,3524 @@
+{
+  "meta": {
+    "id": "outcome:01kn8c8mrx8bh3jz1xmsqbjj64",
+    "ts": 1775176536,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn8c8mqjkrvzpbrqsrv3v6hg",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/codex/b",
+      "instance_id": "instance:36757:1775176443682",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 300
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::concept_relation_rerank_candidate_limit",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::increment_co_change_neighbor",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::resolve_member_for_health",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::replace_curated_contracts",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::current_concept_lineages",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::DistinctLineageSelection::lineages",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::rebuild_concepts",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::CoChangeDeltaBatch",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::derive_with_curated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::derive",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::co_change_neighbors",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::upsert_concept_relation",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::collect_member_slots",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::from_snapshot_with_history",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::validation_checks_for_lineages",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::apply_outcome_event",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::co_change_deltas_for_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::concept_by_handle",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::DistinctLineageSelection::total_distinct_lineages",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::from_snapshot",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::DistinctLineageSelection",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::member_slots",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::replace_curated_concepts",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::derive_with_knowledge",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::MemberSlot::member",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::distinct_change_set_lineages",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::increment_validation_check",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::snapshot",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::node_to_lineage",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::co_change_by_lineage_from_history_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::history_hydrated",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::active_superseders",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::validation_by_lineage",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::concept_relations",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::concept_packets",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::event_lineages",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::concept_relations_for_handle",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::concept_touches_invalidation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::normalize_co_change_by_lineage",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::curated_concepts",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::MemberSlot::lineage",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::CoChangeDeltaBatch::distinct_lineage_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::concepts",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::active_contract_superseders",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::contract_anchor_is_live",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::contract_by_handle",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::concept_relations",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::compute_concept_health",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::upsert_curated_contract",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::compute_contract_health",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::normalize_co_change_neighbors",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::apply_validation_deltas",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::concept_packets",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::concept_ambiguity_ratio",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::contract_health",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::candidate_rank_for_health",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::replace_curated_contracts_from_events",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::CoChangeDeltaBatch::sampled_lineage_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::concept_health",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::replace_concept_relations",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::DistinctLineageSelection::truncated",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::upsert_curated_concept",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::resolve_concepts",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::validation_deltas_for_event",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::apply_lineage_events_with_co_change_deltas",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::apply_lineage_events",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::co_change_by_lineage",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::new",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::CoChangeDeltaBatch::truncated",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::contract_packets",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::apply_co_change_deltas",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::curated_contracts",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::curated_contracts",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::co_change_delta_batch_for_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::remove_concept_relation",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::MemberSlot",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::refresh_concepts_for_invalidation",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::rebuild_contracts",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::co_change_lineage_count",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::contracts",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::sampled_co_change_lineage_limit",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::prune_concept_relations",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::CoChangeDeltaBatch::deltas",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::resolve_contracts",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::curated_concepts",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::replace_curated_concepts_from_events",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::contract_packets",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::distinct_sorted_lineages",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::validation_lineage_count",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::ProjectionIndex::reseed_from_history",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_projections",
+        "path": "prism_projections::projections::outcome_lineages",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 1 added, 0 removed, 93 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 1,
+        "changedSymbolCount": 187,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "removedCount": 0,
+        "updatedCount": 186
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::concept_relation_rerank_candidate_limit"
+        },
+        "kind": "Function",
+        "name": "concept_relation_rerank_candidate_limit",
+        "span": {
+          "end": 35460,
+          "start": 35142
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::increment_co_change_neighbor"
+        },
+        "kind": "Function",
+        "name": "increment_co_change_neighbor",
+        "span": {
+          "end": 44583,
+          "start": 44007
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::increment_co_change_neighbor"
+        },
+        "kind": "Function",
+        "name": "increment_co_change_neighbor",
+        "span": {
+          "end": 44995,
+          "start": 44419
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::resolve_member_for_health"
+        },
+        "kind": "Function",
+        "name": "resolve_member_for_health",
+        "span": {
+          "end": 37770,
+          "start": 36930
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::resolve_member_for_health"
+        },
+        "kind": "Function",
+        "name": "resolve_member_for_health",
+        "span": {
+          "end": 38182,
+          "start": 37342
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::replace_curated_contracts"
+        },
+        "kind": "Method",
+        "name": "replace_curated_contracts",
+        "span": {
+          "end": 9391,
+          "start": 9214
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::replace_curated_contracts"
+        },
+        "kind": "Method",
+        "name": "replace_curated_contracts",
+        "span": {
+          "end": 9391,
+          "start": 9214
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::current_concept_lineages"
+        },
+        "kind": "Function",
+        "name": "current_concept_lineages",
+        "span": {
+          "end": 36928,
+          "start": 36501
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::current_concept_lineages"
+        },
+        "kind": "Function",
+        "name": "current_concept_lineages",
+        "span": {
+          "end": 37340,
+          "start": 36913
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::DistinctLineageSelection::lineages"
+        },
+        "kind": "Field",
+        "name": "lineages",
+        "span": {
+          "end": 41036,
+          "start": 41012
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::DistinctLineageSelection::lineages"
+        },
+        "kind": "Field",
+        "name": "lineages",
+        "span": {
+          "end": 41448,
+          "start": 41424
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::rebuild_concepts"
+        },
+        "kind": "Method",
+        "name": "rebuild_concepts",
+        "span": {
+          "end": 20427,
+          "start": 20186
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::rebuild_concepts"
+        },
+        "kind": "Method",
+        "name": "rebuild_concepts",
+        "span": {
+          "end": 20519,
+          "start": 20278
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Struct",
+          "path": "prism_projections::projections::CoChangeDeltaBatch"
+        },
+        "kind": "Struct",
+        "name": "CoChangeDeltaBatch",
+        "span": {
+          "end": 2075,
+          "start": 1904
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Struct",
+          "path": "prism_projections::projections::CoChangeDeltaBatch"
+        },
+        "kind": "Struct",
+        "name": "CoChangeDeltaBatch",
+        "span": {
+          "end": 2075,
+          "start": 1904
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::derive_with_curated"
+        },
+        "kind": "Method",
+        "name": "derive_with_curated",
+        "span": {
+          "end": 4875,
+          "start": 4618
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::derive_with_curated"
+        },
+        "kind": "Method",
+        "name": "derive_with_curated",
+        "span": {
+          "end": 4875,
+          "start": 4618
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::derive"
+        },
+        "kind": "Method",
+        "name": "derive",
+        "span": {
+          "end": 4612,
+          "start": 4443
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::derive"
+        },
+        "kind": "Method",
+        "name": "derive",
+        "span": {
+          "end": 4612,
+          "start": 4443
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::co_change_neighbors"
+        },
+        "kind": "Method",
+        "name": "co_change_neighbors",
+        "span": {
+          "end": 16243,
+          "start": 15905
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::co_change_neighbors"
+        },
+        "kind": "Method",
+        "name": "co_change_neighbors",
+        "span": {
+          "end": 16243,
+          "start": 15905
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::upsert_concept_relation"
+        },
+        "kind": "Method",
+        "name": "upsert_concept_relation",
+        "span": {
+          "end": 9208,
+          "start": 8969
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::upsert_concept_relation"
+        },
+        "kind": "Method",
+        "name": "upsert_concept_relation",
+        "span": {
+          "end": 9208,
+          "start": 8969
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::collect_member_slots"
+        },
+        "kind": "Function",
+        "name": "collect_member_slots",
+        "span": {
+          "end": 35534,
+          "start": 35142
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::collect_member_slots"
+        },
+        "kind": "Function",
+        "name": "collect_member_slots",
+        "span": {
+          "end": 35946,
+          "start": 35554
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::from_snapshot_with_history"
+        },
+        "kind": "Method",
+        "name": "from_snapshot_with_history",
+        "span": {
+          "end": 4437,
+          "start": 2784
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::from_snapshot_with_history"
+        },
+        "kind": "Method",
+        "name": "from_snapshot_with_history",
+        "span": {
+          "end": 4437,
+          "start": 2784
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::validation_checks_for_lineages"
+        },
+        "kind": "Method",
+        "name": "validation_checks_for_lineages",
+        "span": {
+          "end": 17436,
+          "start": 16249
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::validation_checks_for_lineages"
+        },
+        "kind": "Method",
+        "name": "validation_checks_for_lineages",
+        "span": {
+          "end": 17436,
+          "start": 16249
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Struct",
+          "path": "prism_projections::projections::ProjectionIndex"
+        },
+        "kind": "Struct",
+        "name": "ProjectionIndex",
+        "span": {
+          "end": 2568,
+          "start": 2110
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Struct",
+          "path": "prism_projections::projections::ProjectionIndex"
+        },
+        "kind": "Struct",
+        "name": "ProjectionIndex",
+        "span": {
+          "end": 2568,
+          "start": 2110
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::apply_outcome_event"
+        },
+        "kind": "Method",
+        "name": "apply_outcome_event",
+        "span": {
+          "end": 13482,
+          "start": 12953
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::apply_outcome_event"
+        },
+        "kind": "Method",
+        "name": "apply_outcome_event",
+        "span": {
+          "end": 13482,
+          "start": 12953
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::co_change_deltas_for_events"
+        },
+        "kind": "Function",
+        "name": "co_change_deltas_for_events",
+        "span": {
+          "end": 39157,
+          "start": 39020
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::co_change_deltas_for_events"
+        },
+        "kind": "Function",
+        "name": "co_change_deltas_for_events",
+        "span": {
+          "end": 39569,
+          "start": 39432
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::concept_by_handle"
+        },
+        "kind": "Method",
+        "name": "concept_by_handle",
+        "span": {
+          "end": 18740,
+          "start": 18605
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::concept_by_handle"
+        },
+        "kind": "Method",
+        "name": "concept_by_handle",
+        "span": {
+          "end": 18832,
+          "start": 18697
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::DistinctLineageSelection::total_distinct_lineages"
+        },
+        "kind": "Field",
+        "name": "total_distinct_lineages",
+        "span": {
+          "end": 41072,
+          "start": 41042
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::DistinctLineageSelection::total_distinct_lineages"
+        },
+        "kind": "Field",
+        "name": "total_distinct_lineages",
+        "span": {
+          "end": 41484,
+          "start": 41454
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::from_snapshot"
+        },
+        "kind": "Method",
+        "name": "from_snapshot",
+        "span": {
+          "end": 2778,
+          "start": 2655
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::from_snapshot"
+        },
+        "kind": "Method",
+        "name": "from_snapshot",
+        "span": {
+          "end": 2778,
+          "start": 2655
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Struct",
+          "path": "prism_projections::projections::DistinctLineageSelection"
+        },
+        "kind": "Struct",
+        "name": "DistinctLineageSelection",
+        "span": {
+          "end": 41096,
+          "start": 40974
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Struct",
+          "path": "prism_projections::projections::DistinctLineageSelection"
+        },
+        "kind": "Struct",
+        "name": "DistinctLineageSelection",
+        "span": {
+          "end": 41508,
+          "start": 41386
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::member_slots"
+        },
+        "kind": "Function",
+        "name": "member_slots",
+        "span": {
+          "end": 36499,
+          "start": 36189
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::member_slots"
+        },
+        "kind": "Function",
+        "name": "member_slots",
+        "span": {
+          "end": 36911,
+          "start": 36601
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::replace_curated_concepts"
+        },
+        "kind": "Method",
+        "name": "replace_curated_concepts",
+        "span": {
+          "end": 7950,
+          "start": 7779
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::replace_curated_concepts"
+        },
+        "kind": "Method",
+        "name": "replace_curated_concepts",
+        "span": {
+          "end": 7950,
+          "start": 7779
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::derive_with_knowledge"
+        },
+        "kind": "Method",
+        "name": "derive_with_knowledge",
+        "span": {
+          "end": 7773,
+          "start": 4881
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::derive_with_knowledge"
+        },
+        "kind": "Method",
+        "name": "derive_with_knowledge",
+        "span": {
+          "end": 7773,
+          "start": 4881
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::MemberSlot::member"
+        },
+        "kind": "Field",
+        "name": "member",
+        "span": {
+          "end": 35105,
+          "start": 35091
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::MemberSlot::member"
+        },
+        "kind": "Field",
+        "name": "member",
+        "span": {
+          "end": 35517,
+          "start": 35503
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::distinct_change_set_lineages"
+        },
+        "kind": "Function",
+        "name": "distinct_change_set_lineages",
+        "span": {
+          "end": 40948,
+          "start": 40771
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::distinct_change_set_lineages"
+        },
+        "kind": "Function",
+        "name": "distinct_change_set_lineages",
+        "span": {
+          "end": 41360,
+          "start": 41183
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::increment_validation_check"
+        },
+        "kind": "Function",
+        "name": "increment_validation_check",
+        "span": {
+          "end": 45966,
+          "start": 45163
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::increment_validation_check"
+        },
+        "kind": "Function",
+        "name": "increment_validation_check",
+        "span": {
+          "end": 46378,
+          "start": 45575
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::snapshot"
+        },
+        "kind": "Method",
+        "name": "snapshot",
+        "span": {
+          "end": 15899,
+          "start": 14183
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::snapshot"
+        },
+        "kind": "Method",
+        "name": "snapshot",
+        "span": {
+          "end": 15899,
+          "start": 14183
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::ProjectionIndex::node_to_lineage"
+        },
+        "kind": "Field",
+        "name": "node_to_lineage",
+        "span": {
+          "end": 2322,
+          "start": 2279
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::ProjectionIndex::node_to_lineage"
+        },
+        "kind": "Field",
+        "name": "node_to_lineage",
+        "span": {
+          "end": 2322,
+          "start": 2279
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::co_change_by_lineage_from_history_events"
+        },
+        "kind": "Function",
+        "name": "co_change_by_lineage_from_history_events",
+        "span": {
+          "end": 40769,
+          "start": 39159
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::co_change_by_lineage_from_history_events"
+        },
+        "kind": "Function",
+        "name": "co_change_by_lineage_from_history_events",
+        "span": {
+          "end": 41181,
+          "start": 39571
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::ProjectionIndex::history_hydrated"
+        },
+        "kind": "Field",
+        "name": "history_hydrated",
+        "span": {
+          "end": 2565,
+          "start": 2543
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::ProjectionIndex::history_hydrated"
+        },
+        "kind": "Field",
+        "name": "history_hydrated",
+        "span": {
+          "end": 2565,
+          "start": 2543
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::active_superseders"
+        },
+        "kind": "Method",
+        "name": "active_superseders",
+        "span": {
+          "end": 33813,
+          "start": 33050
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::active_superseders"
+        },
+        "kind": "Method",
+        "name": "active_superseders",
+        "span": {
+          "end": 33905,
+          "start": 33142
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::ProjectionIndex::validation_by_lineage"
+        },
+        "kind": "Field",
+        "name": "validation_by_lineage",
+        "span": {
+          "end": 2273,
+          "start": 2210
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::ProjectionIndex::validation_by_lineage"
+        },
+        "kind": "Field",
+        "name": "validation_by_lineage",
+        "span": {
+          "end": 2273,
+          "start": 2210
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::concept_relations"
+        },
+        "kind": "Method",
+        "name": "concept_relations",
+        "span": {
+          "end": 10927,
+          "start": 10834
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::concept_relations"
+        },
+        "kind": "Method",
+        "name": "concept_relations",
+        "span": {
+          "end": 10927,
+          "start": 10834
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::concept_packets"
+        },
+        "kind": "Method",
+        "name": "concept_packets",
+        "span": {
+          "end": 19174,
+          "start": 19087
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::concept_packets"
+        },
+        "kind": "Method",
+        "name": "concept_packets",
+        "span": {
+          "end": 19266,
+          "start": 19179
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::event_lineages"
+        },
+        "kind": "Function",
+        "name": "event_lineages",
+        "span": {
+          "end": 43483,
+          "start": 42963
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::event_lineages"
+        },
+        "kind": "Function",
+        "name": "event_lineages",
+        "span": {
+          "end": 43895,
+          "start": 43375
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::concept_relations_for_handle"
+        },
+        "kind": "Method",
+        "name": "concept_relations_for_handle",
+        "span": {
+          "end": 19338,
+          "start": 19180
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::concept_relations_for_handle"
+        },
+        "kind": "Method",
+        "name": "concept_relations_for_handle",
+        "span": {
+          "end": 19430,
+          "start": 19272
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::concept_touches_invalidation"
+        },
+        "kind": "Function",
+        "name": "concept_touches_invalidation",
+        "span": {
+          "end": 36187,
+          "start": 35536
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::concept_touches_invalidation"
+        },
+        "kind": "Function",
+        "name": "concept_touches_invalidation",
+        "span": {
+          "end": 36599,
+          "start": 35948
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::normalize_co_change_by_lineage"
+        },
+        "kind": "Function",
+        "name": "normalize_co_change_by_lineage",
+        "span": {
+          "end": 44783,
+          "start": 44585
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::normalize_co_change_by_lineage"
+        },
+        "kind": "Function",
+        "name": "normalize_co_change_by_lineage",
+        "span": {
+          "end": 45195,
+          "start": 44997
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::curated_concepts"
+        },
+        "kind": "Method",
+        "name": "curated_concepts",
+        "span": {
+          "end": 10828,
+          "start": 10739
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::curated_concepts"
+        },
+        "kind": "Method",
+        "name": "curated_concepts",
+        "span": {
+          "end": 10828,
+          "start": 10739
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::MemberSlot::lineage"
+        },
+        "kind": "Field",
+        "name": "lineage",
+        "span": {
+          "end": 35137,
+          "start": 35111
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::MemberSlot::lineage"
+        },
+        "kind": "Field",
+        "name": "lineage",
+        "span": {
+          "end": 35549,
+          "start": 35523
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::CoChangeDeltaBatch::distinct_lineage_count"
+        },
+        "kind": "Field",
+        "name": "distinct_lineage_count",
+        "span": {
+          "end": 2009,
+          "start": 1976
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::CoChangeDeltaBatch::distinct_lineage_count"
+        },
+        "kind": "Field",
+        "name": "distinct_lineage_count",
+        "span": {
+          "end": 2009,
+          "start": 1976
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::concepts"
+        },
+        "kind": "Method",
+        "name": "concepts",
+        "span": {
+          "end": 17662,
+          "start": 17442
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::concepts"
+        },
+        "kind": "Method",
+        "name": "concepts",
+        "span": {
+          "end": 17662,
+          "start": 17442
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::active_contract_superseders"
+        },
+        "kind": "Method",
+        "name": "active_contract_superseders",
+        "span": {
+          "end": 34664,
+          "start": 33819
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::active_contract_superseders"
+        },
+        "kind": "Method",
+        "name": "active_contract_superseders",
+        "span": {
+          "end": 34756,
+          "start": 33911
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::contract_anchor_is_live"
+        },
+        "kind": "Method",
+        "name": "contract_anchor_is_live",
+        "span": {
+          "end": 35046,
+          "start": 34670
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::contract_anchor_is_live"
+        },
+        "kind": "Method",
+        "name": "contract_anchor_is_live",
+        "span": {
+          "end": 35138,
+          "start": 34762
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::contract_by_handle"
+        },
+        "kind": "Method",
+        "name": "contract_by_handle",
+        "span": {
+          "end": 19875,
+          "start": 19736
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::contract_by_handle"
+        },
+        "kind": "Method",
+        "name": "contract_by_handle",
+        "span": {
+          "end": 19967,
+          "start": 19828
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::ProjectionIndex::concept_relations"
+        },
+        "kind": "Field",
+        "name": "concept_relations",
+        "span": {
+          "end": 2409,
+          "start": 2370
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::ProjectionIndex::concept_relations"
+        },
+        "kind": "Field",
+        "name": "concept_relations",
+        "span": {
+          "end": 2409,
+          "start": 2370
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::compute_concept_health"
+        },
+        "kind": "Method",
+        "name": "compute_concept_health",
+        "span": {
+          "end": 28205,
+          "start": 22747
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::compute_concept_health"
+        },
+        "kind": "Method",
+        "name": "compute_concept_health",
+        "span": {
+          "end": 28297,
+          "start": 22839
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::upsert_curated_contract"
+        },
+        "kind": "Method",
+        "name": "upsert_curated_contract",
+        "span": {
+          "end": 10076,
+          "start": 9571
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::upsert_curated_contract"
+        },
+        "kind": "Method",
+        "name": "upsert_curated_contract",
+        "span": {
+          "end": 10076,
+          "start": 9571
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::compute_contract_health"
+        },
+        "kind": "Method",
+        "name": "compute_contract_health",
+        "span": {
+          "end": 32171,
+          "start": 28211
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::compute_contract_health"
+        },
+        "kind": "Method",
+        "name": "compute_contract_health",
+        "span": {
+          "end": 32263,
+          "start": 28303
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::normalize_co_change_neighbors"
+        },
+        "kind": "Function",
+        "name": "normalize_co_change_neighbors",
+        "span": {
+          "end": 45161,
+          "start": 44785
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::normalize_co_change_neighbors"
+        },
+        "kind": "Function",
+        "name": "normalize_co_change_neighbors",
+        "span": {
+          "end": 45573,
+          "start": 45197
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::apply_validation_deltas"
+        },
+        "kind": "Method",
+        "name": "apply_validation_deltas",
+        "span": {
+          "end": 14177,
+          "start": 13826
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::apply_validation_deltas"
+        },
+        "kind": "Method",
+        "name": "apply_validation_deltas",
+        "span": {
+          "end": 14177,
+          "start": 13826
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::ProjectionIndex::concept_packets"
+        },
+        "kind": "Field",
+        "name": "concept_packets",
+        "span": {
+          "end": 2450,
+          "start": 2415
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::ProjectionIndex::concept_packets"
+        },
+        "kind": "Field",
+        "name": "concept_packets",
+        "span": {
+          "end": 2450,
+          "start": 2415
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::concept_ambiguity_ratio"
+        },
+        "kind": "Method",
+        "name": "concept_ambiguity_ratio",
+        "span": {
+          "end": 33044,
+          "start": 32177
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::concept_ambiguity_ratio"
+        },
+        "kind": "Method",
+        "name": "concept_ambiguity_ratio",
+        "span": {
+          "end": 33136,
+          "start": 32269
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Module",
+          "path": "prism_projections::projections"
+        },
+        "kind": "Module",
+        "name": "projections",
+        "span": {
+          "end": 45967,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Module",
+          "path": "prism_projections::projections"
+        },
+        "kind": "Module",
+        "name": "projections",
+        "span": {
+          "end": 46379,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::contract_health"
+        },
+        "kind": "Method",
+        "name": "contract_health",
+        "span": {
+          "end": 20084,
+          "start": 19881
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::contract_health"
+        },
+        "kind": "Method",
+        "name": "contract_health",
+        "span": {
+          "end": 20176,
+          "start": 19973
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::candidate_rank_for_health"
+        },
+        "kind": "Function",
+        "name": "candidate_rank_for_health",
+        "span": {
+          "end": 38075,
+          "start": 37772
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::candidate_rank_for_health"
+        },
+        "kind": "Function",
+        "name": "candidate_rank_for_health",
+        "span": {
+          "end": 38487,
+          "start": 38184
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::replace_curated_contracts_from_events"
+        },
+        "kind": "Method",
+        "name": "replace_curated_contracts_from_events",
+        "span": {
+          "end": 9565,
+          "start": 9397
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::replace_curated_contracts_from_events"
+        },
+        "kind": "Method",
+        "name": "replace_curated_contracts_from_events",
+        "span": {
+          "end": 9565,
+          "start": 9397
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::CoChangeDeltaBatch::sampled_lineage_count"
+        },
+        "kind": "Field",
+        "name": "sampled_lineage_count",
+        "span": {
+          "end": 2047,
+          "start": 2015
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::CoChangeDeltaBatch::sampled_lineage_count"
+        },
+        "kind": "Field",
+        "name": "sampled_lineage_count",
+        "span": {
+          "end": 2047,
+          "start": 2015
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::concept_health"
+        },
+        "kind": "Method",
+        "name": "concept_health",
+        "span": {
+          "end": 19081,
+          "start": 18746
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::concept_health"
+        },
+        "kind": "Method",
+        "name": "concept_health",
+        "span": {
+          "end": 19173,
+          "start": 18838
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::replace_concept_relations"
+        },
+        "kind": "Method",
+        "name": "replace_concept_relations",
+        "span": {
+          "end": 8159,
+          "start": 7956
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::replace_concept_relations"
+        },
+        "kind": "Method",
+        "name": "replace_concept_relations",
+        "span": {
+          "end": 8159,
+          "start": 7956
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::DistinctLineageSelection::truncated"
+        },
+        "kind": "Field",
+        "name": "truncated",
+        "span": {
+          "end": 41093,
+          "start": 41078
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::DistinctLineageSelection::truncated"
+        },
+        "kind": "Field",
+        "name": "truncated",
+        "span": {
+          "end": 41505,
+          "start": 41490
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::upsert_curated_concept"
+        },
+        "kind": "Method",
+        "name": "upsert_curated_concept",
+        "span": {
+          "end": 8963,
+          "start": 8335
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::upsert_curated_concept"
+        },
+        "kind": "Method",
+        "name": "upsert_curated_concept",
+        "span": {
+          "end": 8963,
+          "start": 8335
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::resolve_concepts"
+        },
+        "kind": "Method",
+        "name": "resolve_concepts",
+        "span": {
+          "end": 18599,
+          "start": 17668
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::resolve_concepts"
+        },
+        "kind": "Method",
+        "name": "resolve_concepts",
+        "span": {
+          "end": 18691,
+          "start": 17668
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::validation_deltas_for_event"
+        },
+        "kind": "Function",
+        "name": "validation_deltas_for_event",
+        "span": {
+          "end": 42961,
+          "start": 42123
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::validation_deltas_for_event"
+        },
+        "kind": "Function",
+        "name": "validation_deltas_for_event",
+        "span": {
+          "end": 43373,
+          "start": 42535
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::apply_lineage_events_with_co_change_deltas"
+        },
+        "kind": "Method",
+        "name": "apply_lineage_events_with_co_change_deltas",
+        "span": {
+          "end": 12947,
+          "start": 11996
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::apply_lineage_events_with_co_change_deltas"
+        },
+        "kind": "Method",
+        "name": "apply_lineage_events_with_co_change_deltas",
+        "span": {
+          "end": 12947,
+          "start": 11996
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::apply_lineage_events"
+        },
+        "kind": "Method",
+        "name": "apply_lineage_events",
+        "span": {
+          "end": 11990,
+          "start": 11787
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::apply_lineage_events"
+        },
+        "kind": "Method",
+        "name": "apply_lineage_events",
+        "span": {
+          "end": 11990,
+          "start": 11787
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::ProjectionIndex::co_change_by_lineage"
+        },
+        "kind": "Field",
+        "name": "co_change_by_lineage",
+        "span": {
+          "end": 2204,
+          "start": 2143
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::ProjectionIndex::co_change_by_lineage"
+        },
+        "kind": "Field",
+        "name": "co_change_by_lineage",
+        "span": {
+          "end": 2204,
+          "start": 2143
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::new"
+        },
+        "kind": "Method",
+        "name": "new",
+        "span": {
+          "end": 2649,
+          "start": 2597
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::new"
+        },
+        "kind": "Method",
+        "name": "new",
+        "span": {
+          "end": 2649,
+          "start": 2597
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::CoChangeDeltaBatch::truncated"
+        },
+        "kind": "Field",
+        "name": "truncated",
+        "span": {
+          "end": 2072,
+          "start": 2053
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::CoChangeDeltaBatch::truncated"
+        },
+        "kind": "Field",
+        "name": "truncated",
+        "span": {
+          "end": 2072,
+          "start": 2053
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::ProjectionIndex::contract_packets"
+        },
+        "kind": "Field",
+        "name": "contract_packets",
+        "span": {
+          "end": 2537,
+          "start": 2500
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::ProjectionIndex::contract_packets"
+        },
+        "kind": "Field",
+        "name": "contract_packets",
+        "span": {
+          "end": 2537,
+          "start": 2500
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::apply_co_change_deltas"
+        },
+        "kind": "Method",
+        "name": "apply_co_change_deltas",
+        "span": {
+          "end": 13820,
+          "start": 13488
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::apply_co_change_deltas"
+        },
+        "kind": "Method",
+        "name": "apply_co_change_deltas",
+        "span": {
+          "end": 13820,
+          "start": 13488
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::curated_contracts"
+        },
+        "kind": "Method",
+        "name": "curated_contracts",
+        "span": {
+          "end": 11025,
+          "start": 10933
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::curated_contracts"
+        },
+        "kind": "Method",
+        "name": "curated_contracts",
+        "span": {
+          "end": 11025,
+          "start": 10933
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::ProjectionIndex::curated_contracts"
+        },
+        "kind": "Field",
+        "name": "curated_contracts",
+        "span": {
+          "end": 2494,
+          "start": 2456
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::ProjectionIndex::curated_contracts"
+        },
+        "kind": "Field",
+        "name": "curated_contracts",
+        "span": {
+          "end": 2494,
+          "start": 2456
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::co_change_delta_batch_for_events"
+        },
+        "kind": "Function",
+        "name": "co_change_delta_batch_for_events",
+        "span": {
+          "end": 39018,
+          "start": 38077
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::co_change_delta_batch_for_events"
+        },
+        "kind": "Function",
+        "name": "co_change_delta_batch_for_events",
+        "span": {
+          "end": 39430,
+          "start": 38489
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::remove_concept_relation"
+        },
+        "kind": "Method",
+        "name": "remove_concept_relation",
+        "span": {
+          "end": 10733,
+          "start": 10082
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::remove_concept_relation"
+        },
+        "kind": "Method",
+        "name": "remove_concept_relation",
+        "span": {
+          "end": 10733,
+          "start": 10082
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Struct",
+          "path": "prism_projections::projections::MemberSlot"
+        },
+        "kind": "Struct",
+        "name": "MemberSlot",
+        "span": {
+          "end": 35140,
+          "start": 35067
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Struct",
+          "path": "prism_projections::projections::MemberSlot"
+        },
+        "kind": "Struct",
+        "name": "MemberSlot",
+        "span": {
+          "end": 35552,
+          "start": 35479
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::refresh_concepts_for_invalidation"
+        },
+        "kind": "Method",
+        "name": "refresh_concepts_for_invalidation",
+        "span": {
+          "end": 21931,
+          "start": 20433
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::refresh_concepts_for_invalidation"
+        },
+        "kind": "Method",
+        "name": "refresh_concepts_for_invalidation",
+        "span": {
+          "end": 22023,
+          "start": 20525
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::rebuild_contracts"
+        },
+        "kind": "Method",
+        "name": "rebuild_contracts",
+        "span": {
+          "end": 22741,
+          "start": 22621
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::rebuild_contracts"
+        },
+        "kind": "Method",
+        "name": "rebuild_contracts",
+        "span": {
+          "end": 22833,
+          "start": 22713
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Impl",
+          "path": "prism_projections::projections::ProjectionIndex::impl"
+        },
+        "kind": "Impl",
+        "name": "ProjectionIndex",
+        "span": {
+          "end": 35048,
+          "start": 2570
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Impl",
+          "path": "prism_projections::projections::ProjectionIndex::impl"
+        },
+        "kind": "Impl",
+        "name": "ProjectionIndex",
+        "span": {
+          "end": 35140,
+          "start": 2570
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::co_change_lineage_count"
+        },
+        "kind": "Method",
+        "name": "co_change_lineage_count",
+        "span": {
+          "end": 11125,
+          "start": 11031
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::co_change_lineage_count"
+        },
+        "kind": "Method",
+        "name": "co_change_lineage_count",
+        "span": {
+          "end": 11125,
+          "start": 11031
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::contracts"
+        },
+        "kind": "Method",
+        "name": "contracts",
+        "span": {
+          "end": 19567,
+          "start": 19344
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::contracts"
+        },
+        "kind": "Method",
+        "name": "contracts",
+        "span": {
+          "end": 19659,
+          "start": 19436
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::sampled_co_change_lineage_limit"
+        },
+        "kind": "Function",
+        "name": "sampled_co_change_lineage_limit",
+        "span": {
+          "end": 1878,
+          "start": 1542
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::sampled_co_change_lineage_limit"
+        },
+        "kind": "Function",
+        "name": "sampled_co_change_lineage_limit",
+        "span": {
+          "end": 1878,
+          "start": 1542
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::prune_concept_relations"
+        },
+        "kind": "Method",
+        "name": "prune_concept_relations",
+        "span": {
+          "end": 22615,
+          "start": 21937
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::prune_concept_relations"
+        },
+        "kind": "Method",
+        "name": "prune_concept_relations",
+        "span": {
+          "end": 22707,
+          "start": 22029
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::CoChangeDeltaBatch::deltas"
+        },
+        "kind": "Field",
+        "name": "deltas",
+        "span": {
+          "end": 1970,
+          "start": 1940
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::CoChangeDeltaBatch::deltas"
+        },
+        "kind": "Field",
+        "name": "deltas",
+        "span": {
+          "end": 1970,
+          "start": 1940
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::resolve_contracts"
+        },
+        "kind": "Method",
+        "name": "resolve_contracts",
+        "span": {
+          "end": 19730,
+          "start": 19573
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::resolve_contracts"
+        },
+        "kind": "Method",
+        "name": "resolve_contracts",
+        "span": {
+          "end": 19822,
+          "start": 19665
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::ProjectionIndex::curated_concepts"
+        },
+        "kind": "Field",
+        "name": "curated_concepts",
+        "span": {
+          "end": 2364,
+          "start": 2328
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Field",
+          "path": "prism_projections::projections::ProjectionIndex::curated_concepts"
+        },
+        "kind": "Field",
+        "name": "curated_concepts",
+        "span": {
+          "end": 2364,
+          "start": 2328
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::replace_curated_concepts_from_events"
+        },
+        "kind": "Method",
+        "name": "replace_curated_concepts_from_events",
+        "span": {
+          "end": 8329,
+          "start": 8165
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::replace_curated_concepts_from_events"
+        },
+        "kind": "Method",
+        "name": "replace_curated_concepts_from_events",
+        "span": {
+          "end": 8329,
+          "start": 8165
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::contract_packets"
+        },
+        "kind": "Method",
+        "name": "contract_packets",
+        "span": {
+          "end": 20180,
+          "start": 20090
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::contract_packets"
+        },
+        "kind": "Method",
+        "name": "contract_packets",
+        "span": {
+          "end": 20272,
+          "start": 20182
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::distinct_sorted_lineages"
+        },
+        "kind": "Function",
+        "name": "distinct_sorted_lineages",
+        "span": {
+          "end": 42121,
+          "start": 41098
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::distinct_sorted_lineages"
+        },
+        "kind": "Function",
+        "name": "distinct_sorted_lineages",
+        "span": {
+          "end": 42533,
+          "start": 41510
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::validation_lineage_count"
+        },
+        "kind": "Method",
+        "name": "validation_lineage_count",
+        "span": {
+          "end": 11227,
+          "start": 11131
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::validation_lineage_count"
+        },
+        "kind": "Method",
+        "name": "validation_lineage_count",
+        "span": {
+          "end": 11227,
+          "start": 11131
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::reseed_from_history"
+        },
+        "kind": "Method",
+        "name": "reseed_from_history",
+        "span": {
+          "end": 11781,
+          "start": 11233
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Method",
+          "path": "prism_projections::projections::ProjectionIndex::reseed_from_history"
+        },
+        "kind": "Method",
+        "name": "reseed_from_history",
+        "span": {
+          "end": 11781,
+          "start": 11233
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::outcome_lineages"
+        },
+        "kind": "Function",
+        "name": "outcome_lineages",
+        "span": {
+          "end": 44005,
+          "start": 43485
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs",
+        "id": {
+          "crate_name": "prism_projections",
+          "kind": "Function",
+          "path": "prism_projections::projections::outcome_lineages"
+        },
+        "kind": "Function",
+        "name": "outcome_lineages",
+        "span": {
+          "end": 44417,
+          "start": 43897
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 187,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-projections/src/projections.rs"
+    ],
+    "files": [
+      300
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

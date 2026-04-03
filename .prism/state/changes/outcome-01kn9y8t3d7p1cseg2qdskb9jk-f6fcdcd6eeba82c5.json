@@ -1,0 +1,348 @@
+{
+  "meta": {
+    "id": "outcome:01kn9y8t3d7p1cseg2qdskb9jk",
+    "ts": 1775228971,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+    "causation": "observed:01kn9y8t2y8q4k2pejan154qh6",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/task/path-identity-repo-relative",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:lock-the-canonical-path-identity-contract-and-no-absolute-path-boundary:01kn9y2x6gzpnxw9wa3qe832gt",
+        "kind": "coordination",
+        "title": "Lock the canonical path identity contract and no-absolute-path boundary",
+        "coordinationTaskId": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+        "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 490
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::core_rule",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::explicit_exceptions",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::current_boundary_targets",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::local_worktree_runtime_and_discovery_state",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::non_goals",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::practical_interpretation",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::identity_layers",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::public_query_schema_and_documentation_surfaces",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::path_identity_contract",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md",
+        "kind": "Document"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::repo_published_tracked_state",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::allowed_by_plane",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::shared_logical_runtime_state",
+        "kind": "MarkdownHeading"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 13 added, 0 removed, 0 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 13,
+        "changedSymbolCount": 13,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PATH_IDENTITY_CONTRACT.md",
+        "removedCount": 0,
+        "updatedCount": 0
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PATH_IDENTITY_CONTRACT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::core_rule"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Core Rule",
+        "span": {
+          "end": 718,
+          "start": 387
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PATH_IDENTITY_CONTRACT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::explicit_exceptions"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Explicit Exceptions",
+        "span": {
+          "end": 4611,
+          "start": 4039
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PATH_IDENTITY_CONTRACT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::current_boundary_targets"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Current Boundary Targets",
+        "span": {
+          "end": 5370,
+          "start": 4611
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PATH_IDENTITY_CONTRACT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::local_worktree_runtime_and_discovery_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Local worktree runtime and discovery state",
+        "span": {
+          "end": 3093,
+          "start": 2592
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PATH_IDENTITY_CONTRACT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::non_goals"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Non-goals",
+        "span": {
+          "end": 5691,
+          "start": 5370
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PATH_IDENTITY_CONTRACT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::practical_interpretation"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Practical Interpretation",
+        "span": {
+          "end": 4039,
+          "start": 3444
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PATH_IDENTITY_CONTRACT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::identity_layers"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Identity Layers",
+        "span": {
+          "end": 1652,
+          "start": 718
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PATH_IDENTITY_CONTRACT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::public_query_schema_and_documentation_surfaces"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Public query, schema, and documentation surfaces",
+        "span": {
+          "end": 3444,
+          "start": 3093
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PATH_IDENTITY_CONTRACT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::path_identity_contract"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Path Identity Contract",
+        "span": {
+          "end": 5691,
+          "start": 0
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PATH_IDENTITY_CONTRACT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md"
+        },
+        "kind": "Document",
+        "name": "docs/PATH_IDENTITY_CONTRACT.md",
+        "span": {
+          "end": 5691,
+          "start": 0
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PATH_IDENTITY_CONTRACT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::repo_published_tracked_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Repo-published tracked state",
+        "span": {
+          "end": 2092,
+          "start": 1673
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PATH_IDENTITY_CONTRACT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::allowed_by_plane"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Allowed By Plane",
+        "span": {
+          "end": 3444,
+          "start": 1652
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PATH_IDENTITY_CONTRACT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PATH_IDENTITY_CONTRACT_md::shared_logical_runtime_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Shared logical runtime state",
+        "span": {
+          "end": 2592,
+          "start": 2092
+        },
+        "status": "added"
+      }
+    ],
+    "changedSymbolsTotalCount": 13,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/docs/PATH_IDENTITY_CONTRACT.md"
+    ],
+    "files": [
+      490
+    ],
+    "reason": "work Lock the canonical path identity contract and no-absolute-path boundary (work:lock-the-canonical-path-identity-contract-and-no-absolute-path-boundary:01kn9y2x6gzpnxw9wa3qe832gt)",
+    "trigger": "FsWatch"
+  }
+}

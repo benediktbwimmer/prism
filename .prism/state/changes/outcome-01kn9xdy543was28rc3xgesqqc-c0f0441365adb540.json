@@ -1,0 +1,1637 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdy543was28rc3xgesqqc",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 73
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::update_task_authoritative_only",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::task",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::acquire_claim",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::simulate_claim",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::policy_violations",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::conflicts_for_anchor_in_scope",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::create_task",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::update_plan",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::claims_for_anchor_in_scope",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::supersede_artifact",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::snapshot",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::ready_tasks_in_scope",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::plan",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::set_plan_scheduling",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::blockers",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::pending_reviews_in_scope",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::artifacts_in_scope",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::state",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::handoff",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::artifact",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::from_snapshot",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::claims_for_anchor",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::ready_tasks",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::review_artifact",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::simulate_claim_in_scope",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::renew_claim",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::events",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::replace_from_snapshot",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::create_plan",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::artifact_in_scope",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::pending_reviews",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::accept_handoff",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::reclaim_task",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::release_claim",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::update_task",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::conflicts_for_anchor",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::propose_artifact",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::heartbeat_task",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::artifacts",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime::CoordinationRuntimeState::resume_task",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::runtime",
+        "kind": "Module"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 1 added, 0 removed, 42 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 1,
+        "changedSymbolCount": 85,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "removedCount": 0,
+        "updatedCount": 84
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::update_task_authoritative_only"
+        },
+        "kind": "Method",
+        "name": "update_task_authoritative_only",
+        "span": {
+          "end": 3788,
+          "start": 3462
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::task"
+        },
+        "kind": "Method",
+        "name": "task",
+        "span": {
+          "end": 2893,
+          "start": 2762
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::task"
+        },
+        "kind": "Method",
+        "name": "task",
+        "span": {
+          "end": 2928,
+          "start": 2797
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::acquire_claim"
+        },
+        "kind": "Method",
+        "name": "acquire_claim",
+        "span": {
+          "end": 4215,
+          "start": 3892
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::acquire_claim"
+        },
+        "kind": "Method",
+        "name": "acquire_claim",
+        "span": {
+          "end": 4582,
+          "start": 4259
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::simulate_claim"
+        },
+        "kind": "Method",
+        "name": "simulate_claim",
+        "span": {
+          "end": 8770,
+          "start": 8312
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::simulate_claim"
+        },
+        "kind": "Method",
+        "name": "simulate_claim",
+        "span": {
+          "end": 9137,
+          "start": 8679
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::policy_violations"
+        },
+        "kind": "Method",
+        "name": "policy_violations",
+        "span": {
+          "end": 15609,
+          "start": 13838
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::policy_violations"
+        },
+        "kind": "Method",
+        "name": "policy_violations",
+        "span": {
+          "end": 15976,
+          "start": 14205
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::conflicts_for_anchor_in_scope"
+        },
+        "kind": "Method",
+        "name": "conflicts_for_anchor_in_scope",
+        "span": {
+          "end": 8306,
+          "start": 7353
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::conflicts_for_anchor_in_scope"
+        },
+        "kind": "Method",
+        "name": "conflicts_for_anchor_in_scope",
+        "span": {
+          "end": 8673,
+          "start": 7720
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::create_task"
+        },
+        "kind": "Method",
+        "name": "create_task",
+        "span": {
+          "end": 3127,
+          "start": 2899
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::create_task"
+        },
+        "kind": "Method",
+        "name": "create_task",
+        "span": {
+          "end": 3162,
+          "start": 2934
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::update_plan"
+        },
+        "kind": "Method",
+        "name": "update_plan",
+        "span": {
+          "end": 2507,
+          "start": 2354
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::update_plan"
+        },
+        "kind": "Method",
+        "name": "update_plan",
+        "span": {
+          "end": 2542,
+          "start": 2389
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::claims_for_anchor_in_scope"
+        },
+        "kind": "Method",
+        "name": "claims_for_anchor_in_scope",
+        "span": {
+          "end": 7133,
+          "start": 6473
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::claims_for_anchor_in_scope"
+        },
+        "kind": "Method",
+        "name": "claims_for_anchor_in_scope",
+        "span": {
+          "end": 7500,
+          "start": 6840
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::supersede_artifact"
+        },
+        "kind": "Method",
+        "name": "supersede_artifact",
+        "span": {
+          "end": 6004,
+          "start": 5795
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::supersede_artifact"
+        },
+        "kind": "Method",
+        "name": "supersede_artifact",
+        "span": {
+          "end": 6371,
+          "start": 6162
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::snapshot"
+        },
+        "kind": "Method",
+        "name": "snapshot",
+        "span": {
+          "end": 2045,
+          "start": 1961
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::snapshot"
+        },
+        "kind": "Method",
+        "name": "snapshot",
+        "span": {
+          "end": 2080,
+          "start": 1996
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::ready_tasks_in_scope"
+        },
+        "kind": "Method",
+        "name": "ready_tasks_in_scope",
+        "span": {
+          "end": 12689,
+          "start": 11527
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::ready_tasks_in_scope"
+        },
+        "kind": "Method",
+        "name": "ready_tasks_in_scope",
+        "span": {
+          "end": 13056,
+          "start": 11894
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::plan"
+        },
+        "kind": "Method",
+        "name": "plan",
+        "span": {
+          "end": 2148,
+          "start": 2051
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::plan"
+        },
+        "kind": "Method",
+        "name": "plan",
+        "span": {
+          "end": 2183,
+          "start": 2086
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::set_plan_scheduling"
+        },
+        "kind": "Method",
+        "name": "set_plan_scheduling",
+        "span": {
+          "end": 2756,
+          "start": 2513
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::set_plan_scheduling"
+        },
+        "kind": "Method",
+        "name": "set_plan_scheduling",
+        "span": {
+          "end": 2791,
+          "start": 2548
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::blockers"
+        },
+        "kind": "Method",
+        "name": "blockers",
+        "span": {
+          "end": 13738,
+          "start": 13382
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::blockers"
+        },
+        "kind": "Method",
+        "name": "blockers",
+        "span": {
+          "end": 14105,
+          "start": 13749
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::pending_reviews_in_scope"
+        },
+        "kind": "Method",
+        "name": "pending_reviews_in_scope",
+        "span": {
+          "end": 11275,
+          "start": 10276
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::pending_reviews_in_scope"
+        },
+        "kind": "Method",
+        "name": "pending_reviews_in_scope",
+        "span": {
+          "end": 11642,
+          "start": 10643
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::artifacts_in_scope"
+        },
+        "kind": "Method",
+        "name": "artifacts_in_scope",
+        "span": {
+          "end": 13376,
+          "start": 12836
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::artifacts_in_scope"
+        },
+        "kind": "Method",
+        "name": "artifacts_in_scope",
+        "span": {
+          "end": 13743,
+          "start": 13203
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::state"
+        },
+        "kind": "Field",
+        "name": "state",
+        "span": {
+          "end": 1600,
+          "start": 1576
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::state"
+        },
+        "kind": "Field",
+        "name": "state",
+        "span": {
+          "end": 1635,
+          "start": 1611
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::handoff"
+        },
+        "kind": "Method",
+        "name": "handoff",
+        "span": {
+          "end": 3675,
+          "start": 3427
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::handoff"
+        },
+        "kind": "Method",
+        "name": "handoff",
+        "span": {
+          "end": 4042,
+          "start": 3794
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::artifact"
+        },
+        "kind": "Method",
+        "name": "artifact",
+        "span": {
+          "end": 15741,
+          "start": 15615
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::artifact"
+        },
+        "kind": "Method",
+        "name": "artifact",
+        "span": {
+          "end": 16108,
+          "start": 15982
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::from_snapshot"
+        },
+        "kind": "Method",
+        "name": "from_snapshot",
+        "span": {
+          "end": 1801,
+          "start": 1641
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::from_snapshot"
+        },
+        "kind": "Method",
+        "name": "from_snapshot",
+        "span": {
+          "end": 1836,
+          "start": 1676
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::claims_for_anchor"
+        },
+        "kind": "Method",
+        "name": "claims_for_anchor",
+        "span": {
+          "end": 6467,
+          "start": 6307
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::claims_for_anchor"
+        },
+        "kind": "Method",
+        "name": "claims_for_anchor",
+        "span": {
+          "end": 6834,
+          "start": 6674
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::ready_tasks"
+        },
+        "kind": "Method",
+        "name": "ready_tasks",
+        "span": {
+          "end": 11521,
+          "start": 11281
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::ready_tasks"
+        },
+        "kind": "Method",
+        "name": "ready_tasks",
+        "span": {
+          "end": 11888,
+          "start": 11648
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::review_artifact"
+        },
+        "kind": "Method",
+        "name": "review_artifact",
+        "span": {
+          "end": 6301,
+          "start": 6010
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::review_artifact"
+        },
+        "kind": "Method",
+        "name": "review_artifact",
+        "span": {
+          "end": 6668,
+          "start": 6377
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::simulate_claim_in_scope"
+        },
+        "kind": "Method",
+        "name": "simulate_claim_in_scope",
+        "span": {
+          "end": 10131,
+          "start": 8776
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::simulate_claim_in_scope"
+        },
+        "kind": "Method",
+        "name": "simulate_claim_in_scope",
+        "span": {
+          "end": 10498,
+          "start": 9143
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::renew_claim"
+        },
+        "kind": "Method",
+        "name": "renew_claim",
+        "span": {
+          "end": 5324,
+          "start": 4908
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::renew_claim"
+        },
+        "kind": "Method",
+        "name": "renew_claim",
+        "span": {
+          "end": 5691,
+          "start": 5275
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::events"
+        },
+        "kind": "Method",
+        "name": "events",
+        "span": {
+          "end": 13832,
+          "start": 13744
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::events"
+        },
+        "kind": "Method",
+        "name": "events",
+        "span": {
+          "end": 14199,
+          "start": 14111
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::replace_from_snapshot"
+        },
+        "kind": "Method",
+        "name": "replace_from_snapshot",
+        "span": {
+          "end": 1955,
+          "start": 1807
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::replace_from_snapshot"
+        },
+        "kind": "Method",
+        "name": "replace_from_snapshot",
+        "span": {
+          "end": 1990,
+          "start": 1842
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Impl",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::impl"
+        },
+        "kind": "Impl",
+        "name": "CoordinationRuntimeState",
+        "span": {
+          "end": 16044,
+          "start": 1605
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Impl",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::impl"
+        },
+        "kind": "Impl",
+        "name": "CoordinationRuntimeState",
+        "span": {
+          "end": 16411,
+          "start": 1640
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState"
+        },
+        "kind": "Struct",
+        "name": "CoordinationRuntimeState",
+        "span": {
+          "end": 1603,
+          "start": 1534
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState"
+        },
+        "kind": "Struct",
+        "name": "CoordinationRuntimeState",
+        "span": {
+          "end": 1638,
+          "start": 1569
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::create_plan"
+        },
+        "kind": "Method",
+        "name": "create_plan",
+        "span": {
+          "end": 2348,
+          "start": 2154
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::create_plan"
+        },
+        "kind": "Method",
+        "name": "create_plan",
+        "span": {
+          "end": 2383,
+          "start": 2189
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::artifact_in_scope"
+        },
+        "kind": "Method",
+        "name": "artifact_in_scope",
+        "span": {
+          "end": 16042,
+          "start": 15747
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::artifact_in_scope"
+        },
+        "kind": "Method",
+        "name": "artifact_in_scope",
+        "span": {
+          "end": 16409,
+          "start": 16114
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::pending_reviews"
+        },
+        "kind": "Method",
+        "name": "pending_reviews",
+        "span": {
+          "end": 10270,
+          "start": 10137
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::pending_reviews"
+        },
+        "kind": "Method",
+        "name": "pending_reviews",
+        "span": {
+          "end": 10637,
+          "start": 10504
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::accept_handoff"
+        },
+        "kind": "Method",
+        "name": "accept_handoff",
+        "span": {
+          "end": 3886,
+          "start": 3681
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::accept_handoff"
+        },
+        "kind": "Method",
+        "name": "accept_handoff",
+        "span": {
+          "end": 4253,
+          "start": 4048
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::reclaim_task"
+        },
+        "kind": "Method",
+        "name": "reclaim_task",
+        "span": {
+          "end": 4622,
+          "start": 4423
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::reclaim_task"
+        },
+        "kind": "Method",
+        "name": "reclaim_task",
+        "span": {
+          "end": 4989,
+          "start": 4790
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::release_claim"
+        },
+        "kind": "Method",
+        "name": "release_claim",
+        "span": {
+          "end": 5566,
+          "start": 5330
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::release_claim"
+        },
+        "kind": "Method",
+        "name": "release_claim",
+        "span": {
+          "end": 5933,
+          "start": 5697
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::update_task"
+        },
+        "kind": "Method",
+        "name": "update_task",
+        "span": {
+          "end": 3421,
+          "start": 3133
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::update_task"
+        },
+        "kind": "Method",
+        "name": "update_task",
+        "span": {
+          "end": 3456,
+          "start": 3168
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::conflicts_for_anchor"
+        },
+        "kind": "Method",
+        "name": "conflicts_for_anchor",
+        "span": {
+          "end": 7347,
+          "start": 7139
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::conflicts_for_anchor"
+        },
+        "kind": "Method",
+        "name": "conflicts_for_anchor",
+        "span": {
+          "end": 7714,
+          "start": 7506
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::propose_artifact"
+        },
+        "kind": "Method",
+        "name": "propose_artifact",
+        "span": {
+          "end": 5789,
+          "start": 5572
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::propose_artifact"
+        },
+        "kind": "Method",
+        "name": "propose_artifact",
+        "span": {
+          "end": 6156,
+          "start": 5939
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::heartbeat_task"
+        },
+        "kind": "Method",
+        "name": "heartbeat_task",
+        "span": {
+          "end": 4902,
+          "start": 4628
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::heartbeat_task"
+        },
+        "kind": "Method",
+        "name": "heartbeat_task",
+        "span": {
+          "end": 5269,
+          "start": 4995
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::artifacts"
+        },
+        "kind": "Method",
+        "name": "artifacts",
+        "span": {
+          "end": 12830,
+          "start": 12695
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::artifacts"
+        },
+        "kind": "Method",
+        "name": "artifacts",
+        "span": {
+          "end": 13197,
+          "start": 13062
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::resume_task"
+        },
+        "kind": "Method",
+        "name": "resume_task",
+        "span": {
+          "end": 4417,
+          "start": 4221
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::runtime::CoordinationRuntimeState::resume_task"
+        },
+        "kind": "Method",
+        "name": "resume_task",
+        "span": {
+          "end": 4784,
+          "start": 4588
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Module",
+          "path": "prism_coordination::runtime"
+        },
+        "kind": "Module",
+        "name": "runtime",
+        "span": {
+          "end": 16045,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Module",
+          "path": "prism_coordination::runtime"
+        },
+        "kind": "Module",
+        "name": "runtime",
+        "span": {
+          "end": 16412,
+          "start": 0
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 85,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs"
+    ],
+    "files": [
+      73
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

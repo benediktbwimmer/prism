@@ -1,0 +1,2059 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdx1mgscytvvpx6mkt8g4",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 96
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ObservedChangeTracker::flush",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::tests",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::principal",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::entries",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::trigger",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::work",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::window_ended_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::trigger",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ObservedChangeTracker::active_work",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator::work",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::previous_path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ObservedChangeTracker::active_accumulator",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::tests::tracker_flushes_accumulated_changes_when_work_changes",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::observed_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator::principal",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ObservedChangeTracker::set_active_work",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::SharedObservedChangeTracker",
+        "kind": "TypeAlias"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::plan_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::parent_work_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::tests::observed_change",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::updated_nodes",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ObservedChangeTracker::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::work_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::tests::tracker_requires_principal_and_work_before_accumulating",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ObservedChangeTracker::active_work",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator::changed_paths",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::added_nodes",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::file_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::window_started_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::removed_nodes",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::summary",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ObservedChangeTracker::flush_active",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator::entries",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ObservedChangeTracker",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ObservedChangeTracker::clear_active_work",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator::window_ended_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::tests::active_work",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::current_path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ObservedChangeFlushTrigger",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ObservedChangeTracker::flushed",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ObservedChangeTracker::record",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator::window_started_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::title",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::tests::principal",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::coordination_task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::AccumulatedObservedChange",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::changed_paths",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::plan_title",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::observed_change_tracker::ObservedChangeTracker::take_flushed",
+        "kind": "Method"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 54 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 108,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "removedCount": 0,
+        "updatedCount": 108
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::flush"
+        },
+        "kind": "Method",
+        "name": "flush",
+        "span": {
+          "end": 5147,
+          "start": 5036
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::flush"
+        },
+        "kind": "Method",
+        "name": "flush",
+        "span": {
+          "end": 5247,
+          "start": 5036
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::observed_change_tracker::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 9165,
+          "start": 5912
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::observed_change_tracker::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 9265,
+          "start": 6012
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::principal"
+        },
+        "kind": "Field",
+        "name": "principal",
+        "span": {
+          "end": 1178,
+          "start": 1141
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::principal"
+        },
+        "kind": "Field",
+        "name": "principal",
+        "span": {
+          "end": 1178,
+          "start": 1141
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::entries"
+        },
+        "kind": "Field",
+        "name": "entries",
+        "span": {
+          "end": 1348,
+          "start": 1305
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::entries"
+        },
+        "kind": "Field",
+        "name": "entries",
+        "span": {
+          "end": 1348,
+          "start": 1305
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::trigger"
+        },
+        "kind": "Field",
+        "name": "trigger",
+        "span": {
+          "end": 1263,
+          "start": 1224
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::trigger"
+        },
+        "kind": "Field",
+        "name": "trigger",
+        "span": {
+          "end": 1263,
+          "start": 1224
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 345,
+          "start": 320
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 345,
+          "start": 320
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding"
+        },
+        "kind": "Struct",
+        "name": "ActiveWorkContextBinding",
+        "span": {
+          "end": 559,
+          "start": 253
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding"
+        },
+        "kind": "Struct",
+        "name": "ActiveWorkContextBinding",
+        "span": {
+          "end": 559,
+          "start": 253
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::work"
+        },
+        "kind": "Field",
+        "name": "work",
+        "span": {
+          "end": 1218,
+          "start": 1184
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::work"
+        },
+        "kind": "Field",
+        "name": "work",
+        "span": {
+          "end": 1218,
+          "start": 1184
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator"
+        },
+        "kind": "Struct",
+        "name": "ActiveObservedAccumulator",
+        "span": {
+          "end": 1909,
+          "start": 1662
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator"
+        },
+        "kind": "Struct",
+        "name": "ActiveObservedAccumulator",
+        "span": {
+          "end": 1909,
+          "start": 1662
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::window_ended_at"
+        },
+        "kind": "Field",
+        "name": "window_ended_at",
+        "span": {
+          "end": 1410,
+          "start": 1386
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::window_ended_at"
+        },
+        "kind": "Field",
+        "name": "window_ended_at",
+        "span": {
+          "end": 1410,
+          "start": 1386
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::trigger"
+        },
+        "kind": "Field",
+        "name": "trigger",
+        "span": {
+          "end": 837,
+          "start": 811
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::trigger"
+        },
+        "kind": "Field",
+        "name": "trigger",
+        "span": {
+          "end": 837,
+          "start": 811
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::active_work"
+        },
+        "kind": "Method",
+        "name": "active_work",
+        "span": {
+          "end": 2135,
+          "start": 2026
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::active_work"
+        },
+        "kind": "Method",
+        "name": "active_work",
+        "span": {
+          "end": 2135,
+          "start": 2026
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator::work"
+        },
+        "kind": "Field",
+        "name": "work",
+        "span": {
+          "end": 1770,
+          "start": 1740
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator::work"
+        },
+        "kind": "Field",
+        "name": "work",
+        "span": {
+          "end": 1770,
+          "start": 1740
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::previous_path"
+        },
+        "kind": "Field",
+        "name": "previous_path",
+        "span": {
+          "end": 876,
+          "start": 843
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::previous_path"
+        },
+        "kind": "Field",
+        "name": "previous_path",
+        "span": {
+          "end": 876,
+          "start": 843
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::active_accumulator"
+        },
+        "kind": "Field",
+        "name": "active_accumulator",
+        "span": {
+          "end": 1584,
+          "start": 1531
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::active_accumulator"
+        },
+        "kind": "Field",
+        "name": "active_accumulator",
+        "span": {
+          "end": 1584,
+          "start": 1531
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::observed_change_tracker::tests::tracker_flushes_accumulated_changes_when_work_changes"
+        },
+        "kind": "Function",
+        "name": "tracker_flushes_accumulated_changes_when_work_changes",
+        "span": {
+          "end": 9163,
+          "start": 8211
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::observed_change_tracker::tests::tracker_flushes_accumulated_changes_when_work_changes"
+        },
+        "kind": "Function",
+        "name": "tracker_flushes_accumulated_changes_when_work_changes",
+        "span": {
+          "end": 9263,
+          "start": 8311
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::observed_at"
+        },
+        "kind": "Field",
+        "name": "observed_at",
+        "span": {
+          "end": 1055,
+          "start": 1035
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::observed_at"
+        },
+        "kind": "Field",
+        "name": "observed_at",
+        "span": {
+          "end": 1055,
+          "start": 1035
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator::principal"
+        },
+        "kind": "Field",
+        "name": "principal",
+        "span": {
+          "end": 1734,
+          "start": 1701
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator::principal"
+        },
+        "kind": "Field",
+        "name": "principal",
+        "span": {
+          "end": 1734,
+          "start": 1701
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::set_active_work"
+        },
+        "kind": "Method",
+        "name": "set_active_work",
+        "span": {
+          "end": 2487,
+          "start": 2141
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::set_active_work"
+        },
+        "kind": "Method",
+        "name": "set_active_work",
+        "span": {
+          "end": 2487,
+          "start": 2141
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "TypeAlias",
+          "path": "prism_core::observed_change_tracker::SharedObservedChangeTracker"
+        },
+        "kind": "TypeAlias",
+        "name": "SharedObservedChangeTracker",
+        "span": {
+          "end": 1991,
+          "start": 1911
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "TypeAlias",
+          "path": "prism_core::observed_change_tracker::SharedObservedChangeTracker"
+        },
+        "kind": "TypeAlias",
+        "name": "SharedObservedChangeTracker",
+        "span": {
+          "end": 1991,
+          "start": 1911
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::plan_id"
+        },
+        "kind": "Field",
+        "name": "plan_id",
+        "span": {
+          "end": 520,
+          "start": 493
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::plan_id"
+        },
+        "kind": "Field",
+        "name": "plan_id",
+        "span": {
+          "end": 520,
+          "start": 493
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::parent_work_id"
+        },
+        "kind": "Field",
+        "name": "parent_work_id",
+        "span": {
+          "end": 441,
+          "start": 407
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::parent_work_id"
+        },
+        "kind": "Field",
+        "name": "parent_work_id",
+        "span": {
+          "end": 441,
+          "start": 407
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::observed_change_tracker::tests::observed_change"
+        },
+        "kind": "Function",
+        "name": "observed_change",
+        "span": {
+          "end": 7409,
+          "start": 6699
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::observed_change_tracker::tests::observed_change"
+        },
+        "kind": "Function",
+        "name": "observed_change",
+        "span": {
+          "end": 7509,
+          "start": 6799
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::updated_nodes"
+        },
+        "kind": "Field",
+        "name": "updated_nodes",
+        "span": {
+          "end": 1029,
+          "start": 1005
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::updated_nodes"
+        },
+        "kind": "Field",
+        "name": "updated_nodes",
+        "span": {
+          "end": 1029,
+          "start": 1005
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::impl"
+        },
+        "kind": "Impl",
+        "name": "ObservedChangeTracker",
+        "span": {
+          "end": 5897,
+          "start": 1993
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::impl"
+        },
+        "kind": "Impl",
+        "name": "ObservedChangeTracker",
+        "span": {
+          "end": 5997,
+          "start": 1993
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::work_id"
+        },
+        "kind": "Field",
+        "name": "work_id",
+        "span": {
+          "end": 314,
+          "start": 295
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::work_id"
+        },
+        "kind": "Field",
+        "name": "work_id",
+        "span": {
+          "end": 314,
+          "start": 295
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::observed_change_tracker"
+        },
+        "kind": "Module",
+        "name": "observed_change_tracker",
+        "span": {
+          "end": 9166,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::observed_change_tracker"
+        },
+        "kind": "Module",
+        "name": "observed_change_tracker",
+        "span": {
+          "end": 9266,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::observed_change_tracker::tests::tracker_requires_principal_and_work_before_accumulating"
+        },
+        "kind": "Function",
+        "name": "tracker_requires_principal_and_work_before_accumulating",
+        "span": {
+          "end": 8193,
+          "start": 7427
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::observed_change_tracker::tests::tracker_requires_principal_and_work_before_accumulating"
+        },
+        "kind": "Function",
+        "name": "tracker_requires_principal_and_work_before_accumulating",
+        "span": {
+          "end": 8293,
+          "start": 7527
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::active_work"
+        },
+        "kind": "Field",
+        "name": "active_work",
+        "span": {
+          "end": 1525,
+          "start": 1480
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::active_work"
+        },
+        "kind": "Field",
+        "name": "active_work",
+        "span": {
+          "end": 1525,
+          "start": 1480
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator::changed_paths"
+        },
+        "kind": "Field",
+        "name": "changed_paths",
+        "span": {
+          "end": 1807,
+          "start": 1776
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator::changed_paths"
+        },
+        "kind": "Field",
+        "name": "changed_paths",
+        "span": {
+          "end": 1807,
+          "start": 1776
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::added_nodes"
+        },
+        "kind": "Field",
+        "name": "added_nodes",
+        "span": {
+          "end": 969,
+          "start": 947
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::added_nodes"
+        },
+        "kind": "Field",
+        "name": "added_nodes",
+        "span": {
+          "end": 969,
+          "start": 947
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::file_count"
+        },
+        "kind": "Field",
+        "name": "file_count",
+        "span": {
+          "end": 941,
+          "start": 920
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::file_count"
+        },
+        "kind": "Field",
+        "name": "file_count",
+        "span": {
+          "end": 941,
+          "start": 920
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::window_started_at"
+        },
+        "kind": "Field",
+        "name": "window_started_at",
+        "span": {
+          "end": 1380,
+          "start": 1354
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::window_started_at"
+        },
+        "kind": "Field",
+        "name": "window_started_at",
+        "span": {
+          "end": 1380,
+          "start": 1354
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::removed_nodes"
+        },
+        "kind": "Field",
+        "name": "removed_nodes",
+        "span": {
+          "end": 999,
+          "start": 975
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::removed_nodes"
+        },
+        "kind": "Field",
+        "name": "removed_nodes",
+        "span": {
+          "end": 999,
+          "start": 975
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::summary"
+        },
+        "kind": "Field",
+        "name": "summary",
+        "span": {
+          "end": 401,
+          "start": 374
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::summary"
+        },
+        "kind": "Field",
+        "name": "summary",
+        "span": {
+          "end": 401,
+          "start": 374
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet"
+        },
+        "kind": "Struct",
+        "name": "FlushedObservedChangeSet",
+        "span": {
+          "end": 1413,
+          "start": 1099
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet"
+        },
+        "kind": "Struct",
+        "name": "FlushedObservedChangeSet",
+        "span": {
+          "end": 1413,
+          "start": 1099
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::flush_active"
+        },
+        "kind": "Method",
+        "name": "flush_active",
+        "span": {
+          "end": 5895,
+          "start": 5278
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::flush_active"
+        },
+        "kind": "Method",
+        "name": "flush_active",
+        "span": {
+          "end": 5995,
+          "start": 5378
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator::entries"
+        },
+        "kind": "Field",
+        "name": "entries",
+        "span": {
+          "end": 1852,
+          "start": 1813
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator::entries"
+        },
+        "kind": "Field",
+        "name": "entries",
+        "span": {
+          "end": 1852,
+          "start": 1813
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker"
+        },
+        "kind": "Struct",
+        "name": "ObservedChangeTracker",
+        "span": {
+          "end": 1636,
+          "start": 1434
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker"
+        },
+        "kind": "Struct",
+        "name": "ObservedChangeTracker",
+        "span": {
+          "end": 1636,
+          "start": 1434
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::clear_active_work"
+        },
+        "kind": "Method",
+        "name": "clear_active_work",
+        "span": {
+          "end": 2647,
+          "start": 2493
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::clear_active_work"
+        },
+        "kind": "Method",
+        "name": "clear_active_work",
+        "span": {
+          "end": 2647,
+          "start": 2493
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator::window_ended_at"
+        },
+        "kind": "Field",
+        "name": "window_ended_at",
+        "span": {
+          "end": 1906,
+          "start": 1886
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator::window_ended_at"
+        },
+        "kind": "Field",
+        "name": "window_ended_at",
+        "span": {
+          "end": 1906,
+          "start": 1886
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::observed_change_tracker::tests::active_work"
+        },
+        "kind": "Function",
+        "name": "active_work",
+        "span": {
+          "end": 6431,
+          "start": 6007
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::observed_change_tracker::tests::active_work"
+        },
+        "kind": "Function",
+        "name": "active_work",
+        "span": {
+          "end": 6531,
+          "start": 6107
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::current_path"
+        },
+        "kind": "Field",
+        "name": "current_path",
+        "span": {
+          "end": 914,
+          "start": 882
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::AccumulatedObservedChange::current_path"
+        },
+        "kind": "Field",
+        "name": "current_path",
+        "span": {
+          "end": 914,
+          "start": 882
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Enum",
+          "path": "prism_core::observed_change_tracker::ObservedChangeFlushTrigger"
+        },
+        "kind": "Enum",
+        "name": "ObservedChangeFlushTrigger",
+        "span": {
+          "end": 727,
+          "start": 606
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Enum",
+          "path": "prism_core::observed_change_tracker::ObservedChangeFlushTrigger"
+        },
+        "kind": "Enum",
+        "name": "ObservedChangeFlushTrigger",
+        "span": {
+          "end": 727,
+          "start": 606
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::flushed"
+        },
+        "kind": "Field",
+        "name": "flushed",
+        "span": {
+          "end": 1633,
+          "start": 1590
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::flushed"
+        },
+        "kind": "Field",
+        "name": "flushed",
+        "span": {
+          "end": 1633,
+          "start": 1590
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::record"
+        },
+        "kind": "Method",
+        "name": "record",
+        "span": {
+          "end": 5030,
+          "start": 2653
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::record"
+        },
+        "kind": "Method",
+        "name": "record",
+        "span": {
+          "end": 5030,
+          "start": 2653
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator::window_started_at"
+        },
+        "kind": "Field",
+        "name": "window_started_at",
+        "span": {
+          "end": 1880,
+          "start": 1858
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveObservedAccumulator::window_started_at"
+        },
+        "kind": "Field",
+        "name": "window_started_at",
+        "span": {
+          "end": 1880,
+          "start": 1858
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 368,
+          "start": 351
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 368,
+          "start": 351
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::observed_change_tracker::tests::principal"
+        },
+        "kind": "Function",
+        "name": "principal",
+        "span": {
+          "end": 6693,
+          "start": 6437
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::observed_change_tracker::tests::principal"
+        },
+        "kind": "Function",
+        "name": "principal",
+        "span": {
+          "end": 6793,
+          "start": 6537
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::coordination_task_id"
+        },
+        "kind": "Field",
+        "name": "coordination_task_id",
+        "span": {
+          "end": 487,
+          "start": 447
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::coordination_task_id"
+        },
+        "kind": "Field",
+        "name": "coordination_task_id",
+        "span": {
+          "end": 487,
+          "start": 447
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::observed_change_tracker::AccumulatedObservedChange"
+        },
+        "kind": "Struct",
+        "name": "AccumulatedObservedChange",
+        "span": {
+          "end": 1058,
+          "start": 768
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::observed_change_tracker::AccumulatedObservedChange"
+        },
+        "kind": "Struct",
+        "name": "AccumulatedObservedChange",
+        "span": {
+          "end": 1058,
+          "start": 768
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::changed_paths"
+        },
+        "kind": "Field",
+        "name": "changed_paths",
+        "span": {
+          "end": 1299,
+          "start": 1269
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::FlushedObservedChangeSet::changed_paths"
+        },
+        "kind": "Field",
+        "name": "changed_paths",
+        "span": {
+          "end": 1299,
+          "start": 1269
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::plan_title"
+        },
+        "kind": "Field",
+        "name": "plan_title",
+        "span": {
+          "end": 556,
+          "start": 526
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::observed_change_tracker::ActiveWorkContextBinding::plan_title"
+        },
+        "kind": "Field",
+        "name": "plan_title",
+        "span": {
+          "end": 556,
+          "start": 526
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::take_flushed"
+        },
+        "kind": "Method",
+        "name": "take_flushed",
+        "span": {
+          "end": 5272,
+          "start": 5153
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::observed_change_tracker::ObservedChangeTracker::take_flushed"
+        },
+        "kind": "Method",
+        "name": "take_flushed",
+        "span": {
+          "end": 5372,
+          "start": 5253
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 108,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/observed_change_tracker.rs"
+    ],
+    "files": [
+      96
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

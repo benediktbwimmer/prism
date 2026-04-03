@@ -1,0 +1,577 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdy49afkzyq4wm55kx8k5",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 463
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::profile_warm_prism_concept_latency_and_isolate_the_expensive_concept_resolution_decode_and_render_work",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::validate_the_latency_work_with_targeted_timing_checks_and_a_fresh_repo_wide_slow_call_log_pass",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::trace_the_prism_plans_hot_path_and_identify_why_the_warm_resource_handler_still_spends_about_1_27s_outside_runtime_sync",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::git_execution_policy",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::profile_the_shared_compact_tool_hot_path_behind_prism_open_prism_workset_prism_locate_and_prism_gather",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::implement_the_prism_plans_latency_fixes_with_a_warm_path_target_comfortably_below_the_current_1_27s_read",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::implement_the_prism_concept_latency_fixes_so_common_warm_concept_reads_stop_spending_most_time_in_the_compact_handler",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::design_a_lighter_mcp_log_introspection_path_so_slow_prism_query_diagnostics_do_not_need_many_per_call_prism_mcptrace_lookups",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::implement_shared_compact_tool_latency_fixes_across_prism_open_prism_workset_prism_locate_and_prism_gather",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::root_nodes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md",
+        "kind": "Document"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::edges",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::source_of_truth",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::overview",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::reduce_the_next_highest_priority_mcp_slow_call_hotspots_after_excluding_prism_mutate_mutate_coordination_starting_with_prism_plans_prism_concept_and_shared_compact_tool_read_paths_then_validate_the_latency_improvements_with_repo_wide_call_log_evidence",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::projection_metadata",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::nodes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::goal",
+        "kind": "MarkdownHeading"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 10 added, 0 removed, 8 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 10,
+        "changedSymbolCount": 26,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "removedCount": 0,
+        "updatedCount": 16
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::profile_warm_prism_concept_latency_and_isolate_the_expensive_concept_resolution_decode_and_render_work"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Profile warm prism_concept latency and isolate the expensive concept resolution, decode, and render work.",
+        "span": {
+          "end": 2793,
+          "start": 2172
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::validate_the_latency_work_with_targeted_timing_checks_and_a_fresh_repo_wide_slow_call_log_pass"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Validate the latency work with targeted timing checks and a fresh repo-wide slow-call log pass.",
+        "span": {
+          "end": 5020,
+          "start": 4657
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::trace_the_prism_plans_hot_path_and_identify_why_the_warm_resource_handler_still_spends_about_1_27s_outside_runtime_sync"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Trace the prism://plans hot path and identify why the warm resource handler still spends about 1.27s outside runtime sync.",
+        "span": {
+          "end": 2172,
+          "start": 1771
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::git_execution_policy"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Git Execution Policy",
+        "span": {
+          "end": 1283,
+          "start": 1128
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::profile_the_shared_compact_tool_hot_path_behind_prism_open_prism_workset_prism_locate_and_prism_gather"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Profile the shared compact-tool hot path behind prism_open, prism_workset, prism_locate, and prism_gather.",
+        "span": {
+          "end": 3171,
+          "start": 2793
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::implement_the_prism_plans_latency_fixes_with_a_warm_path_target_comfortably_below_the_current_1_27s_read"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Implement the prism://plans latency fixes with a warm-path target comfortably below the current 1.27s read.",
+        "span": {
+          "end": 4097,
+          "start": 3603
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::implement_the_prism_concept_latency_fixes_so_common_warm_concept_reads_stop_spending_most_time_in_the_compact_handler"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Implement the prism_concept latency fixes so common warm concept reads stop spending most time in the compact handler.",
+        "span": {
+          "end": 4657,
+          "start": 4097
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::design_a_lighter_mcp_log_introspection_path_so_slow_prism_query_diagnostics_do_not_need_many_per_call_prism_mcptrace_lookups"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Design a lighter MCP log introspection path so slow prism_query diagnostics do not need many per-call prism.mcpTrace lookups.",
+        "span": {
+          "end": 3603,
+          "start": 3171
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::implement_shared_compact_tool_latency_fixes_across_prism_open_prism_workset_prism_locate_and_prism_gather"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Implement shared compact-tool latency fixes across prism_open, prism_workset, prism_locate, and prism_gather.",
+        "span": {
+          "end": 5373,
+          "start": 5020
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::root_nodes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Root Nodes",
+        "span": {
+          "end": 1761,
+          "start": 1577
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md"
+        },
+        "kind": "Document",
+        "name": "docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "span": {
+          "end": 1381,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md"
+        },
+        "kind": "Document",
+        "name": "docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "span": {
+          "end": 6542,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::edges"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Edges",
+        "span": {
+          "end": 1381,
+          "start": 1322
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::edges"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Edges",
+        "span": {
+          "end": 6542,
+          "start": 5373
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::source_of_truth"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Source of Truth",
+        "span": {
+          "end": 1263,
+          "start": 1128
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::source_of_truth"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Source of Truth",
+        "span": {
+          "end": 1577,
+          "start": 1283
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::overview"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Overview",
+        "span": {
+          "end": 859,
+          "start": 698
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::overview"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Overview",
+        "span": {
+          "end": 859,
+          "start": 698
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::reduce_the_next_highest_priority_mcp_slow_call_hotspots_after_excluding_prism_mutate_mutate_coordination_starting_with_prism_plans_prism_concept_and_shared_compact_tool_read_paths_then_validate_the_latency_improvements_with_repo_wide_call_log_evidence"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence.",
+        "span": {
+          "end": 1381,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::reduce_the_next_highest_priority_mcp_slow_call_hotspots_after_excluding_prism_mutate_mutate_coordination_starting_with_prism_plans_prism_concept_and_shared_compact_tool_read_paths_then_validate_the_latency_improvements_with_repo_wide_call_log_evidence"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence.",
+        "span": {
+          "end": 6542,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::projection_metadata"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Projection Metadata",
+        "span": {
+          "end": 698,
+          "start": 401
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::projection_metadata"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Projection Metadata",
+        "span": {
+          "end": 698,
+          "start": 401
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::nodes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Nodes",
+        "span": {
+          "end": 1322,
+          "start": 1263
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::nodes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Nodes",
+        "span": {
+          "end": 5373,
+          "start": 1761
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::goal"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Goal",
+        "span": {
+          "end": 1128,
+          "start": 859
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::plans::active::plan_01kn88m9a9ckax8ft3pwm7ahgq_md::goal"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Goal",
+        "span": {
+          "end": 1128,
+          "start": 859
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 26,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md"
+    ],
+    "files": [
+      463
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

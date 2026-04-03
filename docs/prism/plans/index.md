@@ -8,14 +8,14 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:9c1b7bc347f0b6278ff9deea8292a2986cff233ba1820fd6fb2e7c89cdbae276`
+- Source head: `sha256:c1c3a5377b7be0c9dc64985283b03d8bd60ab8fa6f5682c1f8ef1ee5c4f5c700`
 - Source logical timestamp: `unknown`
-- Source snapshot: `58 plans, 36 active, 22 archived`
+- Source snapshot: `59 plans, 37 active, 22 archived`
 
 ## Overview
 
-- Published plans: 58
-- Active plans: 36
+- Published plans: 59
+- Active plans: 37
 - Archived plans: 22
 
 ## Active Plans
@@ -49,6 +49,7 @@
 - [Publish always-up-to-date human-readable markdown projections under docs/prism for all persisted .prism state surfaces, with a clear hierarchy for plans, memories, concepts, contracts, relations, and other current repo-state projections.](active/plan-01kn89108wb4a78p35krmyn29t.md): Publish always-up-to-date human-readable markdown projections under docs/prism for all persisted .prism state surfaces, with a clear hierarchy for plans, memories, concepts, contracts, relations, and other current repo-state projections. (`plan:01kn89108wb4a78p35krmyn29t`)
 - [Reduce full cargo test latency and improve test reliability by profiling the slowest test paths, separating heavy integration-style coverage from cheap unit-style coverage, removing avoidable setup and timing overhead, and validating the new default suite behavior with measured before/after timings.](active/plan-01kn8dprbn5qf3fjpvj1zjxfb0.md): Reduce full cargo test latency and improve test reliability by profiling the slowest test paths, separating heavy integration-style coverage from cheap unit-style coverage, removing avoidable setup and timing overhead, and validating the new default suite behavior with measured before/after timings. (`plan:01kn8dprbn5qf3fjpvj1zjxfb0`)
 - [Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence.](active/plan-01kn88m9a9ckax8ft3pwm7ahgq.md): Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence. (`plan:01kn88m9a9ckax8ft3pwm7ahgq`)
+- [Remove tracked changes from .prism state and rely on signed commit history plus manifest metadata](active/plan-01kn9xsvp1a376w7xmq08gn4nh.md): Make shared runtime the sole owner of append-only change history, remove tracked `.prism/state/changes/**`, keep tracked `.prism/state` as stable semantic state only, and rely on signed Git commit history plus PRISM manifest metadata for durable coarse-grained publish history. (`plan:01kn9xsvp1a376w7xmq08gn4nh`)
 - [Rewrite the PRISM runtime around incremental invalidation, partial materialization, explicit boundary semantics, worktree-aware overlays, lazy deep parsing, and scalable ranking so the daemon stays radically efficient on small repos and scales cleanly to large monorepos, excluding the remote shared runtime backend and database-pushed traversals.](active/plan-01kn09gyzw4e8wzwvgvbbj9mkk.md): Rewrite the PRISM runtime around incremental invalidation, partial materialization, explicit boundary semantics, worktree-aware overlays, lazy deep parsing, and scalable ranking so the daemon stays radically efficient on small repos and scales cleanly to large monorepos, excluding the remote shared runtime backend and database-pushed traversals. (`plan:01kn09gyzw4e8wzwvgvbbj9mkk`)
 - [Rewrite tracked .prism to signed snapshot publication](active/plan-01kn9hkjxnzdj4qtt4fa25cr6y.md): Replace repo-committed append-log authority with compact signed snapshot state in tracked .prism, move fine-grained operational history into runtime/shared journals, and preserve cold-clone correctness, Git-native time travel, and trusted publisher attribution. (`plan:01kn9hkjxnzdj4qtt4fa25cr6y`)
 - [runtime-status-cleanup: make runtimeStatus cheap, accurate, and trustworthy by pruning stale runtime-state process records, tightening process/count reporting, and validating the cleaned status surface under real daemon usage.](active/plan-01kn2nhs48pj2kqeqqgtrqsded.md): runtime-status-cleanup: make runtimeStatus cheap, accurate, and trustworthy by pruning stale runtime-state process records, tightening process/count reporting, and validating the cleaned status surface under real daemon usage. (`plan:01kn2nhs48pj2kqeqqgtrqsded`)

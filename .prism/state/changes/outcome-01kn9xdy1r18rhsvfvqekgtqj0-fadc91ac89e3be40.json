@@ -1,0 +1,527 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdy1r18rhsvfvqekgtqj0",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 60
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::protected_state_commands::print_published_plan_repair_report",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::protected_state_commands::print_quarantine_report",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::protected_state_commands::handle_protected_state_command",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::protected_state_commands::derived_root_output_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::protected_state_commands::print_repair_report",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::protected_state_commands::print_verify_report",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::protected_state_commands::verify_single_stream",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::protected_state_commands::write_trust_export",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::protected_state_commands::print_trust_import_report",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::protected_state_commands",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::protected_state_commands::handle_protected_state_trust_command",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::protected_state_commands::print_diagnostic_report",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_cli",
+        "path": "prism_cli::protected_state_commands::print_reconcile_report",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 1 added, 0 removed, 12 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 1,
+        "changedSymbolCount": 25,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "removedCount": 0,
+        "updatedCount": 24
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::print_published_plan_repair_report"
+        },
+        "kind": "Function",
+        "name": "print_published_plan_repair_report",
+        "span": {
+          "end": 11249,
+          "start": 10388
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::print_quarantine_report"
+        },
+        "kind": "Function",
+        "name": "print_quarantine_report",
+        "span": {
+          "end": 8924,
+          "start": 8698
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::print_quarantine_report"
+        },
+        "kind": "Function",
+        "name": "print_quarantine_report",
+        "span": {
+          "end": 9621,
+          "start": 9395
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::handle_protected_state_command"
+        },
+        "kind": "Function",
+        "name": "handle_protected_state_command",
+        "span": {
+          "end": 3948,
+          "start": 799
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::handle_protected_state_command"
+        },
+        "kind": "Function",
+        "name": "handle_protected_state_command",
+        "span": {
+          "end": 4645,
+          "start": 915
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::derived_root_output_path"
+        },
+        "kind": "Function",
+        "name": "derived_root_output_path",
+        "span": {
+          "end": 6896,
+          "start": 6665
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::derived_root_output_path"
+        },
+        "kind": "Function",
+        "name": "derived_root_output_path",
+        "span": {
+          "end": 7593,
+          "start": 7362
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::print_repair_report"
+        },
+        "kind": "Function",
+        "name": "print_repair_report",
+        "span": {
+          "end": 9327,
+          "start": 8926
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::print_repair_report"
+        },
+        "kind": "Function",
+        "name": "print_repair_report",
+        "span": {
+          "end": 10024,
+          "start": 9623
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::print_verify_report"
+        },
+        "kind": "Function",
+        "name": "print_verify_report",
+        "span": {
+          "end": 7409,
+          "start": 6898
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::print_verify_report"
+        },
+        "kind": "Function",
+        "name": "print_verify_report",
+        "span": {
+          "end": 8106,
+          "start": 7595
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::verify_single_stream"
+        },
+        "kind": "Function",
+        "name": "verify_single_stream",
+        "span": {
+          "end": 4401,
+          "start": 3950
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::verify_single_stream"
+        },
+        "kind": "Function",
+        "name": "verify_single_stream",
+        "span": {
+          "end": 5098,
+          "start": 4647
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::write_trust_export"
+        },
+        "kind": "Function",
+        "name": "write_trust_export",
+        "span": {
+          "end": 6663,
+          "start": 5577
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::write_trust_export"
+        },
+        "kind": "Function",
+        "name": "write_trust_export",
+        "span": {
+          "end": 7360,
+          "start": 6274
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::print_trust_import_report"
+        },
+        "kind": "Function",
+        "name": "print_trust_import_report",
+        "span": {
+          "end": 8696,
+          "start": 8381
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::print_trust_import_report"
+        },
+        "kind": "Function",
+        "name": "print_trust_import_report",
+        "span": {
+          "end": 9393,
+          "start": 9078
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Module",
+          "path": "prism_cli::protected_state_commands"
+        },
+        "kind": "Module",
+        "name": "protected_state_commands",
+        "span": {
+          "end": 9690,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Module",
+          "path": "prism_cli::protected_state_commands"
+        },
+        "kind": "Module",
+        "name": "protected_state_commands",
+        "span": {
+          "end": 11250,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::handle_protected_state_trust_command"
+        },
+        "kind": "Function",
+        "name": "handle_protected_state_trust_command",
+        "span": {
+          "end": 5575,
+          "start": 4403
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::handle_protected_state_trust_command"
+        },
+        "kind": "Function",
+        "name": "handle_protected_state_trust_command",
+        "span": {
+          "end": 6272,
+          "start": 5100
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::print_diagnostic_report"
+        },
+        "kind": "Function",
+        "name": "print_diagnostic_report",
+        "span": {
+          "end": 8379,
+          "start": 7411
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::print_diagnostic_report"
+        },
+        "kind": "Function",
+        "name": "print_diagnostic_report",
+        "span": {
+          "end": 9076,
+          "start": 8108
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::print_reconcile_report"
+        },
+        "kind": "Function",
+        "name": "print_reconcile_report",
+        "span": {
+          "end": 9689,
+          "start": 9329
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs",
+        "id": {
+          "crate_name": "prism_cli",
+          "kind": "Function",
+          "path": "prism_cli::protected_state_commands::print_reconcile_report"
+        },
+        "kind": "Function",
+        "name": "print_reconcile_report",
+        "span": {
+          "end": 10386,
+          "start": 10026
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 25,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-cli/src/protected_state_commands.rs"
+    ],
+    "files": [
+      60
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

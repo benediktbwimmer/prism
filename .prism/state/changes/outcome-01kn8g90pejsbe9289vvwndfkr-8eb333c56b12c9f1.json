@@ -1,0 +1,837 @@
+{
+  "meta": {
+    "id": "outcome:01kn8g90pejsbe9289vvwndfkr",
+    "ts": 1775180743,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn8g90b7mzcxh03dzd1pn7e4",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6167:1775180633341",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 316
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::scheduling_score",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::Prism::portfolio_next_for_runtime",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::sort_plan_recommendations",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::Prism::portfolio_next",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::Prism::plan_recommendations_for_graph",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::is_terminal",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::Prism::actionable_plan_nodes_for_runtime",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::is_actionable_candidate",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::Prism::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::Prism::plan_next",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::Prism::plan_summary",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::is_execution_blocker",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::is_stale_gate",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::recommendation_reasons",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::Prism::plan_next_for_runtime",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::Prism::plan_summary_for_hydrated_graph",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::is_review_gate",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::unlocked_neighbors",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::Prism::plan_summary_for_runtime",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::is_completion_gate",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::is_validation_gate",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_insights::recommendation_score",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 5 added, 0 removed, 18 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 5,
+        "changedSymbolCount": 41,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "removedCount": 0,
+        "updatedCount": 36
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::scheduling_score"
+        },
+        "kind": "Function",
+        "name": "scheduling_score",
+        "span": {
+          "end": 14445,
+          "start": 13820
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_insights::Prism::portfolio_next_for_runtime"
+        },
+        "kind": "Method",
+        "name": "portfolio_next_for_runtime",
+        "span": {
+          "end": 6429,
+          "start": 5801
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::sort_plan_recommendations"
+        },
+        "kind": "Function",
+        "name": "sort_plan_recommendations",
+        "span": {
+          "end": 8991,
+          "start": 8378
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_insights::Prism::portfolio_next"
+        },
+        "kind": "Method",
+        "name": "portfolio_next",
+        "span": {
+          "end": 2125,
+          "start": 1842
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_insights::Prism::plan_recommendations_for_graph"
+        },
+        "kind": "Method",
+        "name": "plan_recommendations_for_graph",
+        "span": {
+          "end": 8374,
+          "start": 6435
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::is_terminal"
+        },
+        "kind": "Function",
+        "name": "is_terminal",
+        "span": {
+          "end": 7406,
+          "start": 7260
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::is_terminal"
+        },
+        "kind": "Function",
+        "name": "is_terminal",
+        "span": {
+          "end": 9139,
+          "start": 8993
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_insights::Prism::actionable_plan_nodes_for_runtime"
+        },
+        "kind": "Method",
+        "name": "actionable_plan_nodes_for_runtime",
+        "span": {
+          "end": 1247,
+          "start": 347
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_insights::Prism::actionable_plan_nodes_for_runtime"
+        },
+        "kind": "Method",
+        "name": "actionable_plan_nodes_for_runtime",
+        "span": {
+          "end": 1247,
+          "start": 347
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::is_actionable_candidate"
+        },
+        "kind": "Function",
+        "name": "is_actionable_candidate",
+        "span": {
+          "end": 7604,
+          "start": 7408
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::is_actionable_candidate"
+        },
+        "kind": "Function",
+        "name": "is_actionable_candidate",
+        "span": {
+          "end": 9337,
+          "start": 9141
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Module",
+          "path": "prism_query::plan_insights"
+        },
+        "kind": "Module",
+        "name": "plan_insights",
+        "span": {
+          "end": 11268,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Module",
+          "path": "prism_query::plan_insights"
+        },
+        "kind": "Module",
+        "name": "plan_insights",
+        "span": {
+          "end": 14446,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Impl",
+          "path": "prism_query::plan_insights::Prism::impl"
+        },
+        "kind": "Impl",
+        "name": "Prism",
+        "span": {
+          "end": 7258,
+          "start": 330
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Impl",
+          "path": "prism_query::plan_insights::Prism::impl"
+        },
+        "kind": "Impl",
+        "name": "Prism",
+        "span": {
+          "end": 8376,
+          "start": 330
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_insights::Prism::plan_next"
+        },
+        "kind": "Method",
+        "name": "plan_next",
+        "span": {
+          "end": 1836,
+          "start": 1536
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_insights::Prism::plan_next"
+        },
+        "kind": "Method",
+        "name": "plan_next",
+        "span": {
+          "end": 1836,
+          "start": 1536
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_insights::Prism::plan_summary"
+        },
+        "kind": "Method",
+        "name": "plan_summary",
+        "span": {
+          "end": 1530,
+          "start": 1253
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_insights::Prism::plan_summary"
+        },
+        "kind": "Method",
+        "name": "plan_summary",
+        "span": {
+          "end": 1530,
+          "start": 1253
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::is_execution_blocker"
+        },
+        "kind": "Function",
+        "name": "is_execution_blocker",
+        "span": {
+          "end": 7882,
+          "start": 7606
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::is_execution_blocker"
+        },
+        "kind": "Function",
+        "name": "is_execution_blocker",
+        "span": {
+          "end": 9615,
+          "start": 9339
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::is_stale_gate"
+        },
+        "kind": "Function",
+        "name": "is_stale_gate",
+        "span": {
+          "end": 8507,
+          "start": 8338
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::is_stale_gate"
+        },
+        "kind": "Function",
+        "name": "is_stale_gate",
+        "span": {
+          "end": 10240,
+          "start": 10071
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::recommendation_reasons"
+        },
+        "kind": "Function",
+        "name": "recommendation_reasons",
+        "span": {
+          "end": 10581,
+          "start": 9239
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::recommendation_reasons"
+        },
+        "kind": "Function",
+        "name": "recommendation_reasons",
+        "span": {
+          "end": 13011,
+          "start": 10972
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_insights::Prism::plan_next_for_runtime"
+        },
+        "kind": "Method",
+        "name": "plan_next_for_runtime",
+        "span": {
+          "end": 7256,
+          "start": 4840
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_insights::Prism::plan_next_for_runtime"
+        },
+        "kind": "Method",
+        "name": "plan_next_for_runtime",
+        "span": {
+          "end": 5795,
+          "start": 5129
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_insights::Prism::plan_summary_for_hydrated_graph"
+        },
+        "kind": "Method",
+        "name": "plan_summary_for_hydrated_graph",
+        "span": {
+          "end": 4834,
+          "start": 2152
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_insights::Prism::plan_summary_for_hydrated_graph"
+        },
+        "kind": "Method",
+        "name": "plan_summary_for_hydrated_graph",
+        "span": {
+          "end": 5123,
+          "start": 2441
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::is_review_gate"
+        },
+        "kind": "Function",
+        "name": "is_review_gate",
+        "span": {
+          "end": 8154,
+          "start": 7978
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::is_review_gate"
+        },
+        "kind": "Function",
+        "name": "is_review_gate",
+        "span": {
+          "end": 9887,
+          "start": 9711
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::unlocked_neighbors"
+        },
+        "kind": "Function",
+        "name": "unlocked_neighbors",
+        "span": {
+          "end": 9237,
+          "start": 8509
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::unlocked_neighbors"
+        },
+        "kind": "Function",
+        "name": "unlocked_neighbors",
+        "span": {
+          "end": 10970,
+          "start": 10242
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_insights::Prism::plan_summary_for_runtime"
+        },
+        "kind": "Method",
+        "name": "plan_summary_for_runtime",
+        "span": {
+          "end": 2146,
+          "start": 1842
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_insights::Prism::plan_summary_for_runtime"
+        },
+        "kind": "Method",
+        "name": "plan_summary_for_runtime",
+        "span": {
+          "end": 2435,
+          "start": 2131
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::is_completion_gate"
+        },
+        "kind": "Function",
+        "name": "is_completion_gate",
+        "span": {
+          "end": 7976,
+          "start": 7884
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::is_completion_gate"
+        },
+        "kind": "Function",
+        "name": "is_completion_gate",
+        "span": {
+          "end": 9709,
+          "start": 9617
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::is_validation_gate"
+        },
+        "kind": "Function",
+        "name": "is_validation_gate",
+        "span": {
+          "end": 8336,
+          "start": 8156
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::is_validation_gate"
+        },
+        "kind": "Function",
+        "name": "is_validation_gate",
+        "span": {
+          "end": 10069,
+          "start": 9889
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::recommendation_score"
+        },
+        "kind": "Function",
+        "name": "recommendation_score",
+        "span": {
+          "end": 11267,
+          "start": 10583
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_insights::recommendation_score"
+        },
+        "kind": "Function",
+        "name": "recommendation_score",
+        "span": {
+          "end": 13818,
+          "start": 13013
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 41,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_insights.rs"
+    ],
+    "files": [
+      316
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

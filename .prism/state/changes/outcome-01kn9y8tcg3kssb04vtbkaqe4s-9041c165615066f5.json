@@ -1,0 +1,802 @@
+{
+  "meta": {
+    "id": "outcome:01kn9y8tcg3kssb04vtbkaqe4s",
+    "ts": 1775228971,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+    "causation": "observed:01kn9y8t2y8q4k2pejan154qh6",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/task/path-identity-repo-relative",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:lock-the-canonical-path-identity-contract-and-no-absolute-path-boundary:01kn9y2x6gzpnxw9wa3qe832gt",
+        "kind": "coordination",
+        "title": "Lock the canonical path identity contract and no-absolute-path boundary",
+        "coordinationTaskId": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+        "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 357
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::protected_state_runtime_import_rule",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::shared_runtime_backend",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::identity_and_scope_dimensions",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::immediate_guidance_for_the_persistence_migration_plan",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::boundary_guidance",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::query_classes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::current_transitional_caveats",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::validation_matrix_for_the_migration",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::restart_and_crash_contract",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::plans_specific_interpretation",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::query_authority_classes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::distributed_runtime_capabilities",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::durability_classes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md",
+        "kind": "Document"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::three_state_planes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::rules",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::persistence_state_classification",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::classification",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::domain_durability_contract",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::endpoint_and_worktree_contexts",
+        "kind": "MarkdownHeading"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 20 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 40,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "removedCount": 0,
+        "updatedCount": 40
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::protected_state_runtime_import_rule"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Protected-State Runtime Import Rule",
+        "span": {
+          "end": 14279,
+          "start": 13452
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::protected_state_runtime_import_rule"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Protected-State Runtime Import Rule",
+        "span": {
+          "end": 14606,
+          "start": 13779
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::shared_runtime_backend"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Shared Runtime Backend",
+        "span": {
+          "end": 16529,
+          "start": 15075
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::shared_runtime_backend"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Shared Runtime Backend",
+        "span": {
+          "end": 16856,
+          "start": 15402
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::identity_and_scope_dimensions"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Identity And Scope Dimensions",
+        "span": {
+          "end": 17715,
+          "start": 16529
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::identity_and_scope_dimensions"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Identity And Scope Dimensions",
+        "span": {
+          "end": 18042,
+          "start": 16856
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::immediate_guidance_for_the_persistence_migration_plan"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Immediate Guidance For The Persistence Migration Plan",
+        "span": {
+          "end": 24800,
+          "start": 23056
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::immediate_guidance_for_the_persistence_migration_plan"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Immediate Guidance For The Persistence Migration Plan",
+        "span": {
+          "end": 25127,
+          "start": 23383
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::boundary_guidance"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Boundary Guidance",
+        "span": {
+          "end": 21884,
+          "start": 20274
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::boundary_guidance"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Boundary Guidance",
+        "span": {
+          "end": 22211,
+          "start": 20601
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::query_classes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Query Classes",
+        "span": {
+          "end": 6045,
+          "start": 4746
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::query_classes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Query Classes",
+        "span": {
+          "end": 6372,
+          "start": 5073
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::current_transitional_caveats"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Current Transitional Caveats",
+        "span": {
+          "end": 23056,
+          "start": 21884
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::current_transitional_caveats"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Current Transitional Caveats",
+        "span": {
+          "end": 23383,
+          "start": 22211
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::validation_matrix_for_the_migration"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Validation Matrix For The Migration",
+        "span": {
+          "end": 27456,
+          "start": 24800
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::validation_matrix_for_the_migration"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Validation Matrix For The Migration",
+        "span": {
+          "end": 27783,
+          "start": 25127
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::restart_and_crash_contract"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Restart And Crash Contract",
+        "span": {
+          "end": 15075,
+          "start": 14279
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::restart_and_crash_contract"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Restart And Crash Contract",
+        "span": {
+          "end": 15402,
+          "start": 14606
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::plans_specific_interpretation"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Plans-Specific Interpretation",
+        "span": {
+          "end": 27880,
+          "start": 27456
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::plans_specific_interpretation"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Plans-Specific Interpretation",
+        "span": {
+          "end": 28207,
+          "start": 27783
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::query_authority_classes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Query Authority Classes",
+        "span": {
+          "end": 13452,
+          "start": 12154
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::query_authority_classes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Query Authority Classes",
+        "span": {
+          "end": 13779,
+          "start": 12481
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::distributed_runtime_capabilities"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Distributed Runtime Capabilities",
+        "span": {
+          "end": 20274,
+          "start": 19334
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::distributed_runtime_capabilities"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Distributed Runtime Capabilities",
+        "span": {
+          "end": 20601,
+          "start": 19661
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::durability_classes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Durability Classes",
+        "span": {
+          "end": 4746,
+          "start": 3480
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::durability_classes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Durability Classes",
+        "span": {
+          "end": 5073,
+          "start": 3807
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md"
+        },
+        "kind": "Document",
+        "name": "docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "span": {
+          "end": 27880,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md"
+        },
+        "kind": "Document",
+        "name": "docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "span": {
+          "end": 28207,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::three_state_planes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Three State Planes",
+        "span": {
+          "end": 2207,
+          "start": 540
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::three_state_planes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Three State Planes",
+        "span": {
+          "end": 2207,
+          "start": 540
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::rules"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Rules",
+        "span": {
+          "end": 3480,
+          "start": 2207
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::rules"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Rules",
+        "span": {
+          "end": 3807,
+          "start": 2207
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::persistence_state_classification"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Persistence State Classification",
+        "span": {
+          "end": 27880,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::persistence_state_classification"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Persistence State Classification",
+        "span": {
+          "end": 28207,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::classification"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Classification",
+        "span": {
+          "end": 9635,
+          "start": 6045
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::classification"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Classification",
+        "span": {
+          "end": 9962,
+          "start": 6372
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::domain_durability_contract"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Domain Durability Contract",
+        "span": {
+          "end": 12154,
+          "start": 9635
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::domain_durability_contract"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Domain Durability Contract",
+        "span": {
+          "end": 12481,
+          "start": 9962
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::endpoint_and_worktree_contexts"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Endpoint And Worktree Contexts",
+        "span": {
+          "end": 19334,
+          "start": 17715
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::endpoint_and_worktree_contexts"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Endpoint And Worktree Contexts",
+        "span": {
+          "end": 19661,
+          "start": 18042
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 40,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md"
+    ],
+    "files": [
+      357
+    ],
+    "reason": "work Lock the canonical path identity contract and no-absolute-path boundary (work:lock-the-canonical-path-identity-contract-and-no-absolute-path-boundary:01kn9y2x6gzpnxw9wa3qe832gt)",
+    "trigger": "FsWatch"
+  }
+}

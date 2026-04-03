@@ -1,0 +1,5707 @@
+{
+  "meta": {
+    "id": "outcome:01kn8g90n9q1gya6q9a5mzmk1k",
+    "ts": 1775180743,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn8g90b7mzcxh03dzd1pn7e4",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6167:1775180633341",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 229
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_plan_scheduling",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ChangedSymbolsArgs::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::DecodeConceptArgs::handle",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::RecentPatchesArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::RecentPatchesArgs::path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ConceptHandleArgs::handle",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryOutcomeArgs::focus",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SourceExcerptArgs::context_lines",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchTextArgs::context_lines",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::OwnerLookupArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::McpLogArgs::name",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::parse_outcome_result",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryEventArgs::kinds",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryOutcomeArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ToolValidationArgs::input",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchTextArgs::glob",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::CuratorProposalsArgs::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::TaskTargetArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_acceptance",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ChangedFilesArgs::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::QueryTraceArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchArgs::owner_kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::McpLogArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_validation_refs",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_plan_acceptance",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SymbolTargetArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::TaskJournalArgs::memory_limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchArgs::strategy",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::tests::parse_event_actor_accepts_legacy_fallback_shorthand",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::EditSliceArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ToolValidationArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryEventArgs::focus",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::CallGraphArgs::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ValidationFeedbackArgs::corrected_manually",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::McpLogArgs::since",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ImplementationTargetArgs::lineage_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::DecodeConceptArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::McpLogArgs::session_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::CuratorJobsArgs::trigger",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::WhereUsedArgs::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ContractQueryArgs::query",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::RecentPatchesArgs::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::CuratorProposalsArgs::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::TaskChangesArgs::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::RuntimeLogArgs::worktree_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::RuntimeTimelineArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::QueryLogArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryRecallArgs::focus",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::McpTraceArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SourceExcerptArgs::max_chars",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchTextArgs::case_sensitive",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::DecodeConceptArgs::lens",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::CuratorJobsArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_completion_context",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryOutcomeArgs::result",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::EditSliceArgs::lineage_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryRecallArgs::text",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ImplementationTargetArgs::mode",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchArgs::module",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchTextArgs::query",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ValidationFeedbackArgs::contains",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryOutcomeArgs::kinds",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::RuntimeTimelineArgs::contains",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::tests",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ToolNameArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::QueryLogArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchArgs::prefer_callable_code",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ValidationFeedbackArgs::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchArgs::path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::RuntimeLogArgs::scope",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::CallGraphArgs::lineage_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_outcome_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ConceptHandleArgs::include_binding_metadata",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::CuratorJobsArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::CallGraphArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::TaskChangesArgs::path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::RuntimeTimelineArgs::scope",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::CuratorProposalsArgs::disposition",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ChangedSymbolsArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ValidationFeedbackArgs::since",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::FileAroundArgs::after",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::DiffForArgs::since",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::parse_memory_event_action",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ToolValidationArgs::name",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ConceptQueryArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_acceptance_evidence_policy",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::DiffForArgs::lineage_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::CuratorJobArgs::job_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::EditSliceArgs::after_lines",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_inferred_scope",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_plan_status",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::tests::parse_event_actor_accepts_principal_scoped_id",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryEventArgs::scope",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ImplementationTargetArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::FileAroundArgs::line",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::McpLogArgs::repo_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::DiscoveryTargetArgs::lineage_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryEventArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::McpLogArgs::call_type",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::OwnerLookupArgs::lineage_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::FileReadArgs::max_chars",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::parse_memory_scope",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchArgs::top_level_only",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_memory_scope",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_node_id",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ToolNameArgs::name",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::CuratorProposalsArgs::trigger",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryOutcomeArgs::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchArgs::structured_path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryEventArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_outcome_evidence",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ValidationFeedbackArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryEventArgs::text",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::DiffForArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryEventArgs::memory_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ChangedFilesArgs::since",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::DiscoveryTargetArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::CuratorJobsArgs::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::EditSliceArgs::max_lines",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryRecallArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::QueryLogArgs::since",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::TaskTargetArgs::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ChangedFilesArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ChangedSymbolsArgs::since",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryRecallArgs::since",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::McpLogArgs::scope",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ConceptQueryArgs::query",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::FileReadArgs::path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryEventArgs::since",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ChangedFilesArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SourceExcerptArgs::lineage_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::TaskJournalArgs::event_limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::FileReadArgs::start_line",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::TaskJournalArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::resolve_anchor_file_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::DecodeConceptArgs::verbosity",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::CuratorProposalsArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchTextArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ImplementationTargetArgs::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::McpLogArgs::min_duration_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::parse_event_actor",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryRecallArgs::kinds",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ValidationFeedbackArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::DiffForArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::McpLogArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::CuratorProposalsArgs::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_plan_binding",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::RuntimeLogArgs::contains",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ConceptQueryArgs::verbosity",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::FileReadArgs::end_line",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchArgs::query",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::normalize_enum_label",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::DiffForArgs::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::FileAroundArgs::before",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_outcome_result",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::McpLogArgs::contains",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::FileAroundArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ConceptHandleArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::parse_node_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::QueryLogArgs::operation",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::FileAroundArgs::max_chars",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::parse_outcome_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchTextArgs::path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::FileReadArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::QueryLogArgs::min_duration_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::RuntimeLogArgs::target",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::parse_plan_scope",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::EditSliceArgs::max_chars",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryOutcomeArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::EditSliceArgs::before_lines",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ChangedFilesArgs::path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ConceptQueryArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ContractQueryArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SymbolTargetArgs::lineage_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::McpLogArgs::success",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::WhereUsedArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SourceExcerptArgs::max_lines",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::edge_kind_label",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::RuntimeTimelineArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_memory_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ValidationFeedbackArgs::verdict",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::parse_plan_status",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ConceptQueryArgs::include_binding_metadata",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::parse_edge_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::EditSliceArgs::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_claim_mode",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_plan_node_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::McpLogArgs::server_instance_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::FileAroundArgs::path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::OwnerLookupArgs::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ChangedSymbolsArgs::path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::QueryTraceArgs::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_capability",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::WhereUsedArgs::lineage_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ValidationFeedbackArgs::category",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SymbolQueryArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SymbolTargetArgs::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::McpTraceArgs::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_memory_source",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::QueryLogArgs::target",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::OwnerLookupArgs::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::QueryLogArgs::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::McpLogArgs::workspace_root",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchTextArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::TaskJournalArgs::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::DiffForArgs::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::TaskChangesArgs::since",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::McpLogArgs::process_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::DecodeConceptArgs::query",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::RuntimeLogArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::DecodeConceptArgs::include_binding_metadata",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::RecentPatchesArgs::target",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SymbolQueryArgs::query",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_review_verdict",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::RecentPatchesArgs::since",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ConceptHandleArgs::verbosity",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryRecallArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_plan_node_status",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryOutcomeArgs::actor",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchArgs::path_mode",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::RuntimeLogArgs::level",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::RecentPatchesArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_coordination_task_status",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::WhereUsedArgs::mode",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::RuntimeTimelineArgs::worktree_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryEventArgs::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::CuratorJobArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::WhereUsedArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::McpLogArgs::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_policy",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::McpLogArgs::worktree_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::RuntimeLogArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::CallGraphArgs::depth",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::CuratorProposalsArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ChangedSymbolsArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchArgs::include_inferred",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::DiscoveryTargetArgs::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::ImplementationTargetArgs::owner_kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::tests::parse_event_actor_rejects_incomplete_principal_scoped_id",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchTextArgs::regex",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchArgs::prefer_editable_targets",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SourceExcerptArgs::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryOutcomeArgs::since",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::DiscoveryTargetArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_anchors",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::MemoryEventArgs::actions",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::OwnerLookupArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::convert_plan_edge_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchArgs::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::TaskChangesArgs",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchArgs::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::parse_memory_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::TaskChangesArgs::limit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SearchArgs::prefer_behavioral_owners",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_types::SourceExcerptArgs",
+        "kind": "Struct"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 1 added, 0 removed, 257 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 1,
+        "changedSymbolCount": 515,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "removedCount": 0,
+        "updatedCount": 514
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_plan_scheduling"
+        },
+        "kind": "Function",
+        "name": "convert_plan_scheduling",
+        "span": {
+          "end": 32721,
+          "start": 32146
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ChangedSymbolsArgs::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 6873,
+          "start": 6829
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ChangedSymbolsArgs::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 6912,
+          "start": 6868
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::DecodeConceptArgs::handle"
+        },
+        "kind": "Field",
+        "name": "handle",
+        "span": {
+          "end": 3472,
+          "start": 3439
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::DecodeConceptArgs::handle"
+        },
+        "kind": "Field",
+        "name": "handle",
+        "span": {
+          "end": 3511,
+          "start": 3478
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::RecentPatchesArgs"
+        },
+        "kind": "Struct",
+        "name": "RecentPatchesArgs",
+        "span": {
+          "end": 7185,
+          "start": 6943
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::RecentPatchesArgs"
+        },
+        "kind": "Struct",
+        "name": "RecentPatchesArgs",
+        "span": {
+          "end": 7224,
+          "start": 6982
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::RecentPatchesArgs::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 7182,
+          "start": 7151
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::RecentPatchesArgs::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 7221,
+          "start": 7190
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ConceptHandleArgs::handle"
+        },
+        "kind": "Field",
+        "name": "handle",
+        "span": {
+          "end": 3080,
+          "start": 3055
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ConceptHandleArgs::handle"
+        },
+        "kind": "Field",
+        "name": "handle",
+        "span": {
+          "end": 3119,
+          "start": 3094
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryOutcomeArgs::focus"
+        },
+        "kind": "Field",
+        "name": "focus",
+        "span": {
+          "end": 11028,
+          "start": 10986
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryOutcomeArgs::focus"
+        },
+        "kind": "Field",
+        "name": "focus",
+        "span": {
+          "end": 11067,
+          "start": 11025
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SourceExcerptArgs::context_lines"
+        },
+        "kind": "Field",
+        "name": "context_lines",
+        "span": {
+          "end": 9095,
+          "start": 9056
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SourceExcerptArgs::context_lines"
+        },
+        "kind": "Field",
+        "name": "context_lines",
+        "span": {
+          "end": 9134,
+          "start": 9095
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchTextArgs::context_lines"
+        },
+        "kind": "Field",
+        "name": "context_lines",
+        "span": {
+          "end": 4194,
+          "start": 4155
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchTextArgs::context_lines"
+        },
+        "kind": "Field",
+        "name": "context_lines",
+        "span": {
+          "end": 4233,
+          "start": 4194
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::OwnerLookupArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 8861,
+          "start": 8830
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::OwnerLookupArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 8900,
+          "start": 8869
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::McpLogArgs::name"
+        },
+        "kind": "Field",
+        "name": "name",
+        "span": {
+          "end": 4823,
+          "start": 4792
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::McpLogArgs::name"
+        },
+        "kind": "Field",
+        "name": "name",
+        "span": {
+          "end": 4862,
+          "start": 4831
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::parse_outcome_result"
+        },
+        "kind": "Function",
+        "name": "parse_outcome_result",
+        "span": {
+          "end": 14615,
+          "start": 14210
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::parse_outcome_result"
+        },
+        "kind": "Function",
+        "name": "parse_outcome_result",
+        "span": {
+          "end": 14654,
+          "start": 14249
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryEventArgs::kinds"
+        },
+        "kind": "Field",
+        "name": "kinds",
+        "span": {
+          "end": 11581,
+          "start": 11544
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryEventArgs::kinds"
+        },
+        "kind": "Field",
+        "name": "kinds",
+        "span": {
+          "end": 11620,
+          "start": 11583
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::MemoryOutcomeArgs"
+        },
+        "kind": "Struct",
+        "name": "MemoryOutcomeArgs",
+        "span": {
+          "end": 11273,
+          "start": 10944
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::MemoryOutcomeArgs"
+        },
+        "kind": "Struct",
+        "name": "MemoryOutcomeArgs",
+        "span": {
+          "end": 11312,
+          "start": 10983
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ToolValidationArgs::input"
+        },
+        "kind": "Field",
+        "name": "input",
+        "span": {
+          "end": 1593,
+          "start": 1558
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ToolValidationArgs::input"
+        },
+        "kind": "Field",
+        "name": "input",
+        "span": {
+          "end": 1632,
+          "start": 1597
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchTextArgs::glob"
+        },
+        "kind": "Field",
+        "name": "glob",
+        "span": {
+          "end": 4112,
+          "start": 4081
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchTextArgs::glob"
+        },
+        "kind": "Field",
+        "name": "glob",
+        "span": {
+          "end": 4151,
+          "start": 4120
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CuratorProposalsArgs::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 18325,
+          "start": 18294
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CuratorProposalsArgs::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 18364,
+          "start": 18333
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::TaskTargetArgs"
+        },
+        "kind": "Struct",
+        "name": "TaskTargetArgs",
+        "span": {
+          "end": 10409,
+          "start": 10331
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::TaskTargetArgs"
+        },
+        "kind": "Struct",
+        "name": "TaskTargetArgs",
+        "span": {
+          "end": 10448,
+          "start": 10370
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_acceptance"
+        },
+        "kind": "Function",
+        "name": "convert_acceptance",
+        "span": {
+          "end": 32685,
+          "start": 32107
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_acceptance"
+        },
+        "kind": "Function",
+        "name": "convert_acceptance",
+        "span": {
+          "end": 33301,
+          "start": 32723
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ChangedFilesArgs::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 6578,
+          "start": 6534
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ChangedFilesArgs::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 6617,
+          "start": 6573
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::QueryTraceArgs"
+        },
+        "kind": "Struct",
+        "name": "QueryTraceArgs",
+        "span": {
+          "end": 7840,
+          "start": 7777
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::QueryTraceArgs"
+        },
+        "kind": "Struct",
+        "name": "QueryTraceArgs",
+        "span": {
+          "end": 7879,
+          "start": 7816
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchArgs::owner_kind"
+        },
+        "kind": "Field",
+        "name": "owner_kind",
+        "span": {
+          "end": 2573,
+          "start": 2536
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchArgs::owner_kind"
+        },
+        "kind": "Field",
+        "name": "owner_kind",
+        "span": {
+          "end": 2612,
+          "start": 2575
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::McpLogArgs"
+        },
+        "kind": "Struct",
+        "name": "McpLogArgs",
+        "span": {
+          "end": 5255,
+          "start": 4603
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::McpLogArgs"
+        },
+        "kind": "Struct",
+        "name": "McpLogArgs",
+        "span": {
+          "end": 5294,
+          "start": 4642
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_validation_refs"
+        },
+        "kind": "Function",
+        "name": "convert_validation_refs",
+        "span": {
+          "end": 33983,
+          "start": 33735
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_validation_refs"
+        },
+        "kind": "Function",
+        "name": "convert_validation_refs",
+        "span": {
+          "end": 34599,
+          "start": 34351
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_plan_acceptance"
+        },
+        "kind": "Function",
+        "name": "convert_plan_acceptance",
+        "span": {
+          "end": 33733,
+          "start": 32687
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_plan_acceptance"
+        },
+        "kind": "Function",
+        "name": "convert_plan_acceptance",
+        "span": {
+          "end": 34349,
+          "start": 33303
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::SymbolTargetArgs"
+        },
+        "kind": "Struct",
+        "name": "SymbolTargetArgs",
+        "span": {
+          "end": 3827,
+          "start": 3671
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::SymbolTargetArgs"
+        },
+        "kind": "Struct",
+        "name": "SymbolTargetArgs",
+        "span": {
+          "end": 3866,
+          "start": 3710
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::TaskJournalArgs::memory_limit"
+        },
+        "kind": "Field",
+        "name": "memory_limit",
+        "span": {
+          "end": 10639,
+          "start": 10601
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::TaskJournalArgs::memory_limit"
+        },
+        "kind": "Field",
+        "name": "memory_limit",
+        "span": {
+          "end": 10678,
+          "start": 10640
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchArgs::strategy"
+        },
+        "kind": "Field",
+        "name": "strategy",
+        "span": {
+          "end": 2031,
+          "start": 1996
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchArgs::strategy"
+        },
+        "kind": "Field",
+        "name": "strategy",
+        "span": {
+          "end": 2070,
+          "start": 2035
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::tests::parse_event_actor_accepts_legacy_fallback_shorthand"
+        },
+        "kind": "Function",
+        "name": "parse_event_actor_accepts_legacy_fallback_shorthand",
+        "span": {
+          "end": 17717,
+          "start": 17507
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::tests::parse_event_actor_accepts_legacy_fallback_shorthand"
+        },
+        "kind": "Function",
+        "name": "parse_event_actor_accepts_legacy_fallback_shorthand",
+        "span": {
+          "end": 17756,
+          "start": 17546
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::EditSliceArgs"
+        },
+        "kind": "Struct",
+        "name": "EditSliceArgs",
+        "span": {
+          "end": 9534,
+          "start": 9247
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::EditSliceArgs"
+        },
+        "kind": "Struct",
+        "name": "EditSliceArgs",
+        "span": {
+          "end": 9573,
+          "start": 9286
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::ToolValidationArgs"
+        },
+        "kind": "Struct",
+        "name": "ToolValidationArgs",
+        "span": {
+          "end": 1596,
+          "start": 1486
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::ToolValidationArgs"
+        },
+        "kind": "Struct",
+        "name": "ToolValidationArgs",
+        "span": {
+          "end": 1635,
+          "start": 1525
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryEventArgs::focus"
+        },
+        "kind": "Field",
+        "name": "focus",
+        "span": {
+          "end": 11464,
+          "start": 11422
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryEventArgs::focus"
+        },
+        "kind": "Field",
+        "name": "focus",
+        "span": {
+          "end": 11503,
+          "start": 11461
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CallGraphArgs::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 10181,
+          "start": 10147
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CallGraphArgs::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 10220,
+          "start": 10186
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ValidationFeedbackArgs::corrected_manually"
+        },
+        "kind": "Field",
+        "name": "corrected_manually",
+        "span": {
+          "end": 6351,
+          "start": 6308
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ValidationFeedbackArgs::corrected_manually"
+        },
+        "kind": "Field",
+        "name": "corrected_manually",
+        "span": {
+          "end": 6390,
+          "start": 6347
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::McpLogArgs::since"
+        },
+        "kind": "Field",
+        "name": "since",
+        "span": {
+          "end": 4704,
+          "start": 4675
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::McpLogArgs::since"
+        },
+        "kind": "Field",
+        "name": "since",
+        "span": {
+          "end": 4743,
+          "start": 4714
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ImplementationTargetArgs::lineage_id"
+        },
+        "kind": "Field",
+        "name": "lineage_id",
+        "span": {
+          "end": 8520,
+          "start": 8483
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ImplementationTargetArgs::lineage_id"
+        },
+        "kind": "Field",
+        "name": "lineage_id",
+        "span": {
+          "end": 8559,
+          "start": 8522
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::DecodeConceptArgs"
+        },
+        "kind": "Struct",
+        "name": "DecodeConceptArgs",
+        "span": {
+          "end": 3639,
+          "start": 3397
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::DecodeConceptArgs"
+        },
+        "kind": "Struct",
+        "name": "DecodeConceptArgs",
+        "span": {
+          "end": 3678,
+          "start": 3436
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::McpLogArgs::session_id"
+        },
+        "kind": "Field",
+        "name": "session_id",
+        "span": {
+          "end": 5037,
+          "start": 5000
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::McpLogArgs::session_id"
+        },
+        "kind": "Field",
+        "name": "session_id",
+        "span": {
+          "end": 5076,
+          "start": 5039
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CuratorJobsArgs::trigger"
+        },
+        "kind": "Field",
+        "name": "trigger",
+        "span": {
+          "end": 18056,
+          "start": 18022
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CuratorJobsArgs::trigger"
+        },
+        "kind": "Field",
+        "name": "trigger",
+        "span": {
+          "end": 18095,
+          "start": 18061
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::WhereUsedArgs::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 8207,
+          "start": 8173
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::WhereUsedArgs::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 8246,
+          "start": 8212
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ContractQueryArgs::query"
+        },
+        "kind": "Field",
+        "name": "query",
+        "span": {
+          "end": 3320,
+          "start": 3296
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ContractQueryArgs::query"
+        },
+        "kind": "Field",
+        "name": "query",
+        "span": {
+          "end": 3359,
+          "start": 3335
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::RecentPatchesArgs::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 7145,
+          "start": 7101
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::RecentPatchesArgs::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 7184,
+          "start": 7140
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CuratorProposalsArgs::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 18441,
+          "start": 18407
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CuratorProposalsArgs::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 18480,
+          "start": 18446
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::TaskChangesArgs::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 7633,
+          "start": 7597
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::TaskChangesArgs::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 7672,
+          "start": 7636
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::RuntimeLogArgs::worktree_id"
+        },
+        "kind": "Field",
+        "name": "worktree_id",
+        "span": {
+          "end": 5569,
+          "start": 5531
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::RuntimeLogArgs::worktree_id"
+        },
+        "kind": "Field",
+        "name": "worktree_id",
+        "span": {
+          "end": 5608,
+          "start": 5570
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::RuntimeTimelineArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 5832,
+          "start": 5801
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::RuntimeTimelineArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 5871,
+          "start": 5840
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::QueryLogArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 4332,
+          "start": 4301
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::QueryLogArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 4371,
+          "start": 4340
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryRecallArgs::focus"
+        },
+        "kind": "Field",
+        "name": "focus",
+        "span": {
+          "end": 10757,
+          "start": 10715
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryRecallArgs::focus"
+        },
+        "kind": "Field",
+        "name": "focus",
+        "span": {
+          "end": 10796,
+          "start": 10754
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::McpTraceArgs"
+        },
+        "kind": "Struct",
+        "name": "McpTraceArgs",
+        "span": {
+          "end": 5348,
+          "start": 5287
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::McpTraceArgs"
+        },
+        "kind": "Struct",
+        "name": "McpTraceArgs",
+        "span": {
+          "end": 5387,
+          "start": 5326
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SourceExcerptArgs::max_chars"
+        },
+        "kind": "Field",
+        "name": "max_chars",
+        "span": {
+          "end": 9177,
+          "start": 9142
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SourceExcerptArgs::max_chars"
+        },
+        "kind": "Field",
+        "name": "max_chars",
+        "span": {
+          "end": 9216,
+          "start": 9181
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchTextArgs::case_sensitive"
+        },
+        "kind": "Field",
+        "name": "case_sensitive",
+        "span": {
+          "end": 4038,
+          "start": 3999
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchTextArgs::case_sensitive"
+        },
+        "kind": "Field",
+        "name": "case_sensitive",
+        "span": {
+          "end": 4077,
+          "start": 4038
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::query_types"
+        },
+        "kind": "Module",
+        "name": "query_types",
+        "span": {
+          "end": 38159,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::query_types"
+        },
+        "kind": "Module",
+        "name": "query_types",
+        "span": {
+          "end": 38775,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::DecodeConceptArgs::lens"
+        },
+        "kind": "Field",
+        "name": "lens",
+        "span": {
+          "end": 3539,
+          "start": 3516
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::DecodeConceptArgs::lens"
+        },
+        "kind": "Field",
+        "name": "lens",
+        "span": {
+          "end": 3578,
+          "start": 3555
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::CuratorJobsArgs"
+        },
+        "kind": "Struct",
+        "name": "CuratorJobsArgs",
+        "span": {
+          "end": 18096,
+          "start": 17943
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::CuratorJobsArgs"
+        },
+        "kind": "Struct",
+        "name": "CuratorJobsArgs",
+        "span": {
+          "end": 18135,
+          "start": 17982
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_completion_context"
+        },
+        "kind": "Function",
+        "name": "convert_completion_context",
+        "span": {
+          "end": 35328,
+          "start": 34980
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_completion_context"
+        },
+        "kind": "Function",
+        "name": "convert_completion_context",
+        "span": {
+          "end": 35944,
+          "start": 35596
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryOutcomeArgs::result"
+        },
+        "kind": "Field",
+        "name": "result",
+        "span": {
+          "end": 11160,
+          "start": 11127
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryOutcomeArgs::result"
+        },
+        "kind": "Field",
+        "name": "result",
+        "span": {
+          "end": 11199,
+          "start": 11166
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::EditSliceArgs::lineage_id"
+        },
+        "kind": "Field",
+        "name": "lineage_id",
+        "span": {
+          "end": 9362,
+          "start": 9325
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::EditSliceArgs::lineage_id"
+        },
+        "kind": "Field",
+        "name": "lineage_id",
+        "span": {
+          "end": 9401,
+          "start": 9364
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryRecallArgs::text"
+        },
+        "kind": "Field",
+        "name": "text",
+        "span": {
+          "end": 10794,
+          "start": 10763
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryRecallArgs::text"
+        },
+        "kind": "Field",
+        "name": "text",
+        "span": {
+          "end": 10833,
+          "start": 10802
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ImplementationTargetArgs::mode"
+        },
+        "kind": "Field",
+        "name": "mode",
+        "span": {
+          "end": 8557,
+          "start": 8526
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ImplementationTargetArgs::mode"
+        },
+        "kind": "Field",
+        "name": "mode",
+        "span": {
+          "end": 8596,
+          "start": 8565
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchArgs::module"
+        },
+        "kind": "Field",
+        "name": "module",
+        "span": {
+          "end": 1844,
+          "start": 1811
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchArgs::module"
+        },
+        "kind": "Field",
+        "name": "module",
+        "span": {
+          "end": 1883,
+          "start": 1850
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchTextArgs::query"
+        },
+        "kind": "Field",
+        "name": "query",
+        "span": {
+          "end": 3957,
+          "start": 3933
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchTextArgs::query"
+        },
+        "kind": "Field",
+        "name": "query",
+        "span": {
+          "end": 3996,
+          "start": 3972
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ValidationFeedbackArgs::contains"
+        },
+        "kind": "Field",
+        "name": "contains",
+        "span": {
+          "end": 6302,
+          "start": 6267
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ValidationFeedbackArgs::contains"
+        },
+        "kind": "Field",
+        "name": "contains",
+        "span": {
+          "end": 6341,
+          "start": 6306
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::SearchArgs"
+        },
+        "kind": "Struct",
+        "name": "SearchArgs",
+        "span": {
+          "end": 2663,
+          "start": 1635
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::SearchArgs"
+        },
+        "kind": "Struct",
+        "name": "SearchArgs",
+        "span": {
+          "end": 2702,
+          "start": 1674
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryOutcomeArgs::kinds"
+        },
+        "kind": "Field",
+        "name": "kinds",
+        "span": {
+          "end": 11121,
+          "start": 11084
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryOutcomeArgs::kinds"
+        },
+        "kind": "Field",
+        "name": "kinds",
+        "span": {
+          "end": 11160,
+          "start": 11123
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::RuntimeTimelineArgs::contains"
+        },
+        "kind": "Field",
+        "name": "contains",
+        "span": {
+          "end": 5957,
+          "start": 5922
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::RuntimeTimelineArgs::contains"
+        },
+        "kind": "Field",
+        "name": "contains",
+        "span": {
+          "end": 5996,
+          "start": 5961
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::query_types::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 17719,
+          "start": 16622
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::query_types::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 17758,
+          "start": 16661
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::ToolNameArgs"
+        },
+        "kind": "Struct",
+        "name": "ToolNameArgs",
+        "span": {
+          "end": 1447,
+          "start": 1384
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::ToolNameArgs"
+        },
+        "kind": "Struct",
+        "name": "ToolNameArgs",
+        "span": {
+          "end": 1486,
+          "start": 1423
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::QueryLogArgs"
+        },
+        "kind": "Struct",
+        "name": "QueryLogArgs",
+        "span": {
+          "end": 4536,
+          "start": 4264
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::QueryLogArgs"
+        },
+        "kind": "Struct",
+        "name": "QueryLogArgs",
+        "span": {
+          "end": 4575,
+          "start": 4303
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchArgs::prefer_callable_code"
+        },
+        "kind": "Field",
+        "name": "prefer_callable_code",
+        "span": {
+          "end": 2294,
+          "start": 2249
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchArgs::prefer_callable_code"
+        },
+        "kind": "Field",
+        "name": "prefer_callable_code",
+        "span": {
+          "end": 2333,
+          "start": 2288
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ValidationFeedbackArgs::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 6180,
+          "start": 6146
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ValidationFeedbackArgs::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 6219,
+          "start": 6185
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchArgs::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 1805,
+          "start": 1774
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchArgs::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 1844,
+          "start": 1813
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::RuntimeLogArgs::scope"
+        },
+        "kind": "Field",
+        "name": "scope",
+        "span": {
+          "end": 5525,
+          "start": 5491
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::RuntimeLogArgs::scope"
+        },
+        "kind": "Field",
+        "name": "scope",
+        "span": {
+          "end": 5564,
+          "start": 5530
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CallGraphArgs::lineage_id"
+        },
+        "kind": "Field",
+        "name": "lineage_id",
+        "span": {
+          "end": 10259,
+          "start": 10222
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CallGraphArgs::lineage_id"
+        },
+        "kind": "Field",
+        "name": "lineage_id",
+        "span": {
+          "end": 10298,
+          "start": 10261
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_outcome_kind"
+        },
+        "kind": "Function",
+        "name": "convert_outcome_kind",
+        "span": {
+          "end": 22785,
+          "start": 21744
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_outcome_kind"
+        },
+        "kind": "Function",
+        "name": "convert_outcome_kind",
+        "span": {
+          "end": 22824,
+          "start": 21783
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ConceptHandleArgs::include_binding_metadata"
+        },
+        "kind": "Field",
+        "name": "include_binding_metadata",
+        "span": {
+          "end": 3177,
+          "start": 3128
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ConceptHandleArgs::include_binding_metadata"
+        },
+        "kind": "Field",
+        "name": "include_binding_metadata",
+        "span": {
+          "end": 3216,
+          "start": 3167
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CuratorJobsArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 18093,
+          "start": 18062
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CuratorJobsArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 18132,
+          "start": 18101
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::CallGraphArgs"
+        },
+        "kind": "Struct",
+        "name": "CallGraphArgs",
+        "span": {
+          "end": 10299,
+          "start": 10109
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::CallGraphArgs"
+        },
+        "kind": "Struct",
+        "name": "CallGraphArgs",
+        "span": {
+          "end": 10338,
+          "start": 10148
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::TaskChangesArgs::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 7742,
+          "start": 7711
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::TaskChangesArgs::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 7781,
+          "start": 7750
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::RuntimeTimelineArgs::scope"
+        },
+        "kind": "Field",
+        "name": "scope",
+        "span": {
+          "end": 5872,
+          "start": 5838
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::RuntimeTimelineArgs::scope"
+        },
+        "kind": "Field",
+        "name": "scope",
+        "span": {
+          "end": 5911,
+          "start": 5877
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CuratorProposalsArgs::disposition"
+        },
+        "kind": "Field",
+        "name": "disposition",
+        "span": {
+          "end": 18369,
+          "start": 18331
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CuratorProposalsArgs::disposition"
+        },
+        "kind": "Field",
+        "name": "disposition",
+        "span": {
+          "end": 18408,
+          "start": 18370
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::ChangedSymbolsArgs"
+        },
+        "kind": "Struct",
+        "name": "ChangedSymbolsArgs",
+        "span": {
+          "end": 6876,
+          "start": 6685
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::ChangedSymbolsArgs"
+        },
+        "kind": "Struct",
+        "name": "ChangedSymbolsArgs",
+        "span": {
+          "end": 6915,
+          "start": 6724
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ValidationFeedbackArgs::since"
+        },
+        "kind": "Field",
+        "name": "since",
+        "span": {
+          "end": 6140,
+          "start": 6111
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ValidationFeedbackArgs::since"
+        },
+        "kind": "Field",
+        "name": "since",
+        "span": {
+          "end": 6179,
+          "start": 6150
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::FileAroundArgs::after"
+        },
+        "kind": "Field",
+        "name": "after",
+        "span": {
+          "end": 10033,
+          "start": 10002
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::FileAroundArgs::after"
+        },
+        "kind": "Field",
+        "name": "after",
+        "span": {
+          "end": 10072,
+          "start": 10041
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::DiffForArgs::since"
+        },
+        "kind": "Field",
+        "name": "since",
+        "span": {
+          "end": 7400,
+          "start": 7371
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::DiffForArgs::since"
+        },
+        "kind": "Field",
+        "name": "since",
+        "span": {
+          "end": 7439,
+          "start": 7410
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::parse_memory_event_action"
+        },
+        "kind": "Function",
+        "name": "parse_memory_event_action",
+        "span": {
+          "end": 12975,
+          "start": 12509
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::parse_memory_event_action"
+        },
+        "kind": "Function",
+        "name": "parse_memory_event_action",
+        "span": {
+          "end": 13014,
+          "start": 12548
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ToolValidationArgs::name"
+        },
+        "kind": "Field",
+        "name": "name",
+        "span": {
+          "end": 1552,
+          "start": 1529
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ToolValidationArgs::name"
+        },
+        "kind": "Field",
+        "name": "name",
+        "span": {
+          "end": 1591,
+          "start": 1568
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ConceptQueryArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 2839,
+          "start": 2808
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ConceptQueryArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 2878,
+          "start": 2847
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_acceptance_evidence_policy"
+        },
+        "kind": "Function",
+        "name": "convert_acceptance_evidence_policy",
+        "span": {
+          "end": 37185,
+          "start": 36560
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_acceptance_evidence_policy"
+        },
+        "kind": "Function",
+        "name": "convert_acceptance_evidence_policy",
+        "span": {
+          "end": 37801,
+          "start": 37176
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::DiffForArgs::lineage_id"
+        },
+        "kind": "Field",
+        "name": "lineage_id",
+        "span": {
+          "end": 7365,
+          "start": 7328
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::DiffForArgs::lineage_id"
+        },
+        "kind": "Field",
+        "name": "lineage_id",
+        "span": {
+          "end": 7404,
+          "start": 7367
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 1731,
+          "start": 1700
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 1770,
+          "start": 1739
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CuratorJobArgs::job_id"
+        },
+        "kind": "Field",
+        "name": "job_id",
+        "span": {
+          "end": 18584,
+          "start": 18559
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CuratorJobArgs::job_id"
+        },
+        "kind": "Field",
+        "name": "job_id",
+        "span": {
+          "end": 18623,
+          "start": 18598
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::EditSliceArgs::after_lines"
+        },
+        "kind": "Field",
+        "name": "after_lines",
+        "span": {
+          "end": 9449,
+          "start": 9412
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::EditSliceArgs::after_lines"
+        },
+        "kind": "Field",
+        "name": "after_lines",
+        "span": {
+          "end": 9488,
+          "start": 9451
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_inferred_scope"
+        },
+        "kind": "Function",
+        "name": "convert_inferred_scope",
+        "span": {
+          "end": 25332,
+          "start": 24918
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_inferred_scope"
+        },
+        "kind": "Function",
+        "name": "convert_inferred_scope",
+        "span": {
+          "end": 25371,
+          "start": 24957
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_plan_status"
+        },
+        "kind": "Function",
+        "name": "convert_plan_status",
+        "span": {
+          "end": 27884,
+          "start": 27439
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_plan_status"
+        },
+        "kind": "Function",
+        "name": "convert_plan_status",
+        "span": {
+          "end": 27923,
+          "start": 27478
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::tests::parse_event_actor_accepts_principal_scoped_id"
+        },
+        "kind": "Function",
+        "name": "parse_event_actor_accepts_principal_scoped_id",
+        "span": {
+          "end": 17206,
+          "start": 16752
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::tests::parse_event_actor_accepts_principal_scoped_id"
+        },
+        "kind": "Function",
+        "name": "parse_event_actor_accepts_principal_scoped_id",
+        "span": {
+          "end": 17245,
+          "start": 16791
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryEventArgs::scope"
+        },
+        "kind": "Field",
+        "name": "scope",
+        "span": {
+          "end": 11664,
+          "start": 11632
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryEventArgs::scope"
+        },
+        "kind": "Field",
+        "name": "scope",
+        "span": {
+          "end": 11703,
+          "start": 11671
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::ImplementationTargetArgs"
+        },
+        "kind": "Struct",
+        "name": "ImplementationTargetArgs",
+        "span": {
+          "end": 8603,
+          "start": 8394
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::ImplementationTargetArgs"
+        },
+        "kind": "Struct",
+        "name": "ImplementationTargetArgs",
+        "span": {
+          "end": 8642,
+          "start": 8433
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::FileAroundArgs::line"
+        },
+        "kind": "Field",
+        "name": "line",
+        "span": {
+          "end": 9958,
+          "start": 9936
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::FileAroundArgs::line"
+        },
+        "kind": "Field",
+        "name": "line",
+        "span": {
+          "end": 9997,
+          "start": 9975
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::McpLogArgs::repo_id"
+        },
+        "kind": "Field",
+        "name": "repo_id",
+        "span": {
+          "end": 4947,
+          "start": 4913
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::McpLogArgs::repo_id"
+        },
+        "kind": "Field",
+        "name": "repo_id",
+        "span": {
+          "end": 4986,
+          "start": 4952
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::DiscoveryTargetArgs::lineage_id"
+        },
+        "kind": "Field",
+        "name": "lineage_id",
+        "span": {
+          "end": 8028,
+          "start": 7991
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::DiscoveryTargetArgs::lineage_id"
+        },
+        "kind": "Field",
+        "name": "lineage_id",
+        "span": {
+          "end": 8067,
+          "start": 8030
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryEventArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 11538,
+          "start": 11507
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryEventArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 11577,
+          "start": 11546
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::McpLogArgs::call_type"
+        },
+        "kind": "Field",
+        "name": "call_type",
+        "span": {
+          "end": 4786,
+          "start": 4750
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::McpLogArgs::call_type"
+        },
+        "kind": "Field",
+        "name": "call_type",
+        "span": {
+          "end": 4825,
+          "start": 4789
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::OwnerLookupArgs::lineage_id"
+        },
+        "kind": "Field",
+        "name": "lineage_id",
+        "span": {
+          "end": 8787,
+          "start": 8750
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::OwnerLookupArgs::lineage_id"
+        },
+        "kind": "Field",
+        "name": "lineage_id",
+        "span": {
+          "end": 8826,
+          "start": 8789
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::FileReadArgs::max_chars"
+        },
+        "kind": "Field",
+        "name": "max_chars",
+        "span": {
+          "end": 9791,
+          "start": 9756
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::FileReadArgs::max_chars"
+        },
+        "kind": "Field",
+        "name": "max_chars",
+        "span": {
+          "end": 9830,
+          "start": 9795
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::parse_memory_scope"
+        },
+        "kind": "Function",
+        "name": "parse_memory_scope",
+        "span": {
+          "end": 12507,
+          "start": 12136
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::parse_memory_scope"
+        },
+        "kind": "Function",
+        "name": "parse_memory_scope",
+        "span": {
+          "end": 12546,
+          "start": 12175
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchArgs::top_level_only"
+        },
+        "kind": "Field",
+        "name": "top_level_only",
+        "span": {
+          "end": 2200,
+          "start": 2161
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchArgs::top_level_only"
+        },
+        "kind": "Field",
+        "name": "top_level_only",
+        "span": {
+          "end": 2239,
+          "start": 2200
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_memory_scope"
+        },
+        "kind": "Function",
+        "name": "convert_memory_scope",
+        "span": {
+          "end": 24064,
+          "start": 23767
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_memory_scope"
+        },
+        "kind": "Function",
+        "name": "convert_memory_scope",
+        "span": {
+          "end": 24103,
+          "start": 23806
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_node_id"
+        },
+        "kind": "Function",
+        "name": "convert_node_id",
+        "span": {
+          "end": 18772,
+          "start": 18589
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_node_id"
+        },
+        "kind": "Function",
+        "name": "convert_node_id",
+        "span": {
+          "end": 18811,
+          "start": 18628
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ToolNameArgs::name"
+        },
+        "kind": "Field",
+        "name": "name",
+        "span": {
+          "end": 1444,
+          "start": 1421
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ToolNameArgs::name"
+        },
+        "kind": "Field",
+        "name": "name",
+        "span": {
+          "end": 1483,
+          "start": 1460
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CuratorProposalsArgs::trigger"
+        },
+        "kind": "Field",
+        "name": "trigger",
+        "span": {
+          "end": 18288,
+          "start": 18254
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CuratorProposalsArgs::trigger"
+        },
+        "kind": "Field",
+        "name": "trigger",
+        "span": {
+          "end": 18327,
+          "start": 18293
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryOutcomeArgs::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 11078,
+          "start": 11034
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryOutcomeArgs::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 11117,
+          "start": 11073
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchArgs::structured_path"
+        },
+        "kind": "Field",
+        "name": "structured_path",
+        "span": {
+          "end": 2118,
+          "start": 2076
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::SearchArgs::structured_path"
+        },
+        "kind": "Field",
+        "name": "structured_path",
+        "span": {
+          "end": 2157,
+          "start": 2115
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::MemoryEventArgs"
+        },
+        "kind": "Struct",
+        "name": "MemoryEventArgs",
+        "span": {
+          "end": 11742,
+          "start": 11340
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::MemoryEventArgs"
+        },
+        "kind": "Struct",
+        "name": "MemoryEventArgs",
+        "span": {
+          "end": 11781,
+          "start": 11379
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_outcome_evidence"
+        },
+        "kind": "Function",
+        "name": "convert_outcome_evidence",
+        "span": {
+          "end": 24916,
+          "start": 24066
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_types::convert_outcome_evidence"
+        },
+        "kind": "Function",
+        "name": "convert_outcome_evidence",
+        "span": {
+          "end": 24955,
+          "start": 24105
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ValidationFeedbackArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 6105,
+          "start": 6074
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ValidationFeedbackArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 6144,
+          "start": 6113
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryEventArgs::text"
+        },
+        "kind": "Field",
+        "name": "text",
+        "span": {
+          "end": 11501,
+          "start": 11470
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryEventArgs::text"
+        },
+        "kind": "Field",
+        "name": "text",
+        "span": {
+          "end": 11540,
+          "start": 11509
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::DiffForArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 7437,
+          "start": 7406
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::DiffForArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 7476,
+          "start": 7445
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryEventArgs::memory_id"
+        },
+        "kind": "Field",
+        "name": "memory_id",
+        "span": {
+          "end": 11416,
+          "start": 11380
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryEventArgs::memory_id"
+        },
+        "kind": "Field",
+        "name": "memory_id",
+        "span": {
+          "end": 11455,
+          "start": 11419
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ChangedFilesArgs::since"
+        },
+        "kind": "Field",
+        "name": "since",
+        "span": {
+          "end": 6491,
+          "start": 6462
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ChangedFilesArgs::since"
+        },
+        "kind": "Field",
+        "name": "since",
+        "span": {
+          "end": 6530,
+          "start": 6501
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::DiscoveryTargetArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 8065,
+          "start": 8034
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::DiscoveryTargetArgs::limit"
+        },
+        "kind": "Field",
+        "name": "limit",
+        "span": {
+          "end": 8104,
+          "start": 8073
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CuratorJobsArgs::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 18016,
+          "start": 17983
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::CuratorJobsArgs::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 18055,
+          "start": 18022
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::EditSliceArgs::max_lines"
+        },
+        "kind": "Field",
+        "name": "max_lines",
+        "span": {
+          "end": 9490,
+          "start": 9455
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::EditSliceArgs::max_lines"
+        },
+        "kind": "Field",
+        "name": "max_lines",
+        "span": {
+          "end": 9529,
+          "start": 9494
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::MemoryRecallArgs"
+        },
+        "kind": "Struct",
+        "name": "MemoryRecallArgs",
+        "span": {
+          "end": 10912,
+          "start": 10674
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::MemoryRecallArgs"
+        },
+        "kind": "Struct",
+        "name": "MemoryRecallArgs",
+        "span": {
+          "end": 10951,
+          "start": 10713
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::QueryLogArgs::since"
+        },
+        "kind": "Field",
+        "name": "since",
+        "span": {
+          "end": 4367,
+          "start": 4338
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::QueryLogArgs::since"
+        },
+        "kind": "Field",
+        "name": "since",
+        "span": {
+          "end": 4406,
+          "start": 4377
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::TaskTargetArgs::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 10406,
+          "start": 10370
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::TaskTargetArgs::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 10445,
+          "start": 10409
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::ChangedFilesArgs"
+        },
+        "kind": "Struct",
+        "name": "ChangedFilesArgs",
+        "span": {
+          "end": 6618,
+          "start": 6421
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_types::ChangedFilesArgs"
+        },
+        "kind": "Struct",
+        "name": "ChangedFilesArgs",
+        "span": {
+          "end": 6657,
+          "start": 6460
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ChangedSymbolsArgs::since"
+        },
+        "kind": "Field",
+        "name": "since",
+        "span": {
+          "end": 6786,
+          "start": 6757
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::ChangedSymbolsArgs::since"
+        },
+        "kind": "Field",
+        "name": "since",
+        "span": {
+          "end": 6825,
+          "start": 6796
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryRecallArgs::since"
+        },
+        "kind": "Field",
+        "name": "since",
+        "span": {
+          "end": 10909,
+          "start": 10880
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::MemoryRecallArgs::since"
+        },
+        "kind": "Field",
+        "name": "since",
+        "span": {
+          "end": 10948,
+          "start": 10919
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_types::McpLogArgs::scope"
+        },
+        "kind": "Field",
+        "name": "scope",
+        "span": {
+          "end": 4744,
+          "start": 4710
+        },
+        "status": "updated_before"
+      }
+    ],
+    "changedSymbolsTotalCount": 515,
+    "changedSymbolsTruncated": true,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_types.rs"
+    ],
+    "files": [
+      229
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

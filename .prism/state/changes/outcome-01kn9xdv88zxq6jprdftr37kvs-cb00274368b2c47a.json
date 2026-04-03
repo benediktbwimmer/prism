@@ -1,0 +1,2576 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdv88zxq6jprdftr37kvs",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 440
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc::policy",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::format_git_execution_start_mode",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::format_coordination_task_status",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::format_git_execution_completion_mode",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::format_git_execution_status",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::metadata_object_lines",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::patch_events",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::PublishedMemoryRecord::event_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::format_memory_source",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::memories",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::memory_events",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::format_plan_edge_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::format_acceptance_policy",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::ProjectionMetadata::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::RepoStateSummary::plan_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::format_outcome_result",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::render_plan_node",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::render_memory_doc",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::touched_file_counts",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::ProjectionMetadata::source_snapshot",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::ProjectionMetadata::from_sources",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc::overlays",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::format_plan_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::RepoStateSummary",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::sync_repo_state_docs",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::format_plan_status",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::PublishedMemoryRecord::entry",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::sanitize_plan_id",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc::index",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::render_plan_doc",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::PlanDocBucket",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::render_changes_doc",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::format_plan_node_status",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::PublishedMemoryRecord::latest_event_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::ProjectionMetadata::source_head",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::PlanDocBucket::as_str",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::render_plan_bucket_section",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::write_projection_metadata_section",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc::graph",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::format_plan_scope",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::format_plan_node_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::plan_bucket",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::format_outcome_evidence",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::render_plan_binding",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::format_memory_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::extract_file_paths",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::PublishedMemoryRecord",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::ProjectionMetadata",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::ProjectionMetadata::source_logical_timestamp",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::value_to_markdown",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::remove_stale_plan_docs",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::RepoStateSummary::change_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::render_plan_index_doc",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::RepoStateCatalog",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::PlanDocBucket::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc::bucket",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::load",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::PublishedMemoryRecord::latest_recorded_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::PlanDocBucket::label",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::plans",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::PlanDocBucket::sort_key",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::first_line",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::RepoStateSummary::memory_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::plan_doc_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::project_memories",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc::doc_path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::summary",
+        "kind": "Method"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 5 added, 0 removed, 65 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 5,
+        "changedSymbolCount": 135,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "removedCount": 0,
+        "updatedCount": 130
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc::policy"
+        },
+        "kind": "Field",
+        "name": "policy",
+        "span": {
+          "end": 4881,
+          "start": 4855
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_git_execution_start_mode"
+        },
+        "kind": "Function",
+        "name": "format_git_execution_start_mode",
+        "span": {
+          "end": 36633,
+          "start": 36295
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_coordination_task_status"
+        },
+        "kind": "Function",
+        "name": "format_coordination_task_status",
+        "span": {
+          "end": 37565,
+          "start": 37000
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_git_execution_completion_mode"
+        },
+        "kind": "Function",
+        "name": "format_git_execution_completion_mode",
+        "span": {
+          "end": 36998,
+          "start": 36635
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_git_execution_status"
+        },
+        "kind": "Function",
+        "name": "format_git_execution_status",
+        "span": {
+          "end": 36293,
+          "start": 35827
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::metadata_object_lines"
+        },
+        "kind": "Function",
+        "name": "metadata_object_lines",
+        "span": {
+          "end": 27020,
+          "start": 26531
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::metadata_object_lines"
+        },
+        "kind": "Function",
+        "name": "metadata_object_lines",
+        "span": {
+          "end": 29957,
+          "start": 29468
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::patch_events"
+        },
+        "kind": "Field",
+        "name": "patch_events",
+        "span": {
+          "end": 1159,
+          "start": 1128
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::patch_events"
+        },
+        "kind": "Field",
+        "name": "patch_events",
+        "span": {
+          "end": 1251,
+          "start": 1220
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedMemoryRecord::event_count"
+        },
+        "kind": "Field",
+        "name": "event_count",
+        "span": {
+          "end": 4223,
+          "start": 4205
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedMemoryRecord::event_count"
+        },
+        "kind": "Field",
+        "name": "event_count",
+        "span": {
+          "end": 4763,
+          "start": 4745
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_memory_source"
+        },
+        "kind": "Function",
+        "name": "format_memory_source",
+        "span": {
+          "end": 29155,
+          "start": 28889
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_memory_source"
+        },
+        "kind": "Function",
+        "name": "format_memory_source",
+        "span": {
+          "end": 32092,
+          "start": 31826
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::memories"
+        },
+        "kind": "Field",
+        "name": "memories",
+        "span": {
+          "end": 1085,
+          "start": 1049
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::memories"
+        },
+        "kind": "Field",
+        "name": "memories",
+        "span": {
+          "end": 1177,
+          "start": 1141
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::memory_events"
+        },
+        "kind": "Field",
+        "name": "memory_events",
+        "span": {
+          "end": 1122,
+          "start": 1091
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::memory_events"
+        },
+        "kind": "Field",
+        "name": "memory_events",
+        "span": {
+          "end": 1214,
+          "start": 1183
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_plan_edge_kind"
+        },
+        "kind": "Function",
+        "name": "format_plan_edge_kind",
+        "span": {
+          "end": 32888,
+          "start": 32475
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_plan_edge_kind"
+        },
+        "kind": "Function",
+        "name": "format_plan_edge_kind",
+        "span": {
+          "end": 35825,
+          "start": 35412
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_acceptance_policy"
+        },
+        "kind": "Function",
+        "name": "format_acceptance_policy",
+        "span": {
+          "end": 33308,
+          "start": 32890
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_acceptance_policy"
+        },
+        "kind": "Function",
+        "name": "format_acceptance_policy",
+        "span": {
+          "end": 37985,
+          "start": 37567
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::prism_doc::repo_state::ProjectionMetadata::impl"
+        },
+        "kind": "Impl",
+        "name": "ProjectionMetadata",
+        "span": {
+          "end": 4051,
+          "start": 3599
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::prism_doc::repo_state::ProjectionMetadata::impl"
+        },
+        "kind": "Impl",
+        "name": "ProjectionMetadata",
+        "span": {
+          "end": 4591,
+          "start": 4139
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::RepoStateSummary::plan_count"
+        },
+        "kind": "Field",
+        "name": "plan_count",
+        "span": {
+          "end": 943,
+          "start": 915
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::RepoStateSummary::plan_count"
+        },
+        "kind": "Field",
+        "name": "plan_count",
+        "span": {
+          "end": 1035,
+          "start": 1007
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_outcome_result"
+        },
+        "kind": "Function",
+        "name": "format_outcome_result",
+        "span": {
+          "end": 29499,
+          "start": 29157
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_outcome_result"
+        },
+        "kind": "Function",
+        "name": "format_outcome_result",
+        "span": {
+          "end": 32436,
+          "start": 32094
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::render_plan_node"
+        },
+        "kind": "Function",
+        "name": "render_plan_node",
+        "span": {
+          "end": 22862,
+          "start": 20605
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::render_plan_node"
+        },
+        "kind": "Function",
+        "name": "render_plan_node",
+        "span": {
+          "end": 25799,
+          "start": 23542
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::render_memory_doc"
+        },
+        "kind": "Function",
+        "name": "render_memory_doc",
+        "span": {
+          "end": 11263,
+          "start": 7940
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::render_memory_doc"
+        },
+        "kind": "Function",
+        "name": "render_memory_doc",
+        "span": {
+          "end": 11835,
+          "start": 8512
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::touched_file_counts"
+        },
+        "kind": "Function",
+        "name": "touched_file_counts",
+        "span": {
+          "end": 26188,
+          "start": 25755
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::touched_file_counts"
+        },
+        "kind": "Function",
+        "name": "touched_file_counts",
+        "span": {
+          "end": 29125,
+          "start": 28692
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::ProjectionMetadata::source_snapshot"
+        },
+        "kind": "Field",
+        "name": "source_snapshot",
+        "span": {
+          "end": 3594,
+          "start": 3571
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::ProjectionMetadata::source_snapshot"
+        },
+        "kind": "Field",
+        "name": "source_snapshot",
+        "span": {
+          "end": 4134,
+          "start": 4111
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::prism_doc::repo_state::ProjectionMetadata::from_sources"
+        },
+        "kind": "Method",
+        "name": "from_sources",
+        "span": {
+          "end": 4049,
+          "start": 3629
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::prism_doc::repo_state::ProjectionMetadata::from_sources"
+        },
+        "kind": "Method",
+        "name": "from_sources",
+        "span": {
+          "end": 4589,
+          "start": 4169
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc::overlays"
+        },
+        "kind": "Field",
+        "name": "overlays",
+        "span": {
+          "end": 4394,
+          "start": 4359
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc::overlays"
+        },
+        "kind": "Field",
+        "name": "overlays",
+        "span": {
+          "end": 4966,
+          "start": 4931
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_plan_kind"
+        },
+        "kind": "Function",
+        "name": "format_plan_kind",
+        "span": {
+          "end": 30924,
+          "start": 30470
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_plan_kind"
+        },
+        "kind": "Function",
+        "name": "format_plan_kind",
+        "span": {
+          "end": 33861,
+          "start": 33407
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::prism_doc::repo_state::RepoStateSummary"
+        },
+        "kind": "Struct",
+        "name": "RepoStateSummary",
+        "span": {
+          "end": 982,
+          "start": 838
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::prism_doc::repo_state::RepoStateSummary"
+        },
+        "kind": "Struct",
+        "name": "RepoStateSummary",
+        "span": {
+          "end": 1074,
+          "start": 930
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::sync_repo_state_docs"
+        },
+        "kind": "Function",
+        "name": "sync_repo_state_docs",
+        "span": {
+          "end": 6053,
+          "start": 5021
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::sync_repo_state_docs"
+        },
+        "kind": "Function",
+        "name": "sync_repo_state_docs",
+        "span": {
+          "end": 6625,
+          "start": 5593
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_plan_status"
+        },
+        "kind": "Function",
+        "name": "format_plan_status",
+        "span": {
+          "end": 31465,
+          "start": 31123
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_plan_status"
+        },
+        "kind": "Function",
+        "name": "format_plan_status",
+        "span": {
+          "end": 34402,
+          "start": 34060
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedMemoryRecord::entry"
+        },
+        "kind": "Field",
+        "name": "entry",
+        "span": {
+          "end": 4141,
+          "start": 4123
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedMemoryRecord::entry"
+        },
+        "kind": "Field",
+        "name": "entry",
+        "span": {
+          "end": 4681,
+          "start": 4663
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::sanitize_plan_id"
+        },
+        "kind": "Function",
+        "name": "sanitize_plan_id",
+        "span": {
+          "end": 25753,
+          "start": 25542
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::sanitize_plan_id"
+        },
+        "kind": "Function",
+        "name": "sanitize_plan_id",
+        "span": {
+          "end": 28690,
+          "start": 28479
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc::index"
+        },
+        "kind": "Field",
+        "name": "index",
+        "span": {
+          "end": 4353,
+          "start": 4315
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc::index"
+        },
+        "kind": "Field",
+        "name": "index",
+        "span": {
+          "end": 4925,
+          "start": 4887
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::render_plan_doc"
+        },
+        "kind": "Function",
+        "name": "render_plan_doc",
+        "span": {
+          "end": 19689,
+          "start": 15836
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::render_plan_doc"
+        },
+        "kind": "Function",
+        "name": "render_plan_doc",
+        "span": {
+          "end": 22626,
+          "start": 16408
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Enum",
+          "path": "prism_core::prism_doc::repo_state::PlanDocBucket"
+        },
+        "kind": "Enum",
+        "name": "PlanDocBucket",
+        "span": {
+          "end": 4553,
+          "start": 4505
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Enum",
+          "path": "prism_core::prism_doc::repo_state::PlanDocBucket"
+        },
+        "kind": "Enum",
+        "name": "PlanDocBucket",
+        "span": {
+          "end": 5125,
+          "start": 5077
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::render_changes_doc"
+        },
+        "kind": "Function",
+        "name": "render_changes_doc",
+        "span": {
+          "end": 14379,
+          "start": 11265
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::render_changes_doc"
+        },
+        "kind": "Function",
+        "name": "render_changes_doc",
+        "span": {
+          "end": 14951,
+          "start": 11837
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_plan_node_status"
+        },
+        "kind": "Function",
+        "name": "format_plan_node_status",
+        "span": {
+          "end": 32473,
+          "start": 31942
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_plan_node_status"
+        },
+        "kind": "Function",
+        "name": "format_plan_node_status",
+        "span": {
+          "end": 35410,
+          "start": 34879
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedMemoryRecord::latest_event_id"
+        },
+        "kind": "Field",
+        "name": "latest_event_id",
+        "span": {
+          "end": 4170,
+          "start": 4147
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedMemoryRecord::latest_event_id"
+        },
+        "kind": "Field",
+        "name": "latest_event_id",
+        "span": {
+          "end": 4710,
+          "start": 4687
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::ProjectionMetadata::source_head"
+        },
+        "kind": "Field",
+        "name": "source_head",
+        "span": {
+          "end": 3522,
+          "start": 3503
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::ProjectionMetadata::source_head"
+        },
+        "kind": "Field",
+        "name": "source_head",
+        "span": {
+          "end": 4062,
+          "start": 4043
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::prism_doc::repo_state::PlanDocBucket::as_str"
+        },
+        "kind": "Method",
+        "name": "as_str",
+        "span": {
+          "end": 4730,
+          "start": 4580
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::prism_doc::repo_state::PlanDocBucket::as_str"
+        },
+        "kind": "Method",
+        "name": "as_str",
+        "span": {
+          "end": 5302,
+          "start": 5152
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::render_plan_bucket_section"
+        },
+        "kind": "Function",
+        "name": "render_plan_bucket_section",
+        "span": {
+          "end": 20603,
+          "start": 19691
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::render_plan_bucket_section"
+        },
+        "kind": "Function",
+        "name": "render_plan_bucket_section",
+        "span": {
+          "end": 23540,
+          "start": 22628
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::write_projection_metadata_section"
+        },
+        "kind": "Function",
+        "name": "write_projection_metadata_section",
+        "span": {
+          "end": 28611,
+          "start": 27796
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::write_projection_metadata_section"
+        },
+        "kind": "Function",
+        "name": "write_projection_metadata_section",
+        "span": {
+          "end": 31548,
+          "start": 30733
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc::graph"
+        },
+        "kind": "Field",
+        "name": "graph",
+        "span": {
+          "end": 4309,
+          "start": 4293
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc::graph"
+        },
+        "kind": "Field",
+        "name": "graph",
+        "span": {
+          "end": 4849,
+          "start": 4833
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_plan_scope"
+        },
+        "kind": "Function",
+        "name": "format_plan_scope",
+        "span": {
+          "end": 31121,
+          "start": 30926
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_plan_scope"
+        },
+        "kind": "Function",
+        "name": "format_plan_scope",
+        "span": {
+          "end": 34058,
+          "start": 33863
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_plan_node_kind"
+        },
+        "kind": "Function",
+        "name": "format_plan_node_kind",
+        "span": {
+          "end": 31940,
+          "start": 31467
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_plan_node_kind"
+        },
+        "kind": "Function",
+        "name": "format_plan_node_kind",
+        "span": {
+          "end": 34877,
+          "start": 34404
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::plan_bucket"
+        },
+        "kind": "Function",
+        "name": "plan_bucket",
+        "span": {
+          "end": 25307,
+          "start": 24983
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::plan_bucket"
+        },
+        "kind": "Function",
+        "name": "plan_bucket",
+        "span": {
+          "end": 28244,
+          "start": 27920
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_outcome_evidence"
+        },
+        "kind": "Function",
+        "name": "format_outcome_evidence",
+        "span": {
+          "end": 30468,
+          "start": 29501
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_outcome_evidence"
+        },
+        "kind": "Function",
+        "name": "format_outcome_evidence",
+        "span": {
+          "end": 33405,
+          "start": 32438
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::render_plan_binding"
+        },
+        "kind": "Function",
+        "name": "render_plan_binding",
+        "span": {
+          "end": 24082,
+          "start": 22864
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::render_plan_binding"
+        },
+        "kind": "Function",
+        "name": "render_plan_binding",
+        "span": {
+          "end": 27019,
+          "start": 25801
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc"
+        },
+        "kind": "Struct",
+        "name": "PublishedPlanDoc",
+        "span": {
+          "end": 4447,
+          "start": 4263
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc"
+        },
+        "kind": "Struct",
+        "name": "PublishedPlanDoc",
+        "span": {
+          "end": 5019,
+          "start": 4803
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_memory_kind"
+        },
+        "kind": "Function",
+        "name": "format_memory_kind",
+        "span": {
+          "end": 28887,
+          "start": 28613
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::format_memory_kind"
+        },
+        "kind": "Function",
+        "name": "format_memory_kind",
+        "span": {
+          "end": 31824,
+          "start": 31550
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::extract_file_paths"
+        },
+        "kind": "Function",
+        "name": "extract_file_paths",
+        "span": {
+          "end": 26529,
+          "start": 26190
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::extract_file_paths"
+        },
+        "kind": "Function",
+        "name": "extract_file_paths",
+        "span": {
+          "end": 29466,
+          "start": 29127
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::prism_doc::repo_state::PublishedMemoryRecord"
+        },
+        "kind": "Struct",
+        "name": "PublishedMemoryRecord",
+        "span": {
+          "end": 4226,
+          "start": 4088
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::prism_doc::repo_state::PublishedMemoryRecord"
+        },
+        "kind": "Struct",
+        "name": "PublishedMemoryRecord",
+        "span": {
+          "end": 4766,
+          "start": 4628
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::prism_doc::repo_state::ProjectionMetadata"
+        },
+        "kind": "Struct",
+        "name": "ProjectionMetadata",
+        "span": {
+          "end": 3597,
+          "start": 3471
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::prism_doc::repo_state::ProjectionMetadata"
+        },
+        "kind": "Struct",
+        "name": "ProjectionMetadata",
+        "span": {
+          "end": 4137,
+          "start": 4011
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::ProjectionMetadata::source_logical_timestamp"
+        },
+        "kind": "Field",
+        "name": "source_logical_timestamp",
+        "span": {
+          "end": 3565,
+          "start": 3528
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::ProjectionMetadata::source_logical_timestamp"
+        },
+        "kind": "Field",
+        "name": "source_logical_timestamp",
+        "span": {
+          "end": 4105,
+          "start": 4068
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::value_to_markdown"
+        },
+        "kind": "Function",
+        "name": "value_to_markdown",
+        "span": {
+          "end": 27794,
+          "start": 27022
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::value_to_markdown"
+        },
+        "kind": "Function",
+        "name": "value_to_markdown",
+        "span": {
+          "end": 30731,
+          "start": 29959
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::remove_stale_plan_docs"
+        },
+        "kind": "Function",
+        "name": "remove_stale_plan_docs",
+        "span": {
+          "end": 24981,
+          "start": 24084
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::remove_stale_plan_docs"
+        },
+        "kind": "Function",
+        "name": "remove_stale_plan_docs",
+        "span": {
+          "end": 27918,
+          "start": 27021
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::impl"
+        },
+        "kind": "Impl",
+        "name": "RepoStateCatalog",
+        "span": {
+          "end": 3445,
+          "start": 1198
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::impl"
+        },
+        "kind": "Impl",
+        "name": "RepoStateCatalog",
+        "span": {
+          "end": 3985,
+          "start": 1290
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::RepoStateSummary::change_count"
+        },
+        "kind": "Field",
+        "name": "change_count",
+        "span": {
+          "end": 979,
+          "start": 949
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::RepoStateSummary::change_count"
+        },
+        "kind": "Field",
+        "name": "change_count",
+        "span": {
+          "end": 1071,
+          "start": 1041
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::render_plan_index_doc"
+        },
+        "kind": "Function",
+        "name": "render_plan_index_doc",
+        "span": {
+          "end": 15834,
+          "start": 14381
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::render_plan_index_doc"
+        },
+        "kind": "Function",
+        "name": "render_plan_index_doc",
+        "span": {
+          "end": 16406,
+          "start": 14953
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::prism_doc::repo_state::RepoStateCatalog"
+        },
+        "kind": "Struct",
+        "name": "RepoStateCatalog",
+        "span": {
+          "end": 1196,
+          "start": 1008
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::prism_doc::repo_state::RepoStateCatalog"
+        },
+        "kind": "Struct",
+        "name": "RepoStateCatalog",
+        "span": {
+          "end": 1288,
+          "start": 1100
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::prism_doc::repo_state::PlanDocBucket::impl"
+        },
+        "kind": "Impl",
+        "name": "PlanDocBucket",
+        "span": {
+          "end": 5019,
+          "start": 4555
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::prism_doc::repo_state::PlanDocBucket::impl"
+        },
+        "kind": "Impl",
+        "name": "PlanDocBucket",
+        "span": {
+          "end": 5591,
+          "start": 5127
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc::bucket"
+        },
+        "kind": "Field",
+        "name": "bucket",
+        "span": {
+          "end": 4421,
+          "start": 4400
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc::bucket"
+        },
+        "kind": "Field",
+        "name": "bucket",
+        "span": {
+          "end": 4993,
+          "start": 4972
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::load"
+        },
+        "kind": "Method",
+        "name": "load",
+        "span": {
+          "end": 3204,
+          "start": 1226
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::load"
+        },
+        "kind": "Method",
+        "name": "load",
+        "span": {
+          "end": 3744,
+          "start": 1318
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedMemoryRecord::latest_recorded_at"
+        },
+        "kind": "Field",
+        "name": "latest_recorded_at",
+        "span": {
+          "end": 4199,
+          "start": 4176
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedMemoryRecord::latest_recorded_at"
+        },
+        "kind": "Field",
+        "name": "latest_recorded_at",
+        "span": {
+          "end": 4739,
+          "start": 4716
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::prism_doc::repo_state::PlanDocBucket::label"
+        },
+        "kind": "Method",
+        "name": "label",
+        "span": {
+          "end": 4885,
+          "start": 4736
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::prism_doc::repo_state::PlanDocBucket::label"
+        },
+        "kind": "Method",
+        "name": "label",
+        "span": {
+          "end": 5457,
+          "start": 5308
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::plans"
+        },
+        "kind": "Field",
+        "name": "plans",
+        "span": {
+          "end": 1193,
+          "start": 1165
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::plans"
+        },
+        "kind": "Field",
+        "name": "plans",
+        "span": {
+          "end": 1285,
+          "start": 1257
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::prism_doc::repo_state::PlanDocBucket::sort_key"
+        },
+        "kind": "Method",
+        "name": "sort_key",
+        "span": {
+          "end": 5017,
+          "start": 4891
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::prism_doc::repo_state::PlanDocBucket::sort_key"
+        },
+        "kind": "Method",
+        "name": "sort_key",
+        "span": {
+          "end": 5589,
+          "start": 5463
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::first_line"
+        },
+        "kind": "Function",
+        "name": "first_line",
+        "span": {
+          "end": 33396,
+          "start": 33310
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::first_line"
+        },
+        "kind": "Function",
+        "name": "first_line",
+        "span": {
+          "end": 38073,
+          "start": 37987
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::RepoStateSummary::memory_count"
+        },
+        "kind": "Field",
+        "name": "memory_count",
+        "span": {
+          "end": 909,
+          "start": 879
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::RepoStateSummary::memory_count"
+        },
+        "kind": "Field",
+        "name": "memory_count",
+        "span": {
+          "end": 1001,
+          "start": 971
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::plan_doc_path"
+        },
+        "kind": "Function",
+        "name": "plan_doc_path",
+        "span": {
+          "end": 25540,
+          "start": 25309
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::plan_doc_path"
+        },
+        "kind": "Function",
+        "name": "plan_doc_path",
+        "span": {
+          "end": 28477,
+          "start": 28246
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::project_memories"
+        },
+        "kind": "Function",
+        "name": "project_memories",
+        "span": {
+          "end": 7938,
+          "start": 6055
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::prism_doc::repo_state::project_memories"
+        },
+        "kind": "Function",
+        "name": "project_memories",
+        "span": {
+          "end": 8510,
+          "start": 6627
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::prism_doc::repo_state"
+        },
+        "kind": "Module",
+        "name": "repo_state",
+        "span": {
+          "end": 33397,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::prism_doc::repo_state"
+        },
+        "kind": "Module",
+        "name": "repo_state",
+        "span": {
+          "end": 38074,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc::doc_path"
+        },
+        "kind": "Field",
+        "name": "doc_path",
+        "span": {
+          "end": 4444,
+          "start": 4427
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::prism_doc::repo_state::PublishedPlanDoc::doc_path"
+        },
+        "kind": "Field",
+        "name": "doc_path",
+        "span": {
+          "end": 5016,
+          "start": 4999
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::summary"
+        },
+        "kind": "Method",
+        "name": "summary",
+        "span": {
+          "end": 3443,
+          "start": 3210
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::prism_doc::repo_state::RepoStateCatalog::summary"
+        },
+        "kind": "Method",
+        "name": "summary",
+        "span": {
+          "end": 3983,
+          "start": 3750
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 135,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/prism_doc/repo_state.rs"
+    ],
+    "files": [
+      440
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

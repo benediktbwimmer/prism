@@ -1,0 +1,727 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdxtvmh0ybt6xgb12gvw6",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 135
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::worktree_principal::BoundWorktreePrincipal::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::worktree_principal::WorktreePrincipalConflict::worktree_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::worktree_principal::WorkspaceSession::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::worktree_principal::BoundWorktreePrincipal",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::worktree_principal::WorktreePrincipalConflict::impl::fmt_Display",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::worktree_principal::BoundWorktreePrincipal::principal_name",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::worktree_principal",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::worktree_principal::WorktreePrincipalConflict::bound_principal",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::worktree_principal::BoundWorktreePrincipal::principal_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::worktree_principal::WorkspaceSession::bound_worktree_principal",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::worktree_principal::BoundWorktreePrincipal::authority_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::worktree_principal::WorktreePrincipalConflict::impl::Error",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::worktree_principal::BoundWorktreePrincipal::same_identity",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::worktree_principal::BoundWorktreePrincipal::from_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::worktree_principal::WorkspaceSession::bind_or_validate_worktree_principal",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::worktree_principal::WorktreePrincipalConflict::fmt",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::worktree_principal::WorktreePrincipalConflict::attempted_principal",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::worktree_principal::WorktreePrincipalConflict",
+        "kind": "Struct"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 18 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 36,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "removedCount": 0,
+        "updatedCount": 36
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::worktree_principal::BoundWorktreePrincipal::impl"
+        },
+        "kind": "Impl",
+        "name": "BoundWorktreePrincipal",
+        "span": {
+          "end": 3266,
+          "start": 2756
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::worktree_principal::BoundWorktreePrincipal::impl"
+        },
+        "kind": "Impl",
+        "name": "BoundWorktreePrincipal",
+        "span": {
+          "end": 2982,
+          "start": 2472
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::worktree_principal::WorktreePrincipalConflict::worktree_id"
+        },
+        "kind": "Field",
+        "name": "worktree_id",
+        "span": {
+          "end": 449,
+          "start": 426
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::worktree_principal::WorktreePrincipalConflict::worktree_id"
+        },
+        "kind": "Field",
+        "name": "worktree_id",
+        "span": {
+          "end": 429,
+          "start": 406
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::worktree_principal::WorkspaceSession::impl"
+        },
+        "kind": "Impl",
+        "name": "WorkspaceSession",
+        "span": {
+          "end": 2754,
+          "start": 1105
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::worktree_principal::WorkspaceSession::impl"
+        },
+        "kind": "Impl",
+        "name": "WorkspaceSession",
+        "span": {
+          "end": 2470,
+          "start": 1085
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::worktree_principal::BoundWorktreePrincipal"
+        },
+        "kind": "Struct",
+        "name": "BoundWorktreePrincipal",
+        "span": {
+          "end": 342,
+          "start": 213
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::worktree_principal::BoundWorktreePrincipal"
+        },
+        "kind": "Struct",
+        "name": "BoundWorktreePrincipal",
+        "span": {
+          "end": 322,
+          "start": 193
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::worktree_principal::WorktreePrincipalConflict::impl::fmt_Display"
+        },
+        "kind": "Impl",
+        "name": "fmt_Display for WorktreePrincipalConflict",
+        "span": {
+          "end": 1058,
+          "start": 556
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::worktree_principal::WorktreePrincipalConflict::impl::fmt_Display"
+        },
+        "kind": "Impl",
+        "name": "fmt_Display for WorktreePrincipalConflict",
+        "span": {
+          "end": 1038,
+          "start": 536
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::worktree_principal::BoundWorktreePrincipal::principal_name"
+        },
+        "kind": "Field",
+        "name": "principal_name",
+        "span": {
+          "end": 339,
+          "start": 313
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::worktree_principal::BoundWorktreePrincipal::principal_name"
+        },
+        "kind": "Field",
+        "name": "principal_name",
+        "span": {
+          "end": 319,
+          "start": 293
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::worktree_principal"
+        },
+        "kind": "Module",
+        "name": "worktree_principal",
+        "span": {
+          "end": 3267,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::worktree_principal"
+        },
+        "kind": "Module",
+        "name": "worktree_principal",
+        "span": {
+          "end": 2983,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::worktree_principal::WorktreePrincipalConflict::bound_principal"
+        },
+        "kind": "Field",
+        "name": "bound_principal",
+        "span": {
+          "end": 498,
+          "start": 455
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::worktree_principal::WorktreePrincipalConflict::bound_principal"
+        },
+        "kind": "Field",
+        "name": "bound_principal",
+        "span": {
+          "end": 478,
+          "start": 435
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::worktree_principal::BoundWorktreePrincipal::principal_id"
+        },
+        "kind": "Field",
+        "name": "principal_id",
+        "span": {
+          "end": 307,
+          "start": 283
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::worktree_principal::BoundWorktreePrincipal::principal_id"
+        },
+        "kind": "Field",
+        "name": "principal_id",
+        "span": {
+          "end": 287,
+          "start": 263
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::worktree_principal::WorkspaceSession::bound_worktree_principal"
+        },
+        "kind": "Method",
+        "name": "bound_worktree_principal",
+        "span": {
+          "end": 2752,
+          "start": 2527
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::worktree_principal::WorkspaceSession::bound_worktree_principal"
+        },
+        "kind": "Method",
+        "name": "bound_worktree_principal",
+        "span": {
+          "end": 2468,
+          "start": 2243
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::worktree_principal::BoundWorktreePrincipal::authority_id"
+        },
+        "kind": "Field",
+        "name": "authority_id",
+        "span": {
+          "end": 277,
+          "start": 253
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::worktree_principal::BoundWorktreePrincipal::authority_id"
+        },
+        "kind": "Field",
+        "name": "authority_id",
+        "span": {
+          "end": 257,
+          "start": 233
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::worktree_principal::WorktreePrincipalConflict::impl::Error"
+        },
+        "kind": "Impl",
+        "name": "Error for WorktreePrincipalConflict",
+        "span": {
+          "end": 1103,
+          "start": 1060
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::worktree_principal::WorktreePrincipalConflict::impl::Error"
+        },
+        "kind": "Impl",
+        "name": "Error for WorktreePrincipalConflict",
+        "span": {
+          "end": 1083,
+          "start": 1040
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::worktree_principal::BoundWorktreePrincipal::same_identity"
+        },
+        "kind": "Method",
+        "name": "same_identity",
+        "span": {
+          "end": 3264,
+          "start": 3120
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::worktree_principal::BoundWorktreePrincipal::same_identity"
+        },
+        "kind": "Method",
+        "name": "same_identity",
+        "span": {
+          "end": 2980,
+          "start": 2836
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::worktree_principal::BoundWorktreePrincipal::from_authenticated"
+        },
+        "kind": "Method",
+        "name": "from_authenticated",
+        "span": {
+          "end": 3114,
+          "start": 2790
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::worktree_principal::BoundWorktreePrincipal::from_authenticated"
+        },
+        "kind": "Method",
+        "name": "from_authenticated",
+        "span": {
+          "end": 2830,
+          "start": 2506
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::worktree_principal::WorkspaceSession::bind_or_validate_worktree_principal"
+        },
+        "kind": "Method",
+        "name": "bind_or_validate_worktree_principal",
+        "span": {
+          "end": 2521,
+          "start": 1133
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::worktree_principal::WorkspaceSession::bind_or_validate_worktree_principal"
+        },
+        "kind": "Method",
+        "name": "bind_or_validate_worktree_principal",
+        "span": {
+          "end": 2237,
+          "start": 1113
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::worktree_principal::WorktreePrincipalConflict::fmt"
+        },
+        "kind": "Method",
+        "name": "fmt",
+        "span": {
+          "end": 1056,
+          "start": 610
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::worktree_principal::WorktreePrincipalConflict::fmt"
+        },
+        "kind": "Method",
+        "name": "fmt",
+        "span": {
+          "end": 1036,
+          "start": 590
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::worktree_principal::WorktreePrincipalConflict::attempted_principal"
+        },
+        "kind": "Field",
+        "name": "attempted_principal",
+        "span": {
+          "end": 551,
+          "start": 504
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::worktree_principal::WorktreePrincipalConflict::attempted_principal"
+        },
+        "kind": "Field",
+        "name": "attempted_principal",
+        "span": {
+          "end": 531,
+          "start": 484
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::worktree_principal::WorktreePrincipalConflict"
+        },
+        "kind": "Struct",
+        "name": "WorktreePrincipalConflict",
+        "span": {
+          "end": 554,
+          "start": 383
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::worktree_principal::WorktreePrincipalConflict"
+        },
+        "kind": "Struct",
+        "name": "WorktreePrincipalConflict",
+        "span": {
+          "end": 534,
+          "start": 363
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 36,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/worktree_principal.rs"
+    ],
+    "files": [
+      135
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

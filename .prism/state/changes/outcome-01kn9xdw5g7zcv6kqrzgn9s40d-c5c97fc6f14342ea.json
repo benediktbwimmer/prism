@@ -1,0 +1,5056 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdw5g7zcv6kqrzgn9s40d",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 210
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::record_task_git_execution_authoritative_state",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::reject_git_execution_bypass_on_create",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::GitExecutionRequest::workflow",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::run_workspace_coordination_step",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::run_raw_coordination_args",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::current_task_state_value",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::GitExecutionWorkflow",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::maybe_handle_git_execution_coordination",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::git_execution_policy_enabled",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::GitExecutionRequest::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::git_execution_request",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::record_task_git_execution",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::record_task_publish_intent",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::coordination_status_bypasses_git_execution",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::plan_node_status_bypasses_git_execution",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::GitExecutionRequest",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::convert_contract_status",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::promote_curator_concept",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::rebind_current_work_plan",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::curator_proposals",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_concept",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::sync_session_after_coordination_mutation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::convert_validation_feedback_verdict",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::next_concept_relation_event_id",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::convert_contract_guarantees",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::node_id_input",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::repair_session_without_refresh",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::convert_concept_lenses",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::build_promoted_concept_packet",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::build_retired_contract_packet",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::outcome_validation_labels",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::resolve_workflow_update_target",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::convert_contract_stability",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::current_plan_edge_state",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::retire_memory_payload",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::origin_for_scope",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::promote_curator_edge",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::apply_curator_proposal",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::apply_curator_proposal_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::close_task_without_refresh",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::merge_contract_validations",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_artifact",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::TaskClosureMutationResult::memory_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::declare_work_without_refresh_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::convert_concept_nodes",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::build_promoted_contract_packet",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::TaskClosureMutationResult::journal",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::maybe_bind_current_work_to_coordination_task",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_contract",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::build_updated_concept_packet",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::parse_sparse_patch",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::convert_optional_concept_nodes",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::convert_contract_compatibility",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::build_contract_with_status_set",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::normalize_contract_guarantee_id",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::TaskClosureDisposition::label",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_validation_feedback_without_refresh_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::TaskClosureDisposition::trust",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::convert_workflow_status_for_plan_node",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_coordination",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::promote_curator_edge_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::coordination_audit_since",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::TaskClosureDisposition",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::convert_concept_scope",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::update_contract_publication",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::convert_contract_guarantee_strength",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::coordination_plan_title",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::concept_args_from_curator_candidate",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::build_updated_contract_packet",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::merge_contract_targets",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_memory_payload",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::normalize_contract_guarantees",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::sanitize_strings",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_concept_relation",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::promote_curator_memory_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::mutation_provenance",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::convert_contract_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_outcome_without_refresh",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::current_plan_node_state",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::TaskClosureMutationResult::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::required_contract_handle",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_checkpoint_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::finish_task_without_refresh",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::normalize_contract_handle",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::convert_contract_targets",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::validate_contract_packet",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::deleted_plan_edge_state",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::TaskClosureMutationResult::event_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::next_contract_event_id",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::merge_unique_strings",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_concept_without_refresh_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::resolve_native_plan_node",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::finish_task",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_memory_without_refresh_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::convert_concept_relation_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::build_contract_with_evidence_attached",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::memory_event_kind_for_store",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::concept_event_patch",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_coordination_with_trace_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::CoordinationAudit::rejected",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::abandon_task",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::apply_coordination_mutation",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::TaskClosureDisposition::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::curator_job",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::convert_validation_feedback_category",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::mutation_violation_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::build_contract_with_consumer_recorded",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::memory_publication_status",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_contract_without_refresh",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::CoordinationAudit::violations",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_validation_feedback_without_refresh",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_coordination_traced_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_memory_without_refresh",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_coordination_traced",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::clear_current_coordination_binding",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_contract_without_refresh_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::CoordinationAudit::event_ids",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::apply_artifact_mutation",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::ensure_repo_memory_publication_is_not_duplicate",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::normalize_memory_content",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_claim_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::current_contract",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::start_task",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::build_contract_with_validation_attached",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_validation_feedback",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_outcome_without_refresh_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::apply_heartbeat_lease_mutation",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::promote_curator_memory",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::promote_curator_concept_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::curator_jobs",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::validate_concept_packet",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::convert_workflow_status_for_task",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::entries_share_anchor",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::reject_curator_proposal",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::convert_contract_target",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_concept_relation_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::contract_event_patch",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::normalize_concept_handle",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::WorkflowUpdateTarget",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_memory",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_outcome",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::reject_curator_proposal_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::ensure_tool_enabled",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::apply_claim_mutation",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::plan_title_for",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::next_concept_event_id",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_inferred_edge",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::build_retired_concept_packet",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_heartbeat_lease_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::normalize_contract_handles",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::normalize_concept_handles",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::convert_contract_validations",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::build_concept_relation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_concept_without_refresh",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_artifact_authenticated",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::normalize_validation_label",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::TaskClosureMutationResult",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::TaskClosureDisposition::outcome_result",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::abandon_task_without_refresh",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::plan_edge_kind_slug",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::concept_member_lineages",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::CoordinationAudit",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::host_mutations::QueryHost::store_claim",
+        "kind": "Method"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 16 added, 0 removed, 149 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 16,
+        "changedSymbolCount": 314,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "removedCount": 0,
+        "updatedCount": 298
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::record_task_git_execution_authoritative_state"
+        },
+        "kind": "Method",
+        "name": "record_task_git_execution_authoritative_state",
+        "span": {
+          "end": 106031,
+          "start": 104173
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::reject_git_execution_bypass_on_create"
+        },
+        "kind": "Function",
+        "name": "reject_git_execution_bypass_on_create",
+        "span": {
+          "end": 8476,
+          "start": 7893
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::host_mutations::GitExecutionRequest::workflow"
+        },
+        "kind": "Field",
+        "name": "workflow",
+        "span": {
+          "end": 18299,
+          "start": 18269
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::run_workspace_coordination_step"
+        },
+        "kind": "Method",
+        "name": "run_workspace_coordination_step",
+        "span": {
+          "end": 109317,
+          "start": 107850
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::run_raw_coordination_args"
+        },
+        "kind": "Method",
+        "name": "run_raw_coordination_args",
+        "span": {
+          "end": 102469,
+          "start": 102048
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::current_task_state_value"
+        },
+        "kind": "Method",
+        "name": "current_task_state_value",
+        "span": {
+          "end": 109666,
+          "start": 109323
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Enum",
+          "path": "prism_mcp::host_mutations::GitExecutionWorkflow"
+        },
+        "kind": "Enum",
+        "name": "GitExecutionWorkflow",
+        "span": {
+          "end": 18201,
+          "start": 18113
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::maybe_handle_git_execution_coordination"
+        },
+        "kind": "Method",
+        "name": "maybe_handle_git_execution_coordination",
+        "span": {
+          "end": 102042,
+          "start": 77122
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::git_execution_policy_enabled"
+        },
+        "kind": "Function",
+        "name": "git_execution_policy_enabled",
+        "span": {
+          "end": 7206,
+          "start": 6975
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::host_mutations::GitExecutionRequest::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 18263,
+          "start": 18236
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::git_execution_request"
+        },
+        "kind": "Function",
+        "name": "git_execution_request",
+        "span": {
+          "end": 20518,
+          "start": 18304
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::record_task_git_execution"
+        },
+        "kind": "Method",
+        "name": "record_task_git_execution",
+        "span": {
+          "end": 104167,
+          "start": 102475
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::record_task_publish_intent"
+        },
+        "kind": "Method",
+        "name": "record_task_publish_intent",
+        "span": {
+          "end": 107844,
+          "start": 106037
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::coordination_status_bypasses_git_execution"
+        },
+        "kind": "Function",
+        "name": "coordination_status_bypasses_git_execution",
+        "span": {
+          "end": 7570,
+          "start": 7208
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::plan_node_status_bypasses_git_execution"
+        },
+        "kind": "Function",
+        "name": "plan_node_status_bypasses_git_execution",
+        "span": {
+          "end": 7891,
+          "start": 7572
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::host_mutations::GitExecutionRequest"
+        },
+        "kind": "Struct",
+        "name": "GitExecutionRequest",
+        "span": {
+          "end": 18302,
+          "start": 18203
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_contract_status"
+        },
+        "kind": "Function",
+        "name": "convert_contract_status",
+        "span": {
+          "end": 183352,
+          "start": 182982
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_contract_status"
+        },
+        "kind": "Function",
+        "name": "convert_contract_status",
+        "span": {
+          "end": 222586,
+          "start": 222216
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::promote_curator_concept"
+        },
+        "kind": "Method",
+        "name": "promote_curator_concept",
+        "span": {
+          "end": 122113,
+          "start": 121855
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::promote_curator_concept"
+        },
+        "kind": "Method",
+        "name": "promote_curator_concept",
+        "span": {
+          "end": 160996,
+          "start": 160738
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::rebind_current_work_plan"
+        },
+        "kind": "Function",
+        "name": "rebind_current_work_plan",
+        "span": {
+          "end": 8325,
+          "start": 7610
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::rebind_current_work_plan"
+        },
+        "kind": "Function",
+        "name": "rebind_current_work_plan",
+        "span": {
+          "end": 10221,
+          "start": 9506
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::curator_proposals"
+        },
+        "kind": "Method",
+        "name": "curator_proposals",
+        "span": {
+          "end": 146900,
+          "start": 144618
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::curator_proposals"
+        },
+        "kind": "Method",
+        "name": "curator_proposals",
+        "span": {
+          "end": 185783,
+          "start": 183501
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_concept"
+        },
+        "kind": "Method",
+        "name": "store_concept",
+        "span": {
+          "end": 48147,
+          "start": 47907
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_concept"
+        },
+        "kind": "Method",
+        "name": "store_concept",
+        "span": {
+          "end": 52580,
+          "start": 52340
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::sync_session_after_coordination_mutation"
+        },
+        "kind": "Function",
+        "name": "sync_session_after_coordination_mutation",
+        "span": {
+          "end": 13134,
+          "start": 10737
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::sync_session_after_coordination_mutation"
+        },
+        "kind": "Function",
+        "name": "sync_session_after_coordination_mutation",
+        "span": {
+          "end": 15030,
+          "start": 12633
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_validation_feedback_verdict"
+        },
+        "kind": "Function",
+        "name": "convert_validation_feedback_verdict",
+        "span": {
+          "end": 207711,
+          "start": 207147
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_validation_feedback_verdict"
+        },
+        "kind": "Function",
+        "name": "convert_validation_feedback_verdict",
+        "span": {
+          "end": 247183,
+          "start": 246619
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::next_concept_relation_event_id"
+        },
+        "kind": "Function",
+        "name": "next_concept_relation_event_id",
+        "span": {
+          "end": 206350,
+          "start": 206243
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::next_concept_relation_event_id"
+        },
+        "kind": "Function",
+        "name": "next_concept_relation_event_id",
+        "span": {
+          "end": 245822,
+          "start": 245715
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_contract_guarantees"
+        },
+        "kind": "Function",
+        "name": "convert_contract_guarantees",
+        "span": {
+          "end": 186258,
+          "start": 184972
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_contract_guarantees"
+        },
+        "kind": "Function",
+        "name": "convert_contract_guarantees",
+        "span": {
+          "end": 225657,
+          "start": 224371
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::node_id_input"
+        },
+        "kind": "Function",
+        "name": "node_id_input",
+        "span": {
+          "end": 171038,
+          "start": 170840
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::node_id_input"
+        },
+        "kind": "Function",
+        "name": "node_id_input",
+        "span": {
+          "end": 210272,
+          "start": 210074
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::repair_session_without_refresh"
+        },
+        "kind": "Method",
+        "name": "repair_session_without_refresh",
+        "span": {
+          "end": 28649,
+          "start": 27752
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::repair_session_without_refresh"
+        },
+        "kind": "Method",
+        "name": "repair_session_without_refresh",
+        "span": {
+          "end": 32952,
+          "start": 32055
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_concept_lenses"
+        },
+        "kind": "Function",
+        "name": "convert_concept_lenses",
+        "span": {
+          "end": 198586,
+          "start": 197627
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_concept_lenses"
+        },
+        "kind": "Function",
+        "name": "convert_concept_lenses",
+        "span": {
+          "end": 238058,
+          "start": 237099
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::build_promoted_concept_packet"
+        },
+        "kind": "Function",
+        "name": "build_promoted_concept_packet",
+        "span": {
+          "end": 154201,
+          "start": 150849
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::build_promoted_concept_packet"
+        },
+        "kind": "Function",
+        "name": "build_promoted_concept_packet",
+        "span": {
+          "end": 193084,
+          "start": 189732
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::build_retired_contract_packet"
+        },
+        "kind": "Function",
+        "name": "build_retired_contract_packet",
+        "span": {
+          "end": 162473,
+          "start": 161452
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::build_retired_contract_packet"
+        },
+        "kind": "Function",
+        "name": "build_retired_contract_packet",
+        "span": {
+          "end": 201585,
+          "start": 200564
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::outcome_validation_labels"
+        },
+        "kind": "Function",
+        "name": "outcome_validation_labels",
+        "span": {
+          "end": 150485,
+          "start": 149497
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::outcome_validation_labels"
+        },
+        "kind": "Function",
+        "name": "outcome_validation_labels",
+        "span": {
+          "end": 189368,
+          "start": 188380
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::resolve_workflow_update_target"
+        },
+        "kind": "Function",
+        "name": "resolve_workflow_update_target",
+        "span": {
+          "end": 16756,
+          "start": 16217
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::resolve_workflow_update_target"
+        },
+        "kind": "Function",
+        "name": "resolve_workflow_update_target",
+        "span": {
+          "end": 21059,
+          "start": 20520
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_contract_stability"
+        },
+        "kind": "Function",
+        "name": "convert_contract_stability",
+        "span": {
+          "end": 183846,
+          "start": 183354
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_contract_stability"
+        },
+        "kind": "Function",
+        "name": "convert_contract_stability",
+        "span": {
+          "end": 223080,
+          "start": 222588
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::current_plan_edge_state"
+        },
+        "kind": "Function",
+        "name": "current_plan_edge_state",
+        "span": {
+          "end": 14752,
+          "start": 14058
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::current_plan_edge_state"
+        },
+        "kind": "Function",
+        "name": "current_plan_edge_state",
+        "span": {
+          "end": 16648,
+          "start": 15954
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::retire_memory_payload"
+        },
+        "kind": "Method",
+        "name": "retire_memory_payload",
+        "span": {
+          "end": 47877,
+          "start": 45883
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::retire_memory_payload"
+        },
+        "kind": "Method",
+        "name": "retire_memory_payload",
+        "span": {
+          "end": 52310,
+          "start": 50316
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::origin_for_scope"
+        },
+        "kind": "Function",
+        "name": "origin_for_scope",
+        "span": {
+          "end": 182409,
+          "start": 182176
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::origin_for_scope"
+        },
+        "kind": "Function",
+        "name": "origin_for_scope",
+        "span": {
+          "end": 221643,
+          "start": 221410
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::promote_curator_edge"
+        },
+        "kind": "Method",
+        "name": "promote_curator_edge",
+        "span": {
+          "end": 118082,
+          "start": 117833
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::promote_curator_edge"
+        },
+        "kind": "Method",
+        "name": "promote_curator_edge",
+        "span": {
+          "end": 156965,
+          "start": 156716
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::apply_curator_proposal"
+        },
+        "kind": "Method",
+        "name": "apply_curator_proposal",
+        "span": {
+          "end": 126311,
+          "start": 126056
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::apply_curator_proposal"
+        },
+        "kind": "Method",
+        "name": "apply_curator_proposal",
+        "span": {
+          "end": 165194,
+          "start": 164939
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::apply_curator_proposal_authenticated"
+        },
+        "kind": "Method",
+        "name": "apply_curator_proposal_authenticated",
+        "span": {
+          "end": 129347,
+          "start": 126317
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::apply_curator_proposal_authenticated"
+        },
+        "kind": "Method",
+        "name": "apply_curator_proposal_authenticated",
+        "span": {
+          "end": 168230,
+          "start": 165200
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::close_task_without_refresh"
+        },
+        "kind": "Method",
+        "name": "close_task_without_refresh",
+        "span": {
+          "end": 37183,
+          "start": 32520
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::close_task_without_refresh"
+        },
+        "kind": "Method",
+        "name": "close_task_without_refresh",
+        "span": {
+          "end": 41532,
+          "start": 36823
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::merge_contract_validations"
+        },
+        "kind": "Function",
+        "name": "merge_contract_validations",
+        "span": {
+          "end": 190033,
+          "start": 189563
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::merge_contract_validations"
+        },
+        "kind": "Function",
+        "name": "merge_contract_validations",
+        "span": {
+          "end": 229505,
+          "start": 229035
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_artifact"
+        },
+        "kind": "Method",
+        "name": "store_artifact",
+        "span": {
+          "end": 82776,
+          "start": 82556
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_artifact"
+        },
+        "kind": "Method",
+        "name": "store_artifact",
+        "span": {
+          "end": 118005,
+          "start": 117785
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::host_mutations::TaskClosureMutationResult::memory_id"
+        },
+        "kind": "Field",
+        "name": "memory_id",
+        "span": {
+          "end": 5351,
+          "start": 5323
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::host_mutations::TaskClosureMutationResult::memory_id"
+        },
+        "kind": "Field",
+        "name": "memory_id",
+        "span": {
+          "end": 5744,
+          "start": 5716
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::declare_work_without_refresh_authenticated"
+        },
+        "kind": "Method",
+        "name": "declare_work_without_refresh_authenticated",
+        "span": {
+          "end": 24241,
+          "start": 18596
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::declare_work_without_refresh_authenticated"
+        },
+        "kind": "Method",
+        "name": "declare_work_without_refresh_authenticated",
+        "span": {
+          "end": 28544,
+          "start": 22899
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_concept_nodes"
+        },
+        "kind": "Function",
+        "name": "convert_concept_nodes",
+        "span": {
+          "end": 197625,
+          "start": 197037
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_concept_nodes"
+        },
+        "kind": "Function",
+        "name": "convert_concept_nodes",
+        "span": {
+          "end": 237097,
+          "start": 236509
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::build_promoted_contract_packet"
+        },
+        "kind": "Function",
+        "name": "build_promoted_contract_packet",
+        "span": {
+          "end": 157883,
+          "start": 154203
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::build_promoted_contract_packet"
+        },
+        "kind": "Function",
+        "name": "build_promoted_contract_packet",
+        "span": {
+          "end": 196908,
+          "start": 193086
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::host_mutations::TaskClosureMutationResult::journal"
+        },
+        "kind": "Field",
+        "name": "journal",
+        "span": {
+          "end": 5392,
+          "start": 5357
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::host_mutations::TaskClosureMutationResult::journal"
+        },
+        "kind": "Field",
+        "name": "journal",
+        "span": {
+          "end": 5785,
+          "start": 5750
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::maybe_bind_current_work_to_coordination_task"
+        },
+        "kind": "Function",
+        "name": "maybe_bind_current_work_to_coordination_task",
+        "span": {
+          "end": 10136,
+          "start": 8327
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::maybe_bind_current_work_to_coordination_task"
+        },
+        "kind": "Function",
+        "name": "maybe_bind_current_work_to_coordination_task",
+        "span": {
+          "end": 12032,
+          "start": 10223
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_contract"
+        },
+        "kind": "Method",
+        "name": "store_contract",
+        "span": {
+          "end": 51038,
+          "start": 50794
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_contract"
+        },
+        "kind": "Method",
+        "name": "store_contract",
+        "span": {
+          "end": 55471,
+          "start": 55227
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::build_updated_concept_packet"
+        },
+        "kind": "Function",
+        "name": "build_updated_concept_packet",
+        "span": {
+          "end": 194726,
+          "start": 190035
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::build_updated_concept_packet"
+        },
+        "kind": "Function",
+        "name": "build_updated_concept_packet",
+        "span": {
+          "end": 234198,
+          "start": 229507
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::parse_sparse_patch"
+        },
+        "kind": "Function",
+        "name": "parse_sparse_patch",
+        "span": {
+          "end": 171316,
+          "start": 171040
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::parse_sparse_patch"
+        },
+        "kind": "Function",
+        "name": "parse_sparse_patch",
+        "span": {
+          "end": 210550,
+          "start": 210274
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_optional_concept_nodes"
+        },
+        "kind": "Function",
+        "name": "convert_optional_concept_nodes",
+        "span": {
+          "end": 197035,
+          "start": 196746
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_optional_concept_nodes"
+        },
+        "kind": "Function",
+        "name": "convert_optional_concept_nodes",
+        "span": {
+          "end": 236507,
+          "start": 236218
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_contract_compatibility"
+        },
+        "kind": "Function",
+        "name": "convert_contract_compatibility",
+        "span": {
+          "end": 189031,
+          "start": 188485
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_contract_compatibility"
+        },
+        "kind": "Function",
+        "name": "convert_contract_compatibility",
+        "span": {
+          "end": 228503,
+          "start": 227957
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::build_contract_with_status_set"
+        },
+        "kind": "Function",
+        "name": "build_contract_with_status_set",
+        "span": {
+          "end": 166778,
+          "start": 165836
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::build_contract_with_status_set"
+        },
+        "kind": "Function",
+        "name": "build_contract_with_status_set",
+        "span": {
+          "end": 206012,
+          "start": 205070
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::normalize_contract_guarantee_id"
+        },
+        "kind": "Function",
+        "name": "normalize_contract_guarantee_id",
+        "span": {
+          "end": 187545,
+          "start": 186986
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::normalize_contract_guarantee_id"
+        },
+        "kind": "Function",
+        "name": "normalize_contract_guarantee_id",
+        "span": {
+          "end": 226944,
+          "start": 226385
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::TaskClosureDisposition::label"
+        },
+        "kind": "Method",
+        "name": "label",
+        "span": {
+          "end": 5652,
+          "start": 5494
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::TaskClosureDisposition::label"
+        },
+        "kind": "Method",
+        "name": "label",
+        "span": {
+          "end": 6045,
+          "start": 5887
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_validation_feedback_without_refresh_authenticated"
+        },
+        "kind": "Method",
+        "name": "store_validation_feedback_without_refresh_authenticated",
+        "span": {
+          "end": 59869,
+          "start": 58163
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_validation_feedback_without_refresh_authenticated"
+        },
+        "kind": "Method",
+        "name": "store_validation_feedback_without_refresh_authenticated",
+        "span": {
+          "end": 64484,
+          "start": 62736
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::TaskClosureDisposition::trust"
+        },
+        "kind": "Method",
+        "name": "trust",
+        "span": {
+          "end": 5988,
+          "start": 5854
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::TaskClosureDisposition::trust"
+        },
+        "kind": "Method",
+        "name": "trust",
+        "span": {
+          "end": 6381,
+          "start": 6247
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_workflow_status_for_plan_node"
+        },
+        "kind": "Function",
+        "name": "convert_workflow_status_for_plan_node",
+        "span": {
+          "end": 18573,
+          "start": 17754
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_workflow_status_for_plan_node"
+        },
+        "kind": "Function",
+        "name": "convert_workflow_status_for_plan_node",
+        "span": {
+          "end": 22876,
+          "start": 22057
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_coordination"
+        },
+        "kind": "Method",
+        "name": "store_coordination",
+        "span": {
+          "end": 61676,
+          "start": 61423
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_coordination"
+        },
+        "kind": "Method",
+        "name": "store_coordination",
+        "span": {
+          "end": 66291,
+          "start": 66038
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::promote_curator_edge_authenticated"
+        },
+        "kind": "Method",
+        "name": "promote_curator_edge_authenticated",
+        "span": {
+          "end": 121804,
+          "start": 118088
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::promote_curator_edge_authenticated"
+        },
+        "kind": "Method",
+        "name": "promote_curator_edge_authenticated",
+        "span": {
+          "end": 160687,
+          "start": 156971
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::coordination_audit_since"
+        },
+        "kind": "Function",
+        "name": "coordination_audit_since",
+        "span": {
+          "end": 7315,
+          "start": 6582
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::coordination_audit_since"
+        },
+        "kind": "Function",
+        "name": "coordination_audit_since",
+        "span": {
+          "end": 9211,
+          "start": 8478
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Enum",
+          "path": "prism_mcp::host_mutations::TaskClosureDisposition"
+        },
+        "kind": "Enum",
+        "name": "TaskClosureDisposition",
+        "span": {
+          "end": 5458,
+          "start": 5397
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Enum",
+          "path": "prism_mcp::host_mutations::TaskClosureDisposition"
+        },
+        "kind": "Enum",
+        "name": "TaskClosureDisposition",
+        "span": {
+          "end": 5851,
+          "start": 5790
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_concept_scope"
+        },
+        "kind": "Function",
+        "name": "convert_concept_scope",
+        "span": {
+          "end": 205370,
+          "start": 205075
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_concept_scope"
+        },
+        "kind": "Function",
+        "name": "convert_concept_scope",
+        "span": {
+          "end": 244842,
+          "start": 244547
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::update_contract_publication"
+        },
+        "kind": "Function",
+        "name": "update_contract_publication",
+        "span": {
+          "end": 182174,
+          "start": 181046
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::update_contract_publication"
+        },
+        "kind": "Function",
+        "name": "update_contract_publication",
+        "span": {
+          "end": 221408,
+          "start": 220280
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_contract_guarantee_strength"
+        },
+        "kind": "Function",
+        "name": "convert_contract_guarantee_strength",
+        "span": {
+          "end": 184252,
+          "start": 183848
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_contract_guarantee_strength"
+        },
+        "kind": "Function",
+        "name": "convert_contract_guarantee_strength",
+        "span": {
+          "end": 223486,
+          "start": 223082
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::coordination_plan_title"
+        },
+        "kind": "Function",
+        "name": "coordination_plan_title",
+        "span": {
+          "end": 7413,
+          "start": 7317
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::coordination_plan_title"
+        },
+        "kind": "Function",
+        "name": "coordination_plan_title",
+        "span": {
+          "end": 9309,
+          "start": 9213
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::concept_args_from_curator_candidate"
+        },
+        "kind": "Function",
+        "name": "concept_args_from_curator_candidate",
+        "span": {
+          "end": 168596,
+          "start": 166780
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::concept_args_from_curator_candidate"
+        },
+        "kind": "Function",
+        "name": "concept_args_from_curator_candidate",
+        "span": {
+          "end": 207830,
+          "start": 206014
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::build_updated_contract_packet"
+        },
+        "kind": "Function",
+        "name": "build_updated_contract_packet",
+        "span": {
+          "end": 161450,
+          "start": 157885
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::build_updated_contract_packet"
+        },
+        "kind": "Function",
+        "name": "build_updated_contract_packet",
+        "span": {
+          "end": 200562,
+          "start": 196910
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::merge_contract_targets"
+        },
+        "kind": "Function",
+        "name": "merge_contract_targets",
+        "span": {
+          "end": 189561,
+          "start": 189252
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::merge_contract_targets"
+        },
+        "kind": "Function",
+        "name": "merge_contract_targets",
+        "span": {
+          "end": 229033,
+          "start": 228724
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_memory_payload"
+        },
+        "kind": "Method",
+        "name": "store_memory_payload",
+        "span": {
+          "end": 45877,
+          "start": 41060
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_memory_payload"
+        },
+        "kind": "Method",
+        "name": "store_memory_payload",
+        "span": {
+          "end": 50310,
+          "start": 45451
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::normalize_contract_guarantees"
+        },
+        "kind": "Function",
+        "name": "normalize_contract_guarantees",
+        "span": {
+          "end": 186984,
+          "start": 186260
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::normalize_contract_guarantees"
+        },
+        "kind": "Function",
+        "name": "normalize_contract_guarantees",
+        "span": {
+          "end": 226383,
+          "start": 225659
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::sanitize_strings"
+        },
+        "kind": "Function",
+        "name": "sanitize_strings",
+        "span": {
+          "end": 198992,
+          "start": 198588
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::sanitize_strings"
+        },
+        "kind": "Function",
+        "name": "sanitize_strings",
+        "span": {
+          "end": 238464,
+          "start": 238060
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_concept_relation"
+        },
+        "kind": "Method",
+        "name": "store_concept_relation",
+        "span": {
+          "end": 55826,
+          "start": 55568
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_concept_relation"
+        },
+        "kind": "Method",
+        "name": "store_concept_relation",
+        "span": {
+          "end": 60399,
+          "start": 60141
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::promote_curator_memory_authenticated"
+        },
+        "kind": "Method",
+        "name": "promote_curator_memory_authenticated",
+        "span": {
+          "end": 140980,
+          "start": 129659
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::promote_curator_memory_authenticated"
+        },
+        "kind": "Method",
+        "name": "promote_curator_memory_authenticated",
+        "span": {
+          "end": 179863,
+          "start": 168542
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::mutation_provenance"
+        },
+        "kind": "Function",
+        "name": "mutation_provenance",
+        "span": {
+          "end": 13623,
+          "start": 13136
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::mutation_provenance"
+        },
+        "kind": "Function",
+        "name": "mutation_provenance",
+        "span": {
+          "end": 15519,
+          "start": 15032
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_contract_kind"
+        },
+        "kind": "Function",
+        "name": "convert_contract_kind",
+        "span": {
+          "end": 182980,
+          "start": 182411
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_contract_kind"
+        },
+        "kind": "Function",
+        "name": "convert_contract_kind",
+        "span": {
+          "end": 222214,
+          "start": 221645
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_outcome_without_refresh"
+        },
+        "kind": "Method",
+        "name": "store_outcome_without_refresh",
+        "span": {
+          "end": 37740,
+          "start": 37494
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_outcome_without_refresh"
+        },
+        "kind": "Method",
+        "name": "store_outcome_without_refresh",
+        "span": {
+          "end": 42089,
+          "start": 41843
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::current_plan_node_state"
+        },
+        "kind": "Function",
+        "name": "current_plan_node_state",
+        "span": {
+          "end": 14056,
+          "start": 13625
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::current_plan_node_state"
+        },
+        "kind": "Function",
+        "name": "current_plan_node_state",
+        "span": {
+          "end": 15952,
+          "start": 15521
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::host_mutations::TaskClosureMutationResult::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 5284,
+          "start": 5258
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::host_mutations::TaskClosureMutationResult::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 5677,
+          "start": 5651
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::required_contract_handle"
+        },
+        "kind": "Function",
+        "name": "required_contract_handle",
+        "span": {
+          "end": 180202,
+          "start": 179992
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::required_contract_handle"
+        },
+        "kind": "Function",
+        "name": "required_contract_handle",
+        "span": {
+          "end": 219436,
+          "start": 219226
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_checkpoint_authenticated"
+        },
+        "kind": "Method",
+        "name": "store_checkpoint_authenticated",
+        "span": {
+          "end": 27443,
+          "start": 24247
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_checkpoint_authenticated"
+        },
+        "kind": "Method",
+        "name": "store_checkpoint_authenticated",
+        "span": {
+          "end": 31746,
+          "start": 28550
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::finish_task_without_refresh"
+        },
+        "kind": "Method",
+        "name": "finish_task_without_refresh",
+        "span": {
+          "end": 32218,
+          "start": 31953
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::finish_task_without_refresh"
+        },
+        "kind": "Method",
+        "name": "finish_task_without_refresh",
+        "span": {
+          "end": 36521,
+          "start": 36256
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::normalize_contract_handle"
+        },
+        "kind": "Function",
+        "name": "normalize_contract_handle",
+        "span": {
+          "end": 180717,
+          "start": 180403
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::normalize_contract_handle"
+        },
+        "kind": "Function",
+        "name": "normalize_contract_handle",
+        "span": {
+          "end": 219951,
+          "start": 219637
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_contract_targets"
+        },
+        "kind": "Function",
+        "name": "convert_contract_targets",
+        "span": {
+          "end": 184970,
+          "start": 184634
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_contract_targets"
+        },
+        "kind": "Function",
+        "name": "convert_contract_targets",
+        "span": {
+          "end": 224369,
+          "start": 223980
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::validate_contract_packet"
+        },
+        "kind": "Function",
+        "name": "validate_contract_packet",
+        "span": {
+          "end": 205073,
+          "start": 202596
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::validate_contract_packet"
+        },
+        "kind": "Function",
+        "name": "validate_contract_packet",
+        "span": {
+          "end": 244545,
+          "start": 242068
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::deleted_plan_edge_state"
+        },
+        "kind": "Function",
+        "name": "deleted_plan_edge_state",
+        "span": {
+          "end": 15343,
+          "start": 14754
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::deleted_plan_edge_state"
+        },
+        "kind": "Function",
+        "name": "deleted_plan_edge_state",
+        "span": {
+          "end": 17239,
+          "start": 16650
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::host_mutations::TaskClosureMutationResult::event_id"
+        },
+        "kind": "Field",
+        "name": "event_id",
+        "span": {
+          "end": 5317,
+          "start": 5290
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::host_mutations::TaskClosureMutationResult::event_id"
+        },
+        "kind": "Field",
+        "name": "event_id",
+        "span": {
+          "end": 5710,
+          "start": 5683
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::next_contract_event_id"
+        },
+        "kind": "Function",
+        "name": "next_contract_event_id",
+        "span": {
+          "end": 206241,
+          "start": 206150
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::next_contract_event_id"
+        },
+        "kind": "Function",
+        "name": "next_contract_event_id",
+        "span": {
+          "end": 245713,
+          "start": 245622
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::merge_unique_strings"
+        },
+        "kind": "Function",
+        "name": "merge_unique_strings",
+        "span": {
+          "end": 189250,
+          "start": 189033
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::merge_unique_strings"
+        },
+        "kind": "Function",
+        "name": "merge_unique_strings",
+        "span": {
+          "end": 228722,
+          "start": 228505
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_concept_without_refresh_authenticated"
+        },
+        "kind": "Method",
+        "name": "store_concept_without_refresh_authenticated",
+        "span": {
+          "end": 50764,
+          "start": 48439
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_concept_without_refresh_authenticated"
+        },
+        "kind": "Method",
+        "name": "store_concept_without_refresh_authenticated",
+        "span": {
+          "end": 55197,
+          "start": 52872
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::resolve_native_plan_node"
+        },
+        "kind": "Function",
+        "name": "resolve_native_plan_node",
+        "span": {
+          "end": 16066,
+          "start": 15758
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::resolve_native_plan_node"
+        },
+        "kind": "Function",
+        "name": "resolve_native_plan_node",
+        "span": {
+          "end": 17962,
+          "start": 17654
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::finish_task"
+        },
+        "kind": "Method",
+        "name": "finish_task",
+        "span": {
+          "end": 31643,
+          "start": 31394
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::finish_task"
+        },
+        "kind": "Method",
+        "name": "finish_task",
+        "span": {
+          "end": 35946,
+          "start": 35697
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_memory_without_refresh_authenticated"
+        },
+        "kind": "Method",
+        "name": "store_memory_without_refresh_authenticated",
+        "span": {
+          "end": 41054,
+          "start": 40200
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_memory_without_refresh_authenticated"
+        },
+        "kind": "Method",
+        "name": "store_memory_without_refresh_authenticated",
+        "span": {
+          "end": 45445,
+          "start": 44591
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_concept_relation_kind"
+        },
+        "kind": "Function",
+        "name": "convert_concept_relation_kind",
+        "span": {
+          "end": 206057,
+          "start": 205372
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_concept_relation_kind"
+        },
+        "kind": "Function",
+        "name": "convert_concept_relation_kind",
+        "span": {
+          "end": 245529,
+          "start": 244844
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::build_contract_with_evidence_attached"
+        },
+        "kind": "Function",
+        "name": "build_contract_with_evidence_attached",
+        "span": {
+          "end": 163604,
+          "start": 162475
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::build_contract_with_evidence_attached"
+        },
+        "kind": "Function",
+        "name": "build_contract_with_evidence_attached",
+        "span": {
+          "end": 202716,
+          "start": 201587
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::memory_event_kind_for_store"
+        },
+        "kind": "Function",
+        "name": "memory_event_kind_for_store",
+        "span": {
+          "end": 147743,
+          "start": 147349
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::memory_event_kind_for_store"
+        },
+        "kind": "Function",
+        "name": "memory_event_kind_for_store",
+        "span": {
+          "end": 186626,
+          "start": 186232
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::concept_event_patch"
+        },
+        "kind": "Function",
+        "name": "concept_event_patch",
+        "span": {
+          "end": 175215,
+          "start": 171318
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::concept_event_patch"
+        },
+        "kind": "Function",
+        "name": "concept_event_patch",
+        "span": {
+          "end": 214449,
+          "start": 210552
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_coordination_with_trace_authenticated"
+        },
+        "kind": "Method",
+        "name": "store_coordination_with_trace_authenticated",
+        "span": {
+          "end": 74437,
+          "start": 62410
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_coordination_with_trace_authenticated"
+        },
+        "kind": "Method",
+        "name": "store_coordination_with_trace_authenticated",
+        "span": {
+          "end": 77116,
+          "start": 67025
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::host_mutations::CoordinationAudit::rejected"
+        },
+        "kind": "Field",
+        "name": "rejected",
+        "span": {
+          "end": 5168,
+          "start": 5154
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::host_mutations::CoordinationAudit::rejected"
+        },
+        "kind": "Field",
+        "name": "rejected",
+        "span": {
+          "end": 5561,
+          "start": 5547
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::abandon_task"
+        },
+        "kind": "Method",
+        "name": "abandon_task",
+        "span": {
+          "end": 31923,
+          "start": 31673
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::abandon_task"
+        },
+        "kind": "Method",
+        "name": "abandon_task",
+        "span": {
+          "end": 36226,
+          "start": 35976
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::apply_coordination_mutation"
+        },
+        "kind": "Method",
+        "name": "apply_coordination_mutation",
+        "span": {
+          "end": 106356,
+          "start": 86522
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::apply_coordination_mutation"
+        },
+        "kind": "Method",
+        "name": "apply_coordination_mutation",
+        "span": {
+          "end": 145040,
+          "start": 121751
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::host_mutations::QueryHost::impl"
+        },
+        "kind": "Impl",
+        "name": "QueryHost",
+        "span": {
+          "end": 147347,
+          "start": 18575
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::host_mutations::QueryHost::impl"
+        },
+        "kind": "Impl",
+        "name": "QueryHost",
+        "span": {
+          "end": 186230,
+          "start": 22878
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::host_mutations::TaskClosureDisposition::impl"
+        },
+        "kind": "Impl",
+        "name": "TaskClosureDisposition",
+        "span": {
+          "end": 5990,
+          "start": 5460
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::host_mutations::TaskClosureDisposition::impl"
+        },
+        "kind": "Impl",
+        "name": "TaskClosureDisposition",
+        "span": {
+          "end": 6383,
+          "start": 5853
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::curator_job"
+        },
+        "kind": "Method",
+        "name": "curator_job",
+        "span": {
+          "end": 147345,
+          "start": 146906
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::curator_job"
+        },
+        "kind": "Method",
+        "name": "curator_job",
+        "span": {
+          "end": 186228,
+          "start": 185789
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_validation_feedback_category"
+        },
+        "kind": "Function",
+        "name": "convert_validation_feedback_category",
+        "span": {
+          "end": 207145,
+          "start": 206352
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_validation_feedback_category"
+        },
+        "kind": "Function",
+        "name": "convert_validation_feedback_category",
+        "span": {
+          "end": 246617,
+          "start": 245824
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::mutation_violation_view"
+        },
+        "kind": "Function",
+        "name": "mutation_violation_view",
+        "span": {
+          "end": 6580,
+          "start": 5992
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::mutation_violation_view"
+        },
+        "kind": "Function",
+        "name": "mutation_violation_view",
+        "span": {
+          "end": 6973,
+          "start": 6385
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::build_contract_with_consumer_recorded"
+        },
+        "kind": "Function",
+        "name": "build_contract_with_consumer_recorded",
+        "span": {
+          "end": 165834,
+          "start": 164733
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::build_contract_with_consumer_recorded"
+        },
+        "kind": "Function",
+        "name": "build_contract_with_consumer_recorded",
+        "span": {
+          "end": 205068,
+          "start": 203906
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::memory_publication_status"
+        },
+        "kind": "Function",
+        "name": "memory_publication_status",
+        "span": {
+          "end": 149319,
+          "start": 149114
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::memory_publication_status"
+        },
+        "kind": "Function",
+        "name": "memory_publication_status",
+        "span": {
+          "end": 188202,
+          "start": 187997
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_contract_without_refresh"
+        },
+        "kind": "Method",
+        "name": "store_contract_without_refresh",
+        "span": {
+          "end": 51328,
+          "start": 51068
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_contract_without_refresh"
+        },
+        "kind": "Method",
+        "name": "store_contract_without_refresh",
+        "span": {
+          "end": 55761,
+          "start": 55501
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::host_mutations::CoordinationAudit::violations"
+        },
+        "kind": "Field",
+        "name": "violations",
+        "span": {
+          "end": 5148,
+          "start": 5110
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::host_mutations::CoordinationAudit::violations"
+        },
+        "kind": "Field",
+        "name": "violations",
+        "span": {
+          "end": 5541,
+          "start": 5503
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_validation_feedback_without_refresh"
+        },
+        "kind": "Method",
+        "name": "store_validation_feedback_without_refresh",
+        "span": {
+          "end": 58157,
+          "start": 57863
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_validation_feedback_without_refresh"
+        },
+        "kind": "Method",
+        "name": "store_validation_feedback_without_refresh",
+        "span": {
+          "end": 62730,
+          "start": 62436
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_coordination_traced_authenticated"
+        },
+        "kind": "Method",
+        "name": "store_coordination_traced_authenticated",
+        "span": {
+          "end": 62404,
+          "start": 62029
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_coordination_traced_authenticated"
+        },
+        "kind": "Method",
+        "name": "store_coordination_traced_authenticated",
+        "span": {
+          "end": 67019,
+          "start": 66644
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_memory_without_refresh"
+        },
+        "kind": "Method",
+        "name": "store_memory_without_refresh",
+        "span": {
+          "end": 40194,
+          "start": 39950
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_memory_without_refresh"
+        },
+        "kind": "Method",
+        "name": "store_memory_without_refresh",
+        "span": {
+          "end": 44585,
+          "start": 44341
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_coordination_traced"
+        },
+        "kind": "Method",
+        "name": "store_coordination_traced",
+        "span": {
+          "end": 62023,
+          "start": 61727
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_coordination_traced"
+        },
+        "kind": "Method",
+        "name": "store_coordination_traced",
+        "span": {
+          "end": 66638,
+          "start": 66342
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::clear_current_coordination_binding"
+        },
+        "kind": "Function",
+        "name": "clear_current_coordination_binding",
+        "span": {
+          "end": 10735,
+          "start": 10138
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::clear_current_coordination_binding"
+        },
+        "kind": "Function",
+        "name": "clear_current_coordination_binding",
+        "span": {
+          "end": 12631,
+          "start": 12034
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_contract_without_refresh_authenticated"
+        },
+        "kind": "Method",
+        "name": "store_contract_without_refresh_authenticated",
+        "span": {
+          "end": 55517,
+          "start": 51334
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_contract_without_refresh_authenticated"
+        },
+        "kind": "Method",
+        "name": "store_contract_without_refresh_authenticated",
+        "span": {
+          "end": 60090,
+          "start": 55767
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::host_mutations::CoordinationAudit::event_ids"
+        },
+        "kind": "Field",
+        "name": "event_ids",
+        "span": {
+          "end": 5104,
+          "start": 5082
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::host_mutations::CoordinationAudit::event_ids"
+        },
+        "kind": "Field",
+        "name": "event_ids",
+        "span": {
+          "end": 5497,
+          "start": 5475
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::apply_artifact_mutation"
+        },
+        "kind": "Method",
+        "name": "apply_artifact_mutation",
+        "span": {
+          "end": 117827,
+          "start": 111852
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::apply_artifact_mutation"
+        },
+        "kind": "Method",
+        "name": "apply_artifact_mutation",
+        "span": {
+          "end": 156710,
+          "start": 150586
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::ensure_repo_memory_publication_is_not_duplicate"
+        },
+        "kind": "Function",
+        "name": "ensure_repo_memory_publication_is_not_duplicate",
+        "span": {
+          "end": 148920,
+          "start": 147745
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::ensure_repo_memory_publication_is_not_duplicate"
+        },
+        "kind": "Function",
+        "name": "ensure_repo_memory_publication_is_not_duplicate",
+        "span": {
+          "end": 187803,
+          "start": 186628
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::normalize_memory_content"
+        },
+        "kind": "Function",
+        "name": "normalize_memory_content",
+        "span": {
+          "end": 149495,
+          "start": 149321
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::normalize_memory_content"
+        },
+        "kind": "Function",
+        "name": "normalize_memory_content",
+        "span": {
+          "end": 188378,
+          "start": 188204
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_claim_authenticated"
+        },
+        "kind": "Method",
+        "name": "store_claim_authenticated",
+        "span": {
+          "end": 78433,
+          "start": 74702
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_claim_authenticated"
+        },
+        "kind": "Method",
+        "name": "store_claim_authenticated",
+        "span": {
+          "end": 113662,
+          "start": 109931
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::current_contract"
+        },
+        "kind": "Function",
+        "name": "current_contract",
+        "span": {
+          "end": 180401,
+          "start": 180204
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::current_contract"
+        },
+        "kind": "Function",
+        "name": "current_contract",
+        "span": {
+          "end": 219635,
+          "start": 219438
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::start_task"
+        },
+        "kind": "Method",
+        "name": "start_task",
+        "span": {
+          "end": 31364,
+          "start": 28679
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::start_task"
+        },
+        "kind": "Method",
+        "name": "start_task",
+        "span": {
+          "end": 35667,
+          "start": 32982
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::build_contract_with_validation_attached"
+        },
+        "kind": "Function",
+        "name": "build_contract_with_validation_attached",
+        "span": {
+          "end": 164731,
+          "start": 163606
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::build_contract_with_validation_attached"
+        },
+        "kind": "Function",
+        "name": "build_contract_with_validation_attached",
+        "span": {
+          "end": 203904,
+          "start": 202718
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_validation_feedback"
+        },
+        "kind": "Method",
+        "name": "store_validation_feedback",
+        "span": {
+          "end": 57833,
+          "start": 57555
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_validation_feedback"
+        },
+        "kind": "Method",
+        "name": "store_validation_feedback",
+        "span": {
+          "end": 62406,
+          "start": 62128
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_outcome_without_refresh_authenticated"
+        },
+        "kind": "Method",
+        "name": "store_outcome_without_refresh_authenticated",
+        "span": {
+          "end": 39641,
+          "start": 37746
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::store_outcome_without_refresh_authenticated"
+        },
+        "kind": "Method",
+        "name": "store_outcome_without_refresh_authenticated",
+        "span": {
+          "end": 44032,
+          "start": 42095
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::apply_heartbeat_lease_mutation"
+        },
+        "kind": "Method",
+        "name": "apply_heartbeat_lease_mutation",
+        "span": {
+          "end": 111846,
+          "start": 110177
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::apply_heartbeat_lease_mutation"
+        },
+        "kind": "Method",
+        "name": "apply_heartbeat_lease_mutation",
+        "span": {
+          "end": 150580,
+          "start": 148911
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::promote_curator_memory"
+        },
+        "kind": "Method",
+        "name": "promote_curator_memory",
+        "span": {
+          "end": 129653,
+          "start": 129398
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::promote_curator_memory"
+        },
+        "kind": "Method",
+        "name": "promote_curator_memory",
+        "span": {
+          "end": 168536,
+          "start": 168281
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::promote_curator_concept_authenticated"
+        },
+        "kind": "Method",
+        "name": "promote_curator_concept_authenticated",
+        "span": {
+          "end": 126005,
+          "start": 122119
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::promote_curator_concept_authenticated"
+        },
+        "kind": "Method",
+        "name": "promote_curator_concept_authenticated",
+        "span": {
+          "end": 164888,
+          "start": 161002
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::curator_jobs"
+        },
+        "kind": "Method",
+        "name": "curator_jobs",
+        "span": {
+          "end": 144612,
+          "start": 143601
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::curator_jobs"
+        },
+        "kind": "Method",
+        "name": "curator_jobs",
+        "span": {
+          "end": 183495,
+          "start": 182484
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::validate_concept_packet"
+        },
+        "kind": "Function",
+        "name": "validate_concept_packet",
+        "span": {
+          "end": 202594,
+          "start": 199747
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::validate_concept_packet"
+        },
+        "kind": "Function",
+        "name": "validate_concept_packet",
+        "span": {
+          "end": 242066,
+          "start": 239219
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_workflow_status_for_task"
+        },
+        "kind": "Function",
+        "name": "convert_workflow_status_for_task",
+        "span": {
+          "end": 17752,
+          "start": 16758
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_workflow_status_for_task"
+        },
+        "kind": "Function",
+        "name": "convert_workflow_status_for_task",
+        "span": {
+          "end": 22055,
+          "start": 21061
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::entries_share_anchor"
+        },
+        "kind": "Function",
+        "name": "entries_share_anchor",
+        "span": {
+          "end": 149112,
+          "start": 148922
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::entries_share_anchor"
+        },
+        "kind": "Function",
+        "name": "entries_share_anchor",
+        "span": {
+          "end": 187995,
+          "start": 187805
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::reject_curator_proposal"
+        },
+        "kind": "Method",
+        "name": "reject_curator_proposal",
+        "span": {
+          "end": 141289,
+          "start": 141031
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::host_mutations::QueryHost::reject_curator_proposal"
+        },
+        "kind": "Method",
+        "name": "reject_curator_proposal",
+        "span": {
+          "end": 180172,
+          "start": 179914
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_contract_target"
+        },
+        "kind": "Function",
+        "name": "convert_contract_target",
+        "span": {
+          "end": 184632,
+          "start": 184254
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::host_mutations::convert_contract_target"
+        },
+        "kind": "Function",
+        "name": "convert_contract_target",
+        "span": {
+          "end": 223978,
+          "start": 223488
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 314,
+    "changedSymbolsTruncated": true,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/host_mutations.rs"
+    ],
+    "files": [
+      210
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

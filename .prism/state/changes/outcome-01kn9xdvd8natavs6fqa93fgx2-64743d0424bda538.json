@@ -1,0 +1,2189 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdvd8natavs6fqa93fgx2",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 377
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::concept_and_publication_pipeline",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::dashboard_events_and_read_models",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::parser_contract_and_fingerprint_utilities",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::persistence_and_history_layer",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::co_change_and_validation_projection_indexes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::plan_and_repo_layout_publication",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::structured_config_value_adapters",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::coordination_and_plan_runtime",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::memory_system",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::compact_discovery_and_opening_flow",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::code_language_adapters",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::history_snapshot_and_resolution",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::python_tree_sitter_adapter_pipeline",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::symbol_source_and_relation_queries",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::query_symbol_and_change_contexts",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::mcp_authenticated_mutation_host",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::published_knowledge_and_memory_event_logs",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::memory_projection_persistence",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::server_surface_and_runtime_health_views",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::structural_ir_and_identity_model",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::concept_and_expand_decode_runtime",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::session_context_and_hosted_mutation_runtime",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::resource_schemas_and_host_resource_serving",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::compact_tool_surface",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::session_and_episodic_memory_store",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::workspace_indexing_and_refresh",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::plan_completion_and_insight_queries",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::workspace_session_runtime",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::graph_identity_and_parse_ir",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::mutation_argument_and_schema_surface",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::sqlite_and_graph_persistence",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::cli_runtime_and_mcp_control",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::workspace_session_refresh_runtime",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::validation_policy_and_release_gates",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::core_indexing_pipeline",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::inferred_edge_runtime_and_session_store",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::cli_surface",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::semantic_projection_indexes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::javascript_api_contract_surface",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::javascript_runtime_and_reference_bridge",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::daemon_process_and_proxy_lifecycle",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::language_adapter_family",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::coordination_mutation_lease_and_policy_helpers",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::outcome_event_and_replay_memory",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::cli_command_and_parse_surface",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::indexer_orchestration_and_snapshot_loading",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::impact_and_outcome_queries",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::coordination_store_and_domain_types",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::coordination_state_model",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::concept_relation_and_intent_projections",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::memory_recall_and_scoring",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::document_and_config_adapters",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::semantic_and_structural_memory_models",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::locate_ranking_and_text_candidate_flow",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::structural_memory_feature_model",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::agent_inference_and_curation",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::curator_execution_flow",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::curator_backend_execution_and_prompting",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::memory_refresh_and_patch_outcome_recording",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::memory_outcomes_and_session_history",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::recall_signal_and_text_scoring",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::projection_and_query_layer",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::curator_rule_synthesis_and_proposal_types",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::coordination_and_plan_runtime_queries",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::markdown_heading_and_intent_adapter",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::repo_publication_guards",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::dashboard_surface",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::principal_identity_and_mutation_provenance",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::compact_expansion_and_concept_views",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::semantic_memory_backend_runtime",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::mcp_query_and_resource_serving",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::coordination_operations_and_policy",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::coordination_query_and_blocker_operations",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::mcp_runtime_lifecycle",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::query_execution_and_semantic_context_serving",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::anchor_change_and_lineage_ir",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::plan_graph_compatibility_and_runtime_overlays",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::validation_feedback_and_metrics_loop",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::javascript_query_abi",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::dashboard_routing_and_assets",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::rust_tree_sitter_adapter_pipeline",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::validation_and_dogfooding_loop",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::plan_and_coordination_ir",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::task_brief_and_coordination_summary_views",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::composite_memory_routing_and_entry_storage",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::parse_resolution_and_reanchor_flow",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::query_coordination_and_plan_views",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::mcp_runtime_surface",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::concept_and_relation_event_streams",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::open_and_workset_follow_through",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md",
+        "kind": "Document"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::projection_metadata",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::prism_relations",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::overview",
+        "kind": "MarkdownHeading"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 90 removed, 4 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 98,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "removedCount": 90,
+        "updatedCount": 8
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::concept_and_publication_pipeline"
+        },
+        "kind": "MarkdownHeading",
+        "name": "concept and publication pipeline",
+        "span": {
+          "end": 8238,
+          "start": 7475
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::dashboard_events_and_read_models"
+        },
+        "kind": "MarkdownHeading",
+        "name": "dashboard events and read models",
+        "span": {
+          "end": 17576,
+          "start": 17072
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::parser_contract_and_fingerprint_utilities"
+        },
+        "kind": "MarkdownHeading",
+        "name": "parser contract and fingerprint utilities",
+        "span": {
+          "end": 34801,
+          "start": 34447
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::persistence_and_history_layer"
+        },
+        "kind": "MarkdownHeading",
+        "name": "persistence and history layer",
+        "span": {
+          "end": 35289,
+          "start": 34801
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::co_change_and_validation_projection_indexes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "co-change and validation projection indexes",
+        "span": {
+          "end": 3334,
+          "start": 2789
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::plan_and_repo_layout_publication"
+        },
+        "kind": "MarkdownHeading",
+        "name": "plan and repo-layout publication",
+        "span": {
+          "end": 36905,
+          "start": 35827
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::structured_config_value_adapters"
+        },
+        "kind": "MarkdownHeading",
+        "name": "structured config value adapters",
+        "span": {
+          "end": 50180,
+          "start": 49581
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::coordination_and_plan_runtime"
+        },
+        "kind": "MarkdownHeading",
+        "name": "coordination and plan runtime",
+        "span": {
+          "end": 10054,
+          "start": 9351
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::memory_system"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory system",
+        "span": {
+          "end": 32001,
+          "start": 31343
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::compact_discovery_and_opening_flow"
+        },
+        "kind": "MarkdownHeading",
+        "name": "compact discovery and opening flow",
+        "span": {
+          "end": 4637,
+          "start": 4095
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::code_language_adapters"
+        },
+        "kind": "MarkdownHeading",
+        "name": "code language adapters",
+        "span": {
+          "end": 4095,
+          "start": 3334
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::history_snapshot_and_resolution"
+        },
+        "kind": "MarkdownHeading",
+        "name": "history snapshot and resolution",
+        "span": {
+          "end": 20584,
+          "start": 20067
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::python_tree_sitter_adapter_pipeline"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Python tree-sitter adapter pipeline",
+        "span": {
+          "end": 40616,
+          "start": 40042
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::symbol_source_and_relation_queries"
+        },
+        "kind": "MarkdownHeading",
+        "name": "symbol, source, and relation queries",
+        "span": {
+          "end": 50727,
+          "start": 50180
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::query_symbol_and_change_contexts"
+        },
+        "kind": "MarkdownHeading",
+        "name": "query symbol and change contexts",
+        "span": {
+          "end": 42696,
+          "start": 41918
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::mcp_authenticated_mutation_host"
+        },
+        "kind": "MarkdownHeading",
+        "name": "MCP authenticated mutation host",
+        "span": {
+          "end": 26864,
+          "start": 25485
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::published_knowledge_and_memory_event_logs"
+        },
+        "kind": "MarkdownHeading",
+        "name": "published knowledge and memory event logs",
+        "span": {
+          "end": 40042,
+          "start": 39252
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::memory_projection_persistence"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory projection persistence",
+        "span": {
+          "end": 30045,
+          "start": 29504
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::server_surface_and_runtime_health_views"
+        },
+        "kind": "MarkdownHeading",
+        "name": "server surface and runtime health views",
+        "span": {
+          "end": 46870,
+          "start": 46311
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::structural_ir_and_identity_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "structural IR and identity model",
+        "span": {
+          "end": 49022,
+          "start": 48546
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::concept_and_expand_decode_runtime"
+        },
+        "kind": "MarkdownHeading",
+        "name": "concept and expand decode runtime",
+        "span": {
+          "end": 7475,
+          "start": 6896
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::session_context_and_hosted_mutation_runtime"
+        },
+        "kind": "MarkdownHeading",
+        "name": "session context and hosted mutation runtime",
+        "span": {
+          "end": 48012,
+          "start": 47428
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::resource_schemas_and_host_resource_serving"
+        },
+        "kind": "MarkdownHeading",
+        "name": "resource schemas and host-resource serving",
+        "span": {
+          "end": 44121,
+          "start": 43544
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::compact_tool_surface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "compact tool surface",
+        "span": {
+          "end": 6567,
+          "start": 5648
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::session_and_episodic_memory_store"
+        },
+        "kind": "MarkdownHeading",
+        "name": "session and episodic memory store",
+        "span": {
+          "end": 47428,
+          "start": 46870
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::workspace_indexing_and_refresh"
+        },
+        "kind": "MarkdownHeading",
+        "name": "workspace indexing and refresh",
+        "span": {
+          "end": 53887,
+          "start": 52987
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::plan_completion_and_insight_queries"
+        },
+        "kind": "MarkdownHeading",
+        "name": "plan completion and insight queries",
+        "span": {
+          "end": 37458,
+          "start": 36905
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::workspace_session_runtime"
+        },
+        "kind": "MarkdownHeading",
+        "name": "workspace session runtime",
+        "span": {
+          "end": 54931,
+          "start": 54196
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::graph_identity_and_parse_ir"
+        },
+        "kind": "MarkdownHeading",
+        "name": "graph, identity, and parse IR",
+        "span": {
+          "end": 20067,
+          "start": 19760
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::mutation_argument_and_schema_surface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "mutation argument and schema surface",
+        "span": {
+          "end": 32616,
+          "start": 32001
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::sqlite_and_graph_persistence"
+        },
+        "kind": "MarkdownHeading",
+        "name": "SQLite and graph persistence",
+        "span": {
+          "end": 48546,
+          "start": 48012
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::cli_runtime_and_mcp_control"
+        },
+        "kind": "MarkdownHeading",
+        "name": "CLI runtime and MCP control",
+        "span": {
+          "end": 2321,
+          "start": 1835
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::workspace_session_refresh_runtime"
+        },
+        "kind": "MarkdownHeading",
+        "name": "workspace session refresh runtime",
+        "span": {
+          "end": 54196,
+          "start": 53887
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::validation_policy_and_release_gates"
+        },
+        "kind": "MarkdownHeading",
+        "name": "validation policy and release gates",
+        "span": {
+          "end": 52987,
+          "start": 52654
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::core_indexing_pipeline"
+        },
+        "kind": "MarkdownHeading",
+        "name": "core indexing pipeline",
+        "span": {
+          "end": 14647,
+          "start": 13914
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::inferred_edge_runtime_and_session_store"
+        },
+        "kind": "MarkdownHeading",
+        "name": "inferred edge runtime and session store",
+        "span": {
+          "end": 22500,
+          "start": 21621
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::cli_surface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "CLI surface",
+        "span": {
+          "end": 2789,
+          "start": 2321
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::semantic_projection_indexes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "semantic projection indexes",
+        "span": {
+          "end": 46311,
+          "start": 45787
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::javascript_api_contract_surface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "JavaScript API contract surface",
+        "span": {
+          "end": 23000,
+          "start": 22500
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::javascript_runtime_and_reference_bridge"
+        },
+        "kind": "MarkdownHeading",
+        "name": "JavaScript runtime and reference bridge",
+        "span": {
+          "end": 23831,
+          "start": 23531
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::daemon_process_and_proxy_lifecycle"
+        },
+        "kind": "MarkdownHeading",
+        "name": "daemon, process, and proxy lifecycle",
+        "span": {
+          "end": 17072,
+          "start": 16791
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::language_adapter_family"
+        },
+        "kind": "MarkdownHeading",
+        "name": "language adapter family",
+        "span": {
+          "end": 24317,
+          "start": 23831
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::coordination_mutation_lease_and_policy_helpers"
+        },
+        "kind": "MarkdownHeading",
+        "name": "coordination mutation, lease, and policy helpers",
+        "span": {
+          "end": 11732,
+          "start": 10595
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::outcome_event_and_replay_memory"
+        },
+        "kind": "MarkdownHeading",
+        "name": "outcome event and replay memory",
+        "span": {
+          "end": 33708,
+          "start": 33167
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::cli_command_and_parse_surface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "CLI command and parse surface",
+        "span": {
+          "end": 1835,
+          "start": 1342
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::indexer_orchestration_and_snapshot_loading"
+        },
+        "kind": "MarkdownHeading",
+        "name": "indexer orchestration and snapshot loading",
+        "span": {
+          "end": 21621,
+          "start": 21071
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::impact_and_outcome_queries"
+        },
+        "kind": "MarkdownHeading",
+        "name": "impact and outcome queries",
+        "span": {
+          "end": 21071,
+          "start": 20584
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::coordination_store_and_domain_types"
+        },
+        "kind": "MarkdownHeading",
+        "name": "coordination store and domain types",
+        "span": {
+          "end": 13914,
+          "start": 13581
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::coordination_state_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "coordination state model",
+        "span": {
+          "end": 13581,
+          "start": 13070
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::concept_relation_and_intent_projections"
+        },
+        "kind": "MarkdownHeading",
+        "name": "concept, relation, and intent projections",
+        "span": {
+          "end": 9351,
+          "start": 8781
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::memory_recall_and_scoring"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory recall and scoring",
+        "span": {
+          "end": 30556,
+          "start": 30045
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::document_and_config_adapters"
+        },
+        "kind": "MarkdownHeading",
+        "name": "document and config adapters",
+        "span": {
+          "end": 19760,
+          "start": 18971
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::semantic_and_structural_memory_models"
+        },
+        "kind": "MarkdownHeading",
+        "name": "semantic and structural memory models",
+        "span": {
+          "end": 45237,
+          "start": 44687
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::locate_ranking_and_text_candidate_flow"
+        },
+        "kind": "MarkdownHeading",
+        "name": "locate ranking and text-candidate flow",
+        "span": {
+          "end": 24917,
+          "start": 24317
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::structural_memory_feature_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "structural memory feature model",
+        "span": {
+          "end": 49581,
+          "start": 49022
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::agent_inference_and_curation"
+        },
+        "kind": "MarkdownHeading",
+        "name": "agent inference and curation",
+        "span": {
+          "end": 1050,
+          "start": 551
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::curator_execution_flow"
+        },
+        "kind": "MarkdownHeading",
+        "name": "curator execution flow",
+        "span": {
+          "end": 16015,
+          "start": 15231
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::curator_backend_execution_and_prompting"
+        },
+        "kind": "MarkdownHeading",
+        "name": "curator backend execution and prompting",
+        "span": {
+          "end": 15231,
+          "start": 14647
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::memory_refresh_and_patch_outcome_recording"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory refresh and patch outcome recording",
+        "span": {
+          "end": 31343,
+          "start": 30556
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::memory_outcomes_and_session_history"
+        },
+        "kind": "MarkdownHeading",
+        "name": "memory outcomes and session history",
+        "span": {
+          "end": 29504,
+          "start": 29003
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::recall_signal_and_text_scoring"
+        },
+        "kind": "MarkdownHeading",
+        "name": "recall signal and text scoring",
+        "span": {
+          "end": 42986,
+          "start": 42696
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::projection_and_query_layer"
+        },
+        "kind": "MarkdownHeading",
+        "name": "projection and query layer",
+        "span": {
+          "end": 39252,
+          "start": 38163
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::curator_rule_synthesis_and_proposal_types"
+        },
+        "kind": "MarkdownHeading",
+        "name": "curator rule synthesis and proposal types",
+        "span": {
+          "end": 16791,
+          "start": 16015
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::coordination_and_plan_runtime_queries"
+        },
+        "kind": "MarkdownHeading",
+        "name": "coordination and plan-runtime queries",
+        "span": {
+          "end": 10595,
+          "start": 10054
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::markdown_heading_and_intent_adapter"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Markdown heading and intent adapter",
+        "span": {
+          "end": 25485,
+          "start": 24917
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::repo_publication_guards"
+        },
+        "kind": "MarkdownHeading",
+        "name": "repo publication guards",
+        "span": {
+          "end": 43544,
+          "start": 42986
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::dashboard_surface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "dashboard surface",
+        "span": {
+          "end": 18971,
+          "start": 18068
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::principal_identity_and_mutation_provenance"
+        },
+        "kind": "MarkdownHeading",
+        "name": "principal identity and mutation provenance",
+        "span": {
+          "end": 38163,
+          "start": 37820
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::compact_expansion_and_concept_views"
+        },
+        "kind": "MarkdownHeading",
+        "name": "compact expansion and concept views",
+        "span": {
+          "end": 5648,
+          "start": 4637
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::semantic_memory_backend_runtime"
+        },
+        "kind": "MarkdownHeading",
+        "name": "semantic memory backend runtime",
+        "span": {
+          "end": 45787,
+          "start": 45237
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::mcp_query_and_resource_serving"
+        },
+        "kind": "MarkdownHeading",
+        "name": "MCP query and resource serving",
+        "span": {
+          "end": 27369,
+          "start": 26864
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::coordination_operations_and_policy"
+        },
+        "kind": "MarkdownHeading",
+        "name": "coordination operations and policy",
+        "span": {
+          "end": 12509,
+          "start": 11732
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::coordination_query_and_blocker_operations"
+        },
+        "kind": "MarkdownHeading",
+        "name": "coordination query and blocker operations",
+        "span": {
+          "end": 13070,
+          "start": 12509
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::mcp_runtime_lifecycle"
+        },
+        "kind": "MarkdownHeading",
+        "name": "MCP runtime lifecycle",
+        "span": {
+          "end": 27850,
+          "start": 27369
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::query_execution_and_semantic_context_serving"
+        },
+        "kind": "MarkdownHeading",
+        "name": "query execution and semantic-context serving",
+        "span": {
+          "end": 41918,
+          "start": 41374
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::anchor_change_and_lineage_ir"
+        },
+        "kind": "MarkdownHeading",
+        "name": "anchor, change, and lineage IR",
+        "span": {
+          "end": 1342,
+          "start": 1050
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::plan_graph_compatibility_and_runtime_overlays"
+        },
+        "kind": "MarkdownHeading",
+        "name": "plan-graph compatibility and runtime overlays",
+        "span": {
+          "end": 37820,
+          "start": 37458
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::validation_feedback_and_metrics_loop"
+        },
+        "kind": "MarkdownHeading",
+        "name": "validation feedback and metrics loop",
+        "span": {
+          "end": 52654,
+          "start": 51597
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::javascript_query_abi"
+        },
+        "kind": "MarkdownHeading",
+        "name": "JavaScript query ABI",
+        "span": {
+          "end": 23531,
+          "start": 23000
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::dashboard_routing_and_assets"
+        },
+        "kind": "MarkdownHeading",
+        "name": "dashboard routing and assets",
+        "span": {
+          "end": 18068,
+          "start": 17576
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::rust_tree_sitter_adapter_pipeline"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Rust tree-sitter adapter pipeline",
+        "span": {
+          "end": 44687,
+          "start": 44121
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::validation_and_dogfooding_loop"
+        },
+        "kind": "MarkdownHeading",
+        "name": "validation and dogfooding loop",
+        "span": {
+          "end": 51597,
+          "start": 51313
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::plan_and_coordination_ir"
+        },
+        "kind": "MarkdownHeading",
+        "name": "plan and coordination IR",
+        "span": {
+          "end": 35827,
+          "start": 35289
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::task_brief_and_coordination_summary_views"
+        },
+        "kind": "MarkdownHeading",
+        "name": "task-brief and coordination summary views",
+        "span": {
+          "end": 51313,
+          "start": 50727
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::composite_memory_routing_and_entry_storage"
+        },
+        "kind": "MarkdownHeading",
+        "name": "composite memory routing and entry storage",
+        "span": {
+          "end": 6896,
+          "start": 6567
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::parse_resolution_and_reanchor_flow"
+        },
+        "kind": "MarkdownHeading",
+        "name": "parse, resolution, and reanchor flow",
+        "span": {
+          "end": 34447,
+          "start": 33708
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::query_coordination_and_plan_views"
+        },
+        "kind": "MarkdownHeading",
+        "name": "query coordination and plan views",
+        "span": {
+          "end": 41374,
+          "start": 40616
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::mcp_runtime_surface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "MCP runtime surface",
+        "span": {
+          "end": 29003,
+          "start": 27850
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::concept_and_relation_event_streams"
+        },
+        "kind": "MarkdownHeading",
+        "name": "concept and relation event streams",
+        "span": {
+          "end": 8781,
+          "start": 8238
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::open_and_workset_follow_through"
+        },
+        "kind": "MarkdownHeading",
+        "name": "open and workset follow-through",
+        "span": {
+          "end": 33167,
+          "start": 32616
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md"
+        },
+        "kind": "Document",
+        "name": "docs/prism/relations.md",
+        "span": {
+          "end": 54931,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md"
+        },
+        "kind": "Document",
+        "name": "docs/prism/relations.md",
+        "span": {
+          "end": 607,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::projection_metadata"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Projection Metadata",
+        "span": {
+          "end": 445,
+          "start": 130
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::projection_metadata"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Projection Metadata",
+        "span": {
+          "end": 439,
+          "start": 130
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::prism_relations"
+        },
+        "kind": "MarkdownHeading",
+        "name": "PRISM Relations",
+        "span": {
+          "end": 54931,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::prism_relations"
+        },
+        "kind": "MarkdownHeading",
+        "name": "PRISM Relations",
+        "span": {
+          "end": 607,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::overview"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Overview",
+        "span": {
+          "end": 551,
+          "start": 445
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::prism::relations_md::overview"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Overview",
+        "span": {
+          "end": 607,
+          "start": 439
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 98,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/relations.md"
+    ],
+    "files": [
+      377
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

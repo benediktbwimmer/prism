@@ -1,0 +1,1161 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdy93y6jf2j6g5x3z6d21",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 489
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitExecutionPolicy::require_task_branch",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitExecutionPolicy::max_fetch_age_seconds",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPublishReport::staged_paths",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPreflightReport",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitExecutionPolicy",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitExecutionPolicy::max_commits_behind_target",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPublishReport::attempted_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::TaskGitExecution::pending_task_status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPreflightReport::max_commits_behind_target",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPreflightReport::head_commit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPublishReport",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPreflightReport::worktree_dirty",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitExecutionPolicy::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPublishReport::coordination_commit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPreflightReport::current_branch",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPreflightReport::target_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPreflightReport::target_branch",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::TaskGitExecution::last_publish",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitExecutionPolicy::target_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPreflightReport::publish_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPreflightReport::checked_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::default_target_branch",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPublishReport::code_commit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPreflightReport::merge_base_commit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::default_max_commits_behind_target",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPreflightReport::behind_target_commits",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::TaskGitExecution::target_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPreflightReport::target_commit",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitExecutionPolicy::target_branch",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPublishReport::publish_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::TaskGitExecution::publish_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitExecutionPolicy::effective_target_ref",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPublishReport::failure",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitExecutionCompletionMode",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitExecutionPolicy::start_mode",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::TaskGitExecution::last_preflight",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPreflightReport::dirty_paths",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPreflightReport::protected_dirty_paths",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPublishReport::protected_paths",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::TaskGitExecution::source_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::TaskGitExecution::target_branch",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPublishReport::pushed_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::TaskGitExecution",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPreflightReport::fetch_age_seconds",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPreflightReport::failure",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitExecutionStartMode",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::TaskGitExecution::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitPreflightReport::source_ref",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::git_execution::GitExecutionPolicy::completion_mode",
+        "kind": "Field"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 50 added, 0 removed, 0 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 50,
+        "changedSymbolCount": 50,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "removedCount": 0,
+        "updatedCount": 0
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitExecutionPolicy::require_task_branch"
+        },
+        "kind": "Field",
+        "name": "require_task_branch",
+        "span": {
+          "end": 1143,
+          "start": 1114
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Module",
+          "path": "prism_coordination::git_execution"
+        },
+        "kind": "Module",
+        "name": "git_execution",
+        "span": {
+          "end": 3827,
+          "start": 0
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitExecutionPolicy::max_fetch_age_seconds"
+        },
+        "kind": "Field",
+        "name": "max_fetch_age_seconds",
+        "span": {
+          "end": 1309,
+          "start": 1271
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPublishReport::staged_paths"
+        },
+        "kind": "Field",
+        "name": "staged_paths",
+        "span": {
+          "end": 3029,
+          "start": 3000
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::git_execution::GitPreflightReport"
+        },
+        "kind": "Struct",
+        "name": "GitPreflightReport",
+        "span": {
+          "end": 2556,
+          "start": 1628
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::git_execution::GitExecutionPolicy"
+        },
+        "kind": "Struct",
+        "name": "GitExecutionPolicy",
+        "span": {
+          "end": 1312,
+          "start": 779
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitExecutionPolicy::max_commits_behind_target"
+        },
+        "kind": "Field",
+        "name": "max_commits_behind_target",
+        "span": {
+          "end": 1243,
+          "start": 1209
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPublishReport::attempted_at"
+        },
+        "kind": "Field",
+        "name": "attempted_at",
+        "span": {
+          "end": 2729,
+          "start": 2702
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::TaskGitExecution::pending_task_status"
+        },
+        "kind": "Field",
+        "name": "pending_task_status",
+        "span": {
+          "end": 3443,
+          "start": 3388
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPreflightReport::max_commits_behind_target"
+        },
+        "kind": "Field",
+        "name": "max_commits_behind_target",
+        "span": {
+          "end": 1957,
+          "start": 1923
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPreflightReport::head_commit"
+        },
+        "kind": "Field",
+        "name": "head_commit",
+        "span": {
+          "end": 2140,
+          "start": 2109
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::git_execution::GitPublishReport"
+        },
+        "kind": "Struct",
+        "name": "GitPublishReport",
+        "span": {
+          "end": 3147,
+          "start": 2668
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPreflightReport::worktree_dirty"
+        },
+        "kind": "Field",
+        "name": "worktree_dirty",
+        "span": {
+          "end": 2376,
+          "start": 2352
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Impl",
+          "path": "prism_coordination::git_execution::GitExecutionPolicy::impl"
+        },
+        "kind": "Impl",
+        "name": "GitExecutionPolicy",
+        "span": {
+          "end": 1516,
+          "start": 1314
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPublishReport::coordination_commit"
+        },
+        "kind": "Field",
+        "name": "coordination_commit",
+        "span": {
+          "end": 2914,
+          "start": 2875
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPreflightReport::current_branch"
+        },
+        "kind": "Field",
+        "name": "current_branch",
+        "span": {
+          "end": 2081,
+          "start": 2047
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPreflightReport::target_ref"
+        },
+        "kind": "Field",
+        "name": "target_ref",
+        "span": {
+          "end": 1774,
+          "start": 1744
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPreflightReport::target_branch"
+        },
+        "kind": "Field",
+        "name": "target_branch",
+        "span": {
+          "end": 1895,
+          "start": 1870
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::TaskGitExecution::last_publish"
+        },
+        "kind": "Field",
+        "name": "last_publish",
+        "span": {
+          "end": 3823,
+          "start": 3781
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitExecutionPolicy::target_ref"
+        },
+        "kind": "Field",
+        "name": "target_ref",
+        "span": {
+          "end": 1007,
+          "start": 977
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPreflightReport::publish_ref"
+        },
+        "kind": "Field",
+        "name": "publish_ref",
+        "span": {
+          "end": 1833,
+          "start": 1802
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPreflightReport::checked_at"
+        },
+        "kind": "Field",
+        "name": "checked_at",
+        "span": {
+          "end": 1864,
+          "start": 1839
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::git_execution::default_target_branch"
+        },
+        "kind": "Function",
+        "name": "default_target_branch",
+        "span": {
+          "end": 178,
+          "start": 115
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPublishReport::code_commit"
+        },
+        "kind": "Field",
+        "name": "code_commit",
+        "span": {
+          "end": 2847,
+          "start": 2816
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPreflightReport::merge_base_commit"
+        },
+        "kind": "Field",
+        "name": "merge_base_commit",
+        "span": {
+          "end": 2266,
+          "start": 2229
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::git_execution::default_max_commits_behind_target"
+        },
+        "kind": "Function",
+        "name": "default_max_commits_behind_target",
+        "span": {
+          "end": 235,
+          "start": 180
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPreflightReport::behind_target_commits"
+        },
+        "kind": "Field",
+        "name": "behind_target_commits",
+        "span": {
+          "end": 2324,
+          "start": 2294
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::TaskGitExecution::target_ref"
+        },
+        "kind": "Field",
+        "name": "target_ref",
+        "span": {
+          "end": 3559,
+          "start": 3529
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPreflightReport::target_commit"
+        },
+        "kind": "Field",
+        "name": "target_commit",
+        "span": {
+          "end": 2201,
+          "start": 2168
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitExecutionPolicy::target_branch"
+        },
+        "kind": "Field",
+        "name": "target_branch",
+        "span": {
+          "end": 1086,
+          "start": 1061
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPublishReport::publish_ref"
+        },
+        "kind": "Field",
+        "name": "publish_ref",
+        "span": {
+          "end": 2788,
+          "start": 2757
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::TaskGitExecution::publish_ref"
+        },
+        "kind": "Field",
+        "name": "publish_ref",
+        "span": {
+          "end": 3618,
+          "start": 3587
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::git_execution::GitExecutionPolicy::effective_target_ref"
+        },
+        "kind": "Method",
+        "name": "effective_target_ref",
+        "span": {
+          "end": 1514,
+          "start": 1344
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPublishReport::failure"
+        },
+        "kind": "Field",
+        "name": "failure",
+        "span": {
+          "end": 3144,
+          "start": 3117
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Enum",
+          "path": "prism_coordination::git_execution::GitExecutionCompletionMode"
+        },
+        "kind": "Enum",
+        "name": "GitExecutionCompletionMode",
+        "span": {
+          "end": 658,
+          "start": 572
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitExecutionPolicy::start_mode"
+        },
+        "kind": "Field",
+        "name": "start_mode",
+        "span": {
+          "end": 874,
+          "start": 837
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::TaskGitExecution::last_preflight"
+        },
+        "kind": "Field",
+        "name": "last_preflight",
+        "span": {
+          "end": 3753,
+          "start": 3707
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPreflightReport::dirty_paths"
+        },
+        "kind": "Field",
+        "name": "dirty_paths",
+        "span": {
+          "end": 2432,
+          "start": 2404
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPreflightReport::protected_dirty_paths"
+        },
+        "kind": "Field",
+        "name": "protected_dirty_paths",
+        "span": {
+          "end": 2498,
+          "start": 2460
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPublishReport::protected_paths"
+        },
+        "kind": "Field",
+        "name": "protected_paths",
+        "span": {
+          "end": 3089,
+          "start": 3057
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::TaskGitExecution::source_ref"
+        },
+        "kind": "Field",
+        "name": "source_ref",
+        "span": {
+          "end": 3501,
+          "start": 3471
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::TaskGitExecution::target_branch"
+        },
+        "kind": "Field",
+        "name": "target_branch",
+        "span": {
+          "end": 3679,
+          "start": 3646
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPublishReport::pushed_ref"
+        },
+        "kind": "Field",
+        "name": "pushed_ref",
+        "span": {
+          "end": 2972,
+          "start": 2942
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Struct",
+          "path": "prism_coordination::git_execution::TaskGitExecution"
+        },
+        "kind": "Struct",
+        "name": "TaskGitExecution",
+        "span": {
+          "end": 3826,
+          "start": 3264
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPreflightReport::fetch_age_seconds"
+        },
+        "kind": "Field",
+        "name": "fetch_age_seconds",
+        "span": {
+          "end": 2019,
+          "start": 1985
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPreflightReport::failure"
+        },
+        "kind": "Field",
+        "name": "failure",
+        "span": {
+          "end": 2553,
+          "start": 2526
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Enum",
+          "path": "prism_coordination::git_execution::GitExecutionStartMode"
+        },
+        "kind": "Enum",
+        "name": "GitExecutionStartMode",
+        "span": {
+          "end": 444,
+          "start": 363
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::TaskGitExecution::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 3360,
+          "start": 3320
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitPreflightReport::source_ref"
+        },
+        "kind": "Field",
+        "name": "source_ref",
+        "span": {
+          "end": 1716,
+          "start": 1686
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Field",
+          "path": "prism_coordination::git_execution::GitExecutionPolicy::completion_mode"
+        },
+        "kind": "Field",
+        "name": "completion_mode",
+        "span": {
+          "end": 949,
+          "start": 902
+        },
+        "status": "added"
+      }
+    ],
+    "changedSymbolsTotalCount": 50,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/git_execution.rs"
+    ],
+    "files": [
+      489
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

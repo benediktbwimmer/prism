@@ -1,0 +1,246 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdxdfhxdnfpxc3p1e3kkb",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 254
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::coordination_surface",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::coordination_surface::coordination_resume_mutation_dispatches_through_authenticated_host",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::coordination_surface::multi_session_hosts_coordinate_handoff_review_and_neighbor_claims",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::coordination_surface::mcp_server_reports_review_queues_and_blockers_via_prism_query",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::tests::coordination_surface::coordination_workflow_helpers_summarize_inbox_context_and_claim_preview",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 5 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 10,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/coordination_surface.rs",
+        "removedCount": 0,
+        "updatedCount": 10
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/coordination_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::tests::coordination_surface"
+        },
+        "kind": "Module",
+        "name": "coordination_surface",
+        "span": {
+          "end": 25397,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/coordination_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::tests::coordination_surface"
+        },
+        "kind": "Module",
+        "name": "coordination_surface",
+        "span": {
+          "end": 25386,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/coordination_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::coordination_surface::coordination_resume_mutation_dispatches_through_authenticated_host"
+        },
+        "kind": "Function",
+        "name": "coordination_resume_mutation_dispatches_through_authenticated_host",
+        "span": {
+          "end": 8106,
+          "start": 5582
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/coordination_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::coordination_surface::coordination_resume_mutation_dispatches_through_authenticated_host"
+        },
+        "kind": "Function",
+        "name": "coordination_resume_mutation_dispatches_through_authenticated_host",
+        "span": {
+          "end": 8110,
+          "start": 5586
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/coordination_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::coordination_surface::multi_session_hosts_coordinate_handoff_review_and_neighbor_claims"
+        },
+        "kind": "Function",
+        "name": "multi_session_hosts_coordinate_handoff_review_and_neighbor_claims",
+        "span": {
+          "end": 25396,
+          "start": 13423
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/coordination_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::coordination_surface::multi_session_hosts_coordinate_handoff_review_and_neighbor_claims"
+        },
+        "kind": "Function",
+        "name": "multi_session_hosts_coordinate_handoff_review_and_neighbor_claims",
+        "span": {
+          "end": 25385,
+          "start": 13412
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/coordination_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::coordination_surface::mcp_server_reports_review_queues_and_blockers_via_prism_query"
+        },
+        "kind": "Function",
+        "name": "mcp_server_reports_review_queues_and_blockers_via_prism_query",
+        "span": {
+          "end": 5572,
+          "start": 499
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/coordination_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::coordination_surface::mcp_server_reports_review_queues_and_blockers_via_prism_query"
+        },
+        "kind": "Function",
+        "name": "mcp_server_reports_review_queues_and_blockers_via_prism_query",
+        "span": {
+          "end": 5576,
+          "start": 503
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/coordination_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::coordination_surface::coordination_workflow_helpers_summarize_inbox_context_and_claim_preview"
+        },
+        "kind": "Function",
+        "name": "coordination_workflow_helpers_summarize_inbox_context_and_claim_preview",
+        "span": {
+          "end": 13413,
+          "start": 8116
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/coordination_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::tests::coordination_surface::coordination_workflow_helpers_summarize_inbox_context_and_claim_preview"
+        },
+        "kind": "Function",
+        "name": "coordination_workflow_helpers_summarize_inbox_context_and_claim_preview",
+        "span": {
+          "end": 13402,
+          "start": 8120
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 10,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests/coordination_surface.rs"
+    ],
+    "files": [
+      254
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

@@ -1,0 +1,614 @@
+{
+  "meta": {
+    "id": "outcome:01kn8affj2wzybhvd2x6sjvyws",
+    "ts": 1775174663,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn8affh0tgpx54egr5ct7qeq",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/codex/b",
+      "instance_id": "instance:64747:1775174298250",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 314
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery::Prism::cached_plan_entries",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery::PlanDiscoveryCache::built_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery::PlanDiscoveryCache::entries",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery::Prism::store_plan_entries_cache",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery::PlanDiscoveryCache::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery::Prism::invalidate_plan_discovery_cache",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery::plan_list_entry_matches_contains_filter",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery::PlanDiscoveryCache::is_fresh",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery::PlanDiscoveryCache",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery::filter_plan_entries",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery::normalized_plan_terms",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery::normalize_plan_term",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery::Prism::plans_for_runtime",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery::plan_discovery_summary",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery::Prism::plans",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery::Prism::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery::plan_matches_contains_filter",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::plan_discovery::plan_status_rank",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 10 added, 0 removed, 9 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 10,
+        "changedSymbolCount": 28,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "removedCount": 0,
+        "updatedCount": 18
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_discovery::Prism::cached_plan_entries"
+        },
+        "kind": "Method",
+        "name": "cached_plan_entries",
+        "span": {
+          "end": 3510,
+          "start": 2968
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::plan_discovery::PlanDiscoveryCache::built_at"
+        },
+        "kind": "Field",
+        "name": "built_at",
+        "span": {
+          "end": 306,
+          "start": 293
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::plan_discovery::PlanDiscoveryCache::entries"
+        },
+        "kind": "Field",
+        "name": "entries",
+        "span": {
+          "end": 339,
+          "start": 312
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_discovery::Prism::store_plan_entries_cache"
+        },
+        "kind": "Method",
+        "name": "store_plan_entries_cache",
+        "span": {
+          "end": 3834,
+          "start": 3516
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Impl",
+          "path": "prism_query::plan_discovery::PlanDiscoveryCache::impl"
+        },
+        "kind": "Impl",
+        "name": "PlanDiscoveryCache",
+        "span": {
+          "end": 495,
+          "start": 344
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_discovery::Prism::invalidate_plan_discovery_cache"
+        },
+        "kind": "Method",
+        "name": "invalidate_plan_discovery_cache",
+        "span": {
+          "end": 709,
+          "start": 514
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_discovery::plan_list_entry_matches_contains_filter"
+        },
+        "kind": "Function",
+        "name": "plan_list_entry_matches_contains_filter",
+        "span": {
+          "end": 5048,
+          "start": 4439
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_discovery::PlanDiscoveryCache::is_fresh"
+        },
+        "kind": "Method",
+        "name": "is_fresh",
+        "span": {
+          "end": 493,
+          "start": 374
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Struct",
+          "path": "prism_query::plan_discovery::PlanDiscoveryCache"
+        },
+        "kind": "Struct",
+        "name": "PlanDiscoveryCache",
+        "span": {
+          "end": 342,
+          "start": 250
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_discovery::filter_plan_entries"
+        },
+        "kind": "Function",
+        "name": "filter_plan_entries",
+        "span": {
+          "end": 5579,
+          "start": 5050
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_discovery::normalized_plan_terms"
+        },
+        "kind": "Function",
+        "name": "normalized_plan_terms",
+        "span": {
+          "end": 3418,
+          "start": 3116
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_discovery::normalized_plan_terms"
+        },
+        "kind": "Function",
+        "name": "normalized_plan_terms",
+        "span": {
+          "end": 5883,
+          "start": 5581
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_discovery::normalize_plan_term"
+        },
+        "kind": "Function",
+        "name": "normalize_plan_term",
+        "span": {
+          "end": 3876,
+          "start": 3420
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_discovery::normalize_plan_term"
+        },
+        "kind": "Function",
+        "name": "normalize_plan_term",
+        "span": {
+          "end": 6341,
+          "start": 5885
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_discovery::Prism::plans_for_runtime"
+        },
+        "kind": "Method",
+        "name": "plans_for_runtime",
+        "span": {
+          "end": 2511,
+          "start": 532
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_discovery::Prism::plans_for_runtime"
+        },
+        "kind": "Method",
+        "name": "plans_for_runtime",
+        "span": {
+          "end": 2962,
+          "start": 1098
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_discovery::plan_discovery_summary"
+        },
+        "kind": "Function",
+        "name": "plan_discovery_summary",
+        "span": {
+          "end": 5012,
+          "start": 4160
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_discovery::plan_discovery_summary"
+        },
+        "kind": "Function",
+        "name": "plan_discovery_summary",
+        "span": {
+          "end": 7477,
+          "start": 6625
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_discovery::Prism::plans"
+        },
+        "kind": "Method",
+        "name": "plans",
+        "span": {
+          "end": 526,
+          "start": 149
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::plan_discovery::Prism::plans"
+        },
+        "kind": "Method",
+        "name": "plans",
+        "span": {
+          "end": 1092,
+          "start": 715
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Impl",
+          "path": "prism_query::plan_discovery::Prism::impl"
+        },
+        "kind": "Impl",
+        "name": "Prism",
+        "span": {
+          "end": 2513,
+          "start": 132
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Impl",
+          "path": "prism_query::plan_discovery::Prism::impl"
+        },
+        "kind": "Impl",
+        "name": "Prism",
+        "span": {
+          "end": 3836,
+          "start": 497
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Module",
+          "path": "prism_query::plan_discovery"
+        },
+        "kind": "Module",
+        "name": "plan_discovery",
+        "span": {
+          "end": 5013,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Module",
+          "path": "prism_query::plan_discovery"
+        },
+        "kind": "Module",
+        "name": "plan_discovery",
+        "span": {
+          "end": 7478,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_discovery::plan_matches_contains_filter"
+        },
+        "kind": "Function",
+        "name": "plan_matches_contains_filter",
+        "span": {
+          "end": 3114,
+          "start": 2515
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_discovery::plan_matches_contains_filter"
+        },
+        "kind": "Function",
+        "name": "plan_matches_contains_filter",
+        "span": {
+          "end": 4437,
+          "start": 3838
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_discovery::plan_status_rank"
+        },
+        "kind": "Function",
+        "name": "plan_status_rank",
+        "span": {
+          "end": 4158,
+          "start": 3878
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::plan_discovery::plan_status_rank"
+        },
+        "kind": "Function",
+        "name": "plan_status_rank",
+        "span": {
+          "end": 6623,
+          "start": 6343
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 28,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/plan_discovery.rs"
+    ],
+    "files": [
+      314
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

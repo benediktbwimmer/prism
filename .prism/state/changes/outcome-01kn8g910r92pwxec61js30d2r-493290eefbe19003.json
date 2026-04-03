@@ -1,0 +1,3746 @@
+{
+  "meta": {
+    "id": "outcome:01kn8g910r92pwxec61js30d2r",
+    "ts": 1775180743,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn8g90b7mzcxh03dzd1pn7e4",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6167:1775180633341",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 269
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::plan_scheduling_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::curator_proposal_state",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ConceptPacketTruncationStats::core_members_omitted",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::contract_health_next_action",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::contract_stability_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::change_impact_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::workspace_revision_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ad_hoc_plan_projection_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::concept_curation_hints_view_from_packet",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::curator_disposition_label",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::validation_check_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::concept_publication_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::concept_decode_lens_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::concept_publication_status_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::contract_guarantee_strength_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::entry_curator_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::plan_graph_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::curator_proposal",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::concept_packet_next_action",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::contract_health_signals_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::concept_relation_kind_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::plan_node_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::plan_list_entry_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::plan_execution_overlay_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::plan_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::plan_binding_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::concept_verbosity_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ad_hoc_plan_projection_diff_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::validation_recipe_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ConceptVerbosity::max_relation_evidence_count",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::artifact_risk_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ConceptVerbosity::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::truncate_vec_with_omitted",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::co_change_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::contract_target_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ConceptPacketTruncationStats::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::policy_violation_record_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::merge_promoted_checks",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::promoted_validation_checks",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::contract_status_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::curator_proposal_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::plan_summary_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ConceptVerbosity",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::claim_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ad_hoc_plan_projection_summary_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ConceptPacketTruncationStats::likely_tests_omitted",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::plan_node_recommendation_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::contract_guarantee_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::entry_curator_category",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::plan_acceptance_criterion_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::curator_trigger_label",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::contract_compatibility_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::curator_job_status_label",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::blocker_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::entry_overlaps_anchors",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ConceptPacketTruncationStats::relation_evidence_omitted",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ConceptPacketTruncationStats::evidence_omitted",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::contract_health_status_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::policy_violation_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::task_risk_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ConceptVerbosity::max_evidence_count",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::contract_resolution_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::curator_job_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::conflict_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::plan_edge_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ConceptPacketTruncationStats",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::blocker_cause_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::contract_packet_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::concept_packet_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ConceptPacketTruncationStats::is_empty",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ConceptPacketTruncationStats::into_view",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::task_validation_recipe_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::promoted_summary_texts",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::artifact_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::concept_provenance_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::contract_health_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::plan_node_blocker_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::contract_validation_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ConceptVerbosity::max_relation_count",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::drift_candidate_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::memory_entry_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::truncate_concept_relations",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::concept_scope_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::edge_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::coordination_task_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::promoted_memory_entries",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::concept_relation_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ConceptPacketTruncationStats::relations_omitted",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::node_id_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::memory_event_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::scored_memory_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::anchor_ref_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::contract_kind_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::concept_resolution_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::curator_proposal_record_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::task_intent_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ConceptVerbosity::max_member_count",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::inferred_edge_record_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::views::ConceptPacketTruncationStats::supporting_members_omitted",
+        "kind": "Field"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 1 added, 0 removed, 99 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 1,
+        "changedSymbolCount": 199,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "removedCount": 0,
+        "updatedCount": 198
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_scheduling_view"
+        },
+        "kind": "Function",
+        "name": "plan_scheduling_view",
+        "span": {
+          "end": 50093,
+          "start": 49810
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::curator_proposal_state"
+        },
+        "kind": "Function",
+        "name": "curator_proposal_state",
+        "span": {
+          "end": 10958,
+          "start": 10479
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::curator_proposal_state"
+        },
+        "kind": "Function",
+        "name": "curator_proposal_state",
+        "span": {
+          "end": 10982,
+          "start": 10503
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats::core_members_omitted"
+        },
+        "kind": "Field",
+        "name": "core_members_omitted",
+        "span": {
+          "end": 4038,
+          "start": 4000
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats::core_members_omitted"
+        },
+        "kind": "Field",
+        "name": "core_members_omitted",
+        "span": {
+          "end": 4062,
+          "start": 4024
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_health_next_action"
+        },
+        "kind": "Function",
+        "name": "contract_health_next_action",
+        "span": {
+          "end": 34921,
+          "start": 31204
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_health_next_action"
+        },
+        "kind": "Function",
+        "name": "contract_health_next_action",
+        "span": {
+          "end": 34945,
+          "start": 31228
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_stability_view"
+        },
+        "kind": "Function",
+        "name": "contract_stability_view",
+        "span": {
+          "end": 30076,
+          "start": 29593
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_stability_view"
+        },
+        "kind": "Function",
+        "name": "contract_stability_view",
+        "span": {
+          "end": 30100,
+          "start": 29617
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::change_impact_view"
+        },
+        "kind": "Function",
+        "name": "change_impact_view",
+        "span": {
+          "end": 12046,
+          "start": 11269
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::change_impact_view"
+        },
+        "kind": "Function",
+        "name": "change_impact_view",
+        "span": {
+          "end": 12070,
+          "start": 11293
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::workspace_revision_view"
+        },
+        "kind": "Function",
+        "name": "workspace_revision_view",
+        "span": {
+          "end": 48559,
+          "start": 48318
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::workspace_revision_view"
+        },
+        "kind": "Function",
+        "name": "workspace_revision_view",
+        "span": {
+          "end": 48583,
+          "start": 48342
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::ad_hoc_plan_projection_view"
+        },
+        "kind": "Function",
+        "name": "ad_hoc_plan_projection_view",
+        "span": {
+          "end": 52950,
+          "start": 51632
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::ad_hoc_plan_projection_view"
+        },
+        "kind": "Function",
+        "name": "ad_hoc_plan_projection_view",
+        "span": {
+          "end": 53379,
+          "start": 52061
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_curation_hints_view_from_packet"
+        },
+        "kind": "Function",
+        "name": "concept_curation_hints_view_from_packet",
+        "span": {
+          "end": 17782,
+          "start": 16503
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_curation_hints_view_from_packet"
+        },
+        "kind": "Function",
+        "name": "concept_curation_hints_view_from_packet",
+        "span": {
+          "end": 17806,
+          "start": 16527
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::curator_disposition_label"
+        },
+        "kind": "Function",
+        "name": "curator_disposition_label",
+        "span": {
+          "end": 10477,
+          "start": 10171
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::curator_disposition_label"
+        },
+        "kind": "Function",
+        "name": "curator_disposition_label",
+        "span": {
+          "end": 10501,
+          "start": 10195
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::validation_check_view"
+        },
+        "kind": "Function",
+        "name": "validation_check_view",
+        "span": {
+          "end": 48082,
+          "start": 47872
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::validation_check_view"
+        },
+        "kind": "Function",
+        "name": "validation_check_view",
+        "span": {
+          "end": 48106,
+          "start": 47896
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_publication_view"
+        },
+        "kind": "Function",
+        "name": "concept_publication_view",
+        "span": {
+          "end": 38191,
+          "start": 37747
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_publication_view"
+        },
+        "kind": "Function",
+        "name": "concept_publication_view",
+        "span": {
+          "end": 38215,
+          "start": 37771
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_decode_lens_view"
+        },
+        "kind": "Function",
+        "name": "concept_decode_lens_view",
+        "span": {
+          "end": 13145,
+          "start": 12680
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_decode_lens_view"
+        },
+        "kind": "Function",
+        "name": "concept_decode_lens_view",
+        "span": {
+          "end": 13169,
+          "start": 12704
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_publication_status_view"
+        },
+        "kind": "Function",
+        "name": "concept_publication_status_view",
+        "span": {
+          "end": 37745,
+          "start": 37443
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_publication_status_view"
+        },
+        "kind": "Function",
+        "name": "concept_publication_status_view",
+        "span": {
+          "end": 37769,
+          "start": 37467
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_guarantee_strength_view"
+        },
+        "kind": "Function",
+        "name": "contract_guarantee_strength_view",
+        "span": {
+          "end": 31202,
+          "start": 30805
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_guarantee_strength_view"
+        },
+        "kind": "Function",
+        "name": "contract_guarantee_strength_view",
+        "span": {
+          "end": 31226,
+          "start": 30829
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::entry_curator_kind"
+        },
+        "kind": "Function",
+        "name": "entry_curator_kind",
+        "span": {
+          "end": 43352,
+          "start": 43160
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::entry_curator_kind"
+        },
+        "kind": "Function",
+        "name": "entry_curator_kind",
+        "span": {
+          "end": 43376,
+          "start": 43184
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_graph_view"
+        },
+        "kind": "Function",
+        "name": "plan_graph_view",
+        "span": {
+          "end": 50372,
+          "start": 49666
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_graph_view"
+        },
+        "kind": "Function",
+        "name": "plan_graph_view",
+        "span": {
+          "end": 50801,
+          "start": 50095
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::curator_proposal"
+        },
+        "kind": "Function",
+        "name": "curator_proposal",
+        "span": {
+          "end": 11267,
+          "start": 10960
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::curator_proposal"
+        },
+        "kind": "Function",
+        "name": "curator_proposal",
+        "span": {
+          "end": 11291,
+          "start": 10984
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_packet_next_action"
+        },
+        "kind": "Function",
+        "name": "concept_packet_next_action",
+        "span": {
+          "end": 23206,
+          "start": 17784
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_packet_next_action"
+        },
+        "kind": "Function",
+        "name": "concept_packet_next_action",
+        "span": {
+          "end": 23230,
+          "start": 17808
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_health_signals_view"
+        },
+        "kind": "Function",
+        "name": "contract_health_signals_view",
+        "span": {
+          "end": 35409,
+          "start": 34923
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_health_signals_view"
+        },
+        "kind": "Function",
+        "name": "contract_health_signals_view",
+        "span": {
+          "end": 35433,
+          "start": 34947
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_relation_kind_view"
+        },
+        "kind": "Function",
+        "name": "concept_relation_kind_view",
+        "span": {
+          "end": 38867,
+          "start": 38193
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_relation_kind_view"
+        },
+        "kind": "Function",
+        "name": "concept_relation_kind_view",
+        "span": {
+          "end": 38891,
+          "start": 38217
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_node_view"
+        },
+        "kind": "Function",
+        "name": "plan_node_view",
+        "span": {
+          "end": 58116,
+          "start": 57177
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_node_view"
+        },
+        "kind": "Function",
+        "name": "plan_node_view",
+        "span": {
+          "end": 58545,
+          "start": 57606
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_list_entry_view"
+        },
+        "kind": "Function",
+        "name": "plan_list_entry_view",
+        "span": {
+          "end": 49664,
+          "start": 49121
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_list_entry_view"
+        },
+        "kind": "Function",
+        "name": "plan_list_entry_view",
+        "span": {
+          "end": 49808,
+          "start": 49205
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_execution_overlay_view"
+        },
+        "kind": "Function",
+        "name": "plan_execution_overlay_view",
+        "span": {
+          "end": 50910,
+          "start": 50374
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_execution_overlay_view"
+        },
+        "kind": "Function",
+        "name": "plan_execution_overlay_view",
+        "span": {
+          "end": 51339,
+          "start": 50803
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_view"
+        },
+        "kind": "Function",
+        "name": "plan_view",
+        "span": {
+          "end": 49119,
+          "start": 48561
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_view"
+        },
+        "kind": "Function",
+        "name": "plan_view",
+        "span": {
+          "end": 49203,
+          "start": 48585
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_binding_view"
+        },
+        "kind": "Function",
+        "name": "plan_binding_view",
+        "span": {
+          "end": 58425,
+          "start": 58118
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_binding_view"
+        },
+        "kind": "Function",
+        "name": "plan_binding_view",
+        "span": {
+          "end": 58854,
+          "start": 58547
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_verbosity_view"
+        },
+        "kind": "Function",
+        "name": "concept_verbosity_view",
+        "span": {
+          "end": 5507,
+          "start": 5162
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_verbosity_view"
+        },
+        "kind": "Function",
+        "name": "concept_verbosity_view",
+        "span": {
+          "end": 5531,
+          "start": 5186
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::ad_hoc_plan_projection_diff_view"
+        },
+        "kind": "Function",
+        "name": "ad_hoc_plan_projection_diff_view",
+        "span": {
+          "end": 55192,
+          "start": 52952
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::ad_hoc_plan_projection_diff_view"
+        },
+        "kind": "Function",
+        "name": "ad_hoc_plan_projection_diff_view",
+        "span": {
+          "end": 55621,
+          "start": 53381
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::validation_recipe_view"
+        },
+        "kind": "Function",
+        "name": "validation_recipe_view",
+        "span": {
+          "end": 12678,
+          "start": 12048
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::validation_recipe_view"
+        },
+        "kind": "Function",
+        "name": "validation_recipe_view",
+        "span": {
+          "end": 12702,
+          "start": 12072
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::views::ConceptVerbosity::max_relation_evidence_count"
+        },
+        "kind": "Method",
+        "name": "max_relation_evidence_count",
+        "span": {
+          "end": 3889,
+          "start": 3677
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::views::ConceptVerbosity::max_relation_evidence_count"
+        },
+        "kind": "Method",
+        "name": "max_relation_evidence_count",
+        "span": {
+          "end": 3913,
+          "start": 3701
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::artifact_risk_view"
+        },
+        "kind": "Function",
+        "name": "artifact_risk_view",
+        "span": {
+          "end": 41974,
+          "start": 40977
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::artifact_risk_view"
+        },
+        "kind": "Function",
+        "name": "artifact_risk_view",
+        "span": {
+          "end": 41998,
+          "start": 41001
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::views::ConceptVerbosity::impl"
+        },
+        "kind": "Impl",
+        "name": "ConceptVerbosity",
+        "span": {
+          "end": 3891,
+          "start": 3023
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::views::ConceptVerbosity::impl"
+        },
+        "kind": "Impl",
+        "name": "ConceptVerbosity",
+        "span": {
+          "end": 3915,
+          "start": 3047
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::truncate_vec_with_omitted"
+        },
+        "kind": "Function",
+        "name": "truncate_vec_with_omitted",
+        "span": {
+          "end": 24916,
+          "start": 24605
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::truncate_vec_with_omitted"
+        },
+        "kind": "Function",
+        "name": "truncate_vec_with_omitted",
+        "span": {
+          "end": 24940,
+          "start": 24629
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::co_change_view"
+        },
+        "kind": "Function",
+        "name": "co_change_view",
+        "span": {
+          "end": 48316,
+          "start": 48084
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::co_change_view"
+        },
+        "kind": "Function",
+        "name": "co_change_view",
+        "span": {
+          "end": 48340,
+          "start": 48108
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_target_view"
+        },
+        "kind": "Function",
+        "name": "contract_target_view",
+        "span": {
+          "end": 30460,
+          "start": 30078
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_target_view"
+        },
+        "kind": "Function",
+        "name": "contract_target_view",
+        "span": {
+          "end": 30484,
+          "start": 30102
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats::impl"
+        },
+        "kind": "Impl",
+        "name": "ConceptPacketTruncationStats",
+        "span": {
+          "end": 5160,
+          "start": 4267
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats::impl"
+        },
+        "kind": "Impl",
+        "name": "ConceptPacketTruncationStats",
+        "span": {
+          "end": 5184,
+          "start": 4291
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::policy_violation_record_view"
+        },
+        "kind": "Function",
+        "name": "policy_violation_record_view",
+        "span": {
+          "end": 63895,
+          "start": 63238
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::policy_violation_record_view"
+        },
+        "kind": "Function",
+        "name": "policy_violation_record_view",
+        "span": {
+          "end": 64324,
+          "start": 63667
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::merge_promoted_checks"
+        },
+        "kind": "Function",
+        "name": "merge_promoted_checks",
+        "span": {
+          "end": 46611,
+          "start": 46111
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::merge_promoted_checks"
+        },
+        "kind": "Function",
+        "name": "merge_promoted_checks",
+        "span": {
+          "end": 46635,
+          "start": 46135
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::promoted_validation_checks"
+        },
+        "kind": "Function",
+        "name": "promoted_validation_checks",
+        "span": {
+          "end": 45740,
+          "start": 44602
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::promoted_validation_checks"
+        },
+        "kind": "Function",
+        "name": "promoted_validation_checks",
+        "span": {
+          "end": 45764,
+          "start": 44626
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_status_view"
+        },
+        "kind": "Function",
+        "name": "contract_status_view",
+        "span": {
+          "end": 29591,
+          "start": 29229
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_status_view"
+        },
+        "kind": "Function",
+        "name": "contract_status_view",
+        "span": {
+          "end": 29615,
+          "start": 29253
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::curator_proposal_view"
+        },
+        "kind": "Function",
+        "name": "curator_proposal_view",
+        "span": {
+          "end": 8243,
+          "start": 6898
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::curator_proposal_view"
+        },
+        "kind": "Function",
+        "name": "curator_proposal_view",
+        "span": {
+          "end": 8267,
+          "start": 6922
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_summary_view"
+        },
+        "kind": "Function",
+        "name": "plan_summary_view",
+        "span": {
+          "end": 56521,
+          "start": 55761
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_summary_view"
+        },
+        "kind": "Function",
+        "name": "plan_summary_view",
+        "span": {
+          "end": 56950,
+          "start": 56190
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Enum",
+          "path": "prism_mcp::views::ConceptVerbosity"
+        },
+        "kind": "Enum",
+        "name": "ConceptVerbosity",
+        "span": {
+          "end": 3021,
+          "start": 2948
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Enum",
+          "path": "prism_mcp::views::ConceptVerbosity"
+        },
+        "kind": "Enum",
+        "name": "ConceptVerbosity",
+        "span": {
+          "end": 3045,
+          "start": 2972
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::claim_view"
+        },
+        "kind": "Function",
+        "name": "claim_view",
+        "span": {
+          "end": 60780,
+          "start": 60306
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::claim_view"
+        },
+        "kind": "Function",
+        "name": "claim_view",
+        "span": {
+          "end": 61209,
+          "start": 60735
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::ad_hoc_plan_projection_summary_view"
+        },
+        "kind": "Function",
+        "name": "ad_hoc_plan_projection_summary_view",
+        "span": {
+          "end": 51630,
+          "start": 50912
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::ad_hoc_plan_projection_summary_view"
+        },
+        "kind": "Function",
+        "name": "ad_hoc_plan_projection_summary_view",
+        "span": {
+          "end": 52059,
+          "start": 51341
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats::likely_tests_omitted"
+        },
+        "kind": "Field",
+        "name": "likely_tests_omitted",
+        "span": {
+          "end": 4132,
+          "start": 4094
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats::likely_tests_omitted"
+        },
+        "kind": "Field",
+        "name": "likely_tests_omitted",
+        "span": {
+          "end": 4156,
+          "start": 4118
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_node_recommendation_view"
+        },
+        "kind": "Function",
+        "name": "plan_node_recommendation_view",
+        "span": {
+          "end": 57175,
+          "start": 56523
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_node_recommendation_view"
+        },
+        "kind": "Function",
+        "name": "plan_node_recommendation_view",
+        "span": {
+          "end": 57604,
+          "start": 56952
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_guarantee_view"
+        },
+        "kind": "Function",
+        "name": "contract_guarantee_view",
+        "span": {
+          "end": 30803,
+          "start": 30462
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_guarantee_view"
+        },
+        "kind": "Function",
+        "name": "contract_guarantee_view",
+        "span": {
+          "end": 30827,
+          "start": 30486
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::entry_curator_category"
+        },
+        "kind": "Function",
+        "name": "entry_curator_category",
+        "span": {
+          "end": 43630,
+          "start": 43354
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::entry_curator_category"
+        },
+        "kind": "Function",
+        "name": "entry_curator_category",
+        "span": {
+          "end": 43654,
+          "start": 43378
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_acceptance_criterion_view"
+        },
+        "kind": "Function",
+        "name": "plan_acceptance_criterion_view",
+        "span": {
+          "end": 58879,
+          "start": 58427
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_acceptance_criterion_view"
+        },
+        "kind": "Function",
+        "name": "plan_acceptance_criterion_view",
+        "span": {
+          "end": 59308,
+          "start": 58856
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::curator_trigger_label"
+        },
+        "kind": "Function",
+        "name": "curator_trigger_label",
+        "span": {
+          "end": 10169,
+          "start": 9717
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::curator_trigger_label"
+        },
+        "kind": "Function",
+        "name": "curator_trigger_label",
+        "span": {
+          "end": 10193,
+          "start": 9741
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_compatibility_view"
+        },
+        "kind": "Function",
+        "name": "contract_compatibility_view",
+        "span": {
+          "end": 36758,
+          "start": 36409
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_compatibility_view"
+        },
+        "kind": "Function",
+        "name": "contract_compatibility_view",
+        "span": {
+          "end": 36782,
+          "start": 36433
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::curator_job_status_label"
+        },
+        "kind": "Function",
+        "name": "curator_job_status_label",
+        "span": {
+          "end": 9715,
+          "start": 9283
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::curator_job_status_label"
+        },
+        "kind": "Function",
+        "name": "curator_job_status_label",
+        "span": {
+          "end": 9739,
+          "start": 9307
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::blocker_view"
+        },
+        "kind": "Function",
+        "name": "blocker_view",
+        "span": {
+          "end": 61756,
+          "start": 61211
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::blocker_view"
+        },
+        "kind": "Function",
+        "name": "blocker_view",
+        "span": {
+          "end": 62185,
+          "start": 61640
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::entry_overlaps_anchors"
+        },
+        "kind": "Function",
+        "name": "entry_overlaps_anchors",
+        "span": {
+          "end": 43777,
+          "start": 43632
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::entry_overlaps_anchors"
+        },
+        "kind": "Function",
+        "name": "entry_overlaps_anchors",
+        "span": {
+          "end": 43801,
+          "start": 43656
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats::relation_evidence_omitted"
+        },
+        "kind": "Field",
+        "name": "relation_evidence_omitted",
+        "span": {
+          "end": 4262,
+          "start": 4219
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats::relation_evidence_omitted"
+        },
+        "kind": "Field",
+        "name": "relation_evidence_omitted",
+        "span": {
+          "end": 4286,
+          "start": 4243
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats::evidence_omitted"
+        },
+        "kind": "Field",
+        "name": "evidence_omitted",
+        "span": {
+          "end": 4172,
+          "start": 4138
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats::evidence_omitted"
+        },
+        "kind": "Field",
+        "name": "evidence_omitted",
+        "span": {
+          "end": 4196,
+          "start": 4162
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_health_status_view"
+        },
+        "kind": "Function",
+        "name": "contract_health_status_view",
+        "span": {
+          "end": 35984,
+          "start": 35411
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_health_status_view"
+        },
+        "kind": "Function",
+        "name": "contract_health_status_view",
+        "span": {
+          "end": 36008,
+          "start": 35435
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::policy_violation_view"
+        },
+        "kind": "Function",
+        "name": "policy_violation_view",
+        "span": {
+          "end": 63236,
+          "start": 62616
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::policy_violation_view"
+        },
+        "kind": "Function",
+        "name": "policy_violation_view",
+        "span": {
+          "end": 63665,
+          "start": 63045
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::task_risk_view"
+        },
+        "kind": "Function",
+        "name": "task_risk_view",
+        "span": {
+          "end": 40975,
+          "start": 39527
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::task_risk_view"
+        },
+        "kind": "Function",
+        "name": "task_risk_view",
+        "span": {
+          "end": 40999,
+          "start": 39551
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::views::ConceptVerbosity::max_evidence_count"
+        },
+        "kind": "Method",
+        "name": "max_evidence_count",
+        "span": {
+          "end": 3461,
+          "start": 3258
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::views::ConceptVerbosity::max_evidence_count"
+        },
+        "kind": "Method",
+        "name": "max_evidence_count",
+        "span": {
+          "end": 3485,
+          "start": 3282
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_resolution_view"
+        },
+        "kind": "Function",
+        "name": "contract_resolution_view",
+        "span": {
+          "end": 36954,
+          "start": 36760
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_resolution_view"
+        },
+        "kind": "Function",
+        "name": "contract_resolution_view",
+        "span": {
+          "end": 36978,
+          "start": 36784
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::curator_job_view"
+        },
+        "kind": "Function",
+        "name": "curator_job_view",
+        "span": {
+          "end": 6896,
+          "start": 5509
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::curator_job_view"
+        },
+        "kind": "Function",
+        "name": "curator_job_view",
+        "span": {
+          "end": 6920,
+          "start": 5533
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::conflict_view"
+        },
+        "kind": "Function",
+        "name": "conflict_view",
+        "span": {
+          "end": 61209,
+          "start": 60782
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::conflict_view"
+        },
+        "kind": "Function",
+        "name": "conflict_view",
+        "span": {
+          "end": 61638,
+          "start": 61211
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_edge_view"
+        },
+        "kind": "Function",
+        "name": "plan_edge_view",
+        "span": {
+          "end": 59231,
+          "start": 58881
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_edge_view"
+        },
+        "kind": "Function",
+        "name": "plan_edge_view",
+        "span": {
+          "end": 59660,
+          "start": 59310
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats"
+        },
+        "kind": "Struct",
+        "name": "ConceptPacketTruncationStats",
+        "span": {
+          "end": 4265,
+          "start": 3947
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats"
+        },
+        "kind": "Struct",
+        "name": "ConceptPacketTruncationStats",
+        "span": {
+          "end": 4289,
+          "start": 3971
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::blocker_cause_view"
+        },
+        "kind": "Function",
+        "name": "blocker_cause_view",
+        "span": {
+          "end": 62113,
+          "start": 61758
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::blocker_cause_view"
+        },
+        "kind": "Function",
+        "name": "blocker_cause_view",
+        "span": {
+          "end": 62542,
+          "start": 62187
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_packet_view"
+        },
+        "kind": "Function",
+        "name": "contract_packet_view",
+        "span": {
+          "end": 28667,
+          "start": 27016
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_packet_view"
+        },
+        "kind": "Function",
+        "name": "contract_packet_view",
+        "span": {
+          "end": 28691,
+          "start": 27040
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_packet_view"
+        },
+        "kind": "Function",
+        "name": "concept_packet_view",
+        "span": {
+          "end": 16501,
+          "start": 13147
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_packet_view"
+        },
+        "kind": "Function",
+        "name": "concept_packet_view",
+        "span": {
+          "end": 16525,
+          "start": 13171
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats::is_empty"
+        },
+        "kind": "Method",
+        "name": "is_empty",
+        "span": {
+          "end": 4624,
+          "start": 4307
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats::is_empty"
+        },
+        "kind": "Method",
+        "name": "is_empty",
+        "span": {
+          "end": 4648,
+          "start": 4331
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats::into_view"
+        },
+        "kind": "Method",
+        "name": "into_view",
+        "span": {
+          "end": 5158,
+          "start": 4630
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats::into_view"
+        },
+        "kind": "Method",
+        "name": "into_view",
+        "span": {
+          "end": 5182,
+          "start": 4654
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::task_validation_recipe_view"
+        },
+        "kind": "Function",
+        "name": "task_validation_recipe_view",
+        "span": {
+          "end": 39525,
+          "start": 38869
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::task_validation_recipe_view"
+        },
+        "kind": "Function",
+        "name": "task_validation_recipe_view",
+        "span": {
+          "end": 39549,
+          "start": 38893
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::promoted_summary_texts"
+        },
+        "kind": "Function",
+        "name": "promoted_summary_texts",
+        "span": {
+          "end": 46109,
+          "start": 45742
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::promoted_summary_texts"
+        },
+        "kind": "Function",
+        "name": "promoted_summary_texts",
+        "span": {
+          "end": 46133,
+          "start": 45766
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::artifact_view"
+        },
+        "kind": "Function",
+        "name": "artifact_view",
+        "span": {
+          "end": 62614,
+          "start": 62115
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::artifact_view"
+        },
+        "kind": "Function",
+        "name": "artifact_view",
+        "span": {
+          "end": 63043,
+          "start": 62544
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_provenance_view"
+        },
+        "kind": "Function",
+        "name": "concept_provenance_view",
+        "span": {
+          "end": 37441,
+          "start": 37218
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_provenance_view"
+        },
+        "kind": "Function",
+        "name": "concept_provenance_view",
+        "span": {
+          "end": 37465,
+          "start": 37242
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_health_view"
+        },
+        "kind": "Function",
+        "name": "contract_health_view",
+        "span": {
+          "end": 23656,
+          "start": 23208
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_health_view"
+        },
+        "kind": "Function",
+        "name": "contract_health_view",
+        "span": {
+          "end": 23680,
+          "start": 23232
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_node_blocker_view"
+        },
+        "kind": "Function",
+        "name": "plan_node_blocker_view",
+        "span": {
+          "end": 55759,
+          "start": 55194
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::plan_node_blocker_view"
+        },
+        "kind": "Function",
+        "name": "plan_node_blocker_view",
+        "span": {
+          "end": 56188,
+          "start": 55623
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::views"
+        },
+        "kind": "Module",
+        "name": "views",
+        "span": {
+          "end": 64700,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::views"
+        },
+        "kind": "Module",
+        "name": "views",
+        "span": {
+          "end": 65129,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_validation_view"
+        },
+        "kind": "Function",
+        "name": "contract_validation_view",
+        "span": {
+          "end": 36407,
+          "start": 35986
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_validation_view"
+        },
+        "kind": "Function",
+        "name": "contract_validation_view",
+        "span": {
+          "end": 36431,
+          "start": 36010
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::views::ConceptVerbosity::max_relation_count"
+        },
+        "kind": "Method",
+        "name": "max_relation_count",
+        "span": {
+          "end": 3671,
+          "start": 3467
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::views::ConceptVerbosity::max_relation_count"
+        },
+        "kind": "Method",
+        "name": "max_relation_count",
+        "span": {
+          "end": 3695,
+          "start": 3491
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::drift_candidate_view"
+        },
+        "kind": "Function",
+        "name": "drift_candidate_view",
+        "span": {
+          "end": 42502,
+          "start": 41976
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::drift_candidate_view"
+        },
+        "kind": "Function",
+        "name": "drift_candidate_view",
+        "span": {
+          "end": 42526,
+          "start": 42000
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::memory_entry_view"
+        },
+        "kind": "Function",
+        "name": "memory_entry_view",
+        "span": {
+          "end": 47335,
+          "start": 46910
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::memory_entry_view"
+        },
+        "kind": "Function",
+        "name": "memory_entry_view",
+        "span": {
+          "end": 47359,
+          "start": 46934
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::truncate_concept_relations"
+        },
+        "kind": "Function",
+        "name": "truncate_concept_relations",
+        "span": {
+          "end": 24603,
+          "start": 23658
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::truncate_concept_relations"
+        },
+        "kind": "Function",
+        "name": "truncate_concept_relations",
+        "span": {
+          "end": 24627,
+          "start": 23682
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_scope_view"
+        },
+        "kind": "Function",
+        "name": "concept_scope_view",
+        "span": {
+          "end": 37216,
+          "start": 36956
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_scope_view"
+        },
+        "kind": "Function",
+        "name": "concept_scope_view",
+        "span": {
+          "end": 37240,
+          "start": 36980
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::edge_view"
+        },
+        "kind": "Function",
+        "name": "edge_view",
+        "span": {
+          "end": 64340,
+          "start": 64091
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::edge_view"
+        },
+        "kind": "Function",
+        "name": "edge_view",
+        "span": {
+          "end": 64769,
+          "start": 64520
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::coordination_task_view"
+        },
+        "kind": "Function",
+        "name": "coordination_task_view",
+        "span": {
+          "end": 60304,
+          "start": 59233
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::coordination_task_view"
+        },
+        "kind": "Function",
+        "name": "coordination_task_view",
+        "span": {
+          "end": 60733,
+          "start": 59662
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::promoted_memory_entries"
+        },
+        "kind": "Function",
+        "name": "promoted_memory_entries",
+        "span": {
+          "end": 44600,
+          "start": 43779
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::promoted_memory_entries"
+        },
+        "kind": "Function",
+        "name": "promoted_memory_entries",
+        "span": {
+          "end": 44624,
+          "start": 43803
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_relation_view"
+        },
+        "kind": "Function",
+        "name": "concept_relation_view",
+        "span": {
+          "end": 25971,
+          "start": 24918
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_relation_view"
+        },
+        "kind": "Function",
+        "name": "concept_relation_view",
+        "span": {
+          "end": 25995,
+          "start": 24942
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats::relations_omitted"
+        },
+        "kind": "Field",
+        "name": "relations_omitted",
+        "span": {
+          "end": 4213,
+          "start": 4178
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats::relations_omitted"
+        },
+        "kind": "Field",
+        "name": "relations_omitted",
+        "span": {
+          "end": 4237,
+          "start": 4202
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::node_id_view"
+        },
+        "kind": "Function",
+        "name": "node_id_view",
+        "span": {
+          "end": 64089,
+          "start": 63897
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::node_id_view"
+        },
+        "kind": "Function",
+        "name": "node_id_view",
+        "span": {
+          "end": 64518,
+          "start": 64326
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::memory_event_view"
+        },
+        "kind": "Function",
+        "name": "memory_event_view",
+        "span": {
+          "end": 47870,
+          "start": 47337
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::memory_event_view"
+        },
+        "kind": "Function",
+        "name": "memory_event_view",
+        "span": {
+          "end": 47894,
+          "start": 47361
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::scored_memory_view"
+        },
+        "kind": "Function",
+        "name": "scored_memory_view",
+        "span": {
+          "end": 46908,
+          "start": 46613
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::scored_memory_view"
+        },
+        "kind": "Function",
+        "name": "scored_memory_view",
+        "span": {
+          "end": 46932,
+          "start": 46637
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::anchor_ref_view"
+        },
+        "kind": "Function",
+        "name": "anchor_ref_view",
+        "span": {
+          "end": 27014,
+          "start": 26176
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::anchor_ref_view"
+        },
+        "kind": "Function",
+        "name": "anchor_ref_view",
+        "span": {
+          "end": 27038,
+          "start": 26200
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_kind_view"
+        },
+        "kind": "Function",
+        "name": "contract_kind_view",
+        "span": {
+          "end": 29227,
+          "start": 28669
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::contract_kind_view"
+        },
+        "kind": "Function",
+        "name": "contract_kind_view",
+        "span": {
+          "end": 29251,
+          "start": 28693
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_resolution_view"
+        },
+        "kind": "Function",
+        "name": "concept_resolution_view",
+        "span": {
+          "end": 26174,
+          "start": 25973
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::concept_resolution_view"
+        },
+        "kind": "Function",
+        "name": "concept_resolution_view",
+        "span": {
+          "end": 26198,
+          "start": 25997
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::curator_proposal_record_view"
+        },
+        "kind": "Function",
+        "name": "curator_proposal_record_view",
+        "span": {
+          "end": 9281,
+          "start": 8245
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::curator_proposal_record_view"
+        },
+        "kind": "Function",
+        "name": "curator_proposal_record_view",
+        "span": {
+          "end": 9305,
+          "start": 8269
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::task_intent_view"
+        },
+        "kind": "Function",
+        "name": "task_intent_view",
+        "span": {
+          "end": 43158,
+          "start": 42504
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::task_intent_view"
+        },
+        "kind": "Function",
+        "name": "task_intent_view",
+        "span": {
+          "end": 43182,
+          "start": 42528
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::views::ConceptVerbosity::max_member_count"
+        },
+        "kind": "Method",
+        "name": "max_member_count",
+        "span": {
+          "end": 3252,
+          "start": 3051
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::views::ConceptVerbosity::max_member_count"
+        },
+        "kind": "Method",
+        "name": "max_member_count",
+        "span": {
+          "end": 3276,
+          "start": 3075
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::inferred_edge_record_view"
+        },
+        "kind": "Function",
+        "name": "inferred_edge_record_view",
+        "span": {
+          "end": 64699,
+          "start": 64342
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::views::inferred_edge_record_view"
+        },
+        "kind": "Function",
+        "name": "inferred_edge_record_view",
+        "span": {
+          "end": 65128,
+          "start": 64771
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats::supporting_members_omitted"
+        },
+        "kind": "Field",
+        "name": "supporting_members_omitted",
+        "span": {
+          "end": 4088,
+          "start": 4044
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::views::ConceptPacketTruncationStats::supporting_members_omitted"
+        },
+        "kind": "Field",
+        "name": "supporting_members_omitted",
+        "span": {
+          "end": 4112,
+          "start": 4068
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 199,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/views.rs"
+    ],
+    "files": [
+      269
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

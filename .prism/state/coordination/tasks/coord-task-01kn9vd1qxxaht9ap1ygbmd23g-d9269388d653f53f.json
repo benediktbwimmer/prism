@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Lock the canonical path identity contract and no-absolute-path boundary",
   "summary": "Define where absolute paths may exist, where only repo-relative paths are allowed, and where anchors must replace raw paths entirely across tracked state, shared runtime, and local runtime.",
-  "status": "Ready",
+  "status": "Completed",
   "published_task_status": null,
   "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
   "pending_handoff_to": null,
@@ -38,7 +38,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1015,
+    "graph_version": 81,
     "git_commit": null
   },
   "priority": 1,

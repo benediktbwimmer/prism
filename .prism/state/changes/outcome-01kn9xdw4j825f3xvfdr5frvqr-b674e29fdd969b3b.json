@@ -1,0 +1,1800 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdw4j825f3xvfdr5frvqr",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 199
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::stable_http_bind_candidates",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::spawn_daemon",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::resolve_upstream_uri",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::HttpUriFileGuard",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::UpstreamResolution::source",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::HttpUriFileGuard::impl::Drop",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::http_health",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::run_bridge",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::HttpUriFileGuard::drop",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::BridgeUpstreamSource",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::HttpUriFileGuard::path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::can_connect_uri",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::tests::auto_bind_host_detects_dynamic_port_inputs",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::UpstreamResolution",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::read_http_uri_file",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::tests::uri_guard_only_removes_matching_uri_file",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::detached_daemon_launcher_script",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::BridgeUpstreamSource::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::default_http_uri_file_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::tests::stable_http_bind_candidates_are_deterministic_for_a_root",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::normalize_route_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::BridgeUpstreamSource::from_cli",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::bind_preferred_stable_listener",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::UpstreamResolution::spawned_daemon",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::tests::bind_listener_waits_for_the_preferred_workspace_port_before_fallback",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::tests::detached_daemon_launcher_script_is_valid_sh",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::write_http_uri_file",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::tests::temp_root",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::bind_stable_listener",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::UpstreamResolution::daemon_wait_ms",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::run_daemon",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::BridgeUpstreamSource::read_uri",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::tests::test_cli",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::tests",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::tests::bind_listener_reuses_the_same_workspace_port_after_restart",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::serve_with_mode",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::HttpUriFileGuard::expected_uri",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::default_log_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::uri_authority",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::daemon_uri_candidates",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::first_healthy_daemon_uri",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::ensure_daemon_running",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::live_daemon_process_count",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::bind_listener",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::UpstreamResolution::uri",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::daemon_mode::auto_bind_host",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 47 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 94,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "removedCount": 0,
+        "updatedCount": 94
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::stable_http_bind_candidates"
+        },
+        "kind": "Function",
+        "name": "stable_http_bind_candidates",
+        "span": {
+          "end": 16324,
+          "start": 15810
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::stable_http_bind_candidates"
+        },
+        "kind": "Function",
+        "name": "stable_http_bind_candidates",
+        "span": {
+          "end": 16425,
+          "start": 15911
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::spawn_daemon"
+        },
+        "kind": "Function",
+        "name": "spawn_daemon",
+        "span": {
+          "end": 12483,
+          "start": 11217
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::spawn_daemon"
+        },
+        "kind": "Function",
+        "name": "spawn_daemon",
+        "span": {
+          "end": 12584,
+          "start": 11318
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::resolve_upstream_uri"
+        },
+        "kind": "Function",
+        "name": "resolve_upstream_uri",
+        "span": {
+          "end": 8615,
+          "start": 8213
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::resolve_upstream_uri"
+        },
+        "kind": "Function",
+        "name": "resolve_upstream_uri",
+        "span": {
+          "end": 8716,
+          "start": 8314
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::daemon_mode::HttpUriFileGuard"
+        },
+        "kind": "Struct",
+        "name": "HttpUriFileGuard",
+        "span": {
+          "end": 16451,
+          "start": 16379
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::daemon_mode::HttpUriFileGuard"
+        },
+        "kind": "Struct",
+        "name": "HttpUriFileGuard",
+        "span": {
+          "end": 16552,
+          "start": 16480
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::daemon_mode::UpstreamResolution::source"
+        },
+        "kind": "Field",
+        "name": "source",
+        "span": {
+          "end": 7353,
+          "start": 7322
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::daemon_mode::UpstreamResolution::source"
+        },
+        "kind": "Field",
+        "name": "source",
+        "span": {
+          "end": 7454,
+          "start": 7423
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::daemon_mode::HttpUriFileGuard::impl::Drop"
+        },
+        "kind": "Impl",
+        "name": "Drop for HttpUriFileGuard",
+        "span": {
+          "end": 17603,
+          "start": 16453
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::daemon_mode::HttpUriFileGuard::impl::Drop"
+        },
+        "kind": "Impl",
+        "name": "Drop for HttpUriFileGuard",
+        "span": {
+          "end": 17704,
+          "start": 16554
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::http_health"
+        },
+        "kind": "Function",
+        "name": "http_health",
+        "span": {
+          "end": 16377,
+          "start": 16326
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::http_health"
+        },
+        "kind": "Function",
+        "name": "http_health",
+        "span": {
+          "end": 16478,
+          "start": 16427
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::run_bridge"
+        },
+        "kind": "Function",
+        "name": "run_bridge",
+        "span": {
+          "end": 7249,
+          "start": 6965
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::run_bridge"
+        },
+        "kind": "Function",
+        "name": "run_bridge",
+        "span": {
+          "end": 7350,
+          "start": 7066
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::daemon_mode::HttpUriFileGuard::drop"
+        },
+        "kind": "Method",
+        "name": "drop",
+        "span": {
+          "end": 17601,
+          "start": 16490
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::daemon_mode::HttpUriFileGuard::drop"
+        },
+        "kind": "Method",
+        "name": "drop",
+        "span": {
+          "end": 17702,
+          "start": 16591
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Enum",
+          "path": "prism_mcp::daemon_mode::BridgeUpstreamSource"
+        },
+        "kind": "Enum",
+        "name": "BridgeUpstreamSource",
+        "span": {
+          "end": 7541,
+          "start": 7456
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Enum",
+          "path": "prism_mcp::daemon_mode::BridgeUpstreamSource"
+        },
+        "kind": "Enum",
+        "name": "BridgeUpstreamSource",
+        "span": {
+          "end": 7642,
+          "start": 7557
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::daemon_mode::HttpUriFileGuard::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 16422,
+          "start": 16409
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::daemon_mode::HttpUriFileGuard::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 16523,
+          "start": 16510
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::can_connect_uri"
+        },
+        "kind": "Function",
+        "name": "can_connect_uri",
+        "span": {
+          "end": 14399,
+          "start": 14208
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::can_connect_uri"
+        },
+        "kind": "Function",
+        "name": "can_connect_uri",
+        "span": {
+          "end": 14500,
+          "start": 14309
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::tests::auto_bind_host_detects_dynamic_port_inputs"
+        },
+        "kind": "Function",
+        "name": "auto_bind_host_detects_dynamic_port_inputs",
+        "span": {
+          "end": 20426,
+          "start": 20171
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::tests::auto_bind_host_detects_dynamic_port_inputs"
+        },
+        "kind": "Function",
+        "name": "auto_bind_host_detects_dynamic_port_inputs",
+        "span": {
+          "end": 20550,
+          "start": 20295
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::daemon_mode::UpstreamResolution"
+        },
+        "kind": "Struct",
+        "name": "UpstreamResolution",
+        "span": {
+          "end": 7430,
+          "start": 7251
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::daemon_mode::UpstreamResolution"
+        },
+        "kind": "Struct",
+        "name": "UpstreamResolution",
+        "span": {
+          "end": 7531,
+          "start": 7352
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::read_http_uri_file"
+        },
+        "kind": "Function",
+        "name": "read_http_uri_file",
+        "span": {
+          "end": 13304,
+          "start": 12925
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::read_http_uri_file"
+        },
+        "kind": "Function",
+        "name": "read_http_uri_file",
+        "span": {
+          "end": 13405,
+          "start": 13026
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::daemon_mode"
+        },
+        "kind": "Module",
+        "name": "daemon_mode",
+        "span": {
+          "end": 22360,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::daemon_mode"
+        },
+        "kind": "Module",
+        "name": "daemon_mode",
+        "span": {
+          "end": 22484,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::tests::uri_guard_only_removes_matching_uri_file"
+        },
+        "kind": "Function",
+        "name": "uri_guard_only_removes_matching_uri_file",
+        "span": {
+          "end": 20153,
+          "start": 19351
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::tests::uri_guard_only_removes_matching_uri_file"
+        },
+        "kind": "Function",
+        "name": "uri_guard_only_removes_matching_uri_file",
+        "span": {
+          "end": 20277,
+          "start": 19475
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::detached_daemon_launcher_script"
+        },
+        "kind": "Function",
+        "name": "detached_daemon_launcher_script",
+        "span": {
+          "end": 12636,
+          "start": 12485
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::detached_daemon_launcher_script"
+        },
+        "kind": "Function",
+        "name": "detached_daemon_launcher_script",
+        "span": {
+          "end": 12737,
+          "start": 12586
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::daemon_mode::BridgeUpstreamSource::impl"
+        },
+        "kind": "Impl",
+        "name": "BridgeUpstreamSource",
+        "span": {
+          "end": 8211,
+          "start": 7543
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::daemon_mode::BridgeUpstreamSource::impl"
+        },
+        "kind": "Impl",
+        "name": "BridgeUpstreamSource",
+        "span": {
+          "end": 8312,
+          "start": 7644
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::default_http_uri_file_path"
+        },
+        "kind": "Function",
+        "name": "default_http_uri_file_path",
+        "span": {
+          "end": 1290,
+          "start": 1152
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::default_http_uri_file_path"
+        },
+        "kind": "Function",
+        "name": "default_http_uri_file_path",
+        "span": {
+          "end": 1290,
+          "start": 1152
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::tests::stable_http_bind_candidates_are_deterministic_for_a_root"
+        },
+        "kind": "Function",
+        "name": "stable_http_bind_candidates_are_deterministic_for_a_root",
+        "span": {
+          "end": 20769,
+          "start": 20444
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::tests::stable_http_bind_candidates_are_deterministic_for_a_root"
+        },
+        "kind": "Function",
+        "name": "stable_http_bind_candidates_are_deterministic_for_a_root",
+        "span": {
+          "end": 20893,
+          "start": 20568
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::normalize_route_path"
+        },
+        "kind": "Function",
+        "name": "normalize_route_path",
+        "span": {
+          "end": 15667,
+          "start": 15306
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::normalize_route_path"
+        },
+        "kind": "Function",
+        "name": "normalize_route_path",
+        "span": {
+          "end": 15768,
+          "start": 15407
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::daemon_mode::BridgeUpstreamSource::from_cli"
+        },
+        "kind": "Method",
+        "name": "from_cli",
+        "span": {
+          "end": 7826,
+          "start": 7575
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::daemon_mode::BridgeUpstreamSource::from_cli"
+        },
+        "kind": "Method",
+        "name": "from_cli",
+        "span": {
+          "end": 7927,
+          "start": 7676
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::bind_preferred_stable_listener"
+        },
+        "kind": "Function",
+        "name": "bind_preferred_stable_listener",
+        "span": {
+          "end": 6963,
+          "start": 6215
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::bind_preferred_stable_listener"
+        },
+        "kind": "Function",
+        "name": "bind_preferred_stable_listener",
+        "span": {
+          "end": 7064,
+          "start": 6316
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::daemon_mode::UpstreamResolution::spawned_daemon"
+        },
+        "kind": "Field",
+        "name": "spawned_daemon",
+        "span": {
+          "end": 7427,
+          "start": 7396
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::daemon_mode::UpstreamResolution::spawned_daemon"
+        },
+        "kind": "Field",
+        "name": "spawned_daemon",
+        "span": {
+          "end": 7528,
+          "start": 7497
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::tests::bind_listener_waits_for_the_preferred_workspace_port_before_fallback"
+        },
+        "kind": "Function",
+        "name": "bind_listener_waits_for_the_preferred_workspace_port_before_fallback",
+        "span": {
+          "end": 22357,
+          "start": 21597
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::tests::bind_listener_waits_for_the_preferred_workspace_port_before_fallback"
+        },
+        "kind": "Function",
+        "name": "bind_listener_waits_for_the_preferred_workspace_port_before_fallback",
+        "span": {
+          "end": 22481,
+          "start": 21721
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::tests::detached_daemon_launcher_script_is_valid_sh"
+        },
+        "kind": "Function",
+        "name": "detached_daemon_launcher_script_is_valid_sh",
+        "span": {
+          "end": 21067,
+          "start": 20787
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::tests::detached_daemon_launcher_script_is_valid_sh"
+        },
+        "kind": "Function",
+        "name": "detached_daemon_launcher_script_is_valid_sh",
+        "span": {
+          "end": 21191,
+          "start": 20911
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::write_http_uri_file"
+        },
+        "kind": "Function",
+        "name": "write_http_uri_file",
+        "span": {
+          "end": 12923,
+          "start": 12638
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::write_http_uri_file"
+        },
+        "kind": "Function",
+        "name": "write_http_uri_file",
+        "span": {
+          "end": 13024,
+          "start": 12739
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::tests::temp_root"
+        },
+        "kind": "Function",
+        "name": "temp_root",
+        "span": {
+          "end": 19333,
+          "start": 19023
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::tests::temp_root"
+        },
+        "kind": "Function",
+        "name": "temp_root",
+        "span": {
+          "end": 19457,
+          "start": 19147
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::bind_stable_listener"
+        },
+        "kind": "Function",
+        "name": "bind_stable_listener",
+        "span": {
+          "end": 6213,
+          "start": 5114
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::bind_stable_listener"
+        },
+        "kind": "Function",
+        "name": "bind_stable_listener",
+        "span": {
+          "end": 6314,
+          "start": 5215
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::daemon_mode::UpstreamResolution::daemon_wait_ms"
+        },
+        "kind": "Field",
+        "name": "daemon_wait_ms",
+        "span": {
+          "end": 7390,
+          "start": 7359
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::daemon_mode::UpstreamResolution::daemon_wait_ms"
+        },
+        "kind": "Field",
+        "name": "daemon_wait_ms",
+        "span": {
+          "end": 7491,
+          "start": 7460
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::run_daemon"
+        },
+        "kind": "Function",
+        "name": "run_daemon",
+        "span": {
+          "end": 4394,
+          "start": 2000
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::run_daemon"
+        },
+        "kind": "Function",
+        "name": "run_daemon",
+        "span": {
+          "end": 4495,
+          "start": 2000
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::daemon_mode::BridgeUpstreamSource::read_uri"
+        },
+        "kind": "Method",
+        "name": "read_uri",
+        "span": {
+          "end": 8209,
+          "start": 7832
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::daemon_mode::BridgeUpstreamSource::read_uri"
+        },
+        "kind": "Method",
+        "name": "read_uri",
+        "span": {
+          "end": 8310,
+          "start": 7933
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::tests::test_cli"
+        },
+        "kind": "Function",
+        "name": "test_cli",
+        "span": {
+          "end": 19017,
+          "start": 18097
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::tests::test_cli"
+        },
+        "kind": "Function",
+        "name": "test_cli",
+        "span": {
+          "end": 19141,
+          "start": 18198
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::daemon_mode::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 22359,
+          "start": 17618
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::daemon_mode::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 22483,
+          "start": 17719
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::tests::bind_listener_reuses_the_same_workspace_port_after_restart"
+        },
+        "kind": "Function",
+        "name": "bind_listener_reuses_the_same_workspace_port_after_restart",
+        "span": {
+          "end": 21572,
+          "start": 21092
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::tests::bind_listener_reuses_the_same_workspace_port_after_restart"
+        },
+        "kind": "Function",
+        "name": "bind_listener_reuses_the_same_workspace_port_after_restart",
+        "span": {
+          "end": 21696,
+          "start": 21216
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::serve_with_mode"
+        },
+        "kind": "Function",
+        "name": "serve_with_mode",
+        "span": {
+          "end": 1998,
+          "start": 1424
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::serve_with_mode"
+        },
+        "kind": "Function",
+        "name": "serve_with_mode",
+        "span": {
+          "end": 1998,
+          "start": 1424
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::daemon_mode::HttpUriFileGuard::expected_uri"
+        },
+        "kind": "Field",
+        "name": "expected_uri",
+        "span": {
+          "end": 16448,
+          "start": 16428
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::daemon_mode::HttpUriFileGuard::expected_uri"
+        },
+        "kind": "Field",
+        "name": "expected_uri",
+        "span": {
+          "end": 16549,
+          "start": 16529
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::default_log_path"
+        },
+        "kind": "Function",
+        "name": "default_log_path",
+        "span": {
+          "end": 1422,
+          "start": 1292
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::default_log_path"
+        },
+        "kind": "Function",
+        "name": "default_log_path",
+        "span": {
+          "end": 1422,
+          "start": 1292
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::uri_authority"
+        },
+        "kind": "Function",
+        "name": "uri_authority",
+        "span": {
+          "end": 15304,
+          "start": 15075
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::uri_authority"
+        },
+        "kind": "Function",
+        "name": "uri_authority",
+        "span": {
+          "end": 15405,
+          "start": 15176
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::daemon_uri_candidates"
+        },
+        "kind": "Function",
+        "name": "daemon_uri_candidates",
+        "span": {
+          "end": 14206,
+          "start": 13558
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::daemon_uri_candidates"
+        },
+        "kind": "Function",
+        "name": "daemon_uri_candidates",
+        "span": {
+          "end": 14307,
+          "start": 13659
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::first_healthy_daemon_uri"
+        },
+        "kind": "Function",
+        "name": "first_healthy_daemon_uri",
+        "span": {
+          "end": 13556,
+          "start": 13306
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::first_healthy_daemon_uri"
+        },
+        "kind": "Function",
+        "name": "first_healthy_daemon_uri",
+        "span": {
+          "end": 13657,
+          "start": 13407
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::ensure_daemon_running"
+        },
+        "kind": "Function",
+        "name": "ensure_daemon_running",
+        "span": {
+          "end": 11215,
+          "start": 8617
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::ensure_daemon_running"
+        },
+        "kind": "Function",
+        "name": "ensure_daemon_running",
+        "span": {
+          "end": 11316,
+          "start": 8718
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::live_daemon_process_count"
+        },
+        "kind": "Function",
+        "name": "live_daemon_process_count",
+        "span": {
+          "end": 15073,
+          "start": 14401
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::live_daemon_process_count"
+        },
+        "kind": "Function",
+        "name": "live_daemon_process_count",
+        "span": {
+          "end": 15174,
+          "start": 14502
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::bind_listener"
+        },
+        "kind": "Function",
+        "name": "bind_listener",
+        "span": {
+          "end": 5112,
+          "start": 4396
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::bind_listener"
+        },
+        "kind": "Function",
+        "name": "bind_listener",
+        "span": {
+          "end": 5213,
+          "start": 4497
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::daemon_mode::UpstreamResolution::uri"
+        },
+        "kind": "Field",
+        "name": "uri",
+        "span": {
+          "end": 7316,
+          "start": 7294
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::daemon_mode::UpstreamResolution::uri"
+        },
+        "kind": "Field",
+        "name": "uri",
+        "span": {
+          "end": 7417,
+          "start": 7395
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::auto_bind_host"
+        },
+        "kind": "Function",
+        "name": "auto_bind_host",
+        "span": {
+          "end": 15808,
+          "start": 15669
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::daemon_mode::auto_bind_host"
+        },
+        "kind": "Function",
+        "name": "auto_bind_host",
+        "span": {
+          "end": 15909,
+          "start": 15770
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 94,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/daemon_mode.rs"
+    ],
+    "files": [
+      199
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

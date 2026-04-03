@@ -1,0 +1,1770 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdv35xc62w9j4dvy9w1fr",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 193
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::should_include_path_hits",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::text_candidate_from_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::should_include_text_hits",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::compact_text_fragment_diagnostics",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::text_fragment_semantic_why",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::semantic_symbol_matches_text_query",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::gather_text_matches",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::QueryHost::compact_gather",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::gather_candidate_sort_key",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::remap_text_fragment_target",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::compact_gather_limit",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::session_target_from_text_match",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::semantic_symbols_for_text_target",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::structured_key_queries",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::semantic_symbols_from_text_candidates",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::compact_open_text_fragment",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::compact_gather_match_result",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::text_fragment_line_span",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::resolve_text_fragment_target",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::semantic_query_segments",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::text_fragment_staged_next_action",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::markdown_heading_queries",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::rank_gather_candidates",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::push_unique_query",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::text_fragment_excerpt_matches_query",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::compact_text_fragment_validation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::semantic_search_kind_for_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::text_candidate_from_match",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::text_fragment_excerpt_matches_target_text",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::semantic_search_symbols",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::compact_text_fragment_likely_tests",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::locate_text_diagnostics",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::locate_text_candidates",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::compact_text_fragment_neighbors",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::markdown_gather_match_score",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::read_text_fragment",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::compact_gather_search_limit",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::text_hit_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::semantic_queries_for_text_candidate",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::compact_text_fragment_related_handles",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::looks_like_ui_query",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::compact_text_fragment_supporting_reads",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::text_fragment_query_variants",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::QueryHost::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::first_non_empty_line",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::text_fragments::text_fragment_suggested_actions",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 2 added, 0 removed, 45 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 2,
+        "changedSymbolCount": 92,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "removedCount": 0,
+        "updatedCount": 90
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::should_include_path_hits"
+        },
+        "kind": "Function",
+        "name": "should_include_path_hits",
+        "span": {
+          "end": 9564,
+          "start": 9161
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_candidate_from_path"
+        },
+        "kind": "Function",
+        "name": "text_candidate_from_path",
+        "span": {
+          "end": 12596,
+          "start": 11425
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::should_include_text_hits"
+        },
+        "kind": "Function",
+        "name": "should_include_text_hits",
+        "span": {
+          "end": 8148,
+          "start": 7257
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::should_include_text_hits"
+        },
+        "kind": "Function",
+        "name": "should_include_text_hits",
+        "span": {
+          "end": 9159,
+          "start": 8268
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_text_fragment_diagnostics"
+        },
+        "kind": "Function",
+        "name": "compact_text_fragment_diagnostics",
+        "span": {
+          "end": 32008,
+          "start": 31586
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_text_fragment_diagnostics"
+        },
+        "kind": "Function",
+        "name": "compact_text_fragment_diagnostics",
+        "span": {
+          "end": 34662,
+          "start": 34240
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_fragment_semantic_why"
+        },
+        "kind": "Function",
+        "name": "text_fragment_semantic_why",
+        "span": {
+          "end": 22363,
+          "start": 21913
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_fragment_semantic_why"
+        },
+        "kind": "Function",
+        "name": "text_fragment_semantic_why",
+        "span": {
+          "end": 25017,
+          "start": 24567
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::semantic_symbol_matches_text_query"
+        },
+        "kind": "Function",
+        "name": "semantic_symbol_matches_text_query",
+        "span": {
+          "end": 6453,
+          "start": 5984
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::semantic_symbol_matches_text_query"
+        },
+        "kind": "Function",
+        "name": "semantic_symbol_matches_text_query",
+        "span": {
+          "end": 6577,
+          "start": 6108
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::gather_text_matches"
+        },
+        "kind": "Function",
+        "name": "gather_text_matches",
+        "span": {
+          "end": 35062,
+          "start": 33687
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::gather_text_matches"
+        },
+        "kind": "Function",
+        "name": "gather_text_matches",
+        "span": {
+          "end": 37716,
+          "start": 36341
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::compact_tools::text_fragments::QueryHost::compact_gather"
+        },
+        "kind": "Method",
+        "name": "compact_gather",
+        "span": {
+          "end": 1374,
+          "start": 438
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::compact_tools::text_fragments::QueryHost::compact_gather"
+        },
+        "kind": "Method",
+        "name": "compact_gather",
+        "span": {
+          "end": 1422,
+          "start": 486
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::gather_candidate_sort_key"
+        },
+        "kind": "Function",
+        "name": "gather_candidate_sort_key",
+        "span": {
+          "end": 37298,
+          "start": 36804
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::gather_candidate_sort_key"
+        },
+        "kind": "Function",
+        "name": "gather_candidate_sort_key",
+        "span": {
+          "end": 39952,
+          "start": 39458
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::remap_text_fragment_target"
+        },
+        "kind": "Function",
+        "name": "remap_text_fragment_target",
+        "span": {
+          "end": 15567,
+          "start": 13488
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::remap_text_fragment_target"
+        },
+        "kind": "Function",
+        "name": "remap_text_fragment_target",
+        "span": {
+          "end": 18221,
+          "start": 16142
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_gather_limit"
+        },
+        "kind": "Function",
+        "name": "compact_gather_limit",
+        "span": {
+          "end": 36006,
+          "start": 35861
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_gather_limit"
+        },
+        "kind": "Function",
+        "name": "compact_gather_limit",
+        "span": {
+          "end": 38660,
+          "start": 38515
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::session_target_from_text_match"
+        },
+        "kind": "Function",
+        "name": "session_target_from_text_match",
+        "span": {
+          "end": 11094,
+          "start": 9944
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::session_target_from_text_match"
+        },
+        "kind": "Function",
+        "name": "session_target_from_text_match",
+        "span": {
+          "end": 13748,
+          "start": 12598
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::semantic_symbols_for_text_target"
+        },
+        "kind": "Function",
+        "name": "semantic_symbols_for_text_target",
+        "span": {
+          "end": 5982,
+          "start": 2917
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::semantic_symbols_for_text_target"
+        },
+        "kind": "Function",
+        "name": "semantic_symbols_for_text_target",
+        "span": {
+          "end": 6106,
+          "start": 2965
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::structured_key_queries"
+        },
+        "kind": "Function",
+        "name": "structured_key_queries",
+        "span": {
+          "end": 18720,
+          "start": 17931
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::structured_key_queries"
+        },
+        "kind": "Function",
+        "name": "structured_key_queries",
+        "span": {
+          "end": 21374,
+          "start": 20585
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::semantic_symbols_from_text_candidates"
+        },
+        "kind": "Function",
+        "name": "semantic_symbols_from_text_candidates",
+        "span": {
+          "end": 2915,
+          "start": 1826
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::semantic_symbols_from_text_candidates"
+        },
+        "kind": "Function",
+        "name": "semantic_symbols_from_text_candidates",
+        "span": {
+          "end": 2963,
+          "start": 1874
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_open_text_fragment"
+        },
+        "kind": "Function",
+        "name": "compact_open_text_fragment",
+        "span": {
+          "end": 24195,
+          "start": 22365
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_open_text_fragment"
+        },
+        "kind": "Function",
+        "name": "compact_open_text_fragment",
+        "span": {
+          "end": 26849,
+          "start": 25019
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_gather_match_result"
+        },
+        "kind": "Function",
+        "name": "compact_gather_match_result",
+        "span": {
+          "end": 25438,
+          "start": 24197
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_gather_match_result"
+        },
+        "kind": "Function",
+        "name": "compact_gather_match_result",
+        "span": {
+          "end": 28092,
+          "start": 26851
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_fragment_line_span"
+        },
+        "kind": "Function",
+        "name": "text_fragment_line_span",
+        "span": {
+          "end": 35261,
+          "start": 35064
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_fragment_line_span"
+        },
+        "kind": "Function",
+        "name": "text_fragment_line_span",
+        "span": {
+          "end": 37915,
+          "start": 37718
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::resolve_text_fragment_target"
+        },
+        "kind": "Function",
+        "name": "resolve_text_fragment_target",
+        "span": {
+          "end": 12689,
+          "start": 11096
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::resolve_text_fragment_target"
+        },
+        "kind": "Function",
+        "name": "resolve_text_fragment_target",
+        "span": {
+          "end": 15343,
+          "start": 13750
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::semantic_query_segments"
+        },
+        "kind": "Function",
+        "name": "semantic_query_segments",
+        "span": {
+          "end": 19169,
+          "start": 18722
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::semantic_query_segments"
+        },
+        "kind": "Function",
+        "name": "semantic_query_segments",
+        "span": {
+          "end": 21823,
+          "start": 21376
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_fragment_staged_next_action"
+        },
+        "kind": "Function",
+        "name": "text_fragment_staged_next_action",
+        "span": {
+          "end": 25832,
+          "start": 25440
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_fragment_staged_next_action"
+        },
+        "kind": "Function",
+        "name": "text_fragment_staged_next_action",
+        "span": {
+          "end": 28486,
+          "start": 28094
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::markdown_heading_queries"
+        },
+        "kind": "Function",
+        "name": "markdown_heading_queries",
+        "span": {
+          "end": 17929,
+          "start": 17488
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::markdown_heading_queries"
+        },
+        "kind": "Function",
+        "name": "markdown_heading_queries",
+        "span": {
+          "end": 20583,
+          "start": 20142
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::rank_gather_candidates"
+        },
+        "kind": "Function",
+        "name": "rank_gather_candidates",
+        "span": {
+          "end": 36802,
+          "start": 36580
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::rank_gather_candidates"
+        },
+        "kind": "Function",
+        "name": "rank_gather_candidates",
+        "span": {
+          "end": 39456,
+          "start": 39234
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::push_unique_query"
+        },
+        "kind": "Function",
+        "name": "push_unique_query",
+        "span": {
+          "end": 17486,
+          "start": 17201
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::push_unique_query"
+        },
+        "kind": "Function",
+        "name": "push_unique_query",
+        "span": {
+          "end": 20140,
+          "start": 19855
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_fragment_excerpt_matches_query"
+        },
+        "kind": "Function",
+        "name": "text_fragment_excerpt_matches_query",
+        "span": {
+          "end": 13073,
+          "start": 12691
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_fragment_excerpt_matches_query"
+        },
+        "kind": "Function",
+        "name": "text_fragment_excerpt_matches_query",
+        "span": {
+          "end": 15727,
+          "start": 15345
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_text_fragment_validation"
+        },
+        "kind": "Function",
+        "name": "compact_text_fragment_validation",
+        "span": {
+          "end": 33685,
+          "start": 32010
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_text_fragment_validation"
+        },
+        "kind": "Function",
+        "name": "compact_text_fragment_validation",
+        "span": {
+          "end": 36339,
+          "start": 34664
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::semantic_search_kind_for_path"
+        },
+        "kind": "Function",
+        "name": "semantic_search_kind_for_path",
+        "span": {
+          "end": 16302,
+          "start": 15889
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::semantic_search_kind_for_path"
+        },
+        "kind": "Function",
+        "name": "semantic_search_kind_for_path",
+        "span": {
+          "end": 18956,
+          "start": 18543
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_candidate_from_match"
+        },
+        "kind": "Function",
+        "name": "text_candidate_from_match",
+        "span": {
+          "end": 9942,
+          "start": 9589
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_candidate_from_match"
+        },
+        "kind": "Function",
+        "name": "text_candidate_from_match",
+        "span": {
+          "end": 11423,
+          "start": 11005
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_fragment_excerpt_matches_target_text"
+        },
+        "kind": "Function",
+        "name": "text_fragment_excerpt_matches_target_text",
+        "span": {
+          "end": 13486,
+          "start": 13075
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_fragment_excerpt_matches_target_text"
+        },
+        "kind": "Function",
+        "name": "text_fragment_excerpt_matches_target_text",
+        "span": {
+          "end": 16140,
+          "start": 15729
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::semantic_search_symbols"
+        },
+        "kind": "Function",
+        "name": "semantic_search_symbols",
+        "span": {
+          "end": 1824,
+          "start": 1378
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::semantic_search_symbols"
+        },
+        "kind": "Function",
+        "name": "semantic_search_symbols",
+        "span": {
+          "end": 1872,
+          "start": 1426
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_text_fragment_likely_tests"
+        },
+        "kind": "Function",
+        "name": "compact_text_fragment_likely_tests",
+        "span": {
+          "end": 21911,
+          "start": 20822
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_text_fragment_likely_tests"
+        },
+        "kind": "Function",
+        "name": "compact_text_fragment_likely_tests",
+        "span": {
+          "end": 24565,
+          "start": 23476
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::locate_text_diagnostics"
+        },
+        "kind": "Function",
+        "name": "locate_text_diagnostics",
+        "span": {
+          "end": 9587,
+          "start": 8872
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::locate_text_diagnostics"
+        },
+        "kind": "Function",
+        "name": "locate_text_diagnostics",
+        "span": {
+          "end": 11003,
+          "start": 10288
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::locate_text_candidates"
+        },
+        "kind": "Function",
+        "name": "locate_text_candidates",
+        "span": {
+          "end": 7255,
+          "start": 6455
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::locate_text_candidates"
+        },
+        "kind": "Function",
+        "name": "locate_text_candidates",
+        "span": {
+          "end": 8266,
+          "start": 6579
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_text_fragment_neighbors"
+        },
+        "kind": "Function",
+        "name": "compact_text_fragment_neighbors",
+        "span": {
+          "end": 31584,
+          "start": 28871
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_text_fragment_neighbors"
+        },
+        "kind": "Function",
+        "name": "compact_text_fragment_neighbors",
+        "span": {
+          "end": 34238,
+          "start": 31525
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::markdown_gather_match_score"
+        },
+        "kind": "Function",
+        "name": "markdown_gather_match_score",
+        "span": {
+          "end": 38204,
+          "start": 37300
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::markdown_gather_match_score"
+        },
+        "kind": "Function",
+        "name": "markdown_gather_match_score",
+        "span": {
+          "end": 40858,
+          "start": 39954
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::read_text_fragment"
+        },
+        "kind": "Function",
+        "name": "read_text_fragment",
+        "span": {
+          "end": 35859,
+          "start": 35263
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::read_text_fragment"
+        },
+        "kind": "Function",
+        "name": "read_text_fragment",
+        "span": {
+          "end": 38513,
+          "start": 37917
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_gather_search_limit"
+        },
+        "kind": "Function",
+        "name": "compact_gather_search_limit",
+        "span": {
+          "end": 36578,
+          "start": 36008
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_gather_search_limit"
+        },
+        "kind": "Function",
+        "name": "compact_gather_search_limit",
+        "span": {
+          "end": 39232,
+          "start": 38662
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_hit_kind"
+        },
+        "kind": "Function",
+        "name": "text_hit_kind",
+        "span": {
+          "end": 15887,
+          "start": 15569
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_hit_kind"
+        },
+        "kind": "Function",
+        "name": "text_hit_kind",
+        "span": {
+          "end": 18541,
+          "start": 18223
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::semantic_queries_for_text_candidate"
+        },
+        "kind": "Function",
+        "name": "semantic_queries_for_text_candidate",
+        "span": {
+          "end": 17199,
+          "start": 16304
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::semantic_queries_for_text_candidate"
+        },
+        "kind": "Function",
+        "name": "semantic_queries_for_text_candidate",
+        "span": {
+          "end": 19853,
+          "start": 18958
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_text_fragment_related_handles"
+        },
+        "kind": "Function",
+        "name": "compact_text_fragment_related_handles",
+        "span": {
+          "end": 28869,
+          "start": 26537
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_text_fragment_related_handles"
+        },
+        "kind": "Function",
+        "name": "compact_text_fragment_related_handles",
+        "span": {
+          "end": 31523,
+          "start": 29191
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::looks_like_ui_query"
+        },
+        "kind": "Function",
+        "name": "looks_like_ui_query",
+        "span": {
+          "end": 8870,
+          "start": 8150
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::looks_like_ui_query"
+        },
+        "kind": "Function",
+        "name": "looks_like_ui_query",
+        "span": {
+          "end": 10286,
+          "start": 9566
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_text_fragment_supporting_reads"
+        },
+        "kind": "Function",
+        "name": "compact_text_fragment_supporting_reads",
+        "span": {
+          "end": 20820,
+          "start": 19693
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::compact_text_fragment_supporting_reads"
+        },
+        "kind": "Function",
+        "name": "compact_text_fragment_supporting_reads",
+        "span": {
+          "end": 23474,
+          "start": 22347
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_fragment_query_variants"
+        },
+        "kind": "Function",
+        "name": "text_fragment_query_variants",
+        "span": {
+          "end": 19561,
+          "start": 19171
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_fragment_query_variants"
+        },
+        "kind": "Function",
+        "name": "text_fragment_query_variants",
+        "span": {
+          "end": 22215,
+          "start": 21825
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::compact_tools::text_fragments"
+        },
+        "kind": "Module",
+        "name": "text_fragments",
+        "span": {
+          "end": 38205,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::compact_tools::text_fragments"
+        },
+        "kind": "Module",
+        "name": "text_fragments",
+        "span": {
+          "end": 40859,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::compact_tools::text_fragments::QueryHost::impl"
+        },
+        "kind": "Impl",
+        "name": "QueryHost",
+        "span": {
+          "end": 1376,
+          "start": 417
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::compact_tools::text_fragments::QueryHost::impl"
+        },
+        "kind": "Impl",
+        "name": "QueryHost",
+        "span": {
+          "end": 1424,
+          "start": 465
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::first_non_empty_line"
+        },
+        "kind": "Function",
+        "name": "first_non_empty_line",
+        "span": {
+          "end": 19691,
+          "start": 19563
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::first_non_empty_line"
+        },
+        "kind": "Function",
+        "name": "first_non_empty_line",
+        "span": {
+          "end": 22345,
+          "start": 22217
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_fragment_suggested_actions"
+        },
+        "kind": "Function",
+        "name": "text_fragment_suggested_actions",
+        "span": {
+          "end": 26535,
+          "start": 25834
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::text_fragments::text_fragment_suggested_actions"
+        },
+        "kind": "Function",
+        "name": "text_fragment_suggested_actions",
+        "span": {
+          "end": 29189,
+          "start": 28488
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 92,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/text_fragments.rs"
+    ],
+    "files": [
+      193
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

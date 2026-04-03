@@ -1,0 +1,1289 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdvvjh57hs54cjec0ht3r",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 100
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::authenticate_principal_credential_without_persist",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::authenticate_principal_credential",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::MintedPrincipalCredential::credential",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::has_capability",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::BootstrapOwnerInput::role",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::issue_principal_credential",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::MintPrincipalRequest::parent_principal_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::ensure_mint_capability",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::hex_encode",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::MintPrincipalRequest::authority_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::verify_actor_still_active",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::WorkspaceSession::bootstrap_owner_principal",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::MintPrincipalRequest",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::MintPrincipalRequest::name",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::MintedPrincipalCredential::principal",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::credential_verifier",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::MintedPrincipalCredential::principal_token",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::AuthenticatedPrincipal::credential",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::BootstrapOwnerInput::name",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::AuthenticatedPrincipal",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::BootstrapOwnerInput::authority_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::MintPrincipalRequest::role",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::BootstrapOwnerInput",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::normalized_capabilities",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::WorkspaceSession::mint_principal_credential",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::AuthenticatedPrincipal::principal",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::WorkspaceSession::authenticate_principal_credential",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::MintPrincipalRequest::capabilities",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::generate_principal_token",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::MintPrincipalRequest::profile",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::WorkspaceSession::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::MintPrincipalRequest::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::principal_registry::MintedPrincipalCredential",
+        "kind": "Struct"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 1 added, 1 removed, 32 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 1,
+        "changedSymbolCount": 66,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "removedCount": 1,
+        "updatedCount": 64
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::principal_registry::authenticate_principal_credential_without_persist"
+        },
+        "kind": "Function",
+        "name": "authenticate_principal_credential_without_persist",
+        "span": {
+          "end": 4518,
+          "start": 2996
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::principal_registry::authenticate_principal_credential"
+        },
+        "kind": "Function",
+        "name": "authenticate_principal_credential",
+        "span": {
+          "end": 4687,
+          "start": 3192
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintedPrincipalCredential::credential"
+        },
+        "kind": "Field",
+        "name": "credential",
+        "span": {
+          "end": 1123,
+          "start": 1091
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintedPrincipalCredential::credential"
+        },
+        "kind": "Field",
+        "name": "credential",
+        "span": {
+          "end": 1123,
+          "start": 1091
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::principal_registry::has_capability"
+        },
+        "kind": "Function",
+        "name": "has_capability",
+        "span": {
+          "end": 9764,
+          "start": 9627
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::principal_registry::has_capability"
+        },
+        "kind": "Function",
+        "name": "has_capability",
+        "span": {
+          "end": 9595,
+          "start": 9458
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::BootstrapOwnerInput::role"
+        },
+        "kind": "Field",
+        "name": "role",
+        "span": {
+          "end": 665,
+          "start": 641
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::BootstrapOwnerInput::role"
+        },
+        "kind": "Field",
+        "name": "role",
+        "span": {
+          "end": 665,
+          "start": 641
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::principal_registry::issue_principal_credential"
+        },
+        "kind": "Function",
+        "name": "issue_principal_credential",
+        "span": {
+          "end": 9153,
+          "start": 7009
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::principal_registry::issue_principal_credential"
+        },
+        "kind": "Function",
+        "name": "issue_principal_credential",
+        "span": {
+          "end": 8984,
+          "start": 6840
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintPrincipalRequest::parent_principal_id"
+        },
+        "kind": "Field",
+        "name": "parent_principal_id",
+        "span": {
+          "end": 909,
+          "start": 865
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintPrincipalRequest::parent_principal_id"
+        },
+        "kind": "Field",
+        "name": "parent_principal_id",
+        "span": {
+          "end": 909,
+          "start": 865
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::principal_registry::ensure_mint_capability"
+        },
+        "kind": "Function",
+        "name": "ensure_mint_capability",
+        "span": {
+          "end": 7007,
+          "start": 5898
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::principal_registry::ensure_mint_capability"
+        },
+        "kind": "Function",
+        "name": "ensure_mint_capability",
+        "span": {
+          "end": 6838,
+          "start": 5729
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::principal_registry::hex_encode"
+        },
+        "kind": "Function",
+        "name": "hex_encode",
+        "span": {
+          "end": 10416,
+          "start": 10127
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::principal_registry::hex_encode"
+        },
+        "kind": "Function",
+        "name": "hex_encode",
+        "span": {
+          "end": 10247,
+          "start": 9958
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintPrincipalRequest::authority_id"
+        },
+        "kind": "Field",
+        "name": "authority_id",
+        "span": {
+          "end": 778,
+          "start": 732
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintPrincipalRequest::authority_id"
+        },
+        "kind": "Field",
+        "name": "authority_id",
+        "span": {
+          "end": 778,
+          "start": 732
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::principal_registry::verify_actor_still_active"
+        },
+        "kind": "Function",
+        "name": "verify_actor_still_active",
+        "span": {
+          "end": 5896,
+          "start": 4689
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::principal_registry::verify_actor_still_active"
+        },
+        "kind": "Function",
+        "name": "verify_actor_still_active",
+        "span": {
+          "end": 5727,
+          "start": 4520
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::principal_registry::WorkspaceSession::bootstrap_owner_principal"
+        },
+        "kind": "Method",
+        "name": "bootstrap_owner_principal",
+        "span": {
+          "end": 2213,
+          "start": 1327
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::principal_registry::WorkspaceSession::bootstrap_owner_principal"
+        },
+        "kind": "Method",
+        "name": "bootstrap_owner_principal",
+        "span": {
+          "end": 2213,
+          "start": 1327
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::principal_registry::MintPrincipalRequest"
+        },
+        "kind": "Struct",
+        "name": "MintPrincipalRequest",
+        "span": {
+          "end": 985,
+          "start": 694
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::principal_registry::MintPrincipalRequest"
+        },
+        "kind": "Struct",
+        "name": "MintPrincipalRequest",
+        "span": {
+          "end": 985,
+          "start": 694
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintPrincipalRequest::name"
+        },
+        "kind": "Field",
+        "name": "name",
+        "span": {
+          "end": 829,
+          "start": 813
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintPrincipalRequest::name"
+        },
+        "kind": "Field",
+        "name": "name",
+        "span": {
+          "end": 829,
+          "start": 813
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintedPrincipalCredential::principal"
+        },
+        "kind": "Field",
+        "name": "principal",
+        "span": {
+          "end": 1085,
+          "start": 1054
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintedPrincipalCredential::principal"
+        },
+        "kind": "Field",
+        "name": "principal",
+        "span": {
+          "end": 1085,
+          "start": 1054
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::principal_registry::credential_verifier"
+        },
+        "kind": "Function",
+        "name": "credential_verifier",
+        "span": {
+          "end": 10125,
+          "start": 9926
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::principal_registry::credential_verifier"
+        },
+        "kind": "Function",
+        "name": "credential_verifier",
+        "span": {
+          "end": 9956,
+          "start": 9757
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintedPrincipalCredential::principal_token"
+        },
+        "kind": "Field",
+        "name": "principal_token",
+        "span": {
+          "end": 1156,
+          "start": 1129
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintedPrincipalCredential::principal_token"
+        },
+        "kind": "Field",
+        "name": "principal_token",
+        "span": {
+          "end": 1156,
+          "start": 1129
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::principal_registry"
+        },
+        "kind": "Module",
+        "name": "principal_registry",
+        "span": {
+          "end": 10417,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::principal_registry"
+        },
+        "kind": "Module",
+        "name": "principal_registry",
+        "span": {
+          "end": 10248,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::AuthenticatedPrincipal::credential"
+        },
+        "kind": "Field",
+        "name": "credential",
+        "span": {
+          "end": 1294,
+          "start": 1262
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::AuthenticatedPrincipal::credential"
+        },
+        "kind": "Field",
+        "name": "credential",
+        "span": {
+          "end": 1294,
+          "start": 1262
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::BootstrapOwnerInput::name"
+        },
+        "kind": "Field",
+        "name": "name",
+        "span": {
+          "end": 635,
+          "start": 619
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::BootstrapOwnerInput::name"
+        },
+        "kind": "Field",
+        "name": "name",
+        "span": {
+          "end": 635,
+          "start": 619
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::principal_registry::AuthenticatedPrincipal"
+        },
+        "kind": "Struct",
+        "name": "AuthenticatedPrincipal",
+        "span": {
+          "end": 1297,
+          "start": 1185
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::principal_registry::AuthenticatedPrincipal"
+        },
+        "kind": "Struct",
+        "name": "AuthenticatedPrincipal",
+        "span": {
+          "end": 1297,
+          "start": 1185
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::BootstrapOwnerInput::authority_id"
+        },
+        "kind": "Field",
+        "name": "authority_id",
+        "span": {
+          "end": 613,
+          "start": 567
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::BootstrapOwnerInput::authority_id"
+        },
+        "kind": "Field",
+        "name": "authority_id",
+        "span": {
+          "end": 613,
+          "start": 567
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintPrincipalRequest::role"
+        },
+        "kind": "Field",
+        "name": "role",
+        "span": {
+          "end": 859,
+          "start": 835
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintPrincipalRequest::role"
+        },
+        "kind": "Field",
+        "name": "role",
+        "span": {
+          "end": 859,
+          "start": 835
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::principal_registry::BootstrapOwnerInput"
+        },
+        "kind": "Struct",
+        "name": "BootstrapOwnerInput",
+        "span": {
+          "end": 668,
+          "start": 530
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::principal_registry::BootstrapOwnerInput"
+        },
+        "kind": "Struct",
+        "name": "BootstrapOwnerInput",
+        "span": {
+          "end": 668,
+          "start": 530
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::principal_registry::normalized_capabilities"
+        },
+        "kind": "Function",
+        "name": "normalized_capabilities",
+        "span": {
+          "end": 9625,
+          "start": 9155
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::principal_registry::normalized_capabilities"
+        },
+        "kind": "Function",
+        "name": "normalized_capabilities",
+        "span": {
+          "end": 9456,
+          "start": 8986
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::principal_registry::WorkspaceSession::mint_principal_credential"
+        },
+        "kind": "Method",
+        "name": "mint_principal_credential",
+        "span": {
+          "end": 3188,
+          "start": 2680
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::principal_registry::WorkspaceSession::mint_principal_credential"
+        },
+        "kind": "Method",
+        "name": "mint_principal_credential",
+        "span": {
+          "end": 2992,
+          "start": 2484
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::AuthenticatedPrincipal::principal"
+        },
+        "kind": "Field",
+        "name": "principal",
+        "span": {
+          "end": 1256,
+          "start": 1225
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::AuthenticatedPrincipal::principal"
+        },
+        "kind": "Field",
+        "name": "principal",
+        "span": {
+          "end": 1256,
+          "start": 1225
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::principal_registry::WorkspaceSession::authenticate_principal_credential"
+        },
+        "kind": "Method",
+        "name": "authenticate_principal_credential",
+        "span": {
+          "end": 2674,
+          "start": 2219
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::principal_registry::WorkspaceSession::authenticate_principal_credential"
+        },
+        "kind": "Method",
+        "name": "authenticate_principal_credential",
+        "span": {
+          "end": 2478,
+          "start": 2219
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintPrincipalRequest::capabilities"
+        },
+        "kind": "Field",
+        "name": "capabilities",
+        "span": {
+          "end": 958,
+          "start": 915
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintPrincipalRequest::capabilities"
+        },
+        "kind": "Field",
+        "name": "capabilities",
+        "span": {
+          "end": 958,
+          "start": 915
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::principal_registry::generate_principal_token"
+        },
+        "kind": "Function",
+        "name": "generate_principal_token",
+        "span": {
+          "end": 9924,
+          "start": 9766
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::principal_registry::generate_principal_token"
+        },
+        "kind": "Function",
+        "name": "generate_principal_token",
+        "span": {
+          "end": 9755,
+          "start": 9597
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintPrincipalRequest::profile"
+        },
+        "kind": "Field",
+        "name": "profile",
+        "span": {
+          "end": 982,
+          "start": 964
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintPrincipalRequest::profile"
+        },
+        "kind": "Field",
+        "name": "profile",
+        "span": {
+          "end": 982,
+          "start": 964
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::principal_registry::WorkspaceSession::impl"
+        },
+        "kind": "Impl",
+        "name": "WorkspaceSession",
+        "span": {
+          "end": 3190,
+          "start": 1299
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::principal_registry::WorkspaceSession::impl"
+        },
+        "kind": "Impl",
+        "name": "WorkspaceSession",
+        "span": {
+          "end": 2994,
+          "start": 1299
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintPrincipalRequest::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 807,
+          "start": 784
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::principal_registry::MintPrincipalRequest::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 807,
+          "start": 784
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::principal_registry::MintedPrincipalCredential"
+        },
+        "kind": "Struct",
+        "name": "MintedPrincipalCredential",
+        "span": {
+          "end": 1159,
+          "start": 1011
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::principal_registry::MintedPrincipalCredential"
+        },
+        "kind": "Struct",
+        "name": "MintedPrincipalCredential",
+        "span": {
+          "end": 1159,
+          "start": 1011
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 66,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/principal_registry.rs"
+    ],
+    "files": [
+      100
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

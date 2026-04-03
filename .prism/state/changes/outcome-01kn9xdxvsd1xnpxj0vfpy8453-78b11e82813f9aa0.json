@@ -1,0 +1,1097 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdxvsd1xnpxj0vfpy8453",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 366
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::status",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::projection_classes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::cqrs_but_stated_precisely",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::the_problem_authoritative_truth_is_not_a_usable_interface",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::2_shared_runtime_authority",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::non_goals",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::architecture",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::2_serving_projections",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::serving_projections_ide_and_mcp_surfaces",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::the_core_idea",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::why_this_matters",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::diff_the_last_4_hours_of_plan_state",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::normative_invariants",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::ecosystem_implication",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::view_the_plan_as_it_existed_yesterday",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::authority_planes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::3_ad_hoc_projections",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::time_travel_valuable_but_not_free",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::prism_projections_the_read_model_and_interface_layer",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::ad_hoc_projections_historical_and_audit_views",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::1_published_projections",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::architectural_rule",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::recommended_positioning",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md",
+        "kind": "Document"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::3_derived_serving_state",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::1_published_repo_authority",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::published_projections_living_docs",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::what_this_means_in_practice",
+        "kind": "MarkdownHeading"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 28 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 56,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "removedCount": 0,
+        "updatedCount": 56
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::status"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Status",
+        "span": {
+          "end": 288,
+          "start": 57
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::status"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Status",
+        "span": {
+          "end": 288,
+          "start": 57
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::projection_classes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Projection Classes",
+        "span": {
+          "end": 5911,
+          "start": 4197
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::projection_classes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Projection Classes",
+        "span": {
+          "end": 6248,
+          "start": 4534
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::cqrs_but_stated_precisely"
+        },
+        "kind": "MarkdownHeading",
+        "name": "CQRS, But Stated Precisely",
+        "span": {
+          "end": 3141,
+          "start": 2441
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::cqrs_but_stated_precisely"
+        },
+        "kind": "MarkdownHeading",
+        "name": "CQRS, But Stated Precisely",
+        "span": {
+          "end": 3404,
+          "start": 2704
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::the_problem_authoritative_truth_is_not_a_usable_interface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "The Problem: Authoritative Truth Is Not a Usable Interface",
+        "span": {
+          "end": 2060,
+          "start": 1328
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::the_problem_authoritative_truth_is_not_a_usable_interface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "The Problem: Authoritative Truth Is Not a Usable Interface",
+        "span": {
+          "end": 2323,
+          "start": 1328
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::2_shared_runtime_authority"
+        },
+        "kind": "MarkdownHeading",
+        "name": "2. Shared Runtime Authority",
+        "span": {
+          "end": 3879,
+          "start": 3501
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::2_shared_runtime_authority"
+        },
+        "kind": "MarkdownHeading",
+        "name": "2. Shared Runtime Authority",
+        "span": {
+          "end": 4216,
+          "start": 3838
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::non_goals"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Non-Goals",
+        "span": {
+          "end": 10654,
+          "start": 10339
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::non_goals"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Non-Goals",
+        "span": {
+          "end": 10991,
+          "start": 10676
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::architecture"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Architecture",
+        "span": {
+          "end": 7794,
+          "start": 7065
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::architecture"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Architecture",
+        "span": {
+          "end": 8131,
+          "start": 7402
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::2_serving_projections"
+        },
+        "kind": "MarkdownHeading",
+        "name": "2. Serving Projections",
+        "span": {
+          "end": 5393,
+          "start": 4823
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::2_serving_projections"
+        },
+        "kind": "MarkdownHeading",
+        "name": "2. Serving Projections",
+        "span": {
+          "end": 5730,
+          "start": 5160
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::serving_projections_ide_and_mcp_surfaces"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Serving Projections: IDE and MCP Surfaces",
+        "span": {
+          "end": 8945,
+          "start": 8478
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::serving_projections_ide_and_mcp_surfaces"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Serving Projections: IDE and MCP Surfaces",
+        "span": {
+          "end": 9282,
+          "start": 8815
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::the_core_idea"
+        },
+        "kind": "MarkdownHeading",
+        "name": "The Core Idea",
+        "span": {
+          "end": 2441,
+          "start": 2060
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::the_core_idea"
+        },
+        "kind": "MarkdownHeading",
+        "name": "The Core Idea",
+        "span": {
+          "end": 2704,
+          "start": 2323
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::why_this_matters"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Why This Matters",
+        "span": {
+          "end": 11167,
+          "start": 10654
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::why_this_matters"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Why This Matters",
+        "span": {
+          "end": 11504,
+          "start": 10991
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::diff_the_last_4_hours_of_plan_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Diff the last 4 hours of plan state",
+        "span": {
+          "end": 12050,
+          "start": 9241
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::diff_the_last_4_hours_of_plan_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Diff the last 4 hours of plan state",
+        "span": {
+          "end": 12387,
+          "start": 9578
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::normative_invariants"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Normative Invariants",
+        "span": {
+          "end": 1328,
+          "start": 288
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::normative_invariants"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Normative Invariants",
+        "span": {
+          "end": 1328,
+          "start": 288
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::ecosystem_implication"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Ecosystem Implication",
+        "span": {
+          "end": 11617,
+          "start": 11167
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::ecosystem_implication"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Ecosystem Implication",
+        "span": {
+          "end": 11954,
+          "start": 11504
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::view_the_plan_as_it_existed_yesterday"
+        },
+        "kind": "MarkdownHeading",
+        "name": "View the plan as it existed yesterday",
+        "span": {
+          "end": 9241,
+          "start": 9144
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::view_the_plan_as_it_existed_yesterday"
+        },
+        "kind": "MarkdownHeading",
+        "name": "View the plan as it existed yesterday",
+        "span": {
+          "end": 9578,
+          "start": 9481
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::authority_planes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Authority Planes",
+        "span": {
+          "end": 4197,
+          "start": 3141
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::authority_planes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Authority Planes",
+        "span": {
+          "end": 4534,
+          "start": 3404
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::3_ad_hoc_projections"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3. Ad Hoc Projections",
+        "span": {
+          "end": 5911,
+          "start": 5393
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::3_ad_hoc_projections"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3. Ad Hoc Projections",
+        "span": {
+          "end": 6248,
+          "start": 5730
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::time_travel_valuable_but_not_free"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Time-Travel: Valuable, But Not Free",
+        "span": {
+          "end": 7065,
+          "start": 6504
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::time_travel_valuable_but_not_free"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Time-Travel: Valuable, But Not Free",
+        "span": {
+          "end": 7402,
+          "start": 6841
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::prism_projections_the_read_model_and_interface_layer"
+        },
+        "kind": "MarkdownHeading",
+        "name": "PRISM Projections: The Read Model and Interface Layer",
+        "span": {
+          "end": 9144,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::prism_projections_the_read_model_and_interface_layer"
+        },
+        "kind": "MarkdownHeading",
+        "name": "PRISM Projections: The Read Model and Interface Layer",
+        "span": {
+          "end": 9481,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::ad_hoc_projections_historical_and_audit_views"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Ad Hoc Projections: Historical and Audit Views",
+        "span": {
+          "end": 9144,
+          "start": 8945
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::ad_hoc_projections_historical_and_audit_views"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Ad Hoc Projections: Historical and Audit Views",
+        "span": {
+          "end": 9481,
+          "start": 9282
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::1_published_projections"
+        },
+        "kind": "MarkdownHeading",
+        "name": "1. Published Projections",
+        "span": {
+          "end": 4823,
+          "start": 4321
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::1_published_projections"
+        },
+        "kind": "MarkdownHeading",
+        "name": "1. Published Projections",
+        "span": {
+          "end": 5160,
+          "start": 4658
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::architectural_rule"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Architectural Rule",
+        "span": {
+          "end": 6504,
+          "start": 5911
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::architectural_rule"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Architectural Rule",
+        "span": {
+          "end": 6841,
+          "start": 6248
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::recommended_positioning"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Recommended Positioning",
+        "span": {
+          "end": 12050,
+          "start": 11617
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::recommended_positioning"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Recommended Positioning",
+        "span": {
+          "end": 12387,
+          "start": 11954
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md"
+        },
+        "kind": "Document",
+        "name": "docs/PRISM_PROJECTIONS.md",
+        "span": {
+          "end": 12050,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md"
+        },
+        "kind": "Document",
+        "name": "docs/PRISM_PROJECTIONS.md",
+        "span": {
+          "end": 12387,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::3_derived_serving_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3. Derived Serving State",
+        "span": {
+          "end": 4197,
+          "start": 3879
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::3_derived_serving_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3. Derived Serving State",
+        "span": {
+          "end": 4534,
+          "start": 4216
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::1_published_repo_authority"
+        },
+        "kind": "MarkdownHeading",
+        "name": "1. Published Repo Authority",
+        "span": {
+          "end": 3501,
+          "start": 3250
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::1_published_repo_authority"
+        },
+        "kind": "MarkdownHeading",
+        "name": "1. Published Repo Authority",
+        "span": {
+          "end": 3838,
+          "start": 3513
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::published_projections_living_docs"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Published Projections: Living Docs",
+        "span": {
+          "end": 8478,
+          "start": 7826
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::published_projections_living_docs"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Published Projections: Living Docs",
+        "span": {
+          "end": 8815,
+          "start": 8163
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::what_this_means_in_practice"
+        },
+        "kind": "MarkdownHeading",
+        "name": "What This Means in Practice",
+        "span": {
+          "end": 9144,
+          "start": 7794
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_PROJECTIONS_md::what_this_means_in_practice"
+        },
+        "kind": "MarkdownHeading",
+        "name": "What This Means in Practice",
+        "span": {
+          "end": 9481,
+          "start": 8131
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 56,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_PROJECTIONS.md"
+    ],
+    "files": [
+      366
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

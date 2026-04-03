@@ -1,0 +1,1051 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdv0qb9p7wwqta0915bqe",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 486
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::4_1_git_is_the_durable_history_for_tracked_prism",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::1_summary",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::6_3_file_classes_and_responsibilities",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::5_1_repo_published_plane",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::7_2_manifest_chaining",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::10_1_hot_startup",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::stage_4_retire_tracked_append_logs",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::6_4_suggested_tracked_layout",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::7_5_manifest_handling",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::10_startup_and_restore_contract",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::12_migration_direction",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::11_implications_for_current_prism_streams",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md",
+        "kind": "Document"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::6_2_snapshot_requirements",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::8_2_local_versus_shared_behavior",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::3_design_goals",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::stage_5_preserve_provenance_continuity",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::10_2_cold_startup",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::13_open_questions",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::2_problem",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::4_3_fine_grained_append_only_history_lives_in_runtime_shared_state",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::7_3_why_this_boundary_is_correct",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::5_2_runtime_shared_state_plane",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::5_3_process_local_plane",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::7_signed_publish_manifest",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::4_2_tracked_prism_becomes_snapshot_oriented",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::7_4_publish_boundary",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::9_linking_snapshots_to_runtime_history",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::stage_3_move_startup_to_snapshot_restore",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::8_3_runtime_journal_retention",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::4_core_decision",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::stage_2_stop_growing_tracked_append_logs",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::6_snapshot_model",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::stage_1_lock_the_contract",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::5_state_planes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::8_runtime_journal_model",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::prism_repo_snapshot_rewrite",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::6_5_snapshot_scope",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::6_6_coordination_publication_rule",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::6_1_shard_strategy",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::6_7_review_and_merge_pressure",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::9_1_snapshot_to_journal_linkage_shape",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::7_1_signed_unit",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::14_recommendation",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::8_1_runtime_journal_requirements",
+        "kind": "MarkdownHeading"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 45 added, 0 removed, 0 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 45,
+        "changedSymbolCount": 45,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "removedCount": 0,
+        "updatedCount": 0
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::4_1_git_is_the_durable_history_for_tracked_prism"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4.1 Git is the durable history for tracked `.prism`",
+        "span": {
+          "end": 3153,
+          "start": 2870
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::1_summary"
+        },
+        "kind": "MarkdownHeading",
+        "name": "1. Summary",
+        "span": {
+          "end": 1197,
+          "start": 260
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::6_3_file_classes_and_responsibilities"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.3 File classes and responsibilities",
+        "span": {
+          "end": 8154,
+          "start": 7257
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::5_1_repo_published_plane"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.1 Repo-published plane",
+        "span": {
+          "end": 4661,
+          "start": 4244
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::7_2_manifest_chaining"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.2 Manifest chaining",
+        "span": {
+          "end": 14781,
+          "start": 14050
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::10_1_hot_startup"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10.1 Hot startup",
+        "span": {
+          "end": 20688,
+          "start": 20220
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::stage_4_retire_tracked_append_logs"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Stage 4: retire tracked append logs",
+        "span": {
+          "end": 23102,
+          "start": 22898
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::6_4_suggested_tracked_layout"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.4 Suggested tracked layout",
+        "span": {
+          "end": 8934,
+          "start": 8154
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::7_5_manifest_handling"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.5 Manifest handling",
+        "span": {
+          "end": 16361,
+          "start": 15908
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::10_startup_and_restore_contract"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10. Startup and Restore Contract",
+        "span": {
+          "end": 21048,
+          "start": 20183
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::12_migration_direction"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12. Migration Direction",
+        "span": {
+          "end": 23518,
+          "start": 22149
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::11_implications_for_current_prism_streams"
+        },
+        "kind": "MarkdownHeading",
+        "name": "11. Implications for Current `.prism` Streams",
+        "span": {
+          "end": 22149,
+          "start": 21048
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md"
+        },
+        "kind": "Document",
+        "name": "docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "span": {
+          "end": 24768,
+          "start": 0
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::6_2_snapshot_requirements"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.2 Snapshot requirements",
+        "span": {
+          "end": 7257,
+          "start": 7035
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::8_2_local_versus_shared_behavior"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.2 Local versus shared behavior",
+        "span": {
+          "end": 18119,
+          "start": 17541
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::3_design_goals"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3. Design Goals",
+        "span": {
+          "end": 2849,
+          "start": 1903
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::stage_5_preserve_provenance_continuity"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Stage 5: preserve provenance continuity",
+        "span": {
+          "end": 23518,
+          "start": 23102
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::10_2_cold_startup"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10.2 Cold startup",
+        "span": {
+          "end": 21048,
+          "start": 20688
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::13_open_questions"
+        },
+        "kind": "MarkdownHeading",
+        "name": "13. Open Questions",
+        "span": {
+          "end": 24170,
+          "start": 23518
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::2_problem"
+        },
+        "kind": "MarkdownHeading",
+        "name": "2. Problem",
+        "span": {
+          "end": 1903,
+          "start": 1197
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::4_3_fine_grained_append_only_history_lives_in_runtime_shared_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4.3 Fine-grained append-only history lives in runtime/shared state",
+        "span": {
+          "end": 4160,
+          "start": 3595
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::7_3_why_this_boundary_is_correct"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.3 Why this boundary is correct",
+        "span": {
+          "end": 15034,
+          "start": 14781
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::5_2_runtime_shared_state_plane"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.2 Runtime/shared state plane",
+        "span": {
+          "end": 4997,
+          "start": 4661
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::5_3_process_local_plane"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.3 Process-local plane",
+        "span": {
+          "end": 5204,
+          "start": 4997
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::7_signed_publish_manifest"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7. Signed Publish Manifest",
+        "span": {
+          "end": 16361,
+          "start": 11620
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::4_2_tracked_prism_becomes_snapshot_oriented"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4.2 Tracked `.prism` becomes snapshot-oriented",
+        "span": {
+          "end": 3595,
+          "start": 3153
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::7_4_publish_boundary"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.4 Publish boundary",
+        "span": {
+          "end": 15908,
+          "start": 15034
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::9_linking_snapshots_to_runtime_history"
+        },
+        "kind": "MarkdownHeading",
+        "name": "9. Linking Snapshots to Runtime History",
+        "span": {
+          "end": 20183,
+          "start": 18421
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::stage_3_move_startup_to_snapshot_restore"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Stage 3: move startup to snapshot restore",
+        "span": {
+          "end": 22898,
+          "start": 22671
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::8_3_runtime_journal_retention"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.3 Runtime journal retention",
+        "span": {
+          "end": 18421,
+          "start": 18119
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::4_core_decision"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4. Core Decision",
+        "span": {
+          "end": 4160,
+          "start": 2849
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::stage_2_stop_growing_tracked_append_logs"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Stage 2: stop growing tracked append logs",
+        "span": {
+          "end": 22671,
+          "start": 22449
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::6_snapshot_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6. Snapshot Model",
+        "span": {
+          "end": 11620,
+          "start": 5204
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::stage_1_lock_the_contract"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Stage 1: lock the contract",
+        "span": {
+          "end": 22449,
+          "start": 22216
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::5_state_planes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5. State Planes",
+        "span": {
+          "end": 5204,
+          "start": 4160
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::8_runtime_journal_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8. Runtime Journal Model",
+        "span": {
+          "end": 18421,
+          "start": 16361
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::prism_repo_snapshot_rewrite"
+        },
+        "kind": "MarkdownHeading",
+        "name": "PRISM Repo Snapshot Rewrite",
+        "span": {
+          "end": 24768,
+          "start": 0
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::6_5_snapshot_scope"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.5 Snapshot scope",
+        "span": {
+          "end": 9882,
+          "start": 8934
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::6_6_coordination_publication_rule"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.6 Coordination publication rule",
+        "span": {
+          "end": 10894,
+          "start": 9882
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::6_1_shard_strategy"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.1 Shard strategy",
+        "span": {
+          "end": 7035,
+          "start": 5979
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::6_7_review_and_merge_pressure"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.7 Review and merge pressure",
+        "span": {
+          "end": 11620,
+          "start": 10894
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::9_1_snapshot_to_journal_linkage_shape"
+        },
+        "kind": "MarkdownHeading",
+        "name": "9.1 Snapshot-to-journal linkage shape",
+        "span": {
+          "end": 20183,
+          "start": 19184
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::7_1_signed_unit"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.1 Signed unit",
+        "span": {
+          "end": 14050,
+          "start": 11827
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::14_recommendation"
+        },
+        "kind": "MarkdownHeading",
+        "name": "14. Recommendation",
+        "span": {
+          "end": 24768,
+          "start": 24170
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_REPO_SNAPSHOT_REWRITE_md::8_1_runtime_journal_requirements"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.1 Runtime journal requirements",
+        "span": {
+          "end": 17541,
+          "start": 16993
+        },
+        "status": "added"
+      }
+    ],
+    "changedSymbolsTotalCount": 45,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_REPO_SNAPSHOT_REWRITE.md"
+    ],
+    "files": [
+      486
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

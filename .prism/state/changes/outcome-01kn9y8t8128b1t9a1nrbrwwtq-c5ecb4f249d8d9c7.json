@@ -1,0 +1,1172 @@
+{
+  "meta": {
+    "id": "outcome:01kn9y8t8128b1t9a1nrbrwwtq",
+    "ts": 1775228971,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+    "causation": "observed:01kn9y8t2y8q4k2pejan154qh6",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/task/path-identity-repo-relative",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:lock-the-canonical-path-identity-contract-and-no-absolute-path-boundary:01kn9y2x6gzpnxw9wa3qe832gt",
+        "kind": "coordination",
+        "title": "Lock the canonical path identity contract and no-absolute-path boundary",
+        "coordinationTaskId": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+        "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 363
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::worktrees_worktree_id_acceleration",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::compatibility_rules",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::home_layout",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::migration_plan",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::phase_1_introduce_a_path_layer",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::projects_project_id_coordination",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::identity_files",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::three_local_planes_under_prism",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::worktrees_worktree_id_mcp_state",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::home_resolution",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::repo_tree_layout",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::prism_home_layout",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::summary",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::phase_4_tighten_the_contract",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md",
+        "kind": "Document"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::lifecycle_and_cleanup",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::goal",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::feedback",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::phase_3_migrate_old_data",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::identity_derivation",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::phase_2_move_non_published_files",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::scope_model",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::shared",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::current_implementation_status",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::ownership_rule",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::current_to_target_mapping",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::imports",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::worktrees_worktree_id_mcp_logs",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::source_buckets",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_protected_state_runtime_sync",
+        "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::non_goals",
+        "kind": "MarkdownHeading"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 30 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 60,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "removedCount": 0,
+        "updatedCount": 60
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::worktrees_worktree_id_acceleration"
+        },
+        "kind": "MarkdownHeading",
+        "name": "`worktrees/<worktree_id>/acceleration/`",
+        "span": {
+          "end": 9331,
+          "start": 8664
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::worktrees_worktree_id_acceleration"
+        },
+        "kind": "MarkdownHeading",
+        "name": "`worktrees/<worktree_id>/acceleration/`",
+        "span": {
+          "end": 9331,
+          "start": 8664
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::compatibility_rules"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Compatibility Rules",
+        "span": {
+          "end": 16205,
+          "start": 15286
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::compatibility_rules"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Compatibility Rules",
+        "span": {
+          "end": 16536,
+          "start": 15617
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::home_layout"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Home Layout",
+        "span": {
+          "end": 4135,
+          "start": 3043
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::home_layout"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Home Layout",
+        "span": {
+          "end": 4135,
+          "start": 3043
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::migration_plan"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Migration Plan",
+        "span": {
+          "end": 18233,
+          "start": 16205
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::migration_plan"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Migration Plan",
+        "span": {
+          "end": 18564,
+          "start": 16536
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::phase_1_introduce_a_path_layer"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Phase 1: Introduce a path layer",
+        "span": {
+          "end": 16675,
+          "start": 16224
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::phase_1_introduce_a_path_layer"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Phase 1: Introduce a path layer",
+        "span": {
+          "end": 17006,
+          "start": 16555
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::projects_project_id_coordination"
+        },
+        "kind": "MarkdownHeading",
+        "name": "`projects/<project_id>/coordination/`",
+        "span": {
+          "end": 8664,
+          "start": 7869
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::projects_project_id_coordination"
+        },
+        "kind": "MarkdownHeading",
+        "name": "`projects/<project_id>/coordination/`",
+        "span": {
+          "end": 8664,
+          "start": 7869
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::identity_files"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Identity Files",
+        "span": {
+          "end": 13299,
+          "start": 12672
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::identity_files"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Identity Files",
+        "span": {
+          "end": 13630,
+          "start": 12672
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::three_local_planes_under_prism"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Three Local Planes Under `~/.prism`",
+        "span": {
+          "end": 10697,
+          "start": 5572
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::three_local_planes_under_prism"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Three Local Planes Under `~/.prism`",
+        "span": {
+          "end": 10697,
+          "start": 5572
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::worktrees_worktree_id_mcp_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "`worktrees/<worktree_id>/mcp/state/`",
+        "span": {
+          "end": 10410,
+          "start": 10115
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::worktrees_worktree_id_mcp_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "`worktrees/<worktree_id>/mcp/state/`",
+        "span": {
+          "end": 10410,
+          "start": 10115
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::home_resolution"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Home Resolution",
+        "span": {
+          "end": 4560,
+          "start": 4135
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::home_resolution"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Home Resolution",
+        "span": {
+          "end": 4560,
+          "start": 4135
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::repo_tree_layout"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Repo Tree Layout",
+        "span": {
+          "end": 3043,
+          "start": 2541
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::repo_tree_layout"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Repo Tree Layout",
+        "span": {
+          "end": 3043,
+          "start": 2541
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::prism_home_layout"
+        },
+        "kind": "MarkdownHeading",
+        "name": "PRISM Home Layout",
+        "span": {
+          "end": 19240,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::prism_home_layout"
+        },
+        "kind": "MarkdownHeading",
+        "name": "PRISM Home Layout",
+        "span": {
+          "end": 19571,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::summary"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Summary",
+        "span": {
+          "end": 19240,
+          "start": 18640
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::summary"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Summary",
+        "span": {
+          "end": 19571,
+          "start": 18971
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::phase_4_tighten_the_contract"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Phase 4: Tighten the contract",
+        "span": {
+          "end": 18233,
+          "start": 17682
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::phase_4_tighten_the_contract"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Phase 4: Tighten the contract",
+        "span": {
+          "end": 18564,
+          "start": 18013
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md"
+        },
+        "kind": "Document",
+        "name": "docs/PRISM_HOME_LAYOUT.md",
+        "span": {
+          "end": 19240,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "Document",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md"
+        },
+        "kind": "Document",
+        "name": "docs/PRISM_HOME_LAYOUT.md",
+        "span": {
+          "end": 19571,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::lifecycle_and_cleanup"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Lifecycle And Cleanup",
+        "span": {
+          "end": 15286,
+          "start": 14342
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::lifecycle_and_cleanup"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Lifecycle And Cleanup",
+        "span": {
+          "end": 15617,
+          "start": 14673
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::goal"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Goal",
+        "span": {
+          "end": 967,
+          "start": 296
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::goal"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Goal",
+        "span": {
+          "end": 967,
+          "start": 296
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::feedback"
+        },
+        "kind": "MarkdownHeading",
+        "name": "`feedback/`",
+        "span": {
+          "end": 9718,
+          "start": 9331
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::feedback"
+        },
+        "kind": "MarkdownHeading",
+        "name": "`feedback/`",
+        "span": {
+          "end": 9718,
+          "start": 9331
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::phase_3_migrate_old_data"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Phase 3: Migrate old data",
+        "span": {
+          "end": 17682,
+          "start": 17384
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::phase_3_migrate_old_data"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Phase 3: Migrate old data",
+        "span": {
+          "end": 18013,
+          "start": 17715
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::identity_derivation"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Identity Derivation",
+        "span": {
+          "end": 14342,
+          "start": 13299
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::identity_derivation"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Identity Derivation",
+        "span": {
+          "end": 14673,
+          "start": 13630
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::phase_2_move_non_published_files"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Phase 2: Move non-published files",
+        "span": {
+          "end": 17384,
+          "start": 16675
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::phase_2_move_non_published_files"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Phase 2: Move non-published files",
+        "span": {
+          "end": 17715,
+          "start": 17006
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::scope_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Scope Model",
+        "span": {
+          "end": 2541,
+          "start": 1685
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::scope_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Scope Model",
+        "span": {
+          "end": 2541,
+          "start": 1685
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::shared"
+        },
+        "kind": "MarkdownHeading",
+        "name": "`shared/`",
+        "span": {
+          "end": 7869,
+          "start": 6633
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::shared"
+        },
+        "kind": "MarkdownHeading",
+        "name": "`shared/`",
+        "span": {
+          "end": 7869,
+          "start": 6633
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::current_implementation_status"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Current Implementation Status",
+        "span": {
+          "end": 5455,
+          "start": 4560
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::current_implementation_status"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Current Implementation Status",
+        "span": {
+          "end": 5455,
+          "start": 4560
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::ownership_rule"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Ownership Rule",
+        "span": {
+          "end": 1685,
+          "start": 967
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::ownership_rule"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Ownership Rule",
+        "span": {
+          "end": 1685,
+          "start": 967
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::current_to_target_mapping"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Current To Target Mapping",
+        "span": {
+          "end": 12672,
+          "start": 10697
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::current_to_target_mapping"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Current To Target Mapping",
+        "span": {
+          "end": 12672,
+          "start": 10697
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::imports"
+        },
+        "kind": "MarkdownHeading",
+        "name": "`imports/`",
+        "span": {
+          "end": 10115,
+          "start": 9718
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::imports"
+        },
+        "kind": "MarkdownHeading",
+        "name": "`imports/`",
+        "span": {
+          "end": 10115,
+          "start": 9718
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::worktrees_worktree_id_mcp_logs"
+        },
+        "kind": "MarkdownHeading",
+        "name": "`worktrees/<worktree_id>/mcp/logs/`",
+        "span": {
+          "end": 10697,
+          "start": 10410
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::worktrees_worktree_id_mcp_logs"
+        },
+        "kind": "MarkdownHeading",
+        "name": "`worktrees/<worktree_id>/mcp/logs/`",
+        "span": {
+          "end": 10697,
+          "start": 10410
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::source_buckets"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Source Buckets",
+        "span": {
+          "end": 5572,
+          "start": 5455
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::source_buckets"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Source Buckets",
+        "span": {
+          "end": 5572,
+          "start": 5455
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::non_goals"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Non-Goals",
+        "span": {
+          "end": 18640,
+          "start": 18233
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md",
+        "id": {
+          "crate_name": "prism_protected_state_runtime_sync",
+          "kind": "MarkdownHeading",
+          "path": "prism_protected_state_runtime_sync::document::docs::PRISM_HOME_LAYOUT_md::non_goals"
+        },
+        "kind": "MarkdownHeading",
+        "name": "Non-Goals",
+        "span": {
+          "end": 18971,
+          "start": 18564
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 60,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md"
+    ],
+    "files": [
+      363
+    ],
+    "reason": "work Lock the canonical path identity contract and no-absolute-path boundary (work:lock-the-canonical-path-identity-contract-and-no-absolute-path-boundary:01kn9y2x6gzpnxw9wa3qe832gt)",
+    "trigger": "FsWatch"
+  }
+}

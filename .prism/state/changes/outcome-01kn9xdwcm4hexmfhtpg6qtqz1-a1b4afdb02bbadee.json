@@ -1,0 +1,1681 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdwcm4hexmfhtpg6qtqz1",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 246
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::authenticate_mutation_with_run",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::execute_logged_mutation_with_existing_run",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::require_declared_work_context_with_run",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::MutationCapabilityRequirement",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::prism_workset",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::prism_task_brief",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::prism_expand",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::prism_query",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::MutationCapabilityRequirement::allows",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::list_tools",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::MutationDashboardMeta::violation_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::MutationDashboardMeta::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::impl::ServerHandler",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::MutationCapabilityRequirement::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::build_tool_router",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::get_info",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::prism_gather",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::MutationDashboardMeta::publish_task_update",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::MutationDashboardMeta::coordination",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::authenticate_mutation",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::prism_mutate",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::read_resource",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::MutationRefreshPolicy",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::get_tool",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::resource_content_uri",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::require_declared_work_context",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::MutationDashboardMeta::task",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::execute_logged_mutation_with_run",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::call_tool",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::MutationDashboardMeta::publish_coordination_update",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::list_resource_templates",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::MutationCapabilityRequirement::label",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::prism_concept",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::list_resources",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::prism_locate",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::MutationDashboardMeta::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::transport_bind_tool_schema",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::execute_logged_mutation",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::MutationDashboardMeta::result_ids",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::prism_open",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::record_surface_call",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::PrismMcpServer::server_instructions",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::server_surface::MutationDashboardMeta",
+        "kind": "Struct"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 3 added, 0 removed, 42 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 3,
+        "changedSymbolCount": 87,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "removedCount": 0,
+        "updatedCount": 84
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::authenticate_mutation_with_run"
+        },
+        "kind": "Method",
+        "name": "authenticate_mutation_with_run",
+        "span": {
+          "end": 17878,
+          "start": 10571
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::execute_logged_mutation_with_existing_run"
+        },
+        "kind": "Method",
+        "name": "execute_logged_mutation_with_existing_run",
+        "span": {
+          "end": 35628,
+          "start": 20391
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::require_declared_work_context_with_run"
+        },
+        "kind": "Method",
+        "name": "require_declared_work_context_with_run",
+        "span": {
+          "end": 19320,
+          "start": 18627
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Enum",
+          "path": "prism_mcp::server_surface::MutationCapabilityRequirement"
+        },
+        "kind": "Enum",
+        "name": "MutationCapabilityRequirement",
+        "span": {
+          "end": 1128,
+          "start": 1022
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Enum",
+          "path": "prism_mcp::server_surface::MutationCapabilityRequirement"
+        },
+        "kind": "Enum",
+        "name": "MutationCapabilityRequirement",
+        "span": {
+          "end": 1140,
+          "start": 1034
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_workset"
+        },
+        "kind": "Method",
+        "name": "prism_workset",
+        "span": {
+          "end": 29122,
+          "start": 27949
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_workset"
+        },
+        "kind": "Method",
+        "name": "prism_workset",
+        "span": {
+          "end": 41066,
+          "start": 39893
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_task_brief"
+        },
+        "kind": "Method",
+        "name": "prism_task_brief",
+        "span": {
+          "end": 30972,
+          "start": 30427
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_task_brief"
+        },
+        "kind": "Method",
+        "name": "prism_task_brief",
+        "span": {
+          "end": 42916,
+          "start": 42371
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_expand"
+        },
+        "kind": "Method",
+        "name": "prism_expand",
+        "span": {
+          "end": 30042,
+          "start": 29509
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_expand"
+        },
+        "kind": "Method",
+        "name": "prism_expand",
+        "span": {
+          "end": 41986,
+          "start": 41453
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_query"
+        },
+        "kind": "Method",
+        "name": "prism_query",
+        "span": {
+          "end": 33551,
+          "start": 32940
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_query"
+        },
+        "kind": "Method",
+        "name": "prism_query",
+        "span": {
+          "end": 45495,
+          "start": 44884
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::MutationCapabilityRequirement::allows"
+        },
+        "kind": "Method",
+        "name": "allows",
+        "span": {
+          "end": 2007,
+          "start": 1434
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::MutationCapabilityRequirement::allows"
+        },
+        "kind": "Method",
+        "name": "allows",
+        "span": {
+          "end": 2019,
+          "start": 1446
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::list_tools"
+        },
+        "kind": "Method",
+        "name": "list_tools",
+        "span": {
+          "end": 76059,
+          "start": 74762
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::list_tools"
+        },
+        "kind": "Method",
+        "name": "list_tools",
+        "span": {
+          "end": 88687,
+          "start": 87390
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::server_surface::MutationDashboardMeta::violation_count"
+        },
+        "kind": "Field",
+        "name": "violation_count",
+        "span": {
+          "end": 805,
+          "start": 783
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::server_surface::MutationDashboardMeta::violation_count"
+        },
+        "kind": "Field",
+        "name": "violation_count",
+        "span": {
+          "end": 817,
+          "start": 795
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::server_surface::MutationDashboardMeta::impl"
+        },
+        "kind": "Impl",
+        "name": "MutationDashboardMeta",
+        "span": {
+          "end": 2660,
+          "start": 2011
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::server_surface::MutationDashboardMeta::impl"
+        },
+        "kind": "Impl",
+        "name": "MutationDashboardMeta",
+        "span": {
+          "end": 2672,
+          "start": 2023
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::server_surface::PrismMcpServer::impl::ServerHandler"
+        },
+        "kind": "Impl",
+        "name": "ServerHandler for PrismMcpServer",
+        "span": {
+          "end": 108243,
+          "start": 73108
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::server_surface::PrismMcpServer::impl::ServerHandler"
+        },
+        "kind": "Impl",
+        "name": "ServerHandler for PrismMcpServer",
+        "span": {
+          "end": 120871,
+          "start": 85736
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::server_surface::MutationCapabilityRequirement::impl"
+        },
+        "kind": "Impl",
+        "name": "MutationCapabilityRequirement",
+        "span": {
+          "end": 2009,
+          "start": 1130
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::server_surface::MutationCapabilityRequirement::impl"
+        },
+        "kind": "Impl",
+        "name": "MutationCapabilityRequirement",
+        "span": {
+          "end": 2021,
+          "start": 1142
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::build_tool_router"
+        },
+        "kind": "Method",
+        "name": "build_tool_router",
+        "span": {
+          "end": 6919,
+          "start": 6573
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::build_tool_router"
+        },
+        "kind": "Method",
+        "name": "build_tool_router",
+        "span": {
+          "end": 6931,
+          "start": 6585
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::get_info"
+        },
+        "kind": "Method",
+        "name": "get_info",
+        "span": {
+          "end": 73534,
+          "start": 73152
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::get_info"
+        },
+        "kind": "Method",
+        "name": "get_info",
+        "span": {
+          "end": 86162,
+          "start": 85780
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_gather"
+        },
+        "kind": "Method",
+        "name": "prism_gather",
+        "span": {
+          "end": 25508,
+          "start": 24971
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_gather"
+        },
+        "kind": "Method",
+        "name": "prism_gather",
+        "span": {
+          "end": 37452,
+          "start": 36915
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::server_surface::MutationDashboardMeta::publish_task_update"
+        },
+        "kind": "Field",
+        "name": "publish_task_update",
+        "span": {
+          "end": 836,
+          "start": 811
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::server_surface::MutationDashboardMeta::publish_task_update"
+        },
+        "kind": "Field",
+        "name": "publish_task_update",
+        "span": {
+          "end": 848,
+          "start": 823
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::MutationDashboardMeta::coordination"
+        },
+        "kind": "Method",
+        "name": "coordination",
+        "span": {
+          "end": 2658,
+          "start": 2375
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::MutationDashboardMeta::coordination"
+        },
+        "kind": "Method",
+        "name": "coordination",
+        "span": {
+          "end": 2670,
+          "start": 2387
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::authenticate_mutation"
+        },
+        "kind": "Method",
+        "name": "authenticate_mutation",
+        "span": {
+          "end": 10553,
+          "start": 7177
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::authenticate_mutation"
+        },
+        "kind": "Method",
+        "name": "authenticate_mutation",
+        "span": {
+          "end": 10565,
+          "start": 7189
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_mutate"
+        },
+        "kind": "Method",
+        "name": "prism_mutate",
+        "span": {
+          "end": 73104,
+          "start": 34079
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_mutate"
+        },
+        "kind": "Method",
+        "name": "prism_mutate",
+        "span": {
+          "end": 85732,
+          "start": 46023
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::server_surface"
+        },
+        "kind": "Module",
+        "name": "server_surface",
+        "span": {
+          "end": 108693,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::server_surface"
+        },
+        "kind": "Module",
+        "name": "server_surface",
+        "span": {
+          "end": 121321,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::read_resource"
+        },
+        "kind": "Method",
+        "name": "read_resource",
+        "span": {
+          "end": 101513,
+          "start": 81443
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::read_resource"
+        },
+        "kind": "Method",
+        "name": "read_resource",
+        "span": {
+          "end": 114141,
+          "start": 94071
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Enum",
+          "path": "prism_mcp::server_surface::MutationRefreshPolicy"
+        },
+        "kind": "Enum",
+        "name": "MutationRefreshPolicy",
+        "span": {
+          "end": 997,
+          "start": 903
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Enum",
+          "path": "prism_mcp::server_surface::MutationRefreshPolicy"
+        },
+        "kind": "Enum",
+        "name": "MutationRefreshPolicy",
+        "span": {
+          "end": 1009,
+          "start": 915
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::get_tool"
+        },
+        "kind": "Method",
+        "name": "get_tool",
+        "span": {
+          "end": 76408,
+          "start": 76065
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::get_tool"
+        },
+        "kind": "Method",
+        "name": "get_tool",
+        "span": {
+          "end": 89036,
+          "start": 88693
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::resource_content_uri"
+        },
+        "kind": "Method",
+        "name": "resource_content_uri",
+        "span": {
+          "end": 2934,
+          "start": 2688
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::resource_content_uri"
+        },
+        "kind": "Method",
+        "name": "resource_content_uri",
+        "span": {
+          "end": 2946,
+          "start": 2700
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::require_declared_work_context"
+        },
+        "kind": "Method",
+        "name": "require_declared_work_context",
+        "span": {
+          "end": 11296,
+          "start": 10559
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::require_declared_work_context"
+        },
+        "kind": "Method",
+        "name": "require_declared_work_context",
+        "span": {
+          "end": 18621,
+          "start": 17884
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::MutationDashboardMeta::task"
+        },
+        "kind": "Method",
+        "name": "task",
+        "span": {
+          "end": 2369,
+          "start": 2044
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::MutationDashboardMeta::task"
+        },
+        "kind": "Method",
+        "name": "task",
+        "span": {
+          "end": 2381,
+          "start": 2056
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::execute_logged_mutation_with_run"
+        },
+        "kind": "Method",
+        "name": "execute_logged_mutation_with_run",
+        "span": {
+          "end": 23684,
+          "start": 11745
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::execute_logged_mutation_with_run"
+        },
+        "kind": "Method",
+        "name": "execute_logged_mutation_with_run",
+        "span": {
+          "end": 20385,
+          "start": 19769
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::call_tool"
+        },
+        "kind": "Method",
+        "name": "call_tool",
+        "span": {
+          "end": 74756,
+          "start": 73540
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::call_tool"
+        },
+        "kind": "Method",
+        "name": "call_tool",
+        "span": {
+          "end": 87384,
+          "start": 86168
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::server_surface::MutationDashboardMeta::publish_coordination_update"
+        },
+        "kind": "Field",
+        "name": "publish_coordination_update",
+        "span": {
+          "end": 875,
+          "start": 842
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::server_surface::MutationDashboardMeta::publish_coordination_update"
+        },
+        "kind": "Field",
+        "name": "publish_coordination_update",
+        "span": {
+          "end": 887,
+          "start": 854
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::list_resource_templates"
+        },
+        "kind": "Method",
+        "name": "list_resource_templates",
+        "span": {
+          "end": 108241,
+          "start": 101519
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::list_resource_templates"
+        },
+        "kind": "Method",
+        "name": "list_resource_templates",
+        "span": {
+          "end": 120869,
+          "start": 114147
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::MutationCapabilityRequirement::label"
+        },
+        "kind": "Method",
+        "name": "label",
+        "span": {
+          "end": 1428,
+          "start": 1171
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::MutationCapabilityRequirement::label"
+        },
+        "kind": "Method",
+        "name": "label",
+        "span": {
+          "end": 1440,
+          "start": 1183
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_concept"
+        },
+        "kind": "Method",
+        "name": "prism_concept",
+        "span": {
+          "end": 32539,
+          "start": 31366
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_concept"
+        },
+        "kind": "Method",
+        "name": "prism_concept",
+        "span": {
+          "end": 44483,
+          "start": 43310
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::list_resources"
+        },
+        "kind": "Method",
+        "name": "list_resources",
+        "span": {
+          "end": 81437,
+          "start": 76414
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::list_resources"
+        },
+        "kind": "Method",
+        "name": "list_resources",
+        "span": {
+          "end": 94065,
+          "start": 89042
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::server_surface::PrismMcpServer::impl"
+        },
+        "kind": "Impl",
+        "name": "PrismMcpServer",
+        "span": {
+          "end": 108692,
+          "start": 108245
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::server_surface::PrismMcpServer::impl"
+        },
+        "kind": "Impl",
+        "name": "PrismMcpServer",
+        "span": {
+          "end": 121320,
+          "start": 120873
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_locate"
+        },
+        "kind": "Method",
+        "name": "prism_locate",
+        "span": {
+          "end": 24609,
+          "start": 24072
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_locate"
+        },
+        "kind": "Method",
+        "name": "prism_locate",
+        "span": {
+          "end": 36553,
+          "start": 36016
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::server_surface::MutationDashboardMeta::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 748,
+          "start": 725
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::server_surface::MutationDashboardMeta::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 760,
+          "start": 737
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::transport_bind_tool_schema"
+        },
+        "kind": "Method",
+        "name": "transport_bind_tool_schema",
+        "span": {
+          "end": 7171,
+          "start": 6925
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::transport_bind_tool_schema"
+        },
+        "kind": "Method",
+        "name": "transport_bind_tool_schema",
+        "span": {
+          "end": 7183,
+          "start": 6937
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::execute_logged_mutation"
+        },
+        "kind": "Method",
+        "name": "execute_logged_mutation",
+        "span": {
+          "end": 11739,
+          "start": 11302
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::execute_logged_mutation"
+        },
+        "kind": "Method",
+        "name": "execute_logged_mutation",
+        "span": {
+          "end": 19763,
+          "start": 19326
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::server_surface::MutationDashboardMeta::result_ids"
+        },
+        "kind": "Field",
+        "name": "result_ids",
+        "span": {
+          "end": 777,
+          "start": 754
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::server_surface::MutationDashboardMeta::result_ids"
+        },
+        "kind": "Field",
+        "name": "result_ids",
+        "span": {
+          "end": 789,
+          "start": 766
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_open"
+        },
+        "kind": "Method",
+        "name": "prism_open",
+        "span": {
+          "end": 27583,
+          "start": 25880
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::prism_open"
+        },
+        "kind": "Method",
+        "name": "prism_open",
+        "span": {
+          "end": 39527,
+          "start": 37824
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::record_surface_call"
+        },
+        "kind": "Method",
+        "name": "record_surface_call",
+        "span": {
+          "end": 6567,
+          "start": 2940
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::record_surface_call"
+        },
+        "kind": "Method",
+        "name": "record_surface_call",
+        "span": {
+          "end": 6579,
+          "start": 2952
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::server_instructions"
+        },
+        "kind": "Method",
+        "name": "server_instructions",
+        "span": {
+          "end": 108690,
+          "start": 108271
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::server_surface::PrismMcpServer::server_instructions"
+        },
+        "kind": "Method",
+        "name": "server_instructions",
+        "span": {
+          "end": 121318,
+          "start": 120899
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::server_surface::MutationDashboardMeta"
+        },
+        "kind": "Struct",
+        "name": "MutationDashboardMeta",
+        "span": {
+          "end": 878,
+          "start": 679
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::server_surface::MutationDashboardMeta"
+        },
+        "kind": "Struct",
+        "name": "MutationDashboardMeta",
+        "span": {
+          "end": 890,
+          "start": 691
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 87,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/server_surface.rs"
+    ],
+    "files": [
+      246
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

@@ -1,0 +1,1733 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdw78xpnrtzdskj1nevgb",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 69
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::update_task_mutation_with_options",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::CoordinationStore::update_task_authoritative_only",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::update_plan_mutation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::heartbeat_task_mutation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::accept_handoff_mutation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::handoff_mutation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::plan_completion_violations",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::CoordinationStore::review_artifact",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::CoordinationStore::update_plan",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::CoordinationStore::heartbeat_task",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::lease_holder_details",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::CoordinationStore::supersede_artifact",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::supersede_artifact_mutation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::CoordinationStore::accept_handoff",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::CoordinationStore::release_claim",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::CoordinationStore::create_task",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::CoordinationStore::reclaim_task",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::rejection_error",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::CoordinationStore::resume_task",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::should_auto_complete_execution_plan",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::set_plan_scheduling_mutation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::enforce_task_lease_for_standard_mutation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::CoordinationStore::handoff",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::patch_metadata",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::push_patch_op",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::CoordinationStore::renew_claim",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::renew_claim_mutation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::resume_task_mutation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::release_claim_mutation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::CoordinationStore::set_plan_scheduling",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::propose_artifact_mutation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::CoordinationStore::update_task",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::CoordinationStore::create_plan",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::CoordinationStore::propose_artifact",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::review_artifact_mutation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::create_task_mutation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::validate_task_dependencies",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::acquire_claim_mutation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::CoordinationStore::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::CoordinationStore::acquire_claim",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::reclaim_task_mutation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::auto_complete_execution_plan_if_eligible",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::create_plan_mutation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::update_task_mutation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_coordination",
+        "path": "prism_coordination::mutations::insert_serialized",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 2 added, 0 removed, 44 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 2,
+        "changedSymbolCount": 90,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "removedCount": 0,
+        "updatedCount": 88
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::update_task_mutation_with_options"
+        },
+        "kind": "Function",
+        "name": "update_task_mutation_with_options",
+        "span": {
+          "end": 77276,
+          "start": 52151
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::update_task_authoritative_only"
+        },
+        "kind": "Method",
+        "name": "update_task_authoritative_only",
+        "span": {
+          "end": 106021,
+          "start": 105578
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::update_plan_mutation"
+        },
+        "kind": "Function",
+        "name": "update_plan_mutation",
+        "span": {
+          "end": 45194,
+          "start": 40445
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::update_plan_mutation"
+        },
+        "kind": "Function",
+        "name": "update_plan_mutation",
+        "span": {
+          "end": 45194,
+          "start": 40445
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::heartbeat_task_mutation"
+        },
+        "kind": "Function",
+        "name": "heartbeat_task_mutation",
+        "span": {
+          "end": 24394,
+          "start": 18987
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::heartbeat_task_mutation"
+        },
+        "kind": "Function",
+        "name": "heartbeat_task_mutation",
+        "span": {
+          "end": 24394,
+          "start": 18987
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::accept_handoff_mutation"
+        },
+        "kind": "Function",
+        "name": "accept_handoff_mutation",
+        "span": {
+          "end": 88351,
+          "start": 82049
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::accept_handoff_mutation"
+        },
+        "kind": "Function",
+        "name": "accept_handoff_mutation",
+        "span": {
+          "end": 91593,
+          "start": 85291
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::handoff_mutation"
+        },
+        "kind": "Function",
+        "name": "handoff_mutation",
+        "span": {
+          "end": 82047,
+          "start": 74036
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::handoff_mutation"
+        },
+        "kind": "Function",
+        "name": "handoff_mutation",
+        "span": {
+          "end": 85289,
+          "start": 77278
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::plan_completion_violations"
+        },
+        "kind": "Function",
+        "name": "plan_completion_violations",
+        "span": {
+          "end": 7245,
+          "start": 5429
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::plan_completion_violations"
+        },
+        "kind": "Function",
+        "name": "plan_completion_violations",
+        "span": {
+          "end": 7245,
+          "start": 5429
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::review_artifact"
+        },
+        "kind": "Method",
+        "name": "review_artifact",
+        "span": {
+          "end": 106480,
+          "start": 106072
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::review_artifact"
+        },
+        "kind": "Method",
+        "name": "review_artifact",
+        "span": {
+          "end": 110171,
+          "start": 109763
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::update_plan"
+        },
+        "kind": "Method",
+        "name": "update_plan",
+        "span": {
+          "end": 101198,
+          "start": 100928
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::update_plan"
+        },
+        "kind": "Method",
+        "name": "update_plan",
+        "span": {
+          "end": 104440,
+          "start": 104170
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::heartbeat_task"
+        },
+        "kind": "Method",
+        "name": "heartbeat_task",
+        "span": {
+          "end": 104026,
+          "start": 103645
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::heartbeat_task"
+        },
+        "kind": "Method",
+        "name": "heartbeat_task",
+        "span": {
+          "end": 107717,
+          "start": 107336
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::lease_holder_details"
+        },
+        "kind": "Function",
+        "name": "lease_holder_details",
+        "span": {
+          "end": 2339,
+          "start": 2154
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::lease_holder_details"
+        },
+        "kind": "Function",
+        "name": "lease_holder_details",
+        "span": {
+          "end": 2339,
+          "start": 2154
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::supersede_artifact"
+        },
+        "kind": "Method",
+        "name": "supersede_artifact",
+        "span": {
+          "end": 106066,
+          "start": 105740
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::supersede_artifact"
+        },
+        "kind": "Method",
+        "name": "supersede_artifact",
+        "span": {
+          "end": 109757,
+          "start": 109431
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::supersede_artifact_mutation"
+        },
+        "kind": "Function",
+        "name": "supersede_artifact_mutation",
+        "span": {
+          "end": 32948,
+          "start": 30819
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::supersede_artifact_mutation"
+        },
+        "kind": "Function",
+        "name": "supersede_artifact_mutation",
+        "span": {
+          "end": 32948,
+          "start": 30819
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::accept_handoff"
+        },
+        "kind": "Method",
+        "name": "accept_handoff",
+        "span": {
+          "end": 103029,
+          "start": 102707
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::accept_handoff"
+        },
+        "kind": "Method",
+        "name": "accept_handoff",
+        "span": {
+          "end": 106720,
+          "start": 106398
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::release_claim"
+        },
+        "kind": "Method",
+        "name": "release_claim",
+        "span": {
+          "end": 105384,
+          "start": 105031
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::release_claim"
+        },
+        "kind": "Method",
+        "name": "release_claim",
+        "span": {
+          "end": 109075,
+          "start": 108722
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::create_task"
+        },
+        "kind": "Method",
+        "name": "create_task",
+        "span": {
+          "end": 101919,
+          "start": 101570
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::create_task"
+        },
+        "kind": "Method",
+        "name": "create_task",
+        "span": {
+          "end": 105161,
+          "start": 104812
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::reclaim_task"
+        },
+        "kind": "Method",
+        "name": "reclaim_task",
+        "span": {
+          "end": 103639,
+          "start": 103323
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::reclaim_task"
+        },
+        "kind": "Method",
+        "name": "reclaim_task",
+        "span": {
+          "end": 107330,
+          "start": 107014
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::rejection_error"
+        },
+        "kind": "Function",
+        "name": "rejection_error",
+        "span": {
+          "end": 5427,
+          "start": 4692
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::rejection_error"
+        },
+        "kind": "Function",
+        "name": "rejection_error",
+        "span": {
+          "end": 5427,
+          "start": 4692
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::resume_task"
+        },
+        "kind": "Method",
+        "name": "resume_task",
+        "span": {
+          "end": 103317,
+          "start": 103035
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::resume_task"
+        },
+        "kind": "Method",
+        "name": "resume_task",
+        "span": {
+          "end": 107008,
+          "start": 106726
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::should_auto_complete_execution_plan"
+        },
+        "kind": "Function",
+        "name": "should_auto_complete_execution_plan",
+        "span": {
+          "end": 7790,
+          "start": 7247
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::should_auto_complete_execution_plan"
+        },
+        "kind": "Function",
+        "name": "should_auto_complete_execution_plan",
+        "span": {
+          "end": 7790,
+          "start": 7247
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::set_plan_scheduling_mutation"
+        },
+        "kind": "Function",
+        "name": "set_plan_scheduling_mutation",
+        "span": {
+          "end": 47056,
+          "start": 45196
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::set_plan_scheduling_mutation"
+        },
+        "kind": "Function",
+        "name": "set_plan_scheduling_mutation",
+        "span": {
+          "end": 47056,
+          "start": 45196
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::enforce_task_lease_for_standard_mutation"
+        },
+        "kind": "Function",
+        "name": "enforce_task_lease_for_standard_mutation",
+        "span": {
+          "end": 4690,
+          "start": 2341
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::enforce_task_lease_for_standard_mutation"
+        },
+        "kind": "Function",
+        "name": "enforce_task_lease_for_standard_mutation",
+        "span": {
+          "end": 4690,
+          "start": 2341
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::handoff"
+        },
+        "kind": "Method",
+        "name": "handoff",
+        "span": {
+          "end": 102701,
+          "start": 102336
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::handoff"
+        },
+        "kind": "Method",
+        "name": "handoff",
+        "span": {
+          "end": 106392,
+          "start": 106027
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::patch_metadata"
+        },
+        "kind": "Function",
+        "name": "patch_metadata",
+        "span": {
+          "end": 1903,
+          "start": 1770
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::patch_metadata"
+        },
+        "kind": "Function",
+        "name": "patch_metadata",
+        "span": {
+          "end": 1903,
+          "start": 1770
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::push_patch_op"
+        },
+        "kind": "Function",
+        "name": "push_patch_op",
+        "span": {
+          "end": 1768,
+          "start": 1613
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::push_patch_op"
+        },
+        "kind": "Function",
+        "name": "push_patch_op",
+        "span": {
+          "end": 1768,
+          "start": 1613
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::renew_claim"
+        },
+        "kind": "Method",
+        "name": "renew_claim",
+        "span": {
+          "end": 105025,
+          "start": 104492
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::renew_claim"
+        },
+        "kind": "Method",
+        "name": "renew_claim",
+        "span": {
+          "end": 108716,
+          "start": 108183
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::renew_claim_mutation"
+        },
+        "kind": "Function",
+        "name": "renew_claim_mutation",
+        "span": {
+          "end": 18985,
+          "start": 16359
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::renew_claim_mutation"
+        },
+        "kind": "Function",
+        "name": "renew_claim_mutation",
+        "span": {
+          "end": 18985,
+          "start": 16359
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::resume_task_mutation"
+        },
+        "kind": "Function",
+        "name": "resume_task_mutation",
+        "span": {
+          "end": 94354,
+          "start": 88353
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::resume_task_mutation"
+        },
+        "kind": "Function",
+        "name": "resume_task_mutation",
+        "span": {
+          "end": 97596,
+          "start": 91595
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::release_claim_mutation"
+        },
+        "kind": "Function",
+        "name": "release_claim_mutation",
+        "span": {
+          "end": 26918,
+          "start": 24396
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::release_claim_mutation"
+        },
+        "kind": "Function",
+        "name": "release_claim_mutation",
+        "span": {
+          "end": 26918,
+          "start": 24396
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::set_plan_scheduling"
+        },
+        "kind": "Method",
+        "name": "set_plan_scheduling",
+        "span": {
+          "end": 101564,
+          "start": 101204
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::set_plan_scheduling"
+        },
+        "kind": "Method",
+        "name": "set_plan_scheduling",
+        "span": {
+          "end": 104806,
+          "start": 104446
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::propose_artifact_mutation"
+        },
+        "kind": "Function",
+        "name": "propose_artifact_mutation",
+        "span": {
+          "end": 30817,
+          "start": 26920
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::propose_artifact_mutation"
+        },
+        "kind": "Function",
+        "name": "propose_artifact_mutation",
+        "span": {
+          "end": 30817,
+          "start": 26920
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::update_task"
+        },
+        "kind": "Method",
+        "name": "update_task",
+        "span": {
+          "end": 102330,
+          "start": 101925
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::update_task"
+        },
+        "kind": "Method",
+        "name": "update_task",
+        "span": {
+          "end": 105572,
+          "start": 105167
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::create_plan"
+        },
+        "kind": "Method",
+        "name": "create_plan",
+        "span": {
+          "end": 100922,
+          "start": 100642
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::create_plan"
+        },
+        "kind": "Method",
+        "name": "create_plan",
+        "span": {
+          "end": 104164,
+          "start": 103884
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::propose_artifact"
+        },
+        "kind": "Method",
+        "name": "propose_artifact",
+        "span": {
+          "end": 105734,
+          "start": 105390
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::propose_artifact"
+        },
+        "kind": "Method",
+        "name": "propose_artifact",
+        "span": {
+          "end": 109425,
+          "start": 109081
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::review_artifact_mutation"
+        },
+        "kind": "Function",
+        "name": "review_artifact_mutation",
+        "span": {
+          "end": 39285,
+          "start": 32950
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::review_artifact_mutation"
+        },
+        "kind": "Function",
+        "name": "review_artifact_mutation",
+        "span": {
+          "end": 39285,
+          "start": 32950
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::create_task_mutation"
+        },
+        "kind": "Function",
+        "name": "create_task_mutation",
+        "span": {
+          "end": 51749,
+          "start": 47058
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::create_task_mutation"
+        },
+        "kind": "Function",
+        "name": "create_task_mutation",
+        "span": {
+          "end": 51845,
+          "start": 47058
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::validate_task_dependencies"
+        },
+        "kind": "Function",
+        "name": "validate_task_dependencies",
+        "span": {
+          "end": 109134,
+          "start": 106484
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::validate_task_dependencies"
+        },
+        "kind": "Function",
+        "name": "validate_task_dependencies",
+        "span": {
+          "end": 112825,
+          "start": 110175
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::acquire_claim_mutation"
+        },
+        "kind": "Function",
+        "name": "acquire_claim_mutation",
+        "span": {
+          "end": 16357,
+          "start": 8924
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::acquire_claim_mutation"
+        },
+        "kind": "Function",
+        "name": "acquire_claim_mutation",
+        "span": {
+          "end": 16357,
+          "start": 8924
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Impl",
+          "path": "prism_coordination::mutations::CoordinationStore::impl"
+        },
+        "kind": "Impl",
+        "name": "CoordinationStore",
+        "span": {
+          "end": 106482,
+          "start": 100613
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Impl",
+          "path": "prism_coordination::mutations::CoordinationStore::impl"
+        },
+        "kind": "Impl",
+        "name": "CoordinationStore",
+        "span": {
+          "end": 110173,
+          "start": 103855
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::acquire_claim"
+        },
+        "kind": "Method",
+        "name": "acquire_claim",
+        "span": {
+          "end": 104486,
+          "start": 104032
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Method",
+          "path": "prism_coordination::mutations::CoordinationStore::acquire_claim"
+        },
+        "kind": "Method",
+        "name": "acquire_claim",
+        "span": {
+          "end": 108177,
+          "start": 107723
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::reclaim_task_mutation"
+        },
+        "kind": "Function",
+        "name": "reclaim_task_mutation",
+        "span": {
+          "end": 100611,
+          "start": 94356
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::reclaim_task_mutation"
+        },
+        "kind": "Function",
+        "name": "reclaim_task_mutation",
+        "span": {
+          "end": 103853,
+          "start": 97598
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::auto_complete_execution_plan_if_eligible"
+        },
+        "kind": "Function",
+        "name": "auto_complete_execution_plan_if_eligible",
+        "span": {
+          "end": 8922,
+          "start": 7792
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::auto_complete_execution_plan_if_eligible"
+        },
+        "kind": "Function",
+        "name": "auto_complete_execution_plan_if_eligible",
+        "span": {
+          "end": 8922,
+          "start": 7792
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::create_plan_mutation"
+        },
+        "kind": "Function",
+        "name": "create_plan_mutation",
+        "span": {
+          "end": 40443,
+          "start": 39287
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::create_plan_mutation"
+        },
+        "kind": "Function",
+        "name": "create_plan_mutation",
+        "span": {
+          "end": 40443,
+          "start": 39287
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::update_task_mutation"
+        },
+        "kind": "Function",
+        "name": "update_task_mutation",
+        "span": {
+          "end": 74034,
+          "start": 51751
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::update_task_mutation"
+        },
+        "kind": "Function",
+        "name": "update_task_mutation",
+        "span": {
+          "end": 52149,
+          "start": 51847
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Module",
+          "path": "prism_coordination::mutations"
+        },
+        "kind": "Module",
+        "name": "mutations",
+        "span": {
+          "end": 109135,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Module",
+          "path": "prism_coordination::mutations"
+        },
+        "kind": "Module",
+        "name": "mutations",
+        "span": {
+          "end": 112826,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::insert_serialized"
+        },
+        "kind": "Function",
+        "name": "insert_serialized",
+        "span": {
+          "end": 2152,
+          "start": 1905
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs",
+        "id": {
+          "crate_name": "prism_coordination",
+          "kind": "Function",
+          "path": "prism_coordination::mutations::insert_serialized"
+        },
+        "kind": "Function",
+        "name": "insert_serialized",
+        "span": {
+          "end": 2152,
+          "start": 1905
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 90,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs"
+    ],
+    "files": [
+      69
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

@@ -1,0 +1,1836 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xdy6s6ej6jhb7za4y68mm",
+    "ts": 1775228087,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+    "causation": "observed:01kn9xdttq8bez3456wgkv3fg9",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/main",
+      "instance_id": "instance:6950:1775228085439",
+      "work_context": {
+        "workId": "work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd",
+        "kind": "ad_hoc",
+        "title": "Plan next MCP slow-call optimizations",
+        "planId": "plan:01kn88m9a9ckax8ft3pwm7ahgq",
+        "planTitle": "Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence."
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 189
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::locate_code_bias_for_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::exact_identifier_tail_boost",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::push_exact_identifier_query",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::exact_identifier_name_boost",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::exact_identifier_text_candidates",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::tests::ranked_text_candidate",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::ownership_locate_boost",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::ranked_target_file_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::ranked_target_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::exact_identifier_locate_symbols",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::QueryHost::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::rerank_locate_results",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::locate_docs_path_bias",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::locate_selection_reason_bucket",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::ownership_term_hit_count",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::locate_diversity_bonus",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::OwnerFriendlyKind",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::rank_locate_candidate",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::annotate_close_alternative_explanations",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::apply_locate_glob_filter",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::locate_selection_reason",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::rank_text_locate_candidate",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::select_locate_candidates",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::effective_locate_intent",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::QueryHost::compact_locate",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::text_candidate_shadowed_by_semantic_result",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::locate_resolved_confidently",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::locate_top_advantage",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::tests",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::locate_confidence_label",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::compact_search_args",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::ownership_term_matches",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::ranked_target_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::locate_intent_profile",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::locate_ownership_query_terms",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::semantic_match_label",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::locate_why_not_top",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::ui_oriented_tokens",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::locate_intent_defaults",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::semantic_result_matches_text_query",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::next_action_hint",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::symbol_exactly_matches_identifier_term",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::effective_owner_friendly_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::tests::close_alternative_explanation_calls_out_task_scope_advantage",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::compact_locate_limit",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::frontend_like_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::locate_glob_matches",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::build_locate_result",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::compact_tools::locate::dedupe_locate_symbols",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 5 added, 0 removed, 45 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 5,
+        "changedSymbolCount": 95,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "removedCount": 0,
+        "updatedCount": 90
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_code_bias_for_kind"
+        },
+        "kind": "Function",
+        "name": "locate_code_bias_for_kind",
+        "span": {
+          "end": 25821,
+          "start": 25296
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::exact_identifier_tail_boost"
+        },
+        "kind": "Function",
+        "name": "exact_identifier_tail_boost",
+        "span": {
+          "end": 25294,
+          "start": 24787
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::push_exact_identifier_query"
+        },
+        "kind": "Function",
+        "name": "push_exact_identifier_query",
+        "span": {
+          "end": 9709,
+          "start": 9445
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::exact_identifier_name_boost"
+        },
+        "kind": "Function",
+        "name": "exact_identifier_name_boost",
+        "span": {
+          "end": 24785,
+          "start": 24279
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::exact_identifier_text_candidates"
+        },
+        "kind": "Function",
+        "name": "exact_identifier_text_candidates",
+        "span": {
+          "end": 9443,
+          "start": 7582
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::tests::ranked_text_candidate"
+        },
+        "kind": "Function",
+        "name": "ranked_text_candidate",
+        "span": {
+          "end": 37428,
+          "start": 36349
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::tests::ranked_text_candidate"
+        },
+        "kind": "Function",
+        "name": "ranked_text_candidate",
+        "span": {
+          "end": 42927,
+          "start": 41848
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::ownership_locate_boost"
+        },
+        "kind": "Function",
+        "name": "ownership_locate_boost",
+        "span": {
+          "end": 41751,
+          "start": 40541
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::ownership_locate_boost"
+        },
+        "kind": "Function",
+        "name": "ownership_locate_boost",
+        "span": {
+          "end": 47250,
+          "start": 46040
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::ranked_target_file_path"
+        },
+        "kind": "Function",
+        "name": "ranked_target_file_path",
+        "span": {
+          "end": 36090,
+          "start": 35842
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::ranked_target_file_path"
+        },
+        "kind": "Function",
+        "name": "ranked_target_file_path",
+        "span": {
+          "end": 41589,
+          "start": 41341
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::ranked_target_path"
+        },
+        "kind": "Function",
+        "name": "ranked_target_path",
+        "span": {
+          "end": 35840,
+          "start": 35613
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::ranked_target_path"
+        },
+        "kind": "Function",
+        "name": "ranked_target_path",
+        "span": {
+          "end": 41339,
+          "start": 41112
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::exact_identifier_locate_symbols"
+        },
+        "kind": "Function",
+        "name": "exact_identifier_locate_symbols",
+        "span": {
+          "end": 6778,
+          "start": 5568
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::exact_identifier_locate_symbols"
+        },
+        "kind": "Function",
+        "name": "exact_identifier_locate_symbols",
+        "span": {
+          "end": 7580,
+          "start": 6129
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::compact_tools::locate::QueryHost::impl"
+        },
+        "kind": "Impl",
+        "name": "QueryHost",
+        "span": {
+          "end": 4478,
+          "start": 255
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Impl",
+          "path": "prism_mcp::compact_tools::locate::QueryHost::impl"
+        },
+        "kind": "Impl",
+        "name": "QueryHost",
+        "span": {
+          "end": 5039,
+          "start": 286
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::rerank_locate_results"
+        },
+        "kind": "Function",
+        "name": "rerank_locate_results",
+        "span": {
+          "end": 13002,
+          "start": 10985
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::rerank_locate_results"
+        },
+        "kind": "Function",
+        "name": "rerank_locate_results",
+        "span": {
+          "end": 16283,
+          "start": 14197
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_docs_path_bias"
+        },
+        "kind": "Function",
+        "name": "locate_docs_path_bias",
+        "span": {
+          "end": 43635,
+          "start": 43385
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_docs_path_bias"
+        },
+        "kind": "Function",
+        "name": "locate_docs_path_bias",
+        "span": {
+          "end": 49134,
+          "start": 48884
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_selection_reason_bucket"
+        },
+        "kind": "Function",
+        "name": "locate_selection_reason_bucket",
+        "span": {
+          "end": 31166,
+          "start": 30473
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_selection_reason_bucket"
+        },
+        "kind": "Function",
+        "name": "locate_selection_reason_bucket",
+        "span": {
+          "end": 36665,
+          "start": 35972
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::ownership_term_hit_count"
+        },
+        "kind": "Function",
+        "name": "ownership_term_hit_count",
+        "span": {
+          "end": 42426,
+          "start": 42111
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::ownership_term_hit_count"
+        },
+        "kind": "Function",
+        "name": "ownership_term_hit_count",
+        "span": {
+          "end": 47925,
+          "start": 47610
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_diversity_bonus"
+        },
+        "kind": "Function",
+        "name": "locate_diversity_bonus",
+        "span": {
+          "end": 35611,
+          "start": 34922
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_diversity_bonus"
+        },
+        "kind": "Function",
+        "name": "locate_diversity_bonus",
+        "span": {
+          "end": 41110,
+          "start": 40421
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Enum",
+          "path": "prism_mcp::compact_tools::locate::OwnerFriendlyKind"
+        },
+        "kind": "Enum",
+        "name": "OwnerFriendlyKind",
+        "span": {
+          "end": 41839,
+          "start": 41776
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Enum",
+          "path": "prism_mcp::compact_tools::locate::OwnerFriendlyKind"
+        },
+        "kind": "Enum",
+        "name": "OwnerFriendlyKind",
+        "span": {
+          "end": 47338,
+          "start": 47275
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::rank_locate_candidate"
+        },
+        "kind": "Function",
+        "name": "rank_locate_candidate",
+        "span": {
+          "end": 20828,
+          "start": 13004
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::rank_locate_candidate"
+        },
+        "kind": "Function",
+        "name": "rank_locate_candidate",
+        "span": {
+          "end": 24277,
+          "start": 16285
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::annotate_close_alternative_explanations"
+        },
+        "kind": "Function",
+        "name": "annotate_close_alternative_explanations",
+        "span": {
+          "end": 25606,
+          "start": 25137
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::annotate_close_alternative_explanations"
+        },
+        "kind": "Function",
+        "name": "annotate_close_alternative_explanations",
+        "span": {
+          "end": 31105,
+          "start": 30636
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::compact_tools::locate"
+        },
+        "kind": "Module",
+        "name": "locate",
+        "span": {
+          "end": 43636,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::compact_tools::locate"
+        },
+        "kind": "Module",
+        "name": "locate",
+        "span": {
+          "end": 49135,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::apply_locate_glob_filter"
+        },
+        "kind": "Function",
+        "name": "apply_locate_glob_filter",
+        "span": {
+          "end": 10553,
+          "start": 9958
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::apply_locate_glob_filter"
+        },
+        "kind": "Function",
+        "name": "apply_locate_glob_filter",
+        "span": {
+          "end": 13765,
+          "start": 13170
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_selection_reason"
+        },
+        "kind": "Function",
+        "name": "locate_selection_reason",
+        "span": {
+          "end": 30471,
+          "start": 29001
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_selection_reason"
+        },
+        "kind": "Function",
+        "name": "locate_selection_reason",
+        "span": {
+          "end": 35970,
+          "start": 34500
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::rank_text_locate_candidate"
+        },
+        "kind": "Function",
+        "name": "rank_text_locate_candidate",
+        "span": {
+          "end": 25135,
+          "start": 20830
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::rank_text_locate_candidate"
+        },
+        "kind": "Function",
+        "name": "rank_text_locate_candidate",
+        "span": {
+          "end": 30634,
+          "start": 25823
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::select_locate_candidates"
+        },
+        "kind": "Function",
+        "name": "select_locate_candidates",
+        "span": {
+          "end": 33958,
+          "start": 33333
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::select_locate_candidates"
+        },
+        "kind": "Function",
+        "name": "select_locate_candidates",
+        "span": {
+          "end": 39457,
+          "start": 38832
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::effective_locate_intent"
+        },
+        "kind": "Function",
+        "name": "effective_locate_intent",
+        "span": {
+          "end": 43383,
+          "start": 43085
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::effective_locate_intent"
+        },
+        "kind": "Function",
+        "name": "effective_locate_intent",
+        "span": {
+          "end": 48882,
+          "start": 48584
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::compact_tools::locate::QueryHost::compact_locate"
+        },
+        "kind": "Method",
+        "name": "compact_locate",
+        "span": {
+          "end": 4476,
+          "start": 276
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Method",
+          "path": "prism_mcp::compact_tools::locate::QueryHost::compact_locate"
+        },
+        "kind": "Method",
+        "name": "compact_locate",
+        "span": {
+          "end": 5037,
+          "start": 307
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::text_candidate_shadowed_by_semantic_result"
+        },
+        "kind": "Function",
+        "name": "text_candidate_shadowed_by_semantic_result",
+        "span": {
+          "end": 32018,
+          "start": 31391
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::text_candidate_shadowed_by_semantic_result"
+        },
+        "kind": "Function",
+        "name": "text_candidate_shadowed_by_semantic_result",
+        "span": {
+          "end": 37517,
+          "start": 36890
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_resolved_confidently"
+        },
+        "kind": "Function",
+        "name": "locate_resolved_confidently",
+        "span": {
+          "end": 34920,
+          "start": 33960
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_resolved_confidently"
+        },
+        "kind": "Function",
+        "name": "locate_resolved_confidently",
+        "span": {
+          "end": 40419,
+          "start": 39459
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_top_advantage"
+        },
+        "kind": "Function",
+        "name": "locate_top_advantage",
+        "span": {
+          "end": 28451,
+          "start": 26052
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_top_advantage"
+        },
+        "kind": "Function",
+        "name": "locate_top_advantage",
+        "span": {
+          "end": 33950,
+          "start": 31551
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::compact_tools::locate::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 38544,
+          "start": 36314
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::compact_tools::locate::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 44043,
+          "start": 41813
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_confidence_label"
+        },
+        "kind": "Function",
+        "name": "locate_confidence_label",
+        "span": {
+          "end": 28999,
+          "start": 28453
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_confidence_label"
+        },
+        "kind": "Function",
+        "name": "locate_confidence_label",
+        "span": {
+          "end": 34498,
+          "start": 33952
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::compact_search_args"
+        },
+        "kind": "Function",
+        "name": "compact_search_args",
+        "span": {
+          "end": 5566,
+          "start": 4480
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::compact_search_args"
+        },
+        "kind": "Function",
+        "name": "compact_search_args",
+        "span": {
+          "end": 6127,
+          "start": 5041
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::ownership_term_matches"
+        },
+        "kind": "Function",
+        "name": "ownership_term_matches",
+        "span": {
+          "end": 43083,
+          "start": 42428
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::ownership_term_matches"
+        },
+        "kind": "Function",
+        "name": "ownership_term_matches",
+        "span": {
+          "end": 48582,
+          "start": 47927
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::ranked_target_kind"
+        },
+        "kind": "Function",
+        "name": "ranked_target_kind",
+        "span": {
+          "end": 36299,
+          "start": 36092
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::ranked_target_kind"
+        },
+        "kind": "Function",
+        "name": "ranked_target_kind",
+        "span": {
+          "end": 41798,
+          "start": 41591
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_intent_profile"
+        },
+        "kind": "Function",
+        "name": "locate_intent_profile",
+        "span": {
+          "end": 39590,
+          "start": 38546
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_intent_profile"
+        },
+        "kind": "Function",
+        "name": "locate_intent_profile",
+        "span": {
+          "end": 45089,
+          "start": 44045
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_ownership_query_terms"
+        },
+        "kind": "Function",
+        "name": "locate_ownership_query_terms",
+        "span": {
+          "end": 40539,
+          "start": 39592
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_ownership_query_terms"
+        },
+        "kind": "Function",
+        "name": "locate_ownership_query_terms",
+        "span": {
+          "end": 46038,
+          "start": 45091
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::semantic_match_label"
+        },
+        "kind": "Function",
+        "name": "semantic_match_label",
+        "span": {
+          "end": 31389,
+          "start": 31168
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::semantic_match_label"
+        },
+        "kind": "Function",
+        "name": "semantic_match_label",
+        "span": {
+          "end": 36888,
+          "start": 36667
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_why_not_top"
+        },
+        "kind": "Function",
+        "name": "locate_why_not_top",
+        "span": {
+          "end": 26050,
+          "start": 25608
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_why_not_top"
+        },
+        "kind": "Function",
+        "name": "locate_why_not_top",
+        "span": {
+          "end": 31549,
+          "start": 31107
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::ui_oriented_tokens"
+        },
+        "kind": "Function",
+        "name": "ui_oriented_tokens",
+        "span": {
+          "end": 33331,
+          "start": 32791
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::ui_oriented_tokens"
+        },
+        "kind": "Function",
+        "name": "ui_oriented_tokens",
+        "span": {
+          "end": 38830,
+          "start": 38290
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_intent_defaults"
+        },
+        "kind": "Function",
+        "name": "locate_intent_defaults",
+        "span": {
+          "end": 8660,
+          "start": 8105
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_intent_defaults"
+        },
+        "kind": "Function",
+        "name": "locate_intent_defaults",
+        "span": {
+          "end": 11872,
+          "start": 11317
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::semantic_result_matches_text_query"
+        },
+        "kind": "Function",
+        "name": "semantic_result_matches_text_query",
+        "span": {
+          "end": 32417,
+          "start": 32020
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::semantic_result_matches_text_query"
+        },
+        "kind": "Function",
+        "name": "semantic_result_matches_text_query",
+        "span": {
+          "end": 37916,
+          "start": 37519
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::next_action_hint"
+        },
+        "kind": "Function",
+        "name": "next_action_hint",
+        "span": {
+          "end": 9956,
+          "start": 9720
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::next_action_hint"
+        },
+        "kind": "Function",
+        "name": "next_action_hint",
+        "span": {
+          "end": 13168,
+          "start": 12932
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::symbol_exactly_matches_identifier_term"
+        },
+        "kind": "Function",
+        "name": "symbol_exactly_matches_identifier_term",
+        "span": {
+          "end": 7948,
+          "start": 7054
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::symbol_exactly_matches_identifier_term"
+        },
+        "kind": "Function",
+        "name": "symbol_exactly_matches_identifier_term",
+        "span": {
+          "end": 11160,
+          "start": 9985
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::effective_owner_friendly_kind"
+        },
+        "kind": "Function",
+        "name": "effective_owner_friendly_kind",
+        "span": {
+          "end": 42109,
+          "start": 41841
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::effective_owner_friendly_kind"
+        },
+        "kind": "Function",
+        "name": "effective_owner_friendly_kind",
+        "span": {
+          "end": 47608,
+          "start": 47340
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::tests::close_alternative_explanation_calls_out_task_scope_advantage"
+        },
+        "kind": "Function",
+        "name": "close_alternative_explanation_calls_out_task_scope_advantage",
+        "span": {
+          "end": 38542,
+          "start": 37446
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::tests::close_alternative_explanation_calls_out_task_scope_advantage"
+        },
+        "kind": "Function",
+        "name": "close_alternative_explanation_calls_out_task_scope_advantage",
+        "span": {
+          "end": 44041,
+          "start": 42945
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::compact_locate_limit"
+        },
+        "kind": "Function",
+        "name": "compact_locate_limit",
+        "span": {
+          "end": 8103,
+          "start": 7950
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::compact_locate_limit"
+        },
+        "kind": "Function",
+        "name": "compact_locate_limit",
+        "span": {
+          "end": 11315,
+          "start": 11162
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::frontend_like_path"
+        },
+        "kind": "Function",
+        "name": "frontend_like_path",
+        "span": {
+          "end": 32789,
+          "start": 32419
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::frontend_like_path"
+        },
+        "kind": "Function",
+        "name": "frontend_like_path",
+        "span": {
+          "end": 38288,
+          "start": 37918
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_glob_matches"
+        },
+        "kind": "Function",
+        "name": "locate_glob_matches",
+        "span": {
+          "end": 10983,
+          "start": 10555
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::locate_glob_matches"
+        },
+        "kind": "Function",
+        "name": "locate_glob_matches",
+        "span": {
+          "end": 14195,
+          "start": 13767
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::build_locate_result"
+        },
+        "kind": "Function",
+        "name": "build_locate_result",
+        "span": {
+          "end": 9718,
+          "start": 8662
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::build_locate_result"
+        },
+        "kind": "Function",
+        "name": "build_locate_result",
+        "span": {
+          "end": 12930,
+          "start": 11874
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::dedupe_locate_symbols"
+        },
+        "kind": "Function",
+        "name": "dedupe_locate_symbols",
+        "span": {
+          "end": 7052,
+          "start": 6780
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::compact_tools::locate::dedupe_locate_symbols"
+        },
+        "kind": "Function",
+        "name": "dedupe_locate_symbols",
+        "span": {
+          "end": 9983,
+          "start": 9711
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 95,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/compact_tools/locate.rs"
+    ],
+    "files": [
+      189
+    ],
+    "reason": "work Plan next MCP slow-call optimizations (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)",
+    "trigger": "FsWatch"
+  }
+}

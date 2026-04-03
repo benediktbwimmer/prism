@@ -17,11 +17,11 @@
       "git_execution": {
         "startMode": "require",
         "completionMode": "require",
-        "targetRef": null,
+        "targetRef": "origin/main",
         "targetBranch": "main",
         "requireTaskBranch": true,
         "maxCommitsBehindTarget": 0,
-        "maxFetchAgeSeconds": null
+        "maxFetchAgeSeconds": 120
       }
     },
     "scope": "Repo",
@@ -62,7 +62,7 @@
         "kind": "Edit",
         "title": "Lock the canonical path identity contract and no-absolute-path boundary",
         "summary": "Define where absolute paths may exist, where only repo-relative paths are allowed, and where anchors must replace raw paths entirely across tracked state, shared runtime, and local runtime.",
-        "status": "Ready",
+        "status": "Completed",
         "bindings": {
           "anchors": [],
           "concept_handles": [],
@@ -88,7 +88,7 @@
         "is_abstract": false,
         "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
         "base_revision": {
-          "graph_version": 1015,
+          "graph_version": 81,
           "git_commit": null
         },
         "priority": 1,
@@ -405,5 +405,23 @@
       }
     ]
   },
-  "executionOverlays": []
+  "executionOverlays": [
+    {
+      "node_id": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+      "pending_handoff_to": null,
+      "session": null,
+      "worktree_id": null,
+      "branch_ref": null,
+      "effective_assignee": null,
+      "awaiting_handoff_from": null,
+      "git_execution": {
+        "status": "publish_pending",
+        "pendingTaskStatus": "Completed",
+        "sourceRef": "task/path-identity-repo-relative",
+        "targetRef": "origin/main",
+        "publishRef": "task/path-identity-repo-relative",
+        "targetBranch": "main"
+      }
+    }
+  ]
 }
