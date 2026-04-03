@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:c147bba489d35819b336a6c7f9274fd7a6be293bb6c50128d65422a15165d533`
+- Source head: `sha256:da3e6b4c647a5d37117df4e4e35d9aa76d066928037ea27436de739b81af76b4`
 - Source logical timestamp: `unknown`
 - Source snapshot: `60 plans, 38 active, 22 archived`
 

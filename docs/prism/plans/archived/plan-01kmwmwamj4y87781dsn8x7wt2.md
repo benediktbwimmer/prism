@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:625fd7a83d1146b95174d2a627d362272c103e932d6add7b954727ff598b88d5`
+- Source head: `sha256:0ee476a9538775b115c8e1ddaf9e4647461de823f86c635632cc1eaec1c5af7f`
 - Source logical timestamp: `unknown`
 - Source snapshot: `6 nodes, 5 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Refactor the prism-mcp test suite so routine feedback loops are faster and the i
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kmwmwamj4y87781dsn8x7wt2.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kmwmwamj4y87781dsn8x7wt2.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

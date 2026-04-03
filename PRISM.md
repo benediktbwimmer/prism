@@ -19,12 +19,10 @@
 - Active repo contracts: 1
 - Active repo memories: 0
 - Published plans: 60
-- Published patch events: 4410
 - Full concept catalog: `docs/prism/concepts.md`
 - Full relation catalog: `docs/prism/relations.md`
 - Full contract catalog: `docs/prism/contracts.md`
 - Published memory catalog: `docs/prism/memory.md`
-- Published change summary: `docs/prism/changes.md`
 - Published plan catalog: `docs/prism/plans/index.md`
 
 ## How to Read This Repo
@@ -34,7 +32,6 @@
 - Use `docs/prism/relations.md` when you need the typed concept-to-concept graph.
 - Use `docs/prism/contracts.md` when you need published guarantees, assumptions, validations, and compatibility guidance.
 - Use `docs/prism/memory.md` when you need the current repo-published memory surface.
-- Use `docs/prism/changes.md` when you need the summarized repo-published patch history.
 - Use `docs/prism/plans/index.md` when you need the current published plan catalog and per-plan markdown projections.
 - Treat tracked `.prism/state/**` snapshot shards plus `.prism/state/manifest.json` as the current repo-published source of truth; the legacy tracked `.jsonl` streams are migration-era compatibility inputs, and these markdown files are derived artifacts.
 
@@ -48,5 +45,4 @@
 - `docs/prism/relations.md`: full typed relation catalog with evidence and confidence.
 - `docs/prism/contracts.md`: full contract catalog with guarantees, assumptions, validations, and compatibility guidance.
 - `docs/prism/memory.md`: current repo-published memory entries with anchors, provenance, and trust.
-- `docs/prism/changes.md`: summarized repo-published patch events and the files they touched.
 - `docs/prism/plans/index.md`: published plan catalog plus per-plan markdown projections under `docs/prism/plans/`.

@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:da0692e57c769f42586e2598ec5234d6614dd3eda68e5b8c224e973f9a2ba336`
+- Source head: `sha256:4e617b3c94f0997537b09ebdacbe4f2af544aca1fd662d69e978fcfe3a2d1625`
 - Source logical timestamp: `unknown`
 - Source snapshot: `12 nodes, 14 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Build a first-class Prism UI control plane around the existing dashboard, with a
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kmzvjdhb874nxd0v44d2hdmt.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kmzvjdhb874nxd0v44d2hdmt.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:3b47441d7493210256e870e436443d545891c8c61d2fd4403815327945c44671`
+- Source head: `sha256:fa15f389c6873f3469ab0c129893c6b9e94f284000dcc325b7c025ed42a27dde`
 - Source logical timestamp: `unknown`
 - Source snapshot: `10 nodes, 26 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Rewrite the PRISM runtime around incremental invalidation, partial materializati
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn09gyzw4e8wzwvgvbbj9mkk.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn09gyzw4e8wzwvgvbbj9mkk.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

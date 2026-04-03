@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:6810fd767a208babd99f70d11b3fc41655460891b8ba9707e76d670c77362b8c`
+- Source head: `sha256:9ca7b5d58f6db860e12b86858febdc4492bab6832f421f501d945fabf85e1038`
 - Source logical timestamp: `unknown`
 - Source snapshot: `7 nodes, 10 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Rewrite PRISM co-change persistence and refresh materialization boundaries so au
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn02m1dek35hmmpsxmaw5yd7.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn02m1dek35hmmpsxmaw5yd7.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

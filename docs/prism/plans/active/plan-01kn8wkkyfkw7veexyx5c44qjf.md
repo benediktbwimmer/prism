@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:89b2c1b802008929530d485387c9c34e8a9f9d42261a94626054ee71323cd690`
+- Source head: `sha256:ccbfcecdb1520a297b5f4870faae0b67bb88a39518a2c3fa2802f0f22dae5fe4`
 - Source logical timestamp: `unknown`
 - Source snapshot: `0 nodes, 0 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Measure live coordination mutation latency after auth and projection hot-path cl
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn8wkkyfkw7veexyx5c44qjf.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn8wkkyfkw7veexyx5c44qjf.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Nodes
 

@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:c2acf51c78c69499a10c4a46bd94274b7952bcf1101563fdf019acf613adfaa0`
+- Source head: `sha256:23af8b593c48999825526d29fef7d2a01f60d744f7aae2912676755585f518f7`
 - Source logical timestamp: `unknown`
 - Source snapshot: `5 nodes, 4 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Investigate and reduce slow PRISM refresh-path latency by measuring the true hot
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:7.json`
-- Legacy migration log path: `.prism/plans/streams/plan:7.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

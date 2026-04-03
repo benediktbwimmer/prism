@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:3cf27543ed0e79658470fbcb61b06ef36e2f041d3a7db05c37137b246a5f8846`
+- Source head: `sha256:78d95399b7b9498c1212a838966a3d53fc968ea2452d7bed8db07ba87bebe453`
 - Source logical timestamp: `unknown`
 - Source snapshot: `6 nodes, 7 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ plans-task-graph-node-rewrite: make coordination tasks canonical for task-execut
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn11fra3ddvjqmtw4qjrqax2.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn11fra3ddvjqmtw4qjrqax2.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

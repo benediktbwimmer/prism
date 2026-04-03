@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:8ba1284a125f992d654c11383c313640e99507532033c666e478ab78ae069e34`
+- Source head: `sha256:64300a6cf780bc21e19275dde1ee794a6df805e479554a7e01c780f4decbb1b9`
 - Source logical timestamp: `unknown`
 - Source snapshot: `5 nodes, 5 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Reduce full cargo test latency and improve test reliability by profiling the slo
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn8dprbn5qf3fjpvj1zjxfb0.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn8dprbn5qf3fjpvj1zjxfb0.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

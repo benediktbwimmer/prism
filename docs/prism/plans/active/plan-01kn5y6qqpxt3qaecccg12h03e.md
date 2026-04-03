@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:4d9d4f3dd899af2eef69c1d6b57922c98fecc825362b16d9919cce70e5d78ba5`
+- Source head: `sha256:a5e0426a45a083f0ffc85f3116f95a2b9d1e05297befa2b814748d0cd387db0d`
 - Source logical timestamp: `unknown`
 - Source snapshot: `9 nodes, 14 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Implement the protected repo .prism state signatures design from docs/PROTECTED_
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn5y6qqpxt3qaecccg12h03e.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn5y6qqpxt3qaecccg12h03e.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

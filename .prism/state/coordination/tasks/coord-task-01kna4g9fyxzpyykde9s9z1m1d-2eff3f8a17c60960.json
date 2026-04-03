@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Lock the final no-legacy-append-log authority contract",
   "summary": null,
-  "status": "Ready",
+  "status": "Completed",
   "published_task_status": null,
   "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
   "pending_handoff_to": null,
@@ -29,7 +29,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1046,
+    "graph_version": 1102,
     "git_commit": null
   },
   "priority": null,

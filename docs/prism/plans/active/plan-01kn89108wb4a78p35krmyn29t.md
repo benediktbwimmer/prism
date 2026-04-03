@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:36c15bff2dfc743729bdace5d310020bcb18da83c2425bca8c98e88ff802951e`
+- Source head: `sha256:6011bc5a0c5d36b1061de9865c32918e77613ff8c53e3336655fab09f82336c3`
 - Source logical timestamp: `unknown`
 - Source snapshot: `3 nodes, 0 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Publish always-up-to-date human-readable markdown projections under docs/prism f
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn89108wb4a78p35krmyn29t.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn89108wb4a78p35krmyn29t.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

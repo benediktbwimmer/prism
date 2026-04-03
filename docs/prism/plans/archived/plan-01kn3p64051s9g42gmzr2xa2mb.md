@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:1f3fc97f19c5b9818b9a207e1e4953a175012bcab6b2641049b7d88a540e816f`
+- Source head: `sha256:0e15776a3f94825a19ea936722c9bccf06e3272d475fb12862fb162d0dd66001`
 - Source logical timestamp: `unknown`
 - Source snapshot: `4 nodes, 4 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ large-edit-follow-up: eliminate the remaining large-edit pathologies in the daem
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn3p64051s9g42gmzr2xa2mb.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn3p64051s9g42gmzr2xa2mb.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

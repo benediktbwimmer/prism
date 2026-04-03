@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:702efb9d0a775d2bb2de348ec36790d3308fd53b6c93850560d78981b874da28`
+- Source head: `sha256:7887fb54b15bf98687f217664ec88257369fa7f9121dc5196c8516b4677e4b6c`
 - Source logical timestamp: `unknown`
 - Source snapshot: `5 nodes, 6 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Trace the daemon death and auth-drift failure paths in code, add durable observa
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn80rqn6t0pgv1dt0zqay9j5.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn80rqn6t0pgv1dt0zqay9j5.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

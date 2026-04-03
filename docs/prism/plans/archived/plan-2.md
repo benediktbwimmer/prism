@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:0e9560596834eee676dfb13944ded81fab520515af90e18def1ad4c1597cb21b`
+- Source head: `sha256:a2d231158cd5b0abaeaad53278e762e3cbae32f232ed1e4f1a830665ba92e337`
 - Source logical timestamp: `unknown`
 - Source snapshot: `5 nodes, 4 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Redesign PRISM refresh/runtime so request paths never block on full persisted re
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:2.json`
-- Legacy migration log path: `.prism/plans/streams/plan:2.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

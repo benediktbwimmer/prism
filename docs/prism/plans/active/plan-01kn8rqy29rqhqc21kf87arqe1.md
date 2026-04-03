@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:396a3c879559c8f55b673c1a5cd18086c2e9c51788a2c122e5d8a4b4f345240f`
+- Source head: `sha256:557753436574137d5b2549f9ba850b44608c82ce43cb47e7fc4061268f58b5a0`
 - Source logical timestamp: `unknown`
 - Source snapshot: `1 nodes, 0 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Exercise live require-mode completion behavior on a temporary task.
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn8rqy29rqhqc21kf87arqe1.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn8rqy29rqhqc21kf87arqe1.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:154cdcceba260ad9de156f1baeed0e18d659d35c130058496d928663ac585a33`
+- Source head: `sha256:cb70eb32d36ce8603423c204dfc3227c7681deb1b9eaf924a919b2617331ec6f`
 - Source logical timestamp: `unknown`
 - Source snapshot: `1 nodes, 0 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Capture a live coordination mutation trace after removing auth writes, UI hot-pa
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn8vnq94fsfv7pgs8401tzc9.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn8vnq94fsfv7pgs8401tzc9.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

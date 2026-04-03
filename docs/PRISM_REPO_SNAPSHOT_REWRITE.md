@@ -31,6 +31,14 @@ The new model should be:
 
 This keeps the strong property that a fresh clone can reconstruct trustworthy PRISM state from the repo alone, while avoiding Git bloat and expensive replay on hot or cold startup.
 
+The transitional migration state may still carry legacy tracked `.jsonl` artifacts for some
+domains, but the target architecture is stricter:
+
+- no repo-published semantic domain should require a tracked append log
+- no tracked `.prism/plans/*.jsonl` file should remain authoritative
+- no tracked `.prism/*/events.jsonl` file should remain authoritative
+- tracked `.prism/state/**` plus the signed manifest become the only repo-published authority
+
 ---
 
 ## 2. Problem
@@ -97,6 +105,9 @@ Tracked `.prism` should evolve toward:
 
 Tracked `.prism` should stop depending on committed append-only event logs for its durable history semantics.
 
+The steady state is not "snapshot authority plus a few surviving repo logs."
+The steady state is "snapshot authority only."
+
 These snapshot artifacts are not "projections" in the weak old sense.
 They become the repo authority format for published PRISM state.
 
@@ -117,6 +128,9 @@ This journal is for:
 - optional deep lineage/debugging
 
 It is not the default durable repo payload anymore.
+
+Legacy tracked append logs may exist temporarily during migration or repair, but they should be
+treated as transient bridge artifacts rather than a second durable authority plane.
 
 ---
 
@@ -661,6 +675,8 @@ In particular, committed streams like:
 - `.prism/changes/events.jsonl`
 - `.prism/memory/*.jsonl`
 - `.prism/plans/streams/*.jsonl`
+- `.prism/plans/index.jsonl`
+- `.prism/plans/active/*.jsonl`
 - `.prism/concepts/events.jsonl`
 - `.prism/contracts/events.jsonl`
 
@@ -669,6 +685,12 @@ should be reevaluated against the new boundary:
 - if the file exists only to provide Git history, it should become snapshot state instead
 - if the file exists only to preserve fine-grained operational detail, it should move to runtime/shared state instead
 - only compact durable snapshot state and signed publish manifests should remain as tracked repo truth
+
+The steady-state target is stronger than "legacy logs exist but are no longer authoritative":
+
+- legacy tracked append-log files should disappear from the tracked repo entirely
+- migration continuity should live in snapshot metadata, not in indefinitely retained tracked logs
+- cold-clone restore should depend only on tracked snapshots and manifests
 
 This is a true rewrite, not a small optimization.
 

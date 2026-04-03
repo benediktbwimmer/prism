@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:3e132397b710c70239e9e7b0b6d9319b8e8f8e1df3235487353d04b1dfb9c1e6`
+- Source head: `sha256:db153d7d717ec99932f8e4fb441bf47e179d5455e2d674e3a5aae61ef8aaeb6f`
 - Source logical timestamp: `unknown`
 - Source snapshot: `8 nodes, 6 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mu
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn88m9a9ckax8ft3pwm7ahgq.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn88m9a9ckax8ft3pwm7ahgq.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

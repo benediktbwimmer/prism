@@ -26,6 +26,12 @@ This means:
 
 The repo should remain self-contained for current semantic understanding, not for replaying every historical patch outcome forever.
 
+It is also the precedent for the rest of the rewrite:
+
+- tracked `changes` leaves first because it is the clearest operational-history leak
+- the same boundary must eventually remove the remaining tracked semantic append logs too
+- the steady-state repo should carry snapshot shards and manifests only, not a mix of snapshots and tracked `.jsonl` authorities
+
 ---
 
 ## 2. Problem
@@ -64,6 +70,12 @@ This is the same boundary already established in the snapshot rewrite:
 - runtime/shared state owns churn
 
 Removing tracked `changes` is the step that makes this boundary real instead of partial.
+
+That same rule extends to memories, concepts, contracts, and plans:
+
+- current semantic state belongs in tracked snapshots
+- fine-grained event history does not
+- tracked append logs may exist only as temporary migration bridges during cutover
 
 ---
 

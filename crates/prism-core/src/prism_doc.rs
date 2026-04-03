@@ -282,15 +282,10 @@ fn render_root_prism_doc(catalog: &PrismDocCatalog) -> String {
         "- Published plans: {}\n",
         catalog.repo_state_summary.plan_count
     ));
-    markdown.push_str(&format!(
-        "- Published patch events: {}\n",
-        catalog.repo_state_summary.change_count
-    ));
     markdown.push_str("- Full concept catalog: `docs/prism/concepts.md`\n");
     markdown.push_str("- Full relation catalog: `docs/prism/relations.md`\n");
     markdown.push_str("- Full contract catalog: `docs/prism/contracts.md`\n");
     markdown.push_str("- Published memory catalog: `docs/prism/memory.md`\n");
-    markdown.push_str("- Published change summary: `docs/prism/changes.md`\n");
     markdown.push_str("- Published plan catalog: `docs/prism/plans/index.md`\n\n");
 
     markdown.push_str("## How to Read This Repo\n\n");
@@ -306,9 +301,6 @@ fn render_root_prism_doc(catalog: &PrismDocCatalog) -> String {
     );
     markdown.push_str(
         "- Use `docs/prism/memory.md` when you need the current repo-published memory surface.\n",
-    );
-    markdown.push_str(
-        "- Use `docs/prism/changes.md` when you need the summarized repo-published patch history.\n",
     );
     markdown.push_str(
         "- Use `docs/prism/plans/index.md` when you need the current published plan catalog and per-plan markdown projections.\n",
@@ -359,9 +351,6 @@ fn render_root_prism_doc(catalog: &PrismDocCatalog) -> String {
     );
     markdown.push_str(
         "- `docs/prism/memory.md`: current repo-published memory entries with anchors, provenance, and trust.\n",
-    );
-    markdown.push_str(
-        "- `docs/prism/changes.md`: summarized repo-published patch events and the files they touched.\n",
     );
     markdown.push_str(
         "- `docs/prism/plans/index.md`: published plan catalog plus per-plan markdown projections under `docs/prism/plans/`.\n",

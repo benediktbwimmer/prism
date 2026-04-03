@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:b4062f4dd77ad911d79cd2e32609b6cdf61c77e3b1aa43b3b0456bf9c31878b0`
+- Source head: `sha256:cc8b656a61d255bf7e2b7cb49208588f0bbe709f875f203a51c5d81a8b07ee15`
 - Source logical timestamp: `unknown`
 - Source snapshot: `1 nodes, 0 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Eliminate nondeterministic SQLite locking failures from the full parallel worksp
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn5xz844mc22fb9g7g5czxw7.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn5xz844mc22fb9g7g5czxw7.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

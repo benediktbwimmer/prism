@@ -1,23 +1,21 @@
 {
   "version": 1,
-  "publishedAt": 1775237312,
+  "publishedAt": 1775238897,
   "publisher": {
     "principalAuthorityId": "local-daemon",
-    "principalId": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
-    "credentialId": "credential:01kn80974ndtnq6s77qk7y3v1w"
+    "principalId": "principal:tracked-changes-rewrite:01kn9y81k21524vwvyy9y7nhbn",
+    "credentialId": "credential:01kn9y81k22x2tnr12cszr628e"
   },
   "workContext": {
-    "workId": "coord-task:01kn9ve8ants7rmt18m4rpf25b",
+    "workId": "coord-task:01kna4g9fyxzpyykde9s9z1m1d",
     "kind": "coordination",
-    "title": "Validate no absolute paths survive in published or shared PRISM state",
-    "summary": "Prove through regression coverage and live inspection that tracked `.prism`, publish manifests, repo-published changes, and portable/shared runtime exports contain no absolute filesystem paths while local runtime still functions correctly from derived worktree paths.",
-    "coordinationTaskId": "coord-task:01kn9ve8ants7rmt18m4rpf25b",
-    "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
-    "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
+    "title": "Lock the final no-legacy-append-log authority contract",
+    "coordinationTaskId": "coord-task:01kna4g9fyxzpyykde9s9z1m1d",
+    "planId": "plan:01kna4g4q0xn8znaa7bn7s6vq0",
+    "planTitle": "Finish removing legacy tracked .prism append logs"
   },
   "publishSummary": {
-    "title": "Validate no absolute paths survive in published or shared PRISM state",
-    "summary": "Prove through regression coverage and live inspection that tracked `.prism`, publish manifests, repo-published changes, and portable/shared runtime exports contain no absolute filesystem paths while local runtime still functions correctly from derived worktree paths."
+    "title": "Lock the final no-legacy-append-log authority contract"
   },
   "files": {
     ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json": {
@@ -1198,7 +1196,7 @@
     },
     ".prism/state/coordination/tasks/coord-task-01kna4g9fyxzpyykde9s9z1m1d-2eff3f8a17c60960.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kna4g9fyxzpyykde9s9z1m1d-2eff3f8a17c60960.json",
-      "sha256": "sha256:308eb76383b509dfffb15032e97f1b0f5d4edb3b3b35b374de5eb65e3c154e57"
+      "sha256": "sha256:2d1b4fb8a38214462ff835e2a02f7fb16d47f232fcabfd39d5a7c05bf1cd5e20"
     },
     ".prism/state/coordination/tasks/coord-task-1-12761fa8e93c5cba.json": {
       "path": ".prism/state/coordination/tasks/coord-task-1-12761fa8e93c5cba.json",
@@ -1294,11 +1292,11 @@
     },
     ".prism/state/indexes/coordination_tasks.json": {
       "path": ".prism/state/indexes/coordination_tasks.json",
-      "sha256": "sha256:4738b0bb4fc21ba23cd9b0094d7465144911598730d8360f58a18a9ea8d924b9"
+      "sha256": "sha256:03ed92756555022aee6d525b1482c3f39a29bf1dd8c74883c48fa5549c30a790"
     },
     ".prism/state/indexes/plans.json": {
       "path": ".prism/state/indexes/plans.json",
-      "sha256": "sha256:c95d6d8db0380262b8f175bf34c69769eec217d5248447fb179a64a3b89dcd2d"
+      "sha256": "sha256:a745c5567426be82151c1bab4faaecf35cc3646326894af5ca43dbe3593ae28d"
     },
     ".prism/state/plans/plan-01kmwmwamj4y87781dsn8x7wt2-f0176c427f24cf04.json": {
       "path": ".prism/state/plans/plan-01kmwmwamj4y87781dsn8x7wt2-f0176c427f24cf04.json",
@@ -1510,7 +1508,7 @@
     },
     ".prism/state/plans/plan-01kna4g4q0xn8znaa7bn7s6vq0-8e470bc040455517.json": {
       "path": ".prism/state/plans/plan-01kna4g4q0xn8znaa7bn7s6vq0-8e470bc040455517.json",
-      "sha256": "sha256:6b9a4ee163952d3da16d4f27e215588c45c077d63b7984ce4cfc61070de90a80"
+      "sha256": "sha256:c940399692522fa862e26a2ca621081d77abd15373e4f0452f4c66b7cdfffe52"
     },
     ".prism/state/plans/plan-1-8fd52ae04f462646.json": {
       "path": ".prism/state/plans/plan-1-8fd52ae04f462646.json",
@@ -1541,13 +1539,13 @@
       "sha256": "sha256:25b396965686f9dc300002f26a9ba19c826a387a00b6e3ee799116d6a0f64457"
     }
   },
-  "previousManifestDigest": "sha256:40b325f802cbb29989a94ed6c4d7d07aefc4cfd31e80c720a70c029b8d231d24",
+  "previousManifestDigest": "sha256:aa72ad1a44d0e4e5e26ca012ae5250d1498fd29ad318d31c2df52e227320d503",
   "migrationSourceDigest": "sha256:29be826a9e4869880d788dda166c588fd3513bcecc43c4b019205486a2115994",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:UJcmO5MetDOY6ut0FRErDV3XRoQ2IDqq3P2TYUFzwJCN5fpnQD4k6XgssQRETBiVHiezgKgJfFryaJMQE+SkCA=="
+    "value": "base64:7JFs0g3IqV3vNoDvtckUIqRw2dPYtDdXP/UAQpgn7qHpp339FGk8GTMYNohDY6K2qjaLTGBHUxwHmHPYVhYSDQ=="
   }
 }

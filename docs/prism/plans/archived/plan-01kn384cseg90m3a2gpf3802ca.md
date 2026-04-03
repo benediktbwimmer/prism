@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:bc128bd412e8b8fc4931fec58ef6cffd69541487f0a77250177fa52bdfeac26d`
+- Source head: `sha256:4dd561b9fa29fde0d556567438e2202ff1c1b7f410f7fbe2919f923c9bcd5618`
 - Source logical timestamp: `unknown`
 - Source snapshot: `6 nodes, 6 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ prism-general-improvements: improve PRISM MCP and repo-awareness dogfooding qual
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn384cseg90m3a2gpf3802ca.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn384cseg90m3a2gpf3802ca.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

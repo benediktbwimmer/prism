@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:141179e6b6b3f3c1f303f385132d4c6c01bf6a3d52eb6842bafbd723844ed15c`
+- Source head: `sha256:1add3f813ac22a1e75cc55ba16624361e5a974d74394bb9b768f0d7bb4df3a81`
 - Source logical timestamp: `unknown`
 - Source snapshot: `9 nodes, 8 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Improve PRISM MCP day-to-day agent ergonomics after the latest dogfooding round
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn3g1v47d46eppvcahky430e.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn3g1v47d46eppvcahky430e.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

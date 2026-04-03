@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:355e40d1f272ab47bf251fc2fc7753ef859fd14d65f35397d2a4b4ba5f5e0424`
+- Source head: `sha256:249c8fa3d0965aa0f6fa16adebcc381c9bd6d878c934f54e690844154b353e55`
 - Source logical timestamp: `unknown`
 - Source snapshot: `5 nodes, 6 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Eliminate the current slow compact MCP calls by instrumenting refresh-wrapper la
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn7wmt2vfdy77mxc3apcp1qw.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn7wmt2vfdy77mxc3apcp1qw.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

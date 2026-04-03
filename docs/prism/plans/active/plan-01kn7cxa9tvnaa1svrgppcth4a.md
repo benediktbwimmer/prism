@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:584fa378ca5c433140e891331fd37fbabb16d9f480a8b4d94e4f9bb10542e308`
+- Source head: `sha256:053d8d82c6ef190ee4c2b14bbda5151836e92a0a79ee06848a5cc46bd051cc29`
 - Source logical timestamp: `unknown`
 - Source snapshot: `7 nodes, 10 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Investigate and reduce the next observed PRISM runtime and MCP performance hotsp
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn7cxa9tvnaa1svrgppcth4a.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn7cxa9tvnaa1svrgppcth4a.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 
