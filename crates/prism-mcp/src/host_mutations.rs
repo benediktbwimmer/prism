@@ -2310,6 +2310,24 @@ impl QueryHost {
                             prism_ir::GitIntegrationStatus::NotStarted,
                         ),
                     )?;
+                    let final_authoritative_paths = worktree_dirty_paths(root)?;
+                    let unexpected_user_paths = user_dirty_paths(&final_authoritative_paths);
+                    if !unexpected_user_paths.is_empty() {
+                        return Err(anyhow!(
+                            "failed publish left unexpected dirty user paths: {}",
+                            unexpected_user_paths.join(", ")
+                        ));
+                    }
+                    let final_authoritative_prism_paths =
+                        prism_managed_paths(&final_authoritative_paths);
+                    if !final_authoritative_prism_paths.is_empty() {
+                        let _ = commit_paths(
+                            root,
+                            &format!("prism: record failed publish {}", task.title),
+                            current_timestamp(),
+                            &final_authoritative_prism_paths,
+                        )?;
+                    }
                     return Err(anyhow!(failure));
                 }
                 self.record_task_git_execution_authoritative_state(
@@ -2433,7 +2451,7 @@ impl QueryHost {
             authenticated,
             &task_ref,
             move |prism, meta| {
-                prism.update_native_task(
+                prism.update_native_task_authoritative_only(
                     meta,
                     TaskUpdateInput {
                         task_id: task_id.clone(),
@@ -2528,7 +2546,7 @@ impl QueryHost {
             authenticated,
             &task_ref,
             move |prism, meta| {
-                prism.update_native_task(
+                prism.update_native_task_authoritative_only(
                     meta,
                     TaskUpdateInput {
                         task_id: task_id.clone(),

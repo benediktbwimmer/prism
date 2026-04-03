@@ -2256,7 +2256,9 @@ pub(crate) fn update_task_mutation_with_options(
         review: None,
         metadata: Value::Object(metadata),
     });
-    auto_complete_execution_plan_if_eligible(state, &meta, &task.plan);
+    if !authoritative_only {
+        auto_complete_execution_plan_if_eligible(state, &meta, &task.plan);
+    }
     Ok(task)
 }
 

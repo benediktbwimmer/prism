@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
@@ -109,6 +110,20 @@ fn background_worker_test_guard() -> MutexGuard<'static, ()> {
 
 fn track_temp_dir(path: &std::path::Path) {
     TEMP_TEST_DIRS.with(|state| state.borrow_mut().paths.push(path.to_path_buf()));
+}
+
+fn run_git(root: &std::path::Path, args: &[&str]) {
+    let output = Command::new("git")
+        .current_dir(root)
+        .args(args)
+        .output()
+        .expect("git command should run");
+    assert!(
+        output.status.success(),
+        "git {} failed: {}",
+        args.join(" "),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
@@ -4873,6 +4888,77 @@ fn repo_plan_events_auto_sync_prism_doc() {
 
     let sync = session.sync_prism_doc().unwrap();
     assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn source_refresh_does_not_auto_sync_prism_doc() {
+    let root = temp_workspace();
+    let _guard = background_worker_test_guard();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\npub fn beta() {}\n").unwrap();
+
+    let outcome = session.refresh_fs_with_status().unwrap();
+    assert_ne!(outcome.status, crate::session::FsRefreshStatus::Clean);
+    std::thread::sleep(Duration::from_millis(300));
+
+    assert!(!root.join("PRISM.md").exists());
+    assert!(!root.join("docs/prism/plans/index.md").exists());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn automatic_prism_doc_sync_is_skipped_on_main_branch() {
+    let root = temp_workspace();
+    let _guard = background_worker_test_guard();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    run_git(&root, &["init", "-b", "main"]);
+    run_git(&root, &["config", "user.name", "Test User"]);
+    run_git(&root, &["config", "user.email", "test@example.com"]);
+    run_git(&root, &["add", "."]);
+    run_git(&root, &["commit", "-m", "init"]);
+
+    let session = index_workspace_session(&root).unwrap();
+    session
+        .mutate_coordination(|prism| {
+            prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:auto-sync-main-guard"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:auto-sync-main-guard")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Guard main branch".into(),
+                "Do not auto-dirty main".into(),
+                None,
+                None,
+            )
+        })
+        .unwrap();
+
+    std::thread::sleep(Duration::from_millis(300));
+
+    assert!(!root.join("PRISM.md").exists());
+    assert!(!root.join("docs/prism/plans/index.md").exists());
 
     let _ = fs::remove_dir_all(root);
 }

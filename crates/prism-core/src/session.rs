@@ -84,7 +84,10 @@ use crate::shared_runtime::{
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::shared_runtime_store::SharedRuntimeStore;
 use crate::tracked_snapshot::tracked_snapshot_authority_active;
-use crate::util::{cache_path, current_timestamp, current_timestamp_millis};
+use crate::util::{
+    cache_path, current_git_branch, current_timestamp, current_timestamp_millis,
+    is_generated_projection_relative_path,
+};
 use crate::validation_feedback::{
     append_validation_feedback, load_validation_feedback, ValidationFeedbackEntry,
     ValidationFeedbackRecord,
@@ -213,6 +216,62 @@ fn coordination_delta_affects_repo_plan_projection(
                 | CoordinationEventKind::HandoffAccepted
         )
     })
+}
+
+#[derive(Debug, Clone, Copy)]
+enum AutoPrismDocSyncTrigger {
+    CoordinationPlanProjection,
+    FsRefresh,
+}
+
+impl AutoPrismDocSyncTrigger {
+    fn label(self) -> &'static str {
+        match self {
+            Self::CoordinationPlanProjection => "coordination_plan_projection",
+            Self::FsRefresh => "fs_refresh",
+        }
+    }
+}
+
+fn path_affects_repo_projection(relative: &Path) -> bool {
+    if is_generated_projection_relative_path(relative) {
+        return true;
+    }
+    let components = relative
+        .components()
+        .map(|component| component.as_os_str().to_string_lossy().into_owned())
+        .collect::<Vec<_>>();
+    matches!(
+        components.as_slice(),
+        [prism, second, ..]
+            if prism == ".prism"
+                && matches!(
+                    second.as_str(),
+                    "state" | "memory" | "changes" | "concepts" | "contracts" | "plans"
+                )
+    )
+}
+
+fn refresh_affects_repo_projection(
+    outcome: &WorkspaceFsRefreshOutcome,
+) -> bool {
+    outcome.observed.iter().any(|change| {
+        change.previous_path.as_ref().is_some_and(|path| {
+            path_affects_repo_projection(Path::new(path.as_str()))
+        }) || change.current_path.as_ref().is_some_and(|path| {
+            path_affects_repo_projection(Path::new(path.as_str()))
+        })
+    })
+}
+
+fn log_relative_projection_paths(root: &Path, paths: &[PathBuf]) -> Vec<String> {
+    paths.iter()
+        .map(|path| {
+            path.strip_prefix(root)
+                .map(|relative| relative.display().to_string())
+                .unwrap_or_else(|_| path.display().to_string())
+        })
+        .collect()
 }
 
 pub(crate) struct WorkspaceRefreshState {
@@ -1000,7 +1059,9 @@ impl WorkspaceSession {
     pub fn refresh_fs_with_status(&self) -> Result<WorkspaceFsRefreshOutcome> {
         let outcome = self.refresh_fs_with_scoped_paths(None)?;
         if outcome.status != FsRefreshStatus::Clean {
-            self.schedule_prism_doc_sync();
+            if refresh_affects_repo_projection(&outcome) {
+                self.schedule_prism_doc_sync(AutoPrismDocSyncTrigger::FsRefresh);
+            }
             self.schedule_pending_repo_patch_provenance_for_active_work();
         }
         Ok(outcome)
@@ -1013,7 +1074,9 @@ impl WorkspaceSession {
         let outcome =
             self.refresh_fs_with_scoped_paths((!dirty_paths.is_empty()).then_some(dirty_paths))?;
         if outcome.status != FsRefreshStatus::Clean {
-            self.schedule_prism_doc_sync();
+            if refresh_affects_repo_projection(&outcome) {
+                self.schedule_prism_doc_sync(AutoPrismDocSyncTrigger::FsRefresh);
+            }
             self.schedule_pending_repo_patch_provenance_for_active_work();
         }
         Ok(outcome)
@@ -1965,7 +2028,7 @@ impl WorkspaceSession {
         Ok(())
     }
 
-    pub fn schedule_prism_doc_sync(&self) {
+    fn schedule_prism_doc_sync(&self, trigger: AutoPrismDocSyncTrigger) {
         if self
             .repo_projection_sync_pending
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
@@ -1978,23 +2041,56 @@ impl WorkspaceSession {
         std::thread::Builder::new()
             .name("prism-doc-sync".to_string())
             .spawn(move || {
-                if let Err(error) = crate::published_plans::regenerate_repo_published_plan_artifacts(&root)
+                let branch = current_git_branch(&root);
+                if matches!(branch.as_deref(), Some("main")) {
+                    warn!(
+                        root = %root.display(),
+                        trigger = trigger.label(),
+                        branch = branch.as_deref().unwrap_or("unknown"),
+                        "skipped automatic PRISM repo projection sync on target branch"
+                    );
+                    pending.store(false, Ordering::Release);
+                    return;
+                }
+                match crate::published_plans::regenerate_repo_published_plan_artifacts(&root)
                     .and_then(|_| {
-                        let prism = crate::protected_state::runtime_sync::load_repo_protected_knowledge(&root)?;
+                        let prism =
+                            crate::protected_state::runtime_sync::load_repo_protected_knowledge(
+                                &root,
+                            )?;
                         crate::prism_doc::sync_repo_prism_doc(
                             &root,
                             &prism.curated_concepts,
                             &prism.concept_relations,
                             &prism.curated_contracts,
                         )
-                        .map(|_| ())
-                    })
-                {
+                    }) {
+                    Ok(sync) => {
+                        let updated_paths = sync
+                            .files
+                            .iter()
+                            .filter(|file| {
+                                file.status == crate::prism_doc::PrismDocSyncStatus::Updated
+                            })
+                            .map(|file| file.path.clone())
+                            .collect::<Vec<_>>();
+                        info!(
+                            root = %root.display(),
+                            trigger = trigger.label(),
+                            branch = branch.as_deref().unwrap_or("detached"),
+                            updated_file_count = updated_paths.len(),
+                            updated_files = ?log_relative_projection_paths(&root, &updated_paths),
+                            "completed automatic PRISM repo projection sync"
+                        );
+                    }
+                    Err(error) => {
                     warn!(
                         root = %root.display(),
+                        trigger = trigger.label(),
                         error = %error,
                         "failed to sync PRISM doc projections in background"
                     );
+                    }
                 }
                 pending.store(false, Ordering::Release);
             })
@@ -2745,7 +2841,7 @@ impl WorkspaceSession {
             }
         }
         if coordination_delta_affects_repo_plan_projection(&appended_events) {
-            self.schedule_prism_doc_sync();
+            self.schedule_prism_doc_sync(AutoPrismDocSyncTrigger::CoordinationPlanProjection);
         }
         result
     }
