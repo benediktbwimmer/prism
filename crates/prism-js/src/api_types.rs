@@ -2,8 +2,9 @@ use prism_coordination::BlockerKind;
 use prism_ir::{
     AnchorRef, ArtifactStatus, BlockerCauseSource, Capability, ClaimMode, ClaimStatus,
     ConflictOverlapKind, ConflictSeverity, CoordinationTaskStatus, EdgeKind, EdgeOrigin,
-    GitExecutionStatus, Language, NodeKind, PlanEdgeKind, PlanKind, PlanNodeBlockerKind,
-    PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus, Span,
+    GitExecutionStatus, GitIntegrationMode, GitIntegrationStatus, Language, NodeKind,
+    PlanEdgeKind, PlanKind, PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus, PlanScope,
+    PlanStatus, Span,
 };
 use prism_memory::OutcomeEvent;
 use schemars::JsonSchema;
@@ -691,6 +692,21 @@ pub struct RuntimeFreshnessView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct RuntimeSharedCoordinationRefView {
+    pub ref_name: String,
+    pub head_commit: Option<String>,
+    pub history_depth: u64,
+    pub max_history_commits: u64,
+    pub snapshot_file_count: usize,
+    pub current_manifest_digest: Option<String>,
+    pub previous_manifest_digest: Option<String>,
+    pub compacted_head: bool,
+    pub needs_compaction: bool,
+    pub compaction_status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct RuntimeDomainFreshnessView {
     pub domain: String,
     pub freshness: String,
@@ -726,6 +742,7 @@ pub struct RuntimeStatusView {
     pub orphan_bridge_count: usize,
     pub processes: Vec<RuntimeProcessView>,
     pub process_error: Option<String>,
+    pub shared_coordination_ref: Option<RuntimeSharedCoordinationRefView>,
     pub scopes: RuntimeScopesView,
     pub freshness: RuntimeFreshnessView,
 }
@@ -1507,6 +1524,7 @@ pub struct PlanSchedulingView {
 pub struct GitExecutionPolicyView {
     pub start_mode: String,
     pub completion_mode: String,
+    pub integration_mode: String,
     pub target_ref: Option<String>,
     pub target_branch: String,
     pub require_task_branch: bool,
@@ -1609,6 +1627,13 @@ pub struct GitExecutionOverlayView {
     pub target_ref: Option<String>,
     pub publish_ref: Option<String>,
     pub target_branch: Option<String>,
+    pub source_commit: Option<String>,
+    pub publish_commit: Option<String>,
+    pub target_commit_at_publish: Option<String>,
+    pub review_artifact_ref: Option<String>,
+    pub integration_commit: Option<String>,
+    pub integration_mode: GitIntegrationMode,
+    pub integration_status: GitIntegrationStatus,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -1654,6 +1679,13 @@ pub struct TaskGitExecutionView {
     pub target_ref: Option<String>,
     pub publish_ref: Option<String>,
     pub target_branch: Option<String>,
+    pub source_commit: Option<String>,
+    pub publish_commit: Option<String>,
+    pub target_commit_at_publish: Option<String>,
+    pub review_artifact_ref: Option<String>,
+    pub integration_commit: Option<String>,
+    pub integration_mode: GitIntegrationMode,
+    pub integration_status: GitIntegrationStatus,
     pub last_preflight: Option<GitPreflightReportView>,
     pub last_publish: Option<GitPublishReportView>,
 }

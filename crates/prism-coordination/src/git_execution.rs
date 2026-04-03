@@ -1,4 +1,4 @@
-use prism_ir::{CoordinationTaskStatus, Timestamp};
+use prism_ir::{CoordinationTaskStatus, GitIntegrationMode, GitIntegrationStatus, Timestamp};
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -87,6 +87,8 @@ pub struct GitExecutionPolicy {
     pub max_commits_behind_target: u32,
     #[serde(default)]
     pub max_fetch_age_seconds: Option<u64>,
+    #[serde(default)]
+    pub integration_mode: GitIntegrationMode,
 }
 
 impl Default for GitExecutionPolicy {
@@ -99,6 +101,7 @@ impl Default for GitExecutionPolicy {
             require_task_branch: false,
             max_commits_behind_target: default_max_commits_behind_target(),
             max_fetch_age_seconds: None,
+            integration_mode: GitIntegrationMode::External,
         }
     }
 }
@@ -181,6 +184,20 @@ pub struct TaskGitExecution {
     pub publish_ref: Option<String>,
     #[serde(default)]
     pub target_branch: Option<String>,
+    #[serde(default)]
+    pub source_commit: Option<String>,
+    #[serde(default)]
+    pub publish_commit: Option<String>,
+    #[serde(default)]
+    pub target_commit_at_publish: Option<String>,
+    #[serde(default)]
+    pub review_artifact_ref: Option<String>,
+    #[serde(default)]
+    pub integration_commit: Option<String>,
+    #[serde(default)]
+    pub integration_mode: GitIntegrationMode,
+    #[serde(default)]
+    pub integration_status: GitIntegrationStatus,
     #[serde(default)]
     pub last_preflight: Option<GitPreflightReport>,
     #[serde(default)]

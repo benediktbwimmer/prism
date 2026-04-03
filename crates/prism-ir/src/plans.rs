@@ -199,6 +199,38 @@ impl Default for GitExecutionStatus {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum GitIntegrationMode {
+    ManualPr,
+    AutoPr,
+    DirectIntegrate,
+    External,
+}
+
+impl Default for GitIntegrationMode {
+    fn default() -> Self {
+        Self::External
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum GitIntegrationStatus {
+    NotStarted,
+    PublishedToBranch,
+    IntegrationPending,
+    IntegrationInProgress,
+    IntegratedToTarget,
+    IntegrationFailed,
+}
+
+impl Default for GitIntegrationStatus {
+    fn default() -> Self {
+        Self::NotStarted
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GitExecutionOverlay {
@@ -214,6 +246,20 @@ pub struct GitExecutionOverlay {
     pub publish_ref: Option<String>,
     #[serde(default)]
     pub target_branch: Option<String>,
+    #[serde(default)]
+    pub source_commit: Option<String>,
+    #[serde(default)]
+    pub publish_commit: Option<String>,
+    #[serde(default)]
+    pub target_commit_at_publish: Option<String>,
+    #[serde(default)]
+    pub review_artifact_ref: Option<String>,
+    #[serde(default)]
+    pub integration_commit: Option<String>,
+    #[serde(default)]
+    pub integration_mode: GitIntegrationMode,
+    #[serde(default)]
+    pub integration_status: GitIntegrationStatus,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

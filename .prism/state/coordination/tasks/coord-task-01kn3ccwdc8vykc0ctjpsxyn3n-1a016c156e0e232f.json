@@ -47,6 +47,13 @@
     "targetRef": null,
     "publishRef": null,
     "targetBranch": null,
+    "sourceCommit": null,
+    "publishCommit": null,
+    "targetCommitAtPublish": null,
+    "reviewArtifactRef": null,
+    "integrationCommit": null,
+    "integrationMode": "external",
+    "integrationStatus": "not_started",
     "lastPreflight": null,
     "lastPublish": null
   }

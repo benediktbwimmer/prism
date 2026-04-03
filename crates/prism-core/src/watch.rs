@@ -23,6 +23,7 @@ use prism_ir::{
 use prism_memory::OutcomeMemory;
 use prism_projections::ProjectionIndex;
 use prism_query::Prism;
+use prism_store::CoordinationJournal;
 use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::{error, info, warn};
 
@@ -40,6 +41,9 @@ use crate::protected_state::streams::{classify_protected_repo_relative_path, Pro
 use crate::session::{
     WorkspaceRefreshBreakdown, WorkspaceRefreshResult, WorkspaceRefreshState, WorkspaceSession,
 };
+use crate::shared_coordination_ref::{
+    poll_shared_coordination_ref_live_sync, SharedCoordinationRefLiveSync,
+};
 use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::shared_runtime_store::SharedRuntimeStore;
@@ -55,6 +59,7 @@ use crate::workspace_tree::{
 use crate::worktree_principal::BoundWorktreePrincipal;
 
 const ASSISTED_LEASE_RENEWAL_ENV: &str = "PRISM_ASSISTED_LEASE_RENEWAL";
+const SHARED_COORDINATION_REF_POLL_INTERVAL: Duration = Duration::from_millis(1500);
 
 pub(crate) struct WatchHandle {
     pub(crate) stop: mpsc::Sender<WatchMessage>,
@@ -294,6 +299,53 @@ pub(crate) fn spawn_protected_state_watch(
     });
 
     let _ = ready_rx.recv_timeout(Duration::from_millis(250));
+
+    Ok(WatchHandle {
+        stop: msg_tx,
+        handle,
+    })
+}
+
+pub(crate) fn spawn_shared_coordination_ref_watch(
+    root: PathBuf,
+    published_generation: Arc<RwLock<WorkspacePublishedGeneration>>,
+    runtime_state: Arc<Mutex<WorkspaceRuntimeState>>,
+    store: Arc<Mutex<SqliteStore>>,
+    cold_query_store: Arc<Mutex<SqliteStore>>,
+    shared_runtime_store: Option<Arc<Mutex<SharedRuntimeStore>>>,
+    refresh_lock: Arc<Mutex<()>>,
+    loaded_workspace_revision: Arc<AtomicU64>,
+    coordination_runtime_revision: Arc<AtomicU64>,
+    coordination_enabled: bool,
+) -> Result<WatchHandle> {
+    let (msg_tx, msg_rx) = mpsc::channel::<WatchMessage>();
+    let handle = thread::spawn(move || loop {
+        match msg_rx.recv_timeout(SHARED_COORDINATION_REF_POLL_INTERVAL) {
+            Ok(WatchMessage::Stop) | Err(mpsc::RecvTimeoutError::Disconnected) => return,
+            Ok(WatchMessage::Fs(_)) => continue,
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+        }
+
+        if let Err(error) = sync_shared_coordination_ref_watch_update(
+            &root,
+            &published_generation,
+            &runtime_state,
+            &store,
+            &cold_query_store,
+            shared_runtime_store.as_ref(),
+            &refresh_lock,
+            &loaded_workspace_revision,
+            &coordination_runtime_revision,
+            coordination_enabled,
+        ) {
+            error!(
+                root = %root.display(),
+                error = %error,
+                error_chain = %format_error_chain(&error),
+                "prism shared coordination ref live sync failed"
+            );
+        }
+    });
 
     Ok(WatchHandle {
         stop: msg_tx,
@@ -1290,6 +1342,101 @@ pub(crate) fn sync_protected_state_watch_update(
         reload_projection_knowledge = selection.reloads_projection_knowledge(),
         reload_coordination = selection.reloads_coordination(),
         "applied prism protected-state watch sync"
+    );
+    Ok(())
+}
+
+pub(crate) fn sync_shared_coordination_ref_watch_update(
+    root: &Path,
+    published_generation: &Arc<RwLock<WorkspacePublishedGeneration>>,
+    runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
+    store: &Arc<Mutex<SqliteStore>>,
+    cold_query_store: &Arc<Mutex<SqliteStore>>,
+    shared_runtime_store: Option<&Arc<Mutex<SharedRuntimeStore>>>,
+    refresh_lock: &Arc<Mutex<()>>,
+    loaded_workspace_revision: &Arc<AtomicU64>,
+    coordination_runtime_revision: &Arc<AtomicU64>,
+    coordination_enabled: bool,
+) -> Result<()> {
+    if !coordination_enabled {
+        return Ok(());
+    }
+    let SharedCoordinationRefLiveSync::Changed(shared) =
+        poll_shared_coordination_ref_live_sync(root)?
+    else {
+        return Ok(());
+    };
+
+    let _guard = refresh_lock
+        .lock()
+        .expect("shared coordination ref refresh lock poisoned");
+
+    let local_workspace_revision = store
+        .lock()
+        .expect("workspace store lock poisoned")
+        .workspace_revision()?;
+    let persisted_coordination_revision = if let Some(shared_store) = shared_runtime_store {
+        shared_store
+            .lock()
+            .expect("shared runtime store lock poisoned")
+            .coordination_revision()?
+    } else {
+        store.lock()
+            .expect("workspace store lock poisoned")
+            .coordination_revision()?
+    };
+    let shared_workspace_revision = shared_runtime_store
+        .map(|store| {
+            store
+                .lock()
+                .expect("shared runtime store lock poisoned")
+                .workspace_revision()
+        })
+        .transpose()?;
+    let workspace_revision =
+        composite_workspace_revision(local_workspace_revision, shared_workspace_revision);
+
+    let mut next_state = runtime_state
+        .lock()
+        .expect("workspace runtime state lock poisoned")
+        .clone();
+    next_state.replace_coordination_runtime(
+        shared.snapshot.clone(),
+        shared.plan_graphs.clone(),
+        shared.execution_overlays.clone(),
+    );
+    let next = next_state.publish_generation(
+        prism_ir::WorkspaceRevision {
+            graph_version: local_workspace_revision,
+            git_commit: None,
+        },
+        Some(coordination_persist_context_for_root(root, None)),
+    );
+    WorkspaceSession::attach_cold_query_backends(
+        next.prism_arc().as_ref(),
+        cold_query_store,
+        shared_runtime_store,
+    );
+    *runtime_state
+        .lock()
+        .expect("workspace runtime state lock poisoned") = next_state;
+    *published_generation
+        .write()
+        .expect("workspace published generation lock poisoned") = next;
+    loaded_workspace_revision.store(workspace_revision, Ordering::Relaxed);
+    let next_coordination_revision = coordination_runtime_revision
+        .load(Ordering::Relaxed)
+        .max(persisted_coordination_revision)
+        .saturating_add(1);
+    coordination_runtime_revision.store(next_coordination_revision, Ordering::Relaxed);
+    info!(
+        root = %root.display(),
+        plan_count = shared.snapshot.plans.len(),
+        task_count = shared.snapshot.tasks.len(),
+        claim_count = shared.snapshot.claims.len(),
+        artifact_count = shared.snapshot.artifacts.len(),
+        review_count = shared.snapshot.reviews.len(),
+        "applied shared coordination ref live sync"
     );
     Ok(())
 }

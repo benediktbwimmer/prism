@@ -2532,6 +2532,28 @@ impl_vocab_deserialize!(
 
 #[derive(Debug, Clone, JsonSchema)]
 #[serde(rename_all = "snake_case")]
+pub(crate) enum GitIntegrationModeInput {
+    ManualPr,
+    AutoPr,
+    DirectIntegrate,
+    External,
+}
+
+impl_vocab_deserialize!(
+    GitIntegrationModeInput,
+    "gitIntegrationMode",
+    "git integration mode",
+    r#"{"integrationMode":"external"}"#,
+    {
+        "manual_pr" => ManualPr,
+        "auto_pr" => AutoPr,
+        "direct_integrate" => DirectIntegrate,
+        "external" => External
+    }
+);
+
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum CoordinationTaskStatusInput {
     Proposed,
     Ready,
@@ -2810,6 +2832,8 @@ pub(crate) struct GitExecutionPolicyPayload {
     pub(crate) start_mode: Option<GitExecutionStartModeInput>,
     #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) completion_mode: Option<GitExecutionCompletionModeInput>,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
+    pub(crate) integration_mode: Option<GitIntegrationModeInput>,
     pub(crate) target_ref: Option<String>,
     pub(crate) target_branch: Option<String>,
     pub(crate) require_task_branch: Option<bool>,

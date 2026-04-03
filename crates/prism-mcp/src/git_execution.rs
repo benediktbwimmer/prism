@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::Path;
 use std::process::Command;
 use std::time::UNIX_EPOCH;
@@ -26,7 +27,10 @@ fn run_git(root: &Path, args: &[&str]) -> Result<String> {
 
 fn is_prism_managed_path(path: &str) -> bool {
     path.starts_with(".prism/")
+        || path == ".prism"
         || path == "PRISM.md"
+        || path == "docs"
+        || path == "docs/"
         || path == "docs/prism"
         || path.starts_with("docs/prism/")
 }
@@ -212,5 +216,105 @@ pub(crate) fn push_current_branch(
 ) -> Result<()> {
     run_git(root, &["push", "origin", branch])?;
     report.pushed_ref = Some(format!("refs/heads/{branch}"));
+    Ok(())
+}
+
+pub(crate) fn restore_prism_managed_paths(root: &Path, paths: &[String]) -> Result<()> {
+    if paths.is_empty() {
+        return Ok(());
+    }
+
+    let mut tracked = Vec::new();
+    let mut untracked = Vec::new();
+    for path in paths {
+        if run_git(root, &["ls-files", "--error-unmatch", "--", path]).is_ok() {
+            tracked.push(path.clone());
+        } else {
+            untracked.push(path.clone());
+        }
+    }
+
+    if !tracked.is_empty() {
+        let mut restore_args = vec!["restore", "--source=HEAD", "--staged", "--worktree", "--"];
+        restore_args.extend(tracked.iter().map(String::as_str));
+        run_git(root, &restore_args)?;
+    }
+
+    for path in untracked {
+        let absolute = root.join(&path);
+        if absolute.is_dir() {
+            let _ = fs::remove_dir_all(&absolute);
+        } else if absolute.exists() {
+            let _ = fs::remove_file(&absolute);
+        }
+    }
+
+    let _ = run_git(
+        root,
+        &["clean", "-fd", "--", ".prism", "PRISM.md", "docs/prism"],
+    );
+
+    cleanup_untracked_prism_root(root, ".prism")?;
+    cleanup_untracked_prism_root(root, "docs/prism")?;
+    cleanup_empty_untracked_dir(root, "docs")?;
+    cleanup_untracked_file(root, "PRISM.md")?;
+
+    Ok(())
+}
+
+pub(crate) fn restore_prism_managed_roots(root: &Path) -> Result<()> {
+    let _ = run_git(
+        root,
+        &[
+            "restore",
+            "--source=HEAD",
+            "--staged",
+            "--worktree",
+            "--",
+            ".prism",
+            "PRISM.md",
+            "docs",
+        ],
+    );
+    let _ = run_git(root, &["clean", "-fd", "--", ".prism", "PRISM.md", "docs"]);
+    cleanup_untracked_prism_root(root, ".prism")?;
+    cleanup_untracked_prism_root(root, "docs/prism")?;
+    cleanup_empty_untracked_dir(root, "docs")?;
+    cleanup_untracked_file(root, "PRISM.md")?;
+    Ok(())
+}
+
+fn tracked_entries_exist(root: &Path, path: &str) -> Result<bool> {
+    Ok(!run_git(root, &["ls-files", "--", path])?.trim().is_empty())
+}
+
+fn cleanup_untracked_prism_root(root: &Path, path: &str) -> Result<()> {
+    let absolute = root.join(path);
+    if absolute.exists() && !tracked_entries_exist(root, path)? {
+        let _ = fs::remove_dir_all(&absolute);
+    }
+    Ok(())
+}
+
+fn cleanup_empty_untracked_dir(root: &Path, path: &str) -> Result<()> {
+    let absolute = root.join(path);
+    if absolute.exists()
+        && absolute.is_dir()
+        && !tracked_entries_exist(root, path)?
+        && absolute
+            .read_dir()
+            .map(|mut entries| entries.next().is_none())
+            .unwrap_or(false)
+    {
+        let _ = fs::remove_dir(&absolute);
+    }
+    Ok(())
+}
+
+fn cleanup_untracked_file(root: &Path, path: &str) -> Result<()> {
+    let absolute = root.join(path);
+    if absolute.exists() && absolute.is_file() && !tracked_entries_exist(root, path)? {
+        let _ = fs::remove_file(&absolute);
+    }
     Ok(())
 }

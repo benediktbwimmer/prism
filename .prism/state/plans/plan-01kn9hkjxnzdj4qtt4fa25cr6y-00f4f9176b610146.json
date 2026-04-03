@@ -21,7 +21,8 @@
         "targetBranch": "main",
         "requireTaskBranch": true,
         "maxCommitsBehindTarget": 0,
-        "maxFetchAgeSeconds": null
+        "maxFetchAgeSeconds": null,
+        "integrationMode": "external"
       }
     },
     "scope": "Repo",
@@ -732,7 +733,14 @@
         "sourceRef": "task/prism-snapshot-rewrite",
         "targetRef": "origin/main",
         "publishRef": "task/prism-snapshot-rewrite",
-        "targetBranch": "main"
+        "targetBranch": "main",
+        "sourceCommit": null,
+        "publishCommit": null,
+        "targetCommitAtPublish": null,
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "not_started"
       }
     },
     {
@@ -749,7 +757,14 @@
         "sourceRef": "task/prism-snapshot-rewrite",
         "targetRef": "origin/main",
         "publishRef": "task/prism-snapshot-rewrite",
-        "targetBranch": "main"
+        "targetBranch": "main",
+        "sourceCommit": null,
+        "publishCommit": null,
+        "targetCommitAtPublish": null,
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "not_started"
       }
     },
     {
@@ -766,7 +781,14 @@
         "sourceRef": "task/prism-snapshot-rewrite",
         "targetRef": "origin/main",
         "publishRef": "task/prism-snapshot-rewrite",
-        "targetBranch": "main"
+        "targetBranch": "main",
+        "sourceCommit": null,
+        "publishCommit": null,
+        "targetCommitAtPublish": null,
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "not_started"
       }
     },
     {
@@ -783,7 +805,14 @@
         "sourceRef": "task/prism-snapshot-rewrite",
         "targetRef": "origin/main",
         "publishRef": "task/prism-snapshot-rewrite",
-        "targetBranch": "main"
+        "targetBranch": "main",
+        "sourceCommit": null,
+        "publishCommit": null,
+        "targetCommitAtPublish": null,
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "not_started"
       }
     },
     {
@@ -800,7 +829,14 @@
         "sourceRef": "task/prism-snapshot-rewrite",
         "targetRef": "origin/main",
         "publishRef": "task/prism-snapshot-rewrite",
-        "targetBranch": "main"
+        "targetBranch": "main",
+        "sourceCommit": null,
+        "publishCommit": null,
+        "targetCommitAtPublish": null,
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "not_started"
       }
     }
   ]

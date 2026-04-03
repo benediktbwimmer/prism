@@ -13,7 +13,7 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, bail, Context, Result};
-use prism_core::PrismPaths;
+use prism_core::{shared_coordination_ref_diagnostics, PrismPaths};
 
 use crate::cli::McpCommand;
 use crate::daemon_log;
@@ -304,6 +304,32 @@ fn status(root: &Path) -> Result<()> {
         );
     } else {
         println!("cache_path: {} (missing)", paths.cache_path.display());
+    }
+    if let Some(shared_coordination_ref) = shared_coordination_ref_diagnostics(root)? {
+        println!("shared_coordination_ref: {}", shared_coordination_ref.ref_name);
+        println!(
+            "shared_coordination_head: {}",
+            shared_coordination_ref
+                .head_commit
+                .as_deref()
+                .unwrap_or("<missing>")
+        );
+        println!(
+            "shared_coordination_history_depth: {}",
+            shared_coordination_ref.history_depth
+        );
+        println!(
+            "shared_coordination_snapshot_file_count: {}",
+            shared_coordination_ref.snapshot_file_count
+        );
+        println!(
+            "shared_coordination_compaction_status: {}",
+            shared_coordination_ref.compaction_status
+        );
+        println!(
+            "shared_coordination_needs_compaction: {}",
+            shared_coordination_ref.needs_compaction
+        );
     }
     if daemons.len() > 1 {
         println!("warning: multiple daemon processes are running for this workspace");

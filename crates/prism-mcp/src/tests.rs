@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 
 use super::query_replay_cases::{replay_cases, ReplayExpectation, ReplayHostProfile};
 use super::*;
+use crate::git_execution::{user_dirty_paths, worktree_dirty_paths};
 use crate::server_surface::{MutationDashboardMeta, MutationRefreshPolicy};
 use crate::tests_support::*;
 use prism_agent::{InferenceSnapshot, InferredEdgeScope};
@@ -513,6 +514,7 @@ fn git_execution_preflight_ignores_tracked_prism_managed_paths() {
         require_task_branch: true,
         max_commits_behind_target: 0,
         max_fetch_age_seconds: None,
+        integration_mode: prism_ir::GitIntegrationMode::External,
     };
     let preflight = crate::git_execution::run_preflight(&root, &policy, 123, true).unwrap();
 
@@ -551,6 +553,7 @@ fn git_execution_preflight_respects_max_commits_behind_target() {
         require_task_branch: true,
         max_commits_behind_target: 0,
         max_fetch_age_seconds: Some(60),
+        integration_mode: prism_ir::GitIntegrationMode::External,
     };
     let preflight = crate::git_execution::run_preflight(&root, &policy, 123, false).unwrap();
 
@@ -660,6 +663,17 @@ fn git_execution_policy_completion_require_rejects_dirty_user_changes() {
         .current_prism()
         .coordination_task(&prism_ir::CoordinationTaskId::new(task_id))
         .unwrap();
+    println!("task after failed publish: {task:?}");
+    let events = host.current_prism().coordination_events();
+    println!(
+        "coordination tail: {:?}",
+        events
+            .iter()
+            .rev()
+            .take(3)
+            .map(|event| (&event.kind, &event.metadata))
+            .collect::<Vec<_>>()
+    );
     assert_eq!(task.status, prism_ir::CoordinationTaskStatus::InProgress);
     assert_eq!(
         task.git_execution.status,
@@ -741,6 +755,7 @@ fn git_execution_policy_completion_require_publishes_after_manual_code_commit() 
     test_git(&root, &["add", "src/lib.rs"]);
     test_git(&root, &["commit", "-m", "manual code publish"]);
     let manual_commit = test_git(&root, &["rev-parse", "HEAD"]);
+    let target_commit_at_publish = test_git(&root, &["rev-parse", "origin/main"]);
 
     host.store_coordination(
         session_state.as_ref(),
@@ -772,18 +787,49 @@ fn git_execution_policy_completion_require_publishes_after_manual_code_commit() 
             .and_then(|publish| publish.code_commit.as_deref()),
         Some(manual_commit.as_str())
     );
+    assert_eq!(
+        task.git_execution.source_commit.as_deref(),
+        Some(manual_commit.as_str())
+    );
     assert_eq!(task.git_execution.source_ref.as_deref(), Some(branch));
     assert_eq!(
         task.git_execution.target_ref.as_deref(),
         Some("origin/main")
     );
     assert_eq!(task.git_execution.publish_ref.as_deref(), Some(branch));
+    assert_eq!(
+        task.git_execution.target_commit_at_publish.as_deref(),
+        Some(target_commit_at_publish.as_str())
+    );
+    assert_eq!(
+        task.git_execution.integration_mode,
+        prism_ir::GitIntegrationMode::External
+    );
+    assert_eq!(
+        task.git_execution.integration_status,
+        prism_ir::GitIntegrationStatus::PublishedToBranch
+    );
+    assert_eq!(task.git_execution.review_artifact_ref, None);
+    assert_eq!(task.git_execution.integration_commit, None);
     assert!(task
         .git_execution
         .last_publish
         .as_ref()
         .and_then(|publish| publish.coordination_commit.as_ref())
         .is_some());
+    assert_eq!(
+        task.git_execution.publish_commit.as_deref(),
+        task.git_execution
+            .last_publish
+            .as_ref()
+            .and_then(|publish| publish.coordination_commit.as_deref())
+            .or_else(|| {
+                task.git_execution
+                    .last_publish
+                    .as_ref()
+                    .and_then(|publish| publish.code_commit.as_deref())
+            })
+    );
     assert!(task
         .git_execution
         .last_publish
@@ -1053,7 +1099,10 @@ fn git_execution_policy_completion_require_push_failure_keeps_task_in_progress()
         .coordination_task(&prism_ir::CoordinationTaskId::new(task_id))
         .unwrap();
     assert_eq!(task.status, prism_ir::CoordinationTaskStatus::InProgress);
-    assert_eq!(task.published_task_status, None);
+    assert_eq!(
+        task.published_task_status, None,
+        "task after failed publish: {task:?}"
+    );
     assert_eq!(
         task.git_execution.status,
         prism_ir::GitExecutionStatus::PublishFailed
@@ -1068,7 +1117,8 @@ fn git_execution_policy_completion_require_push_failure_keeps_task_in_progress()
         .as_ref()
         .and_then(|publish| publish.failure.as_ref())
         .is_some());
-    assert_eq!(test_git(&root, &["status", "--short"]), "");
+    let dirty_paths = worktree_dirty_paths(&root).unwrap();
+    assert_eq!(user_dirty_paths(&dirty_paths), Vec::<String>::new());
 }
 
 #[test]
@@ -19826,6 +19876,48 @@ fn runtime_status_reports_workspace_materialization_depth_and_coverage() {
     assert_eq!(boundary.provenance, "workspace_walk");
     assert_eq!(boundary.materialization_state, "out_of_scope");
     assert_eq!(boundary.scope_state, "out_of_scope");
+}
+
+#[test]
+fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
+    let root = init_git_workspace("task/shared-coordination-runtime-status");
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Shared coordination runtime status",
+                    "goal": "Publish shared coordination diagnostics"
+                }),
+                task_id: None,
+            },
+        )
+        .expect("plan create should succeed");
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::TaskCreate,
+            payload: json!({
+                "planId": plan.state["id"].as_str().unwrap(),
+                "title": "Exercise shared coordination ref"
+            }),
+            task_id: None,
+        },
+    )
+    .expect("task create should succeed");
+
+    let status = crate::runtime_views::runtime_status(&host).expect("runtime status should succeed");
+    let shared = status
+        .shared_coordination_ref
+        .expect("shared coordination diagnostics should be present");
+    assert!(shared.ref_name.starts_with("refs/prism/coordination/"));
+    assert!(shared.head_commit.is_some());
+    assert!(shared.history_depth >= 1);
+    assert!(shared.snapshot_file_count > 0);
 }
 
 #[test]

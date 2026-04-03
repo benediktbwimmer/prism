@@ -24,11 +24,14 @@ use crate::observed_change_tracker::ObservedChangeTracker;
 use crate::protected_state::runtime_sync::sync_repo_protected_state;
 use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_intents};
 use crate::session::{WorkspaceRefreshSeed, WorkspaceRefreshState, WorkspaceSession};
+use crate::shared_coordination_ref::initialize_shared_coordination_ref_live_sync;
 use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::shared_runtime_store::SharedRuntimeStore;
 use crate::util::{persisted_file_hash, workspace_walk};
-use crate::watch::{spawn_fs_watch, spawn_protected_state_watch};
+use crate::watch::{
+    spawn_fs_watch, spawn_protected_state_watch, spawn_shared_coordination_ref_watch,
+};
 use crate::workspace_identity::coordination_persist_context_for_root;
 use crate::workspace_runtime_state::WorkspaceRuntimeState;
 use prism_ir::PrincipalRegistrySnapshot;
@@ -75,6 +78,7 @@ pub(crate) fn build_workspace_session(
     let curator_store = store.reopen_runtime_reader()?;
     let reopen_runtime_readers_ms = reopen_stores_started.elapsed().as_millis();
     let loaded_workspace_revision = Arc::new(AtomicU64::new(workspace_revision));
+    let coordination_runtime_revision = Arc::new(AtomicU64::new(0));
     let store = Arc::new(Mutex::new(store));
     let cold_query_store = Arc::new(Mutex::new(cold_query_store));
     let shared_runtime_store = shared_runtime_store.map(|store| Arc::new(Mutex::new(store)));
@@ -188,6 +192,19 @@ pub(crate) fn build_workspace_session(
         Arc::clone(&loaded_workspace_revision),
         coordination_enabled,
     )?);
+    initialize_shared_coordination_ref_live_sync(&root)?;
+    let shared_coordination_ref_watch = Some(spawn_shared_coordination_ref_watch(
+        root.clone(),
+        Arc::clone(&published_generation),
+        Arc::clone(&runtime_state),
+        Arc::clone(&store),
+        Arc::clone(&cold_query_store),
+        shared_runtime_store.as_ref().map(Arc::clone),
+        Arc::clone(&refresh_lock),
+        Arc::clone(&loaded_workspace_revision),
+        Arc::clone(&coordination_runtime_revision),
+        coordination_enabled,
+    )?);
     let watch_start_ms = watch_started.elapsed().as_millis();
     let graph = published_generation
         .read()
@@ -231,9 +248,11 @@ pub(crate) fn build_workspace_session(
         refresh_lock,
         refresh_state,
         loaded_workspace_revision,
+        coordination_runtime_revision,
         fs_snapshot,
         watch,
         protected_state_watch,
+        shared_coordination_ref_watch,
         curator: Some(curator),
         checkpoint_materializer: Some(checkpoint_materializer),
         shared_runtime_materializer,

@@ -21,7 +21,8 @@
         "targetBranch": "",
         "requireTaskBranch": false,
         "maxCommitsBehindTarget": 0,
-        "maxFetchAgeSeconds": null
+        "maxFetchAgeSeconds": null,
+        "integrationMode": "external"
       }
     },
     "scope": "Repo",

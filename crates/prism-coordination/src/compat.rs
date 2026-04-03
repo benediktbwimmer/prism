@@ -80,6 +80,13 @@ pub fn execution_overlays_from_tasks(tasks: &[CoordinationTask]) -> Vec<PlanExec
                         target_ref: task.git_execution.target_ref.clone(),
                         publish_ref: task.git_execution.publish_ref.clone(),
                         target_branch: task.git_execution.target_branch.clone(),
+                        source_commit: task.git_execution.source_commit.clone(),
+                        publish_commit: task.git_execution.publish_commit.clone(),
+                        target_commit_at_publish: task.git_execution.target_commit_at_publish.clone(),
+                        review_artifact_ref: task.git_execution.review_artifact_ref.clone(),
+                        integration_commit: task.git_execution.integration_commit.clone(),
+                        integration_mode: task.git_execution.integration_mode,
+                        integration_status: task.git_execution.integration_status,
                     });
                 if task.pending_handoff_to.is_none()
                     && task.session.is_none()
@@ -256,6 +263,13 @@ fn task_from_plan_node(
             target_ref: overlay.target_ref,
             publish_ref: overlay.publish_ref,
             target_branch: overlay.target_branch,
+            source_commit: overlay.source_commit,
+            publish_commit: overlay.publish_commit,
+            target_commit_at_publish: overlay.target_commit_at_publish,
+            review_artifact_ref: overlay.review_artifact_ref,
+            integration_commit: overlay.integration_commit,
+            integration_mode: overlay.integration_mode,
+            integration_status: overlay.integration_status,
             last_preflight: None,
             last_publish: None,
         })

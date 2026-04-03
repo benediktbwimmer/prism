@@ -1,8 +1,8 @@
 use anyhow::{anyhow, Result};
 use prism_coordination::{
-    GitExecutionCompletionMode, GitExecutionStartMode, GitPublishReport, HandoffAcceptInput,
-    HandoffInput, PolicyViolation, TaskCompletionContext, TaskCreateInput, TaskGitExecution,
-    TaskReclaimInput, TaskResumeInput, TaskUpdateInput,
+    GitExecutionCompletionMode, GitExecutionStartMode, GitPreflightReport, GitPublishReport,
+    HandoffAcceptInput, HandoffInput, PolicyViolation, TaskCompletionContext, TaskCreateInput,
+    TaskGitExecution, TaskReclaimInput, TaskResumeInput, TaskUpdateInput,
 };
 use prism_core::{
     AdmissionBusyError, AuthenticatedPrincipal, ValidationFeedbackCategory,
@@ -34,8 +34,9 @@ use serde_json::{json, Value};
 
 use crate::dashboard_events::MutationRun;
 use crate::git_execution::{
-    commit_paths, head_commit, prism_managed_paths, push_current_branch, run_preflight,
-    user_dirty_paths, worktree_dirty_paths,
+    commit_paths, head_commit, prism_managed_paths, push_current_branch,
+    restore_prism_managed_paths, restore_prism_managed_roots, run_preflight, user_dirty_paths,
+    worktree_dirty_paths,
 };
 use crate::MutationProvenance;
 use crate::{
@@ -141,6 +142,43 @@ fn mutation_violation_view(value: PolicyViolation) -> MutationViolationView {
 fn git_execution_policy_enabled(policy: &prism_coordination::GitExecutionPolicy) -> bool {
     !matches!(policy.start_mode, GitExecutionStartMode::Off)
         || !matches!(policy.completion_mode, GitExecutionCompletionMode::Off)
+}
+
+fn effective_publish_commit(report: Option<&GitPublishReport>) -> Option<String> {
+    report.and_then(|report| {
+        report
+            .coordination_commit
+            .clone()
+            .or_else(|| report.code_commit.clone())
+    })
+}
+
+fn task_git_execution_record(
+    previous: &TaskGitExecution,
+    policy: &prism_coordination::GitExecutionPolicy,
+    preflight: &GitPreflightReport,
+    status: prism_ir::GitExecutionStatus,
+    pending_task_status: Option<prism_ir::CoordinationTaskStatus>,
+    last_publish: Option<GitPublishReport>,
+    integration_status: prism_ir::GitIntegrationStatus,
+) -> TaskGitExecution {
+    TaskGitExecution {
+        status,
+        pending_task_status,
+        source_ref: preflight.source_ref.clone(),
+        target_ref: preflight.target_ref.clone(),
+        publish_ref: preflight.publish_ref.clone(),
+        target_branch: Some(policy.target_branch.clone()),
+        source_commit: preflight.head_commit.clone(),
+        publish_commit: effective_publish_commit(last_publish.as_ref()),
+        target_commit_at_publish: preflight.target_commit.clone(),
+        review_artifact_ref: previous.review_artifact_ref.clone(),
+        integration_commit: previous.integration_commit.clone(),
+        integration_mode: policy.integration_mode,
+        integration_status,
+        last_preflight: Some(preflight.clone()),
+        last_publish,
+    }
 }
 
 fn coordination_status_bypasses_git_execution(status: prism_ir::CoordinationTaskStatus) -> bool {
@@ -1967,16 +2005,15 @@ impl QueryHost {
                 session,
                 authenticated,
                 &request.task_id,
-                TaskGitExecution {
-                    status: prism_ir::GitExecutionStatus::PreflightFailed,
-                    pending_task_status: None,
-                    source_ref: preflight.report.source_ref.clone(),
-                    target_ref: preflight.report.target_ref.clone(),
-                    publish_ref: preflight.report.publish_ref.clone(),
-                    target_branch: Some(policy.target_branch.clone()),
-                    last_preflight: Some(preflight.report),
-                    last_publish: None,
-                },
+                task_git_execution_record(
+                    &task.git_execution,
+                    &policy,
+                    &preflight.report,
+                    prism_ir::GitExecutionStatus::PreflightFailed,
+                    None,
+                    None,
+                    prism_ir::GitIntegrationStatus::NotStarted,
+                ),
             )?;
             return Err(anyhow!(failure));
         }
@@ -2010,16 +2047,15 @@ impl QueryHost {
                     session,
                     authenticated,
                     &request.task_id,
-                    TaskGitExecution {
-                        status: prism_ir::GitExecutionStatus::InProgress,
-                        pending_task_status: None,
-                        source_ref: preflight.report.source_ref.clone(),
-                        target_ref: preflight.report.target_ref.clone(),
-                        publish_ref: preflight.report.publish_ref.clone(),
-                        target_branch: Some(policy.target_branch.clone()),
-                        last_preflight: Some(preflight.report),
-                        last_publish: None,
-                    },
+                    task_git_execution_record(
+                        &task.git_execution,
+                        &policy,
+                        &preflight.report,
+                        prism_ir::GitExecutionStatus::InProgress,
+                        None,
+                        None,
+                        prism_ir::GitIntegrationStatus::NotStarted,
+                    ),
                 )?;
             }
             GitExecutionWorkflow::Complete(desired_status) => {
@@ -2046,16 +2082,15 @@ impl QueryHost {
                                 session,
                                 authenticated,
                                 &request.task_id,
-                                TaskGitExecution {
-                                    status: prism_ir::GitExecutionStatus::PublishFailed,
-                                    pending_task_status: Some(desired_status),
-                                    source_ref: preflight.report.source_ref.clone(),
-                                    target_ref: preflight.report.target_ref.clone(),
-                                    publish_ref: preflight.report.publish_ref.clone(),
-                                    target_branch: Some(policy.target_branch.clone()),
-                                    last_preflight: Some(preflight.report.clone()),
-                                    last_publish: Some(failed_publish),
-                                },
+                                task_git_execution_record(
+                                    &task.git_execution,
+                                    &policy,
+                                    &preflight.report,
+                                    prism_ir::GitExecutionStatus::PublishFailed,
+                                    Some(desired_status),
+                                    Some(failed_publish),
+                                    prism_ir::GitIntegrationStatus::NotStarted,
+                                ),
                             )?;
                             return Err(anyhow!(failure));
                         }
@@ -2083,17 +2118,41 @@ impl QueryHost {
                     authenticated,
                     &request.task_id,
                     desired_status,
-                    TaskGitExecution {
-                        status: prism_ir::GitExecutionStatus::PublishPending,
-                        pending_task_status: Some(desired_status),
-                        source_ref: preflight.report.source_ref.clone(),
-                        target_ref: preflight.report.target_ref.clone(),
-                        publish_ref: preflight.report.publish_ref.clone(),
-                        target_branch: Some(policy.target_branch.clone()),
-                        last_preflight: Some(preflight.report.clone()),
-                        last_publish: Some(code_commit.clone()),
-                    },
+                    task_git_execution_record(
+                        &task.git_execution,
+                        &policy,
+                        &preflight.report,
+                        prism_ir::GitExecutionStatus::PublishPending,
+                        Some(desired_status),
+                        Some(code_commit.clone()),
+                        prism_ir::GitIntegrationStatus::NotStarted,
+                    ),
                 ) {
+                    let failure = error.to_string();
+                    let mut failed_publish = code_commit.clone();
+                    failed_publish.failure = Some(failure.clone());
+                    self.record_task_git_execution_authoritative_state(
+                        session,
+                        authenticated,
+                        &request.task_id,
+                        Some(task.status),
+                        Some(None),
+                        task_git_execution_record(
+                            &task.git_execution,
+                            &policy,
+                            &preflight.report,
+                            prism_ir::GitExecutionStatus::PublishFailed,
+                            Some(desired_status),
+                            Some(failed_publish),
+                            prism_ir::GitIntegrationStatus::NotStarted,
+                        ),
+                    )?;
+                    let dirty_paths = worktree_dirty_paths(root)?;
+                    let managed_paths = prism_managed_paths(&dirty_paths);
+                    restore_prism_managed_paths(root, &managed_paths)?;
+                    if user_dirty_paths(&dirty_paths).is_empty() {
+                        restore_prism_managed_roots(root)?;
+                    }
                     let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     if audit.rejected && !audit.event_ids.is_empty() {
@@ -2109,7 +2168,7 @@ impl QueryHost {
                             state: Value::Null,
                         }));
                     }
-                    return Err(error);
+                    return Err(anyhow!(failure));
                 }
                 let coordination_commit_message = match desired_status {
                     prism_ir::CoordinationTaskStatus::Abandoned => {
@@ -2140,16 +2199,15 @@ impl QueryHost {
                         &request.task_id,
                         Some(task.status),
                         Some(None),
-                        TaskGitExecution {
-                            status: prism_ir::GitExecutionStatus::PublishFailed,
-                            pending_task_status: Some(desired_status),
-                            source_ref: preflight.report.source_ref.clone(),
-                            target_ref: preflight.report.target_ref.clone(),
-                            publish_ref: preflight.report.publish_ref.clone(),
-                            target_branch: Some(policy.target_branch.clone()),
-                            last_preflight: Some(preflight.report.clone()),
-                            last_publish: Some(failed_publish),
-                        },
+                        task_git_execution_record(
+                            &task.git_execution,
+                            &policy,
+                            &preflight.report,
+                            prism_ir::GitExecutionStatus::PublishFailed,
+                            Some(desired_status),
+                            Some(failed_publish),
+                            prism_ir::GitIntegrationStatus::NotStarted,
+                        ),
                     )?;
                     return Err(anyhow!(failure));
                 }
@@ -2198,16 +2256,15 @@ impl QueryHost {
                         &request.task_id,
                         Some(task.status),
                         Some(None),
-                        TaskGitExecution {
-                            status: prism_ir::GitExecutionStatus::PublishFailed,
-                            pending_task_status: Some(desired_status),
-                            source_ref: preflight.report.source_ref.clone(),
-                            target_ref: preflight.report.target_ref.clone(),
-                            publish_ref: preflight.report.publish_ref.clone(),
-                            target_branch: Some(policy.target_branch.clone()),
-                            last_preflight: Some(preflight.report.clone()),
-                            last_publish: Some(published),
-                        },
+                        task_git_execution_record(
+                            &task.git_execution,
+                            &policy,
+                            &preflight.report,
+                            prism_ir::GitExecutionStatus::PublishFailed,
+                            Some(desired_status),
+                            Some(published),
+                            prism_ir::GitIntegrationStatus::NotStarted,
+                        ),
                     )?;
                     return Err(anyhow!(failure));
                 }
@@ -2243,16 +2300,15 @@ impl QueryHost {
                         &request.task_id,
                         Some(task.status),
                         Some(None),
-                        TaskGitExecution {
-                            status: prism_ir::GitExecutionStatus::PublishFailed,
-                            pending_task_status: Some(desired_status),
-                            source_ref: preflight.report.source_ref.clone(),
-                            target_ref: preflight.report.target_ref.clone(),
-                            publish_ref: preflight.report.publish_ref.clone(),
-                            target_branch: Some(policy.target_branch.clone()),
-                            last_preflight: Some(preflight.report),
-                            last_publish: Some(published),
-                        },
+                        task_git_execution_record(
+                            &task.git_execution,
+                            &policy,
+                            &preflight.report,
+                            prism_ir::GitExecutionStatus::PublishFailed,
+                            Some(desired_status),
+                            Some(published),
+                            prism_ir::GitIntegrationStatus::NotStarted,
+                        ),
                     )?;
                     return Err(anyhow!(failure));
                 }
@@ -2262,16 +2318,15 @@ impl QueryHost {
                     &request.task_id,
                     Some(desired_status),
                     Some(None),
-                    TaskGitExecution {
-                        status: prism_ir::GitExecutionStatus::Published,
-                        pending_task_status: None,
-                        source_ref: preflight.report.source_ref.clone(),
-                        target_ref: preflight.report.target_ref.clone(),
-                        publish_ref: preflight.report.publish_ref.clone(),
-                        target_branch: Some(policy.target_branch.clone()),
-                        last_preflight: Some(preflight.report),
-                        last_publish: Some(published.clone()),
-                    },
+                    task_git_execution_record(
+                        &task.git_execution,
+                        &policy,
+                        &preflight.report,
+                        prism_ir::GitExecutionStatus::Published,
+                        None,
+                        Some(published.clone()),
+                        prism_ir::GitIntegrationStatus::PublishedToBranch,
+                    ),
                 )?;
                 let final_authoritative_paths = worktree_dirty_paths(root)?;
                 let unexpected_user_paths = user_dirty_paths(&final_authoritative_paths);

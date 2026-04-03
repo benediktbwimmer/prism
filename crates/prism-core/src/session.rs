@@ -474,9 +474,11 @@ pub struct WorkspaceSession {
     pub(crate) refresh_lock: Arc<Mutex<()>>,
     pub(crate) refresh_state: Arc<WorkspaceRefreshState>,
     pub(crate) loaded_workspace_revision: Arc<AtomicU64>,
+    pub(crate) coordination_runtime_revision: Arc<AtomicU64>,
     pub(crate) fs_snapshot: Arc<Mutex<WorkspaceTreeSnapshot>>,
     pub(crate) watch: Option<WatchHandle>,
     pub(crate) protected_state_watch: Option<WatchHandle>,
+    pub(crate) shared_coordination_ref_watch: Option<WatchHandle>,
     pub(crate) curator: Option<CuratorHandle>,
     pub(crate) checkpoint_materializer: Option<CheckpointMaterializerHandle>,
     pub(crate) shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
@@ -1680,9 +1682,7 @@ impl WorkspaceSession {
             revisions.episodic = revisions.episodic.max(shared_revisions.episodic);
             revisions.coordination = shared_revisions.coordination;
         }
-        if !self.coordination_enabled {
-            revisions.coordination = 0;
-        }
+        revisions.coordination = self.coordination_runtime_revision_value(revisions.coordination);
         Ok(revisions)
     }
 
@@ -1702,9 +1702,7 @@ impl WorkspaceSession {
             revisions.episodic = revisions.episodic.max(shared_revisions.episodic);
             revisions.coordination = shared_revisions.coordination;
         }
-        if !self.coordination_enabled {
-            revisions.coordination = 0;
-        }
+        revisions.coordination = self.coordination_runtime_revision_value(revisions.coordination);
         Ok(revisions)
     }
 
@@ -2246,6 +2244,20 @@ impl WorkspaceSession {
                 .expect("workspace store lock poisoned")
                 .coordination_revision()
         }
+    }
+
+    pub fn coordination_runtime_revision(&self) -> Result<u64> {
+        Ok(self.coordination_runtime_revision_value(self.coordination_revision()?))
+    }
+
+    fn coordination_runtime_revision_value(&self, persisted_revision: u64) -> u64 {
+        if !self.coordination_enabled {
+            return 0;
+        }
+        persisted_revision.max(
+            self.coordination_runtime_revision
+                .load(Ordering::Relaxed),
+        )
     }
 
     pub fn persist_inference(&self, snapshot: &InferenceSnapshot) -> Result<()> {
@@ -3417,6 +3429,10 @@ impl Drop for WorkspaceSession {
             let _ = watch.handle.join();
         }
         if let Some(watch) = self.protected_state_watch.take() {
+            let _ = watch.stop.send(WatchMessage::Stop);
+            let _ = watch.handle.join();
+        }
+        if let Some(watch) = self.shared_coordination_ref_watch.take() {
             let _ = watch.stop.send(WatchMessage::Stop);
             let _ = watch.handle.join();
         }

@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Add shared-ref retention, compaction, and operator diagnostics",
   "summary": null,
-  "status": "Ready",
+  "status": "Completed",
   "published_task_status": null,
   "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
   "pending_handoff_to": null,
@@ -34,7 +34,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1119,
+    "graph_version": 1183,
     "git_commit": null
   },
   "priority": null,
@@ -47,6 +47,13 @@
     "targetRef": null,
     "publishRef": null,
     "targetBranch": null,
+    "sourceCommit": null,
+    "publishCommit": null,
+    "targetCommitAtPublish": null,
+    "reviewArtifactRef": null,
+    "integrationCommit": null,
+    "integrationMode": "external",
+    "integrationStatus": "not_started",
     "lastPreflight": null,
     "lastPublish": null
   }

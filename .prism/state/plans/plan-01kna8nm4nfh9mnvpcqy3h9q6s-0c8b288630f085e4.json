@@ -21,7 +21,8 @@
         "targetBranch": "main",
         "requireTaskBranch": true,
         "maxCommitsBehindTarget": 0,
-        "maxFetchAgeSeconds": 300
+        "maxFetchAgeSeconds": 300,
+        "integrationMode": "external"
       }
     },
     "scope": "Repo",
@@ -206,7 +207,14 @@
         "sourceRef": "task/shared-coordination-refs",
         "targetRef": "origin/main",
         "publishRef": "task/shared-coordination-refs",
-        "targetBranch": "main"
+        "targetBranch": "main",
+        "sourceCommit": null,
+        "publishCommit": null,
+        "targetCommitAtPublish": null,
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "not_started"
       }
     },
     {
@@ -223,7 +231,14 @@
         "sourceRef": "task/shared-coordination-refs",
         "targetRef": "origin/main",
         "publishRef": "task/shared-coordination-refs",
-        "targetBranch": "main"
+        "targetBranch": "main",
+        "sourceCommit": null,
+        "publishCommit": null,
+        "targetCommitAtPublish": null,
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "not_started"
       }
     },
     {
@@ -240,7 +255,14 @@
         "sourceRef": "task/shared-coordination-refs",
         "targetRef": "origin/main",
         "publishRef": "task/shared-coordination-refs",
-        "targetBranch": "main"
+        "targetBranch": "main",
+        "sourceCommit": null,
+        "publishCommit": null,
+        "targetCommitAtPublish": null,
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "not_started"
       }
     },
     {
@@ -257,7 +279,14 @@
         "sourceRef": "task/shared-coordination-refs",
         "targetRef": "origin/main",
         "publishRef": "task/shared-coordination-refs",
-        "targetBranch": "main"
+        "targetBranch": "main",
+        "sourceCommit": null,
+        "publishCommit": null,
+        "targetCommitAtPublish": null,
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "not_started"
       }
     }
   ]

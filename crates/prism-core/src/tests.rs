@@ -4826,6 +4826,7 @@ fn repo_plan_events_auto_sync_prism_doc() {
                         require_task_branch: true,
                         max_commits_behind_target: 2,
                         max_fetch_age_seconds: Some(300),
+                        integration_mode: prism_ir::GitIntegrationMode::External,
                     },
                     ..Default::default()
                 }),

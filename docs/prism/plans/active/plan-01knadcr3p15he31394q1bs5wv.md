@@ -8,14 +8,14 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:fb1fcb628ce7808cb8682f4df17cb4c248de3940a6cf4025ff9ea34a23f48a10`
+- Source head: `sha256:7d3f4c1e7c11962aecec02753761dbd5c6ca9711de0c4c5b0947fb9f20c7a02a`
 - Source logical timestamp: `unknown`
 - Source snapshot: `5 nodes, 4 edges, 5 overlays`
 
 ## Overview
 
 - Plan id: `plan:01knadcr3p15he31394q1bs5wv`
-- Status: `active`
+- Status: `completed`
 - Kind: `task_execution`
 - Scope: `repo`
 - Revision: `0`
@@ -53,7 +53,7 @@ Finish the remaining shared coordination ref work by adding CAS retry/reconcilia
 
 - Node id: `coord-task:01knadd8hh7hxr20jgcc46ywhe`
 - Kind: `edit`
-- Status: `ready`
+- Status: `completed`
 - Assignee: `codex-runtime-storage-boundary-redesign-2026-04-01`
 
 #### Acceptance
@@ -64,7 +64,7 @@ Finish the remaining shared coordination ref work by adding CAS retry/reconcilia
 
 - Node id: `coord-task:01knaddam3fvr96xdqdxn2xdsj`
 - Kind: `edit`
-- Status: `ready`
+- Status: `completed`
 - Assignee: `codex-runtime-storage-boundary-redesign-2026-04-01`
 
 #### Acceptance
@@ -75,7 +75,7 @@ Finish the remaining shared coordination ref work by adding CAS retry/reconcilia
 
 - Node id: `coord-task:01knaddcdxvdyh8akrc10b9npw`
 - Kind: `edit`
-- Status: `ready`
+- Status: `completed`
 - Assignee: `codex-runtime-storage-boundary-redesign-2026-04-01`
 
 #### Acceptance
@@ -86,7 +86,7 @@ Finish the remaining shared coordination ref work by adding CAS retry/reconcilia
 
 - Node id: `coord-task:01knaddebyw5yp2vex9e8fgfm7`
 - Kind: `edit`
-- Status: `ready`
+- Status: `completed`
 - Assignee: `codex-runtime-storage-boundary-redesign-2026-04-01`
 
 #### Acceptance
@@ -97,7 +97,7 @@ Finish the remaining shared coordination ref work by adding CAS retry/reconcilia
 
 - Node id: `coord-task:01knaddrkxtpmzwc9vsr1ykw1p`
 - Kind: `edit`
-- Status: `ready`
+- Status: `completed`
 - Assignee: `codex-runtime-storage-boundary-redesign-2026-04-01`
 
 #### Acceptance

@@ -1105,7 +1105,7 @@ impl QueryHost {
         &self,
         workspace: &WorkspaceSession,
     ) -> Result<()> {
-        let revision = workspace.coordination_revision()?;
+        let revision = workspace.coordination_runtime_revision()?;
         if revision != self.loaded_coordination_revision_value()
             || self.coordination_runtime_needs_reload(revision)
         {
@@ -1116,7 +1116,7 @@ impl QueryHost {
     }
 
     pub(crate) fn sync_coordination_revision(&self, workspace: &WorkspaceSession) -> Result<()> {
-        let revision = workspace.coordination_revision()?;
+        let revision = workspace.coordination_runtime_revision()?;
         self.sync_coordination_revision_value(revision);
         Ok(())
     }

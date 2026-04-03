@@ -11,14 +11,15 @@ use prism_core::runtime_engine::{
     RuntimeFreshnessState, RuntimeMaterializationDepth, WorkspacePublishedGeneration,
     WorkspaceRuntimeQueueSnapshot,
 };
-use prism_core::{PrismPaths, WorkspaceSession};
+use prism_core::{shared_coordination_ref_diagnostics, PrismPaths, WorkspaceSession};
 use prism_js::{
     ConnectionInfoView, ProjectionAuthorityPlaneView, ProjectionClassView,
     ProjectionFreshnessStateView, ProjectionMaterializationStateView, ProjectionReadModelView,
     RuntimeBoundaryRegionView, RuntimeDomainFreshnessView, RuntimeFreshnessView, RuntimeHealthView,
     RuntimeLogEventView, RuntimeMaterializationCoverageView, RuntimeMaterializationItemView,
     RuntimeMaterializationView, RuntimeOverlayScopeView, RuntimeProcessView,
-    RuntimeProjectionScopeView, RuntimeQueueDepthView, RuntimeScopesView, RuntimeStatusView,
+    RuntimeProjectionScopeView, RuntimeQueueDepthView, RuntimeScopesView,
+    RuntimeSharedCoordinationRefView, RuntimeStatusView,
 };
 use prism_projections::{
     ProjectionAuthorityPlane, ProjectionClass, ProjectionFreshnessState,
@@ -349,9 +350,28 @@ fn runtime_status_from_inputs(
             .map(|process| runtime_process_view(process, &connected_bridge_pids))
             .collect(),
         process_error,
+        shared_coordination_ref: shared_coordination_ref_diagnostics(inputs.root)?
+            .map(runtime_shared_coordination_ref_view),
         scopes: runtime_scopes_from_prism(inputs.prism.as_ref(), &freshness),
         freshness,
     })
+}
+
+fn runtime_shared_coordination_ref_view(
+    value: prism_core::SharedCoordinationRefDiagnostics,
+) -> RuntimeSharedCoordinationRefView {
+    RuntimeSharedCoordinationRefView {
+        ref_name: value.ref_name,
+        head_commit: value.head_commit,
+        history_depth: value.history_depth,
+        max_history_commits: value.max_history_commits,
+        snapshot_file_count: value.snapshot_file_count,
+        current_manifest_digest: value.current_manifest_digest,
+        previous_manifest_digest: value.previous_manifest_digest,
+        compacted_head: value.compacted_head,
+        needs_compaction: value.needs_compaction,
+        compaction_status: value.compaction_status,
+    }
 }
 
 fn runtime_freshness_from_inputs(

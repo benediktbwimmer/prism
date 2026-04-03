@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:8c321d19fb13004cbcb16f381de0f828dae0926dd7020d82581d2d2c6f82e892`
+- Source head: `sha256:4c2250fe5a21ba4691812e9a6bab5210d7e8ad624310c540affbcad158f1e483`
 - Source logical timestamp: `unknown`
 - Source snapshot: `6 nodes, 11 edges, 6 overlays`
 

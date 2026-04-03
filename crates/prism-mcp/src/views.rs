@@ -1336,6 +1336,7 @@ fn git_execution_policy_view(
     GitExecutionPolicyView {
         start_mode: format!("{:?}", value.start_mode).to_ascii_lowercase(),
         completion_mode: format!("{:?}", value.completion_mode).to_ascii_lowercase(),
+        integration_mode: format!("{:?}", value.integration_mode).to_ascii_lowercase(),
         target_ref: value.target_ref,
         target_branch: value.target_branch,
         require_task_branch: value.require_task_branch,
@@ -1387,6 +1388,13 @@ fn git_execution_overlay_view(value: prism_ir::GitExecutionOverlay) -> GitExecut
         target_ref: value.target_ref,
         publish_ref: value.publish_ref,
         target_branch: value.target_branch,
+        source_commit: value.source_commit,
+        publish_commit: value.publish_commit,
+        target_commit_at_publish: value.target_commit_at_publish,
+        review_artifact_ref: value.review_artifact_ref,
+        integration_commit: value.integration_commit,
+        integration_mode: value.integration_mode,
+        integration_status: value.integration_status,
     }
 }
 
@@ -1699,6 +1707,13 @@ pub(crate) fn coordination_task_view(
             target_ref: value.git_execution.target_ref,
             publish_ref: value.git_execution.publish_ref,
             target_branch: value.git_execution.target_branch,
+            source_commit: value.git_execution.source_commit,
+            publish_commit: value.git_execution.publish_commit,
+            target_commit_at_publish: value.git_execution.target_commit_at_publish,
+            review_artifact_ref: value.git_execution.review_artifact_ref,
+            integration_commit: value.git_execution.integration_commit,
+            integration_mode: value.git_execution.integration_mode,
+            integration_status: value.git_execution.integration_status,
             last_preflight: value
                 .git_execution
                 .last_preflight

@@ -24,17 +24,6 @@ use crate::workspace_identity::coordination_persist_context_for_root;
 
 const COORDINATION_COMPACTION_SUFFIX_THRESHOLD: usize = 128;
 
-fn authoritative_only_coordination_delta(appended_events: &[CoordinationEvent]) -> bool {
-    !appended_events.is_empty()
-        && appended_events.iter().all(|event| {
-            event
-                .metadata
-                .get("authoritativeOnly")
-                .and_then(Value::as_bool)
-                .unwrap_or(false)
-        })
-}
-
 fn observe_coordination_step<T, E, O, F, A>(
     observe_phase: &mut O,
     operation: &str,
@@ -205,56 +194,46 @@ pub(crate) trait CoordinationPersistenceBackend:
             "snapshot"
         };
         let publish_context = publish_context_from_coordination_events(appended_events);
-        let sync_result = if authoritative_only_coordination_delta(appended_events) {
-            Ok(())
-        } else {
-            match (
-                previous_snapshot,
-                previous_plan_graphs,
-                plan_graphs,
-                execution_overlays,
-            ) {
-                (
-                    Some(previous_snapshot),
-                    Some(previous_plan_graphs),
-                    Some(plan_graphs),
-                    Some(execution_overlays),
-                ) => sync_repo_published_plan_state_observed(
+        let sync_result = match (
+            previous_snapshot,
+            previous_plan_graphs,
+            plan_graphs,
+            execution_overlays,
+        ) {
+            (
+                Some(previous_snapshot),
+                Some(previous_plan_graphs),
+                Some(plan_graphs),
+                Some(execution_overlays),
+            ) => sync_repo_published_plan_state_observed(
+                root,
+                snapshot,
+                Some(previous_snapshot),
+                Some(previous_plan_graphs),
+                plan_graphs.to_vec(),
+                execution_overlays.clone(),
+                publish_context.as_ref(),
+                &mut observe_phase,
+            ),
+            (_, _, Some(plan_graphs), Some(execution_overlays)) => {
+                sync_repo_published_plan_state_observed(
                     root,
                     snapshot,
-                    Some(previous_snapshot),
-                    Some(previous_plan_graphs),
+                    None,
+                    None,
                     plan_graphs.to_vec(),
                     execution_overlays.clone(),
                     publish_context.as_ref(),
                     &mut observe_phase,
-                ),
-                (_, _, Some(plan_graphs), Some(execution_overlays)) => {
-                    sync_repo_published_plan_state_observed(
-                        root,
-                        snapshot,
-                        None,
-                        None,
-                        plan_graphs.to_vec(),
-                        execution_overlays.clone(),
-                        publish_context.as_ref(),
-                        &mut observe_phase,
-                    )
-                }
-                _ => sync_repo_published_plans(root, snapshot, publish_context.as_ref()),
+                )
             }
+            _ => sync_repo_published_plans(root, snapshot, publish_context.as_ref()),
         };
         match sync_result {
             Ok(()) => observe_phase(
                 "mutation.coordination.syncPublishedPlans",
                 sync_started.elapsed(),
-                json!({
-                    "mode": if authoritative_only_coordination_delta(appended_events) {
-                        "authoritative_only"
-                    } else {
-                        sync_mode
-                    },
-                }),
+                json!({ "mode": sync_mode }),
                 true,
                 None,
             ),

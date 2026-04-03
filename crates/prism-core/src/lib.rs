@@ -97,6 +97,7 @@ pub use session::{
     WorkspaceFsRefreshOutcome, WorkspaceRefreshBreakdown, WorkspaceRefreshWork, WorkspaceSession,
     WorkspaceSnapshotRevisions,
 };
+pub use shared_coordination_ref::{shared_coordination_ref_diagnostics, SharedCoordinationRefDiagnostics};
 pub use shared_runtime_backend::SharedRuntimeBackend;
 pub use validation_feedback::{
     ValidationFeedbackCategory, ValidationFeedbackEntry, ValidationFeedbackRecord,

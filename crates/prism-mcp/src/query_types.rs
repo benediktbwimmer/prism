@@ -23,11 +23,11 @@ use crate::tool_args::ValidationRefPayload;
 use crate::{
     vocabulary_error, AcceptanceCriterionPayload, AcceptanceEvidencePolicyInput, AnchorRefInput,
     CapabilityInput, ClaimModeInput, CoordinationPolicyPayload, CoordinationTaskStatusInput,
-    GitExecutionCompletionModeInput, GitExecutionStartModeInput, InferredEdgeScopeInput,
-    LeaseRenewalModeInput, MemoryKindInput, MemorySourceInput, NodeIdInput, OutcomeEvidenceInput,
-    OutcomeKindInput, OutcomeResultInput, PlanBindingPayload, PlanEdgeKindInput, PlanNodeKindInput,
-    PlanNodeStatusInput, PlanSchedulingPayload, PlanStatusInput, ReviewVerdictInput,
-    TaskCompletionContextPayload,
+    GitExecutionCompletionModeInput, GitExecutionStartModeInput, GitIntegrationModeInput,
+    InferredEdgeScopeInput, LeaseRenewalModeInput, MemoryKindInput, MemorySourceInput,
+    NodeIdInput, OutcomeEvidenceInput, OutcomeKindInput, OutcomeResultInput, PlanBindingPayload,
+    PlanEdgeKindInput, PlanNodeKindInput, PlanNodeStatusInput, PlanSchedulingPayload,
+    PlanStatusInput, ReviewVerdictInput, TaskCompletionContextPayload,
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -916,6 +916,16 @@ pub(crate) fn merge_policy_payload(
             git_execution.completion_mode = match mode {
                 GitExecutionCompletionModeInput::Off => GitExecutionCompletionMode::Off,
                 GitExecutionCompletionModeInput::Require => GitExecutionCompletionMode::Require,
+            };
+        }
+        if let Some(mode) = value.integration_mode {
+            git_execution.integration_mode = match mode {
+                GitIntegrationModeInput::ManualPr => prism_ir::GitIntegrationMode::ManualPr,
+                GitIntegrationModeInput::AutoPr => prism_ir::GitIntegrationMode::AutoPr,
+                GitIntegrationModeInput::DirectIntegrate => {
+                    prism_ir::GitIntegrationMode::DirectIntegrate
+                }
+                GitIntegrationModeInput::External => prism_ir::GitIntegrationMode::External,
             };
         }
         if let Some(target_ref) = value.target_ref {

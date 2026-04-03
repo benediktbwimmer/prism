@@ -176,7 +176,7 @@ impl WorkspaceRuntimeBinding {
                 .unwrap_or_else(|_| workspace.loaded_workspace_revision()),
             workspace.episodic_revision().unwrap_or(0),
             workspace.inference_revision().unwrap_or(0),
-            workspace.coordination_revision().unwrap_or(0),
+            workspace.coordination_runtime_revision().unwrap_or(0),
         );
         let read_sync = shared_workspace_runtime_read_sync(context.root());
         let config = WorkspaceRuntimeConfig {

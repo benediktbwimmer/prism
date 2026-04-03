@@ -1856,31 +1856,31 @@
   {
     "id": "coord-task:01knadd8hh7hxr20jgcc46ywhe",
     "title": "Add CAS retry and retry-safe shared ref reconciliation",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01knadd8hh7hxr20jgcc46ywhe-1637bca6daafda46.json"
   },
   {
     "id": "coord-task:01knaddam3fvr96xdqdxn2xdsj",
     "title": "Implement remote shared-ref live sync and self-write suppression",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01knaddam3fvr96xdqdxn2xdsj-6aa70e569fff79d0.json"
   },
   {
     "id": "coord-task:01knaddcdxvdyh8akrc10b9npw",
     "title": "Model target integration lifecycle and durable landing evidence",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01knaddcdxvdyh8akrc10b9npw-dbffdb3517a4d26f.json"
   },
   {
     "id": "coord-task:01knaddebyw5yp2vex9e8fgfm7",
     "title": "Add shared-ref retention, compaction, and operator diagnostics",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01knaddebyw5yp2vex9e8fgfm7-71de8f1f1491c567.json"
   },
   {
     "id": "coord-task:01knaddrkxtpmzwc9vsr1ykw1p",
     "title": "Validate shared-ref coordination follow-through end to end",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01knaddrkxtpmzwc9vsr1ykw1p-479d003eaed6284c.json"
   },
   {

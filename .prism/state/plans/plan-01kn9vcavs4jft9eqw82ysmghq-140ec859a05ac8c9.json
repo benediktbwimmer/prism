@@ -21,7 +21,8 @@
         "targetBranch": "main",
         "requireTaskBranch": true,
         "maxCommitsBehindTarget": 0,
-        "maxFetchAgeSeconds": null
+        "maxFetchAgeSeconds": null,
+        "integrationMode": "external"
       }
     },
     "scope": "Repo",
@@ -420,7 +421,14 @@
         "sourceRef": "task/path-identity-repo-relative-sync",
         "targetRef": "origin/main",
         "publishRef": "task/path-identity-repo-relative-sync",
-        "targetBranch": "main"
+        "targetBranch": "main",
+        "sourceCommit": null,
+        "publishCommit": null,
+        "targetCommitAtPublish": null,
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "not_started"
       }
     },
     {
@@ -437,7 +445,14 @@
         "sourceRef": "task/path-identity-repo-relative-sync",
         "targetRef": "origin/main",
         "publishRef": "task/path-identity-repo-relative-sync",
-        "targetBranch": "main"
+        "targetBranch": "main",
+        "sourceCommit": null,
+        "publishCommit": null,
+        "targetCommitAtPublish": null,
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "not_started"
       }
     },
     {
@@ -454,7 +469,14 @@
         "sourceRef": "task/path-identity-repo-relative-sync",
         "targetRef": "origin/main",
         "publishRef": "task/path-identity-repo-relative-sync",
-        "targetBranch": "main"
+        "targetBranch": "main",
+        "sourceCommit": null,
+        "publishCommit": null,
+        "targetCommitAtPublish": null,
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "not_started"
       }
     },
     {
@@ -471,7 +493,14 @@
         "sourceRef": "task/path-identity-repo-relative-sync",
         "targetRef": "origin/main",
         "publishRef": "task/path-identity-repo-relative-sync",
-        "targetBranch": "main"
+        "targetBranch": "main",
+        "sourceCommit": null,
+        "publishCommit": null,
+        "targetCommitAtPublish": null,
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "not_started"
       }
     },
     {
@@ -488,7 +517,14 @@
         "sourceRef": "task/path-identity-repo-relative-sync",
         "targetRef": "origin/main",
         "publishRef": "task/path-identity-repo-relative-sync",
-        "targetBranch": "main"
+        "targetBranch": "main",
+        "sourceCommit": null,
+        "publishCommit": null,
+        "targetCommitAtPublish": null,
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "not_started"
       }
     },
     {
@@ -505,7 +541,14 @@
         "sourceRef": "task/path-identity-repo-relative-sync",
         "targetRef": "origin/main",
         "publishRef": "task/path-identity-repo-relative-sync",
-        "targetBranch": "main"
+        "targetBranch": "main",
+        "sourceCommit": null,
+        "publishCommit": null,
+        "targetCommitAtPublish": null,
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "not_started"
       }
     }
   ]

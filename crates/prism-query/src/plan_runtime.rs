@@ -10,7 +10,7 @@ use prism_ir::{
     new_prefixed_id, AgentId, AnchorRef, BlockerCause, BlockerCauseSource, CoordinationTaskId,
     PlanAcceptanceCriterion, PlanBinding, PlanEdge, PlanEdgeId, PlanEdgeKind, PlanExecutionOverlay,
     PlanGraph, PlanId, PlanKind, PlanNode, PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId,
-    PlanNodeKind, PlanNodeStatus, ValidationRef, WorkspaceRevision,
+    PlanNodeKind, PlanNodeStatus, SessionId, ValidationRef, WorkspaceRevision,
 };
 use serde_json::Value;
 
@@ -114,22 +114,7 @@ impl NativePlanRuntimeState {
         &self,
         mut snapshot: CoordinationSnapshot,
     ) -> CoordinationSnapshot {
-        let task_runtime_scope = snapshot
-            .tasks
-            .iter()
-            .map(|task| {
-                (
-                    task.id.clone(),
-                    (
-                        task.pending_handoff_to.clone(),
-                        task.session.clone(),
-                        task.worktree_id.clone(),
-                        task.branch_ref.clone(),
-                        task.git_execution.clone(),
-                    ),
-                )
-            })
-            .collect::<BTreeMap<_, _>>();
+        let task_authoritative_state = task_authoritative_state(&snapshot.tasks);
         let graphs = self.graphs.values().cloned().collect::<Vec<_>>();
         let mut plan_snapshot =
             coordination_snapshot_from_plan_graphs(&graphs, &self.execution_overlays);
@@ -142,14 +127,8 @@ impl NativePlanRuntimeState {
             }
         }
         for task in &mut plan_snapshot.tasks {
-            if let Some((pending_handoff_to, session, worktree_id, branch_ref, git_execution)) =
-                task_runtime_scope.get(&task.id)
-            {
-                task.pending_handoff_to = pending_handoff_to.clone();
-                task.session = session.clone();
-                task.worktree_id = worktree_id.clone();
-                task.branch_ref = branch_ref.clone();
-                task.git_execution = git_execution.clone();
+            if let Some(authoritative) = task_authoritative_state.get(&task.id) {
+                apply_authoritative_task_state(task, authoritative);
             }
         }
         snapshot.plans = plan_snapshot.plans;
@@ -163,22 +142,7 @@ impl NativePlanRuntimeState {
         &self,
         mut snapshot: CoordinationSnapshot,
     ) -> CoordinationSnapshot {
-        let task_runtime_scope = snapshot
-            .tasks
-            .iter()
-            .map(|task| {
-                (
-                    task.id.clone(),
-                    (
-                        task.pending_handoff_to.clone(),
-                        task.session.clone(),
-                        task.worktree_id.clone(),
-                        task.branch_ref.clone(),
-                        task.git_execution.clone(),
-                    ),
-                )
-            })
-            .collect::<BTreeMap<_, _>>();
+        let task_authoritative_state = task_authoritative_state(&snapshot.tasks);
         let task_execution_graphs = self
             .graphs
             .values()
@@ -240,14 +204,8 @@ impl NativePlanRuntimeState {
         snapshot
             .tasks
             .extend(plan_snapshot.tasks.into_iter().map(|mut task| {
-                if let Some((pending_handoff_to, session, worktree_id, branch_ref, git_execution)) =
-                    task_runtime_scope.get(&task.id)
-                {
-                    task.pending_handoff_to = pending_handoff_to.clone();
-                    task.session = session.clone();
-                    task.worktree_id = worktree_id.clone();
-                    task.branch_ref = branch_ref.clone();
-                    task.git_execution = git_execution.clone();
+                if let Some(authoritative) = task_authoritative_state.get(&task.id) {
+                    apply_authoritative_task_state(&mut task, authoritative);
                 }
                 task
             }));
@@ -680,6 +638,13 @@ impl NativePlanRuntimeState {
                 target_ref: task.git_execution.target_ref.clone(),
                 publish_ref: task.git_execution.publish_ref.clone(),
                 target_branch: task.git_execution.target_branch.clone(),
+                source_commit: task.git_execution.source_commit.clone(),
+                publish_commit: task.git_execution.publish_commit.clone(),
+                target_commit_at_publish: task.git_execution.target_commit_at_publish.clone(),
+                review_artifact_ref: task.git_execution.review_artifact_ref.clone(),
+                integration_commit: task.git_execution.integration_commit.clone(),
+                integration_mode: task.git_execution.integration_mode,
+                integration_status: task.git_execution.integration_status,
             });
         if task.pending_handoff_to.is_some()
             || task.session.is_some()
@@ -700,6 +665,51 @@ impl NativePlanRuntimeState {
             *overlays = sort_execution_overlays(std::mem::take(overlays));
         }
     }
+}
+
+type TaskAuthoritativeState = (
+    prism_ir::CoordinationTaskStatus,
+    Option<prism_ir::CoordinationTaskStatus>,
+    Option<AgentId>,
+    Option<SessionId>,
+    Option<String>,
+    Option<String>,
+    prism_coordination::TaskGitExecution,
+);
+
+fn task_authoritative_state(
+    tasks: &[CoordinationTask],
+) -> BTreeMap<CoordinationTaskId, TaskAuthoritativeState> {
+    tasks
+        .iter()
+        .map(|task| {
+            (
+                task.id.clone(),
+                (
+                    task.status,
+                    task.published_task_status,
+                    task.pending_handoff_to.clone(),
+                    task.session.clone(),
+                    task.worktree_id.clone(),
+                    task.branch_ref.clone(),
+                    task.git_execution.clone(),
+                ),
+            )
+        })
+        .collect()
+}
+
+fn apply_authoritative_task_state(
+    task: &mut CoordinationTask,
+    authoritative: &TaskAuthoritativeState,
+) {
+    task.status = authoritative.0;
+    task.published_task_status = authoritative.1;
+    task.pending_handoff_to = authoritative.2.clone();
+    task.session = authoritative.3.clone();
+    task.worktree_id = authoritative.4.clone();
+    task.branch_ref = authoritative.5.clone();
+    task.git_execution = authoritative.6.clone();
 }
 
 fn sort_execution_overlays(mut overlays: Vec<PlanExecutionOverlay>) -> Vec<PlanExecutionOverlay> {
