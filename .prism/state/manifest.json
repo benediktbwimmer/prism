@@ -1,23 +1,23 @@
 {
   "version": 1,
-  "publishedAt": 1775233456,
+  "publishedAt": 1775233593,
   "publisher": {
     "principalAuthorityId": "local-daemon",
     "principalId": "principal:tracked-changes-rewrite:01kn9y81k21524vwvyy9y7nhbn",
     "credentialId": "credential:01kn9y81k22x2tnr12cszr628e"
   },
   "workContext": {
-    "workId": "coord-task:01kn9xv8x94h8gwja48wahgsnb",
+    "workId": "coord-task:01kn9xvmrn86qb17qz7w97na8n",
     "kind": "coordination",
-    "title": "Add migration and repair for repos that already carry tracked changes state",
-    "summary": "Provide deterministic migration for repos that already contain `.prism/state/changes/**`, including manifest/index repair, removal or archival of obsolete tracked change shards, and explicit continuity across the pre-removal and post-removal snapshot formats.",
-    "coordinationTaskId": "coord-task:01kn9xv8x94h8gwja48wahgsnb",
+    "title": "Validate clone size, startup behavior, signed publish semantics, and runtime-only change history ownership",
+    "summary": "Prove that tracked `changes` is gone from repo-owned state, cold clones still load current semantic state correctly, hot and cold startup no longer pay for tracked change history, signed Git plus manifest metadata cover the publish boundary, and fine-grained change history remains available from shared runtime.",
+    "coordinationTaskId": "coord-task:01kn9xvmrn86qb17qz7w97na8n",
     "planId": "plan:01kn9xsvp1a376w7xmq08gn4nh",
     "planTitle": "Remove tracked changes from .prism state and rely on signed commit history plus manifest metadata"
   },
   "publishSummary": {
-    "title": "Add migration and repair for repos that already carry tracked changes state",
-    "summary": "Provide deterministic migration for repos that already contain `.prism/state/changes/**`, including manifest/index repair, removal or archival of obsolete tracked change shards, and explicit continuity across the pre-removal and post-removal snapshot formats."
+    "title": "Validate clone size, startup behavior, signed publish semantics, and runtime-only change history ownership",
+    "summary": "Prove that tracked `changes` is gone from repo-owned state, cold clones still load current semantic state correctly, hot and cold startup no longer pay for tracked change history, signed Git plus manifest metadata cover the publish boundary, and fine-grained change history remains available from shared runtime."
   },
   "files": {
     ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json": {
@@ -1194,7 +1194,7 @@
     },
     ".prism/state/coordination/tasks/coord-task-01kn9xvmrn86qb17qz7w97na8n-9d7710759c599d94.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9xvmrn86qb17qz7w97na8n-9d7710759c599d94.json",
-      "sha256": "sha256:99c310b3b23ef81fb5769d1e1a317c5cab69e015bb4b8f74a16f562300932ff6"
+      "sha256": "sha256:e9e0981bda57747243c9b11576c653935f175b42bd11d1e50606deaf703f6048"
     },
     ".prism/state/coordination/tasks/coord-task-1-12761fa8e93c5cba.json": {
       "path": ".prism/state/coordination/tasks/coord-task-1-12761fa8e93c5cba.json",
@@ -1290,7 +1290,7 @@
     },
     ".prism/state/indexes/coordination_tasks.json": {
       "path": ".prism/state/indexes/coordination_tasks.json",
-      "sha256": "sha256:12e2844665ec027538fa61d287afd98ee86a4d9c4a71a673163750191cfa2d93"
+      "sha256": "sha256:9acecb2053e0e9a4ae4d6eecf79a8e9927d1b17def8d251f012978351f689703"
     },
     ".prism/state/indexes/plans.json": {
       "path": ".prism/state/indexes/plans.json",
@@ -1502,7 +1502,7 @@
     },
     ".prism/state/plans/plan-01kn9xsvp1a376w7xmq08gn4nh-36bad8e44d57f454.json": {
       "path": ".prism/state/plans/plan-01kn9xsvp1a376w7xmq08gn4nh-36bad8e44d57f454.json",
-      "sha256": "sha256:62957451d35fed5233a77861b11c12ab807de6f8e459f5adeebc8ba493ef96b2"
+      "sha256": "sha256:287b7fa12b3aa74b297cf7d3b64b089db59ed50b1af01c197880665defa4c2e3"
     },
     ".prism/state/plans/plan-1-8fd52ae04f462646.json": {
       "path": ".prism/state/plans/plan-1-8fd52ae04f462646.json",
@@ -1533,13 +1533,13 @@
       "sha256": "sha256:25b396965686f9dc300002f26a9ba19c826a387a00b6e3ee799116d6a0f64457"
     }
   },
-  "previousManifestDigest": "sha256:ef0e59d5b9f077c43d593d8b8d07b181f5648a505a1b7989f9d40780de295010",
+  "previousManifestDigest": "sha256:0c7ef722260a9392d4220f644eedd7c315e82f60c79f95d3425468462dd78022",
   "migrationSourceDigest": "sha256:29be826a9e4869880d788dda166c588fd3513bcecc43c4b019205486a2115994",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:PsE9LtQ5DjX8Ju5Y2qgd4C115O1wgyxFlV111lONaEyb9S5rEsfuIrMVoPrFWShbF0KTFXFrDVREv5wS1ySyDw=="
+    "value": "base64:IF2zTXWqC8sTTViQEUZjihe5D3Ob3vxTCJEbbWGNqnB0qXjeii1AFmNJ+VnXiEJy1xSJdnEN61ITPJ6svQsoAg=="
   }
 }

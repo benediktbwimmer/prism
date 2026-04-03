@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:738cf436204edb39a9faead1db1cffb14e6c1cdf346a0f698bee7f2227be108c`
+- Source head: `sha256:c88adda79d98c26a7c4a2e60ac818ff7daefeba9753d6244e82537b3f76821d8`
 - Source logical timestamp: `unknown`
 - Source snapshot: `6 nodes, 11 edges, 5 overlays`
 
@@ -120,7 +120,7 @@ Make shared runtime the sole owner of append-only change history, remove tracked
 
 - Node id: `coord-task:01kn9xvmrn86qb17qz7w97na8n`
 - Kind: `edit`
-- Status: `ready`
+- Status: `in_progress`
 - Summary: Prove that tracked `changes` is gone from repo-owned state, cold clones still load current semantic state correctly, hot and cold startup no longer pay for tracked change history, signed Git plus manifest metadata cover the publish boundary, and fine-grained change history remains available from shared runtime.
 - Priority: `1`
 - Assignee: `codex-runtime-storage-boundary-redesign-2026-04-01`
@@ -133,10 +133,6 @@ Make shared runtime the sole owner of append-only change history, remove tracked
 
 ## Edges
 
-- `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`
-- `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`
-- `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xv2a54t54pbzbbremqrc7`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xv2a54t54pbzbbremqrc7`
-- `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xv8x94h8gwja48wahgsnb`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xv8x94h8gwja48wahgsnb`
 - `plan-edge:coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j:depends-on:coord-task:01kn9xt9h76645shp4jcmt0bsv`: `coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j` depends on `coord-task:01kn9xt9h76645shp4jcmt0bsv`
 - `plan-edge:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8:depends-on:coord-task:01kn9xt9h76645shp4jcmt0bsv`: `coord-task:01kn9xtsf57cqfxa0a7hd2wsx8` depends on `coord-task:01kn9xt9h76645shp4jcmt0bsv`
 - `plan-edge:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8:depends-on:coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`: `coord-task:01kn9xtsf57cqfxa0a7hd2wsx8` depends on `coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`
@@ -144,6 +140,10 @@ Make shared runtime the sole owner of append-only change history, remove tracked
 - `plan-edge:coord-task:01kn9xv2a54t54pbzbbremqrc7:depends-on:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`: `coord-task:01kn9xv2a54t54pbzbbremqrc7` depends on `coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`
 - `plan-edge:coord-task:01kn9xv8x94h8gwja48wahgsnb:depends-on:coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`: `coord-task:01kn9xv8x94h8gwja48wahgsnb` depends on `coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`
 - `plan-edge:coord-task:01kn9xv8x94h8gwja48wahgsnb:depends-on:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`: `coord-task:01kn9xv8x94h8gwja48wahgsnb` depends on `coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`
+- `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`
+- `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`
+- `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xv2a54t54pbzbbremqrc7`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xv2a54t54pbzbbremqrc7`
+- `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xv8x94h8gwja48wahgsnb`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xv8x94h8gwja48wahgsnb`
 
 ## Execution Overlays
 
@@ -168,8 +168,7 @@ Make shared runtime the sole owner of append-only change history, remove tracked
   target ref: `origin/main`
   publish ref: `task/prism-changes-state-rewrite`
 - Node: `coord-task:01kn9xv8x94h8gwja48wahgsnb`
-  git execution status: `publish_pending`
-  pending task status: `completed`
+  git execution status: `published`
   source ref: `task/prism-changes-state-rewrite`
   target ref: `origin/main`
   publish ref: `task/prism-changes-state-rewrite`

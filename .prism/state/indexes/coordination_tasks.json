@@ -1748,7 +1748,7 @@
   {
     "id": "coord-task:01kn9xvmrn86qb17qz7w97na8n",
     "title": "Validate clone size, startup behavior, signed publish semantics, and runtime-only change history ownership",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01kn9xvmrn86qb17qz7w97na8n-9d7710759c599d94.json"
   },
   {

@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Validate clone size, startup behavior, signed publish semantics, and runtime-only change history ownership",
   "summary": "Prove that tracked `changes` is gone from repo-owned state, cold clones still load current semantic state correctly, hot and cold startup no longer pay for tracked change history, signed Git plus manifest metadata cover the publish boundary, and fine-grained change history remains available from shared runtime.",
-  "status": "Ready",
+  "status": "Completed",
   "published_task_status": null,
   "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
   "pending_handoff_to": null,
@@ -47,7 +47,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1017,
+    "graph_version": 1045,
     "git_commit": null
   },
   "priority": 1,
