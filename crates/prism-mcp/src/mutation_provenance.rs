@@ -153,6 +153,7 @@ impl MutationProvenance {
                 work_id: task_id.to_string(),
                 kind: current_work.kind,
                 title: current_work.title.clone(),
+                summary: current_work.summary.clone(),
                 parent_work_id: current_work
                     .parent_work_id
                     .as_ref()
@@ -213,6 +214,7 @@ impl MutationProvenance {
             work_id: task_id.to_string(),
             kind,
             title,
+            summary: coordination_task.and_then(|task| task.summary.clone()),
             parent_work_id: None,
             coordination_task_id,
             plan_id: plan.as_ref().map(|plan| plan.id.0.to_string()),

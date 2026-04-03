@@ -23,8 +23,7 @@ use crate::protected_state::repo_streams::{
 use crate::protected_state::streams::{classify_protected_repo_relative_path, ProtectedRepoStream};
 use crate::tracked_snapshot::{
     load_tracked_coordination_snapshot_state, sync_coordination_snapshot_state,
-    tracked_snapshot_authority_active,
-    TrackedSnapshotPublishContext,
+    tracked_snapshot_authority_active, TrackedSnapshotPublishContext,
 };
 use crate::util::{
     repo_active_plans_dir, repo_archived_plans_dir, repo_plan_index_path, repo_plans_dir,
@@ -399,7 +398,15 @@ where
             &mut observe_phase,
             "mutation.coordination.publishedPlans.syncTrackedSnapshot",
             |_| json!({}),
-            || sync_coordination_snapshot_state(root, snapshot, &graphs, &overlays_by_plan, publish),
+            || {
+                sync_coordination_snapshot_state(
+                    root,
+                    snapshot,
+                    &graphs,
+                    &overlays_by_plan,
+                    publish,
+                )
+            },
         );
     }
 
@@ -615,7 +622,15 @@ where
         &mut observe_phase,
         "mutation.coordination.publishedPlans.syncTrackedSnapshot",
         |_| json!({}),
-        || sync_coordination_snapshot_state(root, snapshot, &snapshot_graphs, &overlays_by_plan, publish),
+        || {
+            sync_coordination_snapshot_state(
+                root,
+                snapshot,
+                &snapshot_graphs,
+                &overlays_by_plan,
+                publish,
+            )
+        },
     )?;
     Ok(())
 }
@@ -626,7 +641,10 @@ pub(crate) fn load_hydrated_coordination_snapshot(
 ) -> Result<Option<CoordinationSnapshot>> {
     if let Some(tracked) = load_tracked_coordination_snapshot_state(root)? {
         return Ok(match snapshot {
-            Some(snapshot) => Some(merge_published_plans_into_snapshot(snapshot, tracked.snapshot)),
+            Some(snapshot) => Some(merge_published_plans_into_snapshot(
+                snapshot,
+                tracked.snapshot,
+            )),
             None => Some(tracked.snapshot),
         });
     }

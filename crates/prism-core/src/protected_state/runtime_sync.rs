@@ -16,7 +16,7 @@ use crate::published_plans::{
 use crate::repo_patch_events::load_repo_patch_events;
 use crate::tracked_snapshot::{
     load_concept_snapshots, load_contract_snapshots, load_memory_snapshot_events,
-    load_patch_snapshots, load_relation_snapshots,
+    load_relation_snapshots,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -177,10 +177,6 @@ fn load_repo_memory_stream(root: &Path) -> Result<Vec<prism_memory::MemoryEvent>
 }
 
 fn load_repo_patch_stream(root: &Path) -> Result<Vec<prism_memory::OutcomeEvent>> {
-    let snapshots = load_patch_snapshots(root)?;
-    if !snapshots.is_empty() {
-        return Ok(snapshots);
-    }
     load_repo_patch_events(root)
 }
 

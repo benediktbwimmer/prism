@@ -1716,6 +1716,42 @@
     "path": "tasks/coord-task-01kn9ve8ants7rmt18m4rpf25b-1b4143028d395cb8.json"
   },
   {
+    "id": "coord-task:01kn9xt9h76645shp4jcmt0bsv",
+    "title": "Lock the tracked changes removal contract and commit-history trust boundary",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9xt9h76645shp4jcmt0bsv-b278826451d81676.json"
+  },
+  {
+    "id": "coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j",
+    "title": "Implement manifest publishSummary and structured publish metadata without tracked changes history",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9xtjh9ac4zwwfx2mbn9k0j-dd1c1887953b493c.json"
+  },
+  {
+    "id": "coord-task:01kn9xtsf57cqfxa0a7hd2wsx8",
+    "title": "Stop publishing tracked .prism state changes shards and indexes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9xtsf57cqfxa0a7hd2wsx8-8f33405002315284.json"
+  },
+  {
+    "id": "coord-task:01kn9xv2a54t54pbzbbremqrc7",
+    "title": "Remove tracked changes read-path assumptions and redirect operational reports to shared runtime",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9xv2a54t54pbzbbremqrc7-bd684786fb6d98ab.json"
+  },
+  {
+    "id": "coord-task:01kn9xv8x94h8gwja48wahgsnb",
+    "title": "Add migration and repair for repos that already carry tracked changes state",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9xv8x94h8gwja48wahgsnb-cdfe79523838ee90.json"
+  },
+  {
+    "id": "coord-task:01kn9xvmrn86qb17qz7w97na8n",
+    "title": "Validate clone size, startup behavior, signed publish semantics, and runtime-only change history ownership",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9xvmrn86qb17qz7w97na8n-9d7710759c599d94.json"
+  },
+  {
     "id": "coord-task:1",
     "title": "Classify authoritative state vs derived artifacts across persistence, plans, and projections",
     "status": "Completed",

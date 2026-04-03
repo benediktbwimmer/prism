@@ -1,0 +1,76 @@
+{
+  "handle": "contract://tracked_state_excludes_operational_change_history",
+  "name": "tracked state excludes operational change history",
+  "summary": "Repo-owned tracked `.prism/state` contains durable semantic state and publish metadata, not append-only operational change history.",
+  "aliases": [],
+  "kind": "operational",
+  "subject": {
+    "anchors": [
+      {
+        "File": 500
+      },
+      {
+        "File": 498
+      }
+    ],
+    "conceptHandles": [
+      "concept://tracked_snapshot_semantic_state_and_runtime_change_history"
+    ]
+  },
+  "guarantees": [
+    {
+      "id": "tracked_prism_state_excludes_durable_changes_shards_and_other_append_only_operational_change_logs",
+      "statement": "Tracked `.prism/state` excludes durable `changes` shards and other append-only operational change logs.",
+      "scope": "repo snapshot authority",
+      "strength": "hard"
+    },
+    {
+      "id": "shared_runtime_is_the_architectural_owner_of_append_only_operational_change_history_including_fine_grained_change_journals_between_commits",
+      "statement": "Shared runtime is the architectural owner of append-only operational change history, including fine-grained change journals between commits.",
+      "scope": "runtime authority",
+      "strength": "hard"
+    },
+    {
+      "id": "signed_git_commit_history_supplies_the_durable_coarse_grained_repo_change_timeline_at_commit_boundaries_while_the_prism_manifest_adds_structured_publish_metadata_such_as_principal_work_context_continuity_digests_and_publishsummary",
+      "statement": "Signed Git commit history supplies the durable coarse-grained repo change timeline at commit boundaries, while the PRISM manifest adds structured publish metadata such as principal, work context, continuity digests, and publishSummary.",
+      "scope": "publish trust boundary",
+      "strength": "hard"
+    }
+  ],
+  "assumptions": [],
+  "consumers": [
+    {
+      "anchors": [],
+      "conceptHandles": [
+        "concept://tracked_snapshot_semantic_state_and_runtime_change_history"
+      ]
+    }
+  ],
+  "validations": [
+    {
+      "id": "docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+      "summary": "Design source for the tracked changes removal boundary."
+    }
+  ],
+  "stability": "internal",
+  "compatibility": {},
+  "evidence": [
+    "The snapshot rewrite already moved tracked `.prism` toward stable snapshot shards and manifest-based publication.",
+    "The tracked changes removal design locks the remaining boundary: current semantic state stays tracked, operational history moves to shared runtime, and commit history replaces tracked change shards."
+  ],
+  "status": "active",
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_contract_promote",
+    "taskId": "coord-task:01kn9xt9h76645shp4jcmt0bsv"
+  },
+  "publication": {
+    "publishedAt": 1775229116,
+    "lastReviewedAt": 1775229116,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}

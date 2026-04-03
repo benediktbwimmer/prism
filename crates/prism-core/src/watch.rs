@@ -1042,6 +1042,7 @@ fn observed_change_event_meta(
                 work_id: active.work_id,
                 kind: active.kind,
                 title: active.title,
+                summary: active.summary,
                 parent_work_id: active.parent_work_id,
                 coordination_task_id: active.coordination_task_id,
                 plan_id: active.plan_id,
@@ -1092,10 +1093,10 @@ fn is_authoritative_protected_state_fallback_path(relative: &Path) -> bool {
                     )
         )
         || matches!(
-        segments.as_slice(),
-        [prism, plans, streams]
-            if prism == ".prism" && plans == "plans" && streams == "streams"
-    )
+            segments.as_slice(),
+            [prism, plans, streams]
+                if prism == ".prism" && plans == "plans" && streams == "streams"
+        )
 }
 
 fn relevant_protected_state_streams(root: &Path, event: &Event) -> Vec<ProtectedRepoStream> {

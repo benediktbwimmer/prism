@@ -50,10 +50,10 @@ use super::{
     SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
     ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
 };
+use crate::concept_events::append_repo_concept_event;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator_support::build_curator_context;
 use crate::materialization::summarize_workspace_materialization;
-use crate::concept_events::append_repo_concept_event;
 use crate::memory_events::append_repo_memory_event;
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::protected_state::repo_streams::{
@@ -2345,7 +2345,7 @@ fn repo_memory_events_round_trip_through_committed_jsonl_and_reload() {
 
     let mut entry = MemoryEntry::new(MemoryKind::Structural, "alpha ownership is shared memory");
     entry.id = MemoryId("structural:repo-test".to_string());
-    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.anchors = vec![AnchorRef::Node(alpha.clone())];
     entry.scope = MemoryScope::Repo;
     entry.source = MemorySource::User;
     entry.trust = 0.9;
@@ -2429,7 +2429,7 @@ fn repo_memory_reads_do_not_lazy_import_new_repo_events_after_startup() {
 
     let mut entry = MemoryEntry::new(MemoryKind::Structural, "published after startup");
     entry.id = MemoryId("structural:post-startup".to_string());
-    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.anchors = vec![AnchorRef::Node(alpha.clone())];
     entry.scope = MemoryScope::Repo;
     entry.source = MemorySource::User;
     entry.trust = 0.9;
@@ -2517,7 +2517,7 @@ fn protected_state_watcher_imports_repo_memory_without_source_refresh() {
 
     let mut entry = MemoryEntry::new(MemoryKind::Structural, "watched protected memory");
     entry.id = MemoryId("structural:watched-protected-memory".to_string());
-    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.anchors = vec![AnchorRef::Node(alpha.clone())];
     entry.scope = MemoryScope::Repo;
     entry.source = MemorySource::User;
     entry.trust = 0.9;
@@ -2621,6 +2621,7 @@ fn repo_published_memory_writes_tracked_snapshot_manifest() {
             work_id: "work:tracked-snapshot-memory".to_string(),
             kind: WorkContextKind::AdHoc,
             title: "Publish tracked repo memory snapshot".to_string(),
+            summary: Some("Persist repo memory into tracked snapshot state.".to_string()),
             parent_work_id: None,
             coordination_task_id: None,
             plan_id: None,
@@ -2638,10 +2639,9 @@ fn repo_published_memory_writes_tracked_snapshot_manifest() {
         .collect::<Vec<_>>();
     assert_eq!(memory_files.len(), 1);
 
-    let manifest: serde_json::Value = serde_json::from_slice(
-        &fs::read(root.join(".prism/state/manifest.json")).unwrap(),
-    )
-    .unwrap();
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join(".prism/state/manifest.json")).unwrap())
+            .unwrap();
     assert_eq!(manifest["publisher"]["principalId"], "codex-test");
     assert_eq!(
         manifest["publisher"]["principalAuthorityId"],
@@ -2650,6 +2650,18 @@ fn repo_published_memory_writes_tracked_snapshot_manifest() {
     assert_eq!(
         manifest["workContext"]["workId"],
         "work:tracked-snapshot-memory"
+    );
+    assert_eq!(
+        manifest["workContext"]["summary"],
+        "Persist repo memory into tracked snapshot state."
+    );
+    assert_eq!(
+        manifest["publishSummary"]["title"],
+        "Publish tracked repo memory snapshot"
+    );
+    assert_eq!(
+        manifest["publishSummary"]["summary"],
+        "Persist repo memory into tracked snapshot state."
     );
     assert!(manifest["migrationSourceDigest"].is_string());
     let relative_memory_path = memory_files[0]
@@ -2710,6 +2722,7 @@ fn repo_published_memory_backfills_migration_digest_when_previous_manifest_lacke
                 work_id: "work:tracked-snapshot-memory".to_string(),
                 kind: WorkContextKind::AdHoc,
                 title: "Publish tracked repo memory snapshot".to_string(),
+                summary: Some("Persist repo memory into tracked snapshot state.".to_string()),
                 parent_work_id: None,
                 coordination_task_id: None,
                 plan_id: None,
@@ -2721,7 +2734,11 @@ fn repo_published_memory_backfills_migration_digest_when_previous_manifest_lacke
         event
     };
 
-    append_repo_memory_event(&root, &make_event("structural:tracked-snapshot-memory-1", 1)).unwrap();
+    append_repo_memory_event(
+        &root,
+        &make_event("structural:tracked-snapshot-memory-1", 1),
+    )
+    .unwrap();
 
     let manifest_path = root.join(".prism/state/manifest.json");
     let mut manifest: serde_json::Value =
@@ -2734,19 +2751,35 @@ fn repo_published_memory_backfills_migration_digest_when_previous_manifest_lacke
         .as_object_mut()
         .expect("manifest should be an object")
         .remove("migrationSourceDigest");
+    manifest
+        .as_object_mut()
+        .expect("manifest should be an object")
+        .remove("publishSummary");
     fs::write(
         &manifest_path,
         serde_json::to_vec_pretty(&manifest).expect("manifest should serialize"),
     )
     .unwrap();
 
-    append_repo_memory_event(&root, &make_event("structural:tracked-snapshot-memory-2", 2)).unwrap();
+    append_repo_memory_event(
+        &root,
+        &make_event("structural:tracked-snapshot-memory-2", 2),
+    )
+    .unwrap();
 
     let refreshed: serde_json::Value =
         serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
     assert_eq!(
         refreshed["migrationSourceDigest"].as_str(),
         Some(original_digest.as_str())
+    );
+    assert_eq!(
+        refreshed["publishSummary"]["title"],
+        "Publish tracked repo memory snapshot"
+    );
+    assert_eq!(
+        refreshed["publishSummary"]["summary"],
+        "Persist repo memory into tracked snapshot state."
     );
 
     let _ = fs::remove_dir_all(root);
@@ -2844,7 +2877,11 @@ fn repo_published_memory_ignores_legacy_log_once_snapshot_authority_exists() {
     event.actor = Some(EventActor::Agent);
     append_repo_memory_event(&root, &event).unwrap();
 
-    fs::write(root.join(".prism/memory/events.jsonl"), "tampered legacy log\n").unwrap();
+    fs::write(
+        root.join(".prism/memory/events.jsonl"),
+        "tampered legacy log\n",
+    )
+    .unwrap();
 
     let loaded = crate::memory_events::load_repo_memory_events(&root).unwrap();
     assert_eq!(loaded.len(), 1);
@@ -2921,7 +2958,7 @@ fn repo_published_memory_stops_growing_legacy_log_after_snapshot_cutover() {
 }
 
 #[test]
-fn repo_published_patch_reads_fall_back_to_tracked_snapshots() {
+fn repo_published_patch_events_do_not_create_tracked_snapshots_after_snapshot_cutover() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -2941,6 +2978,26 @@ fn repo_published_patch_reads_fall_back_to_tracked_snapshots() {
         .id()
         .clone();
 
+    let mut memory_entry = MemoryEntry::new(
+        MemoryKind::Structural,
+        "tracked snapshot cutover is active before patch publication",
+    );
+    memory_entry.id = MemoryId("structural:tracked-snapshot-patch-cutover".to_string());
+    memory_entry.anchors = vec![AnchorRef::Node(alpha.clone())];
+    memory_entry.scope = MemoryScope::Repo;
+    memory_entry.source = MemorySource::Agent;
+    memory_entry.trust = 0.9;
+
+    let mut memory_event = MemoryEvent::from_entry(
+        MemoryEventKind::Promoted,
+        memory_entry,
+        Some("task:tracked-snapshot-patch-cutover".to_string()),
+        Vec::new(),
+        Vec::new(),
+    );
+    memory_event.actor = Some(EventActor::Agent);
+    append_repo_memory_event(&root, &memory_event).unwrap();
+
     let event = OutcomeEvent {
         meta: EventMeta {
             id: EventId::new("outcome:tracked-snapshot-patch"),
@@ -2959,6 +3016,7 @@ fn repo_published_patch_reads_fall_back_to_tracked_snapshots() {
                     work_id: "work:tracked-snapshot-patch".to_string(),
                     kind: WorkContextKind::AdHoc,
                     title: "Publish tracked patch snapshot".to_string(),
+                    summary: Some("Persist repo patch snapshots into tracked state.".to_string()),
                     parent_work_id: None,
                     coordination_task_id: None,
                     plan_id: None,
@@ -2978,10 +3036,159 @@ fn repo_published_patch_reads_fall_back_to_tracked_snapshots() {
     };
 
     append_repo_patch_event(&root, &event).unwrap();
-    fs::remove_file(root.join(".prism/changes/events.jsonl")).unwrap();
+    assert!(!root.join(".prism/state/changes").exists());
+    assert!(!root.join(".prism/state/indexes/changes.json").exists());
+    assert!(!root.join(".prism/changes/events.jsonl").exists());
+    assert!(load_repo_patch_events(&root).unwrap().is_empty());
 
-    let events = load_repo_patch_events(&root).unwrap();
-    assert_eq!(events, vec![event]);
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join(".prism/state/manifest.json")).unwrap())
+            .unwrap();
+    let files = manifest["files"]
+        .as_object()
+        .expect("manifest files should be an object");
+    assert!(files
+        .keys()
+        .all(|path| !path.starts_with(".prism/state/changes/")));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn tracked_snapshot_refresh_removes_stale_change_shards_and_indexes_from_manifest() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    fs::create_dir_all(root.join(".prism/state/changes")).unwrap();
+    fs::create_dir_all(root.join(".prism/state/indexes")).unwrap();
+    fs::write(
+        root.join(".prism/state/changes/outcome-stale.json"),
+        serde_json::to_vec_pretty(&OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:stale-change-shard"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha.clone())],
+            kind: OutcomeKind::PatchApplied,
+            summary: "stale tracked change shard".to_string(),
+            result: OutcomeResult::Success,
+            evidence: vec![OutcomeEvidence::DiffSummary {
+                text: "stale tracked change shard".to_string(),
+            }],
+            metadata: json!({}),
+        })
+        .unwrap(),
+    )
+    .unwrap();
+    fs::write(
+        root.join(".prism/state/indexes/changes.json"),
+        "[\n  {\"id\":\"stale\",\"title\":\"stale\",\"status\":\"success\",\"path\":\"changes/outcome-stale.json\"}\n]\n",
+    )
+    .unwrap();
+
+    let mut entry = MemoryEntry::new(
+        MemoryKind::Structural,
+        "refresh tracked snapshot after stale change shards exist",
+    );
+    entry.id = MemoryId("structural:tracked-snapshot-stale-changes-cleanup".to_string());
+    entry.anchors = vec![AnchorRef::Node(alpha.clone())];
+    entry.scope = MemoryScope::Repo;
+    entry.source = MemorySource::Agent;
+    entry.trust = 0.9;
+
+    let mut event = MemoryEvent::from_entry(
+        MemoryEventKind::Promoted,
+        entry,
+        Some("task:tracked-snapshot-stale-changes-cleanup".to_string()),
+        Vec::new(),
+        Vec::new(),
+    );
+    event.actor = Some(EventActor::Agent);
+    append_repo_memory_event(&root, &event).unwrap();
+
+    assert!(!root.join(".prism/state/changes").exists());
+    assert!(!root.join(".prism/state/indexes/changes.json").exists());
+
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join(".prism/state/manifest.json")).unwrap())
+            .unwrap();
+    let files = manifest["files"]
+        .as_object()
+        .expect("manifest files should be an object");
+    assert!(files
+        .keys()
+        .all(|path| !path.starts_with(".prism/state/changes/")));
+    assert!(files
+        .keys()
+        .all(|path| path != ".prism/state/indexes/changes.json"));
+    let retired = manifest["retiredAuthorities"]
+        .as_array()
+        .expect("retiredAuthorities should be present");
+    assert!(retired.iter().any(|entry| {
+        entry["authority"].as_str() == Some("tracked_changes_snapshot")
+            && entry["digest"].as_str().is_some()
+    }));
+    let tracked_changes_digest = retired
+        .iter()
+        .find(|entry| entry["authority"].as_str() == Some("tracked_changes_snapshot"))
+        .and_then(|entry| entry["digest"].as_str())
+        .expect("tracked changes retirement digest should be present")
+        .to_string();
+
+    let mut follow_up = MemoryEntry::new(
+        MemoryKind::Structural,
+        "follow up publish keeps tracked changes retirement continuity",
+    );
+    follow_up.id =
+        MemoryId("structural:tracked-snapshot-stale-changes-cleanup-follow-up".to_string());
+    follow_up.anchors = vec![AnchorRef::Node(alpha)];
+    follow_up.scope = MemoryScope::Repo;
+    follow_up.source = MemorySource::Agent;
+    follow_up.trust = 0.9;
+    let mut follow_up_event = MemoryEvent::from_entry(
+        MemoryEventKind::Promoted,
+        follow_up,
+        Some("task:tracked-snapshot-stale-changes-cleanup-follow-up".to_string()),
+        Vec::new(),
+        Vec::new(),
+    );
+    follow_up_event.actor = Some(EventActor::Agent);
+    append_repo_memory_event(&root, &follow_up_event).unwrap();
+
+    let refreshed: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join(".prism/state/manifest.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        refreshed["retiredAuthorities"]
+            .as_array()
+            .and_then(|entries| {
+                entries
+                    .iter()
+                    .find(|entry| entry["authority"].as_str() == Some("tracked_changes_snapshot"))
+                    .and_then(|entry| entry["digest"].as_str())
+            }),
+        Some(tracked_changes_digest.as_str())
+    );
 
     let _ = fs::remove_dir_all(root);
 }
@@ -3037,6 +3244,9 @@ fn repo_published_concepts_read_from_tracked_snapshots_without_event_log() {
                     work_id: "work:tracked-snapshot-concept".to_string(),
                     kind: WorkContextKind::AdHoc,
                     title: "Publish tracked concept snapshot".to_string(),
+                    summary: Some(
+                        "Persist curated concepts into tracked snapshot state.".to_string(),
+                    ),
                     parent_work_id: None,
                     coordination_task_id: None,
                     plan_id: None,
@@ -5090,6 +5300,7 @@ fn repo_published_plans_write_tracked_snapshot_manifest() {
             work_id: "work:tracked-snapshot-plan".to_string(),
             kind: WorkContextKind::Coordination,
             title: "Publish tracked plan snapshot".to_string(),
+            summary: Some("Persist published plan state into tracked snapshot shards.".to_string()),
             parent_work_id: None,
             coordination_task_id: None,
             plan_id: None,
@@ -5165,12 +5376,22 @@ fn repo_published_plans_write_tracked_snapshot_manifest() {
     assert_eq!(plan_files.len(), 1);
     assert_eq!(task_files.len(), 1);
 
-    let manifest: serde_json::Value = serde_json::from_slice(
-        &fs::read(root.join(".prism/state/manifest.json")).unwrap(),
-    )
-    .unwrap();
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join(".prism/state/manifest.json")).unwrap())
+            .unwrap();
     assert_eq!(manifest["publisher"]["principalId"], "codex-plan");
-    assert_eq!(manifest["workContext"]["workId"], "work:tracked-snapshot-plan");
+    assert_eq!(
+        manifest["workContext"]["workId"],
+        "work:tracked-snapshot-plan"
+    );
+    assert_eq!(
+        manifest["publishSummary"]["title"],
+        "Publish tracked plan snapshot"
+    );
+    assert_eq!(
+        manifest["publishSummary"]["summary"],
+        "Persist published plan state into tracked snapshot shards."
+    );
     assert!(manifest["migrationSourceDigest"].is_string());
     let relative_plan_path = plan_files[0]
         .strip_prefix(&root)
