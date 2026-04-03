@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:8705c142954bc9b45c2ad1faa1503ad9e1788c6c70f58bb9629c0aa616f860e3`
+- Source head: `sha256:79cf84d51e8f649fa7807888d0ce15f9a1ccb465861c2e3b370fd2d0de2a0698`
 - Source logical timestamp: `unknown`
-- Source snapshot: `6 nodes, 11 edges, 0 overlays`
+- Source snapshot: `6 nodes, 11 edges, 1 overlays`
 
 ## Overview
 
@@ -52,7 +52,7 @@ Define one correct path identity model for PRISM so tracked snapshots, shared/ru
 
 - Node id: `coord-task:01kn9vd1qxxaht9ap1ygbmd23g`
 - Kind: `edit`
-- Status: `in_progress`
+- Status: `completed`
 - Summary: Define where absolute paths may exist, where only repo-relative paths are allowed, and where anchors must replace raw paths entirely across tracked state, shared runtime, and local runtime.
 - Priority: `1`
 - Assignee: `codex-runtime-storage-boundary-redesign-2026-04-01`
@@ -147,4 +147,13 @@ Define one correct path identity model for PRISM so tracked snapshots, shared/ru
 - `plan-edge:coord-task:01kn9ve8ants7rmt18m4rpf25b:depends-on:coord-task:01kn9vdfjsrbzwz5w5mff8yqck`: `coord-task:01kn9ve8ants7rmt18m4rpf25b` depends on `coord-task:01kn9vdfjsrbzwz5w5mff8yqck`
 - `plan-edge:coord-task:01kn9ve8ants7rmt18m4rpf25b:depends-on:coord-task:01kn9vdqfnnkkywq1bb0jk5fq8`: `coord-task:01kn9ve8ants7rmt18m4rpf25b` depends on `coord-task:01kn9vdqfnnkkywq1bb0jk5fq8`
 - `plan-edge:coord-task:01kn9ve8ants7rmt18m4rpf25b:depends-on:coord-task:01kn9vdznkm34knqjxgdqdqcxe`: `coord-task:01kn9ve8ants7rmt18m4rpf25b` depends on `coord-task:01kn9vdznkm34knqjxgdqdqcxe`
+
+## Execution Overlays
+
+- Node: `coord-task:01kn9vd1qxxaht9ap1ygbmd23g`
+  git execution status: `publish_pending`
+  pending task status: `completed`
+  source ref: `task/path-identity-repo-relative`
+  target ref: `origin/main`
+  publish ref: `task/path-identity-repo-relative`
 

@@ -8,14 +8,14 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:f2348fc1660297e2d57a3f78777509e392359ed861d3d85d6c8710ee1ae87b85`
-- Source logical timestamp: `1775228087`
-- Source snapshot: `250 published patch events, 158 unique touched files`
+- Source head: `sha256:b25e76bb093d45ccc8d94c77e63204bc794763d08bf1b5233f97f67d9dc74312`
+- Source logical timestamp: `1775228988`
+- Source snapshot: `255 published patch events, 160 unique touched files`
 
 ## Overview
 
-- Published patch events: 250
-- Unique files touched: 158
+- Published patch events: 255
+- Unique files touched: 160
 
 ## Most Touched Files
 
@@ -31,6 +31,7 @@
 - `/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/tests.rs`: `3` patch event(s)
 - `/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/workspace_runtime.rs`: `3` patch event(s)
 - `/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/tests.rs`: `3` patch event(s)
+- `/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md`: `3` patch event(s)
 - `/Users/bene/code/prism/crates/prism-core/src/memory_events.rs`: `3` patch event(s)
 - `/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs`: `3` patch event(s)
 - `/Users/bene/code/prism/docs/PRISM_FIRST_CLASS_PLANS_SPEC.md`: `3` patch event(s)
@@ -38,9 +39,53 @@
 - `/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/event_replay.rs`: `2` patch event(s)
 - `/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/lib.rs`: `2` patch event(s)
 - `/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/mutations.rs`: `2` patch event(s)
-- `/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/runtime.rs`: `2` patch event(s)
 
 ## Recent Published Patch Events
+
+### outcome:01kn9y9b7fn0dbf3xnrwvsh0wk
+
+- Summary: observed file change: 0 added, 0 removed, 30 updated symbols
+- Result: `success`
+- Recorded at: `1775228988`
+- Work: `Lock the canonical path identity contract and no-absolute-path boundary` (work:lock-the-canonical-path-identity-contract-and-no-absolute-path-boundary:01kn9y2x6gzpnxw9wa3qe832gt)
+- Files:
+  - `/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md`
+
+### outcome:01kn9y9b2rz246y15cs1yts9qa
+
+- Summary: observed file change: 0 added, 0 removed, 20 updated symbols
+- Result: `success`
+- Recorded at: `1775228988`
+- Work: `Lock the canonical path identity contract and no-absolute-path boundary` (work:lock-the-canonical-path-identity-contract-and-no-absolute-path-boundary:01kn9y2x6gzpnxw9wa3qe832gt)
+- Files:
+  - `/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md`
+
+### outcome:01kn9y8tcg3kssb04vtbkaqe4s
+
+- Summary: observed file change: 0 added, 0 removed, 20 updated symbols
+- Result: `success`
+- Recorded at: `1775228971`
+- Work: `Lock the canonical path identity contract and no-absolute-path boundary` (work:lock-the-canonical-path-identity-contract-and-no-absolute-path-boundary:01kn9y2x6gzpnxw9wa3qe832gt)
+- Files:
+  - `/Users/bene/code/prism-protected-state-runtime-sync/docs/PERSISTENCE_STATE_CLASSIFICATION.md`
+
+### outcome:01kn9y8t8128b1t9a1nrbrwwtq
+
+- Summary: observed file change: 0 added, 0 removed, 30 updated symbols
+- Result: `success`
+- Recorded at: `1775228971`
+- Work: `Lock the canonical path identity contract and no-absolute-path boundary` (work:lock-the-canonical-path-identity-contract-and-no-absolute-path-boundary:01kn9y2x6gzpnxw9wa3qe832gt)
+- Files:
+  - `/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_HOME_LAYOUT.md`
+
+### outcome:01kn9y8t3d7p1cseg2qdskb9jk
+
+- Summary: observed file change: 13 added, 0 removed, 0 updated symbols
+- Result: `success`
+- Recorded at: `1775228971`
+- Work: `Lock the canonical path identity contract and no-absolute-path boundary` (work:lock-the-canonical-path-identity-contract-and-no-absolute-path-boundary:01kn9y2x6gzpnxw9wa3qe832gt)
+- Files:
+  - `/Users/bene/code/prism-protected-state-runtime-sync/docs/PATH_IDENTITY_CONTRACT.md`
 
 ### outcome:01kn9xdydvwz1j39hfg4z58yr0
 
@@ -221,49 +266,4 @@
 - Work: `Plan next MCP slow-call optimizations` (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)
 - Files:
   - `/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn3cceq1sh4s78yj4m34rww2.md`
-
-### outcome:01kn9xdxzaecjc5v9kjnmz74cb
-
-- Summary: observed file change: 0 added, 0 removed, 6 updated symbols
-- Result: `success`
-- Recorded at: `1775228087`
-- Work: `Plan next MCP slow-call optimizations` (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)
-- Files:
-  - `/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/capabilities_resource.rs`
-
-### outcome:01kn9xdxyyw2mbefjqt9xd2k3p
-
-- Summary: observed file change: 5 added, 0 removed, 263 updated symbols
-- Result: `success`
-- Recorded at: `1775228087`
-- Work: `Plan next MCP slow-call optimizations` (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)
-- Files:
-  - `/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-coordination/src/types.rs`
-
-### outcome:01kn9xdxy0avd2qd2bwn73w07z
-
-- Summary: observed file change: 0 added, 0 removed, 118 updated symbols
-- Result: `success`
-- Recorded at: `1775228087`
-- Work: `Plan next MCP slow-call optimizations` (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)
-- Files:
-  - `/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/workspace_runtime.rs`
-
-### outcome:01kn9xdxxkstq31qy3wfckhsa7
-
-- Summary: observed file change: 25 added, 0 removed, 114 updated symbols
-- Result: `success`
-- Recorded at: `1775228087`
-- Work: `Plan next MCP slow-call optimizations` (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)
-- Files:
-  - `/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/published_plans.rs`
-
-### outcome:01kn9xdxwqjb7h3cydh8zzvvw7
-
-- Summary: observed file change: 1 added, 0 removed, 24 updated symbols
-- Result: `success`
-- Recorded at: `1775228087`
-- Work: `Plan next MCP slow-call optimizations` (work:plan-next-mcp-slow-call-optimizations:01kn88m3d23aex9cyj42h1sscd)
-- Files:
-  - `/Users/bene/code/prism-protected-state-runtime-sync/docs/prism/plans/active/plan-01kn80rqn6t0pgv1dt0zqay9j5.md`
 
