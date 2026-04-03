@@ -15,8 +15,8 @@
       "lease_expires_after_seconds": 7200,
       "lease_renewal_mode": "strict",
       "git_execution": {
-        "startMode": "auto",
-        "completionMode": "auto",
+        "startMode": "require",
+        "completionMode": "require",
         "targetRef": null,
         "targetBranch": "main",
         "requireTaskBranch": true,

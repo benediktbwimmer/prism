@@ -1758,6 +1758,102 @@
     "path": "tasks/coord-task-01kna4g9fyxzpyykde9s9z1m1d-2eff3f8a17c60960.json"
   },
   {
+    "id": "coord-task:01kna8srw6ccvntg5qb23zprqr",
+    "title": "Design the shared coordination ref storage, manifest chaining, and CAS update protocol",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna8srw6ccvntg5qb23zprqr-c5b9fdb377a993d0.json"
+  },
+  {
+    "id": "coord-task:01kna8sy5barah56gz9x3fs2fx",
+    "title": "Move shared coordination truth onto the new ref plane for claims, leases, task status, publish state, and integration state",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna8sy5barah56gz9x3fs2fx-69e529cfa915c78a.json"
+  },
+  {
+    "id": "coord-task:01kna8t3rvk3n07vafmpsdzvvn",
+    "title": "Rebind strict require git execution to shared coordination publication and integration state",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna8t3rvk3n07vafmpsdzvvn-ea9f7080cef1e7ba.json"
+  },
+  {
+    "id": "coord-task:01kna8ta5hywfef8t87dn6bret",
+    "title": "Validate shared cross-branch coordination and dogfood the new git-execution path on top of it",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna8ta5hywfef8t87dn6bret-576aec2f414dfbce.json"
+  },
+  {
+    "id": "coord-task:01kna8tgf7s523e5edfv0gc0v9",
+    "title": "Audit and simplify or disable the old shared-runtime versus local-runtime split in daemon startup and runtime wiring",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna8tgf7s523e5edfv0gc0v9-f6864768f3c4d9d5.json"
+  },
+  {
+    "id": "coord-task:01kna8tv5khkd6ypdg9q6dfs87",
+    "title": "Add shared coordination runtime descriptors for live runtime discovery and capability advertisement",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna8tv5khkd6ypdg9q6dfs87-056630de9a1a1291.json"
+  },
+  {
+    "id": "coord-task:01kna8v02c0p53pdfckcyq0vaw",
+    "title": "Implement authenticated capability-scoped bounded peer runtime reads on local or trusted-network transport",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna8v02c0p53pdfckcyq0vaw-942403bdbb724598.json"
+  },
+  {
+    "id": "coord-task:01kna8v52e247h2xymfv8ksdb0",
+    "title": "Validate local-machine peer observability, capability denial, and graceful fallback with no peer",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna8v52e247h2xymfv8ksdb0-49ee0589d9feadf0.json"
+  },
+  {
+    "id": "coord-task:01kna9hj3ems9xhkzpd11nmdrw",
+    "title": "Design the shared coordination ref storage, manifest chaining, and CAS update protocol",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna9hj3ems9xhkzpd11nmdrw-957b3228be1a186c.json"
+  },
+  {
+    "id": "coord-task:01kna9hj512cfn4r042z848gbq",
+    "title": "Move shared coordination truth onto the new ref plane for claims, leases, task status, publish state, and integration state",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna9hj512cfn4r042z848gbq-daec0259699ff25e.json"
+  },
+  {
+    "id": "coord-task:01kna9hj6m6r0sws8wn1ep3rry",
+    "title": "Rebind strict require git execution to shared coordination publication and integration state",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna9hj6m6r0sws8wn1ep3rry-34dc8801d09d2abd.json"
+  },
+  {
+    "id": "coord-task:01kna9hj84dbm3c7w0z1ykenss",
+    "title": "Validate shared cross-branch coordination and dogfood the new git-execution path on top of it",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna9hj84dbm3c7w0z1ykenss-5a78e4e92ed710f1.json"
+  },
+  {
+    "id": "coord-task:01kna9hj9pk5nvg4max2248frc",
+    "title": "Audit and simplify or disable the old shared-runtime versus local-runtime split in daemon startup and runtime wiring",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna9hj9pk5nvg4max2248frc-db3aa242f3e5fa7b.json"
+  },
+  {
+    "id": "coord-task:01kna9hjbctvt9e3j32d6cgmte",
+    "title": "Add shared coordination runtime descriptors for live runtime discovery and capability advertisement",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna9hjbctvt9e3j32d6cgmte-c1d3fdffefd17784.json"
+  },
+  {
+    "id": "coord-task:01kna9hjd5a38ezszy5fqr6h0d",
+    "title": "Implement authenticated capability-scoped bounded peer runtime reads on local or trusted-network transport",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna9hjd5a38ezszy5fqr6h0d-7e68c4da966beb8d.json"
+  },
+  {
+    "id": "coord-task:01kna9hjenyhw6ge6wb4eb8h7p",
+    "title": "Validate local-machine peer observability, capability denial, and graceful fallback with no peer",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kna9hjenyhw6ge6wb4eb8h7p-d43324e33ccf6378.json"
+  },
+  {
     "id": "coord-task:1",
     "title": "Classify authoritative state vs derived artifacts across persistence, plans, and projections",
     "status": "Completed",

@@ -1,0 +1,195 @@
+{
+  "plan": {
+    "id": "plan:01kna8sczaf3vhy8q6erq4fdvr",
+    "goal": "Add shared-ref runtime descriptors and authenticated peer runtime reads, while simplifying or disabling the old shared-runtime versus local-runtime split wherever it is no longer needed.",
+    "title": "Add runtime descriptors and bounded peer reads",
+    "status": "Active",
+    "policy": {
+      "default_claim_mode": "Advisory",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": false,
+      "stale_after_graph_change": true,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "require",
+        "completionMode": "require",
+        "targetRef": "origin/main",
+        "targetBranch": "main",
+        "requireTaskBranch": true,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": 300
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 82,
+      "urgency": 68,
+      "manualBoost": 10,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01kna8tgf7s523e5edfv0gc0v9"
+    ]
+  },
+  "graph": {
+    "id": "plan:01kna8sczaf3vhy8q6erq4fdvr",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Add runtime descriptors and bounded peer reads",
+    "goal": "Add shared-ref runtime descriptors and authenticated peer runtime reads, while simplifying or disabling the old shared-runtime versus local-runtime split wherever it is no longer needed.",
+    "status": "Active",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01kna8tgf7s523e5edfv0gc0v9"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01kna8tgf7s523e5edfv0gc0v9",
+        "plan_id": "plan:01kna8sczaf3vhy8q6erq4fdvr",
+        "kind": "Edit",
+        "title": "Audit and simplify or disable the old shared-runtime versus local-runtime split in daemon startup and runtime wiring",
+        "summary": null,
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 152,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kna8tv5khkd6ypdg9q6dfs87",
+        "plan_id": "plan:01kna8sczaf3vhy8q6erq4fdvr",
+        "kind": "Edit",
+        "title": "Add shared coordination runtime descriptors for live runtime discovery and capability advertisement",
+        "summary": null,
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 152,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kna8v02c0p53pdfckcyq0vaw",
+        "plan_id": "plan:01kna8sczaf3vhy8q6erq4fdvr",
+        "kind": "Edit",
+        "title": "Implement authenticated capability-scoped bounded peer runtime reads on local or trusted-network transport",
+        "summary": null,
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 152,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kna8v52e247h2xymfv8ksdb0",
+        "plan_id": "plan:01kna8sczaf3vhy8q6erq4fdvr",
+        "kind": "Edit",
+        "title": "Validate local-machine peer observability, capability denial, and graceful fallback with no peer",
+        "summary": null,
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 152,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "plan-edge:coord-task:01kna8tv5khkd6ypdg9q6dfs87:depends-on:coord-task:01kna8tgf7s523e5edfv0gc0v9",
+        "plan_id": "plan:01kna8sczaf3vhy8q6erq4fdvr",
+        "from": "coord-task:01kna8tv5khkd6ypdg9q6dfs87",
+        "to": "coord-task:01kna8tgf7s523e5edfv0gc0v9",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kna8v02c0p53pdfckcyq0vaw:depends-on:coord-task:01kna8tv5khkd6ypdg9q6dfs87",
+        "plan_id": "plan:01kna8sczaf3vhy8q6erq4fdvr",
+        "from": "coord-task:01kna8v02c0p53pdfckcyq0vaw",
+        "to": "coord-task:01kna8tv5khkd6ypdg9q6dfs87",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kna8v52e247h2xymfv8ksdb0:depends-on:coord-task:01kna8v02c0p53pdfckcyq0vaw",
+        "plan_id": "plan:01kna8sczaf3vhy8q6erq4fdvr",
+        "from": "coord-task:01kna8v52e247h2xymfv8ksdb0",
+        "to": "coord-task:01kna8v02c0p53pdfckcyq0vaw",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      }
+    ]
+  },
+  "executionOverlays": []
+}

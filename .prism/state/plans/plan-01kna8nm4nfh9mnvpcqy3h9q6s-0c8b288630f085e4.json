@@ -1,0 +1,195 @@
+{
+  "plan": {
+    "id": "plan:01kna8nm4nfh9mnvpcqy3h9q6s",
+    "goal": "Build the shared coordination ref authority plane, move core coordination truth onto it, and rebind git execution policy to that shared cross-branch control plane.",
+    "title": "Implement shared coordination refs and bind git execution to them",
+    "status": "Active",
+    "policy": {
+      "default_claim_mode": "Advisory",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": false,
+      "stale_after_graph_change": true,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "require",
+        "completionMode": "require",
+        "targetRef": "origin/main",
+        "targetBranch": "main",
+        "requireTaskBranch": true,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": 300
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 95,
+      "urgency": 85,
+      "manualBoost": 20,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01kna8srw6ccvntg5qb23zprqr"
+    ]
+  },
+  "graph": {
+    "id": "plan:01kna8nm4nfh9mnvpcqy3h9q6s",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Implement shared coordination refs and bind git execution to them",
+    "goal": "Build the shared coordination ref authority plane, move core coordination truth onto it, and rebind git execution policy to that shared cross-branch control plane.",
+    "status": "Active",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01kna8srw6ccvntg5qb23zprqr"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01kna8srw6ccvntg5qb23zprqr",
+        "plan_id": "plan:01kna8nm4nfh9mnvpcqy3h9q6s",
+        "kind": "Edit",
+        "title": "Design the shared coordination ref storage, manifest chaining, and CAS update protocol",
+        "summary": null,
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 152,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kna8sy5barah56gz9x3fs2fx",
+        "plan_id": "plan:01kna8nm4nfh9mnvpcqy3h9q6s",
+        "kind": "Edit",
+        "title": "Move shared coordination truth onto the new ref plane for claims, leases, task status, publish state, and integration state",
+        "summary": null,
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 152,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kna8t3rvk3n07vafmpsdzvvn",
+        "plan_id": "plan:01kna8nm4nfh9mnvpcqy3h9q6s",
+        "kind": "Edit",
+        "title": "Rebind strict require git execution to shared coordination publication and integration state",
+        "summary": null,
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 152,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kna8ta5hywfef8t87dn6bret",
+        "plan_id": "plan:01kna8nm4nfh9mnvpcqy3h9q6s",
+        "kind": "Edit",
+        "title": "Validate shared cross-branch coordination and dogfood the new git-execution path on top of it",
+        "summary": null,
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 152,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "plan-edge:coord-task:01kna8sy5barah56gz9x3fs2fx:depends-on:coord-task:01kna8srw6ccvntg5qb23zprqr",
+        "plan_id": "plan:01kna8nm4nfh9mnvpcqy3h9q6s",
+        "from": "coord-task:01kna8sy5barah56gz9x3fs2fx",
+        "to": "coord-task:01kna8srw6ccvntg5qb23zprqr",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kna8t3rvk3n07vafmpsdzvvn:depends-on:coord-task:01kna8sy5barah56gz9x3fs2fx",
+        "plan_id": "plan:01kna8nm4nfh9mnvpcqy3h9q6s",
+        "from": "coord-task:01kna8t3rvk3n07vafmpsdzvvn",
+        "to": "coord-task:01kna8sy5barah56gz9x3fs2fx",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kna8ta5hywfef8t87dn6bret:depends-on:coord-task:01kna8t3rvk3n07vafmpsdzvvn",
+        "plan_id": "plan:01kna8nm4nfh9mnvpcqy3h9q6s",
+        "from": "coord-task:01kna8ta5hywfef8t87dn6bret",
+        "to": "coord-task:01kna8t3rvk3n07vafmpsdzvvn",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      }
+    ]
+  },
+  "executionOverlays": []
+}

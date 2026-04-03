@@ -74,7 +74,7 @@ Required goals:
 Required non-goals:
 
 - no peer-to-peer topology should be required for correctness
-- PRISM does not need to solve general service discovery for hostile networks
+- PRISM does not need to solve arbitrary public-internet service discovery without an explicit relay
 - the design does not require every local SQLite file to be globally replicated
 - a blob store does not become the live mutable source of truth
 - Git refs do not become a transport for large journals or high-frequency presence chatter
@@ -88,7 +88,7 @@ PRISM should evolve toward a four-layer federated model.
 ### 4.1 Shared coordination refs
 
 The shared coordination ref design from
-[PRISM_SHARED_COORDINATION_REFS.md](/Users/bene/code/prism-codex-d/docs/PRISM_SHARED_COORDINATION_REFS.md)
+[PRISM_SHARED_COORDINATION_REFS.md](./PRISM_SHARED_COORDINATION_REFS.md)
 remains the authoritative shared control plane.
 
 It carries compact durable shared facts such as:
@@ -131,6 +131,11 @@ Examples:
 - not-yet-exported runtime bundles
 
 Peer exchange is optional and opportunistic.
+
+For public-internet reachability, PRISM should support a `relay_only` transport mode in which the
+runtime opens an outbound long-lived connection to a dumb relay. The relay is transport only: it
+does not interpret PRISM semantics, does not become an authority plane, and must be treated as
+fully untrusted.
 
 ### 4.4 Optional blob-backed archive/export
 
@@ -204,11 +209,13 @@ Illustrative descriptor fields:
 - `capabilities`
 - `discovery_mode`
   - `none`
-  - `peer_http`
+  - `lan_direct`
   - `relay_only`
 - optional `peer_endpoint`
-  - IP or hostname plus port
-- optional `peer_tls_identity`
+  - direct IP or hostname plus port for trusted local-network reachability
+- optional `relay_endpoint`
+  - relay route such as `wss://relay.example/route/<runtime_id>`
+- optional `peer_transport_identity`
 - optional `blob_snapshot_head`
 - optional `export_policy`
 
@@ -230,12 +237,13 @@ Recommended modes:
 
 - `none`
   - do not disclose a network endpoint
-- `local_network`
+- `lan_direct`
   - disclose a peer endpoint expected to be reachable on the trusted local network
 - `relay_only`
-  - disclose only a relay or API service handle
+  - disclose only a relay handle and route identity; the runtime is reachable through an outbound
+    relay connection, not by exposing a direct inbound socket
 - `full`
-  - disclose direct peer endpoint and supported capabilities
+  - disclose both direct local-network endpoint and supported relay capabilities
 
 This avoids turning peer presence into an accidental privacy leak.
 
@@ -344,6 +352,23 @@ The peer runtime should be able to verify:
 
 Direct peer transport should never bypass PRISM's principal and capability model.
 
+For public-internet or relay-mediated transport, peer traffic should be end-to-end encrypted and
+mutually authenticated using key material bound to PRISM principal identity. The relay must only see
+opaque encrypted payloads and routing metadata.
+
+Authorization should be explicit and repo-scoped, not inferred from generic participation.
+Illustrative peer-read capabilities:
+
+- `can_discover_runtime`
+- `can_read_peer_diagnostics`
+- `can_read_peer_journals`
+- `can_read_peer_replay`
+- `can_request_bundle_export`
+
+Shared refs remain the trust anchor for discovering which principals are active for a repo, but
+peer access should be granted by explicit capability policy rather than by "this principal has
+participated in the repo before."
+
 ---
 
 ## 9. Blob Export and Retrieval Model
@@ -406,7 +431,7 @@ An optional API service may serve:
 - runtime descriptor discovery
 - blob metadata lookup
 - authenticated download of exported bundles
-- maybe relay access to live peers
+- dumb relay access to live peers
 
 This service is useful, but it should remain thin.
 
@@ -433,7 +458,7 @@ The key rule remains:
 - secret credential material remains local
 
 This stays consistent with
-[SHARED_IDENTITY_FUTURE_STATE.md](/Users/bene/code/prism-codex-d/docs/SHARED_IDENTITY_FUTURE_STATE.md),
+[SHARED_IDENTITY_FUTURE_STATE.md](./SHARED_IDENTITY_FUTURE_STATE.md),
 but changes the storage substrate from "necessarily Postgres" to "federated shared state."
 
 ### 10.2 Secrets stay local
@@ -456,6 +481,13 @@ Trust still comes from:
 - capability checks
 - signed runtime descriptors or certificates
 - local policy
+
+Peer trust over the public internet should therefore be understood as:
+
+- relay for reachability
+- end-to-end encryption for confidentiality
+- principal-bound authentication for identity
+- explicit repo-scoped capabilities for authorization
 
 ---
 
@@ -576,7 +608,7 @@ must not silently become authority.
 ## 14. Retention and Garbage Collection
 
 This model fits well with the retention policy already described in
-[PRISM_HOME_RETENTION_AND_GC.md](/Users/bene/code/prism-codex-d/docs/PRISM_HOME_RETENTION_AND_GC.md).
+[PRISM_HOME_RETENTION_AND_GC.md](./PRISM_HOME_RETENTION_AND_GC.md).
 
 ### 14.1 Local SQLite retention
 
@@ -677,7 +709,7 @@ Add a thin service for:
 
 - bundle metadata
 - authenticated retrieval
-- maybe peer relaying
+- dumb peer relaying over outbound runtime connections
 
 ### Phase 6: central shared DB becomes optional
 
@@ -694,6 +726,8 @@ Implementation should add coverage for:
 - local runtime rich state surviving independently per worktree
 - peer discovery through shared refs
 - authenticated peer read success and denial
+- relay-mediated peer exchange with end-to-end encryption
+- explicit capability enforcement for peer diagnostics and journal reads
 - graceful degradation when peers disappear
 - signed export bundle generation and retrieval
 - bundle pointer publication through shared refs

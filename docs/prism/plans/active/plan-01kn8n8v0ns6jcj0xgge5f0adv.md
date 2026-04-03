@@ -28,8 +28,8 @@ Finish the git execution policy feature by exposing policy surfaces clearly, sep
 
 ## Git Execution Policy
 
-- Start mode: `auto`
-- Completion mode: `auto`
+- Start mode: `require`
+- Completion mode: `require`
 - Target branch: `main`
 - Require task branch: `true`
 - Max commits behind target: `0`
