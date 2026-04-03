@@ -138,6 +138,7 @@ fn ad_hoc_plan_projection_replays_plan_state_at_timestamp() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Replay ad hoc plan projections".into(),
                 goal: "Replay ad hoc plan projections".into(),
                 status: None,
                 policy: None,
@@ -253,6 +254,7 @@ fn ad_hoc_plan_projection_diff_reports_added_and_changed_nodes() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Diff ad hoc plan projections".into(),
                 goal: "Diff ad hoc plan projections".into(),
                 status: None,
                 policy: None,
@@ -1343,6 +1345,7 @@ fn coordination_queries_expand_into_neighboring_symbols() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Coordinate alpha".into(),
                 goal: "Coordinate alpha".into(),
                 status: None,
                 policy: None,
@@ -1460,6 +1463,7 @@ fn task_execution_plan_graph_prefers_published_authored_fields_for_task_backed_n
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Native plan graph".into(),
                 goal: "Native plan graph".into(),
                 status: None,
                 policy: None,
@@ -1646,6 +1650,7 @@ fn plans_contains_filter_matches_singular_and_plural_plan_terms() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Eliminate the remaining performance bottleneck".into(),
                 goal: "Eliminate the remaining performance bottleneck".into(),
                 status: None,
                 policy: None,
@@ -1691,6 +1696,7 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Continuity runtime".into(),
                 goal: "Continuity runtime".into(),
                 status: None,
                 policy: None,
@@ -1830,6 +1836,7 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Preserve native edges".into(),
                 goal: "Preserve native edges".into(),
                 status: None,
                 policy: None,
@@ -2207,6 +2214,7 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Scoped artifact reviews".into(),
                 goal: "Scoped artifact reviews".into(),
                 status: None,
                 policy: Some(CoordinationPolicy::default()),
@@ -2304,6 +2312,7 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Scoped ready work".into(),
                 goal: "Scoped ready work".into(),
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
@@ -2488,6 +2497,7 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Preserve authored node semantics".into(),
                 goal: "Preserve authored node semantics".into(),
                 status: None,
                 policy: None,
@@ -2725,6 +2735,7 @@ fn native_plan_node_bindings_reject_runtime_handles_and_unstable_refs() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Reject unstable binding refs".into(),
                 goal: "Reject unstable binding refs".into(),
                 status: None,
                 policy: None,
@@ -2875,6 +2886,7 @@ fn native_plan_node_bindings_reject_missing_published_refs() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Reject missing published binding refs".into(),
                 goal: "Reject missing published binding refs".into(),
                 status: None,
                 policy: None,
@@ -3161,6 +3173,7 @@ fn native_plan_updates_validate_completion_and_preserve_non_dependency_edges() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Validate native plan writes".into(),
                 goal: "Validate native plan writes".into(),
                 status: None,
                 policy: None,
@@ -3300,6 +3313,7 @@ fn native_plan_updates_validate_completion_and_preserve_non_dependency_edges() {
                 execution_context: None,
             },
             &plan_id,
+            None,
             Some(PlanStatus::Completed),
             None,
             None,
@@ -4237,6 +4251,7 @@ fn published_plan_unbound_tasks_stay_actionable_across_unrelated_graph_drift() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Keep published readiness aligned".into(),
                 goal: "Keep published readiness aligned".into(),
                 status: None,
                 policy: Some(CoordinationPolicy {
@@ -4362,6 +4377,7 @@ fn replace_coordination_snapshot_and_plan_graphs_preserves_stale_policy() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Preserve stale policy on replacement".into(),
                 goal: "Preserve stale policy on replacement".into(),
                 status: None,
                 policy: Some(CoordinationPolicy {
@@ -4445,6 +4461,7 @@ fn task_backed_plan_nodes_must_complete_through_coordination_tasks() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Complete through native node update".into(),
                 goal: "Complete through native node update".into(),
                 status: None,
                 policy: Some(CoordinationPolicy {
@@ -4958,6 +4975,7 @@ fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Preserve graph under compatibility writes".into(),
                 goal: "Preserve graph under compatibility writes".into(),
                 status: None,
                 policy: None,
@@ -5187,6 +5205,7 @@ fn native_plan_metadata_survives_compatibility_write_and_reload() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Persist native metadata".into(),
                 goal: "Persist native metadata".into(),
                 status: None,
                 policy: None,
@@ -5512,6 +5531,7 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Risky edit".into(),
                 goal: "Risky edit".into(),
                 status: None,
                 policy: Some(CoordinationPolicy {
@@ -5693,6 +5713,7 @@ fn task_backed_native_graph_blockers_follow_published_validation_fields() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Use published validations for task-backed nodes".into(),
                 goal: "Use published validations for task-backed nodes".into(),
                 status: None,
                 policy: Some(CoordinationPolicy {
@@ -5896,6 +5917,7 @@ fn exposes_intent_links_and_task_intent() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Ship alpha".into(),
                 goal: "Ship alpha".into(),
                 status: None,
                 policy: None,
@@ -6003,6 +6025,7 @@ fn policy_violations_expose_rejected_coordination_mutations() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Require review".into(),
                 goal: "Require review".into(),
                 status: None,
                 policy: Some(CoordinationPolicy {

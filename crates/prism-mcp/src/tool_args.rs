@@ -2724,6 +2724,7 @@ impl_vocab_deserialize!(
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PlanCreatePayload {
+    pub(crate) title: String,
     pub(crate) goal: String,
     #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) status: Option<PlanStatusInput>,
@@ -2734,6 +2735,7 @@ pub(crate) struct PlanCreatePayload {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PlanUpdatePayload {
     pub(crate) plan_id: String,
+    pub(crate) title: Option<String>,
     #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) status: Option<PlanStatusInput>,
     pub(crate) goal: Option<String>,

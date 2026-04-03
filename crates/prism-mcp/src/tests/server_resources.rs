@@ -727,7 +727,7 @@ async fn mcp_server_lists_and_reads_plan_detail_resources() {
             test_session(&server.host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Migrate persistence storage semantics" }),
+                payload: json!({ "title": "Migrate persistence storage semantics", "goal": "Migrate persistence storage semantics" }),
                 task_id: None,
             },
         )

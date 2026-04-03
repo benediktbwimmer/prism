@@ -754,6 +754,7 @@ fn coordination_mutation_updates_published_plans_without_reloading_full_projecti
                         execution_context: None,
                     },
                     "Exercise incremental published-plan sync".into(),
+                    "Exercise incremental published-plan sync".into(),
                     None,
                     Some(Default::default()),
                 )
@@ -778,6 +779,7 @@ fn coordination_mutation_updates_published_plans_without_reloading_full_projecti
                         execution_context: None,
                     },
                     &plan_id,
+                    None,
                     Some(prism_ir::PlanStatus::Active),
                     Some("Exercise incremental published-plan sync again".into()),
                     None,
@@ -3549,6 +3551,7 @@ fn repo_plan_events_auto_sync_prism_doc() {
                     causation: None,
                     execution_context: None,
                 },
+                "Project repo state docs".into(),
                 "Ship generated repo state docs".into(),
                 None,
                 Some(Default::default()),
@@ -3561,6 +3564,7 @@ fn repo_plan_events_auto_sync_prism_doc() {
     assert!(prism_doc.contains("- Published plans: 1"));
     assert!(prism_doc.contains("docs/prism/plans/index.md"));
     assert!(plans_doc.contains("# PRISM Plans"));
+    assert!(plans_doc.contains("[Project repo state docs]"));
     assert!(plans_doc.contains("Ship generated repo state docs"));
 
     let generated_plan_doc = fs::read_dir(root.join("docs/prism/plans/active"))
@@ -3569,6 +3573,7 @@ fn repo_plan_events_auto_sync_prism_doc() {
         .find(|path| path.extension().and_then(|value| value.to_str()) == Some("md"))
         .expect("plan markdown should be generated");
     let plan_doc = fs::read_to_string(generated_plan_doc).unwrap();
+    assert!(plan_doc.contains("# Project repo state docs"));
     assert!(plan_doc.contains("Ship generated repo state docs"));
     assert!(plan_doc.contains("## Goal"));
 
@@ -3852,6 +3857,7 @@ fn reload_preserves_coordination_claim_resolution_through_rename() {
                     execution_context: None,
                 },
                 "Coordinate rename follow-up".into(),
+                "Coordinate rename follow-up".into(),
                 None,
                 Some(Default::default()),
             )?;
@@ -4035,6 +4041,7 @@ fn reloaded_native_plan_bindings_hydrate_through_lineage_without_republishing_ru
                     execution_context: None,
                 },
                 "Reload native bindings".into(),
+                "Reload native bindings".into(),
                 None,
                 Some(Default::default()),
             )?;
@@ -4146,6 +4153,7 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
                     causation: None,
                     execution_context: None,
                 },
+                "Ship published plan hydration".into(),
                 "Ship published plan hydration".into(),
                 None,
                 Some(Default::default()),
@@ -4265,6 +4273,7 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
                     execution_context: None,
                 },
                 "Published plan should stay mutable".into(),
+                "Published plan should stay mutable".into(),
                 None,
                 Some(Default::default()),
             )?;
@@ -4312,6 +4321,7 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Persisted snapshot should remain authoritative".into(),
                 goal: "Persisted snapshot should remain authoritative".into(),
                 status: None,
                 policy: None,
@@ -4393,6 +4403,7 @@ fn repo_published_plan_state_merges_snapshot_and_published_views() {
                     execution_context: None,
                 },
                 "Published plan must exist in both runtimes".into(),
+                "Published plan must exist in both runtimes".into(),
                 None,
                 Some(Default::default()),
             )
@@ -4444,6 +4455,7 @@ fn derived_published_plan_mirrors_do_not_override_replayed_task_backed_authored_
                     causation: None,
                     execution_context: None,
                 },
+                "Keep replay authoritative".into(),
                 "Keep replay authoritative".into(),
                 None,
                 Some(Default::default()),
@@ -4536,6 +4548,7 @@ fn refresh_fs_ignores_external_derived_plan_mirror_edits_without_source_changes(
                     execution_context: None,
                 },
                 "Original authored goal".into(),
+                "Original authored goal".into(),
                 None,
                 Some(Default::default()),
             )?;
@@ -4620,6 +4633,7 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Exercise backend-neutral coordination persistence".into(),
                 goal: "Exercise backend-neutral coordination persistence".into(),
                 status: None,
                 policy: Default::default(),
@@ -4738,6 +4752,7 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Exercise incremental read-model persistence".into(),
                 goal: "Exercise incremental read-model persistence".into(),
                 status: None,
                 policy: None,
@@ -4967,6 +4982,7 @@ fn coordination_session_materializes_read_models_off_request_path() {
                     execution_context: None,
                 },
                 "Exercise async coordination materialization".into(),
+                "Exercise async coordination materialization".into(),
                 None,
                 Some(Default::default()),
             )?;
@@ -5071,6 +5087,7 @@ fn coordination_journal_recovers_after_restart_without_read_model_flush() {
                     execution_context: None,
                 },
                 "Recover coordination state from authoritative journal".into(),
+                "Recover coordination state from authoritative journal".into(),
                 None,
                 Some(Default::default()),
             )?;
@@ -5150,6 +5167,7 @@ fn authoritative_coordination_load_prefers_event_log_over_stale_snapshot_row() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Prefer event-backed continuity load".into(),
                 goal: "Prefer event-backed continuity load".into(),
                 status: None,
                 policy: Default::default(),
@@ -5399,6 +5417,7 @@ fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
                     execution_context: None,
                 },
                 "Append published plan deltas".into(),
+                "Append published plan deltas".into(),
                 None,
                 Some(Default::default()),
             )?;
@@ -5509,6 +5528,7 @@ fn regenerate_repo_published_plan_artifacts_restores_index_and_derived_log_from_
                     execution_context: None,
                 },
                 "Regenerate plan projections".into(),
+                "Regenerate plan projections".into(),
                 None,
                 Some(Default::default()),
             )
@@ -5567,6 +5587,7 @@ fn completing_last_task_appends_plan_completion_to_published_plan_log() {
                     causation: None,
                     execution_context: None,
                 },
+                "Persist derived plan completion".into(),
                 "Persist derived plan completion".into(),
                 None,
                 Some(Default::default()),
@@ -5679,6 +5700,7 @@ fn releasing_last_claim_appends_plan_completion_to_published_plan_log() {
                     causation: None,
                     execution_context: None,
                 },
+                "Persist derived plan completion after claim release".into(),
                 "Persist derived plan completion after claim release".into(),
                 None,
                 Some(Default::default()),
@@ -5850,6 +5872,7 @@ fn repo_published_plan_logs_skip_runtime_handoff_deltas() {
                     execution_context: None,
                 },
                 "Skip runtime-only handoff deltas".into(),
+                "Skip runtime-only handoff deltas".into(),
                 None,
                 Some(Default::default()),
             )?;
@@ -5953,6 +5976,7 @@ fn repo_published_plans_archive_transition_emits_archive_event_and_moves_log() {
                     execution_context: None,
                 },
                 "Archive published plan logs explicitly".into(),
+                "Archive published plan logs explicitly".into(),
                 None,
                 Some(Default::default()),
             )
@@ -5982,6 +6006,7 @@ fn repo_published_plans_archive_transition_emits_archive_event_and_moves_log() {
                     execution_context: None,
                 },
                 &plan_id,
+                None,
                 Some(prism_ir::PlanStatus::Abandoned),
                 None,
                 None,
@@ -6014,6 +6039,7 @@ fn repo_published_plans_archive_transition_emits_archive_event_and_moves_log() {
                     execution_context: None,
                 },
                 &plan_id,
+                None,
                 Some(prism_ir::PlanStatus::Archived),
                 None,
                 None,
@@ -6087,6 +6113,7 @@ fn tampered_authoritative_plan_stream_is_rejected_on_reload() {
                     causation: None,
                     execution_context: None,
                 },
+                "Signed plan goal".into(),
                 "Signed plan goal".into(),
                 None,
                 Some(Default::default()),
@@ -6412,6 +6439,7 @@ fn recovery_rebuild_from_shared_runtime_journals_without_checkpoint_flush() {
                     execution_context: None,
                 },
                 "Recover coordination from shared-runtime journal".into(),
+                "Recover coordination from shared-runtime journal".into(),
                 None,
                 Some(Default::default()),
             )
@@ -6482,6 +6510,7 @@ fn coordination_mutations_use_live_runtime_state_without_forcing_persisted_reloa
                 causation: None,
                 execution_context: None,
             },
+            "Use live runtime coordination state".into(),
             "Use live runtime coordination state".into(),
             None,
             Some(Default::default()),
@@ -7871,6 +7900,7 @@ fn workspace_session_can_disable_coordination_entirely() {
                     causation: None,
                     execution_context: None,
                 },
+                "Coordinate alpha".into(),
                 "Coordinate alpha".into(),
                 None,
                 Some(Default::default()),

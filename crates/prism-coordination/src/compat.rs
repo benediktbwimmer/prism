@@ -246,11 +246,7 @@ fn task_from_plan_node(
 }
 
 fn authored_plan_title(plan: &Plan) -> String {
-    if plan.title.is_empty() {
-        plan.goal.clone()
-    } else {
-        plan.title.clone()
-    }
+    plan.title.clone()
 }
 
 fn task_bindings(task: &CoordinationTask) -> PlanBinding {

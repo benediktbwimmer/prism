@@ -1144,7 +1144,7 @@ pub(crate) fn create_plan_mutation(
     let plan = Plan {
         id: id.clone(),
         goal: input.goal.clone(),
-        title: input.goal.clone(),
+        title: input.title.clone(),
         status: input.status.unwrap_or(PlanStatus::Active),
         policy: input.policy.unwrap_or_default(),
         scope: PlanScope::Repo,
@@ -1178,6 +1178,9 @@ pub(crate) fn update_plan_mutation(
     input: PlanUpdateInput,
 ) -> Result<Plan> {
     let mut patch = serde_json::Map::new();
+    if input.title.is_some() {
+        push_patch_op(&mut patch, "title", "set");
+    }
     if input.status.is_some() {
         push_patch_op(&mut patch, "status", "set");
     }
@@ -1193,7 +1196,9 @@ pub(crate) fn update_plan_mutation(
         .get(&input.plan_id)
         .cloned()
         .ok_or_else(|| anyhow!("unknown plan `{}`", input.plan_id.0))?;
-    if plan_status_is_closed(previous.status) && (input.goal.is_some() || input.policy.is_some()) {
+    if plan_status_is_closed(previous.status)
+        && (input.title.is_some() || input.goal.is_some() || input.policy.is_some())
+    {
         let violations = vec![policy_violation(
             PolicyViolationCode::TerminalPlanEdit,
             format!(
@@ -1262,13 +1267,14 @@ pub(crate) fn update_plan_mutation(
         .plans
         .get_mut(&input.plan_id)
         .expect("plan validated above");
+    let update_title = input.title.is_some();
     let update_goal = input.goal.is_some();
     let update_status = input.status.is_some();
     let update_policy = input.policy.is_some();
+    if let Some(title) = input.title {
+        plan.title = title;
+    }
     if let Some(goal) = input.goal {
-        if plan.title.is_empty() || plan.title == plan.goal {
-            plan.title = goal.clone();
-        }
         plan.goal = goal;
     }
     if let Some(status) = input.status {
@@ -1291,6 +1297,9 @@ pub(crate) fn update_plan_mutation(
         metadata.insert("patch".to_string(), patch);
     }
     let mut patch_values = serde_json::Map::new();
+    if update_title {
+        insert_serialized(&mut patch_values, "title", plan.title.clone());
+    }
     if update_goal {
         insert_serialized(&mut patch_values, "goal", plan.goal.clone());
     }

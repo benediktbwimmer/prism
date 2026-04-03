@@ -189,16 +189,19 @@ pub fn rehydrate_coordination_snapshot(mut snapshot: CoordinationSnapshot) -> Co
 
 fn apply_plan_patch(plan: &mut Plan, metadata: &Value) {
     if !patch_is_set(metadata, "goal")
+        && !patch_is_set(metadata, "title")
         && !patch_is_set(metadata, "status")
         && !patch_is_set(metadata, "policy")
     {
         return;
     }
+    if patch_is_set(metadata, "title") {
+        if let Some(title) = metadata_path::<String>(metadata, &["patchValues", "title"]) {
+            plan.title = title;
+        }
+    }
     if patch_is_set(metadata, "goal") {
         if let Some(goal) = metadata_path::<String>(metadata, &["patchValues", "goal"]) {
-            if plan.title.is_empty() || plan.title == plan.goal {
-                plan.title = goal.clone();
-            }
             plan.goal = goal;
         }
     }

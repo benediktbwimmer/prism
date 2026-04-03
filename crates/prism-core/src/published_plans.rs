@@ -1155,7 +1155,7 @@ fn legacy_header_from_plan(plan: &Plan) -> PublishedPlanHeader {
         id: plan.id.clone(),
         scope: prism_ir::PlanScope::Repo,
         kind: prism_ir::PlanKind::TaskExecution,
-        title: plan.goal.clone(),
+        title: plan.title.clone(),
         goal: plan.goal.clone(),
         status: plan.status,
         revision: 0,

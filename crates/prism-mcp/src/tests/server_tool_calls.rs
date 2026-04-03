@@ -357,7 +357,8 @@ fn prism_mutate_coordination_rejects_missing_typed_payload_fields() {
     .expect_err("missing typed payload fields should fail");
 
     let message = error.to_string();
-    assert!(message.contains("goal"), "{message}");
+    assert!(message.contains("title"), "{message}");
+    assert!(message.contains("required field"), "{message}");
 }
 
 #[tokio::test]
@@ -448,7 +449,7 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
                 "credential": mutation_credential_json(&credential),
                 "input": {
                     "kind": "plan_create",
-                    "payload": { "goal": "Coordinate the main edit" }
+                    "payload": { "title": "Coordinate the main edit", "goal": "Coordinate the main edit" }
                 }
             })
             .as_object()
@@ -750,8 +751,7 @@ async fn mcp_server_rejects_prism_mutate_when_capability_is_denied() {
                 "credential": worker_credential,
                 "input": {
                     "kind": "plan_create",
-                    "payload": {
-                        "goal": "Try a coordination write with repo-memory-only capabilities"
+                    "payload": { "title": "Try a coordination write with repo-memory-only capabilities", "goal": "Try a coordination write with repo-memory-only capabilities"
                     }
                 }
             })

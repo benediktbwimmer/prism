@@ -67,11 +67,7 @@ impl QueryHostUiReadModelsExt for QueryHost {
                     .collect::<Vec<_>>();
                 Some(OverviewPlanSpotlightView {
                     plan_id: plan.id.0.to_string(),
-                    title: if plan.title.trim().is_empty() {
-                        plan.goal.clone()
-                    } else {
-                        plan.title.clone()
-                    },
+                    title: plan.title.clone(),
                     goal: plan.goal,
                     summary: plan_summary_view(summary),
                     next_nodes,

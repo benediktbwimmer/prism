@@ -151,11 +151,7 @@ fn coordination_audit_since(prism: &Prism, before_len: usize) -> CoordinationAud
 }
 
 fn coordination_plan_title(plan: &prism_coordination::Plan) -> String {
-    if plan.title.trim().is_empty() {
-        plan.goal.clone()
-    } else {
-        plan.title.clone()
-    }
+    plan.title.clone()
 }
 
 fn plan_title_for(prism: &Prism, plan_id: &str) -> Option<String> {
@@ -2128,6 +2124,7 @@ impl QueryHost {
                 let payload: crate::PlanCreatePayload = serde_json::from_value(args.payload)?;
                 let plan_id = prism.create_native_plan(
                     meta,
+                    payload.title,
                     payload.goal,
                     payload.status.map(convert_plan_status),
                     convert_policy(payload.policy)?,
@@ -2152,6 +2149,7 @@ impl QueryHost {
                 prism.update_native_plan(
                     meta,
                     &plan_id,
+                    payload.title,
                     payload.status.map(convert_plan_status),
                     payload.goal,
                     convert_policy(payload.policy)?,
@@ -2176,6 +2174,7 @@ impl QueryHost {
                 prism.update_native_plan(
                     meta,
                     &plan_id,
+                    None,
                     Some(prism_ir::PlanStatus::Archived),
                     None,
                     None,

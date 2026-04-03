@@ -58,6 +58,7 @@ fn claim_conflicts_block_hard_exclusive_overlap() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Ship coordination".to_string(),
                 goal: "Ship coordination".to_string(),
                 status: None,
                 policy: None,
@@ -147,6 +148,7 @@ fn expired_task_requires_resume_for_same_principal() {
         .create_plan(
             principal_meta("event:plan", 1, "local", "agent:a", "session:a"),
             PlanCreateInput {
+                title: "Resume expired task".to_string(),
                 goal: "Resume expired task".to_string(),
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
@@ -263,6 +265,7 @@ fn stale_task_requires_reclaim_for_different_principal() {
         .create_plan(
             principal_meta("event:plan", 1, "local", "agent:a", "session:a"),
             PlanCreateInput {
+                title: "Reclaim stale task".to_string(),
                 goal: "Reclaim stale task".to_string(),
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
@@ -347,6 +350,7 @@ fn expired_claim_can_be_renewed_by_same_principal() {
         .create_plan(
             principal_meta("event:plan", 1, "local", "agent:a", "session:a"),
             PlanCreateInput {
+                title: "Renew expired claim".to_string(),
                 goal: "Renew expired claim".to_string(),
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
@@ -410,6 +414,7 @@ fn stale_claim_no_longer_blocks_new_acquire() {
         .create_plan(
             principal_meta("event:plan", 1, "local", "agent:a", "session:a"),
             PlanCreateInput {
+                title: "Allow takeover after stale claim".to_string(),
                 goal: "Allow takeover after stale claim".to_string(),
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
@@ -481,6 +486,7 @@ fn review_policy_gates_completion_but_not_ready_work() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Ship reviewed change".to_string(),
                 goal: "Ship reviewed change".to_string(),
                 status: None,
                 policy: Some(CoordinationPolicy {
@@ -642,6 +648,7 @@ fn incremental_coordination_read_model_matches_snapshot_rebuild() {
         .create_plan(
             meta("event:plan", 1),
             PlanCreateInput {
+                title: "Ship reviewed change".to_string(),
                 goal: "Ship reviewed change".to_string(),
                 status: None,
                 policy: Some(CoordinationPolicy {
@@ -786,6 +793,7 @@ fn incremental_coordination_queue_read_model_matches_snapshot_rebuild() {
         .create_plan(
             meta("event:plan", 1),
             PlanCreateInput {
+                title: "Ship handoff".to_string(),
                 goal: "Ship handoff".to_string(),
                 status: None,
                 policy: None,
@@ -894,6 +902,7 @@ fn edit_capacity_limit_blocks_extra_claims() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Serialize edits".to_string(),
                 goal: "Serialize edits".to_string(),
                 status: None,
                 policy: Some(CoordinationPolicy {
@@ -989,6 +998,7 @@ fn approving_stale_artifact_is_rejected() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Catch stale approvals".to_string(),
                 goal: "Catch stale approvals".to_string(),
                 status: None,
                 policy: Some(CoordinationPolicy {
@@ -1070,6 +1080,7 @@ fn validation_policy_requires_approved_artifact_checks() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Validate risky change".to_string(),
                 goal: "Validate risky change".to_string(),
                 status: None,
                 policy: Some(CoordinationPolicy {
@@ -1208,6 +1219,7 @@ fn risk_threshold_requires_review_before_completion() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Risky edit".to_string(),
                 goal: "Risky edit".to_string(),
                 status: None,
                 policy: Some(CoordinationPolicy {
@@ -1282,6 +1294,7 @@ fn plan_graph_compat_preserves_task_ids_and_dependency_edges() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Project coordination into a plan graph".to_string(),
                 goal: "Project coordination into a plan graph".to_string(),
                 status: None,
                 policy: None,
@@ -1355,6 +1368,7 @@ fn plan_graph_execution_overlays_keep_runtime_state_outside_canonical_nodes() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Separate runtime execution overlay".to_string(),
                 goal: "Separate runtime execution overlay".to_string(),
                 status: None,
                 policy: None,
@@ -1424,6 +1438,7 @@ fn invalid_task_transition_is_rejected() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Enforce task lifecycle".to_string(),
                 goal: "Enforce task lifecycle".to_string(),
                 status: None,
                 policy: None,
@@ -1498,6 +1513,7 @@ fn stale_claim_and_artifact_mutations_are_rejected() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Reject stale writes".to_string(),
                 goal: "Reject stale writes".to_string(),
                 status: None,
                 policy: Some(CoordinationPolicy {
@@ -1593,6 +1609,7 @@ fn plan_completion_requires_terminal_tasks_and_no_active_claims() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Close coordinated work".to_string(),
                 goal: "Close coordinated work".to_string(),
                 status: None,
                 policy: None,
@@ -1650,6 +1667,7 @@ fn plan_completion_requires_terminal_tasks_and_no_active_claims() {
             meta("event:4", 4),
             PlanUpdateInput {
                 plan_id: plan_id.clone(),
+                title: None,
                 status: Some(prism_ir::PlanStatus::Completed),
                 goal: None,
                 policy: None,
@@ -1721,6 +1739,7 @@ fn plan_completion_requires_terminal_tasks_and_no_active_claims() {
             meta("event:7", 7),
             PlanUpdateInput {
                 plan_id,
+                title: None,
                 status: Some(prism_ir::PlanStatus::Completed),
                 goal: None,
                 policy: None,
@@ -1737,6 +1756,7 @@ fn completing_last_task_auto_completes_task_execution_plan() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Close execution plan automatically".to_string(),
                 goal: "Close execution plan automatically".to_string(),
                 status: None,
                 policy: None,
@@ -1811,6 +1831,7 @@ fn completing_one_of_multiple_tasks_keeps_plan_active() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Only close after every task is done".to_string(),
                 goal: "Only close after every task is done".to_string(),
                 status: None,
                 policy: None,
@@ -1900,6 +1921,7 @@ fn releasing_last_active_claim_auto_completes_plan() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Close after claim release".to_string(),
                 goal: "Close after claim release".to_string(),
                 status: None,
                 policy: None,
@@ -2005,6 +2027,7 @@ fn closed_plan_rejects_new_task_and_records_violation() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Archive repo work".to_string(),
                 goal: "Archive repo work".to_string(),
                 status: None,
                 policy: None,
@@ -2016,6 +2039,7 @@ fn closed_plan_rejects_new_task_and_records_violation() {
             meta("event:2", 2),
             PlanUpdateInput {
                 plan_id: plan_id.clone(),
+                title: None,
                 status: Some(prism_ir::PlanStatus::Abandoned),
                 goal: None,
                 policy: None,
@@ -2063,6 +2087,7 @@ fn archived_plan_transition_requires_terminal_status_and_stays_closed() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Archive repo work".to_string(),
                 goal: "Archive repo work".to_string(),
                 status: None,
                 policy: None,
@@ -2075,6 +2100,7 @@ fn archived_plan_transition_requires_terminal_status_and_stays_closed() {
             meta("event:2", 2),
             PlanUpdateInput {
                 plan_id: plan_id.clone(),
+                title: None,
                 status: Some(prism_ir::PlanStatus::Archived),
                 goal: None,
                 policy: None,
@@ -2090,6 +2116,7 @@ fn archived_plan_transition_requires_terminal_status_and_stays_closed() {
             meta("event:3", 3),
             PlanUpdateInput {
                 plan_id: plan_id.clone(),
+                title: None,
                 status: Some(prism_ir::PlanStatus::Abandoned),
                 goal: None,
                 policy: None,
@@ -2103,6 +2130,7 @@ fn archived_plan_transition_requires_terminal_status_and_stays_closed() {
             meta("event:4", 4),
             PlanUpdateInput {
                 plan_id: plan_id.clone(),
+                title: None,
                 status: Some(prism_ir::PlanStatus::Archived),
                 goal: None,
                 policy: None,
@@ -2148,6 +2176,7 @@ fn plan_update_events_record_patch_metadata() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Original title".to_string(),
                 goal: "Original goal".to_string(),
                 status: Some(prism_ir::PlanStatus::Draft),
                 policy: None,
@@ -2159,7 +2188,8 @@ fn plan_update_events_record_patch_metadata() {
         .update_plan(
             meta("event:2", 2),
             PlanUpdateInput {
-                plan_id,
+                plan_id: plan_id.clone(),
+                title: Some("Refined title".to_string()),
                 status: Some(prism_ir::PlanStatus::Active),
                 goal: Some("Refined goal".to_string()),
                 policy: None,
@@ -2167,12 +2197,19 @@ fn plan_update_events_record_patch_metadata() {
         )
         .unwrap();
 
+    let updated = store.plan(&plan_id).unwrap();
+    assert_eq!(updated.title, "Refined title");
+    assert_eq!(updated.goal, "Refined goal");
+
     let event = store.events().last().unwrap().clone();
     assert_eq!(event.kind, prism_ir::CoordinationEventKind::PlanUpdated);
     assert_eq!(event.metadata["status"], "Active");
     assert_eq!(event.metadata["previousStatus"], "Draft");
+    assert_eq!(event.metadata["patch"]["title"], "set");
     assert_eq!(event.metadata["patch"]["status"], "set");
     assert_eq!(event.metadata["patch"]["goal"], "set");
+    assert_eq!(event.metadata["patchValues"]["title"], "Refined title");
+    assert_eq!(event.metadata["patchValues"]["goal"], "Refined goal");
     assert!(event.metadata["patch"].get("policy").is_none());
 }
 
@@ -2183,6 +2220,7 @@ fn draft_plan_hides_ready_work_until_activation() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Stage a coordinated rollout".to_string(),
                 goal: "Stage a coordinated rollout".to_string(),
                 status: Some(prism_ir::PlanStatus::Draft),
                 policy: None,
@@ -2229,6 +2267,7 @@ fn draft_plan_hides_ready_work_until_activation() {
             meta("event:3", 3),
             PlanUpdateInput {
                 plan_id: plan_id.clone(),
+                title: None,
                 status: Some(prism_ir::PlanStatus::Active),
                 goal: None,
                 policy: None,
@@ -2258,6 +2297,7 @@ fn task_update_events_record_sparse_patch_metadata() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Track task patches".to_string(),
                 goal: "Track task patches".to_string(),
                 status: None,
                 policy: None,
@@ -2340,6 +2380,7 @@ fn snapshot_load_replays_plan_and_task_patch_events() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Original goal".to_string(),
                 goal: "Original goal".to_string(),
                 status: Some(prism_ir::PlanStatus::Draft),
                 policy: None,
@@ -2351,6 +2392,7 @@ fn snapshot_load_replays_plan_and_task_patch_events() {
             meta("event:2", 2),
             PlanUpdateInput {
                 plan_id: plan_id.clone(),
+                title: None,
                 status: Some(prism_ir::PlanStatus::Active),
                 goal: Some("Refined goal".to_string()),
                 policy: None,
@@ -2473,6 +2515,7 @@ fn snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata() 
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Original goal".to_string(),
                 goal: "Original goal".to_string(),
                 status: Some(prism_ir::PlanStatus::Draft),
                 policy: None,
@@ -2484,6 +2527,7 @@ fn snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata() 
             meta("event:2", 2),
             PlanUpdateInput {
                 plan_id: plan_id.clone(),
+                title: None,
                 status: Some(prism_ir::PlanStatus::Active),
                 goal: Some("Refined goal".to_string()),
                 policy: None,
@@ -2692,6 +2736,7 @@ fn snapshot_load_replays_handoff_events() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Handle handoffs".to_string(),
                 goal: "Handle handoffs".to_string(),
                 status: None,
                 policy: None,
@@ -2775,6 +2820,7 @@ fn snapshot_replay_reconstructs_continuity_state_from_events() {
         .create_plan(
             meta("event:plan", 1),
             PlanCreateInput {
+                title: "Replay continuity events".to_string(),
                 goal: "Replay continuity events".to_string(),
                 status: None,
                 policy: None,
@@ -2882,6 +2928,7 @@ fn handoff_acceptance_blocks_updates_until_target_accepts() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Transfer alpha safely".to_string(),
                 goal: "Transfer alpha safely".to_string(),
                 status: None,
                 policy: None,
@@ -3143,6 +3190,7 @@ fn claim_ownership_is_enforced_and_audited() {
         .create_plan(
             meta("event:1", 1),
             PlanCreateInput {
+                title: "Protect claim ownership".to_string(),
                 goal: "Protect claim ownership".to_string(),
                 status: None,
                 policy: None,
@@ -3243,6 +3291,7 @@ fn heartbeat_task_refreshes_active_lease_for_same_principal() {
         .create_plan(
             principal_meta("event:plan", 1, "local", "agent:a", "session:a"),
             PlanCreateInput {
+                title: "Refresh task lease".to_string(),
                 goal: "Refresh task lease".to_string(),
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,
@@ -3291,6 +3340,7 @@ fn stale_task_heartbeat_requires_resume() {
         .create_plan(
             principal_meta("event:plan", 1, "local", "agent:a", "session:a"),
             PlanCreateInput {
+                title: "Reject stale task heartbeat".to_string(),
                 goal: "Reject stale task heartbeat".to_string(),
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: None,

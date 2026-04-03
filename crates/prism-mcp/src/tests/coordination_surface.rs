@@ -54,8 +54,7 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
                 "credential": mutation_credential_json(&credential),
                 "input": {
                     "kind": "plan_create",
-                    "payload": {
-                        "goal": "Review-gated change",
+                    "payload": { "title": "Review-gated change", "goal": "Review-gated change",
                         "policy": { "requireReviewForCompletion": true }
                     }
                 }
@@ -190,8 +189,7 @@ fn coordination_resume_mutation_dispatches_through_authenticated_host() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "goal": "Resume stale task",
+                payload: json!({ "title": "Resume stale task", "goal": "Resume stale task",
                     "status": "active"
                 }),
                 task_id: None,
@@ -252,8 +250,7 @@ fn coordination_workflow_helpers_summarize_inbox_context_and_claim_preview() {
             test_session(&writer).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "goal": "Coordinate alpha",
+                payload: json!({ "title": "Coordinate alpha", "goal": "Coordinate alpha",
                     "policy": {
                         "requireReviewForCompletion": true,
                         "maxParallelEditorsPerAnchor": 1
@@ -435,8 +432,7 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
             test_session(&host_a).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "goal": "Coordinate alpha across sessions",
+                payload: json!({ "title": "Coordinate alpha across sessions", "goal": "Coordinate alpha across sessions",
                     "policy": {
                         "requireReviewForCompletion": true,
                         "maxParallelEditorsPerAnchor": 1

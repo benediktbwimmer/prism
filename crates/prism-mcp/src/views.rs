@@ -1280,11 +1280,7 @@ pub(crate) fn plan_view(
 ) -> PlanView {
     PlanView {
         id: value.id.0.to_string(),
-        title: if value.title.trim().is_empty() {
-            value.goal.clone()
-        } else {
-            value.title
-        },
+        title: value.title,
         goal: value.goal,
         status: value.status,
         scope: value.scope,

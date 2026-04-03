@@ -323,6 +323,7 @@ pub struct CoordinationSnapshot {
 
 #[derive(Debug, Clone)]
 pub struct PlanCreateInput {
+    pub title: String,
     pub goal: String,
     pub status: Option<PlanStatus>,
     pub policy: Option<CoordinationPolicy>,
@@ -331,6 +332,7 @@ pub struct PlanCreateInput {
 #[derive(Debug, Clone)]
 pub struct PlanUpdateInput {
     pub plan_id: PlanId,
+    pub title: Option<String>,
     pub status: Option<PlanStatus>,
     pub goal: Option<String>,
     pub policy: Option<CoordinationPolicy>,

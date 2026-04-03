@@ -1501,6 +1501,7 @@ mod tests {
                     Some("credential:explicit"),
                 ),
                 PlanCreateInput {
+                    title: "Watcher auto heartbeat".to_string(),
                     goal: "Watcher auto heartbeat".to_string(),
                     status: Some(prism_ir::PlanStatus::Active),
                     policy: Some(CoordinationPolicy {
@@ -1592,6 +1593,7 @@ mod tests {
                     Some("credential:explicit"),
                 ),
                 PlanCreateInput {
+                    title: "Watcher skip on ambiguity".to_string(),
                     goal: "Watcher skip on ambiguity".to_string(),
                     status: Some(prism_ir::PlanStatus::Active),
                     policy: Some(CoordinationPolicy {

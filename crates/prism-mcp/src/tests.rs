@@ -97,7 +97,7 @@ fn coordination_mutations_flow_through_query_runtime() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Ship coordination" }),
+                payload: json!({ "title": "Ship coordination", "goal": "Ship coordination" }),
                 task_id: None,
             },
         )
@@ -218,7 +218,7 @@ fn query_runtime_exposes_ad_hoc_plan_projection_views() {
             session.as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Inspect projection history" }),
+                payload: json!({ "title": "Inspect projection history", "goal": "Inspect projection history" }),
                 task_id: None,
             },
         )
@@ -287,7 +287,7 @@ fn plan_node_mutations_return_graph_native_views() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Ship first-class plans" }),
+                payload: json!({ "title": "Ship first-class plans", "goal": "Ship first-class plans" }),
                 task_id: None,
             },
         )
@@ -581,8 +581,7 @@ fn native_plan_node_completion_rejects_missing_review_and_validation() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "goal": "Require completion evidence",
+                payload: json!({ "title": "Require completion evidence", "goal": "Require completion evidence",
                     "policy": { "requireReviewForCompletion": true }
                 }),
                 task_id: None,
@@ -790,8 +789,7 @@ fn coordination_update_routes_plain_ids_to_coordination_tasks() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "goal": "Unify workflow updates"
+                payload: json!({ "title": "Unify workflow updates", "goal": "Unify workflow updates"
                 }),
                 task_id: None,
             },
@@ -843,8 +841,7 @@ fn coordination_update_routes_shared_fields_for_task_backed_ids_through_coordina
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "goal": "Unify workflow updates"
+                payload: json!({ "title": "Unify workflow updates", "goal": "Unify workflow updates"
                 }),
                 task_id: None,
             },
@@ -904,8 +901,7 @@ fn native_plan_node_completion_accepts_current_task_validation_events_without_an
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "goal": "Require validation evidence",
+                payload: json!({ "title": "Require validation evidence", "goal": "Require validation evidence",
                     "policy": { "requireValidationForCompletion": true }
                 }),
                 task_id: None,
@@ -1039,7 +1035,7 @@ fn plan_edge_mutations_update_projected_dependency_graph() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Shape execution edges" }),
+                payload: json!({ "title": "Shape execution edges", "goal": "Shape execution edges" }),
                 task_id: None,
             },
         )
@@ -1142,7 +1138,7 @@ fn plan_edge_mutations_support_non_dependency_edge_kinds() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Shape native graph edges" }),
+                payload: json!({ "title": "Shape native graph edges", "goal": "Shape native graph edges" }),
                 task_id: None,
             },
         )
@@ -1241,7 +1237,7 @@ fn plan_edge_mutations_enforce_native_edge_semantics() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Enforce edge semantics" }),
+                payload: json!({ "title": "Enforce edge semantics", "goal": "Enforce edge semantics" }),
                 task_id: None,
             },
         )
@@ -1363,7 +1359,7 @@ fn plan_node_mutations_reject_runtime_only_binding_handles() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Reject runtime binding handles" }),
+                payload: json!({ "title": "Reject runtime binding handles", "goal": "Reject runtime binding handles" }),
                 task_id: None,
             },
         )
@@ -1400,7 +1396,7 @@ fn plan_node_mutations_reject_missing_published_binding_refs() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Reject missing published plan refs" }),
+                payload: json!({ "title": "Reject missing published plan refs", "goal": "Reject missing published plan refs" }),
                 task_id: None,
             },
         )
@@ -1435,7 +1431,7 @@ fn plan_query_reads_surface_native_ready_nodes_and_blockers() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Read native plan runtime semantics" }),
+                payload: json!({ "title": "Read native plan runtime semantics", "goal": "Read native plan runtime semantics" }),
                 task_id: None,
             },
         )
@@ -1754,7 +1750,7 @@ fn plan_query_reads_surface_child_hierarchy_completion_gates() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Read hierarchy completion semantics" }),
+                payload: json!({ "title": "Read hierarchy completion semantics", "goal": "Read hierarchy completion semantics" }),
                 task_id: None,
             },
         )
@@ -1860,8 +1856,7 @@ fn mcp_returns_structured_coordination_rejections_and_persists_them() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "goal": "Ship reviewed change",
+                payload: json!({ "title": "Ship reviewed change", "goal": "Ship reviewed change",
                     "policy": { "requireReviewForCompletion": true }
                 }),
                 task_id: None,
@@ -1931,8 +1926,7 @@ fn mcp_exposes_policy_violations_through_prism_query() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "goal": "Ship reviewed change",
+                payload: json!({ "title": "Ship reviewed change", "goal": "Ship reviewed change",
                     "policy": { "requireReviewForCompletion": true }
                 }),
                 task_id: None,
@@ -2038,7 +2032,7 @@ fn configure_session_binds_current_agent_and_task_create_inherits_it() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Bind agent identity" }),
+                payload: json!({ "title": "Bind agent identity", "goal": "Bind agent identity" }),
                 task_id: None,
             },
         )
@@ -2074,7 +2068,7 @@ fn configure_session_can_bind_coordination_task_without_current_task_id() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Bind a coordination task into session state" }),
+                payload: json!({ "title": "Bind a coordination task into session state", "goal": "Bind a coordination task into session state" }),
                 task_id: None,
             },
         )
@@ -2128,7 +2122,7 @@ fn plan_edge_mutations_reject_invalid_scheduling_graphs() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Reject invalid native graph edges" }),
+                payload: json!({ "title": "Reject invalid native graph edges", "goal": "Reject invalid native graph edges" }),
                 task_id: None,
             },
         )
@@ -2227,7 +2221,7 @@ fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Single pass coordination" }),
+                payload: json!({ "title": "Single pass coordination", "goal": "Single pass coordination" }),
                 task_id: None,
             },
         )
@@ -2353,6 +2347,7 @@ fn mcp_plan_update_rehydrates_stale_coordination_runtime_before_mutating() {
                     execution_context: None,
                 },
                 "Mutation should rehydrate current published plans".into(),
+                "Mutation should rehydrate current published plans".into(),
                 None,
                 Some(Default::default()),
             )
@@ -2412,7 +2407,7 @@ fn mcp_plan_update_accepts_archived_status_and_archived_plan_rejects_new_claims(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Archive repo work" }),
+                payload: json!({ "title": "Archive repo work", "goal": "Archive repo work" }),
                 task_id: None,
             },
         )
@@ -2514,7 +2509,7 @@ fn mcp_plan_archive_archives_abandoned_plan_via_explicit_mutation_kind() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Archive explicitly" }),
+                payload: json!({ "title": "Archive explicitly", "goal": "Archive explicitly" }),
                 task_id: None,
             },
         )
@@ -2605,7 +2600,7 @@ fn drift_candidates_and_task_intent_flow_through_prism_query_reads() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Coordinate request handling" }),
+                payload: json!({ "title": "Coordinate request handling", "goal": "Coordinate request handling" }),
                 task_id: None,
             },
         )
@@ -4233,8 +4228,7 @@ fn validation_plan_accepts_native_plan_node_task_ids() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "goal": "Validate native milestone",
+                payload: json!({ "title": "Validate native milestone", "goal": "Validate native milestone",
                     "policy": { "requireValidationForCompletion": true }
                 }),
                 task_id: None,
@@ -4332,8 +4326,7 @@ fn task_surfaces_accept_native_plan_node_task_ids() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "goal": "Route native task-shaped queries",
+                payload: json!({ "title": "Route native task-shaped queries", "goal": "Route native task-shaped queries",
                     "policy": {
                         "requireValidationForCompletion": true,
                         "reviewRequiredAboveRiskScore": 0.0
@@ -4456,8 +4449,7 @@ fn task_backed_query_surfaces_follow_published_plan_validation_fields() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "goal": "Keep task-backed query surfaces published-owned",
+                payload: json!({ "title": "Keep task-backed query surfaces published-owned", "goal": "Keep task-backed query surfaces published-owned",
                     "policy": {
                         "requireValidationForCompletion": true
                     }
@@ -4885,7 +4877,7 @@ fn promoted_curator_knowledge_feeds_validation_and_risk_queries() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Change alpha safely" }),
+                payload: json!({ "title": "Change alpha safely", "goal": "Change alpha safely" }),
                 task_id: None,
             },
         )
@@ -5862,8 +5854,7 @@ fn coordination_status_errors_are_self_repairing() {
             session.as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "goal": "Self-repairing coordination validation"
+                payload: json!({ "title": "Self-repairing coordination validation", "goal": "Self-repairing coordination validation"
                 }),
                 task_id: None,
             },
@@ -6102,7 +6093,7 @@ pub fn alpha_handler() {}
             session.as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Scope alpha work" }),
+                payload: json!({ "title": "Scope alpha work", "goal": "Scope alpha work" }),
                 task_id: None,
             },
         )
@@ -6303,7 +6294,7 @@ pub fn runtime_validation() {}
             session.as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Route runtime validation work" }),
+                payload: json!({ "title": "Route runtime validation work", "goal": "Route runtime validation work" }),
                 task_id: None,
             },
         )
@@ -9858,7 +9849,7 @@ pub fn other_memory() {}
             session.as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Scope memory work" }),
+                payload: json!({ "title": "Scope memory work", "goal": "Scope memory work" }),
                 task_id: None,
             },
         )
@@ -10620,8 +10611,7 @@ fn compact_task_brief_summarizes_coordination_outcomes_and_next_reads() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "goal": "Coordinate alpha",
+                payload: json!({ "title": "Coordinate alpha", "goal": "Coordinate alpha",
                     "policy": { "requireReviewForCompletion": true }
                 }),
                 task_id: None,
@@ -10821,6 +10811,7 @@ fn compact_task_brief_prefers_refresh_for_stale_current_task() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Refresh stale task".into(),
                 goal: "Refresh stale task".into(),
                 status: None,
                 policy: Some(CoordinationPolicy {
@@ -10921,6 +10912,7 @@ fn compact_task_brief_prioritizes_heartbeat_instruction_when_lease_is_due() {
         .create_plan(
             meta.clone(),
             PlanCreateInput {
+                title: "Heartbeat due task brief".into(),
                 goal: "Heartbeat due task brief".into(),
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: Some(CoordinationPolicy {
@@ -10986,8 +10978,7 @@ fn compact_task_brief_accepts_native_plan_node_current_task_ids() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "goal": "Track a native milestone node",
+                payload: json!({ "title": "Track a native milestone node", "goal": "Track a native milestone node",
                     "policy": { "requireValidationForCompletion": true }
                 }),
                 task_id: None,
@@ -11083,8 +11074,7 @@ fn compact_task_brief_trace_exposes_subject_replay_and_next_read_phases() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "goal": "Trace compact task brief",
+                payload: json!({ "title": "Trace compact task brief", "goal": "Trace compact task brief",
                 }),
                 task_id: None,
             },
@@ -11711,7 +11701,7 @@ async fn mcp_server_executes_prism_task_brief_round_trip() {
             test_session(&server.host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Coordinate main" }),
+                payload: json!({ "title": "Coordinate main", "goal": "Coordinate main" }),
                 task_id: None,
             },
         )
@@ -12373,7 +12363,7 @@ fn restart_restores_coordination_task_binding_when_declared_work_exists() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Persist coordination focus across restart" }),
+                payload: json!({ "title": "Persist coordination focus across restart", "goal": "Persist coordination focus across restart" }),
                 task_id: None,
             },
         )
@@ -12721,7 +12711,7 @@ fn declare_delegated_work_inherits_parent_context_and_task_creation_binds_it() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Ship delegated work inheritance" }),
+                payload: json!({ "title": "Ship delegated work inheritance", "goal": "Ship delegated work inheritance" }),
                 task_id: None,
             },
         )
@@ -13475,7 +13465,7 @@ fn coordination_mutation_trace_records_persistence_subphases() {
                     test_session(&server.host).as_ref(),
                     PrismCoordinationArgs {
                         kind: CoordinationMutationKindInput::PlanCreate,
-                        payload: json!({ "goal": "Trace coordination persistence" }),
+                        payload: json!({ "title": "Trace coordination persistence", "goal": "Trace coordination persistence" }),
                         task_id: None,
                     },
                     run,
@@ -17123,7 +17113,7 @@ fn authenticated_outcome_mutation_records_coordination_work_context_snapshot() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Ship work context snapshots" }),
+                payload: json!({ "title": "Ship work context snapshots", "goal": "Ship work context snapshots" }),
                 task_id: None,
             },
         )
@@ -17226,7 +17216,7 @@ fn authenticated_coordination_mutation_records_declared_work_context_snapshot() 
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Ship declared work provenance" }),
+                payload: json!({ "title": "Ship declared work provenance", "goal": "Ship declared work provenance" }),
                 task_id: None,
             },
             &run,
@@ -17303,7 +17293,7 @@ fn authenticated_plan_create_rebinds_current_work_plan_context() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Ship plan rebinding" }),
+                payload: json!({ "title": "Ship plan rebinding", "goal": "Ship plan rebinding" }),
                 task_id: None,
             },
             &run,
@@ -17344,7 +17334,7 @@ fn authenticated_claim_mutation_preserves_declared_work_context_chain() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Ship claim provenance" }),
+                payload: json!({ "title": "Ship claim provenance", "goal": "Ship claim provenance" }),
                 task_id: None,
             },
         )
@@ -17462,7 +17452,7 @@ fn authenticated_artifact_mutation_preserves_declared_work_context_chain() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Ship artifact provenance" }),
+                payload: json!({ "title": "Ship artifact provenance", "goal": "Ship artifact provenance" }),
                 task_id: None,
             },
         )
@@ -18238,7 +18228,7 @@ fn coordination_mutations_wait_for_runtime_sync_and_then_succeed() {
                     test_session(&server.host).as_ref(),
                     PrismCoordinationArgs {
                         kind: CoordinationMutationKindInput::PlanCreate,
-                        payload: json!({ "goal": "Fail fast when runtime sync is busy" }),
+                        payload: json!({ "title": "Fail fast when runtime sync is busy", "goal": "Fail fast when runtime sync is busy" }),
                         task_id: None,
                     },
                     run,
@@ -18296,7 +18286,7 @@ fn claim_mutations_queue_runtime_refresh_instead_of_returning_busy() {
             test_session(&server.host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Claim admission busy coverage" }),
+                payload: json!({ "title": "Claim admission busy coverage", "goal": "Claim admission busy coverage" }),
                 task_id: None,
             },
         )
@@ -18656,7 +18646,7 @@ pub fn runtime_status() {}
             session.as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Track scoped runtime overlays" }),
+                payload: json!({ "title": "Track scoped runtime overlays", "goal": "Track scoped runtime overlays" }),
                 task_id: None,
             },
         )
@@ -19156,7 +19146,7 @@ pub mod beta;
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Investigate helper collision" }),
+                payload: json!({ "title": "Investigate helper collision", "goal": "Investigate helper collision" }),
                 task_id: None,
             },
         )
@@ -20577,7 +20567,7 @@ fn plans_resource_payload_surfaces_filters_and_root_nodes() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Migrate persistence storage semantics" }),
+                payload: json!({ "title": "Migrate persistence storage semantics", "goal": "Migrate persistence storage semantics" }),
                 task_id: None,
             },
         )
@@ -20629,7 +20619,7 @@ fn plans_resource_contains_filter_matches_singular_and_plural_terms() {
         test_session(&host).as_ref(),
         PrismCoordinationArgs {
             kind: CoordinationMutationKindInput::PlanCreate,
-            payload: json!({ "goal": "Burn down the last refresh bottleneck" }),
+            payload: json!({ "title": "Burn down the last refresh bottleneck", "goal": "Burn down the last refresh bottleneck" }),
             task_id: None,
         },
     )
@@ -20659,7 +20649,7 @@ fn plan_resource_payload_surfaces_detail_summary_and_navigation_links() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Migrate persistence storage semantics" }),
+                payload: json!({ "title": "Migrate persistence storage semantics", "goal": "Migrate persistence storage semantics" }),
                 task_id: None,
             },
         )
@@ -21261,7 +21251,7 @@ fn start_task_can_bind_directly_to_coordination_task() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Dogfood coordination task session binding" }),
+                payload: json!({ "title": "Dogfood coordination task session binding", "goal": "Dogfood coordination task session binding" }),
                 task_id: None,
             },
         )
@@ -21421,6 +21411,7 @@ fn session_resource_surfaces_stale_current_task_context() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Refresh stale task".into(),
                 goal: "Refresh stale task".into(),
                 status: None,
                 policy: Some(CoordinationPolicy {
@@ -21553,6 +21544,7 @@ fn session_resource_derives_coordination_binding_from_coord_task_id_for_stale_re
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Refresh stale task".into(),
                 goal: "Refresh stale task".into(),
                 status: None,
                 policy: Some(CoordinationPolicy {
@@ -21655,6 +21647,7 @@ fn session_resource_prioritizes_heartbeat_instruction_when_lease_is_due() {
         .create_plan(
             meta.clone(),
             PlanCreateInput {
+                title: "Heartbeat due session resource".into(),
                 goal: "Heartbeat due session resource".into(),
                 status: Some(prism_ir::PlanStatus::Active),
                 policy: Some(CoordinationPolicy {
@@ -21755,7 +21748,7 @@ fn coordination_task_journal_falls_back_to_task_title_without_outcomes() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Dogfood coordination task journal metadata fallback" }),
+                payload: json!({ "title": "Dogfood coordination task journal metadata fallback", "goal": "Dogfood coordination task journal metadata fallback" }),
                 task_id: None,
             },
         )
@@ -22036,8 +22029,7 @@ fn workspace_coordination_persistence_records_mcp_session_scope() {
         session_a.as_ref(),
         PrismCoordinationArgs {
             kind: CoordinationMutationKindInput::PlanCreate,
-            payload: json!({
-                "goal": "Track session-scoped persistence context"
+            payload: json!({ "title": "Track session-scoped persistence context", "goal": "Track session-scoped persistence context"
             }),
             task_id: None,
         },
@@ -22062,8 +22054,7 @@ fn workspace_coordination_persistence_records_mcp_session_scope() {
         session_b.as_ref(),
         PrismCoordinationArgs {
             kind: CoordinationMutationKindInput::PlanCreate,
-            payload: json!({
-                "goal": "Track a second session-scoped persistence context"
+            payload: json!({ "title": "Track a second session-scoped persistence context", "goal": "Track a second session-scoped persistence context"
             }),
             task_id: None,
         },
@@ -22097,8 +22088,7 @@ fn rejected_coordination_mutations_keep_mcp_session_scope_in_authoritative_persi
             session.as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({
-                    "goal": "Track rejected mutation persistence",
+                payload: json!({ "title": "Track rejected mutation persistence", "goal": "Track rejected mutation persistence",
                     "policy": { "requireReviewForCompletion": true }
                 }),
                 task_id: None,

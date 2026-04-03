@@ -863,6 +863,7 @@ impl Prism {
     pub fn create_native_plan(
         &self,
         meta: EventMeta,
+        title: String,
         goal: String,
         status: Option<prism_ir::PlanStatus>,
         policy: Option<prism_coordination::CoordinationPolicy>,
@@ -872,6 +873,7 @@ impl Prism {
                 runtime.create_plan(
                     meta,
                     prism_coordination::PlanCreateInput {
+                        title,
                         goal,
                         status,
                         policy,
@@ -896,6 +898,7 @@ impl Prism {
         &self,
         meta: EventMeta,
         plan_id: &PlanId,
+        title: Option<String>,
         status: Option<prism_ir::PlanStatus>,
         goal: Option<String>,
         policy: Option<prism_coordination::CoordinationPolicy>,
@@ -906,6 +909,7 @@ impl Prism {
                     meta,
                     prism_coordination::PlanUpdateInput {
                         plan_id: plan_id.clone(),
+                        title,
                         goal,
                         status,
                         policy,

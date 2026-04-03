@@ -146,13 +146,7 @@ impl MutationProvenance {
                 current_work.plan_id.as_ref().and_then(|plan_id| {
                     self.prism
                         .coordination_plan(&prism_ir::PlanId::new(plan_id.clone()))
-                        .map(|plan| {
-                            if plan.title.trim().is_empty() {
-                                plan.goal
-                            } else {
-                                plan.title
-                            }
-                        })
+                        .map(|plan| plan.title)
                 })
             });
             return Some(WorkContextSnapshot {
@@ -222,13 +216,7 @@ impl MutationProvenance {
             parent_work_id: None,
             coordination_task_id,
             plan_id: plan.as_ref().map(|plan| plan.id.0.to_string()),
-            plan_title: plan.map(|plan| {
-                if plan.title.trim().is_empty() {
-                    plan.goal
-                } else {
-                    plan.title
-                }
-            }),
+            plan_title: plan.map(|plan| plan.title),
         })
     }
 }

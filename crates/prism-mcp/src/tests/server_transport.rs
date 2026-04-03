@@ -1242,7 +1242,7 @@ fn simple_mode_disables_coordination_host_paths() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Ship coordination" }),
+                payload: json!({ "title": "Ship coordination", "goal": "Ship coordination" }),
                 task_id: None,
             },
         )
@@ -1381,7 +1381,7 @@ async fn mcp_server_simple_mode_keeps_minimal_surface_and_reports_features() {
                 },
                 "input": {
                     "kind": "plan_create",
-                    "payload": { "goal": "Coordinate the main edit" }
+                    "payload": { "title": "Coordinate the main edit", "goal": "Coordinate the main edit" }
                 }
             })
             .as_object()
