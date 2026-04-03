@@ -1,0 +1,172 @@
+{
+  "meta": {
+    "id": "outcome:01kna20jernmcgwp1cbq456n5b",
+    "ts": 1775232895,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+    "causation": "observed:01kna20jd8aqkab7491bnqtrhy",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/task/path-identity-repo-relative",
+      "instance_id": "instance:11681:1775232892795",
+      "work_context": {
+        "workId": "work:normalize-durable-patch-outcome-and-publication-paths:01kna1f36b22n6hn2qqsn45zsn",
+        "kind": "ad_hoc",
+        "title": "Normalize durable patch outcome and publication paths",
+        "coordinationTaskId": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+        "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 491
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::path_identity::is_repo_relative_path_string",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::path_identity::repo_relative_string",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::path_identity::normalize_repo_relative_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::path_identity::normalize_path_components",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::path_identity",
+        "kind": "Module"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 5 added, 0 removed, 0 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 5,
+        "changedSymbolCount": 5,
+        "filePath": "crates/prism-core/src/path_identity.rs",
+        "removedCount": 0,
+        "updatedCount": 0
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "crates/prism-core/src/path_identity.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::path_identity::is_repo_relative_path_string"
+        },
+        "kind": "Function",
+        "name": "is_repo_relative_path_string",
+        "span": {
+          "end": 1036,
+          "start": 637
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "crates/prism-core/src/path_identity.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::path_identity::repo_relative_string"
+        },
+        "kind": "Function",
+        "name": "repo_relative_string",
+        "span": {
+          "end": 635,
+          "start": 467
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "crates/prism-core/src/path_identity.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::path_identity::normalize_repo_relative_path"
+        },
+        "kind": "Function",
+        "name": "normalize_repo_relative_path",
+        "span": {
+          "end": 465,
+          "start": 44
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "crates/prism-core/src/path_identity.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::path_identity::normalize_path_components"
+        },
+        "kind": "Function",
+        "name": "normalize_path_components",
+        "span": {
+          "end": 1464,
+          "start": 1038
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "crates/prism-core/src/path_identity.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::path_identity"
+        },
+        "kind": "Module",
+        "name": "path_identity",
+        "span": {
+          "end": 1465,
+          "start": 0
+        },
+        "status": "added"
+      }
+    ],
+    "changedSymbolsTotalCount": 5,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "crates/prism-core/src/path_identity.rs"
+    ],
+    "files": [
+      491
+    ],
+    "reason": "work Normalize durable patch outcome and publication paths (work:normalize-durable-patch-outcome-and-publication-paths:01kna1f36b22n6hn2qqsn45zsn)",
+    "trigger": "FsWatch"
+  }
+}

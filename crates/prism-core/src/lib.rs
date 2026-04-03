@@ -20,6 +20,7 @@ mod observed_change_tracker;
 mod outcome_backend;
 mod parse_pipeline;
 mod patch_outcomes;
+mod path_identity;
 mod principal_registry;
 mod prism_doc;
 mod prism_paths;

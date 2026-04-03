@@ -1,0 +1,210 @@
+{
+  "meta": {
+    "id": "outcome:01kna20jkhfzdsjn7ek9qm61r1",
+    "ts": 1775232895,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+    "causation": "observed:01kna20jd8aqkab7491bnqtrhy",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/task/path-identity-repo-relative",
+      "instance_id": "instance:11681:1775232892795",
+      "work_context": {
+        "workId": "work:normalize-durable-patch-outcome-and-publication-paths:01kna1f36b22n6hn2qqsn45zsn",
+        "kind": "ad_hoc",
+        "title": "Normalize durable patch outcome and publication paths",
+        "coordinationTaskId": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+        "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 80
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::concept_relation_events::append_repo_concept_relation_event",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::concept_relation_events::load_repo_concept_relations",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::concept_relation_events::load_repo_concept_relation_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::concept_relation_events",
+        "kind": "Module"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 4 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 8,
+        "filePath": "crates/prism-core/src/concept_relation_events.rs",
+        "removedCount": 0,
+        "updatedCount": 8
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "crates/prism-core/src/concept_relation_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::concept_relation_events::append_repo_concept_relation_event"
+        },
+        "kind": "Function",
+        "name": "append_repo_concept_relation_event",
+        "span": {
+          "end": 1261,
+          "start": 588
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/concept_relation_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::concept_relation_events::append_repo_concept_relation_event"
+        },
+        "kind": "Function",
+        "name": "append_repo_concept_relation_event",
+        "span": {
+          "end": 1261,
+          "start": 588
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/concept_relation_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::concept_relation_events::load_repo_concept_relations"
+        },
+        "kind": "Function",
+        "name": "load_repo_concept_relations",
+        "span": {
+          "end": 2446,
+          "start": 2071
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/concept_relation_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::concept_relation_events::load_repo_concept_relations"
+        },
+        "kind": "Function",
+        "name": "load_repo_concept_relations",
+        "span": {
+          "end": 2446,
+          "start": 2071
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/concept_relation_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::concept_relation_events::load_repo_concept_relation_events"
+        },
+        "kind": "Function",
+        "name": "load_repo_concept_relation_events",
+        "span": {
+          "end": 2069,
+          "start": 1263
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/concept_relation_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::concept_relation_events::load_repo_concept_relation_events"
+        },
+        "kind": "Function",
+        "name": "load_repo_concept_relation_events",
+        "span": {
+          "end": 2069,
+          "start": 1263
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/concept_relation_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::concept_relation_events"
+        },
+        "kind": "Module",
+        "name": "concept_relation_events",
+        "span": {
+          "end": 2447,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/concept_relation_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::concept_relation_events"
+        },
+        "kind": "Module",
+        "name": "concept_relation_events",
+        "span": {
+          "end": 2447,
+          "start": 0
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 8,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "crates/prism-core/src/concept_relation_events.rs"
+    ],
+    "files": [
+      80
+    ],
+    "reason": "work Normalize durable patch outcome and publication paths (work:normalize-durable-patch-outcome-and-publication-paths:01kna1f36b22n6hn2qqsn45zsn)",
+    "trigger": "FsWatch"
+  }
+}

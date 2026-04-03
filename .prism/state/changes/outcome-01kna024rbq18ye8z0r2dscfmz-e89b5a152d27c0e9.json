@@ -1,0 +1,802 @@
+{
+  "meta": {
+    "id": "outcome:01kna024rbq18ye8z0r2dscfmz",
+    "ts": 1775230849,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+    "causation": "observed:01kna024f1xpqfqkw2aeteb7hj",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/task/path-identity-repo-relative",
+      "instance_id": "instance:72377:1775230846520",
+      "work_context": {
+        "workId": "work:canonicalize-graph-and-workspace-file-identity-around-file-ids-plus-repo-relative-paths:01kn9yh35e8ed6c7aea7w0q0gc",
+        "kind": "coordination",
+        "title": "Canonicalize graph and workspace file identity around file ids plus repo-relative paths",
+        "coordinationTaskId": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+        "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 235
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::ValidationPlanInput::paths",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::CheckSeed::provenance",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::collect_ranked_checks",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::add_native_plan_validation_guidance",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::CheckSeed::score",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::native_plan_node_for_task",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::node_id_from_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::ValidationPlanInput::target",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::ValidationPlanInput::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::CheckSeed::last_seen",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::CheckSeed::why",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::contract_validation_reason",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::ValidationPlanInput",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::CheckSeed",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::resolve_targets_for_paths",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::augment_contract_validation_guidance",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::repo_playbook_fallback",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::validation_plan_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_validation_plan::CheckSeed::label",
+        "kind": "Field"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 20 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 40,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "removedCount": 0,
+        "updatedCount": 40
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_validation_plan::ValidationPlanInput::paths"
+        },
+        "kind": "Field",
+        "name": "paths",
+        "span": {
+          "end": 1057,
+          "start": 1031
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_validation_plan::ValidationPlanInput::paths"
+        },
+        "kind": "Field",
+        "name": "paths",
+        "span": {
+          "end": 1057,
+          "start": 1031
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_validation_plan::CheckSeed::provenance"
+        },
+        "kind": "Field",
+        "name": "provenance",
+        "span": {
+          "end": 1179,
+          "start": 1145
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_validation_plan::CheckSeed::provenance"
+        },
+        "kind": "Field",
+        "name": "provenance",
+        "span": {
+          "end": 1179,
+          "start": 1145
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_validation_plan::collect_ranked_checks"
+        },
+        "kind": "Function",
+        "name": "collect_ranked_checks",
+        "span": {
+          "end": 17166,
+          "start": 15761
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_validation_plan::collect_ranked_checks"
+        },
+        "kind": "Function",
+        "name": "collect_ranked_checks",
+        "span": {
+          "end": 17166,
+          "start": 15761
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::query_view_validation_plan"
+        },
+        "kind": "Module",
+        "name": "query_view_validation_plan",
+        "span": {
+          "end": 23351,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::query_view_validation_plan"
+        },
+        "kind": "Module",
+        "name": "query_view_validation_plan",
+        "span": {
+          "end": 23359,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_validation_plan::add_native_plan_validation_guidance"
+        },
+        "kind": "Function",
+        "name": "add_native_plan_validation_guidance",
+        "span": {
+          "end": 15759,
+          "start": 12447
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_validation_plan::add_native_plan_validation_guidance"
+        },
+        "kind": "Function",
+        "name": "add_native_plan_validation_guidance",
+        "span": {
+          "end": 15759,
+          "start": 12447
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_validation_plan::CheckSeed::score"
+        },
+        "kind": "Field",
+        "name": "score",
+        "span": {
+          "end": 1203,
+          "start": 1185
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_validation_plan::CheckSeed::score"
+        },
+        "kind": "Field",
+        "name": "score",
+        "span": {
+          "end": 1203,
+          "start": 1185
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_validation_plan::native_plan_node_for_task"
+        },
+        "kind": "Function",
+        "name": "native_plan_node_for_task",
+        "span": {
+          "end": 12445,
+          "start": 12072
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_validation_plan::native_plan_node_for_task"
+        },
+        "kind": "Function",
+        "name": "native_plan_node_for_task",
+        "span": {
+          "end": 12445,
+          "start": 12072
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_validation_plan::node_id_from_view"
+        },
+        "kind": "Function",
+        "name": "node_id_from_view",
+        "span": {
+          "end": 19646,
+          "start": 19537
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_validation_plan::node_id_from_view"
+        },
+        "kind": "Function",
+        "name": "node_id_from_view",
+        "span": {
+          "end": 19654,
+          "start": 19545
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_validation_plan::ValidationPlanInput::target"
+        },
+        "kind": "Field",
+        "name": "target",
+        "span": {
+          "end": 1025,
+          "start": 993
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_validation_plan::ValidationPlanInput::target"
+        },
+        "kind": "Field",
+        "name": "target",
+        "span": {
+          "end": 1025,
+          "start": 993
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_validation_plan::ValidationPlanInput::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 987,
+          "start": 964
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_validation_plan::ValidationPlanInput::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 987,
+          "start": 964
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_validation_plan::CheckSeed::last_seen"
+        },
+        "kind": "Field",
+        "name": "last_seen",
+        "span": {
+          "end": 1231,
+          "start": 1209
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_validation_plan::CheckSeed::last_seen"
+        },
+        "kind": "Field",
+        "name": "last_seen",
+        "span": {
+          "end": 1231,
+          "start": 1209
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_validation_plan::CheckSeed::why"
+        },
+        "kind": "Field",
+        "name": "why",
+        "span": {
+          "end": 1139,
+          "start": 1128
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_validation_plan::CheckSeed::why"
+        },
+        "kind": "Field",
+        "name": "why",
+        "span": {
+          "end": 1139,
+          "start": 1128
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_validation_plan::contract_validation_reason"
+        },
+        "kind": "Function",
+        "name": "contract_validation_reason",
+        "span": {
+          "end": 23350,
+          "start": 22969
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_validation_plan::contract_validation_reason"
+        },
+        "kind": "Function",
+        "name": "contract_validation_reason",
+        "span": {
+          "end": 23358,
+          "start": 22977
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_view_validation_plan::ValidationPlanInput"
+        },
+        "kind": "Struct",
+        "name": "ValidationPlanInput",
+        "span": {
+          "end": 1060,
+          "start": 931
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_view_validation_plan::ValidationPlanInput"
+        },
+        "kind": "Struct",
+        "name": "ValidationPlanInput",
+        "span": {
+          "end": 1060,
+          "start": 931
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_view_validation_plan::CheckSeed"
+        },
+        "kind": "Struct",
+        "name": "CheckSeed",
+        "span": {
+          "end": 1234,
+          "start": 1086
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_view_validation_plan::CheckSeed"
+        },
+        "kind": "Struct",
+        "name": "CheckSeed",
+        "span": {
+          "end": 1234,
+          "start": 1086
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_validation_plan::resolve_targets_for_paths"
+        },
+        "kind": "Function",
+        "name": "resolve_targets_for_paths",
+        "span": {
+          "end": 19535,
+          "start": 18316
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_validation_plan::resolve_targets_for_paths"
+        },
+        "kind": "Function",
+        "name": "resolve_targets_for_paths",
+        "span": {
+          "end": 19543,
+          "start": 18316
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_validation_plan::augment_contract_validation_guidance"
+        },
+        "kind": "Function",
+        "name": "augment_contract_validation_guidance",
+        "span": {
+          "end": 22967,
+          "start": 19648
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_validation_plan::augment_contract_validation_guidance"
+        },
+        "kind": "Function",
+        "name": "augment_contract_validation_guidance",
+        "span": {
+          "end": 22975,
+          "start": 19656
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_validation_plan::repo_playbook_fallback"
+        },
+        "kind": "Function",
+        "name": "repo_playbook_fallback",
+        "span": {
+          "end": 18314,
+          "start": 17168
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_validation_plan::repo_playbook_fallback"
+        },
+        "kind": "Function",
+        "name": "repo_playbook_fallback",
+        "span": {
+          "end": 18314,
+          "start": 17168
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_validation_plan::validation_plan_view"
+        },
+        "kind": "Function",
+        "name": "validation_plan_view",
+        "span": {
+          "end": 12070,
+          "start": 1236
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_validation_plan::validation_plan_view"
+        },
+        "kind": "Function",
+        "name": "validation_plan_view",
+        "span": {
+          "end": 12070,
+          "start": 1236
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_validation_plan::CheckSeed::label"
+        },
+        "kind": "Field",
+        "name": "label",
+        "span": {
+          "end": 1122,
+          "start": 1109
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_validation_plan::CheckSeed::label"
+        },
+        "kind": "Field",
+        "name": "label",
+        "span": {
+          "end": 1122,
+          "start": 1109
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 40,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_validation_plan.rs"
+    ],
+    "files": [
+      235
+    ],
+    "reason": "work Canonicalize graph and workspace file identity around file ids plus repo-relative paths (work:canonicalize-graph-and-workspace-file-identity-around-file-ids-plus-repo-relative-paths:01kn9yh35e8ed6c7aea7w0q0gc)",
+    "trigger": "FsWatch"
+  }
+}

@@ -1094,10 +1094,10 @@ fn is_authoritative_protected_state_fallback_path(relative: &Path) -> bool {
                     )
         )
         || matches!(
-        segments.as_slice(),
-        [prism, plans, streams]
-            if prism == ".prism" && plans == "plans" && streams == "streams"
-    )
+            segments.as_slice(),
+            [prism, plans, streams]
+                if prism == ".prism" && plans == "plans" && streams == "streams"
+        )
 }
 
 fn relevant_protected_state_streams(root: &Path, event: &Event) -> Vec<ProtectedRepoStream> {

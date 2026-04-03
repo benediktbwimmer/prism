@@ -7,6 +7,8 @@ use prism_projections::{
 };
 use serde_json::Value;
 
+use crate::path_identity::is_repo_relative_path_string;
+
 pub(crate) fn validate_repo_memory_event(event: &MemoryEvent) -> Result<()> {
     if event.scope != MemoryScope::Repo {
         return Ok(());
@@ -126,7 +128,55 @@ pub(crate) fn validate_repo_patch_event(event: &OutcomeEvent) -> Result<()> {
             event.meta.id.0
         ));
     }
+    for (index, path) in file_paths.iter().enumerate() {
+        validate_repo_relative_patch_path(path, &event.meta.id.0, &format!("filePaths[{index}]"))?;
+    }
+    validate_repo_relative_patch_metadata(metadata, &event.meta.id.0)?;
     Ok(())
+}
+
+fn validate_repo_relative_patch_metadata(
+    metadata: &serde_json::Map<String, Value>,
+    event_id: &str,
+) -> Result<()> {
+    if let Some(changed_files_summary) = metadata
+        .get("changedFilesSummary")
+        .and_then(Value::as_array)
+    {
+        for (index, summary) in changed_files_summary.iter().enumerate() {
+            if let Some(path) = summary.get("filePath").and_then(Value::as_str) {
+                validate_repo_relative_patch_path(
+                    path,
+                    event_id,
+                    &format!("changedFilesSummary[{index}].filePath"),
+                )?;
+            }
+        }
+    }
+    if let Some(changed_symbols) = metadata.get("changedSymbols").and_then(Value::as_array) {
+        for (index, symbol) in changed_symbols.iter().enumerate() {
+            if let Some(path) = symbol.get("filePath").and_then(Value::as_str) {
+                validate_repo_relative_patch_path(
+                    path,
+                    event_id,
+                    &format!("changedSymbols[{index}].filePath"),
+                )?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_repo_relative_patch_path(path: &str, event_id: &str, field: &str) -> Result<()> {
+    if is_repo_relative_path_string(path) {
+        return Ok(());
+    }
+    Err(anyhow!(
+        "repo-published patch event `{}` must store repo-relative {} but found `{}`",
+        event_id,
+        field,
+        path
+    ))
 }
 
 fn validate_repo_memory_metadata(metadata: &Value) -> Result<()> {

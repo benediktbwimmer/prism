@@ -1,0 +1,2489 @@
+{
+  "meta": {
+    "id": "outcome:01kna024ms15342y9r5c22w8mz",
+    "ts": 1775230849,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+    "causation": "observed:01kna024f1xpqfqkw2aeteb7hj",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/task/path-identity-repo-relative",
+      "instance_id": "instance:72377:1775230846520",
+      "work_context": {
+        "workId": "work:canonicalize-graph-and-workspace-file-identity-around-file-ids-plus-repo-relative-paths:01kn9yh35e8ed6c7aea7w0q0gc",
+        "kind": "coordination",
+        "title": "Canonicalize graph and workspace file identity around file ids plus repo-relative paths",
+        "coordinationTaskId": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+        "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 345
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::workspace_bound_graph_stores_repo_relative_paths_and_derives_runtime_paths",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::extend_edges_updates_file_reverse_dependency_indexes_incrementally",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_prunes_legacy_co_change_rows_on_open",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_retires_legacy_history_co_change_rows_on_open",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_load_lineage_history_reads_persisted_events_by_lineage",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_append_outcome_events_persists_authoritative_events_and_validation_deltas",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_applies_incremental_history_delta",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::runtime_reader_opens_while_writer_holds_immediate_transaction",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_reconciles_inference_snapshot_updates_and_removals",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_round_trips_workspace_tree_snapshot",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::structural_file_update_maintains_indexes_incrementally",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_coordination_persist_batch_appends_events_and_enforces_revision",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_auxiliary_episodic_snapshot_reload_preserves_external_updates",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_marks_empty_projection_co_change_backfill_complete_on_open",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_load_outcomes_reads_anchored_events_from_sqlite_index",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::coordination_context",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_auxiliary_outcome_snapshot_reload_preserves_external_updates",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_load_graph_scrubs_malformed_unresolved_rows",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_index_batch_updates_structurally_unchanged_file_state_in_place",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_checkpoint_snapshots_do_not_bump_workspace_revision",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_rewrites_only_touched_derived_edges",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_in_place_updates_preserve_unresolved_entry_columns",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::structurally_unchanged_file_update_ignores_edge_order_for_in_place_fast_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_migrates_snapshot_backed_outcomes_to_append_only_log",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_compacts_hot_patch_outcomes_when_loading_event_log",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::memory_store_apply_history_delta_updates_authoritative_history_state",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::file_update_emits_dependency_invalidation_keys_for_symbol_renames",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::memory_store_merges_episodic_snapshots_append_only",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_apply_projection_deltas_materializes_without_bumping_workspace_revision",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::memory_store_coordination_compaction_replays_from_fallback_snapshot_and_suffix",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_index_batch_appends_outcome_events_without_snapshot_reload",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::coordination_persist_batch_is_revisioned_and_idempotent",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_commits_auxiliary_batches_atomically",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::remove_file_update_emits_observed_removed_nodes",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_round_trips_principal_registry_snapshot",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::upsert_file_with_reanchors_emits_reanchored_change",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_tracks_projection_materialization_metadata_for_partial_snapshots",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_tolerates_duplicate_node_ids_in_single_file_state",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::remove_file_with_changes_emits_removed_nodes",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_commits_index_batches_atomically",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::deferred_file_updates_rebuild_indexes_once_at_batch_end",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_configures_connection_pragmas",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_apply_validation_deltas_materializes_without_bumping_workspace_revision",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_persists_projections_in_dedicated_tables",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::structurally_unchanged_file_update_does_not_require_index_rebuild",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::extend_edges_updates_adjacency_and_derived_incidence_incrementally",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::file_state_retains_file_edges_without_global_edge_scan",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_commits_auxiliary_snapshots_with_projection_deltas",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_prunes_co_change_neighbors_to_top_k",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_save_graph_snapshot_materializes_without_bumping_workspace_revision",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::migrate_worktree_cache_rebuilds_local_outcome_projection_from_shared_runtime",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::node",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::migrate_worktree_cache_moves_local_state_out_of_shared_runtime_db",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_compacts_hot_patch_outcomes_on_open_and_rewrites_payload",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_merges_episodic_snapshots_append_only",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_load_task_replay_reads_persisted_events_by_task",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_backfills_patch_projection_on_open",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_co_change_delta_prunes_only_touched_sources",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_migrates_snapshot_backed_episodic_memory_to_append_only_log",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::temp_sqlite_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::memory_store_round_trips_auxiliary_snapshots",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_coordination_compaction_loads_suffix_events_after_compacted_sequence",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_load_projection_knowledge_snapshot_omits_co_change_and_validation_rows",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::clear_derived_edges_for_nodes_skips_full_rebuild_when_scope_has_no_derived_edges",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::tests::sqlite_store_queries_patch_projection_summaries",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 1 added, 0 removed, 65 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 1,
+        "changedSymbolCount": 131,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "removedCount": 0,
+        "updatedCount": 130
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::workspace_bound_graph_stores_repo_relative_paths_and_derives_runtime_paths"
+        },
+        "kind": "Function",
+        "name": "workspace_bound_graph_stores_repo_relative_paths_and_derives_runtime_paths",
+        "span": {
+          "end": 3450,
+          "start": 2340
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::extend_edges_updates_file_reverse_dependency_indexes_incrementally"
+        },
+        "kind": "Function",
+        "name": "extend_edges_updates_file_reverse_dependency_indexes_incrementally",
+        "span": {
+          "end": 7959,
+          "start": 6585
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::extend_edges_updates_file_reverse_dependency_indexes_incrementally"
+        },
+        "kind": "Function",
+        "name": "extend_edges_updates_file_reverse_dependency_indexes_incrementally",
+        "span": {
+          "end": 9092,
+          "start": 7718
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_prunes_legacy_co_change_rows_on_open"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_prunes_legacy_co_change_rows_on_open",
+        "span": {
+          "end": 68075,
+          "start": 66318
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_prunes_legacy_co_change_rows_on_open"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_prunes_legacy_co_change_rows_on_open",
+        "span": {
+          "end": 69208,
+          "start": 67451
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_retires_legacy_history_co_change_rows_on_open"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_retires_legacy_history_co_change_rows_on_open",
+        "span": {
+          "end": 75904,
+          "start": 74489
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_retires_legacy_history_co_change_rows_on_open"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_retires_legacy_history_co_change_rows_on_open",
+        "span": {
+          "end": 77037,
+          "start": 75622
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_load_lineage_history_reads_persisted_events_by_lineage"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_load_lineage_history_reads_persisted_events_by_lineage",
+        "span": {
+          "end": 26735,
+          "start": 25357
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_load_lineage_history_reads_persisted_events_by_lineage"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_load_lineage_history_reads_persisted_events_by_lineage",
+        "span": {
+          "end": 27868,
+          "start": 26490
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_append_outcome_events_persists_authoritative_events_and_validation_deltas"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_append_outcome_events_persists_authoritative_events_and_validation_deltas",
+        "span": {
+          "end": 29839,
+          "start": 27971
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_append_outcome_events_persists_authoritative_events_and_validation_deltas"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_append_outcome_events_persists_authoritative_events_and_validation_deltas",
+        "span": {
+          "end": 30972,
+          "start": 29104
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_applies_incremental_history_delta"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_applies_incremental_history_delta",
+        "span": {
+          "end": 131387,
+          "start": 126335
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_applies_incremental_history_delta"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_applies_incremental_history_delta",
+        "span": {
+          "end": 132520,
+          "start": 127468
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::runtime_reader_opens_while_writer_holds_immediate_transaction"
+        },
+        "kind": "Function",
+        "name": "runtime_reader_opens_while_writer_holds_immediate_transaction",
+        "span": {
+          "end": 99707,
+          "start": 98928
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::runtime_reader_opens_while_writer_holds_immediate_transaction"
+        },
+        "kind": "Function",
+        "name": "runtime_reader_opens_while_writer_holds_immediate_transaction",
+        "span": {
+          "end": 100840,
+          "start": 100061
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_reconciles_inference_snapshot_updates_and_removals"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_reconciles_inference_snapshot_updates_and_removals",
+        "span": {
+          "end": 121474,
+          "start": 119091
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_reconciles_inference_snapshot_updates_and_removals"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_reconciles_inference_snapshot_updates_and_removals",
+        "span": {
+          "end": 122607,
+          "start": 120224
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_round_trips_workspace_tree_snapshot"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_round_trips_workspace_tree_snapshot",
+        "span": {
+          "end": 55891,
+          "start": 54577
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_round_trips_workspace_tree_snapshot"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_round_trips_workspace_tree_snapshot",
+        "span": {
+          "end": 57024,
+          "start": 55710
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::structural_file_update_maintains_indexes_incrementally"
+        },
+        "kind": "Function",
+        "name": "structural_file_update_maintains_indexes_incrementally",
+        "span": {
+          "end": 13739,
+          "start": 12642
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::structural_file_update_maintains_indexes_incrementally"
+        },
+        "kind": "Function",
+        "name": "structural_file_update_maintains_indexes_incrementally",
+        "span": {
+          "end": 14872,
+          "start": 13775
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_coordination_persist_batch_appends_events_and_enforces_revision"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_coordination_persist_batch_appends_events_and_enforces_revision",
+        "span": {
+          "end": 61821,
+          "start": 58004
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_coordination_persist_batch_appends_events_and_enforces_revision"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_coordination_persist_batch_appends_events_and_enforces_revision",
+        "span": {
+          "end": 62954,
+          "start": 59137
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_auxiliary_episodic_snapshot_reload_preserves_external_updates"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_auxiliary_episodic_snapshot_reload_preserves_external_updates",
+        "span": {
+          "end": 102467,
+          "start": 99717
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_auxiliary_episodic_snapshot_reload_preserves_external_updates"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_auxiliary_episodic_snapshot_reload_preserves_external_updates",
+        "span": {
+          "end": 103600,
+          "start": 100850
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_marks_empty_projection_co_change_backfill_complete_on_open"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_marks_empty_projection_co_change_backfill_complete_on_open",
+        "span": {
+          "end": 68779,
+          "start": 68085
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_marks_empty_projection_co_change_backfill_complete_on_open"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_marks_empty_projection_co_change_backfill_complete_on_open",
+        "span": {
+          "end": 69912,
+          "start": 69218
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_load_outcomes_reads_anchored_events_from_sqlite_index"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_load_outcomes_reads_anchored_events_from_sqlite_index",
+        "span": {
+          "end": 33103,
+          "start": 29849
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_load_outcomes_reads_anchored_events_from_sqlite_index"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_load_outcomes_reads_anchored_events_from_sqlite_index",
+        "span": {
+          "end": 34236,
+          "start": 30982
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::coordination_context"
+        },
+        "kind": "Function",
+        "name": "coordination_context",
+        "span": {
+          "end": 2317,
+          "start": 1960
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::coordination_context"
+        },
+        "kind": "Function",
+        "name": "coordination_context",
+        "span": {
+          "end": 2330,
+          "start": 1973
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_auxiliary_outcome_snapshot_reload_preserves_external_updates"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_auxiliary_outcome_snapshot_reload_preserves_external_updates",
+        "span": {
+          "end": 98918,
+          "start": 95471
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_auxiliary_outcome_snapshot_reload_preserves_external_updates"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_auxiliary_outcome_snapshot_reload_preserves_external_updates",
+        "span": {
+          "end": 100051,
+          "start": 96604
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_load_graph_scrubs_malformed_unresolved_rows"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_load_graph_scrubs_malformed_unresolved_rows",
+        "span": {
+          "end": 147152,
+          "start": 143685
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_load_graph_scrubs_malformed_unresolved_rows"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_load_graph_scrubs_malformed_unresolved_rows",
+        "span": {
+          "end": 148285,
+          "start": 144818
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_index_batch_updates_structurally_unchanged_file_state_in_place"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_index_batch_updates_structurally_unchanged_file_state_in_place",
+        "span": {
+          "end": 138644,
+          "start": 135358
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_index_batch_updates_structurally_unchanged_file_state_in_place"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_index_batch_updates_structurally_unchanged_file_state_in_place",
+        "span": {
+          "end": 139777,
+          "start": 136491
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_checkpoint_snapshots_do_not_bump_workspace_revision"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_checkpoint_snapshots_do_not_bump_workspace_revision",
+        "span": {
+          "end": 88372,
+          "start": 86538
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_checkpoint_snapshots_do_not_bump_workspace_revision"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_checkpoint_snapshots_do_not_bump_workspace_revision",
+        "span": {
+          "end": 89505,
+          "start": 87671
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_rewrites_only_touched_derived_edges"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_rewrites_only_touched_derived_edges",
+        "span": {
+          "end": 74479,
+          "start": 71224
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_rewrites_only_touched_derived_edges"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_rewrites_only_touched_derived_edges",
+        "span": {
+          "end": 75612,
+          "start": 72357
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_in_place_updates_preserve_unresolved_entry_columns"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_in_place_updates_preserve_unresolved_entry_columns",
+        "span": {
+          "end": 143675,
+          "start": 138654
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_in_place_updates_preserve_unresolved_entry_columns"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_in_place_updates_preserve_unresolved_entry_columns",
+        "span": {
+          "end": 144808,
+          "start": 139787
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::structurally_unchanged_file_update_ignores_edge_order_for_in_place_fast_path"
+        },
+        "kind": "Function",
+        "name": "structurally_unchanged_file_update_ignores_edge_order_for_in_place_fast_path",
+        "span": {
+          "end": 12632,
+          "start": 10754
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::structurally_unchanged_file_update_ignores_edge_order_for_in_place_fast_path"
+        },
+        "kind": "Function",
+        "name": "structurally_unchanged_file_update_ignores_edge_order_for_in_place_fast_path",
+        "span": {
+          "end": 13765,
+          "start": 11887
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_migrates_snapshot_backed_outcomes_to_append_only_log"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_migrates_snapshot_backed_outcomes_to_append_only_log",
+        "span": {
+          "end": 104513,
+          "start": 102477
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_migrates_snapshot_backed_outcomes_to_append_only_log"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_migrates_snapshot_backed_outcomes_to_append_only_log",
+        "span": {
+          "end": 105646,
+          "start": 103610
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_compacts_hot_patch_outcomes_when_loading_event_log"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_compacts_hot_patch_outcomes_when_loading_event_log",
+        "span": {
+          "end": 107344,
+          "start": 104523
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_compacts_hot_patch_outcomes_when_loading_event_log"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_compacts_hot_patch_outcomes_when_loading_event_log",
+        "span": {
+          "end": 108477,
+          "start": 105656
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::memory_store_apply_history_delta_updates_authoritative_history_state"
+        },
+        "kind": "Function",
+        "name": "memory_store_apply_history_delta_updates_authoritative_history_state",
+        "span": {
+          "end": 35385,
+          "start": 33113
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::memory_store_apply_history_delta_updates_authoritative_history_state"
+        },
+        "kind": "Function",
+        "name": "memory_store_apply_history_delta_updates_authoritative_history_state",
+        "span": {
+          "end": 36518,
+          "start": 34246
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::file_update_emits_dependency_invalidation_keys_for_symbol_renames"
+        },
+        "kind": "Function",
+        "name": "file_update_emits_dependency_invalidation_keys_for_symbol_renames",
+        "span": {
+          "end": 9586,
+          "start": 7969
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::file_update_emits_dependency_invalidation_keys_for_symbol_renames"
+        },
+        "kind": "Function",
+        "name": "file_update_emits_dependency_invalidation_keys_for_symbol_renames",
+        "span": {
+          "end": 10719,
+          "start": 9102
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::memory_store_merges_episodic_snapshots_append_only"
+        },
+        "kind": "Function",
+        "name": "memory_store_merges_episodic_snapshots_append_only",
+        "span": {
+          "end": 38009,
+          "start": 36728
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::memory_store_merges_episodic_snapshots_append_only"
+        },
+        "kind": "Function",
+        "name": "memory_store_merges_episodic_snapshots_append_only",
+        "span": {
+          "end": 39142,
+          "start": 37861
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_apply_projection_deltas_materializes_without_bumping_workspace_revision"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_apply_projection_deltas_materializes_without_bumping_workspace_revision",
+        "span": {
+          "end": 81791,
+          "start": 79752
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_apply_projection_deltas_materializes_without_bumping_workspace_revision"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_apply_projection_deltas_materializes_without_bumping_workspace_revision",
+        "span": {
+          "end": 82924,
+          "start": 80885
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::memory_store_coordination_compaction_replays_from_fallback_snapshot_and_suffix"
+        },
+        "kind": "Function",
+        "name": "memory_store_coordination_compaction_replays_from_fallback_snapshot_and_suffix",
+        "span": {
+          "end": 36718,
+          "start": 35395
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::memory_store_coordination_compaction_replays_from_fallback_snapshot_and_suffix"
+        },
+        "kind": "Function",
+        "name": "memory_store_coordination_compaction_replays_from_fallback_snapshot_and_suffix",
+        "span": {
+          "end": 37851,
+          "start": 36528
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_index_batch_appends_outcome_events_without_snapshot_reload"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_index_batch_appends_outcome_events_without_snapshot_reload",
+        "span": {
+          "end": 135348,
+          "start": 133087
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_index_batch_appends_outcome_events_without_snapshot_reload"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_index_batch_appends_outcome_events_without_snapshot_reload",
+        "span": {
+          "end": 136481,
+          "start": 134220
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::coordination_persist_batch_is_revisioned_and_idempotent"
+        },
+        "kind": "Function",
+        "name": "coordination_persist_batch_is_revisioned_and_idempotent",
+        "span": {
+          "end": 25347,
+          "start": 23392
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::coordination_persist_batch_is_revisioned_and_idempotent"
+        },
+        "kind": "Function",
+        "name": "coordination_persist_batch_is_revisioned_and_idempotent",
+        "span": {
+          "end": 26480,
+          "start": 24525
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_commits_auxiliary_batches_atomically"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_commits_auxiliary_batches_atomically",
+        "span": {
+          "end": 93524,
+          "start": 89381
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_commits_auxiliary_batches_atomically"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_commits_auxiliary_batches_atomically",
+        "span": {
+          "end": 94657,
+          "start": 90514
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::remove_file_update_emits_observed_removed_nodes"
+        },
+        "kind": "Function",
+        "name": "remove_file_update_emits_observed_removed_nodes",
+        "span": {
+          "end": 15037,
+          "start": 14482
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::remove_file_update_emits_observed_removed_nodes"
+        },
+        "kind": "Function",
+        "name": "remove_file_update_emits_observed_removed_nodes",
+        "span": {
+          "end": 16170,
+          "start": 15615
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_round_trips_principal_registry_snapshot"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_round_trips_principal_registry_snapshot",
+        "span": {
+          "end": 23382,
+          "start": 21413
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_round_trips_principal_registry_snapshot"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_round_trips_principal_registry_snapshot",
+        "span": {
+          "end": 24515,
+          "start": 22546
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::upsert_file_with_reanchors_emits_reanchored_change"
+        },
+        "kind": "Function",
+        "name": "upsert_file_with_reanchors_emits_reanchored_change",
+        "span": {
+          "end": 3325,
+          "start": 2327
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::upsert_file_with_reanchors_emits_reanchored_change"
+        },
+        "kind": "Function",
+        "name": "upsert_file_with_reanchors_emits_reanchored_change",
+        "span": {
+          "end": 4458,
+          "start": 3460
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_tracks_projection_materialization_metadata_for_partial_snapshots"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_tracks_projection_materialization_metadata_for_partial_snapshots",
+        "span": {
+          "end": 83735,
+          "start": 81801
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_tracks_projection_materialization_metadata_for_partial_snapshots"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_tracks_projection_materialization_metadata_for_partial_snapshots",
+        "span": {
+          "end": 84868,
+          "start": 82934
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_tolerates_duplicate_node_ids_in_single_file_state"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_tolerates_duplicate_node_ids_in_single_file_state",
+        "span": {
+          "end": 133077,
+          "start": 131397
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_tolerates_duplicate_node_ids_in_single_file_state"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_tolerates_duplicate_node_ids_in_single_file_state",
+        "span": {
+          "end": 134210,
+          "start": 132530
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::remove_file_with_changes_emits_removed_nodes"
+        },
+        "kind": "Function",
+        "name": "remove_file_with_changes_emits_removed_nodes",
+        "span": {
+          "end": 14472,
+          "start": 13749
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::remove_file_with_changes_emits_removed_nodes"
+        },
+        "kind": "Function",
+        "name": "remove_file_with_changes_emits_removed_nodes",
+        "span": {
+          "end": 15605,
+          "start": 14882
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_commits_index_batches_atomically"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_commits_index_batches_atomically",
+        "span": {
+          "end": 126325,
+          "start": 123590
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_commits_index_batches_atomically"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_commits_index_batches_atomically",
+        "span": {
+          "end": 127458,
+          "start": 124723
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::deferred_file_updates_rebuild_indexes_once_at_batch_end"
+        },
+        "kind": "Function",
+        "name": "deferred_file_updates_rebuild_indexes_once_at_batch_end",
+        "span": {
+          "end": 17457,
+          "start": 15815
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::deferred_file_updates_rebuild_indexes_once_at_batch_end"
+        },
+        "kind": "Function",
+        "name": "deferred_file_updates_rebuild_indexes_once_at_batch_end",
+        "span": {
+          "end": 18590,
+          "start": 16948
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_configures_connection_pragmas"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_configures_connection_pragmas",
+        "span": {
+          "end": 57994,
+          "start": 55901
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_configures_connection_pragmas"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_configures_connection_pragmas",
+        "span": {
+          "end": 59127,
+          "start": 57034
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_apply_validation_deltas_materializes_without_bumping_workspace_revision"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_apply_validation_deltas_materializes_without_bumping_workspace_revision",
+        "span": {
+          "end": 79742,
+          "start": 78447
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_apply_validation_deltas_materializes_without_bumping_workspace_revision"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_apply_validation_deltas_materializes_without_bumping_workspace_revision",
+        "span": {
+          "end": 80875,
+          "start": 79580
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_persists_projections_in_dedicated_tables"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_persists_projections_in_dedicated_tables",
+        "span": {
+          "end": 40013,
+          "start": 38019
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_persists_projections_in_dedicated_tables"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_persists_projections_in_dedicated_tables",
+        "span": {
+          "end": 41146,
+          "start": 39152
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::structurally_unchanged_file_update_does_not_require_index_rebuild"
+        },
+        "kind": "Function",
+        "name": "structurally_unchanged_file_update_does_not_require_index_rebuild",
+        "span": {
+          "end": 10744,
+          "start": 9596
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::structurally_unchanged_file_update_does_not_require_index_rebuild"
+        },
+        "kind": "Function",
+        "name": "structurally_unchanged_file_update_does_not_require_index_rebuild",
+        "span": {
+          "end": 11877,
+          "start": 10729
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::extend_edges_updates_adjacency_and_derived_incidence_incrementally"
+        },
+        "kind": "Function",
+        "name": "extend_edges_updates_adjacency_and_derived_incidence_incrementally",
+        "span": {
+          "end": 6575,
+          "start": 5104
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::extend_edges_updates_adjacency_and_derived_incidence_incrementally"
+        },
+        "kind": "Function",
+        "name": "extend_edges_updates_adjacency_and_derived_incidence_incrementally",
+        "span": {
+          "end": 7708,
+          "start": 6237
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Module",
+          "path": "prism_store::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 147153,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Module",
+          "path": "prism_store::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 148286,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::file_state_retains_file_edges_without_global_edge_scan"
+        },
+        "kind": "Function",
+        "name": "file_state_retains_file_edges_without_global_edge_scan",
+        "span": {
+          "end": 15805,
+          "start": 15047
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::file_state_retains_file_edges_without_global_edge_scan"
+        },
+        "kind": "Function",
+        "name": "file_state_retains_file_edges_without_global_edge_scan",
+        "span": {
+          "end": 16938,
+          "start": 16180
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_commits_auxiliary_snapshots_with_projection_deltas"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_commits_auxiliary_snapshots_with_projection_deltas",
+        "span": {
+          "end": 78437,
+          "start": 75914
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_commits_auxiliary_snapshots_with_projection_deltas"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_commits_auxiliary_snapshots_with_projection_deltas",
+        "span": {
+          "end": 79570,
+          "start": 77047
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_prunes_co_change_neighbors_to_top_k"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_prunes_co_change_neighbors_to_top_k",
+        "span": {
+          "end": 66308,
+          "start": 64411
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_prunes_co_change_neighbors_to_top_k"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_prunes_co_change_neighbors_to_top_k",
+        "span": {
+          "end": 67441,
+          "start": 65544
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_save_graph_snapshot_materializes_without_bumping_workspace_revision"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_save_graph_snapshot_materializes_without_bumping_workspace_revision",
+        "span": {
+          "end": 89371,
+          "start": 88382
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_save_graph_snapshot_materializes_without_bumping_workspace_revision"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_save_graph_snapshot_materializes_without_bumping_workspace_revision",
+        "span": {
+          "end": 90504,
+          "start": 89515
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::migrate_worktree_cache_rebuilds_local_outcome_projection_from_shared_runtime"
+        },
+        "kind": "Function",
+        "name": "migrate_worktree_cache_rebuilds_local_outcome_projection_from_shared_runtime",
+        "span": {
+          "end": 54346,
+          "start": 52462
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::migrate_worktree_cache_rebuilds_local_outcome_projection_from_shared_runtime"
+        },
+        "kind": "Function",
+        "name": "migrate_worktree_cache_rebuilds_local_outcome_projection_from_shared_runtime",
+        "span": {
+          "end": 55479,
+          "start": 53595
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::node"
+        },
+        "kind": "Function",
+        "name": "node",
+        "span": {
+          "end": 1958,
+          "start": 1683
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::node"
+        },
+        "kind": "Function",
+        "name": "node",
+        "span": {
+          "end": 1971,
+          "start": 1696
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::migrate_worktree_cache_moves_local_state_out_of_shared_runtime_db"
+        },
+        "kind": "Function",
+        "name": "migrate_worktree_cache_moves_local_state_out_of_shared_runtime_db",
+        "span": {
+          "end": 52452,
+          "start": 40023
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::migrate_worktree_cache_moves_local_state_out_of_shared_runtime_db"
+        },
+        "kind": "Function",
+        "name": "migrate_worktree_cache_moves_local_state_out_of_shared_runtime_db",
+        "span": {
+          "end": 53585,
+          "start": 41156
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_compacts_hot_patch_outcomes_on_open_and_rewrites_payload"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_compacts_hot_patch_outcomes_on_open_and_rewrites_payload",
+        "span": {
+          "end": 110787,
+          "start": 107354
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_compacts_hot_patch_outcomes_on_open_and_rewrites_payload"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_compacts_hot_patch_outcomes_on_open_and_rewrites_payload",
+        "span": {
+          "end": 111920,
+          "start": 108487
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_merges_episodic_snapshots_append_only"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_merges_episodic_snapshots_append_only",
+        "span": {
+          "end": 95461,
+          "start": 93534
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_merges_episodic_snapshots_append_only"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_merges_episodic_snapshots_append_only",
+        "span": {
+          "end": 96594,
+          "start": 94667
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_load_task_replay_reads_persisted_events_by_task"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_load_task_replay_reads_persisted_events_by_task",
+        "span": {
+          "end": 27961,
+          "start": 26745
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_load_task_replay_reads_persisted_events_by_task"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_load_task_replay_reads_persisted_events_by_task",
+        "span": {
+          "end": 29094,
+          "start": 27878
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_backfills_patch_projection_on_open"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_backfills_patch_projection_on_open",
+        "span": {
+          "end": 119081,
+          "start": 115915
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_backfills_patch_projection_on_open"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_backfills_patch_projection_on_open",
+        "span": {
+          "end": 120214,
+          "start": 117048
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_co_change_delta_prunes_only_touched_sources"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_co_change_delta_prunes_only_touched_sources",
+        "span": {
+          "end": 71214,
+          "start": 68789
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_co_change_delta_prunes_only_touched_sources"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_co_change_delta_prunes_only_touched_sources",
+        "span": {
+          "end": 72347,
+          "start": 69922
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_migrates_snapshot_backed_episodic_memory_to_append_only_log"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_migrates_snapshot_backed_episodic_memory_to_append_only_log",
+        "span": {
+          "end": 123580,
+          "start": 121484
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_migrates_snapshot_backed_episodic_memory_to_append_only_log"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_migrates_snapshot_backed_episodic_memory_to_append_only_log",
+        "span": {
+          "end": 124713,
+          "start": 122617
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::temp_sqlite_path"
+        },
+        "kind": "Function",
+        "name": "temp_sqlite_path",
+        "span": {
+          "end": 54567,
+          "start": 54348
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::temp_sqlite_path"
+        },
+        "kind": "Function",
+        "name": "temp_sqlite_path",
+        "span": {
+          "end": 55700,
+          "start": 55481
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::memory_store_round_trips_auxiliary_snapshots"
+        },
+        "kind": "Function",
+        "name": "memory_store_round_trips_auxiliary_snapshots",
+        "span": {
+          "end": 21403,
+          "start": 17467
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::memory_store_round_trips_auxiliary_snapshots"
+        },
+        "kind": "Function",
+        "name": "memory_store_round_trips_auxiliary_snapshots",
+        "span": {
+          "end": 22536,
+          "start": 18600
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_coordination_compaction_loads_suffix_events_after_compacted_sequence"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_coordination_compaction_loads_suffix_events_after_compacted_sequence",
+        "span": {
+          "end": 64401,
+          "start": 61831
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_coordination_compaction_loads_suffix_events_after_compacted_sequence"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_coordination_compaction_loads_suffix_events_after_compacted_sequence",
+        "span": {
+          "end": 65534,
+          "start": 62964
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_load_projection_knowledge_snapshot_omits_co_change_and_validation_rows"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_load_projection_knowledge_snapshot_omits_co_change_and_validation_rows",
+        "span": {
+          "end": 86528,
+          "start": 83745
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_load_projection_knowledge_snapshot_omits_co_change_and_validation_rows"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_load_projection_knowledge_snapshot_omits_co_change_and_validation_rows",
+        "span": {
+          "end": 87661,
+          "start": 84878
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::clear_derived_edges_for_nodes_skips_full_rebuild_when_scope_has_no_derived_edges"
+        },
+        "kind": "Function",
+        "name": "clear_derived_edges_for_nodes_skips_full_rebuild_when_scope_has_no_derived_edges",
+        "span": {
+          "end": 5094,
+          "start": 3335
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::clear_derived_edges_for_nodes_skips_full_rebuild_when_scope_has_no_derived_edges"
+        },
+        "kind": "Function",
+        "name": "clear_derived_edges_for_nodes_skips_full_rebuild_when_scope_has_no_derived_edges",
+        "span": {
+          "end": 6227,
+          "start": 4468
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_queries_patch_projection_summaries"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_queries_patch_projection_summaries",
+        "span": {
+          "end": 115905,
+          "start": 110797
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::tests::sqlite_store_queries_patch_projection_summaries"
+        },
+        "kind": "Function",
+        "name": "sqlite_store_queries_patch_projection_summaries",
+        "span": {
+          "end": 117038,
+          "start": 111930
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 131,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/tests.rs"
+    ],
+    "files": [
+      345
+    ],
+    "reason": "work Canonicalize graph and workspace file identity around file ids plus repo-relative paths (work:canonicalize-graph-and-workspace-file-identity-around-file-ids-plus-repo-relative-paths:01kn9yh35e8ed6c7aea7w0q0gc)",
+    "trigger": "FsWatch"
+  }
+}

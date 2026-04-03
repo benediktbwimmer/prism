@@ -1,0 +1,1801 @@
+{
+  "meta": {
+    "id": "outcome:01kna20jgspmtw9rxwg8116k83",
+    "ts": 1775232895,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+    "causation": "observed:01kna20jd8aqkab7491bnqtrhy",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/task/path-identity-repo-relative",
+      "instance_id": "instance:11681:1775232892795",
+      "work_context": {
+        "workId": "work:normalize-durable-patch-outcome-and-publication-paths:01kna1f36b22n6hn2qqsn45zsn",
+        "kind": "ad_hoc",
+        "title": "Normalize durable patch outcome and publication paths",
+        "coordinationTaskId": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+        "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 130
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::assisted_lease_event_meta",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::spawn_protected_state_watch",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::tests",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::tests::ignored_watch_paths_skip_generated_benchmark_results",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::assisted_claim_target",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::relevant_watch_paths",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::WatchHandle",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::tests::modify_event",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::AssistedLeaseTarget::session_id",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::WatchMessage",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::AssistedLeaseTarget::principal",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::assisted_task_target",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::is_ignored_watch_relative_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::tests::relevant_watch_paths_drop_ignored_generated_paths",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::tests::relevant_protected_state_streams_ignore_snapshot_outputs",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::tests::assisted_watcher_heartbeat_renews_single_due_task",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::refresh_prism_snapshot",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::format_error_chain",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::maybe_auto_heartbeat_assisted_leases",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::try_refresh_prism_snapshot",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::tests::relevant_protected_state_streams_detect_authoritative_prism_paths",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::AssistedLeaseTarget::correlation",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::AssistedLeaseTarget::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::is_authoritative_protected_state_fallback_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::AssistedLeaseTarget::assisted_window",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::tests::scoped_watch_refresh_requires_in_root_paths",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::AssistedLeaseTarget",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::AssistedLeaseTarget::due_state",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::tests::assisted_watcher_heartbeat_skips_when_multiple_active_leases_exist",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::WatchHandle::stop",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::can_scope_watch_refresh",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::relevant_protected_state_streams",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::WatchHandle::handle",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::refresh_prism_snapshot_with_guard",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::tests::principal_meta",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::assisted_lease_renewal_enabled",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::AssistedLeaseTarget::matches_event",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::observed_change_event_meta",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::sync_protected_state_watch_update",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::tests::temp_root",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::tests::relevant_watch_paths_keep_out_of_root_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::spawn_fs_watch",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::tests::relevant_protected_state_streams_fallback_for_prism_directory_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::select_assisted_lease_target",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::last_explicit_authenticated_target_event_ts",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::watch::maybe_auto_heartbeat_assisted_leases_in_store",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 47 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 94,
+        "filePath": "crates/prism-core/src/watch.rs",
+        "removedCount": 0,
+        "updatedCount": 94
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::assisted_lease_event_meta"
+        },
+        "kind": "Function",
+        "name": "assisted_lease_event_meta",
+        "span": {
+          "end": 39033,
+          "start": 38226
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::assisted_lease_event_meta"
+        },
+        "kind": "Function",
+        "name": "assisted_lease_event_meta",
+        "span": {
+          "end": 39033,
+          "start": 38226
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::spawn_protected_state_watch"
+        },
+        "kind": "Function",
+        "name": "spawn_protected_state_watch",
+        "span": {
+          "end": 11310,
+          "start": 7793
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::spawn_protected_state_watch"
+        },
+        "kind": "Function",
+        "name": "spawn_protected_state_watch",
+        "span": {
+          "end": 11310,
+          "start": 7793
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::watch::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 62651,
+          "start": 48232
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::watch::tests"
+        },
+        "kind": "Module",
+        "name": "tests",
+        "span": {
+          "end": 62667,
+          "start": 48248
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::watch"
+        },
+        "kind": "Module",
+        "name": "watch",
+        "span": {
+          "end": 62652,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::watch"
+        },
+        "kind": "Module",
+        "name": "watch",
+        "span": {
+          "end": 62668,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::ignored_watch_paths_skip_generated_benchmark_results"
+        },
+        "kind": "Function",
+        "name": "ignored_watch_paths_skip_generated_benchmark_results",
+        "span": {
+          "end": 50517,
+          "start": 49514
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::ignored_watch_paths_skip_generated_benchmark_results"
+        },
+        "kind": "Function",
+        "name": "ignored_watch_paths_skip_generated_benchmark_results",
+        "span": {
+          "end": 50533,
+          "start": 49530
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::assisted_claim_target"
+        },
+        "kind": "Function",
+        "name": "assisted_claim_target",
+        "span": {
+          "end": 35372,
+          "start": 34434
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::assisted_claim_target"
+        },
+        "kind": "Function",
+        "name": "assisted_claim_target",
+        "span": {
+          "end": 35372,
+          "start": 34434
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::relevant_watch_paths"
+        },
+        "kind": "Function",
+        "name": "relevant_watch_paths",
+        "span": {
+          "end": 42035,
+          "start": 41666
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::relevant_watch_paths"
+        },
+        "kind": "Function",
+        "name": "relevant_watch_paths",
+        "span": {
+          "end": 42051,
+          "start": 41682
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::watch::WatchHandle"
+        },
+        "kind": "Struct",
+        "name": "WatchHandle",
+        "span": {
+          "end": 2676,
+          "start": 2547
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::watch::WatchHandle"
+        },
+        "kind": "Struct",
+        "name": "WatchHandle",
+        "span": {
+          "end": 2676,
+          "start": 2547
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::modify_event"
+        },
+        "kind": "Function",
+        "name": "modify_event",
+        "span": {
+          "end": 49496,
+          "start": 49295
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::modify_event"
+        },
+        "kind": "Function",
+        "name": "modify_event",
+        "span": {
+          "end": 49512,
+          "start": 49311
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::watch::AssistedLeaseTarget::session_id"
+        },
+        "kind": "Method",
+        "name": "session_id",
+        "span": {
+          "end": 27628,
+          "start": 27417
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::watch::AssistedLeaseTarget::session_id"
+        },
+        "kind": "Method",
+        "name": "session_id",
+        "span": {
+          "end": 27628,
+          "start": 27417
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Enum",
+          "path": "prism_core::watch::WatchMessage"
+        },
+        "kind": "Enum",
+        "name": "WatchMessage",
+        "span": {
+          "end": 2751,
+          "start": 2678
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Enum",
+          "path": "prism_core::watch::WatchMessage"
+        },
+        "kind": "Enum",
+        "name": "WatchMessage",
+        "span": {
+          "end": 2751,
+          "start": 2678
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::watch::AssistedLeaseTarget::principal"
+        },
+        "kind": "Method",
+        "name": "principal",
+        "span": {
+          "end": 28118,
+          "start": 27954
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::watch::AssistedLeaseTarget::principal"
+        },
+        "kind": "Method",
+        "name": "principal",
+        "span": {
+          "end": 28118,
+          "start": 27954
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::assisted_task_target"
+        },
+        "kind": "Function",
+        "name": "assisted_task_target",
+        "span": {
+          "end": 34432,
+          "start": 33674
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::assisted_task_target"
+        },
+        "kind": "Function",
+        "name": "assisted_task_target",
+        "span": {
+          "end": 34432,
+          "start": 33674
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::is_ignored_watch_relative_path"
+        },
+        "kind": "Function",
+        "name": "is_ignored_watch_relative_path",
+        "span": {
+          "end": 48046,
+          "start": 47295
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::is_ignored_watch_relative_path"
+        },
+        "kind": "Function",
+        "name": "is_ignored_watch_relative_path",
+        "span": {
+          "end": 48062,
+          "start": 47311
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::relevant_watch_paths_drop_ignored_generated_paths"
+        },
+        "kind": "Function",
+        "name": "relevant_watch_paths_drop_ignored_generated_paths",
+        "span": {
+          "end": 51276,
+          "start": 50535
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::relevant_watch_paths_drop_ignored_generated_paths"
+        },
+        "kind": "Function",
+        "name": "relevant_watch_paths_drop_ignored_generated_paths",
+        "span": {
+          "end": 51292,
+          "start": 50551
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::relevant_protected_state_streams_ignore_snapshot_outputs"
+        },
+        "kind": "Function",
+        "name": "relevant_protected_state_streams_ignore_snapshot_outputs",
+        "span": {
+          "end": 53379,
+          "start": 52784
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::relevant_protected_state_streams_ignore_snapshot_outputs"
+        },
+        "kind": "Function",
+        "name": "relevant_protected_state_streams_ignore_snapshot_outputs",
+        "span": {
+          "end": 53395,
+          "start": 52800
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::assisted_watcher_heartbeat_renews_single_due_task"
+        },
+        "kind": "Function",
+        "name": "assisted_watcher_heartbeat_renews_single_due_task",
+        "span": {
+          "end": 59362,
+          "start": 55190
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::assisted_watcher_heartbeat_renews_single_due_task"
+        },
+        "kind": "Function",
+        "name": "assisted_watcher_heartbeat_renews_single_due_task",
+        "span": {
+          "end": 59378,
+          "start": 55206
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::refresh_prism_snapshot"
+        },
+        "kind": "Function",
+        "name": "refresh_prism_snapshot",
+        "span": {
+          "end": 13050,
+          "start": 11312
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::refresh_prism_snapshot"
+        },
+        "kind": "Function",
+        "name": "refresh_prism_snapshot",
+        "span": {
+          "end": 13050,
+          "start": 11312
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::format_error_chain"
+        },
+        "kind": "Function",
+        "name": "format_error_chain",
+        "span": {
+          "end": 48217,
+          "start": 48048
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::format_error_chain"
+        },
+        "kind": "Function",
+        "name": "format_error_chain",
+        "span": {
+          "end": 48233,
+          "start": 48064
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::maybe_auto_heartbeat_assisted_leases"
+        },
+        "kind": "Function",
+        "name": "maybe_auto_heartbeat_assisted_leases",
+        "span": {
+          "end": 30085,
+          "start": 29364
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::maybe_auto_heartbeat_assisted_leases"
+        },
+        "kind": "Function",
+        "name": "maybe_auto_heartbeat_assisted_leases",
+        "span": {
+          "end": 30085,
+          "start": 29364
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::try_refresh_prism_snapshot"
+        },
+        "kind": "Function",
+        "name": "try_refresh_prism_snapshot",
+        "span": {
+          "end": 14828,
+          "start": 13052
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::try_refresh_prism_snapshot"
+        },
+        "kind": "Function",
+        "name": "try_refresh_prism_snapshot",
+        "span": {
+          "end": 14828,
+          "start": 13052
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::relevant_protected_state_streams_detect_authoritative_prism_paths"
+        },
+        "kind": "Function",
+        "name": "relevant_protected_state_streams_detect_authoritative_prism_paths",
+        "span": {
+          "end": 52014,
+          "start": 51294
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::relevant_protected_state_streams_detect_authoritative_prism_paths"
+        },
+        "kind": "Function",
+        "name": "relevant_protected_state_streams_detect_authoritative_prism_paths",
+        "span": {
+          "end": 52030,
+          "start": 51310
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::watch::AssistedLeaseTarget::correlation"
+        },
+        "kind": "Method",
+        "name": "correlation",
+        "span": {
+          "end": 27948,
+          "start": 27634
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::watch::AssistedLeaseTarget::correlation"
+        },
+        "kind": "Method",
+        "name": "correlation",
+        "span": {
+          "end": 27948,
+          "start": 27634
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::watch::AssistedLeaseTarget::impl"
+        },
+        "kind": "Impl",
+        "name": "AssistedLeaseTarget",
+        "span": {
+          "end": 29058,
+          "start": 27386
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::watch::AssistedLeaseTarget::impl"
+        },
+        "kind": "Impl",
+        "name": "AssistedLeaseTarget",
+        "span": {
+          "end": 29058,
+          "start": 27386
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::is_authoritative_protected_state_fallback_path"
+        },
+        "kind": "Function",
+        "name": "is_authoritative_protected_state_fallback_path",
+        "span": {
+          "end": 39921,
+          "start": 39171
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::is_authoritative_protected_state_fallback_path"
+        },
+        "kind": "Function",
+        "name": "is_authoritative_protected_state_fallback_path",
+        "span": {
+          "end": 39937,
+          "start": 39171
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::watch::AssistedLeaseTarget::assisted_window"
+        },
+        "kind": "Method",
+        "name": "assisted_window",
+        "span": {
+          "end": 28619,
+          "start": 28412
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::watch::AssistedLeaseTarget::assisted_window"
+        },
+        "kind": "Method",
+        "name": "assisted_window",
+        "span": {
+          "end": 28619,
+          "start": 28412
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::scoped_watch_refresh_requires_in_root_paths"
+        },
+        "kind": "Function",
+        "name": "scoped_watch_refresh_requires_in_root_paths",
+        "span": {
+          "end": 54181,
+          "start": 53733
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::scoped_watch_refresh_requires_in_root_paths"
+        },
+        "kind": "Function",
+        "name": "scoped_watch_refresh_requires_in_root_paths",
+        "span": {
+          "end": 54197,
+          "start": 53749
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Enum",
+          "path": "prism_core::watch::AssistedLeaseTarget"
+        },
+        "kind": "Enum",
+        "name": "AssistedLeaseTarget",
+        "span": {
+          "end": 27384,
+          "start": 27049
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Enum",
+          "path": "prism_core::watch::AssistedLeaseTarget"
+        },
+        "kind": "Enum",
+        "name": "AssistedLeaseTarget",
+        "span": {
+          "end": 27384,
+          "start": 27049
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::watch::AssistedLeaseTarget::due_state"
+        },
+        "kind": "Method",
+        "name": "due_state",
+        "span": {
+          "end": 28406,
+          "start": 28124
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::watch::AssistedLeaseTarget::due_state"
+        },
+        "kind": "Method",
+        "name": "due_state",
+        "span": {
+          "end": 28406,
+          "start": 28124
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::assisted_watcher_heartbeat_skips_when_multiple_active_leases_exist"
+        },
+        "kind": "Function",
+        "name": "assisted_watcher_heartbeat_skips_when_multiple_active_leases_exist",
+        "span": {
+          "end": 62649,
+          "start": 59380
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::assisted_watcher_heartbeat_skips_when_multiple_active_leases_exist"
+        },
+        "kind": "Function",
+        "name": "assisted_watcher_heartbeat_skips_when_multiple_active_leases_exist",
+        "span": {
+          "end": 62665,
+          "start": 59396
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::watch::WatchHandle::stop"
+        },
+        "kind": "Field",
+        "name": "stop",
+        "span": {
+          "end": 2626,
+          "start": 2583
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::watch::WatchHandle::stop"
+        },
+        "kind": "Field",
+        "name": "stop",
+        "span": {
+          "end": 2626,
+          "start": 2583
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::can_scope_watch_refresh"
+        },
+        "kind": "Function",
+        "name": "can_scope_watch_refresh",
+        "span": {
+          "end": 39169,
+          "start": 39035
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::can_scope_watch_refresh"
+        },
+        "kind": "Function",
+        "name": "can_scope_watch_refresh",
+        "span": {
+          "end": 39169,
+          "start": 39035
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::relevant_protected_state_streams"
+        },
+        "kind": "Function",
+        "name": "relevant_protected_state_streams",
+        "span": {
+          "end": 41664,
+          "start": 39923
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::relevant_protected_state_streams"
+        },
+        "kind": "Function",
+        "name": "relevant_protected_state_streams",
+        "span": {
+          "end": 41680,
+          "start": 39939
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::watch::WatchHandle::handle"
+        },
+        "kind": "Field",
+        "name": "handle",
+        "span": {
+          "end": 2673,
+          "start": 2632
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::watch::WatchHandle::handle"
+        },
+        "kind": "Field",
+        "name": "handle",
+        "span": {
+          "end": 2673,
+          "start": 2632
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::refresh_prism_snapshot_with_guard"
+        },
+        "kind": "Function",
+        "name": "refresh_prism_snapshot_with_guard",
+        "span": {
+          "end": 27023,
+          "start": 14830
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::refresh_prism_snapshot_with_guard"
+        },
+        "kind": "Function",
+        "name": "refresh_prism_snapshot_with_guard",
+        "span": {
+          "end": 27023,
+          "start": 14830
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::principal_meta"
+        },
+        "kind": "Function",
+        "name": "principal_meta",
+        "span": {
+          "end": 55172,
+          "start": 54187
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::principal_meta"
+        },
+        "kind": "Function",
+        "name": "principal_meta",
+        "span": {
+          "end": 55188,
+          "start": 54203
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::assisted_lease_renewal_enabled"
+        },
+        "kind": "Function",
+        "name": "assisted_lease_renewal_enabled",
+        "span": {
+          "end": 29362,
+          "start": 29060
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::assisted_lease_renewal_enabled"
+        },
+        "kind": "Function",
+        "name": "assisted_lease_renewal_enabled",
+        "span": {
+          "end": 29362,
+          "start": 29060
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::watch::AssistedLeaseTarget::matches_event"
+        },
+        "kind": "Method",
+        "name": "matches_event",
+        "span": {
+          "end": 29056,
+          "start": 28625
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::watch::AssistedLeaseTarget::matches_event"
+        },
+        "kind": "Method",
+        "name": "matches_event",
+        "span": {
+          "end": 29056,
+          "start": 28625
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::observed_change_event_meta"
+        },
+        "kind": "Function",
+        "name": "observed_change_event_meta",
+        "span": {
+          "end": 38224,
+          "start": 36107
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::observed_change_event_meta"
+        },
+        "kind": "Function",
+        "name": "observed_change_event_meta",
+        "span": {
+          "end": 38224,
+          "start": 36107
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::sync_protected_state_watch_update"
+        },
+        "kind": "Function",
+        "name": "sync_protected_state_watch_update",
+        "span": {
+          "end": 47293,
+          "start": 42037
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::sync_protected_state_watch_update"
+        },
+        "kind": "Function",
+        "name": "sync_protected_state_watch_update",
+        "span": {
+          "end": 47309,
+          "start": 42053
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::temp_root"
+        },
+        "kind": "Function",
+        "name": "temp_root",
+        "span": {
+          "end": 49289,
+          "start": 49093
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::temp_root"
+        },
+        "kind": "Function",
+        "name": "temp_root",
+        "span": {
+          "end": 49305,
+          "start": 49109
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::relevant_watch_paths_keep_out_of_root_events"
+        },
+        "kind": "Function",
+        "name": "relevant_watch_paths_keep_out_of_root_events",
+        "span": {
+          "end": 53715,
+          "start": 53397
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::relevant_watch_paths_keep_out_of_root_events"
+        },
+        "kind": "Function",
+        "name": "relevant_watch_paths_keep_out_of_root_events",
+        "span": {
+          "end": 53731,
+          "start": 53413
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::spawn_fs_watch"
+        },
+        "kind": "Function",
+        "name": "spawn_fs_watch",
+        "span": {
+          "end": 7791,
+          "start": 2753
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::spawn_fs_watch"
+        },
+        "kind": "Function",
+        "name": "spawn_fs_watch",
+        "span": {
+          "end": 7791,
+          "start": 2753
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::relevant_protected_state_streams_fallback_for_prism_directory_events"
+        },
+        "kind": "Function",
+        "name": "relevant_protected_state_streams_fallback_for_prism_directory_events",
+        "span": {
+          "end": 52766,
+          "start": 52032
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::tests::relevant_protected_state_streams_fallback_for_prism_directory_events"
+        },
+        "kind": "Function",
+        "name": "relevant_protected_state_streams_fallback_for_prism_directory_events",
+        "span": {
+          "end": 52782,
+          "start": 52048
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::select_assisted_lease_target"
+        },
+        "kind": "Function",
+        "name": "select_assisted_lease_target",
+        "span": {
+          "end": 33672,
+          "start": 33034
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::select_assisted_lease_target"
+        },
+        "kind": "Function",
+        "name": "select_assisted_lease_target",
+        "span": {
+          "end": 33672,
+          "start": 33034
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::last_explicit_authenticated_target_event_ts"
+        },
+        "kind": "Function",
+        "name": "last_explicit_authenticated_target_event_ts",
+        "span": {
+          "end": 36105,
+          "start": 35374
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::last_explicit_authenticated_target_event_ts"
+        },
+        "kind": "Function",
+        "name": "last_explicit_authenticated_target_event_ts",
+        "span": {
+          "end": 36105,
+          "start": 35374
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::maybe_auto_heartbeat_assisted_leases_in_store"
+        },
+        "kind": "Function",
+        "name": "maybe_auto_heartbeat_assisted_leases_in_store",
+        "span": {
+          "end": 33032,
+          "start": 30087
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/watch.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::watch::maybe_auto_heartbeat_assisted_leases_in_store"
+        },
+        "kind": "Function",
+        "name": "maybe_auto_heartbeat_assisted_leases_in_store",
+        "span": {
+          "end": 33032,
+          "start": 30087
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 94,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "crates/prism-core/src/watch.rs"
+    ],
+    "files": [
+      130
+    ],
+    "reason": "work Normalize durable patch outcome and publication paths (work:normalize-durable-patch-outcome-and-publication-paths:01kna1f36b22n6hn2qqsn45zsn)",
+    "trigger": "FsWatch"
+  }
+}

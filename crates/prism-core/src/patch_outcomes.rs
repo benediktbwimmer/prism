@@ -5,6 +5,7 @@ use prism_memory::{OutcomeEvent, OutcomeKind, OutcomeResult};
 use prism_projections::ValidationDelta;
 use tracing::warn;
 
+use crate::path_identity::repo_relative_string;
 use crate::published_knowledge::validate_repo_patch_event;
 use crate::repo_patch_events::append_repo_patch_event;
 use crate::util::current_timestamp;
@@ -82,7 +83,7 @@ fn patch_file_paths<S: prism_store::Store>(
             indexer
                 .graph
                 .file_path(*file_id)
-                .map(|path| path.to_string_lossy().into_owned())
+                .map(|path| repo_relative_string(&indexer.root, path))
         })
         .collect()
 }
@@ -119,7 +120,7 @@ impl PatchMetadataBuilder {
         if let Some(file_path) = indexer
             .graph
             .file_path(node.node.file)
-            .map(|path| path.to_string_lossy().into_owned())
+            .map(|path| repo_relative_string(&indexer.root, path))
         {
             let summary = self
                 .file_summaries
@@ -161,7 +162,7 @@ fn changed_symbol_metadata<S: prism_store::Store>(
         "filePath": indexer
             .graph
             .file_path(node.node.file)
-            .map(|path| path.to_string_lossy().into_owned()),
+            .map(|path| repo_relative_string(&indexer.root, path)),
         "span": node.node.span,
     })
 }

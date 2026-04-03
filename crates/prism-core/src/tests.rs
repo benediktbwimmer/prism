@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
@@ -50,16 +50,17 @@ use super::{
     SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
     ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
 };
+use crate::concept_events::append_repo_concept_event;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator_support::build_curator_context;
 use crate::materialization::summarize_workspace_materialization;
-use crate::concept_events::append_repo_concept_event;
 use crate::memory_events::append_repo_memory_event;
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::protected_state::repo_streams::{
     append_protected_stream_event, inspect_protected_stream,
 };
 use crate::protected_state::streams::ProtectedRepoStream;
+use crate::published_knowledge::validate_repo_patch_event;
 use crate::repo_patch_events::{append_repo_patch_event, load_repo_patch_events};
 use crate::session::HOT_OUTCOME_HYDRATION_LIMIT;
 use crate::workspace_identity::{canonical_root_repo_id, workspace_identity_for_root};
@@ -107,6 +108,18 @@ fn background_worker_test_guard() -> MutexGuard<'static, ()> {
 
 fn track_temp_dir(path: &std::path::Path) {
     TEMP_TEST_DIRS.with(|state| state.borrow_mut().paths.push(path.to_path_buf()));
+}
+
+fn newest_patch_snapshot_path(root: &Path) -> PathBuf {
+    let mut entries = fs::read_dir(root.join(".prism/state/changes"))
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("json"))
+        .collect::<Vec<_>>();
+    entries.sort();
+    entries
+        .pop()
+        .expect("tracked patch snapshot should exist after patch outcome")
 }
 
 #[test]
@@ -1413,15 +1426,27 @@ fn repo_patch_events_capture_provenance_and_reload_without_local_cache() {
         event.metadata["reason"].as_str(),
         Some("work Rename alpha (work:rename-alpha)")
     );
-    assert!(event.metadata["filePaths"][0]
-        .as_str()
-        .unwrap_or_default()
-        .ends_with("src/lib.rs"));
+    assert_eq!(event.metadata["filePaths"][0].as_str(), Some("src/lib.rs"));
+    assert_eq!(
+        event.metadata["changedFilesSummary"][0]["filePath"].as_str(),
+        Some("src/lib.rs")
+    );
+    let changed_symbols = event.metadata["changedSymbols"]
+        .as_array()
+        .expect("patch metadata should include changed symbols");
+    assert!(!changed_symbols.is_empty());
+    assert!(changed_symbols
+        .iter()
+        .all(|symbol| symbol["filePath"].as_str() == Some("src/lib.rs")));
     session.sync_prism_doc().unwrap();
     let changes_doc = fs::read_to_string(root.join("docs/prism/changes.md")).unwrap();
     assert!(changes_doc.contains("# PRISM Changes"));
     assert!(changes_doc.contains("Rename alpha"));
     assert!(changes_doc.contains("src/lib.rs"));
+    assert!(!changes_doc.contains(root.to_string_lossy().as_ref()));
+    let tracked_patch_text = fs::read_to_string(newest_patch_snapshot_path(&root)).unwrap();
+    assert!(!tracked_patch_text.contains(root.to_string_lossy().as_ref()));
+    assert!(tracked_patch_text.contains("src/lib.rs"));
 
     let cache_db = crate::util::cache_path(&root).unwrap();
     drop(session);
@@ -1450,6 +1475,76 @@ fn repo_patch_events_capture_provenance_and_reload_without_local_cache() {
     );
 
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_published_patch_validation_rejects_absolute_file_paths() {
+    let event = OutcomeEvent {
+        meta: EventMeta {
+            id: EventId::new("outcome:absolute-paths"),
+            ts: 7,
+            actor: EventActor::Principal(prism_ir::PrincipalActor {
+                authority_id: PrincipalAuthorityId::new("local-daemon"),
+                principal_id: PrincipalId::new("codex-patch"),
+                kind: Some(PrincipalKind::Agent),
+                name: Some("codex-patch".to_string()),
+            }),
+            correlation: Some(TaskId::new("task:absolute-paths")),
+            causation: None,
+            execution_context: Some(EventExecutionContext {
+                credential_id: Some(CredentialId::new("credential:absolute-paths")),
+                work_context: Some(WorkContextSnapshot {
+                    work_id: "work:absolute-paths".to_string(),
+                    kind: WorkContextKind::AdHoc,
+                    title: "Reject absolute patch paths".to_string(),
+                    parent_work_id: None,
+                    coordination_task_id: None,
+                    plan_id: None,
+                    plan_title: None,
+                }),
+                ..Default::default()
+            }),
+        },
+        anchors: vec![AnchorRef::File(prism_ir::FileId(1))],
+        kind: OutcomeKind::PatchApplied,
+        summary: "Absolute path should fail validation".to_string(),
+        result: OutcomeResult::Success,
+        evidence: Vec::new(),
+        metadata: json!({
+            "reason": "work Reject absolute patch paths (work:absolute-paths)",
+            "filePaths": ["/tmp/demo/src/lib.rs"],
+            "changedFilesSummary": [
+                {
+                    "filePath": "/tmp/demo/src/lib.rs",
+                    "changedSymbolCount": 1,
+                    "addedCount": 0,
+                    "removedCount": 0,
+                    "updatedCount": 1
+                }
+            ],
+            "changedSymbols": [
+                {
+                    "filePath": "/tmp/demo/src/lib.rs",
+                    "id": {
+                        "crate_name": "demo",
+                        "kind": "Function",
+                        "path": "demo::alpha"
+                    },
+                    "kind": "Function",
+                    "name": "alpha",
+                    "span": {
+                        "start": 0,
+                        "end": 1
+                    },
+                    "status": "updated_after"
+                }
+            ]
+        }),
+    };
+
+    let error = validate_repo_patch_event(&event).unwrap_err().to_string();
+    assert!(error.contains("repo-relative"));
+    assert!(error.contains("filePaths[0]"));
 }
 
 #[test]
@@ -2638,10 +2733,9 @@ fn repo_published_memory_writes_tracked_snapshot_manifest() {
         .collect::<Vec<_>>();
     assert_eq!(memory_files.len(), 1);
 
-    let manifest: serde_json::Value = serde_json::from_slice(
-        &fs::read(root.join(".prism/state/manifest.json")).unwrap(),
-    )
-    .unwrap();
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join(".prism/state/manifest.json")).unwrap())
+            .unwrap();
     assert_eq!(manifest["publisher"]["principalId"], "codex-test");
     assert_eq!(
         manifest["publisher"]["principalAuthorityId"],
@@ -2721,7 +2815,11 @@ fn repo_published_memory_backfills_migration_digest_when_previous_manifest_lacke
         event
     };
 
-    append_repo_memory_event(&root, &make_event("structural:tracked-snapshot-memory-1", 1)).unwrap();
+    append_repo_memory_event(
+        &root,
+        &make_event("structural:tracked-snapshot-memory-1", 1),
+    )
+    .unwrap();
 
     let manifest_path = root.join(".prism/state/manifest.json");
     let mut manifest: serde_json::Value =
@@ -2740,7 +2838,11 @@ fn repo_published_memory_backfills_migration_digest_when_previous_manifest_lacke
     )
     .unwrap();
 
-    append_repo_memory_event(&root, &make_event("structural:tracked-snapshot-memory-2", 2)).unwrap();
+    append_repo_memory_event(
+        &root,
+        &make_event("structural:tracked-snapshot-memory-2", 2),
+    )
+    .unwrap();
 
     let refreshed: serde_json::Value =
         serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
@@ -2844,7 +2946,11 @@ fn repo_published_memory_ignores_legacy_log_once_snapshot_authority_exists() {
     event.actor = Some(EventActor::Agent);
     append_repo_memory_event(&root, &event).unwrap();
 
-    fs::write(root.join(".prism/memory/events.jsonl"), "tampered legacy log\n").unwrap();
+    fs::write(
+        root.join(".prism/memory/events.jsonl"),
+        "tampered legacy log\n",
+    )
+    .unwrap();
 
     let loaded = crate::memory_events::load_repo_memory_events(&root).unwrap();
     assert_eq!(loaded.len(), 1);
@@ -5165,12 +5271,14 @@ fn repo_published_plans_write_tracked_snapshot_manifest() {
     assert_eq!(plan_files.len(), 1);
     assert_eq!(task_files.len(), 1);
 
-    let manifest: serde_json::Value = serde_json::from_slice(
-        &fs::read(root.join(".prism/state/manifest.json")).unwrap(),
-    )
-    .unwrap();
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join(".prism/state/manifest.json")).unwrap())
+            .unwrap();
     assert_eq!(manifest["publisher"]["principalId"], "codex-plan");
-    assert_eq!(manifest["workContext"]["workId"], "work:tracked-snapshot-plan");
+    assert_eq!(
+        manifest["workContext"]["workId"],
+        "work:tracked-snapshot-plan"
+    );
     assert!(manifest["migrationSourceDigest"].is_string());
     let relative_plan_path = plan_files[0]
         .strip_prefix(&root)

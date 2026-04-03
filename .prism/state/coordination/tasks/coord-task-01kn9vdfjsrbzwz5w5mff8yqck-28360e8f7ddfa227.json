@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Normalize tracked snapshot, protected publication, and shared/runtime serialization to repo-relative paths",
   "summary": "Remove absolute path leakage from tracked `.prism/state/**`, protected publication flows, shared journals, and repo-published change snapshots, using anchors as the primary reference and repo-relative paths only as the fallback file-level reference.",
-  "status": "Ready",
+  "status": "InProgress",
   "published_task_status": null,
   "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
   "pending_handoff_to": null,
@@ -45,7 +45,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1015,
+    "graph_version": 97,
     "git_commit": null
   },
   "priority": 1,

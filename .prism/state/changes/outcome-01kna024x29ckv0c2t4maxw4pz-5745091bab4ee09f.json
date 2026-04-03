@@ -1,0 +1,1172 @@
+{
+  "meta": {
+    "id": "outcome:01kna024x29ckv0c2t4maxw4pz",
+    "ts": 1775230849,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+    "causation": "observed:01kna024f1xpqfqkw2aeteb7hj",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/task/path-identity-repo-relative",
+      "instance_id": "instance:72377:1775230846520",
+      "work_context": {
+        "workId": "work:canonicalize-graph-and-workspace-file-identity-around-file-ids-plus-repo-relative-paths:01kn9yh35e8ed6c7aea7w0q0gc",
+        "kind": "coordination",
+        "title": "Canonicalize graph and workspace file identity around file ids plus repo-relative paths",
+        "coordinationTaskId": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+        "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 232
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::impact_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::collect_contracts",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::append_check_fallbacks",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::RecommendationSeed::path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::RecommendationSeed",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::collect_target_impact",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::RiskSeed",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::collect_task_impact",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::ImpactInput",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::collect_risks",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::ImpactInput::target",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::RiskSeed::summary",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::RecommendationSeed::provenance",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::RiskSeed::provenance",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::RecommendationSeed::label",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::collect_contract_impact",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::coordination_task_id",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::collect_from_impact_view",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::collect_recommendations",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::RecommendationSeed::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::RecommendationSeed::why",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::RiskSeed::why",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::RecommendationSeed::last_seen",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::recommendation_key",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::ImpactInput::paths",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::RecommendationSeed::score",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::ImpactInput::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::RecommendationSeed::target",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_mcp",
+        "path": "prism_mcp::query_view_impact::resolve_targets_for_paths",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 30 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 60,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "removedCount": 0,
+        "updatedCount": 60
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::impact_view"
+        },
+        "kind": "Function",
+        "name": "impact_view",
+        "span": {
+          "end": 6718,
+          "start": 1457
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::impact_view"
+        },
+        "kind": "Function",
+        "name": "impact_view",
+        "span": {
+          "end": 6718,
+          "start": 1457
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::collect_contracts"
+        },
+        "kind": "Function",
+        "name": "collect_contracts",
+        "span": {
+          "end": 23297,
+          "start": 23002
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::collect_contracts"
+        },
+        "kind": "Function",
+        "name": "collect_contracts",
+        "span": {
+          "end": 23297,
+          "start": 23002
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::append_check_fallbacks"
+        },
+        "kind": "Function",
+        "name": "append_check_fallbacks",
+        "span": {
+          "end": 17874,
+          "start": 17176
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::append_check_fallbacks"
+        },
+        "kind": "Function",
+        "name": "append_check_fallbacks",
+        "span": {
+          "end": 17874,
+          "start": 17176
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::query_view_impact"
+        },
+        "kind": "Module",
+        "name": "query_view_impact",
+        "span": {
+          "end": 24984,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Module",
+          "path": "prism_mcp::query_view_impact"
+        },
+        "kind": "Module",
+        "name": "query_view_impact",
+        "span": {
+          "end": 24992,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RecommendationSeed::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 1277,
+          "start": 1257
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RecommendationSeed::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 1277,
+          "start": 1257
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_view_impact::RecommendationSeed"
+        },
+        "kind": "Struct",
+        "name": "RecommendationSeed",
+        "span": {
+          "end": 1332,
+          "start": 1089
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_view_impact::RecommendationSeed"
+        },
+        "kind": "Struct",
+        "name": "RecommendationSeed",
+        "span": {
+          "end": 1332,
+          "start": 1089
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::collect_target_impact"
+        },
+        "kind": "Function",
+        "name": "collect_target_impact",
+        "span": {
+          "end": 10375,
+          "start": 9691
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::collect_target_impact"
+        },
+        "kind": "Function",
+        "name": "collect_target_impact",
+        "span": {
+          "end": 10375,
+          "start": 9691
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_view_impact::RiskSeed"
+        },
+        "kind": "Struct",
+        "name": "RiskSeed",
+        "span": {
+          "end": 1455,
+          "start": 1358
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_view_impact::RiskSeed"
+        },
+        "kind": "Struct",
+        "name": "RiskSeed",
+        "span": {
+          "end": 1455,
+          "start": 1358
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::collect_task_impact"
+        },
+        "kind": "Function",
+        "name": "collect_task_impact",
+        "span": {
+          "end": 9689,
+          "start": 6720
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::collect_task_impact"
+        },
+        "kind": "Function",
+        "name": "collect_task_impact",
+        "span": {
+          "end": 9689,
+          "start": 6720
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_view_impact::ImpactInput"
+        },
+        "kind": "Struct",
+        "name": "ImpactInput",
+        "span": {
+          "end": 1063,
+          "start": 942
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Struct",
+          "path": "prism_mcp::query_view_impact::ImpactInput"
+        },
+        "kind": "Struct",
+        "name": "ImpactInput",
+        "span": {
+          "end": 1063,
+          "start": 942
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::collect_risks"
+        },
+        "kind": "Function",
+        "name": "collect_risks",
+        "span": {
+          "end": 17174,
+          "start": 16633
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::collect_risks"
+        },
+        "kind": "Function",
+        "name": "collect_risks",
+        "span": {
+          "end": 17174,
+          "start": 16633
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::ImpactInput::target"
+        },
+        "kind": "Field",
+        "name": "target",
+        "span": {
+          "end": 1028,
+          "start": 996
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::ImpactInput::target"
+        },
+        "kind": "Field",
+        "name": "target",
+        "span": {
+          "end": 1028,
+          "start": 996
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RiskSeed::summary"
+        },
+        "kind": "Field",
+        "name": "summary",
+        "span": {
+          "end": 1395,
+          "start": 1380
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RiskSeed::summary"
+        },
+        "kind": "Field",
+        "name": "summary",
+        "span": {
+          "end": 1395,
+          "start": 1380
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RecommendationSeed::provenance"
+        },
+        "kind": "Field",
+        "name": "provenance",
+        "span": {
+          "end": 1209,
+          "start": 1175
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RecommendationSeed::provenance"
+        },
+        "kind": "Field",
+        "name": "provenance",
+        "span": {
+          "end": 1209,
+          "start": 1175
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RiskSeed::provenance"
+        },
+        "kind": "Field",
+        "name": "provenance",
+        "span": {
+          "end": 1452,
+          "start": 1418
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RiskSeed::provenance"
+        },
+        "kind": "Field",
+        "name": "provenance",
+        "span": {
+          "end": 1452,
+          "start": 1418
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RecommendationSeed::label"
+        },
+        "kind": "Field",
+        "name": "label",
+        "span": {
+          "end": 1152,
+          "start": 1139
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RecommendationSeed::label"
+        },
+        "kind": "Field",
+        "name": "label",
+        "span": {
+          "end": 1152,
+          "start": 1139
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::collect_contract_impact"
+        },
+        "kind": "Function",
+        "name": "collect_contract_impact",
+        "span": {
+          "end": 23000,
+          "start": 17876
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::collect_contract_impact"
+        },
+        "kind": "Function",
+        "name": "collect_contract_impact",
+        "span": {
+          "end": 23000,
+          "start": 17876
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::coordination_task_id"
+        },
+        "kind": "Function",
+        "name": "coordination_task_id",
+        "span": {
+          "end": 23803,
+          "start": 23620
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::coordination_task_id"
+        },
+        "kind": "Function",
+        "name": "coordination_task_id",
+        "span": {
+          "end": 23803,
+          "start": 23620
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::collect_from_impact_view"
+        },
+        "kind": "Function",
+        "name": "collect_from_impact_view",
+        "span": {
+          "end": 14964,
+          "start": 10377
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::collect_from_impact_view"
+        },
+        "kind": "Function",
+        "name": "collect_from_impact_view",
+        "span": {
+          "end": 14964,
+          "start": 10377
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::collect_recommendations"
+        },
+        "kind": "Function",
+        "name": "collect_recommendations",
+        "span": {
+          "end": 16631,
+          "start": 14966
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::collect_recommendations"
+        },
+        "kind": "Function",
+        "name": "collect_recommendations",
+        "span": {
+          "end": 16631,
+          "start": 14966
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RecommendationSeed::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 1133,
+          "start": 1121
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RecommendationSeed::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 1133,
+          "start": 1121
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RecommendationSeed::why"
+        },
+        "kind": "Field",
+        "name": "why",
+        "span": {
+          "end": 1169,
+          "start": 1158
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RecommendationSeed::why"
+        },
+        "kind": "Field",
+        "name": "why",
+        "span": {
+          "end": 1169,
+          "start": 1158
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RiskSeed::why"
+        },
+        "kind": "Field",
+        "name": "why",
+        "span": {
+          "end": 1412,
+          "start": 1401
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RiskSeed::why"
+        },
+        "kind": "Field",
+        "name": "why",
+        "span": {
+          "end": 1412,
+          "start": 1401
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RecommendationSeed::last_seen"
+        },
+        "kind": "Field",
+        "name": "last_seen",
+        "span": {
+          "end": 1329,
+          "start": 1307
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RecommendationSeed::last_seen"
+        },
+        "kind": "Field",
+        "name": "last_seen",
+        "span": {
+          "end": 1329,
+          "start": 1307
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::recommendation_key"
+        },
+        "kind": "Function",
+        "name": "recommendation_key",
+        "span": {
+          "end": 23618,
+          "start": 23299
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::recommendation_key"
+        },
+        "kind": "Function",
+        "name": "recommendation_key",
+        "span": {
+          "end": 23618,
+          "start": 23299
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::ImpactInput::paths"
+        },
+        "kind": "Field",
+        "name": "paths",
+        "span": {
+          "end": 1060,
+          "start": 1034
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::ImpactInput::paths"
+        },
+        "kind": "Field",
+        "name": "paths",
+        "span": {
+          "end": 1060,
+          "start": 1034
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RecommendationSeed::score"
+        },
+        "kind": "Field",
+        "name": "score",
+        "span": {
+          "end": 1301,
+          "start": 1283
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RecommendationSeed::score"
+        },
+        "kind": "Field",
+        "name": "score",
+        "span": {
+          "end": 1301,
+          "start": 1283
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::ImpactInput::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 990,
+          "start": 967
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::ImpactInput::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 990,
+          "start": 967
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RecommendationSeed::target"
+        },
+        "kind": "Field",
+        "name": "target",
+        "span": {
+          "end": 1251,
+          "start": 1215
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Field",
+          "path": "prism_mcp::query_view_impact::RecommendationSeed::target"
+        },
+        "kind": "Field",
+        "name": "target",
+        "span": {
+          "end": 1251,
+          "start": 1215
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::resolve_targets_for_paths"
+        },
+        "kind": "Function",
+        "name": "resolve_targets_for_paths",
+        "span": {
+          "end": 24983,
+          "start": 23805
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs",
+        "id": {
+          "crate_name": "prism_mcp",
+          "kind": "Function",
+          "path": "prism_mcp::query_view_impact::resolve_targets_for_paths"
+        },
+        "kind": "Function",
+        "name": "resolve_targets_for_paths",
+        "span": {
+          "end": 24991,
+          "start": 23805
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 60,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-mcp/src/query_view_impact.rs"
+    ],
+    "files": [
+      232
+    ],
+    "reason": "work Canonicalize graph and workspace file identity around file ids plus repo-relative paths (work:canonicalize-graph-and-workspace-file-identity-around-file-ids-plus-repo-relative-paths:01kn9yh35e8ed6c7aea7w0q0gc)",
+    "trigger": "FsWatch"
+  }
+}

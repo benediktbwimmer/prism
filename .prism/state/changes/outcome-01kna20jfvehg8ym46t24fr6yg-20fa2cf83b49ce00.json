@@ -1,0 +1,513 @@
+{
+  "meta": {
+    "id": "outcome:01kna20jfvehg8ym46t24fr6yg",
+    "ts": 1775232895,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+    "causation": "observed:01kna20jd8aqkab7491bnqtrhy",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/task/path-identity-repo-relative",
+      "instance_id": "instance:11681:1775232892795",
+      "work_context": {
+        "workId": "work:normalize-durable-patch-outcome-and-publication-paths:01kna1f36b22n6hn2qqsn45zsn",
+        "kind": "ad_hoc",
+        "title": "Normalize durable patch outcome and publication paths",
+        "coordinationTaskId": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+        "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 112
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_knowledge::validate_repo_relative_patch_metadata",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_knowledge::validate_repo_relative_patch_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_knowledge::validate_repo_concept_relation",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_knowledge::validate_repo_memory_event",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_knowledge::validate_repo_concept_packet",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_knowledge",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_knowledge::validate_repo_contract_event",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_knowledge::validate_repo_patch_event",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_knowledge::validate_repo_concept_event",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_knowledge::contract_target_has_refs",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_knowledge::validate_repo_concept_relation_event",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_knowledge::validate_repo_contract_packet",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_knowledge::validate_repo_memory_metadata",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 2 added, 0 removed, 11 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 2,
+        "changedSymbolCount": 24,
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "removedCount": 0,
+        "updatedCount": 22
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_relative_patch_metadata"
+        },
+        "kind": "Function",
+        "name": "validate_repo_relative_patch_metadata",
+        "span": {
+          "end": 5869,
+          "start": 4752
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_relative_patch_path"
+        },
+        "kind": "Function",
+        "name": "validate_repo_relative_patch_path",
+        "span": {
+          "end": 6195,
+          "start": 5871
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_concept_relation"
+        },
+        "kind": "Function",
+        "name": "validate_repo_concept_relation",
+        "span": {
+          "end": 10002,
+          "start": 8937
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_concept_relation"
+        },
+        "kind": "Function",
+        "name": "validate_repo_concept_relation",
+        "span": {
+          "end": 11739,
+          "start": 10674
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_memory_event"
+        },
+        "kind": "Function",
+        "name": "validate_repo_memory_event",
+        "span": {
+          "end": 1523,
+          "start": 380
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_memory_event"
+        },
+        "kind": "Function",
+        "name": "validate_repo_memory_event",
+        "span": {
+          "end": 1580,
+          "start": 437
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_concept_packet"
+        },
+        "kind": "Function",
+        "name": "validate_repo_concept_packet",
+        "span": {
+          "end": 8935,
+          "start": 6904
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_concept_packet"
+        },
+        "kind": "Function",
+        "name": "validate_repo_concept_packet",
+        "span": {
+          "end": 10672,
+          "start": 8641
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::published_knowledge"
+        },
+        "kind": "Module",
+        "name": "published_knowledge",
+        "span": {
+          "end": 12903,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::published_knowledge"
+        },
+        "kind": "Module",
+        "name": "published_knowledge",
+        "span": {
+          "end": 14640,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_contract_event"
+        },
+        "kind": "Function",
+        "name": "validate_repo_contract_event",
+        "span": {
+          "end": 2243,
+          "start": 2008
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_contract_event"
+        },
+        "kind": "Function",
+        "name": "validate_repo_contract_event",
+        "span": {
+          "end": 2300,
+          "start": 2065
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_patch_event"
+        },
+        "kind": "Function",
+        "name": "validate_repo_patch_event",
+        "span": {
+          "end": 4458,
+          "start": 2245
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_patch_event"
+        },
+        "kind": "Function",
+        "name": "validate_repo_patch_event",
+        "span": {
+          "end": 4750,
+          "start": 2302
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_concept_event"
+        },
+        "kind": "Function",
+        "name": "validate_repo_concept_event",
+        "span": {
+          "end": 1754,
+          "start": 1525
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_concept_event"
+        },
+        "kind": "Function",
+        "name": "validate_repo_concept_event",
+        "span": {
+          "end": 1811,
+          "start": 1582
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::contract_target_has_refs"
+        },
+        "kind": "Function",
+        "name": "contract_target_has_refs",
+        "span": {
+          "end": 12902,
+          "start": 12687
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::contract_target_has_refs"
+        },
+        "kind": "Function",
+        "name": "contract_target_has_refs",
+        "span": {
+          "end": 14639,
+          "start": 14424
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_concept_relation_event"
+        },
+        "kind": "Function",
+        "name": "validate_repo_concept_relation_event",
+        "span": {
+          "end": 2006,
+          "start": 1756
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_concept_relation_event"
+        },
+        "kind": "Function",
+        "name": "validate_repo_concept_relation_event",
+        "span": {
+          "end": 2063,
+          "start": 1813
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_contract_packet"
+        },
+        "kind": "Function",
+        "name": "validate_repo_contract_packet",
+        "span": {
+          "end": 12685,
+          "start": 10004
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_contract_packet"
+        },
+        "kind": "Function",
+        "name": "validate_repo_contract_packet",
+        "span": {
+          "end": 14422,
+          "start": 11741
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_memory_metadata"
+        },
+        "kind": "Function",
+        "name": "validate_repo_memory_metadata",
+        "span": {
+          "end": 6902,
+          "start": 4460
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/published_knowledge.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_knowledge::validate_repo_memory_metadata"
+        },
+        "kind": "Function",
+        "name": "validate_repo_memory_metadata",
+        "span": {
+          "end": 8639,
+          "start": 6197
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 24,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "crates/prism-core/src/published_knowledge.rs"
+    ],
+    "files": [
+      112
+    ],
+    "reason": "work Normalize durable patch outcome and publication paths (work:normalize-durable-patch-outcome-and-publication-paths:01kna1f36b22n6hn2qqsn45zsn)",
+    "trigger": "FsWatch"
+  }
+}

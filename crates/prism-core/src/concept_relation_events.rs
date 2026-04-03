@@ -8,8 +8,8 @@ use crate::protected_state::repo_streams::{
 };
 use crate::protected_state::streams::{ProtectedRepoStream, ProtectedVerificationStatus};
 use crate::tracked_snapshot::{
-    apply_concept_relation_snapshot, legacy_tracked_stream_bridge_active,
-    load_relation_snapshots, publish_context_from_event, tracked_snapshot_authority_active,
+    apply_concept_relation_snapshot, legacy_tracked_stream_bridge_active, load_relation_snapshots,
+    publish_context_from_event, tracked_snapshot_authority_active,
 };
 use crate::util::repo_concept_relations_path;
 

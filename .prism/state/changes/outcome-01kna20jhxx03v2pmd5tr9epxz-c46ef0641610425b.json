@@ -1,0 +1,1061 @@
+{
+  "meta": {
+    "id": "outcome:01kna20jhxx03v2pmd5tr9epxz",
+    "ts": 1775232895,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+    "causation": "observed:01kna20jd8aqkab7491bnqtrhy",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/task/path-identity-repo-relative",
+      "instance_id": "instance:11681:1775232892795",
+      "work_context": {
+        "workId": "work:normalize-durable-patch-outcome-and-publication-paths:01kna1f36b22n6hn2qqsn45zsn",
+        "kind": "ad_hoc",
+        "title": "Normalize durable patch outcome and publication paths",
+        "coordinationTaskId": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+        "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 99
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::PatchMetadataBuilder::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::WorkspaceIndexer_S::record_patch_outcome",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::RecordedPatchOutcome::event",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::PatchChangedFileSummary::file_path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::WorkspaceIndexer_S::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::patch_is_repo_publishable",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::PatchMetadataBuilder::total_changed_symbol_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::patch_file_paths",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::PatchMetadataBuilder",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::RecordedPatchOutcome::validation_deltas",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::PatchChangedFileSummary::removed_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::PatchChangedFileSummary::added_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::PatchChangedFileSummary::updated_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::PatchMetadataBuilder::push",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::changed_symbol_metadata",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::default_outcome_meta",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::patch_reason",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::RecordedPatchOutcome",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::patch_summary",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::dedupe_anchors",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::observed_is_empty",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::PatchMetadataBuilder::changed_symbols",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::PatchChangedFileSummary::changed_symbol_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::PatchChangedFileSummary",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::PatchMetadataBuilder::file_summaries",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::patch_outcomes::auto_outcome_event_id",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 27 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 54,
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "removedCount": 0,
+        "updatedCount": 54
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::patch_outcomes::PatchMetadataBuilder::impl"
+        },
+        "kind": "Impl",
+        "name": "PatchMetadataBuilder",
+        "span": {
+          "end": 4424,
+          "start": 3152
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::patch_outcomes::PatchMetadataBuilder::impl"
+        },
+        "kind": "Impl",
+        "name": "PatchMetadataBuilder",
+        "span": {
+          "end": 4484,
+          "start": 3206
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::patch_outcomes::WorkspaceIndexer_S::record_patch_outcome"
+        },
+        "kind": "Method",
+        "name": "record_patch_outcome",
+        "span": {
+          "end": 9443,
+          "start": 5253
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::patch_outcomes::WorkspaceIndexer_S::record_patch_outcome"
+        },
+        "kind": "Method",
+        "name": "record_patch_outcome",
+        "span": {
+          "end": 9509,
+          "start": 5319
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::RecordedPatchOutcome::event"
+        },
+        "kind": "Field",
+        "name": "event",
+        "span": {
+          "end": 3091,
+          "start": 3061
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::RecordedPatchOutcome::event"
+        },
+        "kind": "Field",
+        "name": "event",
+        "span": {
+          "end": 3145,
+          "start": 3115
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::PatchChangedFileSummary::file_path"
+        },
+        "kind": "Field",
+        "name": "file_path",
+        "span": {
+          "end": 2703,
+          "start": 2686
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::PatchChangedFileSummary::file_path"
+        },
+        "kind": "Field",
+        "name": "file_path",
+        "span": {
+          "end": 2757,
+          "start": 2740
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::patch_outcomes::WorkspaceIndexer_S::impl"
+        },
+        "kind": "Impl",
+        "name": "WorkspaceIndexer_S",
+        "span": {
+          "end": 9445,
+          "start": 5199
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::patch_outcomes::WorkspaceIndexer_S::impl"
+        },
+        "kind": "Impl",
+        "name": "WorkspaceIndexer_S",
+        "span": {
+          "end": 9511,
+          "start": 5265
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::patch_outcomes::patch_is_repo_publishable"
+        },
+        "kind": "Function",
+        "name": "patch_is_repo_publishable",
+        "span": {
+          "end": 2237,
+          "start": 1848
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::patch_outcomes::patch_is_repo_publishable"
+        },
+        "kind": "Function",
+        "name": "patch_is_repo_publishable",
+        "span": {
+          "end": 2285,
+          "start": 1896
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::PatchMetadataBuilder::total_changed_symbol_count"
+        },
+        "kind": "Field",
+        "name": "total_changed_symbol_count",
+        "span": {
+          "end": 3011,
+          "start": 2978
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::PatchMetadataBuilder::total_changed_symbol_count"
+        },
+        "kind": "Field",
+        "name": "total_changed_symbol_count",
+        "span": {
+          "end": 3065,
+          "start": 3032
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::patch_outcomes::patch_file_paths"
+        },
+        "kind": "Function",
+        "name": "patch_file_paths",
+        "span": {
+          "end": 2623,
+          "start": 2239
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::patch_outcomes::patch_file_paths"
+        },
+        "kind": "Function",
+        "name": "patch_file_paths",
+        "span": {
+          "end": 2677,
+          "start": 2287
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::patch_outcomes::PatchMetadataBuilder"
+        },
+        "kind": "Struct",
+        "name": "PatchMetadataBuilder",
+        "span": {
+          "end": 3014,
+          "start": 2836
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::patch_outcomes::PatchMetadataBuilder"
+        },
+        "kind": "Struct",
+        "name": "PatchMetadataBuilder",
+        "span": {
+          "end": 3068,
+          "start": 2890
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::RecordedPatchOutcome::validation_deltas"
+        },
+        "kind": "Field",
+        "name": "validation_deltas",
+        "span": {
+          "end": 3147,
+          "start": 3097
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::RecordedPatchOutcome::validation_deltas"
+        },
+        "kind": "Field",
+        "name": "validation_deltas",
+        "span": {
+          "end": 3201,
+          "start": 3151
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::PatchChangedFileSummary::removed_count"
+        },
+        "kind": "Field",
+        "name": "removed_count",
+        "span": {
+          "end": 2786,
+          "start": 2766
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::PatchChangedFileSummary::removed_count"
+        },
+        "kind": "Field",
+        "name": "removed_count",
+        "span": {
+          "end": 2840,
+          "start": 2820
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::PatchChangedFileSummary::added_count"
+        },
+        "kind": "Field",
+        "name": "added_count",
+        "span": {
+          "end": 2760,
+          "start": 2742
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::PatchChangedFileSummary::added_count"
+        },
+        "kind": "Field",
+        "name": "added_count",
+        "span": {
+          "end": 2814,
+          "start": 2796
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::PatchChangedFileSummary::updated_count"
+        },
+        "kind": "Field",
+        "name": "updated_count",
+        "span": {
+          "end": 2812,
+          "start": 2792
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::PatchChangedFileSummary::updated_count"
+        },
+        "kind": "Field",
+        "name": "updated_count",
+        "span": {
+          "end": 2866,
+          "start": 2846
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::patch_outcomes::PatchMetadataBuilder::push"
+        },
+        "kind": "Method",
+        "name": "push",
+        "span": {
+          "end": 4422,
+          "start": 3184
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::patch_outcomes::PatchMetadataBuilder::push"
+        },
+        "kind": "Method",
+        "name": "push",
+        "span": {
+          "end": 4482,
+          "start": 3238
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::patch_outcomes"
+        },
+        "kind": "Module",
+        "name": "patch_outcomes",
+        "span": {
+          "end": 9446,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::patch_outcomes"
+        },
+        "kind": "Module",
+        "name": "patch_outcomes",
+        "span": {
+          "end": 9512,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::patch_outcomes::changed_symbol_metadata"
+        },
+        "kind": "Function",
+        "name": "changed_symbol_metadata",
+        "span": {
+          "end": 4920,
+          "start": 4426
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::patch_outcomes::changed_symbol_metadata"
+        },
+        "kind": "Function",
+        "name": "changed_symbol_metadata",
+        "span": {
+          "end": 4986,
+          "start": 4486
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::patch_outcomes::default_outcome_meta"
+        },
+        "kind": "Function",
+        "name": "default_outcome_meta",
+        "span": {
+          "end": 779,
+          "start": 488
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::patch_outcomes::default_outcome_meta"
+        },
+        "kind": "Function",
+        "name": "default_outcome_meta",
+        "span": {
+          "end": 827,
+          "start": 536
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::patch_outcomes::patch_reason"
+        },
+        "kind": "Function",
+        "name": "patch_reason",
+        "span": {
+          "end": 1846,
+          "start": 1396
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::patch_outcomes::patch_reason"
+        },
+        "kind": "Function",
+        "name": "patch_reason",
+        "span": {
+          "end": 1894,
+          "start": 1444
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::patch_outcomes::RecordedPatchOutcome"
+        },
+        "kind": "Struct",
+        "name": "RecordedPatchOutcome",
+        "span": {
+          "end": 3150,
+          "start": 3016
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::patch_outcomes::RecordedPatchOutcome"
+        },
+        "kind": "Struct",
+        "name": "RecordedPatchOutcome",
+        "span": {
+          "end": 3204,
+          "start": 3070
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::patch_outcomes::patch_summary"
+        },
+        "kind": "Function",
+        "name": "patch_summary",
+        "span": {
+          "end": 1394,
+          "start": 1147
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::patch_outcomes::patch_summary"
+        },
+        "kind": "Function",
+        "name": "patch_summary",
+        "span": {
+          "end": 1442,
+          "start": 1195
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::patch_outcomes::dedupe_anchors"
+        },
+        "kind": "Function",
+        "name": "dedupe_anchors",
+        "span": {
+          "end": 5197,
+          "start": 4922
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::patch_outcomes::dedupe_anchors"
+        },
+        "kind": "Function",
+        "name": "dedupe_anchors",
+        "span": {
+          "end": 5263,
+          "start": 4988
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::patch_outcomes::observed_is_empty"
+        },
+        "kind": "Function",
+        "name": "observed_is_empty",
+        "span": {
+          "end": 1048,
+          "start": 781
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::patch_outcomes::observed_is_empty"
+        },
+        "kind": "Function",
+        "name": "observed_is_empty",
+        "span": {
+          "end": 1096,
+          "start": 829
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::PatchMetadataBuilder::changed_symbols"
+        },
+        "kind": "Field",
+        "name": "changed_symbols",
+        "span": {
+          "end": 2909,
+          "start": 2870
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::PatchMetadataBuilder::changed_symbols"
+        },
+        "kind": "Field",
+        "name": "changed_symbols",
+        "span": {
+          "end": 2963,
+          "start": 2924
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::PatchChangedFileSummary::changed_symbol_count"
+        },
+        "kind": "Field",
+        "name": "changed_symbol_count",
+        "span": {
+          "end": 2736,
+          "start": 2709
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::PatchChangedFileSummary::changed_symbol_count"
+        },
+        "kind": "Field",
+        "name": "changed_symbol_count",
+        "span": {
+          "end": 2790,
+          "start": 2763
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::patch_outcomes::PatchChangedFileSummary"
+        },
+        "kind": "Struct",
+        "name": "PatchChangedFileSummary",
+        "span": {
+          "end": 2815,
+          "start": 2649
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::patch_outcomes::PatchChangedFileSummary"
+        },
+        "kind": "Struct",
+        "name": "PatchChangedFileSummary",
+        "span": {
+          "end": 2869,
+          "start": 2703
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::PatchMetadataBuilder::file_summaries"
+        },
+        "kind": "Field",
+        "name": "file_summaries",
+        "span": {
+          "end": 2972,
+          "start": 2915
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::patch_outcomes::PatchMetadataBuilder::file_summaries"
+        },
+        "kind": "Field",
+        "name": "file_summaries",
+        "span": {
+          "end": 3026,
+          "start": 2969
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::patch_outcomes::auto_outcome_event_id"
+        },
+        "kind": "Function",
+        "name": "auto_outcome_event_id",
+        "span": {
+          "end": 1145,
+          "start": 1050
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/patch_outcomes.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::patch_outcomes::auto_outcome_event_id"
+        },
+        "kind": "Function",
+        "name": "auto_outcome_event_id",
+        "span": {
+          "end": 1193,
+          "start": 1098
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 54,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "crates/prism-core/src/patch_outcomes.rs"
+    ],
+    "files": [
+      99
+    ],
+    "reason": "work Normalize durable patch outcome and publication paths (work:normalize-durable-patch-outcome-and-publication-paths:01kna1f36b22n6hn2qqsn45zsn)",
+    "trigger": "FsWatch"
+  }
+}

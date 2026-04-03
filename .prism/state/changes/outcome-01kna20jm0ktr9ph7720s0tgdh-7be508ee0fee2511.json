@@ -1,0 +1,4687 @@
+{
+  "meta": {
+    "id": "outcome:01kna20jm0ktr9ph7720s0tgdh",
+    "ts": 1775232895,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+    "causation": "observed:01kna20jd8aqkab7491bnqtrhy",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/task/path-identity-repo-relative",
+      "instance_id": "instance:11681:1775232892795",
+      "work_context": {
+        "workId": "work:normalize-durable-patch-outcome-and-publication-paths:01kna1f36b22n6hn2qqsn45zsn",
+        "kind": "ad_hoc",
+        "title": "Normalize durable patch outcome and publication paths",
+        "coordinationTaskId": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+        "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 487
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSignature::trust_bundle_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::sync_plan_objects",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifest::work_context",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::snapshot_plans_dir",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::snapshot_relations_dir",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::work_context",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::snapshot_memory_dir",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifest::migration_source_digest",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::TrackedSnapshotPublishContext::published_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::load_tracked_coordination_snapshot_state",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotIndexEntry",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotIndexEntry::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::publish_context_from_event",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotIndexEntry::path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::sync_concept_snapshot",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::TrackedSnapshotPublishContext",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifest",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotIndexEntry::title",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::implicit_work_context",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::task_snapshot_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::rebuild_contract_index",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::previous_manifest_digest",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestFile::sha256",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::load_json_records",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::snapshot_contracts_dir",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestPublisher::credential_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::sync_contract_snapshot",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::artifact_snapshot_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::sync_coordination_snapshot_state",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSignature::value",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::published_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifest::previous_manifest_digest",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::entry",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::TrackedCoordinationSnapshotState::snapshot",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::load_contract_snapshots",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::repo_published_task_snapshot",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::legacy_authoritative_migration_source_digest",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::sync_task_objects",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::relation_identity",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::rebuild_plan_indexes",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::TrackedCoordinationSnapshotState::execution_overlays",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestPublisher::principal_authority_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::load_relation_snapshots",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::rebuild_patch_index",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::task_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::snapshot_file_name",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::concept_snapshot_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSignatureMetadata::runtime_key_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSignature::runtime_key_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::signature",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::event_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::latest_event_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::legacy_tracked_stream_bridge_active",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotIndexEntry::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::publisher",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotPlanRecord::graph",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::sync_artifact_objects",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::load_snapshot_manifest",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::migration_source_digest",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::TrackedSnapshotPublishContext::work_context",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifest::files",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestFile::path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::rebuild_task_index",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSignatureMetadata",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotPlanRecord",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::apply_concept_relation_snapshot",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::snapshot_root",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSignature",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::read_json_file",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::publish_context_from_coordination_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::patch_snapshot_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::plan_snapshot_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::load_patch_snapshots",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifest::signature",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::relation_snapshot_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::snapshot_concepts_dir",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::collect_snapshot_files_recursive",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSignature::algorithm",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestPublisher::principal_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSignatureMetadata::algorithm",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::apply_memory_snapshot",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSignatureMetadata::runtime_authority_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::rebuild_artifact_index",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::cleanup_directory_json_files",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotPlanRecord::execution_overlays",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::collect_snapshot_file_map",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::load_concept_snapshots",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::contract_snapshot_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::TrackedCoordinationSnapshotState",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifest::version",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::snapshot_coordination_artifacts_dir",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::snapshot_indexes_dir",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::append_patch_snapshot",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::publish_context_from_manifest",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifest::published_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::TrackedSnapshotPublishContext::principal",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestFile",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::legacy_authoritative_stream_paths",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::write_json_file",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::execution_context",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::refresh_manifest",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifest::publisher",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::canonical_manifest_digest",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::actor",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotPlanRecord::plan",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::snapshot_coordination_tasks_dir",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::files",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestPublisher",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSignature::runtime_authority_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::rebuild_memory_index",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::tracked_snapshot_authority_active",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::remove_file_if_exists",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::snapshot_manifest_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::latest_recorded_at",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::TrackedCoordinationSnapshotState::plan_graphs",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::rebuild_concept_index",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::rebuild_relation_index",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSignatureMetadata::trust_bundle_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::load_memory_snapshot_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::version",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::memory_snapshot_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::tracked_snapshot::snapshot_changes_dir",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 125 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 250,
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "removedCount": 0,
+        "updatedCount": 250
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignature::trust_bundle_id"
+        },
+        "kind": "Field",
+        "name": "trust_bundle_id",
+        "span": {
+          "end": 1978,
+          "start": 1955
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignature::trust_bundle_id"
+        },
+        "kind": "Field",
+        "name": "trust_bundle_id",
+        "span": {
+          "end": 1996,
+          "start": 1973
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::sync_plan_objects"
+        },
+        "kind": "Function",
+        "name": "sync_plan_objects",
+        "span": {
+          "end": 17756,
+          "start": 16843
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::sync_plan_objects"
+        },
+        "kind": "Function",
+        "name": "sync_plan_objects",
+        "span": {
+          "end": 17987,
+          "start": 17074
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifest::work_context"
+        },
+        "kind": "Field",
+        "name": "work_context",
+        "span": {
+          "end": 2246,
+          "start": 2213
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifest::work_context"
+        },
+        "kind": "Field",
+        "name": "work_context",
+        "span": {
+          "end": 2264,
+          "start": 2231
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_plans_dir"
+        },
+        "kind": "Function",
+        "name": "snapshot_plans_dir",
+        "span": {
+          "end": 5785,
+          "start": 5698
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_plans_dir"
+        },
+        "kind": "Function",
+        "name": "snapshot_plans_dir",
+        "span": {
+          "end": 5803,
+          "start": 5716
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_relations_dir"
+        },
+        "kind": "Function",
+        "name": "snapshot_relations_dir",
+        "span": {
+          "end": 5512,
+          "start": 5417
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_relations_dir"
+        },
+        "kind": "Function",
+        "name": "snapshot_relations_dir",
+        "span": {
+          "end": 5530,
+          "start": 5435
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::work_context"
+        },
+        "kind": "Field",
+        "name": "work_context",
+        "span": {
+          "end": 2786,
+          "start": 2749
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::work_context"
+        },
+        "kind": "Field",
+        "name": "work_context",
+        "span": {
+          "end": 2804,
+          "start": 2767
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_memory_dir"
+        },
+        "kind": "Function",
+        "name": "snapshot_memory_dir",
+        "span": {
+          "end": 5603,
+          "start": 5514
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_memory_dir"
+        },
+        "kind": "Function",
+        "name": "snapshot_memory_dir",
+        "span": {
+          "end": 5621,
+          "start": 5532
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifest::migration_source_digest"
+        },
+        "kind": "Field",
+        "name": "migration_source_digest",
+        "span": {
+          "end": 2514,
+          "start": 2475
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifest::migration_source_digest"
+        },
+        "kind": "Field",
+        "name": "migration_source_digest",
+        "span": {
+          "end": 2532,
+          "start": 2493
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::TrackedSnapshotPublishContext::published_at"
+        },
+        "kind": "Field",
+        "name": "published_at",
+        "span": {
+          "end": 1201,
+          "start": 1173
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::TrackedSnapshotPublishContext::published_at"
+        },
+        "kind": "Field",
+        "name": "published_at",
+        "span": {
+          "end": 1219,
+          "start": 1191
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::load_tracked_coordination_snapshot_state"
+        },
+        "kind": "Function",
+        "name": "load_tracked_coordination_snapshot_state",
+        "span": {
+          "end": 16841,
+          "start": 14791
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::load_tracked_coordination_snapshot_state"
+        },
+        "kind": "Function",
+        "name": "load_tracked_coordination_snapshot_state",
+        "span": {
+          "end": 17072,
+          "start": 14907
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::SnapshotIndexEntry"
+        },
+        "kind": "Struct",
+        "name": "SnapshotIndexEntry",
+        "span": {
+          "end": 3443,
+          "start": 3341
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::SnapshotIndexEntry"
+        },
+        "kind": "Struct",
+        "name": "SnapshotIndexEntry",
+        "span": {
+          "end": 3461,
+          "start": 3359
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotIndexEntry::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 3383,
+          "start": 3373
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotIndexEntry::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 3401,
+          "start": 3391
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::publish_context_from_event"
+        },
+        "kind": "Function",
+        "name": "publish_context_from_event",
+        "span": {
+          "end": 8528,
+          "start": 8042
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::publish_context_from_event"
+        },
+        "kind": "Function",
+        "name": "publish_context_from_event",
+        "span": {
+          "end": 8546,
+          "start": 8060
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotIndexEntry::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 3440,
+          "start": 3428
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotIndexEntry::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 3458,
+          "start": 3446
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::sync_concept_snapshot"
+        },
+        "kind": "Function",
+        "name": "sync_concept_snapshot",
+        "span": {
+          "end": 9711,
+          "start": 9156
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::sync_concept_snapshot"
+        },
+        "kind": "Function",
+        "name": "sync_concept_snapshot",
+        "span": {
+          "end": 9780,
+          "start": 9240
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::TrackedSnapshotPublishContext"
+        },
+        "kind": "Struct",
+        "name": "TrackedSnapshotPublishContext",
+        "span": {
+          "end": 1316,
+          "start": 1119
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::TrackedSnapshotPublishContext"
+        },
+        "kind": "Struct",
+        "name": "TrackedSnapshotPublishContext",
+        "span": {
+          "end": 1334,
+          "start": 1137
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::SnapshotManifest"
+        },
+        "kind": "Struct",
+        "name": "SnapshotManifest",
+        "span": {
+          "end": 2559,
+          "start": 2100
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::SnapshotManifest"
+        },
+        "kind": "Struct",
+        "name": "SnapshotManifest",
+        "span": {
+          "end": 2577,
+          "start": 2118
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotIndexEntry::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 3402,
+          "start": 3389
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotIndexEntry::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 3420,
+          "start": 3407
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::implicit_work_context"
+        },
+        "kind": "Function",
+        "name": "implicit_work_context",
+        "span": {
+          "end": 27629,
+          "start": 27258
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::implicit_work_context"
+        },
+        "kind": "Function",
+        "name": "implicit_work_context",
+        "span": {
+          "end": 28058,
+          "start": 27687
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::task_snapshot_path"
+        },
+        "kind": "Function",
+        "name": "task_snapshot_path",
+        "span": {
+          "end": 7882,
+          "start": 7742
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::task_snapshot_path"
+        },
+        "kind": "Function",
+        "name": "task_snapshot_path",
+        "span": {
+          "end": 7900,
+          "start": 7760
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::rebuild_contract_index"
+        },
+        "kind": "Function",
+        "name": "rebuild_contract_index",
+        "span": {
+          "end": 20159,
+          "start": 19678
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::rebuild_contract_index"
+        },
+        "kind": "Function",
+        "name": "rebuild_contract_index",
+        "span": {
+          "end": 20390,
+          "start": 19909
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::previous_manifest_digest"
+        },
+        "kind": "Field",
+        "name": "previous_manifest_digest",
+        "span": {
+          "end": 2891,
+          "start": 2847
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::previous_manifest_digest"
+        },
+        "kind": "Field",
+        "name": "previous_manifest_digest",
+        "span": {
+          "end": 2909,
+          "start": 2865
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestFile::sha256"
+        },
+        "kind": "Field",
+        "name": "sha256",
+        "span": {
+          "end": 1707,
+          "start": 1693
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestFile::sha256"
+        },
+        "kind": "Field",
+        "name": "sha256",
+        "span": {
+          "end": 1725,
+          "start": 1711
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::load_json_records"
+        },
+        "kind": "Function",
+        "name": "load_json_records",
+        "span": {
+          "end": 32293,
+          "start": 31469
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::load_json_records"
+        },
+        "kind": "Function",
+        "name": "load_json_records",
+        "span": {
+          "end": 32777,
+          "start": 31953
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_contracts_dir"
+        },
+        "kind": "Function",
+        "name": "snapshot_contracts_dir",
+        "span": {
+          "end": 5415,
+          "start": 5320
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_contracts_dir"
+        },
+        "kind": "Function",
+        "name": "snapshot_contracts_dir",
+        "span": {
+          "end": 5433,
+          "start": 5338
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestPublisher::credential_id"
+        },
+        "kind": "Field",
+        "name": "credential_id",
+        "span": {
+          "end": 1538,
+          "start": 1517
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestPublisher::credential_id"
+        },
+        "kind": "Field",
+        "name": "credential_id",
+        "span": {
+          "end": 1556,
+          "start": 1535
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::sync_contract_snapshot"
+        },
+        "kind": "Function",
+        "name": "sync_contract_snapshot",
+        "span": {
+          "end": 10021,
+          "start": 9713
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::sync_contract_snapshot"
+        },
+        "kind": "Function",
+        "name": "sync_contract_snapshot",
+        "span": {
+          "end": 10090,
+          "start": 9782
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::artifact_snapshot_path"
+        },
+        "kind": "Function",
+        "name": "artifact_snapshot_path",
+        "span": {
+          "end": 8040,
+          "start": 7884
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::artifact_snapshot_path"
+        },
+        "kind": "Function",
+        "name": "artifact_snapshot_path",
+        "span": {
+          "end": 8058,
+          "start": 7902
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::sync_coordination_snapshot_state"
+        },
+        "kind": "Function",
+        "name": "sync_coordination_snapshot_state",
+        "span": {
+          "end": 12926,
+          "start": 12341
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::sync_coordination_snapshot_state"
+        },
+        "kind": "Function",
+        "name": "sync_coordination_snapshot_state",
+        "span": {
+          "end": 13042,
+          "start": 12457
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignature::value"
+        },
+        "kind": "Field",
+        "name": "value",
+        "span": {
+          "end": 1997,
+          "start": 1984
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignature::value"
+        },
+        "kind": "Field",
+        "name": "value",
+        "span": {
+          "end": 2015,
+          "start": 2002
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::published_at"
+        },
+        "kind": "Field",
+        "name": "published_at",
+        "span": {
+          "end": 2697,
+          "start": 2680
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::published_at"
+        },
+        "kind": "Field",
+        "name": "published_at",
+        "span": {
+          "end": 2715,
+          "start": 2698
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifest::previous_manifest_digest"
+        },
+        "kind": "Field",
+        "name": "previous_manifest_digest",
+        "span": {
+          "end": 2406,
+          "start": 2366
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifest::previous_manifest_digest"
+        },
+        "kind": "Field",
+        "name": "previous_manifest_digest",
+        "span": {
+          "end": 2424,
+          "start": 2384
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::entry"
+        },
+        "kind": "Field",
+        "name": "entry",
+        "span": {
+          "end": 3591,
+          "start": 3573
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::entry"
+        },
+        "kind": "Field",
+        "name": "entry",
+        "span": {
+          "end": 3609,
+          "start": 3591
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::TrackedCoordinationSnapshotState::snapshot"
+        },
+        "kind": "Field",
+        "name": "snapshot",
+        "span": {
+          "end": 4317,
+          "start": 4276
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::TrackedCoordinationSnapshotState::snapshot"
+        },
+        "kind": "Field",
+        "name": "snapshot",
+        "span": {
+          "end": 4335,
+          "start": 4294
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::load_contract_snapshots"
+        },
+        "kind": "Function",
+        "name": "load_contract_snapshots",
+        "span": {
+          "end": 13398,
+          "start": 13162
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::load_contract_snapshots"
+        },
+        "kind": "Function",
+        "name": "load_contract_snapshots",
+        "span": {
+          "end": 13514,
+          "start": 13278
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::repo_published_task_snapshot"
+        },
+        "kind": "Function",
+        "name": "repo_published_task_snapshot",
+        "span": {
+          "end": 18639,
+          "start": 18159
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::repo_published_task_snapshot"
+        },
+        "kind": "Function",
+        "name": "repo_published_task_snapshot",
+        "span": {
+          "end": 18870,
+          "start": 18390
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::legacy_authoritative_migration_source_digest"
+        },
+        "kind": "Function",
+        "name": "legacy_authoritative_migration_source_digest",
+        "span": {
+          "end": 28620,
+          "start": 27963
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::legacy_authoritative_migration_source_digest"
+        },
+        "kind": "Function",
+        "name": "legacy_authoritative_migration_source_digest",
+        "span": {
+          "end": 29061,
+          "start": 28392
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::sync_task_objects"
+        },
+        "kind": "Function",
+        "name": "sync_task_objects",
+        "span": {
+          "end": 18157,
+          "start": 17758
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::sync_task_objects"
+        },
+        "kind": "Function",
+        "name": "sync_task_objects",
+        "span": {
+          "end": 18388,
+          "start": 17989
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::relation_identity"
+        },
+        "kind": "Function",
+        "name": "relation_identity",
+        "span": {
+          "end": 6286,
+          "start": 6041
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::relation_identity"
+        },
+        "kind": "Function",
+        "name": "relation_identity",
+        "span": {
+          "end": 6304,
+          "start": 6059
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::rebuild_plan_indexes"
+        },
+        "kind": "Function",
+        "name": "rebuild_plan_indexes",
+        "span": {
+          "end": 22371,
+          "start": 21740
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::rebuild_plan_indexes"
+        },
+        "kind": "Function",
+        "name": "rebuild_plan_indexes",
+        "span": {
+          "end": 22602,
+          "start": 21971
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::TrackedCoordinationSnapshotState::execution_overlays"
+        },
+        "kind": "Field",
+        "name": "execution_overlays",
+        "span": {
+          "end": 4441,
+          "start": 4367
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::TrackedCoordinationSnapshotState::execution_overlays"
+        },
+        "kind": "Field",
+        "name": "execution_overlays",
+        "span": {
+          "end": 4459,
+          "start": 4385
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestPublisher::principal_authority_id"
+        },
+        "kind": "Field",
+        "name": "principal_authority_id",
+        "span": {
+          "end": 1485,
+          "start": 1455
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestPublisher::principal_authority_id"
+        },
+        "kind": "Field",
+        "name": "principal_authority_id",
+        "span": {
+          "end": 1503,
+          "start": 1473
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::load_relation_snapshots"
+        },
+        "kind": "Function",
+        "name": "load_relation_snapshots",
+        "span": {
+          "end": 13642,
+          "start": 13400
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::load_relation_snapshots"
+        },
+        "kind": "Function",
+        "name": "load_relation_snapshots",
+        "span": {
+          "end": 13758,
+          "start": 13516
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::rebuild_patch_index"
+        },
+        "kind": "Function",
+        "name": "rebuild_patch_index",
+        "span": {
+          "end": 21738,
+          "start": 21263
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::rebuild_patch_index"
+        },
+        "kind": "Function",
+        "name": "rebuild_patch_index",
+        "span": {
+          "end": 21969,
+          "start": 21494
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 3976,
+          "start": 3953
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::task_id"
+        },
+        "kind": "Field",
+        "name": "task_id",
+        "span": {
+          "end": 3994,
+          "start": 3971
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_file_name"
+        },
+        "kind": "Function",
+        "name": "snapshot_file_name",
+        "span": {
+          "end": 6902,
+          "start": 6288
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_file_name"
+        },
+        "kind": "Function",
+        "name": "snapshot_file_name",
+        "span": {
+          "end": 6920,
+          "start": 6306
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::concept_snapshot_path"
+        },
+        "kind": "Function",
+        "name": "concept_snapshot_path",
+        "span": {
+          "end": 7035,
+          "start": 6904
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::concept_snapshot_path"
+        },
+        "kind": "Function",
+        "name": "concept_snapshot_path",
+        "span": {
+          "end": 7053,
+          "start": 6922
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignatureMetadata::runtime_key_id"
+        },
+        "kind": "Field",
+        "name": "runtime_key_id",
+        "span": {
+          "end": 3208,
+          "start": 3185
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignatureMetadata::runtime_key_id"
+        },
+        "kind": "Field",
+        "name": "runtime_key_id",
+        "span": {
+          "end": 3226,
+          "start": 3203
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignature::runtime_key_id"
+        },
+        "kind": "Field",
+        "name": "runtime_key_id",
+        "span": {
+          "end": 1949,
+          "start": 1927
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignature::runtime_key_id"
+        },
+        "kind": "Field",
+        "name": "runtime_key_id",
+        "span": {
+          "end": 1967,
+          "start": 1945
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::signature"
+        },
+        "kind": "Field",
+        "name": "signature",
+        "span": {
+          "end": 2994,
+          "start": 2946
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::signature"
+        },
+        "kind": "Field",
+        "name": "signature",
+        "span": {
+          "end": 3012,
+          "start": 2964
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::event_count"
+        },
+        "kind": "Field",
+        "name": "event_count",
+        "span": {
+          "end": 3673,
+          "start": 3655
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::event_count"
+        },
+        "kind": "Field",
+        "name": "event_count",
+        "span": {
+          "end": 3691,
+          "start": 3673
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::latest_event_id"
+        },
+        "kind": "Field",
+        "name": "latest_event_id",
+        "span": {
+          "end": 3620,
+          "start": 3597
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::latest_event_id"
+        },
+        "kind": "Field",
+        "name": "latest_event_id",
+        "span": {
+          "end": 3638,
+          "start": 3615
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::legacy_tracked_stream_bridge_active"
+        },
+        "kind": "Function",
+        "name": "legacy_tracked_stream_bridge_active",
+        "span": {
+          "end": 5130,
+          "start": 4998
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::legacy_tracked_stream_bridge_active"
+        },
+        "kind": "Function",
+        "name": "legacy_tracked_stream_bridge_active",
+        "span": {
+          "end": 5148,
+          "start": 5016
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotIndexEntry::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 3422,
+          "start": 3408
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotIndexEntry::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 3440,
+          "start": 3426
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::publisher"
+        },
+        "kind": "Field",
+        "name": "publisher",
+        "span": {
+          "end": 2743,
+          "start": 2703
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::publisher"
+        },
+        "kind": "Field",
+        "name": "publisher",
+        "span": {
+          "end": 2761,
+          "start": 2721
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotPlanRecord::graph"
+        },
+        "kind": "Field",
+        "name": "graph",
+        "span": {
+          "end": 4139,
+          "start": 4123
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotPlanRecord::graph"
+        },
+        "kind": "Field",
+        "name": "graph",
+        "span": {
+          "end": 4157,
+          "start": 4141
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::sync_artifact_objects"
+        },
+        "kind": "Function",
+        "name": "sync_artifact_objects",
+        "span": {
+          "end": 19033,
+          "start": 18641
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::sync_artifact_objects"
+        },
+        "kind": "Function",
+        "name": "sync_artifact_objects",
+        "span": {
+          "end": 19264,
+          "start": 18872
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::load_snapshot_manifest"
+        },
+        "kind": "Function",
+        "name": "load_snapshot_manifest",
+        "span": {
+          "end": 4866,
+          "start": 4631
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::load_snapshot_manifest"
+        },
+        "kind": "Function",
+        "name": "load_snapshot_manifest",
+        "span": {
+          "end": 4884,
+          "start": 4649
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::migration_source_digest"
+        },
+        "kind": "Field",
+        "name": "migration_source_digest",
+        "span": {
+          "end": 2940,
+          "start": 2897
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::migration_source_digest"
+        },
+        "kind": "Field",
+        "name": "migration_source_digest",
+        "span": {
+          "end": 2958,
+          "start": 2915
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::TrackedSnapshotPublishContext::work_context"
+        },
+        "kind": "Field",
+        "name": "work_context",
+        "span": {
+          "end": 1313,
+          "start": 1261
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::TrackedSnapshotPublishContext::work_context"
+        },
+        "kind": "Field",
+        "name": "work_context",
+        "span": {
+          "end": 1331,
+          "start": 1279
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifest::files"
+        },
+        "kind": "Field",
+        "name": "files",
+        "span": {
+          "end": 2297,
+          "start": 2252
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifest::files"
+        },
+        "kind": "Field",
+        "name": "files",
+        "span": {
+          "end": 2315,
+          "start": 2270
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestFile::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 1687,
+          "start": 1675
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestFile::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 1705,
+          "start": 1693
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::rebuild_task_index"
+        },
+        "kind": "Function",
+        "name": "rebuild_task_index",
+        "span": {
+          "end": 22862,
+          "start": 22373
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::rebuild_task_index"
+        },
+        "kind": "Function",
+        "name": "rebuild_task_index",
+        "span": {
+          "end": 23116,
+          "start": 22604
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignatureMetadata"
+        },
+        "kind": "Struct",
+        "name": "SnapshotManifestSignatureMetadata",
+        "span": {
+          "end": 3241,
+          "start": 3055
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignatureMetadata"
+        },
+        "kind": "Struct",
+        "name": "SnapshotManifestSignatureMetadata",
+        "span": {
+          "end": 3259,
+          "start": 3073
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::SnapshotPlanRecord"
+        },
+        "kind": "Struct",
+        "name": "SnapshotPlanRecord",
+        "span": {
+          "end": 4193,
+          "start": 4075
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::SnapshotPlanRecord"
+        },
+        "kind": "Struct",
+        "name": "SnapshotPlanRecord",
+        "span": {
+          "end": 4211,
+          "start": 4093
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::apply_concept_relation_snapshot"
+        },
+        "kind": "Function",
+        "name": "apply_concept_relation_snapshot",
+        "span": {
+          "end": 10588,
+          "start": 10023
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::apply_concept_relation_snapshot"
+        },
+        "kind": "Function",
+        "name": "apply_concept_relation_snapshot",
+        "span": {
+          "end": 10704,
+          "start": 10092
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_root"
+        },
+        "kind": "Function",
+        "name": "snapshot_root",
+        "span": {
+          "end": 4528,
+          "start": 4446
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_root"
+        },
+        "kind": "Function",
+        "name": "snapshot_root",
+        "span": {
+          "end": 4546,
+          "start": 4464
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignature"
+        },
+        "kind": "Struct",
+        "name": "SnapshotManifestSignature",
+        "span": {
+          "end": 2000,
+          "start": 1810
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignature"
+        },
+        "kind": "Struct",
+        "name": "SnapshotManifestSignature",
+        "span": {
+          "end": 2018,
+          "start": 1828
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::read_json_file"
+        },
+        "kind": "Function",
+        "name": "read_json_file",
+        "span": {
+          "end": 32578,
+          "start": 32295
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::read_json_file"
+        },
+        "kind": "Function",
+        "name": "read_json_file",
+        "span": {
+          "end": 33062,
+          "start": 32779
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::publish_context_from_coordination_events"
+        },
+        "kind": "Function",
+        "name": "publish_context_from_coordination_events",
+        "span": {
+          "end": 9154,
+          "start": 8530
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::publish_context_from_coordination_events"
+        },
+        "kind": "Function",
+        "name": "publish_context_from_coordination_events",
+        "span": {
+          "end": 9238,
+          "start": 8548
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::patch_snapshot_path"
+        },
+        "kind": "Function",
+        "name": "patch_snapshot_path",
+        "span": {
+          "end": 7611,
+          "start": 7479
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::patch_snapshot_path"
+        },
+        "kind": "Function",
+        "name": "patch_snapshot_path",
+        "span": {
+          "end": 7629,
+          "start": 7497
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::plan_snapshot_path"
+        },
+        "kind": "Function",
+        "name": "plan_snapshot_path",
+        "span": {
+          "end": 7740,
+          "start": 7613
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::plan_snapshot_path"
+        },
+        "kind": "Function",
+        "name": "plan_snapshot_path",
+        "span": {
+          "end": 7758,
+          "start": 7631
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::load_patch_snapshots"
+        },
+        "kind": "Function",
+        "name": "load_patch_snapshots",
+        "span": {
+          "end": 13869,
+          "start": 13644
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::load_patch_snapshots"
+        },
+        "kind": "Function",
+        "name": "load_patch_snapshots",
+        "span": {
+          "end": 13985,
+          "start": 13760
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifest::signature"
+        },
+        "kind": "Field",
+        "name": "signature",
+        "span": {
+          "end": 2556,
+          "start": 2520
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifest::signature"
+        },
+        "kind": "Field",
+        "name": "signature",
+        "span": {
+          "end": 2574,
+          "start": 2538
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::relation_snapshot_path"
+        },
+        "kind": "Function",
+        "name": "relation_snapshot_path",
+        "span": {
+          "end": 7341,
+          "start": 7172
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::relation_snapshot_path"
+        },
+        "kind": "Function",
+        "name": "relation_snapshot_path",
+        "span": {
+          "end": 7359,
+          "start": 7190
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_concepts_dir"
+        },
+        "kind": "Function",
+        "name": "snapshot_concepts_dir",
+        "span": {
+          "end": 5318,
+          "start": 5225
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_concepts_dir"
+        },
+        "kind": "Function",
+        "name": "snapshot_concepts_dir",
+        "span": {
+          "end": 5336,
+          "start": 5243
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::collect_snapshot_files_recursive"
+        },
+        "kind": "Function",
+        "name": "collect_snapshot_files_recursive",
+        "span": {
+          "end": 30786,
+          "start": 29709
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::collect_snapshot_files_recursive"
+        },
+        "kind": "Function",
+        "name": "collect_snapshot_files_recursive",
+        "span": {
+          "end": 31258,
+          "start": 30150
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignature::algorithm"
+        },
+        "kind": "Field",
+        "name": "algorithm",
+        "span": {
+          "end": 1887,
+          "start": 1849
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignature::algorithm"
+        },
+        "kind": "Field",
+        "name": "algorithm",
+        "span": {
+          "end": 1905,
+          "start": 1867
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestPublisher::principal_id"
+        },
+        "kind": "Field",
+        "name": "principal_id",
+        "span": {
+          "end": 1511,
+          "start": 1491
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestPublisher::principal_id"
+        },
+        "kind": "Field",
+        "name": "principal_id",
+        "span": {
+          "end": 1529,
+          "start": 1509
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignatureMetadata::algorithm"
+        },
+        "kind": "Field",
+        "name": "algorithm",
+        "span": {
+          "end": 3144,
+          "start": 3106
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignatureMetadata::algorithm"
+        },
+        "kind": "Field",
+        "name": "algorithm",
+        "span": {
+          "end": 3162,
+          "start": 3124
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::apply_memory_snapshot"
+        },
+        "kind": "Function",
+        "name": "apply_memory_snapshot",
+        "span": {
+          "end": 12044,
+          "start": 10590
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::apply_memory_snapshot"
+        },
+        "kind": "Function",
+        "name": "apply_memory_snapshot",
+        "span": {
+          "end": 12160,
+          "start": 10706
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignatureMetadata::runtime_authority_id"
+        },
+        "kind": "Field",
+        "name": "runtime_authority_id",
+        "span": {
+          "end": 3179,
+          "start": 3150
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignatureMetadata::runtime_authority_id"
+        },
+        "kind": "Field",
+        "name": "runtime_authority_id",
+        "span": {
+          "end": 3197,
+          "start": 3168
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::rebuild_artifact_index"
+        },
+        "kind": "Function",
+        "name": "rebuild_artifact_index",
+        "span": {
+          "end": 23386,
+          "start": 22864
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::rebuild_artifact_index"
+        },
+        "kind": "Function",
+        "name": "rebuild_artifact_index",
+        "span": {
+          "end": 23663,
+          "start": 23118
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView"
+        },
+        "kind": "Struct",
+        "name": "SnapshotManifestSigningView",
+        "span": {
+          "end": 2997,
+          "start": 2617
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView"
+        },
+        "kind": "Struct",
+        "name": "SnapshotManifestSigningView",
+        "span": {
+          "end": 3015,
+          "start": 2635
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::cleanup_directory_json_files"
+        },
+        "kind": "Function",
+        "name": "cleanup_directory_json_files",
+        "span": {
+          "end": 31467,
+          "start": 30788
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::cleanup_directory_json_files"
+        },
+        "kind": "Function",
+        "name": "cleanup_directory_json_files",
+        "span": {
+          "end": 31951,
+          "start": 31260
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotPlanRecord::execution_overlays"
+        },
+        "kind": "Field",
+        "name": "execution_overlays",
+        "span": {
+          "end": 4190,
+          "start": 4145
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotPlanRecord::execution_overlays"
+        },
+        "kind": "Field",
+        "name": "execution_overlays",
+        "span": {
+          "end": 4208,
+          "start": 4163
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::collect_snapshot_file_map"
+        },
+        "kind": "Function",
+        "name": "collect_snapshot_file_map",
+        "span": {
+          "end": 27961,
+          "start": 27631
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::collect_snapshot_file_map"
+        },
+        "kind": "Function",
+        "name": "collect_snapshot_file_map",
+        "span": {
+          "end": 28390,
+          "start": 28060
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::load_concept_snapshots"
+        },
+        "kind": "Function",
+        "name": "load_concept_snapshots",
+        "span": {
+          "end": 13160,
+          "start": 12928
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::load_concept_snapshots"
+        },
+        "kind": "Function",
+        "name": "load_concept_snapshots",
+        "span": {
+          "end": 13276,
+          "start": 13044
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::contract_snapshot_path"
+        },
+        "kind": "Function",
+        "name": "contract_snapshot_path",
+        "span": {
+          "end": 7170,
+          "start": 7037
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::contract_snapshot_path"
+        },
+        "kind": "Function",
+        "name": "contract_snapshot_path",
+        "span": {
+          "end": 7188,
+          "start": 7055
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::TrackedCoordinationSnapshotState"
+        },
+        "kind": "Struct",
+        "name": "TrackedCoordinationSnapshotState",
+        "span": {
+          "end": 4444,
+          "start": 4219
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::TrackedCoordinationSnapshotState"
+        },
+        "kind": "Struct",
+        "name": "TrackedCoordinationSnapshotState",
+        "span": {
+          "end": 4462,
+          "start": 4237
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifest::version"
+        },
+        "kind": "Field",
+        "name": "version",
+        "span": {
+          "end": 2142,
+          "start": 2130
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifest::version"
+        },
+        "kind": "Field",
+        "name": "version",
+        "span": {
+          "end": 2160,
+          "start": 2148
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::tracked_snapshot"
+        },
+        "kind": "Module",
+        "name": "tracked_snapshot",
+        "span": {
+          "end": 33351,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::tracked_snapshot"
+        },
+        "kind": "Module",
+        "name": "tracked_snapshot",
+        "span": {
+          "end": 33836,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_coordination_artifacts_dir"
+        },
+        "kind": "Function",
+        "name": "snapshot_coordination_artifacts_dir",
+        "span": {
+          "end": 6039,
+          "start": 5910
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_coordination_artifacts_dir"
+        },
+        "kind": "Function",
+        "name": "snapshot_coordination_artifacts_dir",
+        "span": {
+          "end": 6057,
+          "start": 5928
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_indexes_dir"
+        },
+        "kind": "Function",
+        "name": "snapshot_indexes_dir",
+        "span": {
+          "end": 5223,
+          "start": 5132
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_indexes_dir"
+        },
+        "kind": "Function",
+        "name": "snapshot_indexes_dir",
+        "span": {
+          "end": 5241,
+          "start": 5150
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::append_patch_snapshot"
+        },
+        "kind": "Function",
+        "name": "append_patch_snapshot",
+        "span": {
+          "end": 12339,
+          "start": 12046
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::append_patch_snapshot"
+        },
+        "kind": "Function",
+        "name": "append_patch_snapshot",
+        "span": {
+          "end": 12455,
+          "start": 12162
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::publish_context_from_manifest"
+        },
+        "kind": "Function",
+        "name": "publish_context_from_manifest",
+        "span": {
+          "end": 27256,
+          "start": 26730
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::publish_context_from_manifest"
+        },
+        "kind": "Function",
+        "name": "publish_context_from_manifest",
+        "span": {
+          "end": 27685,
+          "start": 27159
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifest::published_at"
+        },
+        "kind": "Field",
+        "name": "published_at",
+        "span": {
+          "end": 2165,
+          "start": 2148
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifest::published_at"
+        },
+        "kind": "Field",
+        "name": "published_at",
+        "span": {
+          "end": 2183,
+          "start": 2166
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::TrackedSnapshotPublishContext::principal"
+        },
+        "kind": "Field",
+        "name": "principal",
+        "span": {
+          "end": 1255,
+          "start": 1207
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::TrackedSnapshotPublishContext::principal"
+        },
+        "kind": "Field",
+        "name": "principal",
+        "span": {
+          "end": 1273,
+          "start": 1225
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestFile"
+        },
+        "kind": "Struct",
+        "name": "SnapshotManifestFile",
+        "span": {
+          "end": 1710,
+          "start": 1641
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestFile"
+        },
+        "kind": "Struct",
+        "name": "SnapshotManifestFile",
+        "span": {
+          "end": 1728,
+          "start": 1659
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::legacy_authoritative_stream_paths"
+        },
+        "kind": "Function",
+        "name": "legacy_authoritative_stream_paths",
+        "span": {
+          "end": 29707,
+          "start": 28622
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::legacy_authoritative_stream_paths"
+        },
+        "kind": "Function",
+        "name": "legacy_authoritative_stream_paths",
+        "span": {
+          "end": 30148,
+          "start": 29063
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::write_json_file"
+        },
+        "kind": "Function",
+        "name": "write_json_file",
+        "span": {
+          "end": 33350,
+          "start": 32773
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::write_json_file"
+        },
+        "kind": "Function",
+        "name": "write_json_file",
+        "span": {
+          "end": 33835,
+          "start": 33257
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::execution_context"
+        },
+        "kind": "Field",
+        "name": "execution_context",
+        "span": {
+          "end": 3884,
+          "start": 3836
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::execution_context"
+        },
+        "kind": "Field",
+        "name": "execution_context",
+        "span": {
+          "end": 3902,
+          "start": 3854
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::refresh_manifest"
+        },
+        "kind": "Function",
+        "name": "refresh_manifest",
+        "span": {
+          "end": 26589,
+          "start": 23388
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::refresh_manifest"
+        },
+        "kind": "Function",
+        "name": "refresh_manifest",
+        "span": {
+          "end": 27018,
+          "start": 23665
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifest::publisher"
+        },
+        "kind": "Field",
+        "name": "publisher",
+        "span": {
+          "end": 2207,
+          "start": 2171
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifest::publisher"
+        },
+        "kind": "Field",
+        "name": "publisher",
+        "span": {
+          "end": 2225,
+          "start": 2189
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::canonical_manifest_digest"
+        },
+        "kind": "Function",
+        "name": "canonical_manifest_digest",
+        "span": {
+          "end": 26728,
+          "start": 26591
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::canonical_manifest_digest"
+        },
+        "kind": "Function",
+        "name": "canonical_manifest_digest",
+        "span": {
+          "end": 27157,
+          "start": 27020
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::actor"
+        },
+        "kind": "Field",
+        "name": "actor",
+        "span": {
+          "end": 3767,
+          "start": 3742
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::actor"
+        },
+        "kind": "Field",
+        "name": "actor",
+        "span": {
+          "end": 3785,
+          "start": 3760
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotPlanRecord::plan"
+        },
+        "kind": "Field",
+        "name": "plan",
+        "span": {
+          "end": 4117,
+          "start": 4107
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotPlanRecord::plan"
+        },
+        "kind": "Field",
+        "name": "plan",
+        "span": {
+          "end": 4135,
+          "start": 4125
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_coordination_tasks_dir"
+        },
+        "kind": "Function",
+        "name": "snapshot_coordination_tasks_dir",
+        "span": {
+          "end": 5908,
+          "start": 5787
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_coordination_tasks_dir"
+        },
+        "kind": "Function",
+        "name": "snapshot_coordination_tasks_dir",
+        "span": {
+          "end": 5926,
+          "start": 5805
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::files"
+        },
+        "kind": "Field",
+        "name": "files",
+        "span": {
+          "end": 2841,
+          "start": 2792
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::files"
+        },
+        "kind": "Field",
+        "name": "files",
+        "span": {
+          "end": 2859,
+          "start": 2810
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestPublisher"
+        },
+        "kind": "Struct",
+        "name": "SnapshotManifestPublisher",
+        "span": {
+          "end": 1541,
+          "start": 1416
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestPublisher"
+        },
+        "kind": "Struct",
+        "name": "SnapshotManifestPublisher",
+        "span": {
+          "end": 1559,
+          "start": 1434
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignature::runtime_authority_id"
+        },
+        "kind": "Field",
+        "name": "runtime_authority_id",
+        "span": {
+          "end": 1921,
+          "start": 1893
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignature::runtime_authority_id"
+        },
+        "kind": "Field",
+        "name": "runtime_authority_id",
+        "span": {
+          "end": 1939,
+          "start": 1911
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::rebuild_memory_index"
+        },
+        "kind": "Function",
+        "name": "rebuild_memory_index",
+        "span": {
+          "end": 21261,
+          "start": 20760
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::rebuild_memory_index"
+        },
+        "kind": "Function",
+        "name": "rebuild_memory_index",
+        "span": {
+          "end": 21492,
+          "start": 20991
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::tracked_snapshot_authority_active"
+        },
+        "kind": "Function",
+        "name": "tracked_snapshot_authority_active",
+        "span": {
+          "end": 4996,
+          "start": 4868
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::tracked_snapshot_authority_active"
+        },
+        "kind": "Function",
+        "name": "tracked_snapshot_authority_active",
+        "span": {
+          "end": 5014,
+          "start": 4886
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::remove_file_if_exists"
+        },
+        "kind": "Function",
+        "name": "remove_file_if_exists",
+        "span": {
+          "end": 32771,
+          "start": 32580
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::remove_file_if_exists"
+        },
+        "kind": "Function",
+        "name": "remove_file_if_exists",
+        "span": {
+          "end": 33255,
+          "start": 33064
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_manifest_path"
+        },
+        "kind": "Function",
+        "name": "snapshot_manifest_path",
+        "span": {
+          "end": 4629,
+          "start": 4530
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_manifest_path"
+        },
+        "kind": "Function",
+        "name": "snapshot_manifest_path",
+        "span": {
+          "end": 4647,
+          "start": 4548
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::latest_recorded_at"
+        },
+        "kind": "Field",
+        "name": "latest_recorded_at",
+        "span": {
+          "end": 3649,
+          "start": 3626
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord::latest_recorded_at"
+        },
+        "kind": "Field",
+        "name": "latest_recorded_at",
+        "span": {
+          "end": 3667,
+          "start": 3644
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord"
+        },
+        "kind": "Struct",
+        "name": "SnapshotMemoryRecord",
+        "span": {
+          "end": 3979,
+          "start": 3539
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::tracked_snapshot::SnapshotMemoryRecord"
+        },
+        "kind": "Struct",
+        "name": "SnapshotMemoryRecord",
+        "span": {
+          "end": 3997,
+          "start": 3557
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::TrackedCoordinationSnapshotState::plan_graphs"
+        },
+        "kind": "Field",
+        "name": "plan_graphs",
+        "span": {
+          "end": 4361,
+          "start": 4323
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::TrackedCoordinationSnapshotState::plan_graphs"
+        },
+        "kind": "Field",
+        "name": "plan_graphs",
+        "span": {
+          "end": 4379,
+          "start": 4341
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::rebuild_concept_index"
+        },
+        "kind": "Function",
+        "name": "rebuild_concept_index",
+        "span": {
+          "end": 19676,
+          "start": 19035
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::rebuild_concept_index"
+        },
+        "kind": "Function",
+        "name": "rebuild_concept_index",
+        "span": {
+          "end": 19907,
+          "start": 19266
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::rebuild_relation_index"
+        },
+        "kind": "Function",
+        "name": "rebuild_relation_index",
+        "span": {
+          "end": 20758,
+          "start": 20161
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::rebuild_relation_index"
+        },
+        "kind": "Function",
+        "name": "rebuild_relation_index",
+        "span": {
+          "end": 20989,
+          "start": 20392
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignatureMetadata::trust_bundle_id"
+        },
+        "kind": "Field",
+        "name": "trust_bundle_id",
+        "span": {
+          "end": 3238,
+          "start": 3214
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSignatureMetadata::trust_bundle_id"
+        },
+        "kind": "Field",
+        "name": "trust_bundle_id",
+        "span": {
+          "end": 3256,
+          "start": 3232
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::load_memory_snapshot_events"
+        },
+        "kind": "Function",
+        "name": "load_memory_snapshot_events",
+        "span": {
+          "end": 14789,
+          "start": 13871
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::load_memory_snapshot_events"
+        },
+        "kind": "Function",
+        "name": "load_memory_snapshot_events",
+        "span": {
+          "end": 14905,
+          "start": 13987
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::version"
+        },
+        "kind": "Field",
+        "name": "version",
+        "span": {
+          "end": 2674,
+          "start": 2662
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::tracked_snapshot::SnapshotManifestSigningView::version"
+        },
+        "kind": "Field",
+        "name": "version",
+        "span": {
+          "end": 2692,
+          "start": 2680
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::memory_snapshot_path"
+        },
+        "kind": "Function",
+        "name": "memory_snapshot_path",
+        "span": {
+          "end": 7477,
+          "start": 7343
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::memory_snapshot_path"
+        },
+        "kind": "Function",
+        "name": "memory_snapshot_path",
+        "span": {
+          "end": 7495,
+          "start": 7361
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_changes_dir"
+        },
+        "kind": "Function",
+        "name": "snapshot_changes_dir",
+        "span": {
+          "end": 5696,
+          "start": 5605
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/tracked_snapshot.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::tracked_snapshot::snapshot_changes_dir"
+        },
+        "kind": "Function",
+        "name": "snapshot_changes_dir",
+        "span": {
+          "end": 5714,
+          "start": 5623
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 250,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "crates/prism-core/src/tracked_snapshot.rs"
+    ],
+    "files": [
+      487
+    ],
+    "reason": "work Normalize durable patch outcome and publication paths (work:normalize-durable-patch-outcome-and-publication-paths:01kna1f36b22n6hn2qqsn45zsn)",
+    "trigger": "FsWatch"
+  }
+}

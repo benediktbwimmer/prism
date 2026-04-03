@@ -1,0 +1,617 @@
+{
+  "meta": {
+    "id": "outcome:01kna20jme8h1wkkpm0b8594ma",
+    "ts": 1775232895,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+    "causation": "observed:01kna20jd8aqkab7491bnqtrhy",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/task/path-identity-repo-relative",
+      "instance_id": "instance:11681:1775232892795",
+      "work_context": {
+        "workId": "work:normalize-durable-patch-outcome-and-publication-paths:01kna1f36b22n6hn2qqsn45zsn",
+        "kind": "ad_hoc",
+        "title": "Normalize durable patch outcome and publication paths",
+        "coordinationTaskId": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+        "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 90
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::WorkspaceSessionOptions::hydrate_persisted_co_change",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::hydrate_workspace_session_with_options",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::WorkspaceSessionOptions::default",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::WorkspaceSessionOptions::coordination",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::index_workspace_session_with_curator",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::WorkspaceSessionOptions::shared_runtime",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::index_workspace",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::WorkspaceSessionOptions::impl::Default",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::WorkspaceSessionOptions::hydrate_persisted_projections",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::index_workspace_session_with_options",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::index_workspace_session_with_curator_and_options",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::index_workspace_session",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::hydrate_workspace_session",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::WorkspaceSessionOptions",
+        "kind": "Struct"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 15 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 30,
+        "filePath": "crates/prism-core/src/lib.rs",
+        "removedCount": 0,
+        "updatedCount": 30
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::WorkspaceSessionOptions::hydrate_persisted_co_change"
+        },
+        "kind": "Field",
+        "name": "hydrate_persisted_co_change",
+        "span": {
+          "end": 3587,
+          "start": 3550
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::WorkspaceSessionOptions::hydrate_persisted_co_change"
+        },
+        "kind": "Field",
+        "name": "hydrate_persisted_co_change",
+        "span": {
+          "end": 3606,
+          "start": 3569
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::hydrate_workspace_session_with_options"
+        },
+        "kind": "Function",
+        "name": "hydrate_workspace_session_with_options",
+        "span": {
+          "end": 4712,
+          "start": 4508
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::hydrate_workspace_session_with_options"
+        },
+        "kind": "Function",
+        "name": "hydrate_workspace_session_with_options",
+        "span": {
+          "end": 4731,
+          "start": 4527
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::WorkspaceSessionOptions::default"
+        },
+        "kind": "Method",
+        "name": "default",
+        "span": {
+          "end": 3881,
+          "start": 3639
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::WorkspaceSessionOptions::default"
+        },
+        "kind": "Method",
+        "name": "default",
+        "span": {
+          "end": 3900,
+          "start": 3658
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::WorkspaceSessionOptions::coordination"
+        },
+        "kind": "Field",
+        "name": "coordination",
+        "span": {
+          "end": 3453,
+          "start": 3431
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::WorkspaceSessionOptions::coordination"
+        },
+        "kind": "Field",
+        "name": "coordination",
+        "span": {
+          "end": 3472,
+          "start": 3450
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::index_workspace_session_with_curator"
+        },
+        "kind": "Function",
+        "name": "index_workspace_session_with_curator",
+        "span": {
+          "end": 5377,
+          "start": 5051
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::index_workspace_session_with_curator"
+        },
+        "kind": "Function",
+        "name": "index_workspace_session_with_curator",
+        "span": {
+          "end": 5396,
+          "start": 5070
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::WorkspaceSessionOptions::shared_runtime"
+        },
+        "kind": "Field",
+        "name": "shared_runtime",
+        "span": {
+          "end": 3499,
+          "start": 3459
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::WorkspaceSessionOptions::shared_runtime"
+        },
+        "kind": "Field",
+        "name": "shared_runtime",
+        "span": {
+          "end": 3518,
+          "start": 3478
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::index_workspace"
+        },
+        "kind": "Function",
+        "name": "index_workspace",
+        "span": {
+          "end": 4066,
+          "start": 3885
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::index_workspace"
+        },
+        "kind": "Function",
+        "name": "index_workspace",
+        "span": {
+          "end": 4085,
+          "start": 3904
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core"
+        },
+        "kind": "Module",
+        "name": "prism_core",
+        "span": {
+          "end": 5799,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core"
+        },
+        "kind": "Module",
+        "name": "prism_core",
+        "span": {
+          "end": 5818,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::WorkspaceSessionOptions::impl::Default"
+        },
+        "kind": "Impl",
+        "name": "Default for WorkspaceSessionOptions",
+        "span": {
+          "end": 3883,
+          "start": 3592
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::WorkspaceSessionOptions::impl::Default"
+        },
+        "kind": "Impl",
+        "name": "Default for WorkspaceSessionOptions",
+        "span": {
+          "end": 3902,
+          "start": 3611
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::WorkspaceSessionOptions::hydrate_persisted_projections"
+        },
+        "kind": "Field",
+        "name": "hydrate_persisted_projections",
+        "span": {
+          "end": 3544,
+          "start": 3505
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::WorkspaceSessionOptions::hydrate_persisted_projections"
+        },
+        "kind": "Field",
+        "name": "hydrate_persisted_projections",
+        "span": {
+          "end": 3563,
+          "start": 3524
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::index_workspace_session_with_options"
+        },
+        "kind": "Function",
+        "name": "index_workspace_session_with_options",
+        "span": {
+          "end": 5049,
+          "start": 4714
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::index_workspace_session_with_options"
+        },
+        "kind": "Function",
+        "name": "index_workspace_session_with_options",
+        "span": {
+          "end": 5068,
+          "start": 4733
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::index_workspace_session_with_curator_and_options"
+        },
+        "kind": "Function",
+        "name": "index_workspace_session_with_curator_and_options",
+        "span": {
+          "end": 5773,
+          "start": 5379
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::index_workspace_session_with_curator_and_options"
+        },
+        "kind": "Function",
+        "name": "index_workspace_session_with_curator_and_options",
+        "span": {
+          "end": 5792,
+          "start": 5398
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::index_workspace_session"
+        },
+        "kind": "Function",
+        "name": "index_workspace_session",
+        "span": {
+          "end": 4284,
+          "start": 4068
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::index_workspace_session"
+        },
+        "kind": "Function",
+        "name": "index_workspace_session",
+        "span": {
+          "end": 4303,
+          "start": 4087
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::hydrate_workspace_session"
+        },
+        "kind": "Function",
+        "name": "hydrate_workspace_session",
+        "span": {
+          "end": 4506,
+          "start": 4286
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::hydrate_workspace_session"
+        },
+        "kind": "Function",
+        "name": "hydrate_workspace_session",
+        "span": {
+          "end": 4525,
+          "start": 4305
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::WorkspaceSessionOptions"
+        },
+        "kind": "Struct",
+        "name": "WorkspaceSessionOptions",
+        "span": {
+          "end": 3590,
+          "start": 3390
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "crates/prism-core/src/lib.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::WorkspaceSessionOptions"
+        },
+        "kind": "Struct",
+        "name": "WorkspaceSessionOptions",
+        "span": {
+          "end": 3609,
+          "start": 3409
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 30,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "crates/prism-core/src/lib.rs"
+    ],
+    "files": [
+      90
+    ],
+    "reason": "work Normalize durable patch outcome and publication paths (work:normalize-durable-patch-outcome-and-publication-paths:01kna1f36b22n6hn2qqsn45zsn)",
+    "trigger": "FsWatch"
+  }
+}
