@@ -9,21 +9,15 @@ use prism_ir::{
     PlanExecutionOverlay, PlanGraph, PlanKind, PlanNode, PlanNodeKind, PlanNodeStatus, PlanScope,
     PlanStatus,
 };
-use prism_memory::{
-    MemoryEntry, MemoryEvent, MemoryEventKind, OutcomeEvent, OutcomeEvidence, OutcomeKind,
-};
-use prism_store::ColdQueryStore;
+use prism_memory::{MemoryEntry, MemoryEvent, MemoryEventKind};
 use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::memory_events::load_repo_memory_events;
-use crate::prism_paths::PrismPaths;
 use crate::published_plans::{
     load_hydrated_coordination_plan_state, load_repo_published_plan_index, PublishedPlanIndexEntry,
 };
-use crate::shared_runtime_backend::SharedRuntimeBackend;
-use crate::shared_runtime_store::SharedRuntimeStore;
 
 use super::{anchor_label, write_generated_file, PrismDocFileSync};
 
@@ -33,21 +27,18 @@ const STATE_PROJECTION_VERSION: u32 = 1;
 pub(super) struct RepoStateSummary {
     pub(super) memory_count: usize,
     pub(super) plan_count: usize,
-    pub(super) change_count: usize,
 }
 
 #[derive(Debug, Clone)]
 pub(super) struct RepoStateCatalog {
     memories: Vec<PublishedMemoryRecord>,
     memory_events: Vec<MemoryEvent>,
-    patch_events: Vec<OutcomeEvent>,
     plans: Vec<PublishedPlanDoc>,
 }
 
 impl RepoStateCatalog {
     pub(super) fn load(root: &Path) -> Result<Self> {
         let memory_events = load_repo_memory_events(root)?;
-        let patch_events = load_shared_runtime_patch_events(root)?;
         let plan_state = load_hydrated_coordination_plan_state(root, None)?;
         let plan_index = load_repo_published_plan_index(root)?
             .into_iter()
@@ -106,7 +97,6 @@ impl RepoStateCatalog {
         Ok(Self {
             memories: project_memories(&memory_events),
             memory_events,
-            patch_events,
             plans,
         })
     }
@@ -115,32 +105,8 @@ impl RepoStateCatalog {
         RepoStateSummary {
             memory_count: self.memories.len(),
             plan_count: self.plans.len(),
-            change_count: self.patch_events.len(),
         }
     }
-}
-
-fn load_shared_runtime_patch_events(root: &Path) -> Result<Vec<OutcomeEvent>> {
-    let paths = PrismPaths::for_workspace_root(root)?;
-    let backend = SharedRuntimeBackend::Sqlite {
-        path: paths.shared_runtime_db_path()?,
-    };
-    let Some(mut store) = SharedRuntimeStore::open(&backend)? else {
-        return Ok(Vec::new());
-    };
-    let mut events = store.load_outcomes(&prism_memory::OutcomeRecallQuery {
-        kinds: Some(vec![OutcomeKind::PatchApplied]),
-        limit: 0,
-        ..prism_memory::OutcomeRecallQuery::default()
-    })?;
-    events.sort_by(|left, right| {
-        right
-            .meta
-            .ts
-            .cmp(&left.meta.ts)
-            .then_with(|| left.meta.id.0.cmp(&right.meta.id.0))
-    });
-    Ok(events)
 }
 
 #[derive(Debug, Clone)]
@@ -226,13 +192,13 @@ pub(super) fn sync_repo_state_docs(
         render_memory_doc(catalog),
     )?);
     files.push(write_generated_file(
-        prism_docs_dir.join("changes.md"),
-        render_changes_doc(catalog),
-    )?);
-    files.push(write_generated_file(
         plan_docs_dir.join("index.md"),
         render_plan_index_doc(catalog),
     )?);
+    let changes_doc = prism_docs_dir.join("changes.md");
+    if changes_doc.exists() {
+        fs::remove_file(changes_doc)?;
+    }
 
     let mut expected_plan_docs = BTreeSet::new();
     for plan in &catalog.plans {
@@ -392,96 +358,6 @@ fn render_memory_doc(catalog: &RepoStateCatalog) -> String {
     markdown
 }
 
-fn render_changes_doc(catalog: &RepoStateCatalog) -> String {
-    let metadata = ProjectionMetadata::from_sources(
-        &catalog.patch_events,
-        catalog.patch_events.iter().map(|event| event.meta.ts).max(),
-        format!(
-            "{} published patch events, {} unique touched files",
-            catalog.patch_events.len(),
-            touched_file_counts(&catalog.patch_events).len()
-        ),
-    );
-    let mut markdown = String::new();
-    markdown.push_str("# PRISM Changes\n\n");
-    markdown.push_str("> Generated from repo-scoped PRISM patch events.\n");
-    markdown.push_str("> Return to the concise entrypoint in `../../PRISM.md`.\n\n");
-    write_projection_metadata_section(&mut markdown, &metadata);
-
-    let file_counts = touched_file_counts(&catalog.patch_events);
-    markdown.push_str("## Overview\n\n");
-    markdown.push_str(&format!(
-        "- Published patch events: {}\n",
-        catalog.patch_events.len()
-    ));
-    markdown.push_str(&format!(
-        "- Unique files touched: {}\n\n",
-        file_counts.len()
-    ));
-
-    if catalog.patch_events.is_empty() {
-        markdown.push_str("No repo-scoped patch events are currently published.\n");
-        return markdown;
-    }
-
-    markdown.push_str("## Most Touched Files\n\n");
-    for (path, count) in file_counts.into_iter().take(20) {
-        markdown.push_str(&format!("- `{path}`: `{count}` patch event(s)\n"));
-    }
-    markdown.push('\n');
-
-    markdown.push_str("## Recent Published Patch Events\n\n");
-    let mut recent = catalog.patch_events.clone();
-    recent.sort_by(|left, right| {
-        right
-            .meta
-            .ts
-            .cmp(&left.meta.ts)
-            .then_with(|| right.meta.id.0.cmp(&left.meta.id.0))
-    });
-    for event in recent.into_iter().take(25) {
-        markdown.push_str(&format!("### {}\n\n", event.meta.id.0));
-        markdown.push_str(&format!(
-            "- Summary: {}\n- Result: `{}`\n- Recorded at: `{}`\n",
-            event.summary,
-            format_outcome_result(event.result),
-            event.meta.ts
-        ));
-        if let Some(work_context) = event
-            .meta
-            .execution_context
-            .as_ref()
-            .and_then(|context| context.work_context.as_ref())
-        {
-            markdown.push_str(&format!(
-                "- Work: `{}` ({})\n",
-                work_context.title, work_context.work_id
-            ));
-        }
-        let files = extract_file_paths(&event);
-        if !files.is_empty() {
-            markdown.push_str("- Files:\n");
-            for path in files {
-                markdown.push_str("  - `");
-                markdown.push_str(&path);
-                markdown.push_str("`\n");
-            }
-        }
-        let evidence = format_outcome_evidence(&event.evidence);
-        if !evidence.is_empty() {
-            markdown.push_str("- Evidence:\n");
-            for item in evidence {
-                markdown.push_str("  - ");
-                markdown.push_str(&item);
-                markdown.push('\n');
-            }
-        }
-        markdown.push('\n');
-    }
-
-    markdown
-}
-
 fn render_plan_index_doc(catalog: &RepoStateCatalog) -> String {
     let active_count = catalog
         .plans
@@ -586,12 +462,16 @@ fn render_plan_doc(plan: &PublishedPlanDoc) -> String {
     markdown.push_str("- Snapshot plan shard: `.prism/state/plans/");
     markdown.push_str(&plan.graph.id.0);
     markdown.push_str(".json`\n");
-    if let Some(index) = &plan.index {
+    if let Some(index) = plan
+        .index
+        .as_ref()
+        .filter(|index| !index.log_path.is_empty())
+    {
         markdown.push_str("- Legacy migration log path: `");
         markdown.push_str(&index.log_path);
         markdown.push_str("` (compatibility only, not current tracked authority)\n\n");
     } else {
-        markdown.push_str("- Legacy migration log path: unavailable in the current projection\n\n");
+        markdown.push_str("- Legacy migration log path: none; tracked snapshot shards are the only current repo authority\n\n");
     }
 
     if !plan.graph.root_nodes.is_empty() {
@@ -838,7 +718,7 @@ fn remove_stale_plan_docs(root: &Path, expected_paths: &BTreeSet<PathBuf>) -> Re
 fn plan_bucket(index: Option<&PublishedPlanIndexEntry>, status: PlanStatus) -> PlanDocBucket {
     if index
         .as_ref()
-        .is_some_and(|entry| entry.log_path.contains("/archived/"))
+        .is_some_and(|entry| !entry.log_path.is_empty() && entry.log_path.contains("/archived/"))
         || status == PlanStatus::Archived
     {
         PlanDocBucket::Archived
@@ -863,31 +743,6 @@ fn sanitize_plan_id(plan_id: &str) -> String {
             _ => '-',
         })
         .collect()
-}
-
-fn touched_file_counts(events: &[OutcomeEvent]) -> Vec<(String, usize)> {
-    let mut counts = HashMap::<String, usize>::new();
-    for event in events {
-        for path in extract_file_paths(event) {
-            *counts.entry(path).or_insert(0) += 1;
-        }
-    }
-    let mut counts = counts.into_iter().collect::<Vec<_>>();
-    counts.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
-    counts
-}
-
-fn extract_file_paths(event: &OutcomeEvent) -> Vec<String> {
-    event.metadata["filePaths"]
-        .as_array()
-        .map(|paths| {
-            paths
-                .iter()
-                .filter_map(Value::as_str)
-                .map(ToOwned::to_owned)
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default()
 }
 
 fn metadata_object_lines(metadata: &Value, key: &str) -> Option<Vec<String>> {
@@ -964,37 +819,6 @@ fn format_memory_source(source: prism_memory::MemorySource) -> &'static str {
         prism_memory::MemorySource::User => "user",
         prism_memory::MemorySource::System => "system",
     }
-}
-
-fn format_outcome_result(result: prism_memory::OutcomeResult) -> &'static str {
-    match result {
-        prism_memory::OutcomeResult::Success => "success",
-        prism_memory::OutcomeResult::Failure => "failure",
-        prism_memory::OutcomeResult::Partial => "partial",
-        prism_memory::OutcomeResult::Unknown => "unknown",
-    }
-}
-
-fn format_outcome_evidence(evidence: &[OutcomeEvidence]) -> Vec<String> {
-    evidence
-        .iter()
-        .map(|item| match item {
-            OutcomeEvidence::Commit { sha } => format!("commit `{sha}`"),
-            OutcomeEvidence::Test { name, passed } => {
-                format!("test `{name}` (passed: `{passed}`)")
-            }
-            OutcomeEvidence::Build { target, passed } => {
-                format!("build `{target}` (passed: `{passed}`)")
-            }
-            OutcomeEvidence::Command { argv, passed } => {
-                format!("command `{}` (passed: `{passed}`)", argv.join(" "))
-            }
-            OutcomeEvidence::Reviewer { author } => format!("reviewer `{author}`"),
-            OutcomeEvidence::Issue { id } => format!("issue `{id}`"),
-            OutcomeEvidence::StackTrace { hash } => format!("stack trace `{hash}`"),
-            OutcomeEvidence::DiffSummary { text } => text.clone(),
-        })
-        .collect()
 }
 
 fn format_plan_kind(kind: PlanKind) -> &'static str {

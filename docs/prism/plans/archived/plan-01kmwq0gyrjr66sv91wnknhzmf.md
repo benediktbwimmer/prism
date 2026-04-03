@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:37d22296aa867029f2a02355b28121019861529badff787e2e4e4311af6e8764`
+- Source head: `sha256:c49f79a6103a25cbbbcac353ca279da40dc8b9088e31a950f1db4c06ec8e9746`
 - Source logical timestamp: `unknown`
 - Source snapshot: `6 nodes, 8 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Eliminate every remaining audited PRISM performance bottleneck by removing full-
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kmwq0gyrjr66sv91wnknhzmf.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kmwq0gyrjr66sv91wnknhzmf.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

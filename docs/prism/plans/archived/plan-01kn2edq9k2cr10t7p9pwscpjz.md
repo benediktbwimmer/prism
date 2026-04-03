@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:3a71082b6a916c1193cecc395016d30ca4089f32b08d8b9a31dfa7010424e568`
+- Source head: `sha256:a65a6045d59ae1c054e23f183f9e75450923bd08b18f369ad89254624758bb04`
 - Source logical timestamp: `unknown`
 - Source snapshot: `17 nodes, 20 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ incremental-semantic-db-runtime-engine-rewrite: transform PRISM into a true incr
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn2edq9k2cr10t7p9pwscpjz.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn2edq9k2cr10t7p9pwscpjz.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

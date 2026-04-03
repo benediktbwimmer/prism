@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:429a8a08b9486fe3453978ffe13f278769076b053e201576ee3dcf96f9785b61`
+- Source head: `sha256:7313f6dc1caf524114f8a4011a528cbb295557c4c27dc9b355064d5346dcaaa5`
 - Source logical timestamp: `unknown`
 - Source snapshot: `6 nodes, 7 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ storage-boundary-redesign: separate true shared runtime state from worktree-loca
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn46s1pk7s8wdbwrv302ws1g.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn46s1pk7s8wdbwrv302ws1g.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

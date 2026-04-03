@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:990370c3a60900cdbd5491267eaa8fd62febdc9efdeab12fb4f125434e8771b9`
+- Source head: `sha256:b3049a8a6cbc0b30f8c06ad68da6c29d21e3419f0ab964bd525d9c2ff8f17f0c`
 - Source logical timestamp: `unknown`
 - Source snapshot: `6 nodes, 6 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Finish the git execution policy feature by exposing policy surfaces clearly, sep
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn8n8v0ns6jcj0xgge5f0adv.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn8n8v0ns6jcj0xgge5f0adv.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

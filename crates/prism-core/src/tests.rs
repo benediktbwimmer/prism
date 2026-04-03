@@ -57,11 +57,6 @@ use crate::curator_support::build_curator_context;
 use crate::materialization::summarize_workspace_materialization;
 use crate::memory_events::append_repo_memory_event;
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
-use crate::protected_state::repo_streams::{
-    append_protected_stream_event, implicit_principal_identity, inspect_protected_stream,
-};
-use crate::protected_state::streams::ProtectedRepoStream;
-use crate::published_knowledge::validate_repo_patch_event;
 use crate::repo_patch_events::{append_repo_patch_event, load_repo_patch_events};
 use crate::session::HOT_OUTCOME_HYDRATION_LIMIT;
 use crate::workspace_identity::{canonical_root_repo_id, workspace_identity_for_root};
@@ -1428,11 +1423,10 @@ fn repo_patch_events_capture_provenance_and_reload_without_local_cache() {
         .iter()
         .all(|symbol| symbol["filePath"].as_str() == Some("src/lib.rs")));
     session.sync_prism_doc().unwrap();
-    let changes_doc = fs::read_to_string(root.join("docs/prism/changes.md")).unwrap();
-    assert!(changes_doc.contains("# PRISM Changes"));
-    assert!(changes_doc.contains("Rename alpha"));
-    assert!(changes_doc.contains("src/lib.rs"));
-    assert!(!changes_doc.contains(root.to_string_lossy().as_ref()));
+    assert!(
+        !root.join("docs/prism/changes.md").exists(),
+        "tracked repo docs should not publish operational change history"
+    );
 
     let cache_db = crate::util::cache_path(&root).unwrap();
     drop(session);
@@ -2586,7 +2580,7 @@ fn reload_queries_cold_lineage_history_from_store() {
 }
 
 #[test]
-fn repo_memory_events_round_trip_through_committed_jsonl_and_reload() {
+fn repo_memory_snapshots_round_trip_and_reload_without_tracked_log() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -2634,7 +2628,7 @@ fn repo_memory_events_round_trip_through_committed_jsonl_and_reload() {
         .unwrap();
 
     let repo_log = root.join(".prism").join("memory").join("events.jsonl");
-    assert!(repo_log.exists());
+    assert!(!repo_log.exists());
 
     let reloaded = index_workspace_session(&root).unwrap();
     let snapshot = reloaded
@@ -2926,7 +2920,7 @@ fn repo_published_memory_writes_tracked_snapshot_manifest() {
         manifest["publishSummary"]["summary"],
         "Persist repo memory into tracked snapshot state."
     );
-    assert!(manifest["migrationSourceDigest"].is_string());
+    assert!(manifest["migrationSourceDigest"].is_null());
     let relative_memory_path = memory_files[0]
         .strip_prefix(&root)
         .unwrap()
@@ -2997,6 +2991,14 @@ fn repo_published_memory_backfills_migration_digest_when_previous_manifest_lacke
         event
     };
 
+    let legacy_memory_dir = root.join(".prism/memory");
+    fs::create_dir_all(&legacy_memory_dir).unwrap();
+    fs::write(
+        legacy_memory_dir.join("events.jsonl"),
+        "{\"legacy\":true}\n",
+    )
+    .unwrap();
+
     append_repo_memory_event(
         &root,
         &make_event("structural:tracked-snapshot-memory-1", 1),
@@ -3008,7 +3010,7 @@ fn repo_published_memory_backfills_migration_digest_when_previous_manifest_lacke
         serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
     let original_digest = manifest["migrationSourceDigest"]
         .as_str()
-        .expect("first manifest should carry migration digest")
+        .expect("first manifest should carry migration digest when legacy authority exists")
         .to_string();
     manifest
         .as_object_mut()
@@ -3049,7 +3051,7 @@ fn repo_published_memory_backfills_migration_digest_when_previous_manifest_lacke
 }
 
 #[test]
-fn repo_published_memory_reads_fall_back_to_tracked_snapshots() {
+fn repo_published_memory_reads_from_tracked_snapshots_without_legacy_log() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -3088,8 +3090,6 @@ fn repo_published_memory_reads_fall_back_to_tracked_snapshots() {
     );
     event.actor = Some(EventActor::Agent);
     append_repo_memory_event(&root, &event).unwrap();
-
-    fs::remove_file(root.join(".prism/memory/events.jsonl")).unwrap();
 
     let loaded = crate::memory_events::load_repo_memory_events(&root).unwrap();
     assert_eq!(loaded.len(), 1);
@@ -3140,8 +3140,10 @@ fn repo_published_memory_ignores_legacy_log_once_snapshot_authority_exists() {
     event.actor = Some(EventActor::Agent);
     append_repo_memory_event(&root, &event).unwrap();
 
+    let legacy_memory_dir = root.join(".prism/memory");
+    fs::create_dir_all(&legacy_memory_dir).unwrap();
     fs::write(
-        root.join(".prism/memory/events.jsonl"),
+        legacy_memory_dir.join("events.jsonl"),
         "tampered legacy log\n",
     )
     .unwrap();
@@ -3155,7 +3157,7 @@ fn repo_published_memory_ignores_legacy_log_once_snapshot_authority_exists() {
 }
 
 #[test]
-fn repo_published_memory_stops_growing_legacy_log_after_snapshot_cutover() {
+fn repo_published_memory_does_not_create_legacy_log_after_snapshot_cutover() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -3203,8 +3205,7 @@ fn repo_published_memory_stops_growing_legacy_log_after_snapshot_cutover() {
     )
     .unwrap();
     let legacy_path = root.join(".prism/memory/events.jsonl");
-    let line_count_before = fs::read_to_string(&legacy_path).unwrap().lines().count();
-    assert_eq!(line_count_before, 1);
+    assert!(!legacy_path.exists());
 
     append_repo_memory_event(
         &root,
@@ -3214,8 +3215,7 @@ fn repo_published_memory_stops_growing_legacy_log_after_snapshot_cutover() {
         ),
     )
     .unwrap();
-    let line_count_after = fs::read_to_string(&legacy_path).unwrap().lines().count();
-    assert_eq!(line_count_after, line_count_before);
+    assert!(!legacy_path.exists());
 
     let _ = fs::remove_dir_all(root);
 }
@@ -3553,7 +3553,7 @@ fn repo_published_concepts_read_from_tracked_snapshots_without_event_log() {
     )
     .unwrap();
 
-    fs::remove_file(root.join(".prism/concepts/events.jsonl")).unwrap();
+    assert!(!root.join(".prism/concepts/events.jsonl").exists());
     let concepts = crate::concept_events::load_repo_curated_concepts(&root).unwrap();
     assert_eq!(concepts.len(), 1);
     assert_eq!(concepts[0].handle, "concept://tracked_snapshot_reader");
@@ -3669,7 +3669,7 @@ fn protected_state_watcher_imports_repo_concepts_without_source_refresh() {
 }
 
 #[test]
-fn repo_concept_events_round_trip_through_committed_jsonl_and_reload() {
+fn repo_concept_snapshots_round_trip_and_reload_without_tracked_log() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -3742,7 +3742,7 @@ fn repo_concept_events_round_trip_through_committed_jsonl_and_reload() {
         .unwrap();
 
     let repo_log = root.join(".prism").join("concepts").join("events.jsonl");
-    assert!(repo_log.exists());
+    assert!(!repo_log.exists());
 
     let reloaded = index_workspace_session(&root).unwrap();
     let concept = reloaded
@@ -3762,7 +3762,7 @@ fn repo_concept_events_round_trip_through_committed_jsonl_and_reload() {
 }
 
 #[test]
-fn tampered_repo_concept_stream_is_rejected_on_reload() {
+fn legacy_repo_concept_stream_is_ignored_once_snapshot_authority_exists() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -3824,20 +3824,17 @@ fn tampered_repo_concept_stream_is_rejected_on_reload() {
         .unwrap();
 
     let repo_log = root.join(".prism").join("concepts").join("events.jsonl");
-    let tampered = fs::read_to_string(&repo_log).unwrap().replace(
-        "Signed concept summary for tamper coverage.",
-        "Tampered concept summary for tamper coverage.",
-    );
-    fs::write(&repo_log, tampered).unwrap();
-    let _ = fs::remove_dir_all(root.join(".prism/state"));
-
-    let error = match index_workspace_session(&root) {
-        Ok(_) => panic!("tampered concept stream should not reload"),
-        Err(error) => error.to_string(),
-    };
-    assert!(
-        error.contains("Tampered") || error.contains("signature verification"),
-        "expected tamper detection error, got: {error}"
+    fs::create_dir_all(repo_log.parent().unwrap()).unwrap();
+    fs::write(&repo_log, "tampered legacy concept log\n").unwrap();
+    let reloaded = index_workspace_session(&root)
+        .expect("snapshot authority should ignore legacy tracked concept logs");
+    let concept = reloaded
+        .prism()
+        .concept_by_handle("concept://signed_tampered_alpha")
+        .expect("repo concept should reload from tracked snapshot");
+    assert_eq!(
+        concept.summary,
+        "Signed concept summary for tamper coverage."
     );
 
     let _ = fs::remove_dir_all(root);
@@ -4256,7 +4253,7 @@ fn default_workspace_session_uses_repo_shared_runtime_registry() {
 }
 
 #[test]
-fn repo_concept_event_patch_trace_round_trips_through_jsonl() {
+fn repo_concept_snapshot_keeps_current_concept_after_patch_update() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -4333,19 +4330,14 @@ fn repo_concept_event_patch_trace_round_trips_through_jsonl() {
         })
         .unwrap();
 
-    let events = crate::concept_events::load_repo_concept_events(&root).unwrap();
-    assert_eq!(events.len(), 1);
-    let patch = events[0]
-        .patch
-        .as_ref()
-        .expect("patch trace should persist");
-    assert_eq!(patch.set_fields, vec!["summary".to_string()]);
-    assert_eq!(patch.cleared_fields, vec!["riskHint".to_string()]);
+    let concepts = crate::concept_events::load_repo_curated_concepts(&root).unwrap();
+    assert_eq!(concepts.len(), 1);
+    assert_eq!(concepts[0].handle, "concept://alpha_flow");
     assert_eq!(
-        patch.summary.as_deref(),
-        Some("Updated alpha concept with cleared risk guidance.")
+        concepts[0].summary,
+        "Updated alpha concept with cleared risk guidance."
     );
-    assert_eq!(patch.risk_hint, None);
+    assert_eq!(concepts[0].risk_hint, None);
 
     let _ = fs::remove_dir_all(root);
 }
@@ -4438,7 +4430,6 @@ fn repo_concept_events_auto_sync_prism_doc() {
     let relations_doc = fs::read_to_string(root.join("docs/prism/relations.md")).unwrap();
     let contracts_doc = fs::read_to_string(root.join("docs/prism/contracts.md")).unwrap();
     let memory_doc = fs::read_to_string(root.join("docs/prism/memory.md")).unwrap();
-    let changes_doc = fs::read_to_string(root.join("docs/prism/changes.md")).unwrap();
     let plans_doc = fs::read_to_string(root.join("docs/prism/plans/index.md")).unwrap();
     assert!(prism_doc.contains("# PRISM"));
     assert!(prism_doc.contains("## Projection Metadata"));
@@ -4451,7 +4442,6 @@ fn repo_concept_events_auto_sync_prism_doc() {
     assert!(prism_doc.contains("docs/prism/relations.md"));
     assert!(prism_doc.contains("docs/prism/contracts.md"));
     assert!(prism_doc.contains("docs/prism/memory.md"));
-    assert!(prism_doc.contains("docs/prism/changes.md"));
     assert!(prism_doc.contains("docs/prism/plans/index.md"));
     assert!(prism_doc.contains("- Active repo concepts: 1"));
     assert!(concepts_doc.contains("# PRISM Concepts"));
@@ -4470,8 +4460,7 @@ fn repo_concept_events_auto_sync_prism_doc() {
     assert!(contracts_doc.contains("No active repo-scoped contracts are currently published."));
     assert!(memory_doc.contains("# PRISM Memory"));
     assert!(memory_doc.contains("No active repo-scoped memories are currently published."));
-    assert!(changes_doc.contains("# PRISM Changes"));
-    assert!(changes_doc.contains("No repo-scoped patch events are currently published."));
+    assert!(!root.join("docs/prism/changes.md").exists());
     assert!(plans_doc.contains("# PRISM Plans"));
     assert!(plans_doc.contains("No repo-scoped plans are currently published."));
 
@@ -4839,10 +4828,9 @@ fn repo_plan_events_auto_sync_prism_doc() {
         })
         .unwrap();
 
-    let plan_index_path = root.join(".prism/plans/index.jsonl");
-    let authoritative_plans_dir = root.join(".prism/plans/active");
-    assert!(plan_index_path.exists());
-    assert!(authoritative_plans_dir.exists());
+    assert!(!root.join(".prism/plans/index.jsonl").exists());
+    assert!(!root.join(".prism/plans/active").exists());
+    assert!(root.join(".prism/state/plans").exists());
 
     let sync = session.sync_prism_doc().unwrap();
     assert_eq!(sync.status, PrismDocSyncStatus::Updated);
@@ -4873,6 +4861,9 @@ fn repo_plan_events_auto_sync_prism_doc() {
     assert!(plan_doc.contains("- Target ref: `origin/main`"));
     assert!(plan_doc.contains("- Max commits behind target: `2`"));
     assert!(plan_doc.contains("- Max fetch age seconds: `300`"));
+    assert!(plan_doc.contains(
+        "- Legacy migration log path: none; tracked snapshot shards are the only current repo authority"
+    ));
 
     let sync = session.sync_prism_doc().unwrap();
     assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
@@ -4881,7 +4872,7 @@ fn repo_plan_events_auto_sync_prism_doc() {
 }
 
 #[test]
-fn repo_contract_events_round_trip_through_committed_jsonl_and_reload() {
+fn repo_contract_snapshots_round_trip_and_reload_without_tracked_log() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -4958,7 +4949,7 @@ fn repo_contract_events_round_trip_through_committed_jsonl_and_reload() {
         .unwrap();
 
     let repo_log = root.join(".prism").join("contracts").join("events.jsonl");
-    assert!(repo_log.exists());
+    assert!(!repo_log.exists());
 
     let reloaded = index_workspace_session(&root).unwrap();
     let contract = reloaded
@@ -5482,38 +5473,35 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
         })
         .unwrap();
 
-    let index_path = root.join(".prism").join("plans").join("index.jsonl");
-    let log_path = root
-        .join(".prism")
-        .join("plans")
-        .join("active")
-        .join(format!("{}.jsonl", plan_id.0));
-    assert!(index_path.exists(), "published plan index should exist");
-    assert!(log_path.exists(), "published plan log should exist");
-    let log_contents = fs::read_to_string(&log_path).unwrap();
     assert!(
-        !log_contents.contains("session:published-plan"),
-        "repo-published plan logs should not persist runtime session ids"
+        !root
+            .join(".prism")
+            .join("plans")
+            .join("index.jsonl")
+            .exists(),
+        "tracked snapshot authority should not emit a legacy plan index"
     );
     assert!(
-        !log_contents.contains("worktree:published-plan"),
-        "repo-published plan logs should not persist runtime worktree ids"
+        !root
+            .join(".prism")
+            .join("plans")
+            .join("active")
+            .join(format!("{}.jsonl", plan_id.0))
+            .exists(),
+        "tracked snapshot authority should not emit a legacy plan log"
+    );
+    let manifest_contents = fs::read_to_string(root.join(".prism/state/manifest.json")).unwrap();
+    assert!(
+        !manifest_contents.contains("session:published-plan"),
+        "tracked snapshot manifests should not persist runtime session ids"
     );
     assert!(
-        !log_contents.contains("refs/heads/published-plan"),
-        "repo-published plan logs should not persist runtime branch refs"
+        !manifest_contents.contains("worktree:published-plan"),
+        "tracked snapshot manifests should not persist runtime worktree ids"
     );
     assert!(
-        log_contents.contains("\"kind\":\"plan_created\""),
-        "published plan logs should use native plan events"
-    );
-    assert!(
-        log_contents.contains("\"kind\":\"node_added\""),
-        "published plan logs should append native node events"
-    );
-    assert!(
-        !log_contents.contains("\"kind\":\"execution_updated\""),
-        "published plan logs should not persist runtime execution overlay events"
+        !manifest_contents.contains("refs/heads/published-plan"),
+        "tracked snapshot manifests should not persist runtime branch refs"
     );
 
     drop(session);
@@ -5655,7 +5643,7 @@ fn repo_published_plans_write_tracked_snapshot_manifest() {
         manifest["publishSummary"]["summary"],
         "Persist published plan state into tracked snapshot shards."
     );
-    assert!(manifest["migrationSourceDigest"].is_string());
+    assert!(manifest["migrationSourceDigest"].is_null());
     let relative_plan_path = plan_files[0]
         .strip_prefix(&root)
         .unwrap()
@@ -5728,7 +5716,7 @@ fn repo_published_plans_hydrate_from_tracked_snapshots_without_plan_logs() {
         })
         .unwrap();
 
-    fs::remove_dir_all(root.join(".prism/plans")).unwrap();
+    let _ = fs::remove_dir_all(root.join(".prism/plans"));
 
     let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
         .unwrap()
@@ -5804,10 +5792,8 @@ fn repo_published_plans_ignore_tampered_legacy_streams_once_snapshot_authority_e
         })
         .unwrap();
 
-    let stream_path = root
-        .join(".prism/plans/streams")
-        .join(format!("{}.jsonl", plan_id.0));
-    assert!(stream_path.exists());
+    let stream_path = root.join(".prism/plans/streams/managed.jsonl");
+    fs::create_dir_all(stream_path.parent().unwrap()).unwrap();
     fs::write(&stream_path, "tampered legacy plan stream\n").unwrap();
 
     let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
@@ -6066,22 +6052,13 @@ fn derived_published_plan_mirrors_do_not_override_replayed_task_backed_authored_
         })
         .unwrap();
 
-    let log_path = root
-        .join(".prism")
-        .join("plans")
-        .join("active")
-        .join(format!("{}.jsonl", plan_id.0));
-    let stale_export = fs::read_to_string(&log_path)
-        .unwrap()
-        .replace(
-            "Keep replay authoritative",
-            "Stale published export should now win",
-        )
-        .replace(
-            "Ignore stale export artifacts",
-            "Published task title should now win",
-        );
-    fs::write(&log_path, stale_export).unwrap();
+    let log_path = root.join(".prism/legacy-plan-mirror.jsonl");
+    fs::create_dir_all(log_path.parent().unwrap()).unwrap();
+    fs::write(
+        &log_path,
+        "Stale published export should now win\nPublished task title should now win\n",
+    )
+    .unwrap();
 
     drop(session);
 
@@ -6158,16 +6135,13 @@ fn refresh_fs_ignores_external_derived_plan_mirror_edits_without_source_changes(
         })
         .unwrap();
 
-    let log_path = root
-        .join(".prism")
-        .join("plans")
-        .join("active")
-        .join(format!("{}.jsonl", plan_id.0));
-    let edited = fs::read_to_string(&log_path)
-        .unwrap()
-        .replace("Original authored goal", "Externally edited goal")
-        .replace("Original authored title", "Externally edited title");
-    fs::write(&log_path, edited).unwrap();
+    let log_path = root.join(".prism/plans/active/managed.jsonl");
+    fs::create_dir_all(log_path.parent().unwrap()).unwrap();
+    fs::write(
+        &log_path,
+        "Externally edited goal\nExternally edited title\n",
+    )
+    .unwrap();
 
     std::thread::sleep(std::time::Duration::from_millis(300));
     let outcome = session.refresh_fs_with_status().unwrap();
@@ -6278,12 +6252,13 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
     assert!(queue_model.active_claims.is_empty());
     assert!(queue_model.pending_review_artifacts.is_empty());
 
-    assert!(root
+    assert!(root.join(".prism/state/plans").exists());
+    assert!(!root
         .join(".prism")
         .join("plans")
         .join("index.jsonl")
         .exists());
-    assert!(root
+    assert!(!root
         .join(".prism")
         .join("plans")
         .join("active")
@@ -7215,27 +7190,31 @@ fn repo_published_plan_logs_do_not_reemit_existing_child_of_edges() {
         })
         .unwrap();
 
-    let log_path = root
-        .join(".prism")
-        .join("plans")
-        .join("active")
-        .join(format!("{}.jsonl", plan_id.0));
     let edge_id = format!("plan-edge:{}:child-of:{}", child_id.0, parent_id.0);
-    let edge_added_count = fs::read_to_string(&log_path)
+    let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
         .unwrap()
-        .lines()
-        .filter(|line| line.contains("\"kind\":\"edge_added\"") && line.contains(&edge_id))
+        .expect("tracked snapshots should hydrate plan state");
+    let graph = hydrated
+        .plan_graphs
+        .iter()
+        .find(|graph| graph.id == plan_id)
+        .expect("tracked snapshot plan graph");
+    let edge_count = graph
+        .edges
+        .iter()
+        .filter(|edge| edge.id.0 == edge_id)
         .count();
     assert_eq!(
-        edge_added_count, 1,
-        "incremental sync should not republish the same child-of edge after unrelated mutations"
+        edge_count, 1,
+        "tracked snapshot plan state should retain exactly one child-of edge after unrelated mutations"
     );
 
     let _ = fs::remove_dir_all(root);
 }
 
 #[test]
-fn regenerate_repo_published_plan_artifacts_restores_index_and_derived_log_from_streams() {
+fn regenerate_repo_published_plan_artifacts_removes_legacy_plan_artifacts_when_snapshot_authority_exists(
+) {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -7246,7 +7225,7 @@ fn regenerate_repo_published_plan_artifacts_restores_index_and_derived_log_from_
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
 
     let session = index_workspace_session(&root).unwrap();
-    let plan_id = session
+    let _plan_id = session
         .mutate_coordination(|prism| {
             prism.create_native_plan(
                 EventMeta {
@@ -7264,37 +7243,33 @@ fn regenerate_repo_published_plan_artifacts_restores_index_and_derived_log_from_
             )
         })
         .unwrap();
+    drop(session);
 
-    let stream_path = root
-        .join(".prism")
-        .join("plans")
-        .join("streams")
-        .join(format!("{}.jsonl", plan_id.0));
-    let active_path = root
-        .join(".prism")
-        .join("plans")
-        .join("active")
-        .join(format!("{}.jsonl", plan_id.0));
+    let stream_path = root.join(".prism/plans/streams/managed.jsonl");
+    let active_path = root.join(".prism/plans/active/managed.jsonl");
     let index_path = root.join(".prism").join("plans").join("index.jsonl");
-    let stream_bytes = fs::read(&stream_path).unwrap();
-
-    fs::remove_file(&active_path).unwrap();
-    fs::remove_file(&index_path).unwrap();
+    let write_stale = |path: &std::path::Path, contents: &str| {
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, contents).or_else(|_| {
+            fs::create_dir_all(path.parent().unwrap())?;
+            fs::write(path, contents)
+        })
+    };
+    write_stale(&stream_path, "stale legacy stream\n").unwrap();
+    write_stale(&active_path, "stale legacy active log\n").unwrap();
+    write_stale(&index_path, "stale legacy index\n").unwrap();
 
     regenerate_repo_published_plan_artifacts(&root).unwrap();
 
-    assert_eq!(fs::read(&active_path).unwrap(), stream_bytes);
-    let index_contents = fs::read_to_string(&index_path).unwrap();
-    assert!(index_contents.contains(&format!(
-        "\"log_path\":\".prism/plans/streams/{}.jsonl\"",
-        plan_id.0
-    )));
+    assert!(!stream_path.exists());
+    assert!(!active_path.exists());
+    assert!(!index_path.exists());
 
     let _ = fs::remove_dir_all(root);
 }
 
 #[test]
-fn repair_repo_published_plan_artifacts_removes_redundant_edge_adds() {
+fn repair_repo_published_plan_artifacts_is_empty_under_snapshot_authority() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -7305,7 +7280,7 @@ fn repair_repo_published_plan_artifacts_removes_redundant_edge_adds() {
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
 
     let session = index_workspace_session(&root).unwrap();
-    let (plan_id, parent_id, child_id, edge_id) = session
+    let (plan_id, parent_id, child_id) = session
         .mutate_coordination(|prism| {
             let base_revision = prism.workspace_revision();
             let plan_id = prism.create_native_plan(
@@ -7374,76 +7349,19 @@ fn repair_repo_published_plan_artifacts_removes_redundant_edge_adds() {
                 &prism_ir::PlanNodeId::new(parent.id.0.clone()),
                 prism_ir::PlanEdgeKind::ChildOf,
             )?;
-            let edge_id = prism_ir::PlanEdgeId::new(format!(
-                "plan-edge:{}:child-of:{}",
-                child.id.0, parent.id.0
-            ));
-            anyhow::Ok((plan_id, parent.id, child.id, edge_id))
+            anyhow::Ok((plan_id, parent.id, child.id))
         })
         .unwrap();
 
-    let stream = ProtectedRepoStream::plan_stream(&plan_id);
-    let inspection = inspect_protected_stream::<serde_json::Value>(&root, &stream).unwrap();
-    let duplicate_event_id = format!("published:{}:duplicate-edge-add", plan_id.0);
-    let mut duplicate_payload = inspection
-        .payloads
-        .iter()
-        .find(|payload| {
-            payload.get("kind") == Some(&json!("edge_added"))
-                && payload.get("edge_id") == Some(&json!(edge_id.0))
-        })
-        .cloned()
-        .expect("expected an edge_added payload for the child edge");
-    duplicate_payload["event_id"] = json!(duplicate_event_id.clone());
-    append_protected_stream_event(
-        &root,
-        &stream,
-        &duplicate_event_id,
-        &duplicate_payload,
-        &crate::protected_state::repo_streams::implicit_principal_identity(None, None),
-    )
-    .unwrap();
-
     let report = inspect_repo_published_plan_artifacts(&root).unwrap();
-    let entry = report
-        .entries
-        .iter()
-        .find(|entry| entry.plan_id == plan_id)
-        .expect("repair report should include the plan");
-    assert_eq!(entry.redundant_edge_add_count, 1);
-    assert!(!entry.repaired);
+    assert_eq!(report.scanned_plan_count, 0);
+    assert_eq!(report.repaired_plan_count, 0);
+    assert!(report.entries.is_empty());
 
     let repair_report = repair_repo_published_plan_artifacts(&root).unwrap();
-    let repaired_entry = repair_report
-        .entries
-        .iter()
-        .find(|entry| entry.plan_id == plan_id)
-        .expect("repair report should include the plan");
-    assert_eq!(repair_report.repaired_plan_count, 1);
-    assert_eq!(repaired_entry.redundant_edge_add_count, 1);
-    assert!(repaired_entry.repaired);
-
-    let repaired_inspection =
-        inspect_protected_stream::<serde_json::Value>(&root, &stream).unwrap();
-    let repaired_edge_add_count = repaired_inspection
-        .payloads
-        .iter()
-        .filter(|payload| {
-            payload.get("kind") == Some(&json!("edge_added"))
-                && payload.get("edge_id") == Some(&json!(edge_id.0))
-        })
-        .count();
-    assert_eq!(repaired_edge_add_count, 1);
-
-    let active_path = root
-        .join(".prism")
-        .join("plans")
-        .join("active")
-        .join(format!("{}.jsonl", plan_id.0));
-    assert_eq!(
-        fs::read(&active_path).unwrap(),
-        fs::read(root.join(stream.relative_path())).unwrap()
-    );
+    assert_eq!(repair_report.scanned_plan_count, 0);
+    assert_eq!(repair_report.repaired_plan_count, 0);
+    assert!(repair_report.entries.is_empty());
 
     let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
         .unwrap()
@@ -7465,7 +7383,13 @@ fn repair_repo_published_plan_artifacts_removes_redundant_edge_adds() {
         repaired_graph
             .edges
             .iter()
-            .filter(|edge| edge.id == edge_id)
+            .filter(|edge| {
+                edge.id
+                    == prism_ir::PlanEdgeId::new(format!(
+                        "plan-edge:{}:child-of:{}",
+                        child_id.0, parent_id.0
+                    ))
+            })
             .count(),
         1
     );
@@ -7825,13 +7749,15 @@ fn repo_published_plan_snapshot_skips_runtime_handoff_deltas() {
         })
         .unwrap();
 
-    let log_path = root
-        .join(".prism")
-        .join("plans")
-        .join("active")
-        .join(format!("{}.jsonl", plan_id.0));
-    let initial_lines = fs::read_to_string(&log_path).unwrap().lines().count();
-    assert_eq!(initial_lines, 2, "initial publish should write plan + node");
+    assert!(
+        !root
+            .join(".prism")
+            .join("plans")
+            .join("active")
+            .join(format!("{}.jsonl", plan_id.0))
+            .exists(),
+        "tracked snapshot authority should not emit a legacy plan log"
+    );
 
     session
         .mutate_coordination(|prism| {
@@ -7977,8 +7903,9 @@ fn repo_published_plan_snapshot_persists_archive_transition() {
 }
 
 #[test]
-fn tampered_authoritative_plan_stream_is_rejected_on_reload() {
+fn tampered_legacy_plan_stream_is_rejected_on_reload_without_snapshot_state() {
     let root = temp_workspace();
+    fs::create_dir_all(root.join(".prism").join("plans").join("active")).unwrap();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
         root.join("Cargo.toml"),
@@ -7987,43 +7914,28 @@ fn tampered_authoritative_plan_stream_is_rejected_on_reload() {
     .unwrap();
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
 
-    let session = index_workspace_session(&root).unwrap();
-    let plan_id = session
-        .mutate_coordination(|prism| {
-            prism.create_native_plan(
-                EventMeta {
-                    id: EventId::new("coordination:tampered-plan-stream"),
-                    ts: 1,
-                    actor: EventActor::Agent,
-                    correlation: Some(TaskId::new("task:tampered-plan-stream")),
-                    causation: None,
-                    execution_context: None,
-                },
-                "Signed plan goal".into(),
-                "Signed plan goal".into(),
-                None,
-                Some(Default::default()),
-            )
-        })
-        .unwrap();
-
-    let stream_path = root
-        .join(".prism")
-        .join("plans")
-        .join("streams")
-        .join(format!("{}.jsonl", plan_id.0));
-    let tampered = fs::read_to_string(&stream_path)
-        .unwrap()
-        .replace("Signed plan goal", "Tampered plan goal");
-    fs::write(&stream_path, tampered).unwrap();
-    let _ = fs::remove_dir_all(root.join(".prism").join("state"));
+    fs::write(
+        root.join(".prism").join("plans").join("index.jsonl"),
+        "{\"plan_id\":\"plan:1\",\"title\":\"Legacy published plan\",\"status\":\"Active\",\"scope\":\"Repo\",\"kind\":\"TaskExecution\",\"log_path\":\".prism/plans/active/plan:1.jsonl\"}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join(".prism")
+            .join("plans")
+            .join("active")
+            .join("plan:1.jsonl"),
+        "tampered legacy plan stream\n",
+    )
+    .unwrap();
 
     let error = match index_workspace_session(&root) {
-        Ok(_) => panic!("tampered authoritative plan stream should not reload"),
+        Ok(_) => panic!("tampered legacy plan stream should not reload"),
         Err(error) => error.to_string(),
     };
     assert!(
-        error.contains("Tampered") || error.contains("signature verification"),
+        error.contains("failed to parse")
+            || error.contains("expected value")
+            || error.contains("legacy published plan"),
         "expected tamper detection error, got: {error}"
     );
 

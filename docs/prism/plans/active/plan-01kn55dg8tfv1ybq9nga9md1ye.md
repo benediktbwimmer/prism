@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:443b898b82fca53790e580c4cf29d62c32f22ce4ea8bfd3733c58936811f702e`
+- Source head: `sha256:953bce2f688c9f5d7c86cc116f70f026e142e3070481df4ecf097321b7e88f45`
 - Source logical timestamp: `unknown`
 - Source snapshot: `8 nodes, 10 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Hit the refresh latency targets in docs/RUNTIME_REWRITE_ARCHITECTURE.md by repla
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn55dg8tfv1ybq9nga9md1ye.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn55dg8tfv1ybq9nga9md1ye.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

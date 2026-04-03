@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:3da1007e002a346fdc6eb6a2df746c8615bb25b6edf716a9cc687dd89c51ae8a`
+- Source head: `sha256:7a93b5aadef861a93b395ef164f320ad7189413cc09ba4b5fd962c12418901aa`
 - Source logical timestamp: `unknown`
 - Source snapshot: `5 nodes, 6 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ refresh-01: make workspace refresh behavior sound and optimized by explaining an
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn0sh5q9vv9j2q2n6jwxhtep.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn0sh5q9vv9j2q2n6jwxhtep.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

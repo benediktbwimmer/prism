@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:9ec929b64d46b387bafcce727b560b39bb841bbec4fbaa65ebeaf017023364bf`
+- Source head: `sha256:66a02810855daf653148428a43e140b0a14086cb7bfb10e664ab3ae376ca32b3`
 - Source logical timestamp: `unknown`
 - Source snapshot: `7 nodes, 6 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Migrate PRISM persistence toward authoritative runtime storage for memories, con
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:1.json`
-- Legacy migration log path: `.prism/plans/streams/plan:1.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

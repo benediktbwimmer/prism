@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:2bf21f8653c31799a62ea141bbb9b65263124edd154c9e1294200816a6d2ed58`
+- Source head: `sha256:97385919ec8d22f316949187f35063c256964f8e006332b6a89c81c1088c58a0`
 - Source logical timestamp: `unknown`
 - Source snapshot: `7 nodes, 6 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Implement the Protected State Runtime Sync design from docs/PROTECTED_STATE_RUNT
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn80a3trpmaewse7e2bhb1hs.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn80a3trpmaewse7e2bhb1hs.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

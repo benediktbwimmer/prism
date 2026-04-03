@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:57530e8821b816d713111857b7f97a75275fb22f66d6a1293a1c81e8c21f0932`
+- Source head: `sha256:1e4d8ba54f3a71bc6992b023ec78a2979070171c3a9fdb2dafafd10e2187a90a`
 - Source logical timestamp: `unknown`
 - Source snapshot: `6 nodes, 5 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Address the highest-priority remaining PRISM validation-feedback issues across t
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn8868kh84bkb3rtdc12bdkc.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn8868kh84bkb3rtdc12bdkc.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

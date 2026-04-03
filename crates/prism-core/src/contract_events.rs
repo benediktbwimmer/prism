@@ -3,26 +3,15 @@ use std::path::Path;
 use anyhow::{bail, Result};
 use prism_projections::{ContractEvent, ContractPacket};
 
-use crate::protected_state::repo_streams::{
-    append_protected_stream_event, implicit_principal_identity, inspect_protected_stream,
-};
+use crate::protected_state::repo_streams::inspect_protected_stream;
 use crate::protected_state::streams::{ProtectedRepoStream, ProtectedVerificationStatus};
 use crate::tracked_snapshot::{
-    legacy_tracked_stream_bridge_active, load_contract_snapshots, publish_context_from_event,
-    sync_contract_snapshot, tracked_snapshot_authority_active,
+    load_contract_snapshots, publish_context_from_event, sync_contract_snapshot,
+    tracked_snapshot_authority_active,
 };
 use crate::util::repo_contract_events_path;
 
 pub(crate) fn append_repo_contract_event(root: &Path, event: &ContractEvent) -> Result<()> {
-    if legacy_tracked_stream_bridge_active(root)? {
-        append_protected_stream_event(
-            root,
-            &ProtectedRepoStream::contract_events(),
-            &event.id,
-            event,
-            &implicit_principal_identity(event.actor.as_ref(), event.execution_context.as_ref()),
-        )?;
-    }
     sync_contract_snapshot(
         root,
         &event.contract,

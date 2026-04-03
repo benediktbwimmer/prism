@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:6a4f8f94ddc1a222d8b0c9a481eb0185db4a44dacb18ea4c348eaa1e19571822`
+- Source head: `sha256:8834893b461b22d5eb8ef573026eb76e508d1680cbb867c5d97f814243c53788`
 - Source logical timestamp: `unknown`
 - Source snapshot: `9 nodes, 16 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Implement a stable repo-published logical_repo_id in .prism, separate it cleanly
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn8rmbb3qf6bxw45w0141rkr.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn8rmbb3qf6bxw45w0141rkr.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

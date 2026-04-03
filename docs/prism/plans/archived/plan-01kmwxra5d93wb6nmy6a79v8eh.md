@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:6517345d29b04c47c2a24c85db52f181319661a9ca43e5b7037a929a71d3d2a8`
+- Source head: `sha256:7df0da548facb5d3be8325e2be425b4a2a33578a6c025599e36de74ae5149258`
 - Source logical timestamp: `unknown`
 - Source snapshot: `6 nodes, 5 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ prism-query-01: add a runtime-gated query-view registry, harden existing PRISM q
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kmwxra5d93wb6nmy6a79v8eh.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kmwxra5d93wb6nmy6a79v8eh.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

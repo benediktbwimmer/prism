@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:af162014e1d7997acb87e096512da06d58e91b8b4bd68f68dcbe7a844110b6e1`
+- Source head: `sha256:95741259142f006f110f26f80b0a58acc51dd594ff79281a2b875bd8a455cf8c`
 - Source logical timestamp: `unknown`
 - Source snapshot: `0 nodes, 0 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Simplify the post-redesign refresh model by removing misleading persisted-refres
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:3.json`
-- Legacy migration log path: `.prism/plans/streams/plan:3.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Nodes
 

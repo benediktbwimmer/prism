@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:ee810bec4d3485964c691e4e835256ec440260e60597cd44c6d0627d6b4b4101`
+- Source head: `sha256:82ce88d22b139668bc6a3e94888b3020cd715cf815d9c9cc4f4b477d83edc9ea`
 - Source logical timestamp: `unknown`
 - Source snapshot: `13 nodes, 27 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Implement strict declared-work provenance, remove implicit undeclared mutation f
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn6rkat0t02ncv5pj0756yyz.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn6rkat0t02ncv5pj0756yyz.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

@@ -183,6 +183,36 @@ pub(crate) fn legacy_tracked_stream_bridge_active(root: &Path) -> Result<bool> {
     Ok(!tracked_snapshot_authority_active(root)?)
 }
 
+pub(crate) fn remove_obsolete_legacy_tracked_authority_artifacts(root: &Path) -> Result<()> {
+    for relative in [
+        ".prism/memory/events.jsonl",
+        ".prism/concepts/events.jsonl",
+        ".prism/concepts/relations.jsonl",
+        ".prism/contracts/events.jsonl",
+        ".prism/changes/events.jsonl",
+        ".prism/plans/index.jsonl",
+    ] {
+        remove_file_if_exists(&root.join(relative))?;
+    }
+    for relative in [
+        ".prism/plans/streams",
+        ".prism/plans/active",
+        ".prism/plans/archived",
+    ] {
+        remove_dir_all_if_exists(&root.join(relative))?;
+    }
+    for relative in [
+        ".prism/changes",
+        ".prism/memory",
+        ".prism/contracts",
+        ".prism/concepts",
+        ".prism/plans",
+    ] {
+        remove_dir_if_empty(&root.join(relative))?;
+    }
+    Ok(())
+}
+
 fn snapshot_indexes_dir(root: &Path) -> PathBuf {
     snapshot_root(root).join("indexes")
 }
@@ -718,10 +748,14 @@ fn refresh_manifest(root: &Path, publish: Option<&TrackedSnapshotPublishContext>
         .and_then(|manifest| manifest.migration_source_digest.clone())
     {
         Some(digest) => Some(digest),
-        None => legacy_authoritative_migration_source_digest(root)?,
+        None => previous_manifest
+            .as_ref()
+            .and_then(|manifest| retired_authority_digest(manifest, "legacy_tracked_repo_state"))
+            .or(legacy_authoritative_migration_source_digest(root)?),
     };
     let retired_authorities = retained_tracked_authority_digests(root, previous_manifest.as_ref())?;
     remove_obsolete_tracked_change_snapshot_artifacts(root)?;
+    remove_obsolete_legacy_tracked_authority_artifacts(root)?;
     let file_map = collect_snapshot_file_map(root)?;
     if file_map.is_empty() {
         remove_file_if_exists(&snapshot_manifest_path(root))?;
@@ -826,7 +860,26 @@ fn retained_tracked_authority_digests(
             digest,
         });
     }
+    if !retired
+        .iter()
+        .any(|entry| entry.authority == "legacy_tracked_repo_state")
+    {
+        if let Some(digest) = legacy_authoritative_migration_source_digest(root)? {
+            retired.push(SnapshotRetiredAuthority {
+                authority: "legacy_tracked_repo_state".to_string(),
+                digest,
+            });
+        }
+    }
     Ok(retired)
+}
+
+fn retired_authority_digest(manifest: &SnapshotManifest, authority: &str) -> Option<String> {
+    manifest
+        .retired_authorities
+        .iter()
+        .find(|entry| entry.authority == authority)
+        .map(|entry| entry.digest.clone())
 }
 
 fn tracked_changes_authority_digest(root: &Path) -> Result<Option<String>> {
@@ -1067,6 +1120,33 @@ where
 fn remove_file_if_exists(path: &Path) -> Result<()> {
     if path.exists() {
         fs::remove_file(path).with_context(|| format!("failed to remove {}", path.display()))?;
+    }
+    Ok(())
+}
+
+fn remove_dir_if_empty(path: &Path) -> Result<()> {
+    if !path.exists() {
+        return Ok(());
+    }
+    if fs::read_dir(path)
+        .with_context(|| format!("failed to read {}", path.display()))?
+        .next()
+        .is_none()
+    {
+        fs::remove_dir(path).with_context(|| format!("failed to remove {}", path.display()))?;
+    }
+    Ok(())
+}
+
+fn remove_dir_all_if_exists(path: &Path) -> Result<()> {
+    if path.exists() {
+        match fs::remove_dir_all(path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                return Err(error).with_context(|| format!("failed to remove {}", path.display()));
+            }
+        }
     }
     Ok(())
 }

@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:48d5338bbfe91b42c1bfe3e45d279f5df9853a4fe9e468e5d6354c2501d7af0c`
+- Source head: `sha256:6c413a0081f9ac283606cd3466a84860ed0014b9dec5266a49f3ac5d0adca634`
 - Source logical timestamp: `unknown`
 - Source snapshot: `4 nodes, 3 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Improve PRISM’s agent-facing workflow by hardening workflow contracts, making 
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn08dk7n4ym7vrdzp2nkdjy1.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn08dk7n4ym7vrdzp2nkdjy1.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

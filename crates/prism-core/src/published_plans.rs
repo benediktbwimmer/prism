@@ -17,13 +17,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::protected_state::repo_streams::{
-    append_protected_stream_event, implicit_principal_identity, inspect_protected_stream,
-    rewrite_protected_stream_events,
+    implicit_principal_identity, inspect_protected_stream, rewrite_protected_stream_events,
 };
-use crate::protected_state::streams::{classify_protected_repo_relative_path, ProtectedRepoStream};
+use crate::protected_state::streams::classify_protected_repo_relative_path;
 use crate::tracked_snapshot::{
-    load_tracked_coordination_snapshot_state, sync_coordination_snapshot_state,
-    tracked_snapshot_authority_active, TrackedSnapshotPublishContext,
+    load_tracked_coordination_snapshot_state, remove_obsolete_legacy_tracked_authority_artifacts,
+    sync_coordination_snapshot_state, tracked_snapshot_authority_active,
+    TrackedSnapshotPublishContext,
 };
 use crate::util::{
     repo_active_plans_dir, repo_archived_plans_dir, repo_plan_index_path, repo_plans_dir,
@@ -221,28 +221,6 @@ struct PublishedPlanProjection {
     next_log_sequence: BTreeMap<String, u64>,
 }
 
-impl PublishedPlanProjection {
-    fn record(&self, plan_id: &PlanId) -> Option<PublishedPlanRecord> {
-        self.records
-            .iter()
-            .find(|record| record.header.id == *plan_id)
-            .cloned()
-    }
-
-    fn next_log_sequence_for(&self, plan_id: &PlanId) -> u64 {
-        self.next_log_sequence
-            .get(plan_id.0.as_str())
-            .copied()
-            .unwrap_or(0)
-    }
-}
-
-#[derive(Debug)]
-struct PublishedPlanLogState {
-    next_log_sequence: u64,
-    record: Option<PublishedPlanRecord>,
-}
-
 #[derive(Debug, Clone)]
 pub(crate) struct HydratedCoordinationPlanState {
     pub(crate) snapshot: CoordinationSnapshot,
@@ -268,6 +246,9 @@ pub(crate) fn sync_repo_published_plans(
 }
 
 pub(crate) fn load_repo_published_plan_index(root: &Path) -> Result<Vec<PublishedPlanIndexEntry>> {
+    if tracked_snapshot_authority_active(root)? {
+        return load_snapshot_published_plan_index(root);
+    }
     let index_path = repo_plan_index_path(root);
     if !index_path.exists() {
         return Ok(Vec::new());
@@ -278,6 +259,10 @@ pub(crate) fn load_repo_published_plan_index(root: &Path) -> Result<Vec<Publishe
 }
 
 pub fn regenerate_repo_published_plan_artifacts(root: &Path) -> Result<()> {
+    if tracked_snapshot_authority_active(root)? {
+        remove_obsolete_legacy_tracked_authority_artifacts(root)?;
+        return Ok(());
+    }
     let plans_dir = repo_plans_dir(root);
     if !plans_dir.exists() {
         return Ok(());
@@ -311,6 +296,26 @@ pub fn regenerate_repo_published_plan_artifacts(root: &Path) -> Result<()> {
     write_jsonl_file(&repo_plan_index_path(root), &index_entries)?;
     cleanup_stale_derived_plan_logs(&plans_dir, &expected_derived_logs)?;
     Ok(())
+}
+
+fn load_snapshot_published_plan_index(root: &Path) -> Result<Vec<PublishedPlanIndexEntry>> {
+    let Some(state) = load_tracked_coordination_snapshot_state(root)? else {
+        return Ok(Vec::new());
+    };
+    let mut entries = state
+        .plan_graphs
+        .into_iter()
+        .map(|graph| PublishedPlanIndexEntry {
+            plan_id: graph.id,
+            title: graph.title,
+            status: graph.status,
+            scope: format!("{:?}", graph.scope),
+            kind: format!("{:?}", graph.kind),
+            log_path: String::new(),
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by(|left, right| left.plan_id.0.cmp(&right.plan_id.0));
+    Ok(entries)
 }
 
 pub fn inspect_repo_published_plan_artifacts(
@@ -349,9 +354,9 @@ pub(crate) fn sync_repo_published_plan_state(
 pub(crate) fn sync_repo_published_plan_state_observed<O>(
     root: &Path,
     snapshot: &CoordinationSnapshot,
-    previous_snapshot: Option<&CoordinationSnapshot>,
-    previous_graphs: Option<&[PlanGraph]>,
-    mut graphs: Vec<PlanGraph>,
+    _previous_snapshot: Option<&CoordinationSnapshot>,
+    _previous_graphs: Option<&[PlanGraph]>,
+    graphs: Vec<PlanGraph>,
     overlays_by_plan: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     publish: Option<&TrackedSnapshotPublishContext>,
     mut observe_phase: O,
@@ -359,280 +364,46 @@ pub(crate) fn sync_repo_published_plan_state_observed<O>(
 where
     O: FnMut(&str, Duration, Value, bool, Option<String>),
 {
-    if tracked_snapshot_authority_active(root)? {
-        observe_phase(
-            "mutation.coordination.publishedPlans.writeLogs",
-            Duration::ZERO,
-            json!({
-                "eventCount": 0,
-                "logCount": 0,
-                "skipped": true,
-                "reason": "tracked_snapshot_authority",
-            }),
-            true,
-            None,
-        );
-        observe_phase(
-            "mutation.coordination.publishedPlans.writeIndex",
-            Duration::ZERO,
-            json!({
-                "entryCount": 0,
-                "skipped": true,
-                "reason": "tracked_snapshot_authority",
-            }),
-            true,
-            None,
-        );
-        observe_phase(
-            "mutation.coordination.publishedPlans.cleanupLogs",
-            Duration::ZERO,
-            json!({
-                "expectedLogCount": 0,
-                "skipped": true,
-                "reason": "tracked_snapshot_authority",
-            }),
-            true,
-            None,
-        );
-        return observe_published_plan_step(
-            &mut observe_phase,
-            "mutation.coordination.publishedPlans.syncTrackedSnapshot",
-            |_| json!({}),
-            || {
-                sync_coordination_snapshot_state(
-                    root,
-                    snapshot,
-                    &graphs,
-                    &overlays_by_plan,
-                    publish,
-                )
-            },
-        );
-    }
-
-    let plans_dir = repo_plans_dir(root);
-    let streams_dir = plans_dir.join("streams");
-    fs::create_dir_all(&streams_dir)?;
-    fs::create_dir_all(repo_active_plans_dir(root))?;
-    fs::create_dir_all(repo_archived_plans_dir(root))?;
-
-    let existing_entries = observe_published_plan_step(
-        &mut observe_phase,
-        "mutation.coordination.publishedPlans.loadIndex",
-        |entries: &Vec<PublishedPlanIndexEntry>| json!({ "entryCount": entries.len() }),
-        || load_jsonl_file::<PublishedPlanIndexEntry>(&repo_plan_index_path(root)),
-    )?;
-    let existing_paths = existing_entries
-        .into_iter()
-        .map(|entry| (entry.plan_id.0.to_string(), entry.log_path))
-        .collect::<BTreeMap<_, _>>();
-    let previous_records = match (previous_snapshot, previous_graphs) {
-        (Some(previous_snapshot), Some(previous_graphs)) => Some(published_plan_record_map(
-            previous_snapshot,
-            previous_graphs,
-        )),
-        _ => None,
-    };
-    let previous_execution_overlays =
-        previous_snapshot.map(|snapshot| execution_overlays_by_plan(&snapshot.tasks));
-    let existing_projection = if previous_records.is_none() {
-        observe_published_plan_step(
-            &mut observe_phase,
-            "mutation.coordination.publishedPlans.loadProjection",
-            |projection: &Option<PublishedPlanProjection>| {
-                json!({
-                    "hasProjection": projection.is_some(),
-                    "recordCount": projection.as_ref().map_or(0, |projection| projection.records.len()),
-                })
-            },
-            || load_repo_published_plan_projection(root),
-        )?
-        .unwrap_or_default()
-    } else {
-        PublishedPlanProjection::default()
-    };
-
-    let plan_policies = published_plan_policy_map(snapshot);
-
-    let snapshot_graphs = graphs.clone();
-    let mut index_entries = Vec::new();
-    let mut expected_logs = BTreeSet::new();
-    graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    let write_logs_started = Instant::now();
-    let mut logs_written = 0usize;
-    let mut events_written = 0usize;
-    let write_logs_result: Result<()> = (|| {
-        for graph in graphs {
-            let plan_key = graph.id.0.to_string();
-            let header = published_plan_header(&graph, &plan_policies);
-
-            let relative_log_path = authoritative_plan_log_path(&header.id);
-            let full_log_path = root.join(&relative_log_path);
-            let authoritative_log_exists = full_log_path.exists();
-            let mut loaded_log_state = None;
-            let previous_record = if !authoritative_log_exists {
-                None
-            } else if let Some(previous_records) = previous_records.as_ref() {
-                if let Some(record) = previous_records.get(plan_key.as_str()) {
-                    Some(record.clone())
-                } else if full_log_path.exists() {
-                    let log_state = load_published_plan_log_state(root, &full_log_path)?;
-                    let record = log_state.as_ref().and_then(|state| state.record.clone());
-                    loaded_log_state = log_state;
-                    record
-                } else {
-                    None
-                }
-            } else {
-                existing_projection.record(&graph.id)
-            };
-            let current_overlays = overlays_by_plan
-                .get(plan_key.as_str())
-                .cloned()
-                .unwrap_or_default();
-            let previous_overlays = previous_execution_overlays
-                .as_ref()
-                .and_then(|map| map.get(plan_key.as_str()).cloned())
-                .or_else(|| {
-                    existing_projection
-                        .execution_overlays
-                        .get(plan_key.as_str())
-                        .cloned()
-                })
-                .unwrap_or_default();
-            let mut preview_events = if previous_record.is_none() {
-                published_plan_events(0, &header, &graph, &current_overlays)
-            } else {
-                append_plan_delta_events(
-                    0,
-                    previous_record.as_ref(),
-                    &previous_overlays,
-                    &header,
-                    &graph,
-                    &current_overlays,
-                )
-            };
-            let starting_sequence = if preview_events.is_empty() || !authoritative_log_exists {
-                0
-            } else if previous_records.is_some() {
-                match loaded_log_state.take() {
-                    Some(log_state) => log_state.next_log_sequence,
-                    None => load_published_plan_log_state(root, &full_log_path)?
-                        .map(|state| state.next_log_sequence)
-                        .unwrap_or(0),
-                }
-            } else {
-                existing_projection.next_log_sequence_for(&graph.id)
-            };
-            let events = if starting_sequence == 0 {
-                preview_events
-            } else if previous_record.is_none() {
-                published_plan_events(starting_sequence, &header, &graph, &current_overlays)
-            } else {
-                preview_events.clear();
-                append_plan_delta_events(
-                    starting_sequence,
-                    previous_record.as_ref(),
-                    &previous_overlays,
-                    &header,
-                    &graph,
-                    &current_overlays,
-                )
-            };
-            if !events.is_empty() {
-                let stream = ProtectedRepoStream::plan_stream(&header.id);
-                let principal = implicit_principal_identity(None, None);
-                for event in &events {
-                    append_protected_stream_event(
-                        root,
-                        &stream,
-                        &event.event_id,
-                        event,
-                        &principal,
-                    )?;
-                }
-                logs_written += 1;
-                events_written += events.len();
-            }
-            expected_logs.insert(normalize_path(&full_log_path));
-            let derived_log_path = root.join(derived_plan_log_path(header.status, &header.id));
-            sync_derived_plan_log(&full_log_path, &derived_log_path)?;
-            expected_logs.insert(normalize_path(&derived_log_path));
-            index_entries.push(PublishedPlanIndexEntry {
-                plan_id: header.id.clone(),
-                title: header.title.clone(),
-                status: header.status,
-                scope: format!("{:?}", header.scope),
-                kind: format!("{:?}", header.kind),
-                log_path: normalize_relative_path(&relative_log_path),
-            });
-            if let Some(previous_path) = existing_paths.get(&plan_key) {
-                let previous_path = resolve_log_path(root, previous_path);
-                if previous_path != full_log_path && previous_path != derived_log_path {
-                    remove_legacy_plan_log_if_stale(
-                        &previous_path,
-                        &full_log_path,
-                        &derived_log_path,
-                    )?;
-                }
-            }
-        }
-        Ok(())
-    })();
-    match write_logs_result {
-        Ok(()) => observe_phase(
-            "mutation.coordination.publishedPlans.writeLogs",
-            write_logs_started.elapsed(),
-            json!({
-                "eventCount": events_written,
-                "logCount": logs_written,
-            }),
-            true,
-            None,
-        ),
-        Err(error) => {
-            observe_phase(
-                "mutation.coordination.publishedPlans.writeLogs",
-                write_logs_started.elapsed(),
-                json!({
-                    "eventCount": events_written,
-                    "logCount": logs_written,
-                }),
-                false,
-                Some(error.to_string()),
-            );
-            return Err(error);
-        }
-    }
-
-    index_entries.sort_by(|left, right| left.plan_id.0.cmp(&right.plan_id.0));
-    observe_published_plan_step(
-        &mut observe_phase,
+    observe_phase(
+        "mutation.coordination.publishedPlans.writeLogs",
+        Duration::ZERO,
+        json!({
+            "eventCount": 0,
+            "logCount": 0,
+            "skipped": true,
+            "reason": "snapshot_only_tracked_authority",
+        }),
+        true,
+        None,
+    );
+    observe_phase(
         "mutation.coordination.publishedPlans.writeIndex",
-        |_| json!({ "entryCount": index_entries.len() }),
-        || write_jsonl_file(&repo_plan_index_path(root), &index_entries),
-    )?;
-    observe_published_plan_step(
-        &mut observe_phase,
+        Duration::ZERO,
+        json!({
+            "entryCount": 0,
+            "skipped": true,
+            "reason": "snapshot_only_tracked_authority",
+        }),
+        true,
+        None,
+    );
+    observe_phase(
         "mutation.coordination.publishedPlans.cleanupLogs",
-        |_| json!({ "expectedLogCount": expected_logs.len() }),
-        || cleanup_stale_plan_logs(&plans_dir, &expected_logs),
-    )?;
-    observe_published_plan_step(
+        Duration::ZERO,
+        json!({
+            "expectedLogCount": 0,
+            "skipped": true,
+            "reason": "snapshot_only_tracked_authority",
+        }),
+        true,
+        None,
+    );
+    return observe_published_plan_step(
         &mut observe_phase,
         "mutation.coordination.publishedPlans.syncTrackedSnapshot",
         |_| json!({}),
-        || {
-            sync_coordination_snapshot_state(
-                root,
-                snapshot,
-                &snapshot_graphs,
-                &overlays_by_plan,
-                publish,
-            )
-        },
-    )?;
-    Ok(())
+        || sync_coordination_snapshot_state(root, snapshot, &graphs, &overlays_by_plan, publish),
+    );
 }
 
 pub(crate) fn load_hydrated_coordination_snapshot(
@@ -882,60 +653,6 @@ fn load_repo_published_plan_projection(root: &Path) -> Result<Option<PublishedPl
     Ok(Some(projection))
 }
 
-fn published_plan_policy_map(
-    snapshot: &CoordinationSnapshot,
-) -> BTreeMap<String, prism_coordination::CoordinationPolicy> {
-    snapshot
-        .plans
-        .iter()
-        .map(|plan| (plan.id.0.to_string(), plan.policy.clone()))
-        .collect()
-}
-
-fn published_plan_header(
-    graph: &PlanGraph,
-    plan_policies: &BTreeMap<String, prism_coordination::CoordinationPolicy>,
-) -> PublishedPlanHeader {
-    PublishedPlanHeader {
-        id: graph.id.clone(),
-        scope: graph.scope,
-        kind: graph.kind,
-        title: graph.title.clone(),
-        goal: graph.goal.clone(),
-        status: graph.status,
-        revision: graph.revision,
-        root_nodes: graph.root_nodes.clone(),
-        tags: graph.tags.clone(),
-        created_from: graph.created_from.clone(),
-        metadata: graph.metadata.clone(),
-        policy: plan_policies
-            .get(graph.id.0.as_str())
-            .cloned()
-            .unwrap_or_default(),
-    }
-}
-
-fn published_plan_record_map(
-    snapshot: &CoordinationSnapshot,
-    graphs: &[PlanGraph],
-) -> BTreeMap<String, PublishedPlanRecord> {
-    let plan_policies = published_plan_policy_map(snapshot);
-    graphs
-        .iter()
-        .cloned()
-        .map(|graph| {
-            let plan_id = graph.id.0.to_string();
-            (
-                plan_id,
-                PublishedPlanRecord {
-                    header: published_plan_header(&graph, &plan_policies),
-                    graph,
-                },
-            )
-        })
-        .collect()
-}
-
 fn project_plan_log(
     path: &Path,
     events: &[StoredPublishedPlanEvent],
@@ -1074,265 +791,6 @@ fn apply_legacy_event(
     }
 }
 
-fn published_plan_events(
-    starting_sequence: u64,
-    header: &PublishedPlanHeader,
-    graph: &PlanGraph,
-    overlays: &[PlanExecutionOverlay],
-) -> Vec<PublishedPlanEvent> {
-    let mut sequence = starting_sequence;
-    let mut events = Vec::with_capacity(graph.nodes.len() + graph.edges.len() + 1);
-    events.push(PublishedPlanEvent {
-        event_id: next_published_event_id(&header.id, &mut sequence),
-        kind: PublishedPlanEventKind::PlanCreated,
-        plan_id: header.id.clone(),
-        node_id: None,
-        edge_id: None,
-        payload: PublishedPlanPayload::Plan {
-            plan: header.clone(),
-        },
-    });
-    for node in sorted_nodes(&graph.nodes) {
-        events.push(PublishedPlanEvent {
-            event_id: next_published_event_id(&header.id, &mut sequence),
-            kind: PublishedPlanEventKind::NodeAdded,
-            plan_id: header.id.clone(),
-            node_id: Some(node.id.clone()),
-            edge_id: None,
-            payload: PublishedPlanPayload::Node { node },
-        });
-    }
-    for edge in sorted_edges(&graph.edges) {
-        events.push(PublishedPlanEvent {
-            event_id: next_published_event_id(&header.id, &mut sequence),
-            kind: PublishedPlanEventKind::EdgeAdded,
-            plan_id: header.id.clone(),
-            node_id: None,
-            edge_id: Some(edge.id.clone()),
-            payload: PublishedPlanPayload::Edge { edge },
-        });
-    }
-    for execution in repo_published_execution_overlays(overlays.to_vec()) {
-        events.push(PublishedPlanEvent {
-            event_id: next_published_event_id(&header.id, &mut sequence),
-            kind: PublishedPlanEventKind::ExecutionUpdated,
-            plan_id: header.id.clone(),
-            node_id: Some(execution.node_id.clone()),
-            edge_id: None,
-            payload: PublishedPlanPayload::Execution { execution },
-        });
-    }
-    events
-}
-
-fn append_plan_delta_events(
-    starting_sequence: u64,
-    previous_record: Option<&PublishedPlanRecord>,
-    previous_overlays: &[PlanExecutionOverlay],
-    header: &PublishedPlanHeader,
-    graph: &PlanGraph,
-    overlays: &[PlanExecutionOverlay],
-) -> Vec<PublishedPlanEvent> {
-    let mut sequence = starting_sequence;
-    let mut events = Vec::new();
-    let previous_header = previous_record.map(|record| &record.header);
-    if previous_header != Some(header) {
-        let kind = if previous_header
-            .map(|previous| previous.status != PlanStatus::Archived)
-            .unwrap_or(false)
-            && header.status == PlanStatus::Archived
-        {
-            PublishedPlanEventKind::PlanArchived
-        } else {
-            PublishedPlanEventKind::PlanUpdated
-        };
-        events.push(PublishedPlanEvent {
-            event_id: next_published_event_id(&header.id, &mut sequence),
-            kind,
-            plan_id: header.id.clone(),
-            node_id: None,
-            edge_id: None,
-            payload: PublishedPlanPayload::Plan {
-                plan: header.clone(),
-            },
-        });
-    }
-
-    let previous_nodes = previous_record
-        .map(|record| {
-            record
-                .graph
-                .nodes
-                .iter()
-                .cloned()
-                .map(|node| (node.id.0.to_string(), node))
-                .collect::<BTreeMap<_, _>>()
-        })
-        .unwrap_or_default();
-    let current_nodes = graph
-        .nodes
-        .iter()
-        .cloned()
-        .map(|node| (node.id.0.to_string(), node))
-        .collect::<BTreeMap<_, _>>();
-    for node_id in previous_nodes
-        .keys()
-        .filter(|node_id| !current_nodes.contains_key(*node_id))
-    {
-        events.push(PublishedPlanEvent {
-            event_id: next_published_event_id(&header.id, &mut sequence),
-            kind: PublishedPlanEventKind::NodeRemoved,
-            plan_id: header.id.clone(),
-            node_id: Some(PlanNodeId::new((*node_id).clone())),
-            edge_id: None,
-            payload: PublishedPlanPayload::Empty {},
-        });
-    }
-    for node in current_nodes.values() {
-        match previous_nodes.get(node.id.0.as_str()) {
-            None => events.push(PublishedPlanEvent {
-                event_id: next_published_event_id(&header.id, &mut sequence),
-                kind: PublishedPlanEventKind::NodeAdded,
-                plan_id: header.id.clone(),
-                node_id: Some(node.id.clone()),
-                edge_id: None,
-                payload: PublishedPlanPayload::Node { node: node.clone() },
-            }),
-            Some(previous) if previous != node => events.push(PublishedPlanEvent {
-                event_id: next_published_event_id(&header.id, &mut sequence),
-                kind: PublishedPlanEventKind::NodeUpdated,
-                plan_id: header.id.clone(),
-                node_id: Some(node.id.clone()),
-                edge_id: None,
-                payload: PublishedPlanPayload::Node { node: node.clone() },
-            }),
-            _ => {}
-        }
-    }
-
-    let previous_edges = previous_record
-        .map(|record| {
-            record
-                .graph
-                .edges
-                .iter()
-                .cloned()
-                .map(|edge| (edge.id.0.to_string(), edge))
-                .collect::<BTreeMap<_, _>>()
-        })
-        .unwrap_or_default();
-    let current_edges = graph
-        .edges
-        .iter()
-        .cloned()
-        .map(|edge| (edge.id.0.to_string(), edge))
-        .collect::<BTreeMap<_, _>>();
-    for edge in previous_edges.values() {
-        match current_edges.get(edge.id.0.as_str()) {
-            None => events.push(PublishedPlanEvent {
-                event_id: next_published_event_id(&header.id, &mut sequence),
-                kind: PublishedPlanEventKind::EdgeRemoved,
-                plan_id: header.id.clone(),
-                node_id: None,
-                edge_id: Some(edge.id.clone()),
-                payload: PublishedPlanPayload::Empty {},
-            }),
-            Some(current) if current != edge => {
-                events.push(PublishedPlanEvent {
-                    event_id: next_published_event_id(&header.id, &mut sequence),
-                    kind: PublishedPlanEventKind::EdgeRemoved,
-                    plan_id: header.id.clone(),
-                    node_id: None,
-                    edge_id: Some(edge.id.clone()),
-                    payload: PublishedPlanPayload::Empty {},
-                });
-                events.push(PublishedPlanEvent {
-                    event_id: next_published_event_id(&header.id, &mut sequence),
-                    kind: PublishedPlanEventKind::EdgeAdded,
-                    plan_id: header.id.clone(),
-                    node_id: None,
-                    edge_id: Some(current.id.clone()),
-                    payload: PublishedPlanPayload::Edge {
-                        edge: current.clone(),
-                    },
-                });
-            }
-            _ => {}
-        }
-    }
-    for edge in current_edges.values() {
-        if !previous_edges.contains_key(edge.id.0.as_str()) {
-            events.push(PublishedPlanEvent {
-                event_id: next_published_event_id(&header.id, &mut sequence),
-                kind: PublishedPlanEventKind::EdgeAdded,
-                plan_id: header.id.clone(),
-                node_id: None,
-                edge_id: Some(edge.id.clone()),
-                payload: PublishedPlanPayload::Edge { edge: edge.clone() },
-            });
-        }
-    }
-
-    let previous_execution = repo_published_execution_overlays(previous_overlays.to_vec())
-        .into_iter()
-        .map(|overlay| (overlay.node_id.0.to_string(), overlay))
-        .collect::<BTreeMap<_, _>>();
-    let current_execution = repo_published_execution_overlays(overlays.to_vec())
-        .into_iter()
-        .map(|overlay| (overlay.node_id.0.to_string(), overlay))
-        .collect::<BTreeMap<_, _>>();
-    for node_id in previous_execution
-        .keys()
-        .filter(|node_id| !current_execution.contains_key(*node_id))
-    {
-        let execution = PlanExecutionOverlay {
-            node_id: PlanNodeId::new((*node_id).clone()),
-            pending_handoff_to: None,
-            session: None,
-            worktree_id: None,
-            branch_ref: None,
-            effective_assignee: None,
-            awaiting_handoff_from: None,
-            git_execution: None,
-        };
-        events.push(PublishedPlanEvent {
-            event_id: next_published_event_id(&header.id, &mut sequence),
-            kind: PublishedPlanEventKind::ExecutionUpdated,
-            plan_id: header.id.clone(),
-            node_id: Some(execution.node_id.clone()),
-            edge_id: None,
-            payload: PublishedPlanPayload::Execution { execution },
-        });
-    }
-    for execution in current_execution.values() {
-        match previous_execution.get(execution.node_id.0.as_str()) {
-            None => events.push(PublishedPlanEvent {
-                event_id: next_published_event_id(&header.id, &mut sequence),
-                kind: PublishedPlanEventKind::ExecutionUpdated,
-                plan_id: header.id.clone(),
-                node_id: Some(execution.node_id.clone()),
-                edge_id: None,
-                payload: PublishedPlanPayload::Execution {
-                    execution: execution.clone(),
-                },
-            }),
-            Some(previous) if previous != execution => events.push(PublishedPlanEvent {
-                event_id: next_published_event_id(&header.id, &mut sequence),
-                kind: PublishedPlanEventKind::ExecutionUpdated,
-                plan_id: header.id.clone(),
-                node_id: Some(execution.node_id.clone()),
-                edge_id: None,
-                payload: PublishedPlanPayload::Execution {
-                    execution: execution.clone(),
-                },
-            }),
-            _ => {}
-        }
-    }
-
-    events
-}
-
 fn repo_published_execution_overlays(
     _overlays: Vec<PlanExecutionOverlay>,
 ) -> Vec<PlanExecutionOverlay> {
@@ -1363,18 +821,6 @@ fn execution_overlays_by_plan(
             )
         })
         .collect()
-}
-
-fn sorted_nodes(nodes: &[PlanNode]) -> Vec<PlanNode> {
-    let mut nodes = nodes.to_vec();
-    nodes.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    nodes
-}
-
-fn sorted_edges(edges: &[PlanEdge]) -> Vec<PlanEdge> {
-    let mut edges = edges.to_vec();
-    edges.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    edges
 }
 
 fn legacy_header_from_plan(plan: &Plan) -> PublishedPlanHeader {
@@ -1490,26 +936,6 @@ fn resolve_log_path(root: &Path, raw: &str) -> PathBuf {
     } else {
         root.join(path)
     }
-}
-
-fn cleanup_stale_plan_logs(plans_dir: &Path, expected_logs: &BTreeSet<String>) -> Result<()> {
-    for subdir in ["active", "archived", "streams"] {
-        let dir = plans_dir.join(subdir);
-        if !dir.exists() {
-            continue;
-        }
-        for entry in fs::read_dir(&dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.extension().and_then(|ext| ext.to_str()) != Some("jsonl") {
-                continue;
-            }
-            if !expected_logs.contains(&normalize_path(&path)) {
-                fs::remove_file(path)?;
-            }
-        }
-    }
-    Ok(())
 }
 
 fn cleanup_stale_derived_plan_logs(
@@ -1765,27 +1191,6 @@ fn load_stored_plan_events(root: &Path, log_path: &Path) -> Result<Vec<StoredPub
     }
 }
 
-fn load_published_plan_log_state(
-    root: &Path,
-    log_path: &Path,
-) -> Result<Option<PublishedPlanLogState>> {
-    if !log_path.exists() {
-        return Ok(None);
-    }
-    let events = load_stored_plan_events(root, log_path)?;
-    if events.is_empty() {
-        return Ok(Some(PublishedPlanLogState {
-            next_log_sequence: 0,
-            record: None,
-        }));
-    }
-    let (record, _overlays) = project_plan_log(log_path, &events)?;
-    Ok(Some(PublishedPlanLogState {
-        next_log_sequence: next_log_sequence_from_events(&events),
-        record: Some(record),
-    }))
-}
-
 fn sync_derived_plan_log(authoritative_path: &Path, derived_path: &Path) -> Result<()> {
     if let Some(parent) = derived_path.parent() {
         fs::create_dir_all(parent)?;
@@ -1820,20 +1225,6 @@ fn sync_derived_plan_log(authoritative_path: &Path, derived_path: &Path) -> Resu
         if opposite_path.exists() {
             fs::remove_file(opposite_path)?;
         }
-    }
-    Ok(())
-}
-
-fn remove_legacy_plan_log_if_stale(
-    previous_path: &Path,
-    authoritative_path: &Path,
-    derived_path: &Path,
-) -> Result<()> {
-    if previous_path == authoritative_path || previous_path == derived_path {
-        return Ok(());
-    }
-    if previous_path.exists() {
-        fs::remove_file(previous_path)?;
     }
     Ok(())
 }
@@ -1886,11 +1277,6 @@ where
     file.sync_all()?;
     fs::rename(temp_path, path)?;
     Ok(())
-}
-
-fn next_published_event_id(plan_id: &PlanId, sequence: &mut u64) -> String {
-    *sequence += 1;
-    format!("published:{}:{}", plan_id.0, sequence)
 }
 
 fn next_log_sequence_from_events(events: &[StoredPublishedPlanEvent]) -> u64 {

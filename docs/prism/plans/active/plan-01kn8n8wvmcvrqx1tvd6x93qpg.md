@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:299e874ef9a78f4c50f09e6df0a9379700ee6497ec930d6772333949210e4312`
+- Source head: `sha256:7b12e379b7fa731e769e8f6272482b81388fe24b9ec660b347319fbe678ff370`
 - Source logical timestamp: `unknown`
 - Source snapshot: `5 nodes, 5 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Complete the portfolio dispatch feature by modeling cross-plan dependencies expl
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn8n8wvmcvrqx1tvd6x93qpg.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn8n8wvmcvrqx1tvd6x93qpg.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

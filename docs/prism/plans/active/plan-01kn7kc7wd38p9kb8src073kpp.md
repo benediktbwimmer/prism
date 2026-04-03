@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:bd5f064b0b28d5f0fe8dca28c641868c68b1a7d847b3ede8143bc5ad756fdaec`
+- Source head: `sha256:deca0c7e2e8a2f3bb4e34c1d2bbc10108fff53bf2cd5a3c493c4bff6ccf5833e`
 - Source logical timestamp: `unknown`
 - Source snapshot: `8 nodes, 17 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Implement the projections architecture from docs/PRISM_PROJECTIONS.md by making 
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn7kc7wd38p9kb8src073kpp.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn7kc7wd38p9kb8src073kpp.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

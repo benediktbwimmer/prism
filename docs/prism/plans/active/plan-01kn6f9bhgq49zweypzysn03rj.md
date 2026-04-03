@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:68c43f935da477aee96aa238533273442d54cb148ff2c68744221d7dcff9be34`
+- Source head: `sha256:ea623f013d3c62d0248d991adefc7e06a4ae0f4f3c6cfe984327492f0ca9cc72`
 - Source logical timestamp: `unknown`
 - Source snapshot: `1 nodes, 0 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Curate PRISM concepts for the implemented principal identity and authenticated c
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn6f9bhgq49zweypzysn03rj.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn6f9bhgq49zweypzysn03rj.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

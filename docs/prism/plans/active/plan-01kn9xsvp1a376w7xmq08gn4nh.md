@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:2caf0d71ea3cdaed34294a1c0f3bcc238a10ce9ceb519091f3c15bdb99693c5f`
+- Source head: `sha256:94c4e45e6f30bd3269398c317c78a79c6fa9ddff28214a5e13f44005e9cea841`
 - Source logical timestamp: `unknown`
 - Source snapshot: `6 nodes, 11 edges, 6 overlays`
 
@@ -38,7 +38,7 @@ Make shared runtime the sole owner of append-only change history, remove tracked
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn9xsvp1a376w7xmq08gn4nh.json`
-- Legacy migration log path: unavailable in the current projection
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

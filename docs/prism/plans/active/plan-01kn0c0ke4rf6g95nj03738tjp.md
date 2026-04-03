@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:1af3585983fead80dcaad86e2b65b85540e22e680c5b1f59ab197a394c542b34`
+- Source head: `sha256:76e06becc8c56b9baec684ca8f8d3a3eaf01df781b08fed3c80b7aeb5ca360e9`
 - Source logical timestamp: `unknown`
 - Source snapshot: `6 nodes, 5 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Trace and eliminate rare MCP slow-call outliers by adding universal request-path
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn0c0ke4rf6g95nj03738tjp.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn0c0ke4rf6g95nj03738tjp.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

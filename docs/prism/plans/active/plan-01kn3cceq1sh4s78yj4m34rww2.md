@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:92fa8019278240c0ca4716575199aea7f411c6adc1554e7a163e1f1153af688b`
+- Source head: `sha256:383c533b0ac8bf7b153be4ee3aa612cc608f89c3cebc02d1be430cbec8a96e25`
 - Source logical timestamp: `unknown`
 - Source snapshot: `4 nodes, 0 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Follow up on remaining PRISM usability gaps by improving compact-tool ranking tr
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn3cceq1sh4s78yj4m34rww2.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn3cceq1sh4s78yj4m34rww2.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

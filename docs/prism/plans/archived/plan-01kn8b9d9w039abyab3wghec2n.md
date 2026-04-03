@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:5513e27647a9f4551d4d000141ead0bcbd238d382992fc8bbed9615b475222eb`
+- Source head: `sha256:0b81a44498f062a19b253b818e8dfbec297199948a03bcf42b003cadf48ad392`
 - Source logical timestamp: `unknown`
 - Source snapshot: `0 nodes, 0 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Implement a portfolio-wide prioritization and dispatch capability for PRISM that
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn8b9d9w039abyab3wghec2n.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn8b9d9w039abyab3wghec2n.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Nodes
 

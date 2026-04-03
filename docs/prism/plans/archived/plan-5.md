@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:9cce390739671a861fb45d89b39093128b7ca89990d6062561087e422766b778`
+- Source head: `sha256:0543c1c4b014d213600c5b145d3f63e540645f9e8b08593198103e34312735c1`
 - Source logical timestamp: `unknown`
 - Source snapshot: `0 nodes, 0 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ Mutation latency repro plan 2
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:5.json`
-- Legacy migration log path: `.prism/plans/streams/plan:5.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Nodes
 

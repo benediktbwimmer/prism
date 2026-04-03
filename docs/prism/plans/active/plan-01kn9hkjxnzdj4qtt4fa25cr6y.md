@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:b1378874a89f6c1a5a594eecab99d668fd0d5c02146996bf29c4e9e846961704`
+- Source head: `sha256:5ec2a2f58722f5d469dc3f30cb3b6fb0a4e02cd6f2bc4aabd88f0f0d5c28fffe`
 - Source logical timestamp: `unknown`
 - Source snapshot: `11 nodes, 18 edges, 5 overlays`
 
@@ -38,7 +38,7 @@ Replace repo-committed append-log authority with compact signed snapshot state i
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn9hkjxnzdj4qtt4fa25cr6y.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn9hkjxnzdj4qtt4fa25cr6y.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

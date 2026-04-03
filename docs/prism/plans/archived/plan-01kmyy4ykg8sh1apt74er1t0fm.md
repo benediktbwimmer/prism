@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:9d5713ff4cbea79e78f25fe3edb5b20b930ce34c6b054f21759b191ae7414243`
+- Source head: `sha256:7e08e847c928b7415ea91503bf51bf12adfdc6e2ba6d73971318508e16e5b1c0`
 - Source logical timestamp: `unknown`
 - Source snapshot: `5 nodes, 4 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ contracts-01: implement the first PRISM contracts primitive as a concept-like si
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kmyy4ykg8sh1apt74er1t0fm.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kmyy4ykg8sh1apt74er1t0fm.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 

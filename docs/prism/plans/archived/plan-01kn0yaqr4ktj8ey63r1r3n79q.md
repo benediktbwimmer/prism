@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:f653f46268ac6607ef9276eff6943ecdc14c868f7146dbe5ca27b4fb726171d8`
+- Source head: `sha256:1ef8f2114c11fc04f0347a634bb5b1630863da80e865ecfc26171f6911cf529a`
 - Source logical timestamp: `unknown`
 - Source snapshot: `5 nodes, 0 edges, 0 overlays`
 
@@ -38,7 +38,7 @@ audit-02: identify and remove repo-scale persistence and refresh work hidden beh
 
 - Snapshot manifest: `.prism/state/manifest.json`
 - Snapshot plan shard: `.prism/state/plans/plan:01kn0yaqr4ktj8ey63r1r3n79q.json`
-- Legacy migration log path: `.prism/plans/streams/plan:01kn0yaqr4ktj8ey63r1r3n79q.jsonl` (compatibility only, not current tracked authority)
+- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
 
 ## Root Nodes
 
