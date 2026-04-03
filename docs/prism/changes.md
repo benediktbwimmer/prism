@@ -8,39 +8,255 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:e0eaac83ef24eed6e4a2311f7cd5a9d9f0b24acc2c92189df5f2e7d691be60a0`
-- Source logical timestamp: `1775195855`
-- Source snapshot: `170 published patch events, 46 unique touched files`
+- Source head: `sha256:d5bfda9e423e9c1ba975e99934a95fd9fedd669438c45135b27cb54272c893ca`
+- Source logical timestamp: `1775197633`
+- Source snapshot: `194 published patch events, 46 unique touched files`
 
 ## Overview
 
-- Published patch events: 170
+- Published patch events: 194
 - Unique files touched: 46
 
 ## Most Touched Files
 
-- `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/host_mutations.rs`: `11` patch event(s)
-- `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/tests.rs`: `11` patch event(s)
+- `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/tests.rs`: `19` patch event(s)
+- `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/host_mutations.rs`: `17` patch event(s)
+- `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/git_execution.rs`: `11` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/compat.rs`: `9` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-core/src/tests.rs`: `9` patch event(s)
+- `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/mutations.rs`: `7` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/tests.rs`: `7` patch event(s)
-- `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/git_execution.rs`: `7` patch event(s)
-- `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/mutations.rs`: `6` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-core/src/published_plans.rs`: `6` patch event(s)
+- `/Users/bene/code/prism-codex-d/crates/prism-js/src/api_types.rs`: `6` patch event(s)
+- `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/views.rs`: `6` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-query/src/plan_runtime.rs`: `6` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/event_replay.rs`: `5` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/types.rs`: `5` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-core/src/session.rs`: `5` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-ir/src/plans.rs`: `5` patch event(s)
-- `/Users/bene/code/prism-codex-d/crates/prism-js/src/api_types.rs`: `5` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/lib.rs`: `5` patch event(s)
-- `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/views.rs`: `5` patch event(s)
+- `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/query_types.rs`: `5` patch event(s)
+- `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/tool_args.rs`: `5` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-query/src/tests.rs`: `5` patch event(s)
-- `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/lib.rs`: `4` patch event(s)
-- `/Users/bene/code/prism-codex-d/crates/prism-core/src/coordination_persistence.rs`: `4` patch event(s)
-- `/Users/bene/code/prism-codex-d/crates/prism-core/src/protected_state/repo_streams.rs`: `4` patch event(s)
+- `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/git_execution.rs`: `4` patch event(s)
 
 ## Recent Published Patch Events
+
+### outcome:01kn90cejw3pzh7xhg0c46hcsw
+
+- Summary: observed file change: 0 added, 0 removed, 316 updated symbols
+- Result: `success`
+- Recorded at: `1775197633`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/tests.rs`
+
+### outcome:01kn90b83awab171yfs0t1j7pn
+
+- Summary: observed file change: 0 added, 0 removed, 46 updated symbols
+- Result: `success`
+- Recorded at: `1775197593`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/mutations.rs`
+
+### outcome:01kn908gbp912bn81g0p4aem2v
+
+- Summary: observed file change: 0 added, 0 removed, 316 updated symbols
+- Result: `success`
+- Recorded at: `1775197503`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/tests.rs`
+
+### outcome:01kn904d5jca4e06x0rf3wxg4v
+
+- Summary: observed file change: 0 added, 0 removed, 161 updated symbols
+- Result: `success`
+- Recorded at: `1775197369`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/host_mutations.rs`
+
+### outcome:01kn9048xtxn90xgnba1d0fwbj
+
+- Summary: observed file change: 0 added, 0 removed, 316 updated symbols
+- Result: `success`
+- Recorded at: `1775197365`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/tests.rs`
+
+### outcome:01kn903t0gay6c62v1ws79njh3
+
+- Summary: observed file change: 0 added, 0 removed, 316 updated symbols
+- Result: `success`
+- Recorded at: `1775197349`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/tests.rs`
+
+### outcome:01kn903hvhk5528cgwsg53efjj
+
+- Summary: observed file change: 0 added, 0 removed, 161 updated symbols
+- Result: `success`
+- Recorded at: `1775197341`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/host_mutations.rs`
+
+### outcome:01kn9014zwwzpmh1py1pnamnpm
+
+- Summary: observed file change: 0 added, 0 removed, 161 updated symbols
+- Result: `success`
+- Recorded at: `1775197262`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/host_mutations.rs`
+
+### outcome:01kn9007k8w3x2h7cxe66p779k
+
+- Summary: observed file change: 0 added, 0 removed, 316 updated symbols
+- Result: `success`
+- Recorded at: `1775197232`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/tests.rs`
+
+### outcome:01kn90032e0bpvp6ka2hpakcf1
+
+- Summary: observed file change: 0 added, 0 removed, 161 updated symbols
+- Result: `success`
+- Recorded at: `1775197228`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/host_mutations.rs`
+
+### outcome:01kn8zy4ttaj56674bfh570dbf
+
+- Summary: observed file change: 0 added, 0 removed, 316 updated symbols
+- Result: `success`
+- Recorded at: `1775197164`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/tests.rs`
+
+### outcome:01kn8zxyvy9248btrcg9dbbjqr
+
+- Summary: observed file change: 0 added, 0 removed, 18 updated symbols
+- Result: `success`
+- Recorded at: `1775197158`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/git_execution.rs`
+
+### outcome:01kn8zq07dja9ewwts87map50q
+
+- Summary: observed file change: 0 added, 0 removed, 316 updated symbols
+- Result: `success`
+- Recorded at: `1775196930`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/tests.rs`
+
+### outcome:01kn8zpwesrp8k0art8a1wcfwn
+
+- Summary: observed file change: 0 added, 0 removed, 18 updated symbols
+- Result: `success`
+- Recorded at: `1775196925`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/git_execution.rs`
+
+### outcome:01kn8zpvkbyxxdyvb9fkkmfp75
+
+- Summary: observed file change: 0 added, 0 removed, 161 updated symbols
+- Result: `success`
+- Recorded at: `1775196925`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/host_mutations.rs`
+
+### outcome:01kn8zpmcmzjdtcgvg2y3p461b
+
+- Summary: observed file change: 2 added, 0 removed, 314 updated symbols
+- Result: `success`
+- Recorded at: `1775196918`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/tests.rs`
+
+### outcome:01kn8zmxvq5qv25zz5tq64ppzw
+
+- Summary: observed file change: 0 added, 0 removed, 161 updated symbols
+- Result: `success`
+- Recorded at: `1775196862`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/host_mutations.rs`
+
+### outcome:01kn8zm9ndny42n0sqpfdwhfg8
+
+- Summary: observed file change: 0 added, 0 removed, 103 updated symbols
+- Result: `success`
+- Recorded at: `1775196841`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/views.rs`
+
+### outcome:01kn8zm5jt6s5afm3533km2k46
+
+- Summary: observed file change: 2 added, 0 removed, 1427 updated symbols
+- Result: `success`
+- Recorded at: `1775196837`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-js/src/api_types.rs`
+
+### outcome:01kn8zky75pyzfttt8ve53pmn1
+
+- Summary: observed file change: 0 added, 0 removed, 18 updated symbols
+- Result: `success`
+- Recorded at: `1775196829`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/git_execution.rs`
+
+### outcome:01kn8zkf8v4rrd0r4gvhsqk0ch
+
+- Summary: observed file change: 0 added, 0 removed, 18 updated symbols
+- Result: `success`
+- Recorded at: `1775196814`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/git_execution.rs`
+
+### outcome:01kn8zjxdfn4rpxf9wfs22t7hd
+
+- Summary: observed file change: 0 added, 0 removed, 259 updated symbols
+- Result: `success`
+- Recorded at: `1775196796`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/query_types.rs`
+
+### outcome:01kn8zjnyz88v37z1p1zg0e64p
+
+- Summary: observed file change: 3 added, 0 removed, 680 updated symbols
+- Result: `success`
+- Recorded at: `1775196788`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/tool_args.rs`
+
+### outcome:01kn8zjefce99j5t7hkbknz5am
+
+- Summary: observed file change: 8 added, 0 removed, 42 updated symbols
+- Result: `success`
+- Recorded at: `1775196781`
+- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/git_execution.rs`
 
 ### outcome:01kn8yp6j4czwafbvjty71vaza
 
@@ -50,220 +266,4 @@
 - Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
 - Files:
   - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/host_mutations.rs`
-
-### outcome:01kn8yn3t3g87vn3yswpxx3nwj
-
-- Summary: observed file change: 3 added, 0 removed, 42 updated symbols
-- Result: `success`
-- Recorded at: `1775195819`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/server_surface.rs`
-
-### outcome:01kn8yn3s3kwzrm1phb2t2f1yw
-
-- Summary: observed file change: 0 added, 0 removed, 51 updated symbols
-- Result: `success`
-- Recorded at: `1775195819`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/runtime_state.rs`
-
-### outcome:01kn8yn3r1pq7xh9tzbwmtpa8q
-
-- Summary: observed file change: 0 added, 0 removed, 47 updated symbols
-- Result: `success`
-- Recorded at: `1775195819`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/daemon_mode.rs`
-
-### outcome:01kn8yn3pzjemdpg41rjbtp26g
-
-- Summary: observed file change: 34 added, 123 removed, 38 updated symbols
-- Result: `success`
-- Recorded at: `1775195819`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/host_mutations.rs`
-
-### outcome:01kn8yn3m6j7b9q3nqjr8671n5
-
-- Summary: observed file change: 0 added, 0 removed, 34 updated symbols
-- Result: `success`
-- Recorded at: `1775195819`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/host_resources.rs`
-
-### outcome:01kn8yn3k6v0mrjrg4q42fv3tk
-
-- Summary: observed file change: 2 added, 0 removed, 44 updated symbols
-- Result: `success`
-- Recorded at: `1775195819`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/features.rs`
-
-### outcome:01kn8yn3j352sw0713aq40p9g4
-
-- Summary: observed file change: 0 added, 0 removed, 314 updated symbols
-- Result: `success`
-- Recorded at: `1775195819`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/tests.rs`
-
-### outcome:01kn8yn3hktznrbsp2v1c35gxd
-
-- Summary: observed file change: 0 added, 0 removed, 14 updated symbols
-- Result: `success`
-- Recorded at: `1775195819`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/tests/server_transport.rs`
-
-### outcome:01kn8yn3h8813qe0qfr9m5nr0n
-
-- Summary: observed file change: 0 added, 0 removed, 6 updated symbols
-- Result: `success`
-- Recorded at: `1775195819`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/capabilities_resource.rs`
-
-### outcome:01kn8yn3gvfbpsj5s7r2hkexxt
-
-- Summary: observed file change: 0 added, 0 removed, 131 updated symbols
-- Result: `success`
-- Recorded at: `1775195819`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-core/src/tests.rs`
-
-### outcome:01kn8yn3gesfeh9kb68sg4qy0w
-
-- Summary: observed file change: 2 added, 0 removed, 152 updated symbols
-- Result: `success`
-- Recorded at: `1775195819`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/lib.rs`
-
-### outcome:01kn8yn3f8bhgy3ykyy23jrc5w
-
-- Summary: observed file change: 0 added, 0 removed, 18 updated symbols
-- Result: `success`
-- Recorded at: `1775195819`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-core/src/worktree_principal.rs`
-
-### outcome:01kn8yn3eca5vz037k0x25ps2j
-
-- Summary: observed file change: 0 added, 0 removed, 11 updated symbols
-- Result: `success`
-- Recorded at: `1775195819`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/dashboard_read_models.rs`
-
-### outcome:01kn8yn3d98n9fj1mcschzrkt7
-
-- Summary: observed file change: 7 added, 0 removed, 227 updated symbols
-- Result: `success`
-- Recorded at: `1775195819`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-core/src/session.rs`
-
-### outcome:01kn8yn3c449agmaxf96wa7gm2
-
-- Summary: observed file change: 1 added, 1 removed, 32 updated symbols
-- Result: `success`
-- Recorded at: `1775195819`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-core/src/principal_registry.rs`
-
-### outcome:01kn8yn3azkgd09hwtbc1bb497
-
-- Summary: observed file change: 0 added, 0 removed, 26 updated symbols
-- Result: `success`
-- Recorded at: `1775195819`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-core/src/indexer_support.rs`
-
-### outcome:01kn8yn39v04p48aksb2c6nfb3
-
-- Summary: observed file change: 1 added, 0 removed, 306 updated symbols
-- Result: `success`
-- Recorded at: `1775195819`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/resource_schemas.rs`
-
-### outcome:01kn8x8jydhj2ebya4gk6c6by7
-
-- Summary: observed file change: 0 added, 0 removed, 22 updated symbols
-- Result: `success`
-- Recorded at: `1775194360`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/compat.rs`
-
-### outcome:01kn8x8jxy231vb6jnbcvkvse7
-
-- Summary: observed file change: 0 added, 0 removed, 314 updated symbols
-- Result: `success`
-- Recorded at: `1775194360`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/tests.rs`
-
-### outcome:01kn8x8jxc4vxmzfv43rhm3ake
-
-- Summary: observed file change: 0 added, 0 removed, 161 updated symbols
-- Result: `success`
-- Recorded at: `1775194360`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/host_mutations.rs`
-
-### outcome:01kn8x8jwsbkf550h41z7f05j6
-
-- Summary: observed file change: 0 added, 0 removed, 39 updated symbols
-- Result: `success`
-- Recorded at: `1775194360`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/tests.rs`
-
-### outcome:01kn8x8jwb28fgzd0xf13qwxcs
-
-- Summary: observed file change: 0 added, 0 removed, 131 updated symbols
-- Result: `success`
-- Recorded at: `1775194360`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-core/src/tests.rs`
-
-### outcome:01kn8x8jvygmpmv9exhdz4k9ns
-
-- Summary: observed file change: 0 added, 0 removed, 139 updated symbols
-- Result: `success`
-- Recorded at: `1775194360`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-core/src/published_plans.rs`
-
-### outcome:01kn8x8jtn7v444rvwpw27jb8b
-
-- Summary: observed file change: 0 added, 0 removed, 43 updated symbols
-- Result: `success`
-- Recorded at: `1775194360`
-- Work: `Split task lifecycle from publish lifecycle and harden strict completion semantics` (work:split-task-lifecycle-from-publish-lifecycle-and-harden-strict-completion-semantics:01kn8tjx34633yg66ckq22j0qh)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/runtime.rs`
 

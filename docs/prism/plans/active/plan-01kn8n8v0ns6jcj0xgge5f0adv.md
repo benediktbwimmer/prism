@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:851057de4d43b4e8890577b098311ea0744a9c46ad393818e8d3f65006e4e914`
+- Source head: `sha256:be3bce1f628d2071c001fe85f4248200ea2f78c6f7f308f84b834ac6b2f17739`
 - Source logical timestamp: `unknown`
 - Source snapshot: `6 nodes, 6 edges, 0 overlays`
 
@@ -63,7 +63,7 @@ Finish the git execution policy feature by exposing policy surfaces clearly, sep
 
 - Node id: `coord-task:01kn8n9w0r3ydrfs64cdy58t12`
 - Kind: `edit`
-- Status: `in_progress`
+- Status: `completed`
 - Summary: Make publish intent, publish-pending, publish-failed, and publish-ack semantics explicit so strict `require` can separate logical task completion from repo publication, prevent false completion during push failures, and keep user-code commit scope manual.
 - Priority: `95`
 
