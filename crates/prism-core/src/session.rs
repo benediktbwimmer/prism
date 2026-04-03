@@ -83,6 +83,7 @@ use crate::shared_runtime::{
 };
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::shared_runtime_store::SharedRuntimeStore;
+use crate::tracked_snapshot::tracked_snapshot_authority_active;
 use crate::util::{cache_path, current_timestamp, current_timestamp_millis};
 use crate::validation_feedback::{
     append_validation_feedback, load_validation_feedback, ValidationFeedbackEntry,
@@ -3278,6 +3279,9 @@ fn publish_pending_repo_patch_provenance(
     bound_principal: BoundWorktreePrincipal,
     active_work: ActiveWorkContextBinding,
 ) -> Result<Vec<EventId>> {
+    if tracked_snapshot_authority_active(root)? {
+        return Ok(Vec::new());
+    }
     let existing_repo_event_ids = load_repo_patch_events(root)?
         .into_iter()
         .map(|event| event.meta.id)

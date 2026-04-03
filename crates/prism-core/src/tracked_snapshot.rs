@@ -13,7 +13,7 @@ use prism_ir::{
     EventActor, EventExecutionContext, PlanExecutionOverlay, PlanGraph, WorkContextKind,
     WorkContextSnapshot,
 };
-use prism_memory::{MemoryEntry, MemoryEvent, MemoryEventKind, OutcomeEvent};
+use prism_memory::{MemoryEntry, MemoryEvent, MemoryEventKind};
 use prism_projections::{
     ConceptPacket, ConceptRelation, ConceptRelationEvent, ConceptRelationEventAction,
     ContractPacket,
@@ -425,11 +425,6 @@ pub(crate) fn load_contract_snapshots(root: &Path) -> Result<Vec<ContractPacket>
 pub(crate) fn load_relation_snapshots(root: &Path) -> Result<Vec<ConceptRelation>> {
     load_json_records::<ConceptRelation>(&snapshot_relations_dir(root))
         .map(|records| records.into_iter().map(|(_, relation)| relation).collect())
-}
-
-pub(crate) fn load_patch_snapshots(root: &Path) -> Result<Vec<OutcomeEvent>> {
-    load_json_records::<OutcomeEvent>(&snapshot_changes_dir(root))
-        .map(|records| records.into_iter().map(|(_, event)| event).collect())
 }
 
 pub(crate) fn load_memory_snapshot_events(root: &Path) -> Result<Vec<MemoryEvent>> {

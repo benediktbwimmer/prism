@@ -8,7 +8,7 @@ use crate::protected_state::repo_streams::{
 };
 use crate::protected_state::streams::{ProtectedRepoStream, ProtectedVerificationStatus};
 use crate::tracked_snapshot::{
-    legacy_tracked_stream_bridge_active, load_patch_snapshots, tracked_snapshot_authority_active,
+    legacy_tracked_stream_bridge_active, tracked_snapshot_authority_active,
 };
 use crate::util::repo_patch_events_path;
 
@@ -30,17 +30,11 @@ pub(crate) fn append_repo_patch_event(root: &Path, event: &OutcomeEvent) -> Resu
 
 pub(crate) fn load_repo_patch_events(root: &Path) -> Result<Vec<OutcomeEvent>> {
     let path = repo_patch_events_path(root);
-    if tracked_snapshot_authority_active(root)? || !path.exists() {
-        let snapshots = load_patch_snapshots(root)?;
-        for event in &snapshots {
-            if event.kind != OutcomeKind::PatchApplied {
-                bail!(
-                    "tracked patch snapshot contained non-patch outcome `{}`",
-                    event.meta.id.0
-                );
-            }
-        }
-        return Ok(snapshots);
+    if tracked_snapshot_authority_active(root)? {
+        return Ok(Vec::new());
+    }
+    if !path.exists() {
+        return Ok(Vec::new());
     }
 
     let inspection =

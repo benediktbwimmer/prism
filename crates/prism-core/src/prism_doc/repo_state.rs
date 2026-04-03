@@ -9,16 +9,21 @@ use prism_ir::{
     PlanExecutionOverlay, PlanGraph, PlanKind, PlanNode, PlanNodeKind, PlanNodeStatus, PlanScope,
     PlanStatus,
 };
-use prism_memory::{MemoryEntry, MemoryEvent, MemoryEventKind, OutcomeEvent, OutcomeEvidence};
+use prism_memory::{
+    MemoryEntry, MemoryEvent, MemoryEventKind, OutcomeEvent, OutcomeEvidence, OutcomeKind,
+};
+use prism_store::ColdQueryStore;
 use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::memory_events::load_repo_memory_events;
+use crate::prism_paths::PrismPaths;
 use crate::published_plans::{
     load_hydrated_coordination_plan_state, load_repo_published_plan_index, PublishedPlanIndexEntry,
 };
-use crate::repo_patch_events::load_repo_patch_events;
+use crate::shared_runtime_backend::SharedRuntimeBackend;
+use crate::shared_runtime_store::SharedRuntimeStore;
 
 use super::{anchor_label, write_generated_file, PrismDocFileSync};
 
@@ -42,7 +47,7 @@ pub(super) struct RepoStateCatalog {
 impl RepoStateCatalog {
     pub(super) fn load(root: &Path) -> Result<Self> {
         let memory_events = load_repo_memory_events(root)?;
-        let patch_events = load_repo_patch_events(root)?;
+        let patch_events = load_shared_runtime_patch_events(root)?;
         let plan_state = load_hydrated_coordination_plan_state(root, None)?;
         let plan_index = load_repo_published_plan_index(root)?
             .into_iter()
@@ -113,6 +118,29 @@ impl RepoStateCatalog {
             change_count: self.patch_events.len(),
         }
     }
+}
+
+fn load_shared_runtime_patch_events(root: &Path) -> Result<Vec<OutcomeEvent>> {
+    let paths = PrismPaths::for_workspace_root(root)?;
+    let backend = SharedRuntimeBackend::Sqlite {
+        path: paths.shared_runtime_db_path()?,
+    };
+    let Some(mut store) = SharedRuntimeStore::open(&backend)? else {
+        return Ok(Vec::new());
+    };
+    let mut events = store.load_outcomes(&prism_memory::OutcomeRecallQuery {
+        kinds: Some(vec![OutcomeKind::PatchApplied]),
+        limit: 0,
+        ..prism_memory::OutcomeRecallQuery::default()
+    })?;
+    events.sort_by(|left, right| {
+        right
+            .meta
+            .ts
+            .cmp(&left.meta.ts)
+            .then_with(|| left.meta.id.0.cmp(&right.meta.id.0))
+    });
+    Ok(events)
 }
 
 #[derive(Debug, Clone)]

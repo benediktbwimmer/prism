@@ -3039,6 +3039,7 @@ fn repo_published_patch_events_do_not_create_tracked_snapshots_after_snapshot_cu
     assert!(!root.join(".prism/state/changes").exists());
     assert!(!root.join(".prism/state/indexes/changes.json").exists());
     assert!(!root.join(".prism/changes/events.jsonl").exists());
+    assert!(load_repo_patch_events(&root).unwrap().is_empty());
 
     let manifest: serde_json::Value =
         serde_json::from_slice(&fs::read(root.join(".prism/state/manifest.json")).unwrap())
