@@ -2545,10 +2545,36 @@ impl_vocab_deserialize!(
     "git integration mode",
     r#"{"integrationMode":"external"}"#,
     {
-        "manual_pr" => ManualPr,
-        "auto_pr" => AutoPr,
-        "direct_integrate" => DirectIntegrate,
+        "manualpr" => ManualPr,
+        "autopr" => AutoPr,
+        "directintegrate" => DirectIntegrate,
         "external" => External
+    }
+);
+
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum GitIntegrationStatusInput {
+    NotStarted,
+    PublishedToBranch,
+    IntegrationPending,
+    IntegrationInProgress,
+    IntegratedToTarget,
+    IntegrationFailed,
+}
+
+impl_vocab_deserialize!(
+    GitIntegrationStatusInput,
+    "gitIntegrationStatus",
+    "git integration status",
+    r#"{"integrationStatus":"integration_pending"}"#,
+    {
+        "notstarted" => NotStarted,
+        "publishedtobranch" => PublishedToBranch,
+        "integrationpending" => IntegrationPending,
+        "integrationinprogress" => IntegrationInProgress,
+        "integratedtotarget" => IntegratedToTarget,
+        "integrationfailed" => IntegrationFailed
     }
 );
 
@@ -2915,6 +2941,10 @@ pub(crate) struct WorkflowUpdatePayload {
     pub(crate) priority: Option<SparsePatchInput<u8>>,
     pub(crate) tags: Option<Vec<String>>,
     pub(crate) completion_context: Option<TaskCompletionContextPayload>,
+    pub(crate) review_artifact_ref: Option<SparsePatchInput<String>>,
+    pub(crate) integration_commit: Option<SparsePatchInput<String>>,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
+    pub(crate) integration_status: Option<GitIntegrationStatusInput>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]

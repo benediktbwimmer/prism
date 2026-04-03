@@ -1,10 +1,10 @@
 {
-  "id": "coord-task:01knanny5sqedpzn8jzfk9mzpz",
-  "plan": "plan:01knannez4esfee0qx0yskagbe",
+  "id": "coord-task:01knaqnk440qpjcssdta8anmv7",
+  "plan": "plan:01knaqm4jgp5r12ee485ramvxe",
   "kind": "Edit",
-  "title": "Implement bootstrap authority state and recovery gating",
-  "summary": "Add durable bootstrap authority metadata separate from the ordinary principal registry so deleting runtime state cannot trigger fresh bootstrap, and route missing-registry cases into explicit recovery instead.",
-  "status": "Ready",
+  "title": "Validate and dogfood snapshot merge recovery in a real rebase scenario",
+  "summary": null,
+  "status": "Completed",
   "published_task_status": null,
   "assignee": null,
   "pending_handoff_to": null,
@@ -25,25 +25,23 @@
     "outcome_refs": []
   },
   "depends_on": [
-    "coord-task:01knannsnntbnbg3pm51nacctc"
+    "coord-task:01knaqn4pzpx278wss25zqwqma",
+    "coord-task:01knaqn5gdm1syjgwvjw2a0s72",
+    "coord-task:01knaqn6kmcv0347syd3zxjvk2"
   ],
   "acceptance": [
     {
-      "label": "Fresh bootstrap is blocked once bootstrap authority exists, even if the ordinary principal registry is missing or empty.",
-      "anchors": []
-    },
-    {
-      "label": "Recovery is a distinct path from bootstrap and is keyed off bootstrap authority state rather than registry emptiness.",
+      "label": "A real merge or rebase conflict in generated PRISM snapshot state can be resolved end-to-end through the supported tooling with no repo-internal code spelunking.",
       "anchors": []
     }
   ],
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 162,
+    "graph_version": 171,
     "git_commit": null
   },
-  "priority": 98,
+  "priority": null,
   "tags": [],
   "metadata": null,
   "git_execution": {
@@ -53,6 +51,13 @@
     "targetRef": null,
     "publishRef": null,
     "targetBranch": null,
+    "sourceCommit": null,
+    "publishCommit": null,
+    "targetCommitAtPublish": null,
+    "reviewArtifactRef": null,
+    "integrationCommit": null,
+    "integrationMode": "external",
+    "integrationStatus": "not_started",
     "lastPreflight": null,
     "lastPublish": null
   }

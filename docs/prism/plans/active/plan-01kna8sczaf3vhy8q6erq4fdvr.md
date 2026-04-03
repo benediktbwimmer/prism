@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:29ac97741eaa5729c1dbd1f9daee78b7bc06a9abe8de4a59f33e825ac1b6aee9`
+- Source head: `sha256:600879a9794b504017abb862d6eed5033d471ee23479d1b151b62e9adc177f87`
 - Source logical timestamp: `unknown`
-- Source snapshot: `4 nodes, 3 edges, 0 overlays`
+- Source snapshot: `4 nodes, 3 edges, 3 overlays`
 
 ## Overview
 
@@ -52,19 +52,19 @@ Add shared-ref runtime descriptors and authenticated peer runtime reads, while s
 
 - Node id: `coord-task:01kna8tgf7s523e5edfv0gc0v9`
 - Kind: `edit`
-- Status: `ready`
+- Status: `completed`
 
 ### Add shared coordination runtime descriptors for live runtime discovery and capability advertisement
 
 - Node id: `coord-task:01kna8tv5khkd6ypdg9q6dfs87`
 - Kind: `edit`
-- Status: `ready`
+- Status: `completed`
 
 ### Implement authenticated capability-scoped bounded peer runtime reads on local or trusted-network transport
 
 - Node id: `coord-task:01kna8v02c0p53pdfckcyq0vaw`
 - Kind: `edit`
-- Status: `ready`
+- Status: `in_progress`
 
 ### Validate local-machine peer observability, capability denial, and graceful fallback with no peer
 
@@ -74,7 +74,25 @@ Add shared-ref runtime descriptors and authenticated peer runtime reads, while s
 
 ## Edges
 
+- `plan-edge:coord-task:01kna8v52e247h2xymfv8ksdb0:depends-on:coord-task:01kna8v02c0p53pdfckcyq0vaw`: `coord-task:01kna8v52e247h2xymfv8ksdb0` depends on `coord-task:01kna8v02c0p53pdfckcyq0vaw`
 - `plan-edge:coord-task:01kna8tv5khkd6ypdg9q6dfs87:depends-on:coord-task:01kna8tgf7s523e5edfv0gc0v9`: `coord-task:01kna8tv5khkd6ypdg9q6dfs87` depends on `coord-task:01kna8tgf7s523e5edfv0gc0v9`
 - `plan-edge:coord-task:01kna8v02c0p53pdfckcyq0vaw:depends-on:coord-task:01kna8tv5khkd6ypdg9q6dfs87`: `coord-task:01kna8v02c0p53pdfckcyq0vaw` depends on `coord-task:01kna8tv5khkd6ypdg9q6dfs87`
-- `plan-edge:coord-task:01kna8v52e247h2xymfv8ksdb0:depends-on:coord-task:01kna8v02c0p53pdfckcyq0vaw`: `coord-task:01kna8v52e247h2xymfv8ksdb0` depends on `coord-task:01kna8v02c0p53pdfckcyq0vaw`
+
+## Execution Overlays
+
+- Node: `coord-task:01kna8tgf7s523e5edfv0gc0v9`
+  git execution status: `published`
+  source ref: `task/federated-runtime-implementation`
+  target ref: `origin/main`
+  publish ref: `task/federated-runtime-implementation`
+- Node: `coord-task:01kna8tv5khkd6ypdg9q6dfs87`
+  git execution status: `published`
+  source ref: `task/federated-runtime-implementation`
+  target ref: `origin/main`
+  publish ref: `task/federated-runtime-implementation`
+- Node: `coord-task:01kna8v02c0p53pdfckcyq0vaw`
+  git execution status: `in_progress`
+  source ref: `task/federated-runtime-implementation`
+  target ref: `origin/main`
+  publish ref: `task/federated-runtime-implementation`
 

@@ -1,9 +1,9 @@
 {
-  "id": "coord-task:01kna8tv5khkd6ypdg9q6dfs87",
-  "plan": "plan:01kna8sczaf3vhy8q6erq4fdvr",
+  "id": "coord-task:01knaqpp6mxkybk88n72frrq4p",
+  "plan": "plan:01knap36apc42jgrq3w7k300yz",
   "kind": "Edit",
-  "title": "Add shared coordination runtime descriptors for live runtime discovery and capability advertisement",
-  "summary": null,
+  "title": "Implement durable target integration lifecycle and verification",
+  "summary": "Wire shared-coordination task execution beyond branch publication by persisting target integration lifecycle, landing evidence, and verification rules for merge, rebase, and squash flows.",
   "status": "Completed",
   "published_task_status": null,
   "assignee": null,
@@ -24,14 +24,25 @@
     "memory_refs": [],
     "outcome_refs": []
   },
-  "depends_on": [
-    "coord-task:01kna8tgf7s523e5edfv0gc0v9"
+  "depends_on": [],
+  "acceptance": [
+    {
+      "label": "Completion and follow-up flows persist target integration policy context and do not collapse branch publication into verified target integration.",
+      "anchors": []
+    },
+    {
+      "label": "Shared coordination task git-execution state can represent integration_pending, integration_in_progress, integrated_to_target, and integration_failed with durable evidence fields.",
+      "anchors": []
+    },
+    {
+      "label": "Targeted tests cover normal reachability-based integration and evidence-gated rebase or squash verification.",
+      "anchors": []
+    }
   ],
-  "acceptance": [],
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1215,
+    "graph_version": 172,
     "git_commit": null
   },
   "priority": null,

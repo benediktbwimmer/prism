@@ -21,16 +21,17 @@
         "targetBranch": "main",
         "requireTaskBranch": true,
         "maxCommitsBehindTarget": 0,
-        "maxFetchAgeSeconds": null
+        "maxFetchAgeSeconds": null,
+        "integrationMode": "external"
       }
     },
     "scope": "Repo",
     "kind": "TaskExecution",
     "revision": 0,
     "scheduling": {
-      "importance": 100,
-      "urgency": 100,
-      "manualBoost": 40,
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
       "dueAt": null
     },
     "tags": [],
@@ -38,7 +39,7 @@
     "metadata": null,
     "authored_edges": [],
     "root_tasks": [
-      "coord-task:01knap3rke481tw24nh4z5g8ak"
+      "coord-task:01knaqpp6mxkybk88n72frrq4p"
     ]
   },
   "graph": {
@@ -50,97 +51,19 @@
     "status": "Active",
     "revision": 0,
     "root_nodes": [
-      "coord-task:01knap3rke481tw24nh4z5g8ak"
+      "coord-task:01knaqpp6mxkybk88n72frrq4p"
     ],
     "tags": [],
     "created_from": null,
     "metadata": null,
     "nodes": [
       {
-        "id": "coord-task:01knap3rke481tw24nh4z5g8ak",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "kind": "Investigate",
-        "title": "Audit the design doc against the live shared-ref implementation and enumerate every remaining gap",
-        "summary": "Produce the canonical closure inventory by comparing PRISM_SHARED_COORDINATION_REFS.md against the code on origin/main, explicitly calling out what already landed, what is only partially implemented, what is still design-only, and which daily developer pain points each missing piece still causes.",
-        "status": "Ready",
-        "bindings": {
-          "anchors": [],
-          "concept_handles": [],
-          "artifact_refs": [],
-          "memory_refs": [],
-          "outcome_refs": []
-        },
-        "acceptance": [
-          {
-            "label": "There is one authoritative gap list that maps each missing design promise to concrete code surfaces and user-facing impact.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          },
-          {
-            "label": "The plan can be executed without guessing whether a gap is already live or only documented.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          }
-        ],
-        "validation_refs": [],
-        "is_abstract": false,
-        "assignee": null,
-        "base_revision": {
-          "graph_version": 162,
-          "git_commit": null
-        },
-        "priority": 100,
-        "tags": [],
-        "metadata": null
-      },
-      {
-        "id": "coord-task:01knap3yd0dnrzxxy3wkh289xd",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "kind": "Decide",
-        "title": "Lock the exact integration policy contract and completion-versus-integration semantics",
-        "summary": "Turn the target-integration parts of the shared-refs doc into a precise implementation contract: which policy lives on plans, which lifecycle lives on tasks, what counts as published versus completed versus integrated, and which downstream scheduling thresholds should depend on which state.",
-        "status": "Ready",
-        "bindings": {
-          "anchors": [],
-          "concept_handles": [],
-          "artifact_refs": [],
-          "memory_refs": [],
-          "outcome_refs": []
-        },
-        "acceptance": [
-          {
-            "label": "Plan-level integration policy, task-level integration lifecycle, and completion-versus-integration semantics are unambiguous enough to implement directly.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          },
-          {
-            "label": "The final contract resolves how strict require, shared coordination publication, branch publication, and target landing interact.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          }
-        ],
-        "validation_refs": [],
-        "is_abstract": false,
-        "assignee": null,
-        "base_revision": {
-          "graph_version": 162,
-          "git_commit": null
-        },
-        "priority": 99,
-        "tags": [],
-        "metadata": null
-      },
-      {
-        "id": "coord-task:01knap46bm44w78g4yv1yvdjy8",
+        "id": "coord-task:01knaqpp6mxkybk88n72frrq4p",
         "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
         "kind": "Edit",
-        "title": "Add first-class plan integration policy and task integration lifecycle to coordination types and MCP schema",
-        "summary": "Extend live coordination policy and plan create/update surfaces with a real integration policy block supporting manual_pr, auto_pr, direct_integrate, and external, and add task-level integration lifecycle state so the runtime can distinguish branch publication, shared coordination publication, integration pending, integration in progress, integration failed, and integrated to target.",
-        "status": "Ready",
+        "title": "Implement durable target integration lifecycle and verification",
+        "summary": "Wire shared-coordination task execution beyond branch publication by persisting target integration lifecycle, landing evidence, and verification rules for merge, rebase, and squash flows.",
+        "status": "Completed",
         "bindings": {
           "anchors": [],
           "concept_handles": [],
@@ -150,13 +73,19 @@
         },
         "acceptance": [
           {
-            "label": "Plans can persist and expose integration policy as first-class state rather than relying on design-doc-only intent.",
+            "label": "Completion and follow-up flows persist target integration policy context and do not collapse branch publication into verified target integration.",
             "anchors": [],
             "required_checks": [],
             "evidence_policy": "Any"
           },
           {
-            "label": "Tasks can persist and expose integration lifecycle state distinctly from branch publication and ordinary completion.",
+            "label": "Shared coordination task git-execution state can represent integration_pending, integration_in_progress, integrated_to_target, and integration_failed with durable evidence fields.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Targeted tests cover normal reachability-based integration and evidence-gated rebase or squash verification.",
             "anchors": [],
             "required_checks": [],
             "evidence_policy": "Any"
@@ -166,637 +95,40 @@
         "is_abstract": false,
         "assignee": null,
         "base_revision": {
-          "graph_version": 162,
+          "graph_version": 172,
           "git_commit": null
         },
-        "priority": 98,
-        "tags": [],
-        "metadata": null
-      },
-      {
-        "id": "coord-task:01knap4jw93afme0z6mbxj18qf",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "kind": "Edit",
-        "title": "Persist durable target-landing evidence and implement verification for merge, rebase, and squash flows",
-        "summary": "Store the concrete evidence the doc calls for, including source refs and commits, publish refs and commits, target commit at publish time, optional review artifact references, and accepted integration commits, then implement verification rules that treat merge/fast-forward, rebase, and squash landing differently and conservatively.",
-        "status": "Ready",
-        "bindings": {
-          "anchors": [],
-          "concept_handles": [],
-          "artifact_refs": [],
-          "memory_refs": [],
-          "outcome_refs": []
-        },
-        "acceptance": [
-          {
-            "label": "Task state carries both intent refs and concrete landing evidence needed to prove integration honestly.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          },
-          {
-            "label": "Merge, rebase, and squash flows are verified according to explicit evidence rules instead of optimistic reachability guesses.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          }
-        ],
-        "validation_refs": [],
-        "is_abstract": false,
-        "assignee": null,
-        "base_revision": {
-          "graph_version": 162,
-          "git_commit": null
-        },
-        "priority": 98,
-        "tags": [],
-        "metadata": null
-      },
-      {
-        "id": "coord-task:01knap4tnhjq47qrwd49mm0b78",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "kind": "Edit",
-        "title": "Implement manual_pr and auto_pr integration flows around durable review artifacts",
-        "summary": "Teach PRISM to manage review-artifact-centered landing for manual_pr and auto_pr modes so branch-published work can move into integration_pending, integration_in_progress, and integrated_to_target with explicit artifact references and verified target landing, rather than stopping at branch publication.",
-        "status": "Ready",
-        "bindings": {
-          "anchors": [],
-          "concept_handles": [],
-          "artifact_refs": [],
-          "memory_refs": [],
-          "outcome_refs": []
-        },
-        "acceptance": [
-          {
-            "label": "manual_pr and auto_pr are live policy modes with durable artifact and integration state transitions.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          },
-          {
-            "label": "PRISM can distinguish waiting for human-approved landing from automatically managed PR landing without conflating either one with completion.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          }
-        ],
-        "validation_refs": [],
-        "is_abstract": false,
-        "assignee": null,
-        "base_revision": {
-          "graph_version": 162,
-          "git_commit": null
-        },
-        "priority": 97,
-        "tags": [],
-        "metadata": null
-      },
-      {
-        "id": "coord-task:01knap509dzfc7hzj7eafyf2hd",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "kind": "Edit",
-        "title": "Implement direct_integrate and external observation modes with explicit landing verification",
-        "summary": "Add the agent-native direct-integrate path for trusted repos, plus the external observation path for repos whose landing is orchestrated elsewhere, while ensuring both modes still require explicit verification that the target ref contains the accepted landed work.",
-        "status": "Ready",
-        "bindings": {
-          "anchors": [],
-          "concept_handles": [],
-          "artifact_refs": [],
-          "memory_refs": [],
-          "outcome_refs": []
-        },
-        "acceptance": [
-          {
-            "label": "direct_integrate and external are real policy modes rather than only documented future ideas.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          },
-          {
-            "label": "Both modes record integration lifecycle and landed evidence without pretending that branch publication alone means target integration.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          }
-        ],
-        "validation_refs": [],
-        "is_abstract": false,
-        "assignee": null,
-        "base_revision": {
-          "graph_version": 162,
-          "git_commit": null
-        },
-        "priority": 96,
-        "tags": [],
-        "metadata": null
-      },
-      {
-        "id": "coord-task:01knap55wwmpdm6y6chs1xmjwf",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "kind": "Edit",
-        "title": "Finish strict require completion ordering on top of shared coordination publication",
-        "summary": "Make the final strict model fully real by enforcing the ordering from the shared-refs doc: user code publish stays branch-scoped, PRISM finalizes allowlisted projection state, the branch is pushed, shared coordination publication succeeds, and only then does the task become globally completed so downstream agents never act on false completion.",
-        "status": "Ready",
-        "bindings": {
-          "anchors": [],
-          "concept_handles": [],
-          "artifact_refs": [],
-          "memory_refs": [],
-          "outcome_refs": []
-        },
-        "acceptance": [
-          {
-            "label": "Global task completion is impossible before shared coordination publication succeeds.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          },
-          {
-            "label": "Branch publication success without shared coordination publication no longer creates a false globally completed task state.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          }
-        ],
-        "validation_refs": [],
-        "is_abstract": false,
-        "assignee": null,
-        "base_revision": {
-          "graph_version": 162,
-          "git_commit": null
-        },
-        "priority": 99,
-        "tags": [],
-        "metadata": null
-      },
-      {
-        "id": "coord-task:01knap5b9wj7mjf6f71wv2natz",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "kind": "Edit",
-        "title": "Harden remote live-sync, CAS retry, and shared-ref reconciliation under real concurrency",
-        "summary": "Close the operational gaps in the shared-ref authority plane by finishing robust fetch-verify-push retry semantics, remote live-sync import behavior, concurrent writer reconciliation, and recovery when shared coordination publication loses a race or observes a moved head.",
-        "status": "Ready",
-        "bindings": {
-          "anchors": [],
-          "concept_handles": [],
-          "artifact_refs": [],
-          "memory_refs": [],
-          "outcome_refs": []
-        },
-        "acceptance": [
-          {
-            "label": "Shared coordination publication survives realistic concurrent writers through retry and reconciliation rather than manual repair.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          },
-          {
-            "label": "Remote head movement and live-sync events converge runtime state without stale or duplicated coordination outcomes.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          }
-        ],
-        "validation_refs": [],
-        "is_abstract": false,
-        "assignee": null,
-        "base_revision": {
-          "graph_version": 162,
-          "git_commit": null
-        },
-        "priority": 97,
-        "tags": [],
-        "metadata": null
-      },
-      {
-        "id": "coord-task:01knap5many6kf2v5td7ka8gjm",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "kind": "Edit",
-        "title": "Demote branch-local PRISM mirrors and remove remaining dual-authority ambiguity",
-        "summary": "Finish the architectural cleanup that makes shared coordination refs the unambiguous primary authority by clearly treating branch-local .prism and docs projections as mirrors or exports, not competing live truth, and by eliminating remaining code paths that can accidentally re-promote branch-local state into authority semantics.",
-        "status": "Ready",
-        "bindings": {
-          "anchors": [],
-          "concept_handles": [],
-          "artifact_refs": [],
-          "memory_refs": [],
-          "outcome_refs": []
-        },
-        "acceptance": [
-          {
-            "label": "Shared coordination refs are the primary live authority in both code and operational behavior.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          },
-          {
-            "label": "Branch-local mirrors can no longer quietly act like a second coordination authority during normal development.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          }
-        ],
-        "validation_refs": [],
-        "is_abstract": false,
-        "assignee": null,
-        "base_revision": {
-          "graph_version": 162,
-          "git_commit": null
-        },
-        "priority": 95,
-        "tags": [],
-        "metadata": null
-      },
-      {
-        "id": "coord-task:01knap5vj9ptbdhevycdp3pdh8",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "kind": "Edit",
-        "title": "Implement shared-ref retention, compaction, and bounded-history policy",
-        "summary": "Add the operational controls the design calls for so shared coordination refs remain compact over time: bounded recent history, explicit compaction points, hot-versus-cold state separation, and rules for retaining enough evidence without turning the shared ref into an unbounded append-log pain point.",
-        "status": "Ready",
-        "bindings": {
-          "anchors": [],
-          "concept_handles": [],
-          "artifact_refs": [],
-          "memory_refs": [],
-          "outcome_refs": []
-        },
-        "acceptance": [
-          {
-            "label": "The live shared ref remains compact enough for daily fetch and publish workflows even as coordination history grows.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          },
-          {
-            "label": "Compaction and retention preserve the evidence needed for correctness and audit without keeping the live head bloated forever.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          }
-        ],
-        "validation_refs": [],
-        "is_abstract": false,
-        "assignee": null,
-        "base_revision": {
-          "graph_version": 162,
-          "git_commit": null
-        },
-        "priority": 94,
-        "tags": [],
-        "metadata": null
-      },
-      {
-        "id": "coord-task:01knap64p8w9xtz3vr5nx0g1rm",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "kind": "Edit",
-        "title": "Expose integration policy, lifecycle, and landing evidence cleanly in MCP, query, and published docs",
-        "summary": "Make the new shared-ref authority model visible and inspectable by exposing integration policy, branch publication state, shared coordination publication state, target integration state, review artifacts, and landing evidence in the live MCP views, JS types, and human-readable repo docs.",
-        "status": "Ready",
-        "bindings": {
-          "anchors": [],
-          "concept_handles": [],
-          "artifact_refs": [],
-          "memory_refs": [],
-          "outcome_refs": []
-        },
-        "acceptance": [
-          {
-            "label": "Agents and humans can inspect exactly how a task moved from branch publication to shared coordination publication to target integration.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          },
-          {
-            "label": "The published docs and runtime surfaces no longer hide or collapse integration state into a fuzzy single done flag.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          }
-        ],
-        "validation_refs": [],
-        "is_abstract": false,
-        "assignee": null,
-        "base_revision": {
-          "graph_version": 162,
-          "git_commit": null
-        },
-        "priority": 93,
-        "tags": [],
-        "metadata": null
-      },
-      {
-        "id": "coord-task:01knap6dbtj1v4aq8gwbr9dy1x",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "kind": "Validate",
-        "title": "Dogfood the full cross-branch workflow and prove the shared-ref authority plane materially improves daily development UX",
-        "summary": "Validate the whole end-state against the pain points that motivated this work: two branches seeing the same claims and status, strict require publishing without false completion, target-sensitive follow-up work gating on integrated_to_target when needed, and PRISM surfaces staying legible during concurrent live development.",
-        "status": "Ready",
-        "bindings": {
-          "anchors": [],
-          "concept_handles": [],
-          "artifact_refs": [],
-          "memory_refs": [],
-          "outcome_refs": []
-        },
-        "acceptance": [
-          {
-            "label": "Cross-branch dogfooding confirms that claims, publish state, and integration state converge through the shared ref rather than branch-local accidents.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          },
-          {
-            "label": "The resulting workflow materially improves developer UX for concurrent branches, shared task visibility, and target-sensitive coordination.",
-            "anchors": [],
-            "required_checks": [],
-            "evidence_policy": "Any"
-          }
-        ],
-        "validation_refs": [],
-        "is_abstract": false,
-        "assignee": null,
-        "base_revision": {
-          "graph_version": 162,
-          "git_commit": null
-        },
-        "priority": 96,
+        "priority": null,
         "tags": [],
         "metadata": null
       }
     ],
-    "edges": [
-      {
-        "id": "plan-edge:coord-task:01knap3yd0dnrzxxy3wkh289xd:depends-on:coord-task:01knap3rke481tw24nh4z5g8ak",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap3yd0dnrzxxy3wkh289xd",
-        "to": "coord-task:01knap3rke481tw24nh4z5g8ak",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap46bm44w78g4yv1yvdjy8:depends-on:coord-task:01knap3yd0dnrzxxy3wkh289xd",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap46bm44w78g4yv1yvdjy8",
-        "to": "coord-task:01knap3yd0dnrzxxy3wkh289xd",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap4jw93afme0z6mbxj18qf:depends-on:coord-task:01knap3yd0dnrzxxy3wkh289xd",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap4jw93afme0z6mbxj18qf",
-        "to": "coord-task:01knap3yd0dnrzxxy3wkh289xd",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap4jw93afme0z6mbxj18qf:depends-on:coord-task:01knap46bm44w78g4yv1yvdjy8",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap4jw93afme0z6mbxj18qf",
-        "to": "coord-task:01knap46bm44w78g4yv1yvdjy8",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap4tnhjq47qrwd49mm0b78:depends-on:coord-task:01knap46bm44w78g4yv1yvdjy8",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap4tnhjq47qrwd49mm0b78",
-        "to": "coord-task:01knap46bm44w78g4yv1yvdjy8",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap4tnhjq47qrwd49mm0b78:depends-on:coord-task:01knap4jw93afme0z6mbxj18qf",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap4tnhjq47qrwd49mm0b78",
-        "to": "coord-task:01knap4jw93afme0z6mbxj18qf",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap509dzfc7hzj7eafyf2hd:depends-on:coord-task:01knap46bm44w78g4yv1yvdjy8",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap509dzfc7hzj7eafyf2hd",
-        "to": "coord-task:01knap46bm44w78g4yv1yvdjy8",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap509dzfc7hzj7eafyf2hd:depends-on:coord-task:01knap4jw93afme0z6mbxj18qf",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap509dzfc7hzj7eafyf2hd",
-        "to": "coord-task:01knap4jw93afme0z6mbxj18qf",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap55wwmpdm6y6chs1xmjwf:depends-on:coord-task:01knap3yd0dnrzxxy3wkh289xd",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap55wwmpdm6y6chs1xmjwf",
-        "to": "coord-task:01knap3yd0dnrzxxy3wkh289xd",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap55wwmpdm6y6chs1xmjwf:depends-on:coord-task:01knap46bm44w78g4yv1yvdjy8",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap55wwmpdm6y6chs1xmjwf",
-        "to": "coord-task:01knap46bm44w78g4yv1yvdjy8",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap5b9wj7mjf6f71wv2natz:depends-on:coord-task:01knap3rke481tw24nh4z5g8ak",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap5b9wj7mjf6f71wv2natz",
-        "to": "coord-task:01knap3rke481tw24nh4z5g8ak",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap5b9wj7mjf6f71wv2natz:depends-on:coord-task:01knap3yd0dnrzxxy3wkh289xd",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap5b9wj7mjf6f71wv2natz",
-        "to": "coord-task:01knap3yd0dnrzxxy3wkh289xd",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap5many6kf2v5td7ka8gjm:depends-on:coord-task:01knap3rke481tw24nh4z5g8ak",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap5many6kf2v5td7ka8gjm",
-        "to": "coord-task:01knap3rke481tw24nh4z5g8ak",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap5many6kf2v5td7ka8gjm:depends-on:coord-task:01knap5b9wj7mjf6f71wv2natz",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap5many6kf2v5td7ka8gjm",
-        "to": "coord-task:01knap5b9wj7mjf6f71wv2natz",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap5vj9ptbdhevycdp3pdh8:depends-on:coord-task:01knap5b9wj7mjf6f71wv2natz",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap5vj9ptbdhevycdp3pdh8",
-        "to": "coord-task:01knap5b9wj7mjf6f71wv2natz",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap64p8w9xtz3vr5nx0g1rm:depends-on:coord-task:01knap46bm44w78g4yv1yvdjy8",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap64p8w9xtz3vr5nx0g1rm",
-        "to": "coord-task:01knap46bm44w78g4yv1yvdjy8",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap64p8w9xtz3vr5nx0g1rm:depends-on:coord-task:01knap4jw93afme0z6mbxj18qf",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap64p8w9xtz3vr5nx0g1rm",
-        "to": "coord-task:01knap4jw93afme0z6mbxj18qf",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap64p8w9xtz3vr5nx0g1rm:depends-on:coord-task:01knap4tnhjq47qrwd49mm0b78",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap64p8w9xtz3vr5nx0g1rm",
-        "to": "coord-task:01knap4tnhjq47qrwd49mm0b78",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap64p8w9xtz3vr5nx0g1rm:depends-on:coord-task:01knap509dzfc7hzj7eafyf2hd",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap64p8w9xtz3vr5nx0g1rm",
-        "to": "coord-task:01knap509dzfc7hzj7eafyf2hd",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap64p8w9xtz3vr5nx0g1rm:depends-on:coord-task:01knap55wwmpdm6y6chs1xmjwf",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap64p8w9xtz3vr5nx0g1rm",
-        "to": "coord-task:01knap55wwmpdm6y6chs1xmjwf",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap64p8w9xtz3vr5nx0g1rm:depends-on:coord-task:01knap5many6kf2v5td7ka8gjm",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap64p8w9xtz3vr5nx0g1rm",
-        "to": "coord-task:01knap5many6kf2v5td7ka8gjm",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap6dbtj1v4aq8gwbr9dy1x:depends-on:coord-task:01knap46bm44w78g4yv1yvdjy8",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap6dbtj1v4aq8gwbr9dy1x",
-        "to": "coord-task:01knap46bm44w78g4yv1yvdjy8",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap6dbtj1v4aq8gwbr9dy1x:depends-on:coord-task:01knap4jw93afme0z6mbxj18qf",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap6dbtj1v4aq8gwbr9dy1x",
-        "to": "coord-task:01knap4jw93afme0z6mbxj18qf",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap6dbtj1v4aq8gwbr9dy1x:depends-on:coord-task:01knap4tnhjq47qrwd49mm0b78",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap6dbtj1v4aq8gwbr9dy1x",
-        "to": "coord-task:01knap4tnhjq47qrwd49mm0b78",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap6dbtj1v4aq8gwbr9dy1x:depends-on:coord-task:01knap509dzfc7hzj7eafyf2hd",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap6dbtj1v4aq8gwbr9dy1x",
-        "to": "coord-task:01knap509dzfc7hzj7eafyf2hd",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap6dbtj1v4aq8gwbr9dy1x:depends-on:coord-task:01knap55wwmpdm6y6chs1xmjwf",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap6dbtj1v4aq8gwbr9dy1x",
-        "to": "coord-task:01knap55wwmpdm6y6chs1xmjwf",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap6dbtj1v4aq8gwbr9dy1x:depends-on:coord-task:01knap5b9wj7mjf6f71wv2natz",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap6dbtj1v4aq8gwbr9dy1x",
-        "to": "coord-task:01knap5b9wj7mjf6f71wv2natz",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap6dbtj1v4aq8gwbr9dy1x:depends-on:coord-task:01knap5many6kf2v5td7ka8gjm",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap6dbtj1v4aq8gwbr9dy1x",
-        "to": "coord-task:01knap5many6kf2v5td7ka8gjm",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap6dbtj1v4aq8gwbr9dy1x:depends-on:coord-task:01knap5vj9ptbdhevycdp3pdh8",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap6dbtj1v4aq8gwbr9dy1x",
-        "to": "coord-task:01knap5vj9ptbdhevycdp3pdh8",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knap6dbtj1v4aq8gwbr9dy1x:depends-on:coord-task:01knap64p8w9xtz3vr5nx0g1rm",
-        "plan_id": "plan:01knap36apc42jgrq3w7k300yz",
-        "from": "coord-task:01knap6dbtj1v4aq8gwbr9dy1x",
-        "to": "coord-task:01knap64p8w9xtz3vr5nx0g1rm",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      }
-    ]
+    "edges": []
   },
-  "executionOverlays": []
+  "executionOverlays": [
+    {
+      "node_id": "coord-task:01knaqpp6mxkybk88n72frrq4p",
+      "pending_handoff_to": null,
+      "session": "session:01knaqn8dn48pczz5e1jzg2tzt",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/task/shared-coordination-refs-gaps",
+      "effective_assignee": null,
+      "awaiting_handoff_from": null,
+      "git_execution": {
+        "status": "published",
+        "pendingTaskStatus": null,
+        "sourceRef": "task/shared-coordination-refs-gaps",
+        "targetRef": "origin/main",
+        "publishRef": "task/shared-coordination-refs-gaps",
+        "targetBranch": "main",
+        "sourceCommit": "48eb67a2f0407b8e7f75390c7658b489ab0ba6ed",
+        "publishCommit": "36dcc32e69e0196b0b261f5223f89ed37e3ba39e",
+        "targetCommitAtPublish": "fe83a17a87055d6e904807dc298426f416db5da8",
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "integration_pending"
+      }
+    }
+  ]
 }

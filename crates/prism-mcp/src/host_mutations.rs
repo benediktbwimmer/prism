@@ -34,9 +34,9 @@ use serde_json::{json, Value};
 
 use crate::dashboard_events::MutationRun;
 use crate::git_execution::{
-    commit_paths, head_commit, prism_managed_paths, push_current_branch,
-    restore_prism_managed_paths, restore_prism_managed_roots, run_preflight, user_dirty_paths,
-    worktree_dirty_paths,
+    commit_paths, head_commit, integration_status_after_publish, prism_managed_paths,
+    push_current_branch, restore_prism_managed_paths, restore_prism_managed_roots,
+    run_preflight, user_dirty_paths, verify_target_integration, worktree_dirty_paths,
 };
 use crate::MutationProvenance;
 use crate::{
@@ -76,8 +76,8 @@ use crate::{
     SessionState, SparsePatch, SparsePatchInput, TaskCreatePayload, TaskReclaimPayload,
     TaskResumePayload, ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
     ValidationFeedbackVerdictInput, WorkDeclarationKindInput, WorkDeclarationResult,
-    WorkflowStatusInput, WorkflowUpdatePayload, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+    WorkflowStatusInput, WorkflowUpdatePayload, GitIntegrationStatusInput,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
 use crate::{merge_plan_scheduling_payload, merge_policy_payload};
 
@@ -189,6 +189,117 @@ fn coordination_status_bypasses_git_execution(status: prism_ir::CoordinationTask
             | prism_ir::CoordinationTaskStatus::Validating
             | prism_ir::CoordinationTaskStatus::Completed
     )
+}
+
+fn convert_git_integration_status(
+    value: GitIntegrationStatusInput,
+) -> prism_ir::GitIntegrationStatus {
+    match value {
+        GitIntegrationStatusInput::NotStarted => prism_ir::GitIntegrationStatus::NotStarted,
+        GitIntegrationStatusInput::PublishedToBranch => {
+            prism_ir::GitIntegrationStatus::PublishedToBranch
+        }
+        GitIntegrationStatusInput::IntegrationPending => {
+            prism_ir::GitIntegrationStatus::IntegrationPending
+        }
+        GitIntegrationStatusInput::IntegrationInProgress => {
+            prism_ir::GitIntegrationStatus::IntegrationInProgress
+        }
+        GitIntegrationStatusInput::IntegratedToTarget => {
+            prism_ir::GitIntegrationStatus::IntegratedToTarget
+        }
+        GitIntegrationStatusInput::IntegrationFailed => {
+            prism_ir::GitIntegrationStatus::IntegrationFailed
+        }
+    }
+}
+
+fn integration_status_requires_review_artifact(
+    mode: prism_ir::GitIntegrationMode,
+    status: prism_ir::GitIntegrationStatus,
+) -> bool {
+    matches!(
+        (mode, status),
+        (
+            prism_ir::GitIntegrationMode::ManualPr | prism_ir::GitIntegrationMode::AutoPr,
+            prism_ir::GitIntegrationStatus::IntegrationInProgress
+                | prism_ir::GitIntegrationStatus::IntegratedToTarget
+        )
+    )
+}
+
+fn updated_task_git_execution(
+    root: Option<&std::path::Path>,
+    previous: &TaskGitExecution,
+    integration_status: Option<prism_ir::GitIntegrationStatus>,
+    review_artifact_ref: Option<Option<String>>,
+    integration_commit: Option<Option<String>>,
+) -> Result<Option<TaskGitExecution>> {
+    if integration_status.is_none() && review_artifact_ref.is_none() && integration_commit.is_none()
+    {
+        return Ok(None);
+    }
+
+    let mut next = previous.clone();
+    if let Some(review_artifact_ref) = review_artifact_ref {
+        next.review_artifact_ref = review_artifact_ref;
+    }
+    if let Some(integration_commit) = integration_commit {
+        next.integration_commit = integration_commit;
+    }
+
+    let resolved_status = integration_status.unwrap_or(next.integration_status);
+    if integration_status_requires_review_artifact(next.integration_mode, resolved_status)
+        && next.review_artifact_ref.is_none()
+    {
+        return Err(anyhow!(
+            "integration status `{resolved_status:?}` requires a review artifact for integration mode `{}`",
+            format!("{:?}", next.integration_mode).to_ascii_lowercase()
+        ));
+    }
+    if matches!(
+        resolved_status,
+        prism_ir::GitIntegrationStatus::PublishedToBranch
+            | prism_ir::GitIntegrationStatus::IntegrationPending
+            | prism_ir::GitIntegrationStatus::IntegrationInProgress
+            | prism_ir::GitIntegrationStatus::IntegratedToTarget
+            | prism_ir::GitIntegrationStatus::IntegrationFailed
+    ) {
+        if next.publish_commit.is_none() {
+            return Err(anyhow!(
+                "cannot record target integration lifecycle before branch publication is recorded"
+            ));
+        }
+        if next.target_ref.is_none() {
+            return Err(anyhow!(
+                "cannot record target integration lifecycle without a configured target ref"
+            ));
+        }
+    }
+
+    if resolved_status == prism_ir::GitIntegrationStatus::IntegratedToTarget {
+        let root = root.ok_or_else(|| {
+            anyhow!("coordination task integration verification requires a workspace root")
+        })?;
+        let publish_commit = next
+            .publish_commit
+            .as_deref()
+            .ok_or_else(|| anyhow!("integrated_to_target requires a recorded publish commit"))?;
+        let target_ref = next
+            .target_ref
+            .as_deref()
+            .ok_or_else(|| anyhow!("integrated_to_target requires a configured target ref"))?;
+        let verified_commit = verify_target_integration(
+            root,
+            publish_commit,
+            target_ref,
+            next.integration_commit.as_deref(),
+        )?;
+        next.integration_commit = Some(verified_commit);
+    }
+
+    next.integration_status = resolved_status;
+    Ok(Some(next))
 }
 
 fn plan_node_status_bypasses_git_execution(status: prism_ir::PlanNodeStatus) -> bool {
@@ -2343,7 +2454,7 @@ impl QueryHost {
                         prism_ir::GitExecutionStatus::Published,
                         None,
                         Some(published.clone()),
-                        prism_ir::GitIntegrationStatus::PublishedToBranch,
+                        integration_status_after_publish(policy.integration_mode),
                     ),
                 )?;
                 let final_authoritative_paths = worktree_dirty_paths(root)?;
@@ -3055,9 +3166,15 @@ impl QueryHost {
                     priority,
                     tags,
                     completion_context,
+                    review_artifact_ref,
+                    integration_commit,
+                    integration_status,
                 } = payload;
                 match resolve_workflow_update_target(prism, &id)? {
                     WorkflowUpdateTarget::CoordinationTask(task_id) => {
+                        let current_task = prism
+                            .coordination_task(&task_id)
+                            .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))?;
                         let summary = match parse_sparse_patch(summary, "summary")? {
                             SparsePatch::Keep => None,
                             SparsePatch::Set(value) => Some(Some(value)),
@@ -3069,11 +3186,25 @@ impl QueryHost {
                             SparsePatch::Clear => Some(None),
                         };
                         let status = status.map(convert_workflow_status_for_task).transpose()?;
+                        let integration_status =
+                            integration_status.map(convert_git_integration_status);
                         let assignee = match parse_sparse_patch(assignee, "assignee")? {
                             SparsePatch::Keep => None,
                             SparsePatch::Set(value) => Some(Some(AgentId::new(value))),
                             SparsePatch::Clear => Some(None),
                         };
+                        let review_artifact_ref =
+                            match parse_sparse_patch(review_artifact_ref, "reviewArtifactRef")? {
+                                SparsePatch::Keep => None,
+                                SparsePatch::Set(value) => Some(Some(value)),
+                                SparsePatch::Clear => Some(None),
+                            };
+                        let integration_commit =
+                            match parse_sparse_patch(integration_commit, "integrationCommit")? {
+                                SparsePatch::Keep => None,
+                                SparsePatch::Set(value) => Some(Some(value)),
+                                SparsePatch::Clear => Some(None),
+                            };
                         let task_anchors = anchors
                             .clone()
                             .map(|anchors| {
@@ -3104,6 +3235,13 @@ impl QueryHost {
                                         required_validations: risk.likely_validations,
                                     })
                             });
+                        let git_execution = updated_task_git_execution(
+                            workspace_root,
+                            &current_task.git_execution,
+                            integration_status,
+                            review_artifact_ref,
+                            integration_commit,
+                        )?;
                         let task = prism.update_native_task(
                             meta,
                             TaskUpdateInput {
@@ -3111,7 +3249,7 @@ impl QueryHost {
                                 kind: kind.map(convert_plan_node_kind),
                                 status,
                                 published_task_status: None,
-                                git_execution: None,
+                                git_execution,
                                 assignee,
                                 session: None,
                                 worktree_id: None,

@@ -63,7 +63,7 @@
         "kind": "Edit",
         "title": "Audit and simplify or disable the old shared-runtime versus local-runtime split in daemon startup and runtime wiring",
         "summary": null,
-        "status": "Ready",
+        "status": "Completed",
         "bindings": {
           "anchors": [],
           "concept_handles": [],
@@ -76,7 +76,7 @@
         "is_abstract": false,
         "assignee": null,
         "base_revision": {
-          "graph_version": 152,
+          "graph_version": 1197,
           "git_commit": null
         },
         "priority": null,
@@ -89,7 +89,7 @@
         "kind": "Edit",
         "title": "Add shared coordination runtime descriptors for live runtime discovery and capability advertisement",
         "summary": null,
-        "status": "Ready",
+        "status": "Completed",
         "bindings": {
           "anchors": [],
           "concept_handles": [],
@@ -102,7 +102,7 @@
         "is_abstract": false,
         "assignee": null,
         "base_revision": {
-          "graph_version": 152,
+          "graph_version": 1215,
           "git_commit": null
         },
         "priority": null,
@@ -115,7 +115,7 @@
         "kind": "Edit",
         "title": "Implement authenticated capability-scoped bounded peer runtime reads on local or trusted-network transport",
         "summary": null,
-        "status": "Ready",
+        "status": "InProgress",
         "bindings": {
           "anchors": [],
           "concept_handles": [],
@@ -128,7 +128,7 @@
         "is_abstract": false,
         "assignee": null,
         "base_revision": {
-          "graph_version": 152,
+          "graph_version": 1215,
           "git_commit": null
         },
         "priority": null,
@@ -164,6 +164,15 @@
     ],
     "edges": [
       {
+        "id": "plan-edge:coord-task:01kna8v52e247h2xymfv8ksdb0:depends-on:coord-task:01kna8v02c0p53pdfckcyq0vaw",
+        "plan_id": "plan:01kna8sczaf3vhy8q6erq4fdvr",
+        "from": "coord-task:01kna8v52e247h2xymfv8ksdb0",
+        "to": "coord-task:01kna8v02c0p53pdfckcyq0vaw",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
         "id": "plan-edge:coord-task:01kna8tv5khkd6ypdg9q6dfs87:depends-on:coord-task:01kna8tgf7s523e5edfv0gc0v9",
         "plan_id": "plan:01kna8sczaf3vhy8q6erq4fdvr",
         "from": "coord-task:01kna8tv5khkd6ypdg9q6dfs87",
@@ -180,17 +189,81 @@
         "kind": "DependsOn",
         "summary": null,
         "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01kna8v52e247h2xymfv8ksdb0:depends-on:coord-task:01kna8v02c0p53pdfckcyq0vaw",
-        "plan_id": "plan:01kna8sczaf3vhy8q6erq4fdvr",
-        "from": "coord-task:01kna8v52e247h2xymfv8ksdb0",
-        "to": "coord-task:01kna8v02c0p53pdfckcyq0vaw",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
       }
     ]
   },
-  "executionOverlays": []
+  "executionOverlays": [
+    {
+      "node_id": "coord-task:01kna8tgf7s523e5edfv0gc0v9",
+      "pending_handoff_to": null,
+      "session": "session:01kna8scypb498f69mxt571365",
+      "worktree_id": "worktree:5820c89d186523db",
+      "branch_ref": "refs/heads/task/shared-refs-federated-runtime-planning",
+      "effective_assignee": null,
+      "awaiting_handoff_from": null,
+      "git_execution": {
+        "status": "published",
+        "pendingTaskStatus": null,
+        "sourceRef": "task/federated-runtime-implementation",
+        "targetRef": "origin/main",
+        "publishRef": "task/federated-runtime-implementation",
+        "targetBranch": "main",
+        "sourceCommit": null,
+        "publishCommit": null,
+        "targetCommitAtPublish": null,
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "not_started"
+      }
+    },
+    {
+      "node_id": "coord-task:01kna8tv5khkd6ypdg9q6dfs87",
+      "pending_handoff_to": null,
+      "session": "session:01kna8scypb498f69mxt571365",
+      "worktree_id": "worktree:5820c89d186523db",
+      "branch_ref": "refs/heads/task/shared-refs-federated-runtime-planning",
+      "effective_assignee": null,
+      "awaiting_handoff_from": null,
+      "git_execution": {
+        "status": "published",
+        "pendingTaskStatus": null,
+        "sourceRef": "task/federated-runtime-implementation",
+        "targetRef": "origin/main",
+        "publishRef": "task/federated-runtime-implementation",
+        "targetBranch": "main",
+        "sourceCommit": null,
+        "publishCommit": null,
+        "targetCommitAtPublish": null,
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "not_started"
+      }
+    },
+    {
+      "node_id": "coord-task:01kna8v02c0p53pdfckcyq0vaw",
+      "pending_handoff_to": null,
+      "session": "session:01kna8scypb498f69mxt571365",
+      "worktree_id": "worktree:5820c89d186523db",
+      "branch_ref": "refs/heads/task/shared-refs-federated-runtime-planning",
+      "effective_assignee": null,
+      "awaiting_handoff_from": null,
+      "git_execution": {
+        "status": "in_progress",
+        "pendingTaskStatus": null,
+        "sourceRef": "task/federated-runtime-implementation",
+        "targetRef": "origin/main",
+        "publishRef": "task/federated-runtime-implementation",
+        "targetBranch": "main",
+        "sourceCommit": null,
+        "publishCommit": null,
+        "targetCommitAtPublish": null,
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "not_started"
+      }
+    }
+  ]
 }

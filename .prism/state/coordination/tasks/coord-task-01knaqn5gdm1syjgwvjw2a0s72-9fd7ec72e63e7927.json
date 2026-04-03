@@ -1,10 +1,10 @@
 {
-  "id": "coord-task:01knanpf1an4c1r36a2bpep0de",
-  "plan": "plan:01knannez4esfee0qx0yskagbe",
+  "id": "coord-task:01knaqn5gdm1syjgwvjw2a0s72",
+  "plan": "plan:01knaqm4jgp5r12ee485ramvxe",
   "kind": "Edit",
-  "title": "Wire assurance provenance, inspection surfaces, and legacy migration",
-  "summary": "Persist bootstrap assurance on roots and lineage, surface it in CLI/MCP auth inspection, and add a clear migration path that records legacy roots honestly instead of silently upgrading them.",
-  "status": "Ready",
+  "title": "Extend merge-driver coverage for snapshot-era derived PRISM artifacts",
+  "summary": "Implementing the snapshot-derived merge-driver coverage and managed git-attributes expansion for tracked snapshot outputs.",
+  "status": "Completed",
   "published_task_status": null,
   "assignee": null,
   "pending_handoff_to": null,
@@ -25,27 +25,21 @@
     "outcome_refs": []
   },
   "depends_on": [
-    "coord-task:01knanny5sqedpzn8jzfk9mzpz",
-    "coord-task:01knanp4706nc8ty9z1qzfjy1s",
-    "coord-task:01knanp9q855k55awdbrckvr1j"
+    "coord-task:01knaqmkjbz69aka2dzh8yhyke"
   ],
   "acceptance": [
     {
-      "label": "Root bootstrap provenance exposes high, moderate, or legacy assurance in auth inspection and audit surfaces.",
-      "anchors": []
-    },
-    {
-      "label": "Legacy roots migrate with explicit assurance labeling rather than being treated as externally attested.",
+      "label": "Snapshot-era generated PRISM docs and other merge-safe derived artifacts are covered by managed git attributes and merge-driver behavior, while authoritative signed manifests remain excluded from naive text merges.",
       "anchors": []
     }
   ],
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 162,
+    "graph_version": 171,
     "git_commit": null
   },
-  "priority": 94,
+  "priority": null,
   "tags": [],
   "metadata": null,
   "git_execution": {
@@ -55,6 +49,13 @@
     "targetRef": null,
     "publishRef": null,
     "targetBranch": null,
+    "sourceCommit": null,
+    "publishCommit": null,
+    "targetCommitAtPublish": null,
+    "reviewArtifactRef": null,
+    "integrationCommit": null,
+    "integrationMode": "external",
+    "integrationStatus": "not_started",
     "lastPreflight": null,
     "lastPublish": null
   }

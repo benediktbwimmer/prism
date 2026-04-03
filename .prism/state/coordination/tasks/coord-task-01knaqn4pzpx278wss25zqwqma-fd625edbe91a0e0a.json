@@ -1,10 +1,10 @@
 {
-  "id": "coord-task:01knannsnntbnbg3pm51nacctc",
-  "plan": "plan:01knannez4esfee0qx0yskagbe",
-  "kind": "Decide",
-  "title": "Define bootstrap authority, issuer trust, and assurance model",
-  "summary": "Lock the implementation contract for external bootstrap attestations, trusted issuers, assurance levels, consumed-attestation tracking, and the exact boundary between bootstrap, recovery, and normal principal minting.",
-  "status": "Ready",
+  "id": "coord-task:01knaqn4pzpx278wss25zqwqma",
+  "plan": "plan:01knaqm4jgp5r12ee485ramvxe",
+  "kind": "Edit",
+  "title": "Auto-install PRISM repo git support on first attach",
+  "summary": null,
+  "status": "Completed",
   "published_task_status": null,
   "assignee": null,
   "pending_handoff_to": null,
@@ -24,20 +24,22 @@
     "memory_refs": [],
     "outcome_refs": []
   },
-  "depends_on": [],
+  "depends_on": [
+    "coord-task:01knaqmkjbz69aka2dzh8yhyke"
+  ],
   "acceptance": [
     {
-      "label": "Bootstrap authority, recovery, issuer trust, and assurance semantics are explicit enough to implement without re-opening the trust model.",
+      "label": "A repo that first attaches to PRISM gets managed git support installed automatically without requiring a separate manual command, and the hook is safe for normal arbitrary repos.",
       "anchors": []
     }
   ],
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 162,
+    "graph_version": 171,
     "git_commit": null
   },
-  "priority": 100,
+  "priority": null,
   "tags": [],
   "metadata": null,
   "git_execution": {
@@ -47,6 +49,13 @@
     "targetRef": null,
     "publishRef": null,
     "targetBranch": null,
+    "sourceCommit": null,
+    "publishCommit": null,
+    "targetCommitAtPublish": null,
+    "reviewArtifactRef": null,
+    "integrationCommit": null,
+    "integrationMode": "external",
+    "integrationStatus": "not_started",
     "lastPreflight": null,
     "lastPublish": null
   }

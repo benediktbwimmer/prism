@@ -1,8 +1,8 @@
 {
-  "id": "coord-task:01kna8tv5khkd6ypdg9q6dfs87",
-  "plan": "plan:01kna8sczaf3vhy8q6erq4fdvr",
+  "id": "coord-task:01knaqn6kmcv0347syd3zxjvk2",
+  "plan": "plan:01knaqm4jgp5r12ee485ramvxe",
   "kind": "Edit",
-  "title": "Add shared coordination runtime descriptors for live runtime discovery and capability advertisement",
+  "title": "Add explicit snapshot repair and regeneration commands for merge and rebase conflicts",
   "summary": null,
   "status": "Completed",
   "published_task_status": null,
@@ -25,13 +25,18 @@
     "outcome_refs": []
   },
   "depends_on": [
-    "coord-task:01kna8tgf7s523e5edfv0gc0v9"
+    "coord-task:01knaqmkjbz69aka2dzh8yhyke"
   ],
-  "acceptance": [],
+  "acceptance": [
+    {
+      "label": "PRISM exposes a first-class repair path that can rebuild snapshot-era manifests and derived docs/indexes from the merged snapshot state instead of requiring manual conflict surgery.",
+      "anchors": []
+    }
+  ],
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1215,
+    "graph_version": 171,
     "git_commit": null
   },
   "priority": null,

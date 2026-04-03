@@ -1,10 +1,10 @@
 {
-  "id": "coord-task:01knanp4706nc8ty9z1qzfjy1s",
-  "plan": "plan:01knannez4esfee0qx0yskagbe",
+  "id": "coord-task:01knaqmkjbz69aka2dzh8yhyke",
+  "plan": "plan:01knaqm4jgp5r12ee485ramvxe",
   "kind": "Edit",
-  "title": "Implement attestation verification with GitHub high assurance and SSH moderate assurance",
-  "summary": "Add issuer abstraction, attestation verification, explicit assurance levels, GitHub-backed device-flow bootstrap as the preferred high-assurance path, and SSH/GPG signing as a clearly labeled moderate-assurance fallback.",
-  "status": "Ready",
+  "title": "Audit current git-support and snapshot artifact conflict classes",
+  "summary": null,
+  "status": "Completed",
   "published_task_status": null,
   "assignee": null,
   "pending_handoff_to": null,
@@ -24,26 +24,20 @@
     "memory_refs": [],
     "outcome_refs": []
   },
-  "depends_on": [
-    "coord-task:01knannsnntbnbg3pm51nacctc"
-  ],
+  "depends_on": [],
   "acceptance": [
     {
-      "label": "GitHub-backed bootstrap attestations can mint a human root with high assurance provenance.",
-      "anchors": []
-    },
-    {
-      "label": "SSH/GPG-backed bootstrap attestations remain supported as moderate assurance and are surfaced honestly in provenance.",
+      "label": "The implementation boundary is explicit: which files get normal merge, which get derived merge-driver handling, which require regenerate-and-sign repair, and where auto-install should hook into attach/startup flows.",
       "anchors": []
     }
   ],
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 162,
+    "graph_version": 171,
     "git_commit": null
   },
-  "priority": 97,
+  "priority": null,
   "tags": [],
   "metadata": null,
   "git_execution": {
@@ -53,6 +47,13 @@
     "targetRef": null,
     "publishRef": null,
     "targetBranch": null,
+    "sourceCommit": null,
+    "publishCommit": null,
+    "targetCommitAtPublish": null,
+    "reviewArtifactRef": null,
+    "integrationCommit": null,
+    "integrationMode": "external",
+    "integrationStatus": "not_started",
     "lastPreflight": null,
     "lastPublish": null
   }
