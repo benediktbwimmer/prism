@@ -1,18 +1,23 @@
 {
   "version": 1,
-  "publishedAt": 1775229135,
+  "publishedAt": 1775229997,
   "publisher": {
     "principalAuthorityId": "local-daemon",
     "principalId": "principal:tracked-changes-rewrite:01kn9y81k21524vwvyy9y7nhbn",
     "credentialId": "credential:01kn9y81k22x2tnr12cszr628e"
   },
   "workContext": {
-    "workId": "coord-task:01kn9xt9h76645shp4jcmt0bsv",
+    "workId": "coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j",
     "kind": "coordination",
-    "title": "Lock the tracked changes removal contract and commit-history trust boundary",
-    "coordinationTaskId": "coord-task:01kn9xt9h76645shp4jcmt0bsv",
+    "title": "Implement manifest publishSummary and structured publish metadata without tracked changes history",
+    "summary": "Extend the tracked snapshot manifest so durable publish context lives there instead of in tracked change history, including a concise `publishSummary` and any required structured publish metadata for principal, work, and continuity.",
+    "coordinationTaskId": "coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j",
     "planId": "plan:01kn9xsvp1a376w7xmq08gn4nh",
     "planTitle": "Remove tracked changes from .prism state and rely on signed commit history plus manifest metadata"
+  },
+  "publishSummary": {
+    "title": "Implement manifest publishSummary and structured publish metadata without tracked changes history",
+    "summary": "Extend the tracked snapshot manifest so durable publish context lives there instead of in tracked change history, including a concise `publishSummary` and any required structured publish metadata for principal, work, and continuity."
   },
   "files": {
     ".prism/state/changes/outcome-01kn9mwxnr13aw4tjsp19xecrn-f23e661ac1f99fba.json": {
@@ -1505,7 +1510,7 @@
     },
     ".prism/state/coordination/tasks/coord-task-01kn9xtjh9ac4zwwfx2mbn9k0j-dd1c1887953b493c.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9xtjh9ac4zwwfx2mbn9k0j-dd1c1887953b493c.json",
-      "sha256": "sha256:34680ab5bb6a6a1483d4ac6de5ea23e929dfb0c5b2a3dfe9eca9e957852585af"
+      "sha256": "sha256:180e7e4cd87cc5ac8ac65f374c4629edb68a2e94cc58e0578f893c15c7beae8a"
     },
     ".prism/state/coordination/tasks/coord-task-01kn9xtsf57cqfxa0a7hd2wsx8-8f33405002315284.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9xtsf57cqfxa0a7hd2wsx8-8f33405002315284.json",
@@ -1621,7 +1626,7 @@
     },
     ".prism/state/indexes/coordination_tasks.json": {
       "path": ".prism/state/indexes/coordination_tasks.json",
-      "sha256": "sha256:38212876dbdb318cc70081207e795a5bc5ce373804f5d9810291142ce7a145df"
+      "sha256": "sha256:6e43be41fb455d9a7125b4986f0274906e862f2b986ea9555fcaabfe36279e1c"
     },
     ".prism/state/indexes/plans.json": {
       "path": ".prism/state/indexes/plans.json",
@@ -1833,7 +1838,7 @@
     },
     ".prism/state/plans/plan-01kn9xsvp1a376w7xmq08gn4nh-36bad8e44d57f454.json": {
       "path": ".prism/state/plans/plan-01kn9xsvp1a376w7xmq08gn4nh-36bad8e44d57f454.json",
-      "sha256": "sha256:a08d7b2f2f1e57b5735470f4b80ec4551825ad01eeb5fa448a7e0a7239cb1ca3"
+      "sha256": "sha256:42f8f475195ab0f20d47e7e4e30c9a55e86ea6f1f91650a8b09af75e98564349"
     },
     ".prism/state/plans/plan-1-8fd52ae04f462646.json": {
       "path": ".prism/state/plans/plan-1-8fd52ae04f462646.json",
@@ -1864,13 +1869,13 @@
       "sha256": "sha256:25b396965686f9dc300002f26a9ba19c826a387a00b6e3ee799116d6a0f64457"
     }
   },
-  "previousManifestDigest": "sha256:cecf18da22779d0add00f0b9696b6ed7f69de85964d74b75be2cfef7725c02d4",
+  "previousManifestDigest": "sha256:e47a08d313b8ade618a0b93dad3b15513c5f48cc1a2be1835d552a32eab0d456",
   "migrationSourceDigest": "sha256:29be826a9e4869880d788dda166c588fd3513bcecc43c4b019205486a2115994",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:wc0EBkRLdHYfApSSSvbofkInh+jigEBxComDNkEspHrBXne3nLOEIJsAsMCnvWTK2ERdenxJo+tezgqsvntECA=="
+    "value": "base64:TTr0DlLOtrdxEm/llKWH6rsBudOBmxuu6NCQJWl1YkRgR1itpNiacz6IhQNj+68buB0ZB9shtim+dQLkuenoBw=="
   }
 }

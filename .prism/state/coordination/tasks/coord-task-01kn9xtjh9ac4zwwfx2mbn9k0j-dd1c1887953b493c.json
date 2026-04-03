@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Implement manifest publishSummary and structured publish metadata without tracked changes history",
   "summary": "Extend the tracked snapshot manifest so durable publish context lives there instead of in tracked change history, including a concise `publishSummary` and any required structured publish metadata for principal, work, and continuity.",
-  "status": "Ready",
+  "status": "Completed",
   "published_task_status": null,
   "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
   "pending_handoff_to": null,
@@ -40,7 +40,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1017,
+    "graph_version": 1025,
     "git_commit": null
   },
   "priority": 1,

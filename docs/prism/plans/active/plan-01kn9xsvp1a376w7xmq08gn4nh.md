@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:cbdb95359ae04b50eb17c8d28fe32509719e2b81c9b2147ece61cf46bd47ac5d`
+- Source head: `sha256:ef58ffc3997fae4291a13762bdd0e74d50769f270393a686f86c871f5ee877bf`
 - Source logical timestamp: `unknown`
 - Source snapshot: `6 nodes, 11 edges, 1 overlays`
 
@@ -64,7 +64,7 @@ Make shared runtime the sole owner of append-only change history, remove tracked
 
 - Node id: `coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`
 - Kind: `edit`
-- Status: `ready`
+- Status: `in_progress`
 - Summary: Extend the tracked snapshot manifest so durable publish context lives there instead of in tracked change history, including a concise `publishSummary` and any required structured publish metadata for principal, work, and continuity.
 - Priority: `1`
 - Assignee: `codex-runtime-storage-boundary-redesign-2026-04-01`
@@ -133,7 +133,6 @@ Make shared runtime the sole owner of append-only change history, remove tracked
 
 ## Edges
 
-- `plan-edge:coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j:depends-on:coord-task:01kn9xt9h76645shp4jcmt0bsv`: `coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j` depends on `coord-task:01kn9xt9h76645shp4jcmt0bsv`
 - `plan-edge:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8:depends-on:coord-task:01kn9xt9h76645shp4jcmt0bsv`: `coord-task:01kn9xtsf57cqfxa0a7hd2wsx8` depends on `coord-task:01kn9xt9h76645shp4jcmt0bsv`
 - `plan-edge:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8:depends-on:coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`: `coord-task:01kn9xtsf57cqfxa0a7hd2wsx8` depends on `coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`
 - `plan-edge:coord-task:01kn9xv2a54t54pbzbbremqrc7:depends-on:coord-task:01kn9xt9h76645shp4jcmt0bsv`: `coord-task:01kn9xv2a54t54pbzbbremqrc7` depends on `coord-task:01kn9xt9h76645shp4jcmt0bsv`
@@ -144,12 +143,12 @@ Make shared runtime the sole owner of append-only change history, remove tracked
 - `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`
 - `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xv2a54t54pbzbbremqrc7`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xv2a54t54pbzbbremqrc7`
 - `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xv8x94h8gwja48wahgsnb`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xv8x94h8gwja48wahgsnb`
+- `plan-edge:coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j:depends-on:coord-task:01kn9xt9h76645shp4jcmt0bsv`: `coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j` depends on `coord-task:01kn9xt9h76645shp4jcmt0bsv`
 
 ## Execution Overlays
 
 - Node: `coord-task:01kn9xt9h76645shp4jcmt0bsv`
-  git execution status: `publish_pending`
-  pending task status: `completed`
+  git execution status: `published`
   source ref: `task/prism-changes-state-rewrite`
   target ref: `origin/main`
   publish ref: `task/prism-changes-state-rewrite`
