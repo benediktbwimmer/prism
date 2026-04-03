@@ -54,6 +54,13 @@ struct SnapshotManifestFile {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct SnapshotRetiredAuthority {
+    authority: String,
+    digest: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct SnapshotManifestPublishSummary {
     title: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -84,6 +91,8 @@ struct SnapshotManifest {
     previous_manifest_digest: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     migration_source_digest: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    retired_authorities: Vec<SnapshotRetiredAuthority>,
     signature: SnapshotManifestSignature,
 }
 
@@ -98,6 +107,7 @@ struct SnapshotManifestSigningView<'a> {
     files: &'a BTreeMap<String, SnapshotManifestFile>,
     previous_manifest_digest: &'a Option<String>,
     migration_source_digest: &'a Option<String>,
+    retired_authorities: &'a [SnapshotRetiredAuthority],
     signature: SnapshotManifestSignatureMetadata<'a>,
 }
 
@@ -698,12 +708,6 @@ fn rebuild_artifact_index(root: &Path) -> Result<()> {
 
 fn refresh_manifest(root: &Path, publish: Option<&TrackedSnapshotPublishContext>) -> Result<()> {
     fs::create_dir_all(snapshot_root(root))?;
-    remove_obsolete_tracked_change_snapshot_artifacts(root)?;
-    let file_map = collect_snapshot_file_map(root)?;
-    if file_map.is_empty() {
-        remove_file_if_exists(&snapshot_manifest_path(root))?;
-        return Ok(());
-    }
     let previous_manifest = load_snapshot_manifest(root)?;
     let previous_manifest_digest = previous_manifest
         .as_ref()
@@ -716,6 +720,13 @@ fn refresh_manifest(root: &Path, publish: Option<&TrackedSnapshotPublishContext>
         Some(digest) => Some(digest),
         None => legacy_authoritative_migration_source_digest(root)?,
     };
+    let retired_authorities = retained_tracked_authority_digests(root, previous_manifest.as_ref())?;
+    remove_obsolete_tracked_change_snapshot_artifacts(root)?;
+    let file_map = collect_snapshot_file_map(root)?;
+    if file_map.is_empty() {
+        remove_file_if_exists(&snapshot_manifest_path(root))?;
+        return Ok(());
+    }
     let publish = publish
         .cloned()
         .or_else(|| {
@@ -750,6 +761,7 @@ fn refresh_manifest(root: &Path, publish: Option<&TrackedSnapshotPublishContext>
         files: file_map,
         previous_manifest_digest,
         migration_source_digest,
+        retired_authorities,
         signature: SnapshotManifestSignature {
             algorithm: ProtectedSignatureAlgorithm::Ed25519,
             runtime_authority_id: active_key.state.runtime_authority_id.clone(),
@@ -770,6 +782,7 @@ fn refresh_manifest(root: &Path, publish: Option<&TrackedSnapshotPublishContext>
                 files: &manifest.files,
                 previous_manifest_digest: &manifest.previous_manifest_digest,
                 migration_source_digest: &manifest.migration_source_digest,
+                retired_authorities: &manifest.retired_authorities,
                 signature: SnapshotManifestSignatureMetadata {
                     algorithm: manifest.signature.algorithm,
                     runtime_authority_id: &manifest.signature.runtime_authority_id,
@@ -792,6 +805,69 @@ fn remove_obsolete_tracked_change_snapshot_artifacts(root: &Path) -> Result<()> 
         })?;
     }
     remove_file_if_exists(&snapshot_indexes_dir(root).join("changes.json"))
+}
+
+fn retained_tracked_authority_digests(
+    root: &Path,
+    previous_manifest: Option<&SnapshotManifest>,
+) -> Result<Vec<SnapshotRetiredAuthority>> {
+    let mut retired = previous_manifest
+        .map(|manifest| manifest.retired_authorities.clone())
+        .unwrap_or_default();
+    if retired
+        .iter()
+        .any(|entry| entry.authority == "tracked_changes_snapshot")
+    {
+        return Ok(retired);
+    }
+    if let Some(digest) = tracked_changes_authority_digest(root)? {
+        retired.push(SnapshotRetiredAuthority {
+            authority: "tracked_changes_snapshot".to_string(),
+            digest,
+        });
+    }
+    Ok(retired)
+}
+
+fn tracked_changes_authority_digest(root: &Path) -> Result<Option<String>> {
+    let mut digests = BTreeMap::<String, String>::new();
+    let changes_dir = snapshot_changes_dir(root);
+    if changes_dir.exists() {
+        let mut paths = fs::read_dir(&changes_dir)
+            .with_context(|| format!("failed to read {}", changes_dir.display()))?
+            .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+            .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("json"))
+            .collect::<Vec<_>>();
+        paths.sort();
+        for path in paths {
+            let bytes =
+                fs::read(&path).with_context(|| format!("failed to read {}", path.display()))?;
+            digests.insert(
+                path.strip_prefix(root)
+                    .unwrap_or(path.as_path())
+                    .to_string_lossy()
+                    .replace('\\', "/"),
+                sha256_prefixed(&bytes),
+            );
+        }
+    }
+    let changes_index = snapshot_indexes_dir(root).join("changes.json");
+    if changes_index.exists() {
+        let bytes = fs::read(&changes_index)
+            .with_context(|| format!("failed to read {}", changes_index.display()))?;
+        digests.insert(
+            changes_index
+                .strip_prefix(root)
+                .unwrap_or(changes_index.as_path())
+                .to_string_lossy()
+                .replace('\\', "/"),
+            sha256_prefixed(&bytes),
+        );
+    }
+    if digests.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(sha256_prefixed(&canonical_json_bytes(&digests)?)))
 }
 
 fn canonical_manifest_digest(manifest: &SnapshotManifest) -> Result<String> {

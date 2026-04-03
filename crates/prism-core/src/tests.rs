@@ -2345,7 +2345,7 @@ fn repo_memory_events_round_trip_through_committed_jsonl_and_reload() {
 
     let mut entry = MemoryEntry::new(MemoryKind::Structural, "alpha ownership is shared memory");
     entry.id = MemoryId("structural:repo-test".to_string());
-    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.anchors = vec![AnchorRef::Node(alpha.clone())];
     entry.scope = MemoryScope::Repo;
     entry.source = MemorySource::User;
     entry.trust = 0.9;
@@ -2429,7 +2429,7 @@ fn repo_memory_reads_do_not_lazy_import_new_repo_events_after_startup() {
 
     let mut entry = MemoryEntry::new(MemoryKind::Structural, "published after startup");
     entry.id = MemoryId("structural:post-startup".to_string());
-    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.anchors = vec![AnchorRef::Node(alpha.clone())];
     entry.scope = MemoryScope::Repo;
     entry.source = MemorySource::User;
     entry.trust = 0.9;
@@ -2517,7 +2517,7 @@ fn protected_state_watcher_imports_repo_memory_without_source_refresh() {
 
     let mut entry = MemoryEntry::new(MemoryKind::Structural, "watched protected memory");
     entry.id = MemoryId("structural:watched-protected-memory".to_string());
-    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.anchors = vec![AnchorRef::Node(alpha.clone())];
     entry.scope = MemoryScope::Repo;
     entry.source = MemorySource::User;
     entry.trust = 0.9;
@@ -3111,7 +3111,7 @@ fn tracked_snapshot_refresh_removes_stale_change_shards_and_indexes_from_manifes
         "refresh tracked snapshot after stale change shards exist",
     );
     entry.id = MemoryId("structural:tracked-snapshot-stale-changes-cleanup".to_string());
-    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.anchors = vec![AnchorRef::Node(alpha.clone())];
     entry.scope = MemoryScope::Repo;
     entry.source = MemorySource::Agent;
     entry.trust = 0.9;
@@ -3141,6 +3141,54 @@ fn tracked_snapshot_refresh_removes_stale_change_shards_and_indexes_from_manifes
     assert!(files
         .keys()
         .all(|path| path != ".prism/state/indexes/changes.json"));
+    let retired = manifest["retiredAuthorities"]
+        .as_array()
+        .expect("retiredAuthorities should be present");
+    assert!(retired.iter().any(|entry| {
+        entry["authority"].as_str() == Some("tracked_changes_snapshot")
+            && entry["digest"].as_str().is_some()
+    }));
+    let tracked_changes_digest = retired
+        .iter()
+        .find(|entry| entry["authority"].as_str() == Some("tracked_changes_snapshot"))
+        .and_then(|entry| entry["digest"].as_str())
+        .expect("tracked changes retirement digest should be present")
+        .to_string();
+
+    let mut follow_up = MemoryEntry::new(
+        MemoryKind::Structural,
+        "follow up publish keeps tracked changes retirement continuity",
+    );
+    follow_up.id =
+        MemoryId("structural:tracked-snapshot-stale-changes-cleanup-follow-up".to_string());
+    follow_up.anchors = vec![AnchorRef::Node(alpha)];
+    follow_up.scope = MemoryScope::Repo;
+    follow_up.source = MemorySource::Agent;
+    follow_up.trust = 0.9;
+    let mut follow_up_event = MemoryEvent::from_entry(
+        MemoryEventKind::Promoted,
+        follow_up,
+        Some("task:tracked-snapshot-stale-changes-cleanup-follow-up".to_string()),
+        Vec::new(),
+        Vec::new(),
+    );
+    follow_up_event.actor = Some(EventActor::Agent);
+    append_repo_memory_event(&root, &follow_up_event).unwrap();
+
+    let refreshed: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join(".prism/state/manifest.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        refreshed["retiredAuthorities"]
+            .as_array()
+            .and_then(|entries| {
+                entries
+                    .iter()
+                    .find(|entry| entry["authority"].as_str() == Some("tracked_changes_snapshot"))
+                    .and_then(|entry| entry["digest"].as_str())
+            }),
+        Some(tracked_changes_digest.as_str())
+    );
 
     let _ = fs::remove_dir_all(root);
 }
