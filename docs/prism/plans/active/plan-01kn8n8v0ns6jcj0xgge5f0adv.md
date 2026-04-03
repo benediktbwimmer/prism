@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:1a06204170643778964d56e0232645fd5a8d5e6e02c548cdb1eca417aa7c4a43`
+- Source head: `sha256:573c2bc963815c740be913147a2fe805c41b7101e7e9204c49615ed25a233341`
 - Source logical timestamp: `unknown`
 - Source snapshot: `5 nodes, 5 edges, 0 overlays`
 
@@ -63,7 +63,7 @@ Finish the git execution policy feature by exposing policy surfaces clearly, sep
 
 - Node id: `coord-task:01kn8n9w0r3ydrfs64cdy58t12`
 - Kind: `edit`
-- Status: `ready`
+- Status: `in_progress`
 - Summary: Make publish intent, publish-pending, publish-failed, and publish-ack semantics explicit so strict require mode can guarantee repo-published `.prism` state is manually committed and verified without automatic git mutations.
 - Priority: `95`
 

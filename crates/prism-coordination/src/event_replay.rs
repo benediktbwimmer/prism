@@ -244,6 +244,15 @@ fn apply_task_patch(task: &mut CoordinationTask, metadata: &Value) {
             task.status = status;
         }
     }
+    if patch_is_set(metadata, "publishedTaskStatus")
+        || patch_is_clear(metadata, "publishedTaskStatus")
+    {
+        if let Some(published_task_status) =
+            metadata_optional_path(metadata, &["patchValues", "publishedTaskStatus"])
+        {
+            task.published_task_status = published_task_status;
+        }
+    }
     if patch_is_set(metadata, "gitExecution") {
         if let Some(git_execution) = metadata_path(metadata, &["patchValues", "gitExecution"]) {
             task.git_execution = git_execution;

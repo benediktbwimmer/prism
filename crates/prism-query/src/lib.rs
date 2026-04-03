@@ -599,6 +599,47 @@ impl Prism {
         }
     }
 
+    pub fn update_native_task_authoritative_only(
+        &self,
+        meta: EventMeta,
+        mut input: TaskUpdateInput,
+        current_revision: WorkspaceRevision,
+        now: u64,
+    ) -> Result<CoordinationTask> {
+        if let Some(context) = self.coordination_context() {
+            if matches!(input.session, Some(Some(_))) {
+                input.worktree_id = Some(Some(context.worktree_id));
+                input.branch_ref = Some(context.branch_ref);
+            } else if matches!(input.session, Some(None)) {
+                input.worktree_id = Some(None);
+                input.branch_ref = Some(None);
+            }
+        }
+        let (before_snapshot, snapshot, result) =
+            self.mutate_live_coordination_runtime(|runtime| {
+                runtime.update_task_authoritative_only(meta, input, current_revision, now)
+            });
+        match result {
+            Ok(task) => {
+                let plan = snapshot
+                    .plans
+                    .iter()
+                    .find(|plan| plan.id == task.plan)
+                    .cloned()
+                    .ok_or_else(|| anyhow!("unknown plan `{}`", task.plan.0))?;
+                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
+                    plan_runtime.update_task_and_plan_from_coordination(&task, &plan)?;
+                    Ok(task.clone())
+                })
+                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone()))
+            }
+            Err(error) => {
+                self.persist_coordination_snapshot(snapshot)?;
+                Err(error)
+            }
+        }
+    }
+
     pub fn request_native_handoff(
         &self,
         meta: EventMeta,

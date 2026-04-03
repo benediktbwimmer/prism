@@ -406,6 +406,7 @@ fn git_execution_policy_start_auto_creates_task_branch() {
         task.git_execution.status,
         prism_ir::GitExecutionStatus::InProgress
     );
+    assert_eq!(task.git_execution.target_ref.as_deref(), Some("main"));
     assert_ne!(
         task.git_execution
             .last_preflight
@@ -764,12 +765,25 @@ fn git_execution_policy_completion_require_publishes_after_manual_code_commit() 
             .and_then(|publish| publish.code_commit.as_deref()),
         Some(manual_commit.as_str())
     );
+    assert_eq!(task.git_execution.source_ref.as_deref(), Some(branch));
+    assert_eq!(task.git_execution.target_ref.as_deref(), Some("main"));
+    assert_eq!(task.git_execution.publish_ref.as_deref(), Some(branch));
     assert!(task
         .git_execution
         .last_publish
         .as_ref()
         .and_then(|publish| publish.coordination_commit.as_ref())
         .is_some());
+    assert!(task
+        .git_execution
+        .last_publish
+        .as_ref()
+        .map(
+            |publish| publish.staged_paths.iter().all(|path| path == "PRISM.md"
+                || path.starts_with(".prism/")
+                || path.starts_with("docs/prism/"))
+        )
+        .unwrap_or(false));
     assert_eq!(test_git(&root, &["status", "--short"]), "");
     assert_eq!(
         test_git(&root, &["rev-parse", "HEAD"]),

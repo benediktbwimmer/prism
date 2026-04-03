@@ -1591,12 +1591,18 @@ pub struct PlanExecutionOverlayView {
 pub struct GitExecutionOverlayView {
     pub status: GitExecutionStatus,
     pub pending_task_status: Option<CoordinationTaskStatus>,
+    pub source_ref: Option<String>,
+    pub target_ref: Option<String>,
+    pub publish_ref: Option<String>,
     pub target_branch: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct GitPreflightReportView {
+    pub source_ref: Option<String>,
+    pub target_ref: Option<String>,
+    pub publish_ref: Option<String>,
     pub checked_at: u64,
     pub target_branch: String,
     pub current_branch: Option<String>,
@@ -1614,6 +1620,7 @@ pub struct GitPreflightReportView {
 #[serde(rename_all = "camelCase")]
 pub struct GitPublishReportView {
     pub attempted_at: u64,
+    pub publish_ref: Option<String>,
     pub code_commit: Option<String>,
     pub coordination_commit: Option<String>,
     pub pushed_ref: Option<String>,
@@ -1627,6 +1634,9 @@ pub struct GitPublishReportView {
 pub struct TaskGitExecutionView {
     pub status: GitExecutionStatus,
     pub pending_task_status: Option<CoordinationTaskStatus>,
+    pub source_ref: Option<String>,
+    pub target_ref: Option<String>,
+    pub publish_ref: Option<String>,
     pub target_branch: Option<String>,
     pub last_preflight: Option<GitPreflightReportView>,
     pub last_publish: Option<GitPublishReportView>,
@@ -1746,6 +1756,7 @@ pub struct CoordinationTaskView {
     pub title: String,
     pub summary: Option<String>,
     pub status: CoordinationTaskStatus,
+    pub published_task_status: Option<CoordinationTaskStatus>,
     pub assignee: Option<String>,
     pub pending_handoff_to: Option<String>,
     pub anchors: Vec<AnchorRef>,

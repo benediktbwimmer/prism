@@ -138,6 +138,8 @@ pub struct CoordinationTask {
     #[serde(default)]
     pub summary: Option<String>,
     pub status: CoordinationTaskStatus,
+    #[serde(default)]
+    pub published_task_status: Option<CoordinationTaskStatus>,
     pub assignee: Option<AgentId>,
     #[serde(default)]
     pub pending_handoff_to: Option<AgentId>,
@@ -382,6 +384,7 @@ pub struct TaskUpdateInput {
     pub task_id: CoordinationTaskId,
     pub kind: Option<PlanNodeKind>,
     pub status: Option<CoordinationTaskStatus>,
+    pub published_task_status: Option<Option<CoordinationTaskStatus>>,
     pub git_execution: Option<TaskGitExecution>,
     pub assignee: Option<Option<AgentId>>,
     pub session: Option<Option<SessionId>>,

@@ -1366,6 +1366,9 @@ fn git_execution_overlay_view(value: prism_ir::GitExecutionOverlay) -> GitExecut
     GitExecutionOverlayView {
         status: value.status,
         pending_task_status: value.pending_task_status,
+        source_ref: value.source_ref,
+        target_ref: value.target_ref,
+        publish_ref: value.publish_ref,
         target_branch: value.target_branch,
     }
 }
@@ -1374,6 +1377,9 @@ fn git_preflight_report_view(
     value: prism_coordination::GitPreflightReport,
 ) -> GitPreflightReportView {
     GitPreflightReportView {
+        source_ref: value.source_ref,
+        target_ref: value.target_ref,
+        publish_ref: value.publish_ref,
         checked_at: value.checked_at,
         target_branch: value.target_branch,
         current_branch: value.current_branch,
@@ -1391,6 +1397,7 @@ fn git_preflight_report_view(
 fn git_publish_report_view(value: prism_coordination::GitPublishReport) -> GitPublishReportView {
     GitPublishReportView {
         attempted_at: value.attempted_at,
+        publish_ref: value.publish_ref,
         code_commit: value.code_commit,
         coordination_commit: value.coordination_commit,
         pushed_ref: value.pushed_ref,
@@ -1647,6 +1654,7 @@ pub(crate) fn coordination_task_view(
         title: value.title,
         summary: value.summary,
         status: value.status,
+        published_task_status: value.published_task_status,
         assignee: value.assignee.map(|agent| agent.0.to_string()),
         pending_handoff_to: value.pending_handoff_to.map(|agent| agent.0.to_string()),
         anchors: value.anchors,
@@ -1668,6 +1676,9 @@ pub(crate) fn coordination_task_view(
         git_execution: TaskGitExecutionView {
             status: value.git_execution.status,
             pending_task_status: value.git_execution.pending_task_status,
+            source_ref: value.git_execution.source_ref,
+            target_ref: value.git_execution.target_ref,
+            publish_ref: value.git_execution.publish_ref,
             target_branch: value.git_execution.target_branch,
             last_preflight: value
                 .git_execution

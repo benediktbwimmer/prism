@@ -40,6 +40,12 @@ pub struct GitExecutionPolicy {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct GitPreflightReport {
+    #[serde(default)]
+    pub source_ref: Option<String>,
+    #[serde(default)]
+    pub target_ref: Option<String>,
+    #[serde(default)]
+    pub publish_ref: Option<String>,
     pub checked_at: Timestamp,
     pub target_branch: String,
     #[serde(default)]
@@ -67,6 +73,8 @@ pub struct GitPreflightReport {
 pub struct GitPublishReport {
     pub attempted_at: Timestamp,
     #[serde(default)]
+    pub publish_ref: Option<String>,
+    #[serde(default)]
     pub code_commit: Option<String>,
     #[serde(default)]
     pub coordination_commit: Option<String>,
@@ -87,6 +95,12 @@ pub struct TaskGitExecution {
     pub status: prism_ir::GitExecutionStatus,
     #[serde(default)]
     pub pending_task_status: Option<CoordinationTaskStatus>,
+    #[serde(default)]
+    pub source_ref: Option<String>,
+    #[serde(default)]
+    pub target_ref: Option<String>,
+    #[serde(default)]
+    pub publish_ref: Option<String>,
     #[serde(default)]
     pub target_branch: Option<String>,
     #[serde(default)]

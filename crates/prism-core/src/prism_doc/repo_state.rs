@@ -4,8 +4,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use prism_ir::{
-    AcceptanceEvidencePolicy, PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanKind, PlanNode,
-    PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus,
+    AcceptanceEvidencePolicy, CoordinationTaskStatus, GitExecutionStatus, PlanEdgeKind,
+    PlanExecutionOverlay, PlanGraph, PlanKind, PlanNode, PlanNodeKind, PlanNodeStatus, PlanScope,
+    PlanStatus,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemoryEventKind, OutcomeEvent, OutcomeEvidence};
 use serde::Serialize;
@@ -579,6 +580,27 @@ fn render_plan_doc(plan: &PublishedPlanDoc) -> String {
             if let Some(node_id) = overlay.awaiting_handoff_from.as_ref() {
                 markdown.push_str(&format!("  awaiting handoff from: `{}`\n", node_id.0));
             }
+            if let Some(git_execution) = overlay.git_execution.as_ref() {
+                markdown.push_str(&format!(
+                    "  git execution status: `{}`\n",
+                    format_git_execution_status(git_execution.status)
+                ));
+                if let Some(status) = git_execution.pending_task_status {
+                    markdown.push_str(&format!(
+                        "  pending task status: `{}`\n",
+                        format_coordination_task_status(status)
+                    ));
+                }
+                if let Some(source_ref) = git_execution.source_ref.as_ref() {
+                    markdown.push_str(&format!("  source ref: `{}`\n", source_ref));
+                }
+                if let Some(target_ref) = git_execution.target_ref.as_ref() {
+                    markdown.push_str(&format!("  target ref: `{}`\n", target_ref));
+                }
+                if let Some(publish_ref) = git_execution.publish_ref.as_ref() {
+                    markdown.push_str(&format!("  publish ref: `{}`\n", publish_ref));
+                }
+            }
         }
         markdown.push('\n');
     }
@@ -977,6 +999,30 @@ fn format_plan_edge_kind(kind: PlanEdgeKind) -> &'static str {
         PlanEdgeKind::HandoffTo => "handoff to",
         PlanEdgeKind::ChildOf => "child of",
         PlanEdgeKind::RelatedTo => "related to",
+    }
+}
+
+fn format_git_execution_status(status: GitExecutionStatus) -> &'static str {
+    match status {
+        GitExecutionStatus::NotStarted => "not_started",
+        GitExecutionStatus::PreflightFailed => "preflight_failed",
+        GitExecutionStatus::InProgress => "in_progress",
+        GitExecutionStatus::PublishPending => "publish_pending",
+        GitExecutionStatus::PublishFailed => "publish_failed",
+        GitExecutionStatus::Published => "published",
+    }
+}
+
+fn format_coordination_task_status(status: CoordinationTaskStatus) -> &'static str {
+    match status {
+        CoordinationTaskStatus::Proposed => "proposed",
+        CoordinationTaskStatus::Ready => "ready",
+        CoordinationTaskStatus::InProgress => "in_progress",
+        CoordinationTaskStatus::Blocked => "blocked",
+        CoordinationTaskStatus::InReview => "in_review",
+        CoordinationTaskStatus::Validating => "validating",
+        CoordinationTaskStatus::Completed => "completed",
+        CoordinationTaskStatus::Abandoned => "abandoned",
     }
 }
 

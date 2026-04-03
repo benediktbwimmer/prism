@@ -8,14 +8,14 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:64680aaf43fda1938c864100c47db167085f1c4e325a97c94419f20d985aea43`
-- Source logical timestamp: `1775191460`
-- Source snapshot: `119 published patch events, 32 unique touched files`
+- Source head: `sha256:676a64d265c3746753da9bc02c500975d182597964661a38ece92fb9b301bb2d`
+- Source logical timestamp: `1775192127`
+- Source snapshot: `124 published patch events, 34 unique touched files`
 
 ## Overview
 
-- Published patch events: 119
-- Unique files touched: 32
+- Published patch events: 124
+- Unique files touched: 34
 
 ## Most Touched Files
 
@@ -23,10 +23,11 @@
 - `/Users/bene/code/prism-codex-d/crates/prism-core/src/tests.rs`: `6` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/git_execution.rs`: `6` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/host_mutations.rs`: `6` patch event(s)
-- `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/compat.rs`: `4` patch event(s)
+- `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/compat.rs`: `5` patch event(s)
+- `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/mutations.rs`: `5` patch event(s)
+- `/Users/bene/code/prism-codex-d/crates/prism-query/src/plan_runtime.rs`: `5` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/event_replay.rs`: `4` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/lib.rs`: `4` patch event(s)
-- `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/mutations.rs`: `4` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/tests.rs`: `4` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/types.rs`: `4` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-core/src/coordination_persistence.rs`: `4` patch event(s)
@@ -38,9 +39,53 @@
 - `/Users/bene/code/prism-codex-d/crates/prism-js/src/api_types.rs`: `4` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-js/src/query_surface.rs`: `4` patch event(s)
 - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/lib.rs`: `4` patch event(s)
-- `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/query_types.rs`: `4` patch event(s)
 
 ## Recent Published Patch Events
+
+### outcome:01kn8v4enx9k5jj7aeaeze4npz
+
+- Summary: observed file change: 0 added, 0 removed, 21 updated symbols
+- Result: `success`
+- Recorded at: `1775192127`
+- Work: `Dogfood git execution start policy` (work:dogfood-git-execution-start-policy:01kn8q30ym18rama7xawt7cahw)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/compat.rs`
+
+### outcome:01kn8v4e2eay2g0tmx2hfye9c8
+
+- Summary: observed file change: 0 added, 0 removed, 78 updated symbols
+- Result: `success`
+- Recorded at: `1775192127`
+- Work: `Dogfood git execution start policy` (work:dogfood-git-execution-start-policy:01kn8q30ym18rama7xawt7cahw)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-query/src/plan_runtime.rs`
+
+### outcome:01kn8v3s17310cjvq7s9mzczxr
+
+- Summary: observed file change: 1 added, 0 removed, 114 updated symbols
+- Result: `success`
+- Recorded at: `1775192105`
+- Work: `Dogfood git execution start policy` (work:dogfood-git-execution-start-policy:01kn8q30ym18rama7xawt7cahw)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-query/src/lib.rs`
+
+### outcome:01kn8v3rftt8x11xat7n60gk7k
+
+- Summary: observed file change: 1 added, 0 removed, 42 updated symbols
+- Result: `success`
+- Recorded at: `1775192105`
+- Work: `Dogfood git execution start policy` (work:dogfood-git-execution-start-policy:01kn8q30ym18rama7xawt7cahw)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/runtime.rs`
+
+### outcome:01kn8v2nhbvkzfzg4290xjwr1k
+
+- Summary: observed file change: 2 added, 0 removed, 44 updated symbols
+- Result: `success`
+- Recorded at: `1775192069`
+- Work: `Dogfood git execution start policy` (work:dogfood-git-execution-start-policy:01kn8q30ym18rama7xawt7cahw)
+- Files:
+  - `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/mutations.rs`
 
 ### outcome:01kn8tg2vfbr8pea59vyka3dck
 
@@ -221,49 +266,4 @@
 - Work: `Investigate portfolio scheduling model and dispatch semantics` (work:investigate-portfolio-scheduling-model-and-dispatch-semantics:01kn8bnc7pmqajfydjjr0ma7he)
 - Files:
   - `/Users/bene/code/prism-codex-d/crates/prism-mcp/src/tests.rs`
-
-### outcome:01kn8p6hw69r3gqccpaq4384gx
-
-- Summary: observed file change: 35 added, 0 removed, 0 updated symbols
-- Result: `success`
-- Recorded at: `1775186953`
-- Work: `Investigate portfolio scheduling model and dispatch semantics` (work:investigate-portfolio-scheduling-model-and-dispatch-semantics:01kn8bnc7pmqajfydjjr0ma7he)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/git_execution.rs`
-
-### outcome:01kn8p6hvp7x29686paqsvkqwj
-
-- Summary: observed file change: 32 added, 0 removed, 1384 updated symbols
-- Result: `success`
-- Recorded at: `1775186953`
-- Work: `Investigate portfolio scheduling model and dispatch semantics` (work:investigate-portfolio-scheduling-model-and-dispatch-semantics:01kn8bnc7pmqajfydjjr0ma7he)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-js/src/api_types.rs`
-
-### outcome:01kn8p6ht7458yhct103t4d03c
-
-- Summary: observed file change: 1 added, 0 removed, 16 updated symbols
-- Result: `success`
-- Recorded at: `1775186953`
-- Work: `Investigate portfolio scheduling model and dispatch semantics` (work:investigate-portfolio-scheduling-model-and-dispatch-semantics:01kn8bnc7pmqajfydjjr0ma7he)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-core/src/coordination_persistence.rs`
-
-### outcome:01kn8p6hs3xf7j32x05qbcdmsr
-
-- Summary: observed file change: 0 added, 0 removed, 227 updated symbols
-- Result: `success`
-- Recorded at: `1775186953`
-- Work: `Investigate portfolio scheduling model and dispatch semantics` (work:investigate-portfolio-scheduling-model-and-dispatch-semantics:01kn8bnc7pmqajfydjjr0ma7he)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-core/src/session.rs`
-
-### outcome:01kn8p6hqx5ak1y05pn3dnm1qw
-
-- Summary: observed file change: 0 added, 0 removed, 44 updated symbols
-- Result: `success`
-- Recorded at: `1775186953`
-- Work: `Investigate portfolio scheduling model and dispatch semantics` (work:investigate-portfolio-scheduling-model-and-dispatch-semantics:01kn8bnc7pmqajfydjjr0ma7he)
-- Files:
-  - `/Users/bene/code/prism-codex-d/crates/prism-coordination/src/mutations.rs`
 

@@ -39,6 +39,14 @@ pub(crate) fn user_dirty_paths(paths: &[String]) -> Vec<String> {
         .collect()
 }
 
+pub(crate) fn prism_managed_paths(paths: &[String]) -> Vec<String> {
+    paths
+        .iter()
+        .filter(|path| is_prism_managed_path(path))
+        .cloned()
+        .collect()
+}
+
 fn parse_porcelain_paths(output: &str) -> Vec<String> {
     output
         .lines()
@@ -49,6 +57,13 @@ fn parse_porcelain_paths(output: &str) -> Vec<String> {
             Some(line[3..].trim().to_string())
         })
         .collect()
+}
+
+pub(crate) fn worktree_dirty_paths(root: &Path) -> Result<Vec<String>> {
+    Ok(parse_porcelain_paths(&run_git(
+        root,
+        &["status", "--porcelain=v1", "--untracked-files=all"],
+    )?))
 }
 
 #[derive(Debug, Clone)]
@@ -73,10 +88,7 @@ pub(crate) fn run_preflight(
     let behind_target_commits = run_git(root, &["rev-list", "--count", "HEAD..FETCH_HEAD"])?
         .parse::<u32>()
         .unwrap_or(0);
-    let dirty_paths = parse_porcelain_paths(&run_git(
-        root,
-        &["status", "--porcelain=v1", "--untracked-files=all"],
-    )?);
+    let dirty_paths = worktree_dirty_paths(root)?;
     let protected_dirty_paths = dirty_paths
         .iter()
         .filter(|path| path.starts_with(".prism/plans/"))
@@ -102,6 +114,9 @@ pub(crate) fn run_preflight(
         ));
     }
     let report = GitPreflightReport {
+        source_ref: Some(current_branch.clone()),
+        target_ref: Some(policy.target_branch.clone()),
+        publish_ref: Some(current_branch.clone()),
         checked_at: now,
         target_branch: policy.target_branch.clone(),
         current_branch: Some(current_branch.clone()),
@@ -139,6 +154,7 @@ pub(crate) fn commit_all(root: &Path, message: &str, now: u64) -> Result<GitPubl
         .collect::<Vec<_>>();
     Ok(GitPublishReport {
         attempted_at: now,
+        publish_ref: None,
         code_commit: Some(code_commit),
         coordination_commit: None,
         pushed_ref: None,
@@ -179,6 +195,7 @@ pub(crate) fn commit_paths(
         .collect::<Vec<_>>();
     Ok(GitPublishReport {
         attempted_at: now,
+        publish_ref: None,
         code_commit: Some(code_commit),
         coordination_commit: None,
         pushed_ref: None,
