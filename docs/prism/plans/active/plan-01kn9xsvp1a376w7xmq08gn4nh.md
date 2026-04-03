@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:45004f313cb2d78fe1f568815ce20937e1f1b322a977959cc6fad1851e653bc0`
+- Source head: `sha256:cb037ad2e8e407c125bed5532d927d6ab0b3ecea241aef95c252f8beb1ab2b84`
 - Source logical timestamp: `unknown`
 - Source snapshot: `6 nodes, 11 edges, 4 overlays`
 
@@ -106,7 +106,7 @@ Make shared runtime the sole owner of append-only change history, remove tracked
 
 - Node id: `coord-task:01kn9xv8x94h8gwja48wahgsnb`
 - Kind: `edit`
-- Status: `ready`
+- Status: `in_progress`
 - Summary: Provide deterministic migration for repos that already contain `.prism/state/changes/**`, including manifest/index repair, removal or archival of obsolete tracked change shards, and explicit continuity across the pre-removal and post-removal snapshot formats.
 - Priority: `1`
 - Assignee: `codex-runtime-storage-boundary-redesign-2026-04-01`
@@ -133,8 +133,6 @@ Make shared runtime the sole owner of append-only change history, remove tracked
 
 ## Edges
 
-- `plan-edge:coord-task:01kn9xv8x94h8gwja48wahgsnb:depends-on:coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`: `coord-task:01kn9xv8x94h8gwja48wahgsnb` depends on `coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`
-- `plan-edge:coord-task:01kn9xv8x94h8gwja48wahgsnb:depends-on:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`: `coord-task:01kn9xv8x94h8gwja48wahgsnb` depends on `coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`
 - `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`
 - `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`
 - `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xv2a54t54pbzbbremqrc7`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xv2a54t54pbzbbremqrc7`
@@ -144,6 +142,8 @@ Make shared runtime the sole owner of append-only change history, remove tracked
 - `plan-edge:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8:depends-on:coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`: `coord-task:01kn9xtsf57cqfxa0a7hd2wsx8` depends on `coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`
 - `plan-edge:coord-task:01kn9xv2a54t54pbzbbremqrc7:depends-on:coord-task:01kn9xt9h76645shp4jcmt0bsv`: `coord-task:01kn9xv2a54t54pbzbbremqrc7` depends on `coord-task:01kn9xt9h76645shp4jcmt0bsv`
 - `plan-edge:coord-task:01kn9xv2a54t54pbzbbremqrc7:depends-on:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`: `coord-task:01kn9xv2a54t54pbzbbremqrc7` depends on `coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`
+- `plan-edge:coord-task:01kn9xv8x94h8gwja48wahgsnb:depends-on:coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`: `coord-task:01kn9xv8x94h8gwja48wahgsnb` depends on `coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`
+- `plan-edge:coord-task:01kn9xv8x94h8gwja48wahgsnb:depends-on:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`: `coord-task:01kn9xv8x94h8gwja48wahgsnb` depends on `coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`
 
 ## Execution Overlays
 
@@ -163,8 +163,7 @@ Make shared runtime the sole owner of append-only change history, remove tracked
   target ref: `origin/main`
   publish ref: `task/prism-changes-state-rewrite`
 - Node: `coord-task:01kn9xv2a54t54pbzbbremqrc7`
-  git execution status: `publish_pending`
-  pending task status: `completed`
+  git execution status: `published`
   source ref: `task/prism-changes-state-rewrite`
   target ref: `origin/main`
   publish ref: `task/prism-changes-state-rewrite`

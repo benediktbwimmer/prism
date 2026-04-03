@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Add migration and repair for repos that already carry tracked changes state",
   "summary": "Provide deterministic migration for repos that already contain `.prism/state/changes/**`, including manifest/index repair, removal or archival of obsolete tracked change shards, and explicit continuity across the pre-removal and post-removal snapshot formats.",
-  "status": "Ready",
+  "status": "Completed",
   "published_task_status": null,
   "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
   "pending_handoff_to": null,
@@ -41,7 +41,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1017,
+    "graph_version": 1045,
     "git_commit": null
   },
   "priority": 1,

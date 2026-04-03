@@ -218,7 +218,7 @@
         "kind": "Edit",
         "title": "Add migration and repair for repos that already carry tracked changes state",
         "summary": "Provide deterministic migration for repos that already contain `.prism/state/changes/**`, including manifest/index repair, removal or archival of obsolete tracked change shards, and explicit continuity across the pre-removal and post-removal snapshot formats.",
-        "status": "Ready",
+        "status": "Completed",
         "bindings": {
           "anchors": [],
           "concept_handles": [],
@@ -244,7 +244,7 @@
         "is_abstract": false,
         "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
         "base_revision": {
-          "graph_version": 1017,
+          "graph_version": 1045,
           "git_commit": null
         },
         "priority": 1,
@@ -298,24 +298,6 @@
       }
     ],
     "edges": [
-      {
-        "id": "plan-edge:coord-task:01kn9xv8x94h8gwja48wahgsnb:depends-on:coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j",
-        "plan_id": "plan:01kn9xsvp1a376w7xmq08gn4nh",
-        "from": "coord-task:01kn9xv8x94h8gwja48wahgsnb",
-        "to": "coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01kn9xv8x94h8gwja48wahgsnb:depends-on:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8",
-        "plan_id": "plan:01kn9xsvp1a376w7xmq08gn4nh",
-        "from": "coord-task:01kn9xv8x94h8gwja48wahgsnb",
-        "to": "coord-task:01kn9xtsf57cqfxa0a7hd2wsx8",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
       {
         "id": "plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j",
         "plan_id": "plan:01kn9xsvp1a376w7xmq08gn4nh",
@@ -396,6 +378,24 @@
         "kind": "DependsOn",
         "summary": null,
         "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn9xv8x94h8gwja48wahgsnb:depends-on:coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j",
+        "plan_id": "plan:01kn9xsvp1a376w7xmq08gn4nh",
+        "from": "coord-task:01kn9xv8x94h8gwja48wahgsnb",
+        "to": "coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn9xv8x94h8gwja48wahgsnb:depends-on:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8",
+        "plan_id": "plan:01kn9xsvp1a376w7xmq08gn4nh",
+        "from": "coord-task:01kn9xv8x94h8gwja48wahgsnb",
+        "to": "coord-task:01kn9xtsf57cqfxa0a7hd2wsx8",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
       }
     ]
   },
@@ -453,6 +453,23 @@
     },
     {
       "node_id": "coord-task:01kn9xv2a54t54pbzbbremqrc7",
+      "pending_handoff_to": null,
+      "session": null,
+      "worktree_id": null,
+      "branch_ref": null,
+      "effective_assignee": null,
+      "awaiting_handoff_from": null,
+      "git_execution": {
+        "status": "published",
+        "pendingTaskStatus": null,
+        "sourceRef": "task/prism-changes-state-rewrite",
+        "targetRef": "origin/main",
+        "publishRef": "task/prism-changes-state-rewrite",
+        "targetBranch": "main"
+      }
+    },
+    {
+      "node_id": "coord-task:01kn9xv8x94h8gwja48wahgsnb",
       "pending_handoff_to": null,
       "session": null,
       "worktree_id": null,

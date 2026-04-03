@@ -1742,7 +1742,7 @@
   {
     "id": "coord-task:01kn9xv8x94h8gwja48wahgsnb",
     "title": "Add migration and repair for repos that already carry tracked changes state",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01kn9xv8x94h8gwja48wahgsnb-cdfe79523838ee90.json"
   },
   {

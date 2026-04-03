@@ -1,23 +1,23 @@
 {
   "version": 1,
-  "publishedAt": 1775232972,
+  "publishedAt": 1775233456,
   "publisher": {
     "principalAuthorityId": "local-daemon",
     "principalId": "principal:tracked-changes-rewrite:01kn9y81k21524vwvyy9y7nhbn",
     "credentialId": "credential:01kn9y81k22x2tnr12cszr628e"
   },
   "workContext": {
-    "workId": "coord-task:01kn9xv2a54t54pbzbbremqrc7",
+    "workId": "coord-task:01kn9xv8x94h8gwja48wahgsnb",
     "kind": "coordination",
-    "title": "Remove tracked changes read-path assumptions and redirect operational reports to shared runtime",
-    "summary": "Update tracked snapshot readers, projections, docs, MCP/query surfaces, and generated reports so current semantic docs read tracked snapshots while operational change reports read shared runtime or shared-runtime-derived projections.",
-    "coordinationTaskId": "coord-task:01kn9xv2a54t54pbzbbremqrc7",
+    "title": "Add migration and repair for repos that already carry tracked changes state",
+    "summary": "Provide deterministic migration for repos that already contain `.prism/state/changes/**`, including manifest/index repair, removal or archival of obsolete tracked change shards, and explicit continuity across the pre-removal and post-removal snapshot formats.",
+    "coordinationTaskId": "coord-task:01kn9xv8x94h8gwja48wahgsnb",
     "planId": "plan:01kn9xsvp1a376w7xmq08gn4nh",
     "planTitle": "Remove tracked changes from .prism state and rely on signed commit history plus manifest metadata"
   },
   "publishSummary": {
-    "title": "Remove tracked changes read-path assumptions and redirect operational reports to shared runtime",
-    "summary": "Update tracked snapshot readers, projections, docs, MCP/query surfaces, and generated reports so current semantic docs read tracked snapshots while operational change reports read shared runtime or shared-runtime-derived projections."
+    "title": "Add migration and repair for repos that already carry tracked changes state",
+    "summary": "Provide deterministic migration for repos that already contain `.prism/state/changes/**`, including manifest/index repair, removal or archival of obsolete tracked change shards, and explicit continuity across the pre-removal and post-removal snapshot formats."
   },
   "files": {
     ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json": {
@@ -1190,7 +1190,7 @@
     },
     ".prism/state/coordination/tasks/coord-task-01kn9xv8x94h8gwja48wahgsnb-cdfe79523838ee90.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9xv8x94h8gwja48wahgsnb-cdfe79523838ee90.json",
-      "sha256": "sha256:aca930eba9b68bac18f147af4cf32d2fe13db50a40ce371d6ce4473443d8b888"
+      "sha256": "sha256:d7e636bb4ac20d52e8f2dc51bfa88eef75d4e2e07fbe1149ca25639f94ada433"
     },
     ".prism/state/coordination/tasks/coord-task-01kn9xvmrn86qb17qz7w97na8n-9d7710759c599d94.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9xvmrn86qb17qz7w97na8n-9d7710759c599d94.json",
@@ -1290,7 +1290,7 @@
     },
     ".prism/state/indexes/coordination_tasks.json": {
       "path": ".prism/state/indexes/coordination_tasks.json",
-      "sha256": "sha256:39a94923b042084e173885fcbd1837fe317ae9b22c2fbcd10719d07a3286f5ef"
+      "sha256": "sha256:12e2844665ec027538fa61d287afd98ee86a4d9c4a71a673163750191cfa2d93"
     },
     ".prism/state/indexes/plans.json": {
       "path": ".prism/state/indexes/plans.json",
@@ -1502,7 +1502,7 @@
     },
     ".prism/state/plans/plan-01kn9xsvp1a376w7xmq08gn4nh-36bad8e44d57f454.json": {
       "path": ".prism/state/plans/plan-01kn9xsvp1a376w7xmq08gn4nh-36bad8e44d57f454.json",
-      "sha256": "sha256:e57e3fe9c56c48f463a32a4e11c16c812df961bfc6084c9cc8c50fcea8b4719b"
+      "sha256": "sha256:62957451d35fed5233a77861b11c12ab807de6f8e459f5adeebc8ba493ef96b2"
     },
     ".prism/state/plans/plan-1-8fd52ae04f462646.json": {
       "path": ".prism/state/plans/plan-1-8fd52ae04f462646.json",
@@ -1533,13 +1533,13 @@
       "sha256": "sha256:25b396965686f9dc300002f26a9ba19c826a387a00b6e3ee799116d6a0f64457"
     }
   },
-  "previousManifestDigest": "sha256:d9a48916484fde04296ed3fd428f9384f3bf4d0e2613d044a5fbd4f17766eaec",
+  "previousManifestDigest": "sha256:ef0e59d5b9f077c43d593d8b8d07b181f5648a505a1b7989f9d40780de295010",
   "migrationSourceDigest": "sha256:29be826a9e4869880d788dda166c588fd3513bcecc43c4b019205486a2115994",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:ERpBDi3Ot78Yv1YCisqfN4o2SHUDNQ+FYqchDXH01qxg6syA4zCgImkHFPN9SsSts2H0IdRvpQMNJrruUrIGCQ=="
+    "value": "base64:PsE9LtQ5DjX8Ju5Y2qgd4C115O1wgyxFlV111lONaEyb9S5rEsfuIrMVoPrFWShbF0KTFXFrDVREv5wS1ySyDw=="
   }
 }
