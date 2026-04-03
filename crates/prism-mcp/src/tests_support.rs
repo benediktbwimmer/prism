@@ -19,8 +19,8 @@ use serde_json::{json, Value};
 
 use super::*;
 use prism_core::{
-    default_workspace_shared_runtime, index_workspace_session_with_options, BootstrapOwnerInput,
-    WorkspaceSessionOptions,
+    default_workspace_shared_runtime, index_workspace_session,
+    index_workspace_session_with_options, BootstrapOwnerInput, WorkspaceSessionOptions,
 };
 use prism_ir::new_sortable_token;
 use prism_ir::{Language, Node, NodeId, NodeKind, Span};
@@ -82,6 +82,29 @@ pub(crate) fn host_with_session(workspace: WorkspaceSession) -> QueryHost {
         workspace,
         QueryLimits::default(),
         PrismMcpFeatures::full(),
+    )
+}
+
+pub(crate) fn shared_workspace_session(root: &Path) -> Arc<WorkspaceSession> {
+    Arc::new(index_workspace_session(root).expect("workspace session should index"))
+}
+
+pub(crate) fn host_with_shared_session_internal(workspace: Arc<WorkspaceSession>) -> QueryHost {
+    QueryHost::with_shared_session_and_limits_and_features(
+        workspace,
+        QueryLimits::default(),
+        PrismMcpFeatures::full().with_internal_developer(true),
+    )
+}
+
+pub(crate) fn host_with_shared_session_and_features(
+    workspace: Arc<WorkspaceSession>,
+    features: PrismMcpFeatures,
+) -> QueryHost {
+    QueryHost::with_shared_session_and_limits_and_features(
+        workspace,
+        QueryLimits::default(),
+        features,
     )
 }
 

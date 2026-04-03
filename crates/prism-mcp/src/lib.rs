@@ -744,7 +744,34 @@ impl QueryHost {
         features: PrismMcpFeatures,
         worker_pool: JsWorkerPool,
     ) -> Self {
-        let workspace = Arc::new(workspace);
+        Self::with_workspace_arc_limits_features_and_worker_count(
+            Arc::new(workspace),
+            limits,
+            features,
+            worker_pool,
+        )
+    }
+
+    #[cfg(test)]
+    fn with_shared_session_and_limits_and_features(
+        workspace: Arc<WorkspaceSession>,
+        limits: QueryLimits,
+        features: PrismMcpFeatures,
+    ) -> Self {
+        Self::with_workspace_arc_limits_features_and_worker_count(
+            workspace,
+            limits,
+            features,
+            default_query_worker_pool(),
+        )
+    }
+
+    fn with_workspace_arc_limits_features_and_worker_count(
+        workspace: Arc<WorkspaceSession>,
+        limits: QueryLimits,
+        features: PrismMcpFeatures,
+        worker_pool: JsWorkerPool,
+    ) -> Self {
         let prism = workspace.prism_arc();
         let notes = Arc::new(SessionMemory::new());
         let inferred_edges = Arc::new(InferenceStore::new());

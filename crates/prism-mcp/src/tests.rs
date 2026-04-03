@@ -12,7 +12,7 @@ use crate::tests_support::*;
 use prism_agent::{InferenceSnapshot, InferredEdgeScope};
 use prism_coordination::{CoordinationPolicy, CoordinationStore, PlanCreateInput, TaskCreateInput};
 use prism_core::{
-    hydrate_workspace_session_with_options, index_workspace_session,
+    hydrate_workspace_session, hydrate_workspace_session_with_options, index_workspace_session,
     index_workspace_session_with_curator, PrismPaths, SharedRuntimeBackend,
     ValidationFeedbackCategory, ValidationFeedbackRecord, ValidationFeedbackVerdict,
     WorkspaceSessionOptions,
@@ -8959,7 +8959,7 @@ return prism.conceptByHandle("concept://custom_validation");
     drop(session);
     drop(host);
 
-    let reloaded = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let reloaded = QueryHost::with_session(hydrate_workspace_session(&root).unwrap());
     let persisted = reloaded
         .execute(
             test_session(&reloaded),
@@ -9125,7 +9125,7 @@ return {
     assert_eq!(visible_now.result["session"]["scope"], "session");
     assert_eq!(visible_now.result["local"]["scope"], "local");
 
-    let reloaded = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let reloaded = QueryHost::with_session(hydrate_workspace_session(&root).unwrap());
     let persisted = reloaded
         .execute(
             test_session(&reloaded),
@@ -9189,7 +9189,7 @@ fn session_memory_persists_locally_while_local_memory_does_not_reload() {
     )
     .expect("local memory should store");
 
-    let reloaded = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let reloaded = QueryHost::with_session(hydrate_workspace_session(&root).unwrap());
     let recalled = reloaded
         .execute(
             test_session(&reloaded),
@@ -12403,7 +12403,7 @@ fn restored_session_seed_rebinds_workspace_active_work_context() {
         )
         .expect("work should declare");
 
-    let reloaded = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let reloaded = QueryHost::with_session(hydrate_workspace_session(&root).unwrap());
     let _ = test_session(&reloaded);
     let workspace_work = reloaded
         .workspace_session()
@@ -16505,7 +16505,7 @@ fn persisted_inferred_edges_reload_with_workspace_session() {
     )
     .expect("inferred edge should persist");
 
-    let reloaded = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let reloaded = QueryHost::with_session(hydrate_workspace_session(&root).unwrap());
     let result = reloaded
         .execute(
             test_session(&reloaded),
@@ -16697,7 +16697,7 @@ fn repo_published_memory_retains_declared_work_context_without_runtime_db() {
     let _ = fs::remove_file(runtime_db.with_extension("db-wal"));
     let _ = fs::remove_file(runtime_db.with_extension("db-shm"));
 
-    let reloaded = index_workspace_session(&root).unwrap();
+    let reloaded = hydrate_workspace_session(&root).unwrap();
     let events = reloaded
         .memory_events(&MemoryEventQuery {
             memory_id: Some(MemoryId(result.memory_id.clone())),
@@ -17085,7 +17085,7 @@ fn validation_feedback_mutation_persists_to_workspace_log() {
     assert!(result.entry_id.starts_with("feedback:"));
     assert_eq!(result.task_id, "task:feedback");
 
-    let reloaded = index_workspace_session(&root).unwrap();
+    let reloaded = hydrate_workspace_session(&root).unwrap();
     let entries = reloaded.validation_feedback(Some(5)).unwrap();
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].context, "blast-radius check for alpha");
@@ -17123,7 +17123,7 @@ fn authenticated_outcome_mutation_records_principal_actor_and_execution_context(
         )
         .expect("authenticated outcome should persist");
 
-    let reloaded = index_workspace_session(&root).unwrap();
+    let reloaded = hydrate_workspace_session(&root).unwrap();
     let replay = reloaded
         .prism()
         .resume_task(&TaskId::new("task:authenticated-outcome"));
@@ -17224,7 +17224,7 @@ fn authenticated_outcome_mutation_records_coordination_work_context_snapshot() {
         )
         .expect("authenticated coordination outcome should persist");
 
-    let reloaded = index_workspace_session(&root).unwrap();
+    let reloaded = hydrate_workspace_session(&root).unwrap();
     let replay = reloaded.prism().resume_task(&TaskId::new(task_id.clone()));
     let event = replay
         .events

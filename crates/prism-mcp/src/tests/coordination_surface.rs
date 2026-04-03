@@ -3,12 +3,11 @@ use serde_json::{json, Value};
 
 use super::*;
 use crate::tests_support::{
-    call_tool_request, first_tool_content_json, host_with_session_internal, initialize_client,
-    initialized_notification, mutation_credential_json, retry_on_runtime_sync_busy, temp_workspace,
-    test_session, workspace_session_with_owner_credential,
+    call_tool_request, first_tool_content_json, host_with_session_internal,
+    host_with_shared_session_internal, host_with_shared_session_and_features, initialize_client,
+    initialized_notification, mutation_credential_json, retry_on_runtime_sync_busy,
+    shared_workspace_session, temp_workspace, test_session, workspace_session_with_owner_credential,
 };
-use prism_core::index_workspace_session;
-
 #[tokio::test]
 async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
     let root = temp_workspace();
@@ -242,8 +241,12 @@ fn coordination_resume_mutation_dispatches_through_authenticated_host() {
 #[test]
 fn coordination_workflow_helpers_summarize_inbox_context_and_claim_preview() {
     let root = temp_workspace();
-    let writer = QueryHost::with_session(index_workspace_session(&root).unwrap());
-    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let workspace = shared_workspace_session(&root);
+    let writer = host_with_shared_session_and_features(
+        Arc::clone(&workspace),
+        PrismMcpFeatures::full(),
+    );
+    let host = host_with_shared_session_and_features(workspace, PrismMcpFeatures::full());
 
     let plan = retry_on_runtime_sync_busy(|| {
         writer.store_coordination(
@@ -400,8 +403,9 @@ return {{
 #[test]
 fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
     let root = temp_workspace();
-    let host_a = host_with_session_internal(index_workspace_session(&root).unwrap());
-    let host_b = host_with_session_internal(index_workspace_session(&root).unwrap());
+    let workspace = shared_workspace_session(&root);
+    let host_a = host_with_shared_session_internal(Arc::clone(&workspace));
+    let host_b = host_with_shared_session_internal(workspace);
     if let Some(workspace) = host_a.workspace_session() {
         workspace.refresh_fs().unwrap();
         host_a.sync_workspace_revision(workspace).unwrap();

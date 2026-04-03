@@ -845,7 +845,7 @@ async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
     first_upstream_task.abort();
     let _ = first_upstream_task.await;
 
-    tokio::time::sleep(Duration::from_secs(8)).await;
+    tokio::time::sleep(Duration::from_secs(3)).await;
 
     let reloaded = prism_core::hydrate_workspace_session_with_options(
         &root,

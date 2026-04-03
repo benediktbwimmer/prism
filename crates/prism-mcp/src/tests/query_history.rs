@@ -4,7 +4,8 @@ use std::path::{Path, PathBuf};
 use super::*;
 use crate::mcp_call_log::PersistedMcpCallRecord;
 use crate::tests_support::{
-    host_with_session_internal, temp_workspace, test_session, write_long_excerpt_workspace,
+    host_with_session_internal, host_with_shared_session_and_features, shared_workspace_session,
+    temp_workspace, test_session, write_long_excerpt_workspace,
 };
 use prism_core::{index_workspace_session, PrismPaths};
 use prism_js::{
@@ -337,10 +338,10 @@ return {
 fn prism_dynamic_query_views_follow_runtime_feature_flags() {
     let root = temp_workspace();
     write_long_excerpt_workspace(&root);
+    let workspace = shared_workspace_session(&root);
 
-    let disabled_host = QueryHost::with_session_and_limits_and_features(
-        index_workspace_session(&root).unwrap(),
-        QueryLimits::default(),
+    let disabled_host = host_with_shared_session_and_features(
+        Arc::clone(&workspace),
         PrismMcpFeatures::full().with_query_view(QueryViewFeatureFlag::TestEcho, false),
     );
     let disabled_error = disabled_host
@@ -352,9 +353,8 @@ fn prism_dynamic_query_views_follow_runtime_feature_flags() {
         .expect_err("disabled dynamic query view should fail");
     assert!(disabled_error.to_string().contains("not a function"));
 
-    let enabled_host = QueryHost::with_session_and_limits_and_features(
-        index_workspace_session(&root).unwrap(),
-        QueryLimits::default(),
+    let enabled_host = host_with_shared_session_and_features(
+        workspace,
         PrismMcpFeatures::full().with_query_view(QueryViewFeatureFlag::TestEcho, true),
     );
     let enabled_result = enabled_host
@@ -444,10 +444,10 @@ fn prism_new_query_views_follow_independent_runtime_feature_flags() {
         "- `cargo build --release -p prism-cli -p prism-mcp`\n- `./target/release/prism-cli mcp restart --internal-developer`\n- `./target/release/prism-cli mcp status`\n- `./target/release/prism-cli mcp health`\n",
     )
     .unwrap();
+    let workspace = shared_workspace_session(&root);
 
-    let playbook_only = QueryHost::with_session_and_limits_and_features(
-        index_workspace_session(&root).unwrap(),
-        QueryLimits::default(),
+    let playbook_only = host_with_shared_session_and_features(
+        Arc::clone(&workspace),
         PrismMcpFeatures::full()
             .with_query_view(QueryViewFeatureFlag::All, false)
             .with_query_view(QueryViewFeatureFlag::RepoPlaybook, true),
@@ -472,9 +472,8 @@ fn prism_new_query_views_follow_independent_runtime_feature_flags() {
         .expect_err("validationPlan should stay hidden when disabled");
     assert!(validation_disabled.to_string().contains("not a function"));
 
-    let validation_only = QueryHost::with_session_and_limits_and_features(
-        index_workspace_session(&root).unwrap(),
-        QueryLimits::default(),
+    let validation_only = host_with_shared_session_and_features(
+        Arc::clone(&workspace),
         PrismMcpFeatures::full()
             .with_query_view(QueryViewFeatureFlag::All, false)
             .with_query_view(QueryViewFeatureFlag::ValidationPlan, true),
@@ -497,9 +496,8 @@ fn prism_new_query_views_follow_independent_runtime_feature_flags() {
         .expect_err("repoPlaybook should stay hidden when disabled");
     assert!(playbook_disabled.to_string().contains("not a function"));
 
-    let impact_only = QueryHost::with_session_and_limits_and_features(
-        index_workspace_session(&root).unwrap(),
-        QueryLimits::default(),
+    let impact_only = host_with_shared_session_and_features(
+        Arc::clone(&workspace),
         PrismMcpFeatures::full()
             .with_query_view(QueryViewFeatureFlag::All, false)
             .with_query_view(QueryViewFeatureFlag::Impact, true),
@@ -524,9 +522,8 @@ fn prism_new_query_views_follow_independent_runtime_feature_flags() {
         .expect_err("afterEdit should stay hidden when disabled");
     assert!(after_edit_disabled.to_string().contains("not a function"));
 
-    let after_edit_only = QueryHost::with_session_and_limits_and_features(
-        index_workspace_session(&root).unwrap(),
-        QueryLimits::default(),
+    let after_edit_only = host_with_shared_session_and_features(
+        Arc::clone(&workspace),
         PrismMcpFeatures::full()
             .with_query_view(QueryViewFeatureFlag::All, false)
             .with_query_view(QueryViewFeatureFlag::AfterEdit, true),
@@ -551,9 +548,8 @@ fn prism_new_query_views_follow_independent_runtime_feature_flags() {
         .expect_err("impact should stay hidden when disabled");
     assert!(impact_disabled.to_string().contains("not a function"));
 
-    let command_only = QueryHost::with_session_and_limits_and_features(
-        index_workspace_session(&root).unwrap(),
-        QueryLimits::default(),
+    let command_only = host_with_shared_session_and_features(
+        workspace,
         PrismMcpFeatures::full()
             .with_query_view(QueryViewFeatureFlag::All, false)
             .with_query_view(QueryViewFeatureFlag::CommandMemory, true),
