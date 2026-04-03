@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:c0f345d86e3daef26897e1ed436a2424a8b95ff5463e10f4510f3205ce53f931`
+- Source head: `sha256:cbdb95359ae04b50eb17c8d28fe32509719e2b81c9b2147ece61cf46bd47ac5d`
 - Source logical timestamp: `unknown`
-- Source snapshot: `6 nodes, 11 edges, 0 overlays`
+- Source snapshot: `6 nodes, 11 edges, 1 overlays`
 
 ## Overview
 
@@ -50,7 +50,7 @@ Make shared runtime the sole owner of append-only change history, remove tracked
 
 - Node id: `coord-task:01kn9xt9h76645shp4jcmt0bsv`
 - Kind: `edit`
-- Status: `in_progress`
+- Status: `completed`
 - Summary: Define that tracked `.prism/state` keeps only current semantic state, shared runtime becomes the sole append-log owner for changes, signed Git commit history becomes the coarse-grained durable change history, and the PRISM manifest carries structured publish metadata including a short `publishSummary`.
 - Priority: `1`
 - Assignee: `codex-runtime-storage-boundary-redesign-2026-04-01`
@@ -144,4 +144,13 @@ Make shared runtime the sole owner of append-only change history, remove tracked
 - `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`
 - `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xv2a54t54pbzbbremqrc7`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xv2a54t54pbzbbremqrc7`
 - `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xv8x94h8gwja48wahgsnb`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xv8x94h8gwja48wahgsnb`
+
+## Execution Overlays
+
+- Node: `coord-task:01kn9xt9h76645shp4jcmt0bsv`
+  git execution status: `publish_pending`
+  pending task status: `completed`
+  source ref: `task/prism-changes-state-rewrite`
+  target ref: `origin/main`
+  publish ref: `task/prism-changes-state-rewrite`
 
