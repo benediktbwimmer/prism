@@ -1350,7 +1350,14 @@ fn refresh_local_shared_coordination_ref(
         .find_map(|line| line.split_whitespace().next().map(str::to_string));
     if remote_head.is_some() {
         let refspec = format!("+{ref_name}:{ref_name}");
-        let _ = run_git(root, &["fetch", remote, &refspec])?;
+        if let Err(error) = run_git(root, &["fetch", remote, &refspec]) {
+            let local_head = resolve_ref_commit(root, ref_name)?;
+            if local_head.as_deref() != remote_head.as_deref()
+                || !is_benign_shared_coordination_fetch_conflict(&error)
+            {
+                return Err(error);
+            }
+        }
     }
     Ok(remote_head)
 }
@@ -1435,6 +1442,11 @@ fn is_shared_coordination_push_conflict(error: &anyhow::Error) -> bool {
         || message.contains("non-fast-forward")
         || message.contains("[rejected]")
         || message.contains("failed to push some refs")
+}
+
+fn is_benign_shared_coordination_fetch_conflict(error: &anyhow::Error) -> bool {
+    let message = error.to_string().to_ascii_lowercase();
+    message.contains("cannot lock ref") && message.contains("unable to update local ref")
 }
 
 fn resolve_ref_commit(root: &Path, ref_name: &str) -> Result<Option<String>> {

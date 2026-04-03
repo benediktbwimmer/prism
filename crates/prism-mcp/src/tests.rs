@@ -807,7 +807,7 @@ fn git_execution_policy_completion_require_publishes_after_manual_code_commit() 
     );
     assert_eq!(
         task.git_execution.integration_status,
-        prism_ir::GitIntegrationStatus::PublishedToBranch
+        prism_ir::GitIntegrationStatus::IntegrationPending
     );
     assert_eq!(task.git_execution.review_artifact_ref, None);
     assert_eq!(task.git_execution.integration_commit, None);
