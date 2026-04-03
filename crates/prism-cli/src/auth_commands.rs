@@ -10,6 +10,7 @@ use prism_ir::{CredentialId, PrincipalAuthorityId, PrincipalId, PrincipalKind};
 use serde_json::Value;
 
 use crate::cli::{AuthCommand, PrincipalCommand};
+use crate::git_support::ensure_repo_git_support;
 use crate::parsing::{parse_credential_capability, parse_principal_kind};
 
 pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<()> {
@@ -110,6 +111,7 @@ pub(crate) fn handle_principal_command(root: &Path, command: PrincipalCommand) -
 }
 
 fn load_auth_session(root: &Path) -> Result<(WorkspaceSession, PathBuf)> {
+    ensure_repo_git_support(root)?;
     let paths = PrismPaths::for_workspace_root(root)?;
     let credentials_path = paths.credentials_path()?;
     let session = hydrate_workspace_session_with_options(

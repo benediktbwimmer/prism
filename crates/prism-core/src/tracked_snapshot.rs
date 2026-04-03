@@ -452,6 +452,17 @@ pub(crate) fn sync_coordination_snapshot_state(
     refresh_manifest(root, publish)
 }
 
+pub(crate) fn regenerate_tracked_snapshot_derived_artifacts(root: &Path) -> Result<()> {
+    rebuild_concept_index(root)?;
+    rebuild_contract_index(root)?;
+    rebuild_relation_index(root)?;
+    rebuild_memory_index(root)?;
+    rebuild_plan_indexes(root)?;
+    rebuild_task_index(root)?;
+    rebuild_artifact_index(root)?;
+    refresh_manifest(root, None)
+}
+
 pub(crate) fn load_concept_snapshots(root: &Path) -> Result<Vec<ConceptPacket>> {
     load_json_records::<ConceptPacket>(&snapshot_concepts_dir(root))
         .map(|records| records.into_iter().map(|(_, packet)| packet).collect())

@@ -268,6 +268,8 @@ pub enum ProtectedStateCommand {
         #[arg(long, default_value_t = false)]
         check: bool,
     },
+    #[command(name = "repair-snapshot-artifacts")]
+    RepairSnapshotArtifacts,
     #[command(name = "repair-path-identity")]
     RepairPathIdentity {
         #[arg(long, default_value_t = false)]
@@ -292,6 +294,17 @@ pub enum ProtectedStateCommand {
     },
     #[command(hide = true, name = "merge-driver-derived")]
     MergeDriverDerived {
+        #[arg(long)]
+        ancestor: PathBuf,
+        #[arg(long)]
+        current: PathBuf,
+        #[arg(long)]
+        other: PathBuf,
+        #[arg(long)]
+        path: String,
+    },
+    #[command(hide = true, name = "merge-driver-snapshot-derived")]
+    MergeDriverSnapshotDerived {
         #[arg(long)]
         ancestor: PathBuf,
         #[arg(long)]
@@ -595,6 +608,18 @@ mod tests {
     }
 
     #[test]
+    fn protected_state_repair_snapshot_artifacts_parses() {
+        let cli = Cli::parse_from(["prism", "protected-state", "repair-snapshot-artifacts"]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::ProtectedState {
+                command: ProtectedStateCommand::RepairSnapshotArtifacts,
+            } => {}
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
     fn protected_state_verify_accepts_optional_stream() {
         let cli = Cli::parse_from([
             "prism",
@@ -641,6 +666,40 @@ mod tests {
                 assert_eq!(current, PathBuf::from("current.jsonl"));
                 assert_eq!(other, PathBuf::from("other.jsonl"));
                 assert_eq!(path, ".prism/concepts/events.jsonl");
+            }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn hidden_merge_driver_snapshot_derived_parses() {
+        let cli = Cli::parse_from([
+            "prism",
+            "protected-state",
+            "merge-driver-snapshot-derived",
+            "--ancestor",
+            "base.json",
+            "--current",
+            "current.json",
+            "--other",
+            "other.json",
+            "--path",
+            ".prism/state/manifest.json",
+        ]);
+        match cli.command {
+            Command::ProtectedState {
+                command:
+                    ProtectedStateCommand::MergeDriverSnapshotDerived {
+                        ancestor,
+                        current,
+                        other,
+                        path,
+                    },
+            } => {
+                assert_eq!(ancestor, PathBuf::from("base.json"));
+                assert_eq!(current, PathBuf::from("current.json"));
+                assert_eq!(other, PathBuf::from("other.json"));
+                assert_eq!(path, ".prism/state/manifest.json");
             }
             _ => panic!("unexpected command"),
         }

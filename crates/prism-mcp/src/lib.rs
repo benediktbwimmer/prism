@@ -45,6 +45,7 @@ mod discovery_helpers;
 mod features;
 mod file_queries;
 mod git_execution;
+mod git_support;
 mod host_mutations;
 mod host_resources;
 mod js_runtime;
@@ -460,6 +461,7 @@ impl PrismMcpServer {
         shared_runtime: SharedRuntimeBackend,
     ) -> Result<Self> {
         let root = root.as_ref();
+        git_support::ensure_repo_git_support_for_runtime(root);
         let started = std::time::Instant::now();
         info!(
             root = %root.display(),

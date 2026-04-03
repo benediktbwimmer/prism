@@ -7,16 +7,18 @@ use prism_core::{
     import_protected_state_trust_material, inspect_legacy_path_identity_state,
     inspect_repo_published_plan_artifacts, migrate_legacy_protected_repo_state,
     quarantine_protected_state_stream, reconcile_protected_state_stream,
-    repair_legacy_path_identity_state, repair_protected_state_stream_to_last_valid,
-    repair_repo_published_plan_artifacts, verify_protected_state, LegacyPathIdentityRepairReport,
-    ProtectedStateQuarantineReport, ProtectedStateReconcileReport, ProtectedStateRepairReport,
-    ProtectedStateStreamReport, ProtectedStateTrustExport, ProtectedStateTrustImportReport,
-    ProtectedStateVerifyReport, PublishedPlanArtifactRepairReport,
+    regenerate_repo_snapshot_derived_artifacts, repair_legacy_path_identity_state,
+    repair_protected_state_stream_to_last_valid, repair_repo_published_plan_artifacts,
+    verify_protected_state, LegacyPathIdentityRepairReport, ProtectedStateQuarantineReport,
+    ProtectedStateReconcileReport, ProtectedStateRepairReport, ProtectedStateStreamReport,
+    ProtectedStateTrustExport, ProtectedStateTrustImportReport, ProtectedStateVerifyReport,
+    PublishedPlanArtifactRepairReport,
 };
 
 use crate::cli::{ProtectedStateCommand, ProtectedStateTrustCommand};
 use crate::git_support::{
-    install_repo_git_support, run_derived_merge_driver, run_stream_merge_driver,
+    install_repo_git_support, run_derived_merge_driver, run_snapshot_derived_merge_driver,
+    run_stream_merge_driver,
 };
 
 pub(crate) fn handle_protected_state_command(
@@ -94,6 +96,13 @@ pub(crate) fn handle_protected_state_command(
                 );
             }
         }
+        ProtectedStateCommand::RepairSnapshotArtifacts => {
+            let sync = regenerate_repo_snapshot_derived_artifacts(root)?;
+            println!("regenerated snapshot-derived PRISM artifacts");
+            for file in sync.files {
+                println!("{}", file.path.display());
+            }
+        }
         ProtectedStateCommand::RepairPathIdentity { check } => {
             let report = if check {
                 inspect_legacy_path_identity_state(root)?
@@ -130,6 +139,14 @@ pub(crate) fn handle_protected_state_command(
             path,
         } => {
             run_derived_merge_driver(root, &ancestor, &current, &other, &path)?;
+        }
+        ProtectedStateCommand::MergeDriverSnapshotDerived {
+            ancestor,
+            current,
+            other,
+            path,
+        } => {
+            run_snapshot_derived_merge_driver(root, &ancestor, &current, &other, &path)?;
         }
     }
 

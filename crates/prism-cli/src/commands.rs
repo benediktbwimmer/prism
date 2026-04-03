@@ -262,6 +262,7 @@ fn should_auto_setup_repo_git_support(command: &Command) -> bool {
         Command::ProtectedState {
             command: crate::cli::ProtectedStateCommand::MergeDriverStream { .. }
                 | crate::cli::ProtectedStateCommand::MergeDriverDerived { .. }
+                | crate::cli::ProtectedStateCommand::MergeDriverSnapshotDerived { .. }
         }
     )
 }

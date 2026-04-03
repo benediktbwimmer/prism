@@ -39,6 +39,7 @@ mod shared_coordination_ref;
 mod shared_runtime;
 mod shared_runtime_backend;
 mod shared_runtime_store;
+mod snapshot_artifact_repair;
 mod tracked_snapshot;
 mod util;
 mod validation_feedback;
@@ -97,8 +98,11 @@ pub use session::{
     WorkspaceFsRefreshOutcome, WorkspaceRefreshBreakdown, WorkspaceRefreshWork, WorkspaceSession,
     WorkspaceSnapshotRevisions,
 };
-pub use shared_coordination_ref::{shared_coordination_ref_diagnostics, SharedCoordinationRefDiagnostics};
+pub use shared_coordination_ref::{
+    shared_coordination_ref_diagnostics, SharedCoordinationRefDiagnostics,
+};
 pub use shared_runtime_backend::SharedRuntimeBackend;
+pub use snapshot_artifact_repair::regenerate_repo_snapshot_derived_artifacts;
 pub use validation_feedback::{
     ValidationFeedbackCategory, ValidationFeedbackEntry, ValidationFeedbackRecord,
     ValidationFeedbackVerdict,

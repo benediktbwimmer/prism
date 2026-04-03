@@ -6,13 +6,16 @@ use std::thread;
 use std::time::Duration;
 
 use anyhow::{bail, ensure, Context, Result};
-use prism_core::regenerate_repo_published_plan_artifacts;
+use prism_core::{
+    regenerate_repo_published_plan_artifacts, regenerate_repo_snapshot_derived_artifacts,
+};
 use serde::Deserialize;
 
 const MANAGED_BLOCK_START: &str = "# BEGIN PRISM MANAGED";
 const MANAGED_BLOCK_END: &str = "# END PRISM MANAGED";
 const STREAM_DRIVER_NAME: &str = "prism-protected-stream";
 const DERIVED_DRIVER_NAME: &str = "prism-derived-prism";
+const SNAPSHOT_DERIVED_DRIVER_NAME: &str = "prism-snapshot-derived";
 
 const MANAGED_GITATTRIBUTES_BLOCK: &str = "\
 # BEGIN PRISM MANAGED
@@ -25,6 +28,10 @@ const MANAGED_GITATTRIBUTES_BLOCK: &str = "\
 .prism/plans/index.jsonl merge=prism-derived-prism
 .prism/plans/active/*.jsonl merge=prism-derived-prism
 .prism/plans/archived/*.jsonl merge=prism-derived-prism
+.prism/state/manifest.json merge=prism-snapshot-derived
+.prism/state/indexes/*.json merge=prism-snapshot-derived
+PRISM.md merge=prism-snapshot-derived
+docs/prism/** merge=prism-snapshot-derived
 # END PRISM MANAGED
 ";
 
@@ -91,6 +98,23 @@ pub(crate) fn run_derived_merge_driver(
     write_merge_result(current, &merged)
 }
 
+pub(crate) fn run_snapshot_derived_merge_driver(
+    root: &Path,
+    _ancestor: &Path,
+    current: &Path,
+    _other: &Path,
+    path: &str,
+) -> Result<()> {
+    ensure!(
+        is_snapshot_derived_prism_path(Path::new(path)),
+        "path `{path}` is not a snapshot-derived PRISM artifact"
+    );
+    regenerate_repo_snapshot_derived_artifacts(root)?;
+    let regenerated = fs::read_to_string(root.join(path))
+        .with_context(|| format!("failed to read regenerated snapshot-derived artifact {path}"))?;
+    write_merge_result(current, &regenerated)
+}
+
 fn ensure_managed_gitattributes(root: &Path) -> Result<()> {
     let path = root.join(".gitattributes");
     let existing = fs::read_to_string(&path).unwrap_or_default();
@@ -112,6 +136,9 @@ fn ensure_merge_driver_config(root: &Path) -> Result<()> {
     let derived_driver = format!(
         "sh -c 'root=\"$(git rev-parse --show-toplevel)\" || exit 1; exec {quoted_executable} --root \"$root\" protected-state merge-driver-derived --ancestor \"$1\" --current \"$2\" --other \"$3\" --path \"$4\"' sh"
     );
+    let snapshot_derived_driver = format!(
+        "sh -c 'root=\"$(git rev-parse --show-toplevel)\" || exit 1; exec {quoted_executable} --root \"$root\" protected-state merge-driver-snapshot-derived --ancestor \"$1\" --current \"$2\" --other \"$3\" --path \"$4\"' sh"
+    );
     set_git_config(
         &config_path,
         &format!("merge.{STREAM_DRIVER_NAME}.name"),
@@ -131,6 +158,16 @@ fn ensure_merge_driver_config(root: &Path) -> Result<()> {
         &config_path,
         &format!("merge.{DERIVED_DRIVER_NAME}.driver"),
         &format!("{derived_driver} %O %A %B %P"),
+    )?;
+    set_git_config(
+        &config_path,
+        &format!("merge.{SNAPSHOT_DERIVED_DRIVER_NAME}.name"),
+        "PRISM snapshot-derived artifact merge driver",
+    )?;
+    set_git_config(
+        &config_path,
+        &format!("merge.{SNAPSHOT_DERIVED_DRIVER_NAME}.driver"),
+        &format!("{snapshot_derived_driver} %O %A %B %P"),
     )?;
     Ok(())
 }
@@ -443,11 +480,20 @@ fn is_derived_prism_path(path: &Path) -> bool {
     }
 }
 
+fn is_snapshot_derived_prism_path(path: &Path) -> bool {
+    let normalized = path.to_string_lossy().replace('\\', "/");
+    normalized == ".prism/state/manifest.json"
+        || normalized.starts_with(".prism/state/indexes/")
+        || normalized == "PRISM.md"
+        || normalized.starts_with("docs/prism/")
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        is_authoritative_protected_stream_path, is_derived_prism_path, merge_stream_texts,
-        merge_text_lines, upsert_managed_block, MANAGED_BLOCK_END, MANAGED_BLOCK_START,
+        is_authoritative_protected_stream_path, is_derived_prism_path,
+        is_snapshot_derived_prism_path, merge_stream_texts, merge_text_lines, upsert_managed_block,
+        MANAGED_BLOCK_END, MANAGED_BLOCK_START, MANAGED_GITATTRIBUTES_BLOCK,
     };
     use std::path::Path;
 
@@ -493,6 +539,30 @@ mod tests {
         assert!(!is_derived_prism_path(Path::new(
             ".prism/concepts/events.jsonl"
         )));
+
+        assert!(is_snapshot_derived_prism_path(Path::new(
+            ".prism/state/manifest.json"
+        )));
+        assert!(is_snapshot_derived_prism_path(Path::new(
+            ".prism/state/indexes/plans.json"
+        )));
+        assert!(is_snapshot_derived_prism_path(Path::new("PRISM.md")));
+        assert!(is_snapshot_derived_prism_path(Path::new(
+            "docs/prism/plans/index.md"
+        )));
+        assert!(!is_snapshot_derived_prism_path(Path::new(
+            ".prism/state/plans/plan-1.json"
+        )));
+    }
+
+    #[test]
+    fn managed_gitattributes_block_covers_snapshot_outputs() {
+        assert!(MANAGED_GITATTRIBUTES_BLOCK
+            .contains(".prism/state/manifest.json merge=prism-snapshot-derived"));
+        assert!(MANAGED_GITATTRIBUTES_BLOCK
+            .contains(".prism/state/indexes/*.json merge=prism-snapshot-derived"));
+        assert!(MANAGED_GITATTRIBUTES_BLOCK.contains("PRISM.md merge=prism-snapshot-derived"));
+        assert!(MANAGED_GITATTRIBUTES_BLOCK.contains("docs/prism/** merge=prism-snapshot-derived"));
     }
 
     #[test]
