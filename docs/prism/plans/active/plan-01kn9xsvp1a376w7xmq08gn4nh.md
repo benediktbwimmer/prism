@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:aa7a44bd6e0cfd740aa78c47288fb0f5ac569faea76e21a5c86f11fee1fbfbff`
+- Source head: `sha256:45004f313cb2d78fe1f568815ce20937e1f1b322a977959cc6fad1851e653bc0`
 - Source logical timestamp: `unknown`
-- Source snapshot: `6 nodes, 11 edges, 3 overlays`
+- Source snapshot: `6 nodes, 11 edges, 4 overlays`
 
 ## Overview
 
@@ -92,7 +92,7 @@ Make shared runtime the sole owner of append-only change history, remove tracked
 
 - Node id: `coord-task:01kn9xv2a54t54pbzbbremqrc7`
 - Kind: `edit`
-- Status: `in_progress`
+- Status: `completed`
 - Summary: Update tracked snapshot readers, projections, docs, MCP/query surfaces, and generated reports so current semantic docs read tracked snapshots while operational change reports read shared runtime or shared-runtime-derived projections.
 - Priority: `1`
 - Assignee: `codex-runtime-storage-boundary-redesign-2026-04-01`
@@ -159,6 +159,12 @@ Make shared runtime the sole owner of append-only change history, remove tracked
   publish ref: `task/prism-changes-state-rewrite`
 - Node: `coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`
   git execution status: `published`
+  source ref: `task/prism-changes-state-rewrite`
+  target ref: `origin/main`
+  publish ref: `task/prism-changes-state-rewrite`
+- Node: `coord-task:01kn9xv2a54t54pbzbbremqrc7`
+  git execution status: `publish_pending`
+  pending task status: `completed`
   source ref: `task/prism-changes-state-rewrite`
   target ref: `origin/main`
   publish ref: `task/prism-changes-state-rewrite`
