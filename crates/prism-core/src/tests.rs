@@ -57,6 +57,11 @@ use crate::curator_support::build_curator_context;
 use crate::materialization::summarize_workspace_materialization;
 use crate::memory_events::append_repo_memory_event;
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
+use crate::protected_state::repo_streams::{
+    append_protected_stream_event, implicit_principal_identity,
+};
+use crate::protected_state::streams::ProtectedRepoStream;
+use crate::published_knowledge::validate_repo_patch_event;
 use crate::repo_patch_events::{append_repo_patch_event, load_repo_patch_events};
 use crate::session::HOT_OUTCOME_HYDRATION_LIMIT;
 use crate::workspace_identity::{canonical_root_repo_id, workspace_identity_for_root};

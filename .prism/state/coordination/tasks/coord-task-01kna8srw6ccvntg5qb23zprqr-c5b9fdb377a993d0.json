@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Design the shared coordination ref storage, manifest chaining, and CAS update protocol",
   "summary": null,
-  "status": "Ready",
+  "status": "Completed",
   "published_task_status": null,
   "assignee": null,
   "pending_handoff_to": null,
@@ -29,7 +29,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 152,
+    "graph_version": 1106,
     "git_commit": null
   },
   "priority": null,

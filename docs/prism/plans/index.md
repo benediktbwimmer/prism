@@ -8,14 +8,14 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:f16f94e55ed2c293b8d873609e1b0f68dbf9e2623d590e5edb79f63ed9b4eccf`
+- Source head: `sha256:2abf9ea7bf94e85d9e927fba69700b8f597d37ef6084aa4b0ab6eb3c9d6e6c1a`
 - Source logical timestamp: `unknown`
-- Source snapshot: `64 plans, 40 active, 24 archived`
+- Source snapshot: `65 plans, 41 active, 24 archived`
 
 ## Overview
 
-- Published plans: 64
-- Active plans: 40
+- Published plans: 65
+- Active plans: 41
 - Archived plans: 24
 
 ## Active Plans
@@ -24,6 +24,7 @@
 - [Address the highest-priority remaining PRISM validation-feedback issues across task-brief guidance, compact ranking and follow-through, runtime diagnostics, freshness for newly added files, and deterministic validation stability.](active/plan-01kn8868kh84bkb3rtdc12bdkc.md): Address the highest-priority remaining PRISM validation-feedback issues across task-brief guidance, compact ranking and follow-through, runtime diagnostics, freshness for newly added files, and deterministic validation stability. (`plan:01kn8868kh84bkb3rtdc12bdkc`)
 - [Build a first-class Prism UI control plane around the existing dashboard, with an overview landing surface, a plans view, an architecture graph explorer, shared cross-links, and final concept curation so the repo-native architecture reflects the new human-facing product.](active/plan-01kmzvjdhb874nxd0v44d2hdmt.md): Build a first-class Prism UI control plane around the existing dashboard, with an overview landing surface, a plans view, an architecture graph explorer, shared cross-links, and final concept curation so the repo-native architecture reflects the new human-facing product. (`plan:01kmzvjdhb874nxd0v44d2hdmt`)
 - [Complete git execution policy rollout and harden publish semantics](active/plan-01kn8n8v0ns6jcj0xgge5f0adv.md): Finish the git execution policy feature by exposing policy surfaces clearly, separating task lifecycle from publish lifecycle, making publish-pending and publication acknowledgement semantics explicit, finalizing strict `require` so agents own source-code commit scope while PRISM only finalizes allowlisted PRISM-managed projection files, making freshness policy explicit, validating the flow through dogfooding, and removing `auto` once strict `require` is proven. (`plan:01kn8n8v0ns6jcj0xgge5f0adv`)
+- [Complete shared coordination refs follow-through](active/plan-01knadcr3p15he31394q1bs5wv.md): Finish the remaining shared coordination ref work by adding CAS retry/reconciliation, remote live-sync, target integration lifecycle/evidence, and shared-ref retention/compaction. (`plan:01knadcr3p15he31394q1bs5wv`)
 - [Curate PRISM concepts for the implemented principal identity and authenticated coordination system](active/plan-01kn6f9bhgq49zweypzysn03rj.md): Curate PRISM concepts for the implemented principal identity and authenticated coordination system (`plan:01kn6f9bhgq49zweypzysn03rj`)
 - [Dogfood require-vs-auto git execution](active/plan-01kn8rqy29rqhqc21kf87arqe1.md): Exercise live require-mode completion behavior on a temporary task. (`plan:01kn8rqy29rqhqc21kf87arqe1`)
 - [Eliminate absolute path leakage and make path identity repo-relative across PRISM](active/plan-01kn9vcavs4jft9eqw82ysmghq.md): Define one correct path identity model for PRISM so tracked snapshots, shared/runtime state, APIs, docs, and projections never persist absolute filesystem paths; use file ids plus repo-relative paths as canonical identity and anchors as the primary semantic reference. (`plan:01kn9vcavs4jft9eqw82ysmghq`)

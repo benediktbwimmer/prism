@@ -1,12 +1,12 @@
 {
-  "id": "coord-task:01kna8t3rvk3n07vafmpsdzvvn",
-  "plan": "plan:01kna8nm4nfh9mnvpcqy3h9q6s",
+  "id": "coord-task:01knaddam3fvr96xdqdxn2xdsj",
+  "plan": "plan:01knadcr3p15he31394q1bs5wv",
   "kind": "Edit",
-  "title": "Rebind strict require git execution to shared coordination publication and integration state",
+  "title": "Implement remote shared-ref live sync and self-write suppression",
   "summary": null,
-  "status": "Completed",
+  "status": "Ready",
   "published_task_status": null,
-  "assignee": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
   "pending_handoff_to": null,
   "session": null,
   "lease_holder": null,
@@ -24,10 +24,13 @@
     "memory_refs": [],
     "outcome_refs": []
   },
-  "depends_on": [
-    "coord-task:01kna8sy5barah56gz9x3fs2fx"
+  "depends_on": [],
+  "acceptance": [
+    {
+      "label": "Runtime observes remote shared-ref head movement and imports it without self-churn.",
+      "anchors": []
+    }
   ],
-  "acceptance": [],
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {

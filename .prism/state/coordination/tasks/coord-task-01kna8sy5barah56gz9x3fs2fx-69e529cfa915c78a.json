@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Move shared coordination truth onto the new ref plane for claims, leases, task status, publish state, and integration state",
   "summary": null,
-  "status": "Ready",
+  "status": "Completed",
   "published_task_status": null,
   "assignee": null,
   "pending_handoff_to": null,
@@ -31,7 +31,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 152,
+    "graph_version": 1116,
     "git_commit": null
   },
   "priority": null,

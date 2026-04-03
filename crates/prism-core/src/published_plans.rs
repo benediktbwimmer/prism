@@ -20,6 +20,9 @@ use crate::protected_state::repo_streams::{
     implicit_principal_identity, inspect_protected_stream, rewrite_protected_stream_events,
 };
 use crate::protected_state::streams::classify_protected_repo_relative_path;
+use crate::shared_coordination_ref::{
+    load_shared_coordination_ref_state, sync_shared_coordination_ref_state,
+};
 use crate::tracked_snapshot::{
     load_tracked_coordination_snapshot_state, remove_obsolete_legacy_tracked_authority_artifacts,
     sync_coordination_snapshot_state, tracked_snapshot_authority_active,
@@ -398,18 +401,33 @@ where
         true,
         None,
     );
-    return observe_published_plan_step(
+    observe_published_plan_step(
+        &mut observe_phase,
+        "mutation.coordination.publishedPlans.syncSharedCoordinationRef",
+        |_| json!({}),
+        || sync_shared_coordination_ref_state(root, snapshot, &graphs, &overlays_by_plan, publish),
+    )?;
+    observe_published_plan_step(
         &mut observe_phase,
         "mutation.coordination.publishedPlans.syncTrackedSnapshot",
         |_| json!({}),
         || sync_coordination_snapshot_state(root, snapshot, &graphs, &overlays_by_plan, publish),
-    );
+    )
 }
 
 pub(crate) fn load_hydrated_coordination_snapshot(
     root: &Path,
     snapshot: Option<CoordinationSnapshot>,
 ) -> Result<Option<CoordinationSnapshot>> {
+    if let Some(shared) = load_shared_coordination_ref_state(root)? {
+        return Ok(match snapshot {
+            Some(snapshot) => Some(merge_shared_coordination_into_snapshot(
+                snapshot,
+                shared.snapshot,
+            )),
+            None => Some(shared.snapshot),
+        });
+    }
     if let Some(tracked) = load_tracked_coordination_snapshot_state(root)? {
         return Ok(match snapshot {
             Some(snapshot) => Some(merge_published_plans_into_snapshot(
@@ -437,6 +455,28 @@ pub(crate) fn load_hydrated_coordination_plan_state(
     root: &Path,
     snapshot: Option<CoordinationSnapshot>,
 ) -> Result<Option<HydratedCoordinationPlanState>> {
+    if let Some(mut shared) = load_shared_coordination_ref_state(root)? {
+        return Ok(match snapshot {
+            Some(snapshot) => {
+                merge_snapshot_bootstrap_into_plan_state(
+                    &snapshot,
+                    &mut shared.plan_graphs,
+                    &mut shared.execution_overlays,
+                );
+                let snapshot = merge_shared_coordination_into_snapshot(snapshot, shared.snapshot);
+                Some(HydratedCoordinationPlanState {
+                    snapshot,
+                    plan_graphs: shared.plan_graphs,
+                    execution_overlays: shared.execution_overlays,
+                })
+            }
+            None => Some(HydratedCoordinationPlanState {
+                snapshot: shared.snapshot,
+                plan_graphs: shared.plan_graphs,
+                execution_overlays: shared.execution_overlays,
+            }),
+        });
+    }
     if let Some(mut tracked) = load_tracked_coordination_snapshot_state(root)? {
         return Ok(match snapshot {
             Some(snapshot) => {
@@ -609,6 +649,78 @@ fn merge_published_plans_into_snapshot(
     snapshot.next_claim = snapshot.next_claim.max(published_snapshot.next_claim);
     snapshot.next_artifact = snapshot.next_artifact.max(published_snapshot.next_artifact);
     snapshot.next_review = snapshot.next_review.max(published_snapshot.next_review);
+    snapshot
+}
+
+fn merge_shared_coordination_into_snapshot(
+    mut snapshot: CoordinationSnapshot,
+    shared_snapshot: CoordinationSnapshot,
+) -> CoordinationSnapshot {
+    let shared_plan_ids = shared_snapshot
+        .plans
+        .iter()
+        .map(|plan| plan.id.0.to_string())
+        .collect::<BTreeSet<_>>();
+    let shared_task_ids = shared_snapshot
+        .tasks
+        .iter()
+        .map(|task| task.id.0.to_string())
+        .collect::<BTreeSet<_>>();
+    let shared_artifact_ids = shared_snapshot
+        .artifacts
+        .iter()
+        .map(|artifact| artifact.id.0.to_string())
+        .collect::<BTreeSet<_>>();
+    let shared_claim_ids = shared_snapshot
+        .claims
+        .iter()
+        .map(|claim| claim.id.0.to_string())
+        .collect::<BTreeSet<_>>();
+    let shared_review_ids = shared_snapshot
+        .reviews
+        .iter()
+        .map(|review| review.id.0.to_string())
+        .collect::<BTreeSet<_>>();
+    snapshot
+        .plans
+        .retain(|plan| !shared_plan_ids.contains(plan.id.0.as_str()));
+    snapshot
+        .tasks
+        .retain(|task| !shared_task_ids.contains(task.id.0.as_str()));
+    snapshot
+        .artifacts
+        .retain(|artifact| !shared_artifact_ids.contains(artifact.id.0.as_str()));
+    snapshot
+        .claims
+        .retain(|claim| !shared_claim_ids.contains(claim.id.0.as_str()));
+    snapshot
+        .reviews
+        .retain(|review| !shared_review_ids.contains(review.id.0.as_str()));
+    snapshot.plans.extend(shared_snapshot.plans);
+    snapshot.tasks.extend(shared_snapshot.tasks);
+    snapshot.artifacts.extend(shared_snapshot.artifacts);
+    snapshot.claims.extend(shared_snapshot.claims);
+    snapshot.reviews.extend(shared_snapshot.reviews);
+    snapshot
+        .plans
+        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    snapshot
+        .tasks
+        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    snapshot
+        .artifacts
+        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    snapshot
+        .claims
+        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    snapshot
+        .reviews
+        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    snapshot.next_plan = snapshot.next_plan.max(shared_snapshot.next_plan);
+    snapshot.next_task = snapshot.next_task.max(shared_snapshot.next_task);
+    snapshot.next_claim = snapshot.next_claim.max(shared_snapshot.next_claim);
+    snapshot.next_artifact = snapshot.next_artifact.max(shared_snapshot.next_artifact);
+    snapshot.next_review = snapshot.next_review.max(shared_snapshot.next_review);
     snapshot
 }
 

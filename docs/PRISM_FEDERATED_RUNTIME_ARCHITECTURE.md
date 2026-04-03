@@ -103,6 +103,16 @@ It carries compact durable shared facts such as:
 
 This is the minimum shared truth every runtime must agree on.
 
+For v1, that shared truth should live under one canonical ref per logical repository:
+
+```text
+refs/prism/coordination/<logical-repo-id>/live
+```
+
+The shared coordination tree may contain multiple domains and indexes, but they should share one
+live head so claims, leases, task state, publish state, and runtime descriptors converge as one
+coherent snapshot.
+
 ### 4.2 Local runtime SQLite
 
 Each worktree-local runtime keeps a rich SQLite store for:
@@ -690,6 +700,12 @@ not as the only live truth.
 Implement the shared coordination ref model first.
 
 Without that, the rest of the federated design has no reliable shared control plane.
+
+That first phase should also lock two implementation constraints:
+
+- shell Git is the initial fetch/push/CAS transport behind a narrow backend abstraction
+- branch-local `.prism/state/**` mirrors of shared coordination remain optional and derived, not a
+  second authority plane
 
 ### Phase 2: runtime descriptors
 

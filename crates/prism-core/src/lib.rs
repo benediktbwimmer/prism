@@ -35,6 +35,7 @@ mod resolution;
 pub mod runtime_engine;
 mod session;
 mod session_bootstrap;
+mod shared_coordination_ref;
 mod shared_runtime;
 mod shared_runtime_backend;
 mod shared_runtime_store;

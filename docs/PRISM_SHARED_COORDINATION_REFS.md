@@ -90,17 +90,28 @@ Required non-goals:
 PRISM should store authoritative multi-agent coordination state in a dedicated shared ref namespace,
 not in the current branch worktree.
 
-Illustrative ref shape:
+Canonical v1 ref shape:
 
 ```text
 refs/prism/coordination/<logical-repo-id>/live
 ```
 
-The exact naming can vary, but the important contract is:
+For the initial implementation, the naming should be fixed rather than left open:
 
 - one shared logical coordination head per repository
 - writable through normal Git fetch and push
 - not tied to `main` or any feature branch
+
+PRISM should therefore treat:
+
+```text
+refs/prism/coordination/<logical-repo-id>/live
+```
+
+as the canonical live coordination ref for a logical repository.
+
+Domain-specific shards belong inside the snapshot tree under that one live head, not in separate
+live refs.
 
 ### 4.2 The shared ref should be snapshot-oriented
 
@@ -235,7 +246,26 @@ The important properties are:
 - one manifest that digests the exact snapshot set
 - narrow conflict surfaces
 
-The exact path names can evolve, but the live ref should stay snapshot-oriented and modular.
+The exact shard names may evolve, but the live ref should stay snapshot-oriented and modular.
+
+### 6.1 Mirror policy for branch-local `.prism/state/**`
+
+Branch-local `.prism/state/**` should not mirror the full shared coordination snapshot by default.
+
+The default rule should be:
+
+- shared coordination ref is the only authoritative cross-branch live coordination plane
+- branch-local `.prism/state/**` keeps branch-published intent and branch-scoped semantic state
+- branch-local mirrors of shared coordination are allowed only when they are explicitly derived,
+  bounded, and useful for branch review or task-scoped evidence
+
+In practice that means:
+
+- no automatic full mirror of claims, leases, handoffs, or portfolio inputs back into branch-local
+  `.prism/state/**`
+- task-local git execution evidence or review-facing derived summaries may be mirrored when useful
+- any such mirror must be clearly derived from the shared coordination ref and must never become a
+  second hidden authority
 
 ---
 
@@ -316,6 +346,20 @@ Examples:
 - a completion acknowledgment should confirm whether publication was already recorded
 
 This is especially important once multiple agents are writing the same shared ref.
+
+### 8.4 Transport implementation boundary
+
+The shared-ref write path should be implemented behind a narrow Git transport abstraction, but the
+initial implementation should use shell Git as the only backend.
+
+That gives PRISM:
+
+- the same push, fetch, compare-and-swap, and credential behavior operators already use today
+- easy observability through raw Git stderr/stdout and existing repo policy
+- less ambiguity while the shared-ref semantics are still being proven
+
+libgit2 or another plumbing backend may be added later behind the same abstraction once the shared
+coordination protocol is stable, but v1 should not depend on dual backends.
 
 ---
 
@@ -863,11 +907,15 @@ Implementation should add explicit coverage for:
 
 ## 17. Open Questions
 
-- Should the shared ref use one live head per repository or separate live heads per domain?
-- How much of the shared coordination snapshot should be mirrored back into branch-local
-  `.prism/state/**`, and when?
-- Should shared coordination ref updates be published by libgit2 plumbing, shell Git, or both?
-- What is the best operator surface for diagnosing shared-ref race retries and compaction health?
+The storage and CAS design decisions are locked for v1:
+
+- use one live shared coordination head per logical repository, not separate heads per domain
+- keep branch-local `.prism/state/**` mirrors minimal, derived, and explicitly non-authoritative
+- implement the shared-ref transport behind an abstraction, but ship shell Git first as the only
+  backend
+- expose operator diagnostics through normal PRISM read surfaces, with explicit shared-ref health,
+  current head, last verified manifest, last successful publish, CAS retry counts, and compaction
+  status
 
 ---
 

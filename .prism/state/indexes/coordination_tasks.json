@@ -1760,25 +1760,25 @@
   {
     "id": "coord-task:01kna8srw6ccvntg5qb23zprqr",
     "title": "Design the shared coordination ref storage, manifest chaining, and CAS update protocol",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01kna8srw6ccvntg5qb23zprqr-c5b9fdb377a993d0.json"
   },
   {
     "id": "coord-task:01kna8sy5barah56gz9x3fs2fx",
     "title": "Move shared coordination truth onto the new ref plane for claims, leases, task status, publish state, and integration state",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01kna8sy5barah56gz9x3fs2fx-69e529cfa915c78a.json"
   },
   {
     "id": "coord-task:01kna8t3rvk3n07vafmpsdzvvn",
     "title": "Rebind strict require git execution to shared coordination publication and integration state",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01kna8t3rvk3n07vafmpsdzvvn-ea9f7080cef1e7ba.json"
   },
   {
     "id": "coord-task:01kna8ta5hywfef8t87dn6bret",
     "title": "Validate shared cross-branch coordination and dogfood the new git-execution path on top of it",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01kna8ta5hywfef8t87dn6bret-576aec2f414dfbce.json"
   },
   {
@@ -1852,6 +1852,36 @@
     "title": "Validate local-machine peer observability, capability denial, and graceful fallback with no peer",
     "status": "Ready",
     "path": "tasks/coord-task-01kna9hjenyhw6ge6wb4eb8h7p-d43324e33ccf6378.json"
+  },
+  {
+    "id": "coord-task:01knadd8hh7hxr20jgcc46ywhe",
+    "title": "Add CAS retry and retry-safe shared ref reconciliation",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knadd8hh7hxr20jgcc46ywhe-1637bca6daafda46.json"
+  },
+  {
+    "id": "coord-task:01knaddam3fvr96xdqdxn2xdsj",
+    "title": "Implement remote shared-ref live sync and self-write suppression",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knaddam3fvr96xdqdxn2xdsj-6aa70e569fff79d0.json"
+  },
+  {
+    "id": "coord-task:01knaddcdxvdyh8akrc10b9npw",
+    "title": "Model target integration lifecycle and durable landing evidence",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knaddcdxvdyh8akrc10b9npw-dbffdb3517a4d26f.json"
+  },
+  {
+    "id": "coord-task:01knaddebyw5yp2vex9e8fgfm7",
+    "title": "Add shared-ref retention, compaction, and operator diagnostics",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knaddebyw5yp2vex9e8fgfm7-71de8f1f1491c567.json"
+  },
+  {
+    "id": "coord-task:01knaddrkxtpmzwc9vsr1ykw1p",
+    "title": "Validate shared-ref coordination follow-through end to end",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knaddrkxtpmzwc9vsr1ykw1p-479d003eaed6284c.json"
   },
   {
     "id": "coord-task:1",
