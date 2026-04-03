@@ -5505,6 +5505,150 @@ fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
 }
 
 #[test]
+fn repo_published_plan_logs_do_not_reemit_existing_child_of_edges() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let (plan_id, child_id, parent_id) = session
+        .mutate_coordination(|prism| {
+            let base_revision = prism.workspace_revision();
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:edge-delta-plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:edge-delta-plan")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Avoid duplicate child edges".into(),
+                "Avoid duplicate child edges".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            let parent = prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:edge-delta-parent"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:edge-delta-plan")),
+                    causation: None,
+                    execution_context: None,
+                },
+                prism_coordination::TaskCreateInput {
+                    plan_id: plan_id.clone(),
+                    title: "Parent".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: base_revision.clone(),
+                },
+            )?;
+            let child = prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:edge-delta-child"),
+                    ts: 3,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:edge-delta-plan")),
+                    causation: None,
+                    execution_context: None,
+                },
+                prism_coordination::TaskCreateInput {
+                    plan_id: plan_id.clone(),
+                    title: "Child".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision,
+                },
+            )?;
+            prism.create_native_plan_edge(
+                &plan_id,
+                &prism_ir::PlanNodeId::new(child.id.0.clone()),
+                &prism_ir::PlanNodeId::new(parent.id.0.clone()),
+                prism_ir::PlanEdgeKind::ChildOf,
+            )?;
+            Ok((plan_id, child.id, parent.id))
+        })
+        .unwrap();
+
+    session
+        .mutate_coordination(|prism| {
+            let current_revision = prism.workspace_revision();
+            let _ = prism.update_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:edge-delta-child-update"),
+                    ts: 4,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:edge-delta-plan")),
+                    causation: None,
+                    execution_context: None,
+                },
+                prism_coordination::TaskUpdateInput {
+                    task_id: child_id.clone(),
+                    kind: None,
+                    status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    title: Some("Child renamed once".into()),
+                    summary: None,
+                    anchors: None,
+                    bindings: None,
+                    depends_on: None,
+                    acceptance: None,
+                    validation_refs: None,
+                    is_abstract: None,
+                    base_revision: None,
+                    priority: None,
+                    tags: None,
+                    completion_context: None,
+                },
+                current_revision,
+                4,
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let log_path = root
+        .join(".prism")
+        .join("plans")
+        .join("active")
+        .join(format!("{}.jsonl", plan_id.0));
+    let edge_id = format!("plan-edge:{}:child-of:{}", child_id.0, parent_id.0);
+    let edge_added_count = fs::read_to_string(&log_path)
+        .unwrap()
+        .lines()
+        .filter(|line| line.contains("\"kind\":\"edge_added\"") && line.contains(&edge_id))
+        .count();
+    assert_eq!(
+        edge_added_count, 1,
+        "incremental sync should not republish the same child-of edge after unrelated mutations"
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn regenerate_repo_published_plan_artifacts_restores_index_and_derived_log_from_streams() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

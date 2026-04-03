@@ -1154,6 +1154,7 @@ pub(crate) fn create_plan_mutation(
         tags: Vec::new(),
         created_from: None,
         metadata: Value::Null,
+        authored_edges: Vec::new(),
         root_tasks: Vec::new(),
     };
     state.plans.insert(id.clone(), plan.clone());

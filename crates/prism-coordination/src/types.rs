@@ -1,9 +1,9 @@
 use prism_ir::{
     AgentId, AnchorRef, ArtifactId, ArtifactStatus, BlockerCause, Capability, ClaimId, ClaimMode,
     ClaimStatus, ConflictOverlapKind, ConflictSeverity, CoordinationEventKind, CoordinationTaskId,
-    CoordinationTaskStatus, EventId, EventMeta, LeaseRenewalMode, PlanBinding, PlanId, PlanKind,
-    PlanNodeKind, PlanScope, PlanStatus, PrincipalActor, ReviewId, ReviewVerdict, SessionId,
-    Timestamp, ValidationRef, WorkspaceRevision,
+    CoordinationTaskStatus, EventId, EventMeta, LeaseRenewalMode, PlanBinding, PlanEdge, PlanId,
+    PlanKind, PlanNodeKind, PlanScope, PlanStatus, PrincipalActor, ReviewId, ReviewVerdict,
+    SessionId, Timestamp, ValidationRef, WorkspaceRevision,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -118,6 +118,8 @@ pub struct Plan {
     pub created_from: Option<String>,
     #[serde(default)]
     pub metadata: Value,
+    #[serde(default)]
+    pub authored_edges: Vec<PlanEdge>,
     pub root_tasks: Vec<CoordinationTaskId>,
 }
 

@@ -1449,18 +1449,31 @@ fn apply_prepared_workspace_delta_command(
         ));
     };
     let checkpoint_pending = prepared.report.refresh_path != "none";
-    let batch =
-        if should_publish_runtime_generation(prepared.report.refresh_path, &prepared.file_deltas) {
-            Some(publish_runtime_generation(
-                config,
-                &prepared.revisions,
-                prepared.report.refresh_path,
-                prepared.file_deltas,
-                Some(checkpoint_pending),
-            ))
-        } else {
-            None
-        };
+    let should_publish = if should_publish_runtime_generation(
+        prepared.report.refresh_path,
+        &prepared.file_deltas,
+    ) {
+        true
+    } else {
+        config
+            .runtime_engine
+            .lock()
+            .expect("workspace runtime engine lock poisoned")
+            .published_generation()
+            .domain_states
+            .is_empty()
+    };
+    let batch = if should_publish {
+        Some(publish_runtime_generation(
+            config,
+            &prepared.revisions,
+            prepared.report.refresh_path,
+            prepared.file_deltas,
+            Some(checkpoint_pending),
+        ))
+    } else {
+        None
+    };
     let follow_up_commands = follow_up_runtime_commands(
         config,
         &prepared.revisions,

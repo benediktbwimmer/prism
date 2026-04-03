@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use prism_ir::{CoordinationEventKind, CoordinationTaskId, CoordinationTaskStatus, PlanId};
+use prism_ir::{
+    CoordinationEventKind, CoordinationTaskId, CoordinationTaskStatus, PlanEdgeKind, PlanId,
+};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
@@ -365,6 +367,7 @@ fn merge_stored_plan_metadata(plan: &mut Plan, stored: Plan) {
     plan.tags = stored.tags;
     plan.created_from = stored.created_from;
     plan.metadata = stored.metadata;
+    plan.authored_edges = stored.authored_edges;
 }
 
 fn merge_stored_task_metadata(task: &mut CoordinationTask, stored: CoordinationTask) {
@@ -420,12 +423,30 @@ fn recompute_root_tasks(
     plans: &mut HashMap<PlanId, Plan>,
     tasks: &HashMap<CoordinationTaskId, CoordinationTask>,
 ) {
+    let child_targets = plans
+        .iter()
+        .map(|(plan_id, plan)| {
+            let targets = plan
+                .authored_edges
+                .iter()
+                .filter(|edge| edge.kind == PlanEdgeKind::ChildOf)
+                .map(|edge| CoordinationTaskId::new(edge.from.0.clone()))
+                .collect::<Vec<_>>();
+            (plan_id.clone(), targets)
+        })
+        .collect::<HashMap<_, _>>();
     for plan in plans.values_mut() {
         plan.root_tasks.clear();
     }
     let mut roots = tasks
         .values()
         .filter(|task| task.depends_on.is_empty())
+        .filter(|task| {
+            !child_targets
+                .get(&task.plan)
+                .map(|targets| targets.contains(&task.id))
+                .unwrap_or(false)
+        })
         .map(|task| (task.plan.clone(), task.id.clone()))
         .collect::<Vec<_>>();
     roots.sort_by(|left, right| {

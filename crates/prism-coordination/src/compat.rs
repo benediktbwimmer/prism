@@ -38,7 +38,13 @@ pub fn plan_graph_from_coordination(plan: Plan, mut tasks: Vec<CoordinationTask>
         .iter()
         .flat_map(|task| dependency_edges_for_task(task))
         .collect::<Vec<_>>();
-    edges.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    edges.extend(
+        plan.authored_edges
+            .iter()
+            .filter(|edge| edge.kind != PlanEdgeKind::DependsOn)
+            .cloned(),
+    );
+    dedupe_and_sort_edges(&mut edges);
 
     PlanGraph {
         id: plan.id.clone(),
@@ -190,6 +196,12 @@ fn plan_from_graph(graph: &PlanGraph) -> Plan {
         tags: graph.tags.clone(),
         created_from: graph.created_from.clone(),
         metadata: graph.metadata.clone(),
+        authored_edges: graph
+            .edges
+            .iter()
+            .filter(|edge| edge.kind != PlanEdgeKind::DependsOn)
+            .cloned()
+            .collect(),
         root_tasks: graph
             .root_nodes
             .iter()
@@ -279,6 +291,11 @@ fn dependency_edges_for_task(task: &CoordinationTask) -> Vec<PlanEdge> {
         });
     }
     edges
+}
+
+fn dedupe_and_sort_edges(edges: &mut Vec<PlanEdge>) {
+    edges.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    edges.dedup_by(|left, right| left.id == right.id);
 }
 
 fn map_acceptance(criterion: AcceptanceCriterion) -> PlanAcceptanceCriterion {

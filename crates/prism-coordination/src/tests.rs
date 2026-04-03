@@ -1432,6 +1432,120 @@ fn plan_graph_execution_overlays_keep_runtime_state_outside_canonical_nodes() {
 }
 
 #[test]
+fn coordination_snapshot_round_trips_authored_plan_edges_and_child_roots() {
+    let plan_id = prism_ir::PlanId::new("plan:graph-roundtrip");
+    let parent = prism_ir::PlanNodeId::new("coord-task:parent");
+    let child = prism_ir::PlanNodeId::new("coord-task:child");
+    let validate = prism_ir::PlanNodeId::new("coord-task:validate");
+    let child_edge = prism_ir::PlanEdge {
+        id: prism_ir::PlanEdgeId::new(format!("plan-edge:{}:child-of:{}", child.0, parent.0)),
+        plan_id: plan_id.clone(),
+        from: child.clone(),
+        to: parent.clone(),
+        kind: prism_ir::PlanEdgeKind::ChildOf,
+        summary: None,
+        metadata: serde_json::Value::Null,
+    };
+    let validate_edge = prism_ir::PlanEdge {
+        id: prism_ir::PlanEdgeId::new(format!("plan-edge:{}:validates:{}", child.0, validate.0)),
+        plan_id: plan_id.clone(),
+        from: child.clone(),
+        to: validate.clone(),
+        kind: prism_ir::PlanEdgeKind::Validates,
+        summary: None,
+        metadata: serde_json::Value::Null,
+    };
+    let graph = prism_ir::PlanGraph {
+        id: plan_id.clone(),
+        scope: prism_ir::PlanScope::Repo,
+        kind: prism_ir::PlanKind::TaskExecution,
+        title: "Round trip authored edges".into(),
+        goal: "Round trip authored edges".into(),
+        status: prism_ir::PlanStatus::Active,
+        revision: 0,
+        root_nodes: vec![parent.clone(), validate.clone()],
+        tags: Vec::new(),
+        created_from: None,
+        metadata: serde_json::Value::Null,
+        nodes: vec![
+            prism_ir::PlanNode {
+                id: parent.clone(),
+                plan_id: plan_id.clone(),
+                kind: prism_ir::PlanNodeKind::Note,
+                title: "Parent".into(),
+                summary: None,
+                status: prism_ir::PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                validation_refs: Vec::new(),
+                is_abstract: true,
+                assignee: None,
+                base_revision: revision(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+            prism_ir::PlanNode {
+                id: child.clone(),
+                plan_id: plan_id.clone(),
+                kind: prism_ir::PlanNodeKind::Edit,
+                title: "Child".into(),
+                summary: None,
+                status: prism_ir::PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                validation_refs: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: revision(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+            prism_ir::PlanNode {
+                id: validate.clone(),
+                plan_id: plan_id.clone(),
+                kind: prism_ir::PlanNodeKind::Validate,
+                title: "Validate".into(),
+                summary: None,
+                status: prism_ir::PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                validation_refs: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: revision(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+        ],
+        edges: vec![child_edge.clone(), validate_edge.clone()],
+    };
+
+    let snapshot = coordination_snapshot_from_plan_graphs(
+        &[graph.clone()],
+        &std::collections::BTreeMap::new(),
+    );
+    assert_eq!(
+        snapshot.plans[0].root_tasks,
+        vec![
+            prism_ir::CoordinationTaskId::new(parent.0.clone()),
+            prism_ir::CoordinationTaskId::new(validate.0.clone()),
+        ]
+    );
+    assert_eq!(
+        snapshot.plans[0].authored_edges,
+        vec![child_edge.clone(), validate_edge.clone()]
+    );
+
+    let round_tripped = snapshot_plan_graphs(&snapshot);
+    assert_eq!(round_tripped.len(), 1);
+    assert_eq!(round_tripped[0].root_nodes, graph.root_nodes);
+    assert_eq!(round_tripped[0].edges, graph.edges);
+}
+
+#[test]
 fn invalid_task_transition_is_rejected() {
     let store = CoordinationStore::new();
     let (plan_id, _) = store
@@ -2641,6 +2755,7 @@ fn snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata() 
         tags: vec!["persistence".to_string(), "ux".to_string()],
         created_from: Some("concept://persistence_runtime".to_string()),
         metadata: serde_json::json!({ "source": "native-plan" }),
+        authored_edges: Vec::new(),
         root_tasks: vec![task_id.clone()],
     })
     .unwrap();
