@@ -179,7 +179,7 @@
         "kind": "Edit",
         "title": "Remove tracked changes read-path assumptions and redirect operational reports to shared runtime",
         "summary": "Update tracked snapshot readers, projections, docs, MCP/query surfaces, and generated reports so current semantic docs read tracked snapshots while operational change reports read shared runtime or shared-runtime-derived projections.",
-        "status": "Ready",
+        "status": "Completed",
         "bindings": {
           "anchors": [],
           "concept_handles": [],
@@ -205,7 +205,7 @@
         "is_abstract": false,
         "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
         "base_revision": {
-          "graph_version": 1017,
+          "graph_version": 1038,
           "git_commit": null
         },
         "priority": 1,
@@ -299,24 +299,6 @@
     ],
     "edges": [
       {
-        "id": "plan-edge:coord-task:01kn9xv2a54t54pbzbbremqrc7:depends-on:coord-task:01kn9xt9h76645shp4jcmt0bsv",
-        "plan_id": "plan:01kn9xsvp1a376w7xmq08gn4nh",
-        "from": "coord-task:01kn9xv2a54t54pbzbbremqrc7",
-        "to": "coord-task:01kn9xt9h76645shp4jcmt0bsv",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01kn9xv2a54t54pbzbbremqrc7:depends-on:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8",
-        "plan_id": "plan:01kn9xsvp1a376w7xmq08gn4nh",
-        "from": "coord-task:01kn9xv2a54t54pbzbbremqrc7",
-        "to": "coord-task:01kn9xtsf57cqfxa0a7hd2wsx8",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
         "id": "plan-edge:coord-task:01kn9xv8x94h8gwja48wahgsnb:depends-on:coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j",
         "plan_id": "plan:01kn9xsvp1a376w7xmq08gn4nh",
         "from": "coord-task:01kn9xv8x94h8gwja48wahgsnb",
@@ -396,6 +378,24 @@
         "kind": "DependsOn",
         "summary": null,
         "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn9xv2a54t54pbzbbremqrc7:depends-on:coord-task:01kn9xt9h76645shp4jcmt0bsv",
+        "plan_id": "plan:01kn9xsvp1a376w7xmq08gn4nh",
+        "from": "coord-task:01kn9xv2a54t54pbzbbremqrc7",
+        "to": "coord-task:01kn9xt9h76645shp4jcmt0bsv",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn9xv2a54t54pbzbbremqrc7:depends-on:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8",
+        "plan_id": "plan:01kn9xsvp1a376w7xmq08gn4nh",
+        "from": "coord-task:01kn9xv2a54t54pbzbbremqrc7",
+        "to": "coord-task:01kn9xtsf57cqfxa0a7hd2wsx8",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
       }
     ]
   },
@@ -436,6 +436,23 @@
     },
     {
       "node_id": "coord-task:01kn9xtsf57cqfxa0a7hd2wsx8",
+      "pending_handoff_to": null,
+      "session": null,
+      "worktree_id": null,
+      "branch_ref": null,
+      "effective_assignee": null,
+      "awaiting_handoff_from": null,
+      "git_execution": {
+        "status": "published",
+        "pendingTaskStatus": null,
+        "sourceRef": "task/prism-changes-state-rewrite",
+        "targetRef": "origin/main",
+        "publishRef": "task/prism-changes-state-rewrite",
+        "targetBranch": "main"
+      }
+    },
+    {
+      "node_id": "coord-task:01kn9xv2a54t54pbzbbremqrc7",
       "pending_handoff_to": null,
       "session": null,
       "worktree_id": null,

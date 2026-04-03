@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Remove tracked changes read-path assumptions and redirect operational reports to shared runtime",
   "summary": "Update tracked snapshot readers, projections, docs, MCP/query surfaces, and generated reports so current semantic docs read tracked snapshots while operational change reports read shared runtime or shared-runtime-derived projections.",
-  "status": "Ready",
+  "status": "Completed",
   "published_task_status": null,
   "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
   "pending_handoff_to": null,
@@ -41,7 +41,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1017,
+    "graph_version": 1038,
     "git_commit": null
   },
   "priority": 1,
