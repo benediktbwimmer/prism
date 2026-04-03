@@ -26,10 +26,19 @@
 
 Investigate and reduce slow PRISM refresh-path latency by measuring the true hot path, isolating the dominant costs in no-op and small-delta refreshes, deciding whether one or more relevant optimizations from docs/OPTIMIZATIONS.md should be adopted during the tuning work, and validating the resulting latency improvements without regressing correctness. If the agent decides to include one or more such optimization items, this plan must be extended to track that added scope explicitly.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:7.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:7.json`
+- Legacy migration log path: `.prism/plans/streams/plan:7.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

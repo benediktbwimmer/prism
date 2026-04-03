@@ -1,0 +1,209 @@
+{
+  "meta": {
+    "id": "outcome:01kn9p4nh4gtcwr5w1y9z59fa1",
+    "ts": 1775220446,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-a:01kn4jw3waxc8qj2nysd3rsyvc",
+        "kind": null,
+        "name": "Codex A"
+      }
+    },
+    "correlation": "work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh",
+    "causation": "observed:01kn9p4ng19wnkpvpj6khmw9sw",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:8719dd7db144e96f",
+      "branch_ref": "refs/heads/task/prism-snapshot-rewrite",
+      "instance_id": "instance:65936:1775220132449",
+      "work_context": {
+        "workId": "work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh",
+        "kind": "ad_hoc",
+        "title": "Plan the tracked .prism snapshot rewrite",
+        "planId": "plan:01kn9hkjxnzdj4qtt4fa25cr6y",
+        "planTitle": "Rewrite tracked .prism to signed snapshot publication"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 79
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::contract_events::append_repo_contract_event",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::contract_events::load_repo_contract_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::contract_events",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::contract_events::load_repo_curated_contracts",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 4 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 8,
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/contract_events.rs",
+        "removedCount": 0,
+        "updatedCount": 8
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/contract_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::contract_events::append_repo_contract_event"
+        },
+        "kind": "Function",
+        "name": "append_repo_contract_event",
+        "span": {
+          "end": 1053,
+          "start": 493
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/contract_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::contract_events::append_repo_contract_event"
+        },
+        "kind": "Function",
+        "name": "append_repo_contract_event",
+        "span": {
+          "end": 1053,
+          "start": 493
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/contract_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::contract_events::load_repo_contract_events"
+        },
+        "kind": "Function",
+        "name": "load_repo_contract_events",
+        "span": {
+          "end": 1812,
+          "start": 1055
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/contract_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::contract_events::load_repo_contract_events"
+        },
+        "kind": "Function",
+        "name": "load_repo_contract_events",
+        "span": {
+          "end": 1812,
+          "start": 1055
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/contract_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::contract_events"
+        },
+        "kind": "Module",
+        "name": "contract_events",
+        "span": {
+          "end": 2130,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/contract_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::contract_events"
+        },
+        "kind": "Module",
+        "name": "contract_events",
+        "span": {
+          "end": 2135,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/contract_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::contract_events::load_repo_curated_contracts"
+        },
+        "kind": "Function",
+        "name": "load_repo_curated_contracts",
+        "span": {
+          "end": 2129,
+          "start": 1814
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/contract_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::contract_events::load_repo_curated_contracts"
+        },
+        "kind": "Function",
+        "name": "load_repo_curated_contracts",
+        "span": {
+          "end": 2134,
+          "start": 1814
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 8,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism/crates/prism-core/src/contract_events.rs"
+    ],
+    "files": [
+      79
+    ],
+    "reason": "work Plan the tracked .prism snapshot rewrite (work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh)",
+    "trigger": "FsWatch"
+  }
+}

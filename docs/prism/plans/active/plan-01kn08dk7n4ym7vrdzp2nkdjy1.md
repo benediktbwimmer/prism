@@ -26,10 +26,19 @@
 
 Improve PRISM’s agent-facing workflow by hardening workflow contracts, making compact discovery and editing ownership-aware and large-file-aware, and making durable knowledge publication easier to promote safely, while closing the dogfooding friction surfaced during live use.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn08dk7n4ym7vrdzp2nkdjy1.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn08dk7n4ym7vrdzp2nkdjy1.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn08dk7n4ym7vrdzp2nkdjy1.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

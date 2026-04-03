@@ -26,10 +26,19 @@
 
 Finish the git execution policy feature by exposing policy surfaces clearly, separating task lifecycle from publish lifecycle, making publish-pending and publication acknowledgement semantics explicit, finalizing strict `require` so agents own source-code commit scope while PRISM only finalizes allowlisted PRISM-managed projection files, making freshness policy explicit, validating the flow through dogfooding, and removing `auto` once strict `require` is proven.
 
+## Git Execution Policy
+
+- Start mode: `auto`
+- Completion mode: `auto`
+- Target branch: `main`
+- Require task branch: `true`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn8n8v0ns6jcj0xgge5f0adv.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn8n8v0ns6jcj0xgge5f0adv.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn8n8v0ns6jcj0xgge5f0adv.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

@@ -26,10 +26,19 @@
 
 Follow up on remaining PRISM usability gaps by improving compact-tool ranking transparency, strengthening concept-to-doc-to-code continuity, hardening workspace/path edge cases, and tightening stale-context repair loops.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn3cceq1sh4s78yj4m34rww2.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn3cceq1sh4s78yj4m34rww2.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn3cceq1sh4s78yj4m34rww2.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

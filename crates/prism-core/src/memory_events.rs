@@ -8,22 +8,40 @@ use crate::protected_state::repo_streams::{
     append_protected_stream_event, implicit_principal_identity, inspect_protected_stream,
 };
 use crate::protected_state::streams::{ProtectedRepoStream, ProtectedVerificationStatus};
+use crate::tracked_snapshot::{
+    apply_memory_snapshot, legacy_tracked_stream_bridge_active, load_memory_snapshot_events,
+    publish_context_from_event, tracked_snapshot_authority_active,
+};
 use crate::util::repo_memory_events_path;
 
 pub(crate) fn append_repo_memory_event(root: &Path, event: &MemoryEvent) -> Result<()> {
-    let stream = ProtectedRepoStream::memory_stream("events.jsonl")
-        .expect("default repo memory stream should be classified as protected");
-    append_protected_stream_event(
+    if legacy_tracked_stream_bridge_active(root)? {
+        let stream = ProtectedRepoStream::memory_stream("events.jsonl")
+            .expect("default repo memory stream should be classified as protected");
+        append_protected_stream_event(
+            root,
+            &stream,
+            &event.id,
+            event,
+            &implicit_principal_identity(event.actor.as_ref(), event.execution_context.as_ref()),
+        )?;
+    }
+    apply_memory_snapshot(
         root,
-        &stream,
-        &event.id,
         event,
-        &implicit_principal_identity(event.actor.as_ref(), event.execution_context.as_ref()),
+        &publish_context_from_event(
+            event.actor.as_ref(),
+            event.execution_context.as_ref(),
+            event.recorded_at,
+        ),
     )
 }
 
 pub(crate) fn load_repo_memory_events(root: &Path) -> Result<Vec<MemoryEvent>> {
     let path = repo_memory_events_path(root);
+    if tracked_snapshot_authority_active(root)? || !path.exists() {
+        return load_memory_snapshot_events(root);
+    }
     let stream = ProtectedRepoStream::memory_stream("events.jsonl")
         .expect("default repo memory stream should be classified as protected");
     let inspection = inspect_protected_stream::<MemoryEvent>(root, &stream)?;

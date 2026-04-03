@@ -26,10 +26,19 @@
 
 contracts-01: implement the first PRISM contracts primitive as a concept-like sibling pipeline with explicit schema and event storage, hosted MCP mutations and resources, query/read integration, and contract-aware impact or after-edit behavior, while keeping derived policy or guardrail enforcement out of scope for this first rollout.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kmyy4ykg8sh1apt74er1t0fm.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kmyy4ykg8sh1apt74er1t0fm.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kmyy4ykg8sh1apt74er1t0fm.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

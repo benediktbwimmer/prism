@@ -1,0 +1,57 @@
+{
+  "id": "coord-task:16",
+  "plan": "plan:7",
+  "kind": "Edit",
+  "title": "Instrument and benchmark the refresh path for no-op, one-file, and contention cases",
+  "summary": null,
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [],
+  "acceptance": [
+    {
+      "label": "Covers at least no-op read refresh, one-file-write refresh, and busy-lock or deferred-refresh behavior",
+      "anchors": []
+    },
+    {
+      "label": "Produces a concrete phase-by-phase latency breakdown for the steady-state refresh hot path",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 2074,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

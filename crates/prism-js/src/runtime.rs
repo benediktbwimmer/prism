@@ -970,6 +970,17 @@ const __prismBase = Object.freeze({
   artifactRisk(artifactId) {
     return __prismHost("artifactRisk", { artifactId });
   },
+  _workflowExecution(overlays) {
+    return (overlays ?? []).filter((overlay) => {
+      if (!overlay || typeof overlay !== "object") return false;
+      return Boolean(
+        overlay.pendingHandoffTo ??
+          overlay.effectiveAssignee ??
+          overlay.awaitingHandoffFrom ??
+          overlay.gitExecution
+      );
+    });
+  },
   taskIntent(taskId) {
     return __prismHost("taskIntent", { taskId });
   },
@@ -979,7 +990,7 @@ const __prismBase = Object.freeze({
     return {
       plan,
       planGraph,
-      planExecution: prism.planExecution(planId),
+      planExecution: prism._workflowExecution(prism.planExecution(planId)),
       planSummary: prism.planSummary(planId),
       planNext: prism.planNext(planId),
       readyTasks: prism.readyTasks(planId),
@@ -989,10 +1000,13 @@ const __prismBase = Object.freeze({
   taskContext(taskId) {
     const task = prism.task(taskId);
     const planGraph = task ? prism.planGraph(task.planId) : null;
+    const planExecution = task
+      ? prism._workflowExecution(prism.planExecution(task.planId))
+      : [];
     const taskNode = planGraph?.nodes.find((node) => node.id === taskId) ?? null;
     const taskExecution =
       task && planGraph
-        ? prism.planExecution(task.planId).find((overlay) => overlay.nodeId === taskId) ?? null
+        ? planExecution.find((overlay) => overlay.nodeId === taskId) ?? null
         : null;
     const target = task?.anchors ?? [];
     return {

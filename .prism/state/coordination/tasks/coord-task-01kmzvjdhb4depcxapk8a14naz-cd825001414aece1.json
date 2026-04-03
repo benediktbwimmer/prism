@@ -1,0 +1,78 @@
+{
+  "id": "coord-task:01kmzvjdhb4depcxapk8a14naz",
+  "plan": "plan:01kmzvjdhb874nxd0v44d2hdmt",
+  "kind": "Edit",
+  "title": "Milestone 7: Add cross-view linking, overlays, and shared architectural context",
+  "summary": "Connect Overview, Dashboard, Plans, and Graph so each surface can highlight the same runtime work, affected concepts, and validation or risk context, with overlay semantics that stay coherent as the graph grows toward contract-aware architectural navigation.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [
+      "concept://coordination_and_plan_runtime",
+      "concept://dashboard_surface",
+      "concept://prism_architecture"
+    ],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kmzvjdhbgcw86tj5tjs7cd1b",
+    "coord-task:01kmzvjdhbsgjm53m3ws4r2ax8",
+    "coord-task:01kmzvjdhbwtrnjz0q7w13337m"
+  ],
+  "acceptance": [
+    {
+      "label": "Clicking a plan can highlight touched concepts, and clicking a concept can reveal relevant active plans or live work",
+      "anchors": []
+    },
+    {
+      "label": "The first overlay set includes plan touchpoints plus at least one of health or risk or active-work state, with clear toggle semantics",
+      "anchors": []
+    },
+    {
+      "label": "Dashboard, Plans, and Graph feel like one product surface with shared context and deep links instead of unrelated tools",
+      "anchors": []
+    },
+    {
+      "label": "Shared cross-view state is compatible with later contract-aware overlays and deeper architectural evidence panes",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 541,
+    "git_commit": null
+  },
+  "priority": 7,
+  "tags": [
+    "integration",
+    "navigation",
+    "overlays",
+    "shared-context"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "id": "coord-task:01kn2qbppm2bz9w5e37rfe8cm8",
+  "plan": "plan:01kn2edq9k2cr10t7p9pwscpjz",
+  "kind": "Edit",
+  "title": "Route runtimeStatus, dashboard summary, and recent operation views to materialized read models",
+  "summary": "runtimeStatus, dashboard summary, and recent operation views now read bounded diagnostics snapshots instead of falling through to request-time ps or lsof scans, workspace walks, coordination graph reconstruction, or log reparsing. The diagnostics plane now serves the common request path while exposing freshness and lag through cached read models.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [],
+  "acceptance": [
+    {
+      "label": "Common diagnostics surfaces no longer perform request-time workspace walks, plan graph reconstruction, query-log file reparsing, or broad process scans; they read bounded materialized views that expose explicit domain-scoped freshness and lag state.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 1414,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [
+    "dashboard",
+    "diagnostics",
+    "request-path",
+    "runtime-status",
+    "slow-path-removal"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

@@ -1,0 +1,209 @@
+{
+  "meta": {
+    "id": "outcome:01kn9rhg2jpddy3c8r1yvgjpbq",
+    "ts": 1775222964,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-a:01kn4jw3waxc8qj2nysd3rsyvc",
+        "kind": null,
+        "name": "Codex A"
+      }
+    },
+    "correlation": "work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh",
+    "causation": "observed:01kn9rhg1k2c263m9q1mfmrz1k",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:8719dd7db144e96f",
+      "branch_ref": "refs/heads/task/prism-snapshot-rewrite",
+      "instance_id": "instance:87879:1775222330633",
+      "work_context": {
+        "workId": "work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh",
+        "kind": "ad_hoc",
+        "title": "Plan the tracked .prism snapshot rewrite",
+        "planId": "plan:01kn9hkjxnzdj4qtt4fa25cr6y",
+        "planTitle": "Rewrite tracked .prism to signed snapshot publication"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 432
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::repo_patch_events::load_repo_patch_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::repo_patch_events::append_repo_patch_event",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::repo_patch_events",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::repo_patch_events::merge_repo_patch_events_into_memory",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 4 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 8,
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/repo_patch_events.rs",
+        "removedCount": 0,
+        "updatedCount": 8
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/repo_patch_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::repo_patch_events::load_repo_patch_events"
+        },
+        "kind": "Function",
+        "name": "load_repo_patch_events",
+        "span": {
+          "end": 2510,
+          "start": 1098
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/repo_patch_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::repo_patch_events::load_repo_patch_events"
+        },
+        "kind": "Function",
+        "name": "load_repo_patch_events",
+        "span": {
+          "end": 2728,
+          "start": 1272
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/repo_patch_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::repo_patch_events::append_repo_patch_event"
+        },
+        "kind": "Function",
+        "name": "append_repo_patch_event",
+        "span": {
+          "end": 1096,
+          "start": 492
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/repo_patch_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::repo_patch_events::append_repo_patch_event"
+        },
+        "kind": "Function",
+        "name": "append_repo_patch_event",
+        "span": {
+          "end": 1270,
+          "start": 568
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/repo_patch_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::repo_patch_events"
+        },
+        "kind": "Module",
+        "name": "repo_patch_events",
+        "span": {
+          "end": 2803,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/repo_patch_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::repo_patch_events"
+        },
+        "kind": "Module",
+        "name": "repo_patch_events",
+        "span": {
+          "end": 3021,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/repo_patch_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::repo_patch_events::merge_repo_patch_events_into_memory"
+        },
+        "kind": "Function",
+        "name": "merge_repo_patch_events_into_memory",
+        "span": {
+          "end": 2802,
+          "start": 2512
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/repo_patch_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::repo_patch_events::merge_repo_patch_events_into_memory"
+        },
+        "kind": "Function",
+        "name": "merge_repo_patch_events_into_memory",
+        "span": {
+          "end": 3020,
+          "start": 2730
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 8,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism/crates/prism-core/src/repo_patch_events.rs"
+    ],
+    "files": [
+      432
+    ],
+    "reason": "work Plan the tracked .prism snapshot rewrite (work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh)",
+    "trigger": "FsWatch"
+  }
+}

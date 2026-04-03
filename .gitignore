@@ -1,5 +1,7 @@
 /target
 /.prism/*
+!/.prism/state/
+!/.prism/state/**
 !/.prism/memory/
 /.prism/memory/*
 !/.prism/memory/events.jsonl

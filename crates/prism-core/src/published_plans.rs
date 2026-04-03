@@ -21,6 +21,11 @@ use crate::protected_state::repo_streams::{
     rewrite_protected_stream_events,
 };
 use crate::protected_state::streams::{classify_protected_repo_relative_path, ProtectedRepoStream};
+use crate::tracked_snapshot::{
+    load_tracked_coordination_snapshot_state, sync_coordination_snapshot_state,
+    tracked_snapshot_authority_active,
+    TrackedSnapshotPublishContext,
+};
 use crate::util::{
     repo_active_plans_dir, repo_archived_plans_dir, repo_plan_index_path, repo_plans_dir,
 };
@@ -249,6 +254,7 @@ pub(crate) struct HydratedCoordinationPlanState {
 pub(crate) fn sync_repo_published_plans(
     root: &Path,
     snapshot: &CoordinationSnapshot,
+    publish: Option<&TrackedSnapshotPublishContext>,
 ) -> Result<()> {
     sync_repo_published_plan_state_observed(
         root,
@@ -257,6 +263,7 @@ pub(crate) fn sync_repo_published_plans(
         None,
         snapshot_plan_graphs(snapshot),
         BTreeMap::new(),
+        publish,
         |_operation, _duration, _args, _success, _error| {},
     )
 }
@@ -326,6 +333,7 @@ pub(crate) fn sync_repo_published_plan_state(
     previous_graphs: Option<&[PlanGraph]>,
     graphs: Vec<PlanGraph>,
     overlays_by_plan: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    publish: Option<&TrackedSnapshotPublishContext>,
 ) -> Result<()> {
     sync_repo_published_plan_state_observed(
         root,
@@ -334,6 +342,7 @@ pub(crate) fn sync_repo_published_plan_state(
         previous_graphs,
         graphs,
         overlays_by_plan,
+        publish,
         |_operation, _duration, _args, _success, _error| {},
     )
 }
@@ -345,11 +354,55 @@ pub(crate) fn sync_repo_published_plan_state_observed<O>(
     previous_graphs: Option<&[PlanGraph]>,
     mut graphs: Vec<PlanGraph>,
     overlays_by_plan: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    publish: Option<&TrackedSnapshotPublishContext>,
     mut observe_phase: O,
 ) -> Result<()>
 where
     O: FnMut(&str, Duration, Value, bool, Option<String>),
 {
+    if tracked_snapshot_authority_active(root)? {
+        observe_phase(
+            "mutation.coordination.publishedPlans.writeLogs",
+            Duration::ZERO,
+            json!({
+                "eventCount": 0,
+                "logCount": 0,
+                "skipped": true,
+                "reason": "tracked_snapshot_authority",
+            }),
+            true,
+            None,
+        );
+        observe_phase(
+            "mutation.coordination.publishedPlans.writeIndex",
+            Duration::ZERO,
+            json!({
+                "entryCount": 0,
+                "skipped": true,
+                "reason": "tracked_snapshot_authority",
+            }),
+            true,
+            None,
+        );
+        observe_phase(
+            "mutation.coordination.publishedPlans.cleanupLogs",
+            Duration::ZERO,
+            json!({
+                "expectedLogCount": 0,
+                "skipped": true,
+                "reason": "tracked_snapshot_authority",
+            }),
+            true,
+            None,
+        );
+        return observe_published_plan_step(
+            &mut observe_phase,
+            "mutation.coordination.publishedPlans.syncTrackedSnapshot",
+            |_| json!({}),
+            || sync_coordination_snapshot_state(root, snapshot, &graphs, &overlays_by_plan, publish),
+        );
+    }
+
     let plans_dir = repo_plans_dir(root);
     let streams_dir = plans_dir.join("streams");
     fs::create_dir_all(&streams_dir)?;
@@ -394,6 +447,7 @@ where
 
     let plan_policies = published_plan_policy_map(snapshot);
 
+    let snapshot_graphs = graphs.clone();
     let mut index_entries = Vec::new();
     let mut expected_logs = BTreeSet::new();
     graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
@@ -557,6 +611,12 @@ where
         |_| json!({ "expectedLogCount": expected_logs.len() }),
         || cleanup_stale_plan_logs(&plans_dir, &expected_logs),
     )?;
+    observe_published_plan_step(
+        &mut observe_phase,
+        "mutation.coordination.publishedPlans.syncTrackedSnapshot",
+        |_| json!({}),
+        || sync_coordination_snapshot_state(root, snapshot, &snapshot_graphs, &overlays_by_plan, publish),
+    )?;
     Ok(())
 }
 
@@ -564,6 +624,13 @@ pub(crate) fn load_hydrated_coordination_snapshot(
     root: &Path,
     snapshot: Option<CoordinationSnapshot>,
 ) -> Result<Option<CoordinationSnapshot>> {
+    if let Some(tracked) = load_tracked_coordination_snapshot_state(root)? {
+        return Ok(match snapshot {
+            Some(snapshot) => Some(merge_published_plans_into_snapshot(snapshot, tracked.snapshot)),
+            None => Some(tracked.snapshot),
+        });
+    }
+
     match (snapshot, load_repo_published_plan_projection(root)?) {
         (Some(snapshot), Some(published)) => Ok(Some(merge_published_plans_into_snapshot(
             snapshot,
@@ -581,6 +648,29 @@ pub(crate) fn load_hydrated_coordination_plan_state(
     root: &Path,
     snapshot: Option<CoordinationSnapshot>,
 ) -> Result<Option<HydratedCoordinationPlanState>> {
+    if let Some(mut tracked) = load_tracked_coordination_snapshot_state(root)? {
+        return Ok(match snapshot {
+            Some(snapshot) => {
+                merge_snapshot_bootstrap_into_plan_state(
+                    &snapshot,
+                    &mut tracked.plan_graphs,
+                    &mut tracked.execution_overlays,
+                );
+                let snapshot = merge_published_plans_into_snapshot(snapshot, tracked.snapshot);
+                Some(HydratedCoordinationPlanState {
+                    snapshot,
+                    plan_graphs: tracked.plan_graphs,
+                    execution_overlays: tracked.execution_overlays,
+                })
+            }
+            None => Some(HydratedCoordinationPlanState {
+                snapshot: tracked.snapshot,
+                plan_graphs: tracked.plan_graphs,
+                execution_overlays: tracked.execution_overlays,
+            }),
+        });
+    }
+
     match (snapshot, load_repo_published_plan_projection(root)?) {
         (Some(snapshot), Some(published)) => {
             let mut state = hydrated_plan_state_from_projection(published);

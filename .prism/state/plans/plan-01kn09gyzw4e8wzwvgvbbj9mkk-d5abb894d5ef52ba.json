@@ -1,0 +1,558 @@
+{
+  "plan": {
+    "id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+    "goal": "Rewrite the PRISM runtime around incremental invalidation, partial materialization, explicit boundary semantics, worktree-aware overlays, lazy deep parsing, and scalable ranking so the daemon stays radically efficient on small repos and scales cleanly to large monorepos, excluding the remote shared runtime backend and database-pushed traversals.",
+    "title": "Rewrite the PRISM runtime around incremental invalidation, partial materialization, explicit boundary semantics, worktree-aware overlays, lazy deep parsing, and scalable ranking so the daemon stays radically efficient on small repos and scales cleanly to large monorepos, excluding the remote shared runtime backend and database-pushed traversals.",
+    "status": "Active",
+    "policy": {
+      "default_claim_mode": "Advisory",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": false,
+      "stale_after_graph_change": true,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "off",
+        "completionMode": "off",
+        "targetRef": null,
+        "targetBranch": "",
+        "requireTaskBranch": false,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": null
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01kn09je3c546kafd2z7bcgnyq"
+    ]
+  },
+  "graph": {
+    "id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Rewrite the PRISM runtime around incremental invalidation, partial materialization, explicit boundary semantics, worktree-aware overlays, lazy deep parsing, and scalable ranking so the daemon stays radically efficient on small repos and scales cleanly to large monorepos, excluding the remote shared runtime backend and database-pushed traversals.",
+    "goal": "Rewrite the PRISM runtime around incremental invalidation, partial materialization, explicit boundary semantics, worktree-aware overlays, lazy deep parsing, and scalable ranking so the daemon stays radically efficient on small repos and scales cleanly to large monorepos, excluding the remote shared runtime backend and database-pushed traversals.",
+    "status": "Active",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01kn09je3c546kafd2z7bcgnyq"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01kn09je3c546kafd2z7bcgnyq",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "kind": "Decide",
+        "title": "Define the runtime rewrite contracts and migration invariants",
+        "summary": null,
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 713,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn09je49f0ncgdyh2jng7whm",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "kind": "Edit",
+        "title": "Complete the incremental invalidation substrate with formal dependency-aware propagation and localized reprojection",
+        "summary": null,
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 737,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn09je51g42y7gg7cph5144f",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "kind": "Edit",
+        "title": "Replace broad runtime reloads with region-scoped incremental mutation and bounded hot-state hydration",
+        "summary": null,
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 747,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn09je5pxad8grjdhf7hata8",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "kind": "Edit",
+        "title": "Introduce partial materialization and explicit index-depth tiers across the runtime",
+        "summary": "Explicit runtime depth tiers are now surfaced live through runtime status with conservative workspace coverage counts, making the existing partial-materialization boundary visible end-to-end.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 764,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn09je8z6tgxpsxh2f115wb2",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "kind": "Edit",
+        "title": "Add explicit boundary-node semantics for non-materialized, sparse, and out-of-scope regions",
+        "summary": "Starting the boundary-semantics pass by surveying how the runtime currently represents known-but-not-materialized regions and where explicit boundary labels should live.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 859,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn09jea5pj0zgsd2m6n9c0f2",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "kind": "Edit",
+        "title": "Move history, outcomes, curator, and analytical evidence onto warm and cold lazy-read paths",
+        "summary": "Curator, lineage history, task replay, outcome recall, and analytical evidence now use warm/cold lazy-read paths; startup hydrates bounded hot state and defers full lineage/outcome logs to SQLite-backed backends.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 981,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn09jeavcan93vyc9z9jvfkm",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "kind": "Edit",
+        "title": "Make runtime projections and overlays explicitly repo-, worktree-, and session-scoped",
+        "summary": "Runtime status and runtime inspection now expose explicit repo, worktree, and session scope slices for projections and overlays, using live coordination overlays instead of flattened published state.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 994,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn09jebspnr1xzpwtypb938p",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "kind": "Edit",
+        "title": "Add lazy JIT deep parsing and selective structural enrichment on first touch",
+        "summary": "Persisted per-file parse depth, made large full reindexes shallow by default, and added on-demand deepening through semantic prism_open first touch with runtime logging.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 1023,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn09jecg1haxe1vh7a7t13yd",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "kind": "Edit",
+        "title": "Add scalable architectural ranking signals for broad-query and impact precision",
+        "summary": "Next focus is ranking quality on broad queries and impact reads now that runtime materialization can stay shallow until deeper structure is actually needed.",
+        "status": "InProgress",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 1023,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn09jed6ybpsksq7d7sp1phw",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "kind": "Validate",
+        "title": "Measure and validate the rewrite against startup, incremental latency, memory, and retrieval quality",
+        "summary": null,
+        "status": "Proposed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 701,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "plan-edge:coord-task:01kn09je49f0ncgdyh2jng7whm:depends-on:coord-task:01kn09je3c546kafd2z7bcgnyq",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09je49f0ncgdyh2jng7whm",
+        "to": "coord-task:01kn09je3c546kafd2z7bcgnyq",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09je51g42y7gg7cph5144f:depends-on:coord-task:01kn09je3c546kafd2z7bcgnyq",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09je51g42y7gg7cph5144f",
+        "to": "coord-task:01kn09je3c546kafd2z7bcgnyq",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09je51g42y7gg7cph5144f:depends-on:coord-task:01kn09je49f0ncgdyh2jng7whm",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09je51g42y7gg7cph5144f",
+        "to": "coord-task:01kn09je49f0ncgdyh2jng7whm",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09je5pxad8grjdhf7hata8:depends-on:coord-task:01kn09je3c546kafd2z7bcgnyq",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09je5pxad8grjdhf7hata8",
+        "to": "coord-task:01kn09je3c546kafd2z7bcgnyq",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09je8z6tgxpsxh2f115wb2:depends-on:coord-task:01kn09je3c546kafd2z7bcgnyq",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09je8z6tgxpsxh2f115wb2",
+        "to": "coord-task:01kn09je3c546kafd2z7bcgnyq",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09je8z6tgxpsxh2f115wb2:depends-on:coord-task:01kn09je5pxad8grjdhf7hata8",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09je8z6tgxpsxh2f115wb2",
+        "to": "coord-task:01kn09je5pxad8grjdhf7hata8",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jea5pj0zgsd2m6n9c0f2:depends-on:coord-task:01kn09je51g42y7gg7cph5144f",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jea5pj0zgsd2m6n9c0f2",
+        "to": "coord-task:01kn09je51g42y7gg7cph5144f",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jea5pj0zgsd2m6n9c0f2:depends-on:coord-task:01kn09je5pxad8grjdhf7hata8",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jea5pj0zgsd2m6n9c0f2",
+        "to": "coord-task:01kn09je5pxad8grjdhf7hata8",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jea5pj0zgsd2m6n9c0f2:depends-on:coord-task:01kn09je8z6tgxpsxh2f115wb2",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jea5pj0zgsd2m6n9c0f2",
+        "to": "coord-task:01kn09je8z6tgxpsxh2f115wb2",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jeavcan93vyc9z9jvfkm:depends-on:coord-task:01kn09je3c546kafd2z7bcgnyq",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jeavcan93vyc9z9jvfkm",
+        "to": "coord-task:01kn09je3c546kafd2z7bcgnyq",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jeavcan93vyc9z9jvfkm:depends-on:coord-task:01kn09je5pxad8grjdhf7hata8",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jeavcan93vyc9z9jvfkm",
+        "to": "coord-task:01kn09je5pxad8grjdhf7hata8",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jeavcan93vyc9z9jvfkm:depends-on:coord-task:01kn09je8z6tgxpsxh2f115wb2",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jeavcan93vyc9z9jvfkm",
+        "to": "coord-task:01kn09je8z6tgxpsxh2f115wb2",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jebspnr1xzpwtypb938p:depends-on:coord-task:01kn09je5pxad8grjdhf7hata8",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jebspnr1xzpwtypb938p",
+        "to": "coord-task:01kn09je5pxad8grjdhf7hata8",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jebspnr1xzpwtypb938p:depends-on:coord-task:01kn09je8z6tgxpsxh2f115wb2",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jebspnr1xzpwtypb938p",
+        "to": "coord-task:01kn09je8z6tgxpsxh2f115wb2",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jebspnr1xzpwtypb938p:depends-on:coord-task:01kn09jeavcan93vyc9z9jvfkm",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jebspnr1xzpwtypb938p",
+        "to": "coord-task:01kn09jeavcan93vyc9z9jvfkm",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jecg1haxe1vh7a7t13yd:depends-on:coord-task:01kn09je5pxad8grjdhf7hata8",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jecg1haxe1vh7a7t13yd",
+        "to": "coord-task:01kn09je5pxad8grjdhf7hata8",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jecg1haxe1vh7a7t13yd:depends-on:coord-task:01kn09je8z6tgxpsxh2f115wb2",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jecg1haxe1vh7a7t13yd",
+        "to": "coord-task:01kn09je8z6tgxpsxh2f115wb2",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jecg1haxe1vh7a7t13yd:depends-on:coord-task:01kn09jebspnr1xzpwtypb938p",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jecg1haxe1vh7a7t13yd",
+        "to": "coord-task:01kn09jebspnr1xzpwtypb938p",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jed6ybpsksq7d7sp1phw:depends-on:coord-task:01kn09je49f0ncgdyh2jng7whm",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jed6ybpsksq7d7sp1phw",
+        "to": "coord-task:01kn09je49f0ncgdyh2jng7whm",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jed6ybpsksq7d7sp1phw:depends-on:coord-task:01kn09je51g42y7gg7cph5144f",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jed6ybpsksq7d7sp1phw",
+        "to": "coord-task:01kn09je51g42y7gg7cph5144f",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jed6ybpsksq7d7sp1phw:depends-on:coord-task:01kn09je5pxad8grjdhf7hata8",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jed6ybpsksq7d7sp1phw",
+        "to": "coord-task:01kn09je5pxad8grjdhf7hata8",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jed6ybpsksq7d7sp1phw:depends-on:coord-task:01kn09je8z6tgxpsxh2f115wb2",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jed6ybpsksq7d7sp1phw",
+        "to": "coord-task:01kn09je8z6tgxpsxh2f115wb2",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jed6ybpsksq7d7sp1phw:depends-on:coord-task:01kn09jea5pj0zgsd2m6n9c0f2",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jed6ybpsksq7d7sp1phw",
+        "to": "coord-task:01kn09jea5pj0zgsd2m6n9c0f2",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jed6ybpsksq7d7sp1phw:depends-on:coord-task:01kn09jeavcan93vyc9z9jvfkm",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jed6ybpsksq7d7sp1phw",
+        "to": "coord-task:01kn09jeavcan93vyc9z9jvfkm",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jed6ybpsksq7d7sp1phw:depends-on:coord-task:01kn09jebspnr1xzpwtypb938p",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jed6ybpsksq7d7sp1phw",
+        "to": "coord-task:01kn09jebspnr1xzpwtypb938p",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn09jed6ybpsksq7d7sp1phw:depends-on:coord-task:01kn09jecg1haxe1vh7a7t13yd",
+        "plan_id": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+        "from": "coord-task:01kn09jed6ybpsksq7d7sp1phw",
+        "to": "coord-task:01kn09jecg1haxe1vh7a7t13yd",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      }
+    ]
+  },
+  "executionOverlays": []
+}

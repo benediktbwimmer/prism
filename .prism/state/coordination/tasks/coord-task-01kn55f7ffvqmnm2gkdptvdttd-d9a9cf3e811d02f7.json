@@ -1,0 +1,79 @@
+{
+  "id": "coord-task:01kn55f7ffvqmnm2gkdptvdttd",
+  "plan": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+  "kind": "Edit",
+  "title": "Tighten coalescing, stale-work cancellation, and invalidation precision for repeated edits",
+  "summary": "Reduce repeated work under edit storms by coalescing path requests to the latest revision, cancelling stale prepare or settle work aggressively, and shrinking dependency fanout for ordinary small edits.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [
+    {
+      "File": 107
+    },
+    {
+      "File": 256
+    },
+    {
+      "File": 84
+    }
+  ],
+  "bindings": {
+    "anchors": [
+      {
+        "File": 107
+      },
+      {
+        "File": 256
+      },
+      {
+        "File": 84
+      }
+    ],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn55e93ftgm9bra7wfs4fnfs"
+  ],
+  "acceptance": [
+    {
+      "label": "Repeated edits to the same paths cancel or supersede stale prepare and settle work instead of replaying obsolete refreshes.",
+      "anchors": []
+    },
+    {
+      "label": "Small edits reduce dependency refresh scope and direct dependent work compared with the current reconstructive path.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 249,
+    "git_commit": null
+  },
+  "priority": 7,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

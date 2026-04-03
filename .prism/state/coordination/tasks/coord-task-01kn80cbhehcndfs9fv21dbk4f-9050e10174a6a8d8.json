@@ -1,0 +1,63 @@
+{
+  "id": "coord-task:01kn80cbhehcndfs9fv21dbk4f",
+  "plan": "plan:01kn80a3trpmaewse7e2bhb1hs",
+  "kind": "Validate",
+  "title": "Validate bootstrap, live-sync, self-write suppression, and missed-event recovery across all protected streams",
+  "summary": "Add targeted and full validation coverage for startup hydration, upstream merge simulation during a live session, uniform behavior across memory/changes/concepts/relations/contracts/plans, absence of memory-only lazy imports, correct self-write suppression, correct external watcher imports, and bounded reconciliation recovery.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn80c3hk4bk0kt0391289zh5"
+  ],
+  "acceptance": [
+    {
+      "label": "Tests cover bootstrap hydration, live upstream merge, and uniform import behavior across all protected stream classes.",
+      "anchors": []
+    },
+    {
+      "label": "Tests prove read paths no longer special-case memory and that self-write suppression plus missed-event recovery behave correctly.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 7,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [
+    "integration",
+    "tests",
+    "validation"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

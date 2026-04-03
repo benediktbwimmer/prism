@@ -500,40 +500,46 @@ These are runtime projections and should not be committed unless explicitly publ
 
 ```text
 .prism/
-  plans/
-    index.jsonl
-    active/
-      <plan-id>.jsonl
-    archived/
-      <plan-id>.jsonl
+  state/
+    plans/
+      <plan-id>.json
+    coordination/
+      tasks/<task-id>.json
+      artifacts/<artifact-id>.json
+    indexes/
+      plans.json
+      coordination_tasks.json
+    manifest.json
 ```
 
-Optional non-committed local materializations may live elsewhere, but the committed source of truth for published plans is the append-only per-plan event log plus the lightweight plan index.
+Optional non-committed local materializations may live elsewhere, but the committed source of truth
+for published plans is the shard-oriented tracked snapshot plus the signed publish manifest.
 
-## 7.2 Why an event log
+## 7.2 Why shard-oriented snapshots
 Plans are living objects. They need:
 
-- replayability
-- mergeability
-- inspectable history
+- stable narrow conflict surfaces
+- deterministic publication
+- inspectable current state
 - branch-aware divergence
-- hydration into runtime state
+- cheap hydration into runtime state
 
-An append-only JSONL event stream provides these properties better than a single mutable snapshot file.
-
-The published layout should prefer one event log per plan over one global shared log so that:
+The published layout should prefer stable per-object snapshot shards over monolithic domain files so
+that:
 
 - active plans merge independently
-- branch divergence is naturally localized to the plans that changed
-- archived plans can move without rewriting unrelated active history
-- hydration can load only the plans it needs after consulting a small index
+- branch divergence is naturally localized to the plans or coordination objects that changed
+- hydration can load current plan state directly without replaying repo history
+- Git carries the durable history and branch semantics for the tracked snapshot set
 
-## 7.3 Event sourcing policy
-`.prism/plans/index.jsonl` plus `.prism/plans/active/<plan-id>.jsonl` are the committed source of truth for published plan intent.
+## 7.3 Snapshot publication policy
+`.prism/state/plans/<plan-id>.json`, `.prism/state/coordination/**/*.json`, the derived indexes,
+and `.prism/state/manifest.json` are the committed source of truth for published plan intent.
 
 This plan-specific persistence policy follows the repo-wide classification in [`docs/PERSISTENCE_STATE_CLASSIFICATION.md`](/Users/bene/code/prism/docs/PERSISTENCE_STATE_CLASSIFICATION.md): authored plan intent and durable workflow continuity are authoritative, while hydrated graph materializations, compatibility task projections, summaries, recommendations, and snapshots remain derived.
 
-The index should remain intentionally small and hold only compact plan-level metadata needed for discovery, listing, and archive routing.
+The indexes should remain intentionally small and hold only compact plan-level metadata needed for
+discovery and navigation.
 
 The runtime state DB may keep:
 
@@ -546,86 +552,38 @@ The runtime state DB may keep:
 
 But these are not the published plan truth.
 
-The per-plan event log is the canonical authored history for that plan. The index is a discovery and routing layer, not a second semantic source of truth.
+Git history is the canonical history substrate for published plans. The tracked snapshot is the
+current repo-published authority. The index is a discovery and routing layer, not a second semantic
+source of truth.
 
-## 7.4 Plan events
+## 7.4 Publish manifest and continuity
 
-```rust
-pub enum PlanEventKind {
-    PlanCreated,
-    PlanUpdated,
-    PlanArchived,
-    NodeAdded,
-    NodeUpdated,
-    NodeStatusChanged,
-    NodeRemoved,
-    EdgeAdded,
-    EdgeRemoved,
-    AcceptanceUpdated,
-    HandoffRequested,
-    HandoffAccepted,
-    ValidationRecorded,
-    ReviewRecorded,
-    PublicationUpdated,
-    PlanMutationRejected,
-}
-```
+Each publish boundary should update one stable `.prism/state/manifest.json` that:
 
-## 7.5 Plan event envelope
+- digests the exact authoritative snapshot shards
+- records publisher identity and work context
+- chains to the previous manifest digest
+- may record a `migrationSourceDigest` on the first snapshot-format publish
 
-```json
-{
-  "event_id": "evt:1234",
-  "ts": "2026-03-28T12:34:56Z",
-  "kind": "NodeStatusChanged",
-  "plan_id": "plan:runtime-reliability",
-  "node_id": "node:validate-session-refresh",
-  "edge_id": null,
-  "actor": {
-    "agent_id": "codex",
-    "session_id": "session:abc"
-  },
-  "base_revision": {
-    "graph_version": 412,
-    "git_commit": "abc123"
-  },
-  "payload": {
-    "from": "Ready",
-    "to": "Completed",
-    "summary": "Integration validation passed on refreshed session path"
-  }
-}
-```
+The tracked snapshot should not accumulate one manifest file per publish in HEAD. Git already
+preserves prior manifest versions.
 
-Plan-index entries should be separate, compact records. For example:
+## 7.5 Publication rules
 
-```json
-{
-  "plan_id": "plan:runtime-reliability",
-  "title": "Runtime reliability",
-  "status": "Active",
-  "scope": "Repo",
-  "kind": "Maintenance",
-  "log_path": ".prism/plans/active/plan:runtime-reliability.jsonl"
-}
-```
-
-## 7.6 Publication rules
-
-- `Repo`-scoped plans must be exportable to `.prism/plans/index.jsonl` plus a deterministic per-plan event log
+- `Repo`-scoped plans must be exportable to deterministic snapshot shards plus a signed manifest
 - plan publication should be deterministic
-- replaying the event log must reconstruct the same authored graph and status state
+- Git checkout across commits must reconstruct the correct historical authored graph and status state
 - derived overlays must not be persisted unless explicitly promoted as authored plan annotations
 
-## 7.7 Archived plans
-Completed or abandoned plans may remain in the active set, but the system may move them to `.prism/plans/archived/<plan-id>.jsonl` as long as hydration semantics remain lossless and the index updates deterministically.
+## 7.6 Archived plans
+Completed or abandoned plans may remain in the current snapshot set with `status: Archived`, but
+they should not require separate append-log movement semantics in tracked `.prism`.
 
-## 7.8 Compaction and snapshots
+## 7.7 Runtime journals and compaction
 
-- replay of the per-plan event log remains canonical
-- deterministic snapshot compaction is allowed for long-lived plans
-- compacted snapshots must be derived from the canonical event history, not treated as a second source of truth
-- hydration may use snapshots to accelerate replay as long as replay semantics remain identical
+- fine-grained plan/task mutation history belongs in runtime/shared journals, not in tracked repo state
+- deterministic runtime compaction is allowed for those journals
+- tracked repo publication should summarize current authored plan state, not preserve every intermediate mutation forever
 
 ---
 
@@ -634,9 +592,9 @@ Completed or abandoned plans may remain in the active set, but the system may mo
 ## 8.1 Startup
 On startup PRISM must:
 
-1. load `.prism/plans/index.jsonl`
-2. resolve active and archived per-plan log paths
-3. replay published plan events into coordination state
+1. verify `.prism/state/manifest.json`
+2. load current tracked plan and coordination snapshot shards
+3. load any supporting tracked snapshot indexes needed for efficient plan lookups
 4. rebuild authored plan graph objects
 5. bind node anchors to the current graph
 6. refresh concept bindings and attach fresh runtime handles
@@ -670,9 +628,9 @@ Published plans are branch-aware because they live in the repo tree.
 Rules:
 
 - plans may diverge across branches naturally
-- merge conflicts in plan logs and the plan index are expected and must be manageable
-- PRISM should tolerate duplicate or reordered append-only merges as long as event IDs remain unique and replay remains deterministic
-- the persisted layout should minimize unrelated conflicts, which is why per-plan logs are preferred over one global shared event file
+- merge conflicts in plan shards and indexes are expected and must be manageable
+- Git remains the durable history layer for published plan state
+- the persisted layout should minimize unrelated conflicts, which is why plan and coordination objects should remain narrowly sharded
 
 ## 8.5 Local scratch plans
 Session or local plans may remain in the DB until promoted.
@@ -680,8 +638,8 @@ Session or local plans may remain in the DB until promoted.
 Promotion to `Repo` scope should:
 
 - allocate stable repo-owned IDs if needed
-- append a `PlanCreated` event and all necessary node/edge events
-- optionally preserve provenance to the scratch origin
+- materialize deterministic plan/task shards for the first repo publication
+- optionally preserve provenance to the scratch origin in the publish manifest or runtime journal
 
 ---
 
@@ -721,10 +679,10 @@ For `PlanKind::TaskExecution`, a node id that is also a `CoordinationTaskId` is 
 
 Task-backed ids follow these rules:
 
-- the published plan log in `.prism/plans/**` is the authoritative owner of authored node fields such as `kind`, `title`, `summary`, `status`, `bindings`, `acceptance`, `validation_refs`, `is_abstract`, `priority`, `tags`, and `base_revision`
+- the tracked plan snapshot in `.prism/state/**` is the authoritative owner of authored node fields such as `kind`, `title`, `summary`, `status`, `bindings`, `acceptance`, `validation_refs`, `is_abstract`, `priority`, `tags`, and `base_revision`
 - coordination runtime remains authoritative for live workflow continuity that is not published plan authorship, such as leases, claims, handoffs, reviews, artifacts, and execution overlays
-- hydrated plan graphs and coordination task views may project authored node fields from the published plan log into hot memory, but those projections are serving state, not a second mutable authority
-- compatibility mutations that target a task-backed id must still route through coordination-task update semantics, but those semantics must publish authored field changes back into the plan log instead of inventing a separate authoritative store for the same fields
+- hydrated plan graphs and coordination task views may project authored node fields from the tracked snapshot into hot memory, but those projections are serving state, not a second mutable authority
+- compatibility mutations that target a task-backed id must still route through coordination-task update semantics, but those semantics must publish authored field changes back into the tracked snapshot instead of inventing a separate authoritative store for the same fields
 - external edits to published plan files must be observed and rehydrated so hot memory and coordination-facing task views converge back to repo-published truth
 - blocker, validation, risk, and task-brief surfaces should resolve authored task-backed fields from the hydrated published plan authority, while continuing to layer runtime continuity state from coordination overlays
 
@@ -732,7 +690,7 @@ Standalone native plan nodes remain first-class authored state when they are not
 
 This is the intended split:
 
-- `TaskExecution` plans use published plan state as the source of truth for task-backed authored node fields, while coordination owns live continuity overlays and uses compatibility mutations to write authored changes back into the published plan log
+- `TaskExecution` plans use tracked snapshot state as the source of truth for task-backed authored node fields, while coordination owns live continuity overlays and uses compatibility mutations to write authored changes back into the tracked snapshot
 - non-`TaskExecution` plans may continue to use standalone native plan nodes as the authored node authority
 
 The new system is not a replacement of coordination. It is coordination elevated into a first-class graph substrate.

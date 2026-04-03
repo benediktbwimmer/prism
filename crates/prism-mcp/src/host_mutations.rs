@@ -1929,9 +1929,10 @@ impl QueryHost {
         args: &PrismCoordinationArgs,
         authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<Option<CoordinationMutationResult>> {
-        let Some(_workspace) = self.workspace_session() else {
+        let Some(workspace) = self.workspace_session() else {
             return Ok(None);
         };
+        self.ensure_coordination_runtime_current(workspace)?;
         let prism = self.current_prism();
         let Some(request) = git_execution_request(prism.as_ref(), args)? else {
             return Ok(None);

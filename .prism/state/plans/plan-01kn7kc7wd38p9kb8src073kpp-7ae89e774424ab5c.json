@@ -1,0 +1,603 @@
+{
+  "plan": {
+    "id": "plan:01kn7kc7wd38p9kb8src073kpp",
+    "goal": "Implement the projections architecture from docs/PRISM_PROJECTIONS.md by making authority planes explicit, introducing first-class projection contracts and freshness semantics, separating published/serving/ad-hoc projections cleanly from authored truth, and exposing stable projection-oriented read surfaces across PRISM docs, MCP, CLI, and query/runtime layers.",
+    "title": "Implement the projections architecture from docs/PRISM_PROJECTIONS.md by making authority planes explicit, introducing first-class projection contracts and freshness semantics, separating published/serving/ad-hoc projections cleanly from authored truth, and exposing stable projection-oriented read surfaces across PRISM docs, MCP, CLI, and query/runtime layers.",
+    "status": "Completed",
+    "policy": {
+      "default_claim_mode": "Advisory",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": false,
+      "stale_after_graph_change": true,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "off",
+        "completionMode": "off",
+        "targetRef": null,
+        "targetBranch": "",
+        "requireTaskBranch": false,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": null
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01kn7kcgg7q9qszsfsb3j2vs7s"
+    ]
+  },
+  "graph": {
+    "id": "plan:01kn7kc7wd38p9kb8src073kpp",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Implement the projections architecture from docs/PRISM_PROJECTIONS.md by making authority planes explicit, introducing first-class projection contracts and freshness semantics, separating published/serving/ad-hoc projections cleanly from authored truth, and exposing stable projection-oriented read surfaces across PRISM docs, MCP, CLI, and query/runtime layers.",
+    "goal": "Implement the projections architecture from docs/PRISM_PROJECTIONS.md by making authority planes explicit, introducing first-class projection contracts and freshness semantics, separating published/serving/ad-hoc projections cleanly from authored truth, and exposing stable projection-oriented read surfaces across PRISM docs, MCP, CLI, and query/runtime layers.",
+    "status": "Completed",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01kn7kcgg7q9qszsfsb3j2vs7s"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01kn7kcgg7q9qszsfsb3j2vs7s",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "kind": "Edit",
+        "title": "Lock projection contracts, authority planes, and freshness invariants",
+        "summary": "Locked the projections contract in docs by making docs/PRISM_PROJECTIONS.md normative, adding explicit authority-plane and projection-class rules to docs/SPEC.md, and tightening docs/PERSISTENCE_STATE_CLASSIFICATION.md so projection rebuildability and freshness expectations are explicit before interface work begins.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Authority-plane responsibilities are concrete enough to tell whether state belongs in published repo logs, shared runtime authority, or derived serving projections.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Projection classes and freshness semantics are explicit enough to guide schema and interface work without ambiguity about what is authoritative.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [
+          {
+            "id": "docs/PRISM_PROJECTIONS.md"
+          },
+          {
+            "id": "docs/SPEC.md"
+          }
+        ],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 570,
+          "git_commit": null
+        },
+        "priority": 1,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn7kd4qdqgr8t6s4yt4rn1sf",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "kind": "Edit",
+        "title": "Introduce first-class projection metadata and read-model contracts",
+        "summary": "Introduced first-class projection contract types in prism-projections, mirrored them into prism-js schema types, and surfaced them live through runtimeStatus() so projection scopes now declare class, authority planes, freshness, materialization, and per-read-model metadata without conflating derived read models with authored authority.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Projection-facing types can distinguish source authority planes, freshness state, and projection class without leaking write-authority semantics into the read model.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The contract is reusable across query/runtime, MCP, CLI, and generated documentation surfaces.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [
+          {
+            "id": "crates/prism-ir"
+          },
+          {
+            "id": "crates/prism-query"
+          }
+        ],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 583,
+          "git_commit": null
+        },
+        "priority": 2,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn7kd59d7m289c02x11e3z0p",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "kind": "Edit",
+        "title": "Implement published projection generation and source stamping",
+        "summary": "Added deterministic projection metadata stamping to the prism_doc generator and regenerated PRISM.md plus docs/prism/* so published projections now declare version, authority plane, source head, logical source timestamp, and source snapshot counts.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Generated artifacts carry enough source metadata to debug freshness and provenance of the published projection output.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Published docs are generated as projections over published PRISM knowledge rather than treated as hand-authored authority.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [
+          {
+            "id": "PRISM.md"
+          },
+          {
+            "id": "docs/prism/concepts.md"
+          },
+          {
+            "id": "docs/prism/contracts.md"
+          }
+        ],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 590,
+          "git_commit": null
+        },
+        "priority": 3,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn7kd5vsbjjt95a5m6axdcpk",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "kind": "Edit",
+        "title": "Build serving projection read models with explicit freshness",
+        "summary": "Built first-class serving projection scope/read-model contracts, moved serving projection derivation out of runtime_views, and validated explicit freshness/materialization reporting through targeted, package, workspace, and live daemon checks.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Serving projections can declare which authority planes they read from and whether the result is current, stale, deferred, or partially hydrated.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The serving path remains derived and refreshable rather than becoming a hidden second authority.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [
+          {
+            "id": "crates/prism-core"
+          },
+          {
+            "id": "crates/prism-mcp"
+          },
+          {
+            "id": "crates/prism-query"
+          }
+        ],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 603,
+          "git_commit": null
+        },
+        "priority": 4,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn7kd6e5d4bcd4vy3jqzhtc5",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "kind": "Edit",
+        "title": "Add ad hoc projection requests for time-travel and diff views",
+        "summary": "Added first-class ad hoc plan projection requests in prism-query for point-in-time and diff views by replaying coordination history into raw historical plan graphs and execution overlays, plus documented the structural replay semantics and latency honesty contract in PRISM_PROJECTIONS.md.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Historical read paths state replay and latency expectations explicitly rather than implying all time-travel views are cheap.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "There is a clear request model for time-scoped and diff-scoped projection reads over plans or coordination state.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [
+          {
+            "id": "crates/prism-query"
+          },
+          {
+            "id": "docs/PRISM_PROJECTIONS.md"
+          }
+        ],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 633,
+          "git_commit": null
+        },
+        "priority": 5,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn7kd70a3ba70rv75vj27nbk",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "kind": "Edit",
+        "title": "Expose projection-oriented MCP and CLI surfaces",
+        "summary": "Exposed ad hoc projection reads as first-class MCP/query and CLI surfaces via prism.planProjectionAt(...), prism.planProjectionDiff(...), and the new `prism project <plan-id> --at/--diff` command, with prism-js type/docs updates, live daemon validation, and workflow capability registration.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "MCP and CLI surfaces use projection terminology consistently and expose freshness or source-plane information where it matters.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The resulting interfaces make projection requests first-class without confusing them for write-authority mutations.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [
+          {
+            "id": "crates/prism-cli"
+          },
+          {
+            "id": "crates/prism-mcp"
+          }
+        ],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 654,
+          "git_commit": null
+        },
+        "priority": 6,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn7kd7jzw8ss2yj734zffnv1",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "kind": "Edit",
+        "title": "Integrate projection persistence, invalidation, and refresh boundaries",
+        "summary": "Added explicit persisted projection materialization metadata in prism-store, switched startup and recovery hydration to use those boundaries instead of coarse derived-row heuristics, and validated that incomplete projection coverage no longer masquerades as a full snapshot while bounded hot-outcome reload behavior remains intact.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Persisted projection accelerators can be invalidated and rebuilt without losing authoritative correctness.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Projection refresh boundaries are explicit enough to avoid stale serving state silently acting as truth.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [
+          {
+            "id": "crates/prism-core"
+          },
+          {
+            "id": "crates/prism-mcp"
+          },
+          {
+            "id": "crates/prism-store"
+          }
+        ],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 679,
+          "git_commit": null
+        },
+        "priority": 7,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn7kd857b3amezy4qd3v253j",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "kind": "Edit",
+        "title": "Validate deterministic rebuilds, cold-clone behavior, and latency/freshness guarantees",
+        "summary": "Validated the projections rollout with targeted prism-store and prism-core regressions, green prism-store/prism-core/prism-mcp package suites, a full workspace suite whose only failure was the known parallel query-refresh flake that passed immediately in isolation, and fresh release-binary restart/status/health checks against the live MCP daemon.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Validation covers targeted tests, full workspace validation, rebuilt release binaries, daemon restart, and live surface checks for projection freshness semantics.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Validation proves deterministic rebuilds from authoritative state, including fresh-clone or rebuilt-runtime scenarios.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [
+          {
+            "id": "./target/release/prism-cli mcp health"
+          },
+          {
+            "id": "./target/release/prism-cli mcp restart --internal-developer"
+          },
+          {
+            "id": "./target/release/prism-cli mcp status"
+          },
+          {
+            "id": "cargo build --release -p prism-cli -p prism-mcp"
+          },
+          {
+            "id": "cargo test --workspace --quiet"
+          }
+        ],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 679,
+          "git_commit": null
+        },
+        "priority": 8,
+        "tags": [],
+        "metadata": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "plan-edge:coord-task:01kn7kd4qdqgr8t6s4yt4rn1sf:depends-on:coord-task:01kn7kcgg7q9qszsfsb3j2vs7s",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "from": "coord-task:01kn7kd4qdqgr8t6s4yt4rn1sf",
+        "to": "coord-task:01kn7kcgg7q9qszsfsb3j2vs7s",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn7kd59d7m289c02x11e3z0p:depends-on:coord-task:01kn7kcgg7q9qszsfsb3j2vs7s",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "from": "coord-task:01kn7kd59d7m289c02x11e3z0p",
+        "to": "coord-task:01kn7kcgg7q9qszsfsb3j2vs7s",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn7kd59d7m289c02x11e3z0p:depends-on:coord-task:01kn7kd4qdqgr8t6s4yt4rn1sf",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "from": "coord-task:01kn7kd59d7m289c02x11e3z0p",
+        "to": "coord-task:01kn7kd4qdqgr8t6s4yt4rn1sf",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn7kd5vsbjjt95a5m6axdcpk:depends-on:coord-task:01kn7kcgg7q9qszsfsb3j2vs7s",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "from": "coord-task:01kn7kd5vsbjjt95a5m6axdcpk",
+        "to": "coord-task:01kn7kcgg7q9qszsfsb3j2vs7s",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn7kd5vsbjjt95a5m6axdcpk:depends-on:coord-task:01kn7kd4qdqgr8t6s4yt4rn1sf",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "from": "coord-task:01kn7kd5vsbjjt95a5m6axdcpk",
+        "to": "coord-task:01kn7kd4qdqgr8t6s4yt4rn1sf",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn7kd6e5d4bcd4vy3jqzhtc5:depends-on:coord-task:01kn7kcgg7q9qszsfsb3j2vs7s",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "from": "coord-task:01kn7kd6e5d4bcd4vy3jqzhtc5",
+        "to": "coord-task:01kn7kcgg7q9qszsfsb3j2vs7s",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn7kd6e5d4bcd4vy3jqzhtc5:depends-on:coord-task:01kn7kd5vsbjjt95a5m6axdcpk",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "from": "coord-task:01kn7kd6e5d4bcd4vy3jqzhtc5",
+        "to": "coord-task:01kn7kd5vsbjjt95a5m6axdcpk",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn7kd70a3ba70rv75vj27nbk:depends-on:coord-task:01kn7kd59d7m289c02x11e3z0p",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "from": "coord-task:01kn7kd70a3ba70rv75vj27nbk",
+        "to": "coord-task:01kn7kd59d7m289c02x11e3z0p",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn7kd70a3ba70rv75vj27nbk:depends-on:coord-task:01kn7kd5vsbjjt95a5m6axdcpk",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "from": "coord-task:01kn7kd70a3ba70rv75vj27nbk",
+        "to": "coord-task:01kn7kd5vsbjjt95a5m6axdcpk",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn7kd70a3ba70rv75vj27nbk:depends-on:coord-task:01kn7kd6e5d4bcd4vy3jqzhtc5",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "from": "coord-task:01kn7kd70a3ba70rv75vj27nbk",
+        "to": "coord-task:01kn7kd6e5d4bcd4vy3jqzhtc5",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn7kd7jzw8ss2yj734zffnv1:depends-on:coord-task:01kn7kd5vsbjjt95a5m6axdcpk",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "from": "coord-task:01kn7kd7jzw8ss2yj734zffnv1",
+        "to": "coord-task:01kn7kd5vsbjjt95a5m6axdcpk",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn7kd7jzw8ss2yj734zffnv1:depends-on:coord-task:01kn7kd70a3ba70rv75vj27nbk",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "from": "coord-task:01kn7kd7jzw8ss2yj734zffnv1",
+        "to": "coord-task:01kn7kd70a3ba70rv75vj27nbk",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn7kd857b3amezy4qd3v253j:depends-on:coord-task:01kn7kd59d7m289c02x11e3z0p",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "from": "coord-task:01kn7kd857b3amezy4qd3v253j",
+        "to": "coord-task:01kn7kd59d7m289c02x11e3z0p",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn7kd857b3amezy4qd3v253j:depends-on:coord-task:01kn7kd5vsbjjt95a5m6axdcpk",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "from": "coord-task:01kn7kd857b3amezy4qd3v253j",
+        "to": "coord-task:01kn7kd5vsbjjt95a5m6axdcpk",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn7kd857b3amezy4qd3v253j:depends-on:coord-task:01kn7kd6e5d4bcd4vy3jqzhtc5",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "from": "coord-task:01kn7kd857b3amezy4qd3v253j",
+        "to": "coord-task:01kn7kd6e5d4bcd4vy3jqzhtc5",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn7kd857b3amezy4qd3v253j:depends-on:coord-task:01kn7kd70a3ba70rv75vj27nbk",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "from": "coord-task:01kn7kd857b3amezy4qd3v253j",
+        "to": "coord-task:01kn7kd70a3ba70rv75vj27nbk",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn7kd857b3amezy4qd3v253j:depends-on:coord-task:01kn7kd7jzw8ss2yj734zffnv1",
+        "plan_id": "plan:01kn7kc7wd38p9kb8src073kpp",
+        "from": "coord-task:01kn7kd857b3amezy4qd3v253j",
+        "to": "coord-task:01kn7kd7jzw8ss2yj734zffnv1",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      }
+    ]
+  },
+  "executionOverlays": []
+}

@@ -26,10 +26,19 @@
 
 Eliminate every remaining audited PRISM performance bottleneck by removing full-state refresh and hydration work from hot paths, suffixizing remaining persistence and reload flows, tightening locking boundaries, and validating that no audited hotspot remains on mutate, request, refresh, reload, startup, or background paths.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kmwq0gyrjr66sv91wnknhzmf.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kmwq0gyrjr66sv91wnknhzmf.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kmwq0gyrjr66sv91wnknhzmf.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

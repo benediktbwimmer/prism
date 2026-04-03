@@ -26,10 +26,19 @@
 
 Implement the protected repo .prism state signatures design from docs/PROTECTED_PRISM_STATE_SIGNATURES.md, covering signed protected streams, trust-bundle verification, fail-closed hydration, protected write-path enforcement, migration semantics, and validation coverage.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn5y6qqpxt3qaecccg12h03e.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn5y6qqpxt3qaecccg12h03e.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn5y6qqpxt3qaecccg12h03e.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

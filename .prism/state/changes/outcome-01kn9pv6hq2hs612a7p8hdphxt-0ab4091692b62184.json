@@ -1,0 +1,1208 @@
+{
+  "meta": {
+    "id": "outcome:01kn9pv6hq2hs612a7p8hdphxt",
+    "ts": 1775221185,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-a:01kn4jw3waxc8qj2nysd3rsyvc",
+        "kind": null,
+        "name": "Codex A"
+      }
+    },
+    "correlation": "work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh",
+    "causation": "observed:01kn9pv6gg04fqj37ty1p44ast",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:8719dd7db144e96f",
+      "branch_ref": "refs/heads/task/prism-snapshot-rewrite",
+      "instance_id": "instance:58742:1775221039927",
+      "work_context": {
+        "workId": "work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh",
+        "kind": "ad_hoc",
+        "title": "Plan the tracked .prism snapshot rewrite",
+        "planId": "plan:01kn9hkjxnzdj4qtt4fa25cr6y",
+        "planTitle": "Rewrite tracked .prism to signed snapshot publication"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 441
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::RepoProtectedKnowledge::curated_contracts",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::load_repo_patch_stream",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::load_repo_protected_knowledge",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::RepoProtectedKnowledge::curated_concepts",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::memory",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::sync_repo_protected_state",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::reloads_coordination",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::RepoProtectedKnowledge::concept_relations",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::sync_repo_memory_stream",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::load_repo_protected_plan_state",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::load_repo_concept_stream",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::load_repo_contract_stream",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::ProtectedStateSyncReport",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::sync_repo_patch_stream",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::concept_relations",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::RepoProtectedKnowledge",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::plans",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::ProtectedStateSyncReport::imported_memory_events",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::patch_events",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::reloads_projection_knowledge",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::load_repo_concept_relation_stream",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::load_repo_memory_stream",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::from_streams",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::is_empty",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::sync_selected_repo_protected_state",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::concepts",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::ProtectedStateSyncReport::imported_patch_events",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::contracts",
+        "kind": "Field"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 31 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 62,
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "removedCount": 0,
+        "updatedCount": 62
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::RepoProtectedKnowledge::curated_contracts"
+        },
+        "kind": "Field",
+        "name": "curated_contracts",
+        "span": {
+          "end": 876,
+          "start": 827
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::RepoProtectedKnowledge::curated_contracts"
+        },
+        "kind": "Field",
+        "name": "curated_contracts",
+        "span": {
+          "end": 1085,
+          "start": 1036
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::load_repo_patch_stream"
+        },
+        "kind": "Function",
+        "name": "load_repo_patch_stream",
+        "span": {
+          "end": 5269,
+          "start": 5151
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::load_repo_patch_stream"
+        },
+        "kind": "Function",
+        "name": "load_repo_patch_stream",
+        "span": {
+          "end": 6526,
+          "start": 6292
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::load_repo_protected_knowledge"
+        },
+        "kind": "Function",
+        "name": "load_repo_protected_knowledge",
+        "span": {
+          "end": 2963,
+          "start": 2641
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::load_repo_protected_knowledge"
+        },
+        "kind": "Function",
+        "name": "load_repo_protected_knowledge",
+        "span": {
+          "end": 3692,
+          "start": 2850
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::RepoProtectedKnowledge::curated_concepts"
+        },
+        "kind": "Field",
+        "name": "curated_concepts",
+        "span": {
+          "end": 821,
+          "start": 774
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::RepoProtectedKnowledge::curated_concepts"
+        },
+        "kind": "Field",
+        "name": "curated_concepts",
+        "span": {
+          "end": 1030,
+          "start": 983
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::memory"
+        },
+        "kind": "Field",
+        "name": "memory",
+        "span": {
+          "end": 1261,
+          "start": 1238
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::memory"
+        },
+        "kind": "Field",
+        "name": "memory",
+        "span": {
+          "end": 1470,
+          "start": 1447
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::sync_repo_protected_state"
+        },
+        "kind": "Function",
+        "name": "sync_repo_protected_state",
+        "span": {
+          "end": 3364,
+          "start": 2965
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::sync_repo_protected_state"
+        },
+        "kind": "Function",
+        "name": "sync_repo_protected_state",
+        "span": {
+          "end": 4093,
+          "start": 3694
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::reloads_coordination"
+        },
+        "kind": "Method",
+        "name": "reloads_coordination",
+        "span": {
+          "end": 2405,
+          "start": 2330
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::reloads_coordination"
+        },
+        "kind": "Method",
+        "name": "reloads_coordination",
+        "span": {
+          "end": 2614,
+          "start": 2539
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::protected_state::runtime_sync"
+        },
+        "kind": "Module",
+        "name": "runtime_sync",
+        "span": {
+          "end": 5624,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::protected_state::runtime_sync"
+        },
+        "kind": "Module",
+        "name": "runtime_sync",
+        "span": {
+          "end": 6881,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::RepoProtectedKnowledge::concept_relations"
+        },
+        "kind": "Field",
+        "name": "concept_relations",
+        "span": {
+          "end": 932,
+          "start": 882
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::RepoProtectedKnowledge::concept_relations"
+        },
+        "kind": "Field",
+        "name": "concept_relations",
+        "span": {
+          "end": 1141,
+          "start": 1091
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::sync_repo_memory_stream"
+        },
+        "kind": "Function",
+        "name": "sync_repo_memory_stream",
+        "span": {
+          "end": 4706,
+          "start": 4387
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::sync_repo_memory_stream"
+        },
+        "kind": "Function",
+        "name": "sync_repo_memory_stream",
+        "span": {
+          "end": 5724,
+          "start": 5405
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::load_repo_protected_plan_state"
+        },
+        "kind": "Function",
+        "name": "load_repo_protected_plan_state",
+        "span": {
+          "end": 4385,
+          "start": 3946
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::load_repo_protected_plan_state"
+        },
+        "kind": "Function",
+        "name": "load_repo_protected_plan_state",
+        "span": {
+          "end": 5403,
+          "start": 4675
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::load_repo_concept_stream"
+        },
+        "kind": "Function",
+        "name": "load_repo_concept_stream",
+        "span": {
+          "end": 5382,
+          "start": 5271
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::load_repo_concept_stream"
+        },
+        "kind": "Function",
+        "name": "load_repo_concept_stream",
+        "span": {
+          "end": 6639,
+          "start": 6528
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::load_repo_contract_stream"
+        },
+        "kind": "Function",
+        "name": "load_repo_contract_stream",
+        "span": {
+          "end": 5498,
+          "start": 5384
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::load_repo_contract_stream"
+        },
+        "kind": "Function",
+        "name": "load_repo_contract_stream",
+        "span": {
+          "end": 6755,
+          "start": 6641
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateSyncReport"
+        },
+        "kind": "Struct",
+        "name": "ProtectedStateSyncReport",
+        "span": {
+          "end": 1128,
+          "start": 991
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateSyncReport"
+        },
+        "kind": "Struct",
+        "name": "ProtectedStateSyncReport",
+        "span": {
+          "end": 1337,
+          "start": 1200
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::sync_repo_patch_stream"
+        },
+        "kind": "Function",
+        "name": "sync_repo_patch_stream",
+        "span": {
+          "end": 5028,
+          "start": 4708
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::sync_repo_patch_stream"
+        },
+        "kind": "Function",
+        "name": "sync_repo_patch_stream",
+        "span": {
+          "end": 6046,
+          "start": 5726
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::concept_relations"
+        },
+        "kind": "Field",
+        "name": "concept_relations",
+        "span": {
+          "end": 1367,
+          "start": 1333
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::concept_relations"
+        },
+        "kind": "Field",
+        "name": "concept_relations",
+        "span": {
+          "end": 1576,
+          "start": 1542
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection"
+        },
+        "kind": "Struct",
+        "name": "ProtectedStateImportSelection",
+        "span": {
+          "end": 1430,
+          "start": 1184
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection"
+        },
+        "kind": "Struct",
+        "name": "ProtectedStateImportSelection",
+        "span": {
+          "end": 1639,
+          "start": 1393
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::protected_state::runtime_sync::RepoProtectedKnowledge"
+        },
+        "kind": "Struct",
+        "name": "RepoProtectedKnowledge",
+        "span": {
+          "end": 935,
+          "start": 727
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::protected_state::runtime_sync::RepoProtectedKnowledge"
+        },
+        "kind": "Struct",
+        "name": "RepoProtectedKnowledge",
+        "span": {
+          "end": 1144,
+          "start": 936
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::plans"
+        },
+        "kind": "Field",
+        "name": "plans",
+        "span": {
+          "end": 1427,
+          "start": 1405
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::plans"
+        },
+        "kind": "Field",
+        "name": "plans",
+        "span": {
+          "end": 1636,
+          "start": 1614
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::impl"
+        },
+        "kind": "Impl",
+        "name": "ProtectedStateImportSelection",
+        "span": {
+          "end": 2639,
+          "start": 1432
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::impl"
+        },
+        "kind": "Impl",
+        "name": "ProtectedStateImportSelection",
+        "span": {
+          "end": 2848,
+          "start": 1641
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateSyncReport::imported_memory_events"
+        },
+        "kind": "Field",
+        "name": "imported_memory_events",
+        "span": {
+          "end": 1080,
+          "start": 1040
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateSyncReport::imported_memory_events"
+        },
+        "kind": "Field",
+        "name": "imported_memory_events",
+        "span": {
+          "end": 1289,
+          "start": 1249
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::patch_events"
+        },
+        "kind": "Field",
+        "name": "patch_events",
+        "span": {
+          "end": 1296,
+          "start": 1267
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::patch_events"
+        },
+        "kind": "Field",
+        "name": "patch_events",
+        "span": {
+          "end": 1505,
+          "start": 1476
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::reloads_projection_knowledge"
+        },
+        "kind": "Method",
+        "name": "reloads_projection_knowledge",
+        "span": {
+          "end": 2324,
+          "start": 2194
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::reloads_projection_knowledge"
+        },
+        "kind": "Method",
+        "name": "reloads_projection_knowledge",
+        "span": {
+          "end": 2533,
+          "start": 2403
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::load_repo_concept_relation_stream"
+        },
+        "kind": "Function",
+        "name": "load_repo_concept_relation_stream",
+        "span": {
+          "end": 5623,
+          "start": 5500
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::load_repo_concept_relation_stream"
+        },
+        "kind": "Function",
+        "name": "load_repo_concept_relation_stream",
+        "span": {
+          "end": 6880,
+          "start": 6757
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::load_repo_memory_stream"
+        },
+        "kind": "Function",
+        "name": "load_repo_memory_stream",
+        "span": {
+          "end": 5149,
+          "start": 5030
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::load_repo_memory_stream"
+        },
+        "kind": "Function",
+        "name": "load_repo_memory_stream",
+        "span": {
+          "end": 6290,
+          "start": 6048
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::from_streams"
+        },
+        "kind": "Method",
+        "name": "from_streams",
+        "span": {
+          "end": 2188,
+          "start": 1473
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::from_streams"
+        },
+        "kind": "Method",
+        "name": "from_streams",
+        "span": {
+          "end": 2397,
+          "start": 1682
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::is_empty"
+        },
+        "kind": "Method",
+        "name": "is_empty",
+        "span": {
+          "end": 2637,
+          "start": 2411
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::is_empty"
+        },
+        "kind": "Method",
+        "name": "is_empty",
+        "span": {
+          "end": 2846,
+          "start": 2620
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::sync_selected_repo_protected_state"
+        },
+        "kind": "Function",
+        "name": "sync_selected_repo_protected_state",
+        "span": {
+          "end": 3944,
+          "start": 3366
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::protected_state::runtime_sync::sync_selected_repo_protected_state"
+        },
+        "kind": "Function",
+        "name": "sync_selected_repo_protected_state",
+        "span": {
+          "end": 4673,
+          "start": 4095
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::concepts"
+        },
+        "kind": "Field",
+        "name": "concepts",
+        "span": {
+          "end": 1327,
+          "start": 1302
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::concepts"
+        },
+        "kind": "Field",
+        "name": "concepts",
+        "span": {
+          "end": 1536,
+          "start": 1511
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateSyncReport::imported_patch_events"
+        },
+        "kind": "Field",
+        "name": "imported_patch_events",
+        "span": {
+          "end": 1125,
+          "start": 1086
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateSyncReport::imported_patch_events"
+        },
+        "kind": "Field",
+        "name": "imported_patch_events",
+        "span": {
+          "end": 1334,
+          "start": 1295
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::contracts"
+        },
+        "kind": "Field",
+        "name": "contracts",
+        "span": {
+          "end": 1399,
+          "start": 1373
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::protected_state::runtime_sync::ProtectedStateImportSelection::contracts"
+        },
+        "kind": "Field",
+        "name": "contracts",
+        "span": {
+          "end": 1608,
+          "start": 1582
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 62,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism/crates/prism-core/src/protected_state/runtime_sync.rs"
+    ],
+    "files": [
+      441
+    ],
+    "reason": "work Plan the tracked .prism snapshot rewrite (work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh)",
+    "trigger": "FsWatch"
+  }
+}

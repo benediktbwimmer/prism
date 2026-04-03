@@ -1,0 +1,409 @@
+{
+  "plan": {
+    "id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+    "goal": "Define one correct path identity model for PRISM so tracked snapshots, shared/runtime state, APIs, docs, and projections never persist absolute filesystem paths; use file ids plus repo-relative paths as canonical identity and anchors as the primary semantic reference.",
+    "title": "Eliminate absolute path leakage and make path identity repo-relative across PRISM",
+    "status": "Active",
+    "policy": {
+      "default_claim_mode": "Advisory",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": false,
+      "stale_after_graph_change": true,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "require",
+        "completionMode": "require",
+        "targetRef": null,
+        "targetBranch": "main",
+        "requireTaskBranch": true,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": null
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 100,
+      "urgency": 90,
+      "manualBoost": 50,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01kn9vd1qxxaht9ap1ygbmd23g"
+    ]
+  },
+  "graph": {
+    "id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Eliminate absolute path leakage and make path identity repo-relative across PRISM",
+    "goal": "Define one correct path identity model for PRISM so tracked snapshots, shared/runtime state, APIs, docs, and projections never persist absolute filesystem paths; use file ids plus repo-relative paths as canonical identity and anchors as the primary semantic reference.",
+    "status": "Active",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01kn9vd1qxxaht9ap1ygbmd23g"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "kind": "Edit",
+        "title": "Lock the canonical path identity contract and no-absolute-path boundary",
+        "summary": "Define where absolute paths may exist, where only repo-relative paths are allowed, and where anchors must replace raw paths entirely across tracked state, shared runtime, and local runtime.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Specs and contracts explicitly state that tracked `.prism` and shared/logical runtime data must not persist absolute filesystem paths",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The canonical identity model distinguishes file ids, repo-relative paths, anchors, and local derived absolute paths without ambiguity",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 1015,
+          "git_commit": null
+        },
+        "priority": 1,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "kind": "Edit",
+        "title": "Canonicalize graph and workspace file identity around file ids plus repo-relative paths",
+        "summary": "Make file ids the primary internal key, make repo-relative paths the canonical stored path identity, and ensure absolute paths are derived only in local worktree runtime code that actually touches the filesystem.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Graph and workspace identity layers no longer require absolute paths as canonical persisted file identity",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Absolute paths are treated as local execution conveniences derived from worktree root plus repo-relative path",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 1015,
+          "git_commit": null
+        },
+        "priority": 1,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "kind": "Edit",
+        "title": "Normalize tracked snapshot, protected publication, and shared/runtime serialization to repo-relative paths",
+        "summary": "Remove absolute path leakage from tracked `.prism/state/**`, protected publication flows, shared journals, and repo-published change snapshots, using anchors as the primary reference and repo-relative paths only as the fallback file-level reference.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Tracked snapshot shards and manifests contain no absolute filesystem paths",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Shared/runtime records intended to survive across worktrees or clones do not persist absolute filesystem paths",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Change snapshots and outcome metadata use anchors plus repo-relative file references instead of absolute file paths",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 1015,
+          "git_commit": null
+        },
+        "priority": 1,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn9vdqfnnkkywq1bb0jk5fq8",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "kind": "Edit",
+        "title": "Audit MCP/query/docs/projection surfaces for path leakage and anchor misuse",
+        "summary": "Update public schemas, PRISM query surfaces, docs, generated projections, and read models so portable repo-relative paths and semantic anchors are exposed consistently, and machine-local absolute paths never leak into durable or shared surfaces.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Public docs and schemas no longer present absolute paths as durable PRISM identity",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Public read surfaces prefer anchors and repo-relative paths for portable file references",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 1015,
+          "git_commit": null
+        },
+        "priority": 1,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn9vdznkm34knqjxgdqdqcxe",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "kind": "Edit",
+        "title": "Add migration, auditing, and repair paths for legacy absolute-path data",
+        "summary": "Detect and repair existing absolute-path leakage in tracked snapshot state, shared/runtime records, and caches so current repos can converge onto the corrected path model without carrying machine-specific artifacts forward.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Existing tracked or shared data with absolute paths can be detected and repaired deterministically",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Migration does not require preserving machine-specific absolute path identity in repo-published state",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 1015,
+          "git_commit": null
+        },
+        "priority": 1,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn9ve8ants7rmt18m4rpf25b",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "kind": "Edit",
+        "title": "Validate no absolute paths survive in published or shared PRISM state",
+        "summary": "Prove through regression coverage and live inspection that tracked `.prism`, publish manifests, repo-published changes, and portable/shared runtime exports contain no absolute filesystem paths while local runtime still functions correctly from derived worktree paths.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Repo-published `.prism/state/**` contains no absolute filesystem paths",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Portable/shared PRISM state contains no absolute filesystem paths across worktrees",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Validation coverage and live checks enforce the invariant going forward",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 1015,
+          "git_commit": null
+        },
+        "priority": 1,
+        "tags": [],
+        "metadata": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "plan-edge:coord-task:01kn9vd88apgdq35f4hr9tmsss:depends-on:coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "from": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+        "to": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn9vdfjsrbzwz5w5mff8yqck:depends-on:coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "from": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+        "to": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn9vdfjsrbzwz5w5mff8yqck:depends-on:coord-task:01kn9vd88apgdq35f4hr9tmsss",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "from": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+        "to": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn9vdqfnnkkywq1bb0jk5fq8:depends-on:coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "from": "coord-task:01kn9vdqfnnkkywq1bb0jk5fq8",
+        "to": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn9vdqfnnkkywq1bb0jk5fq8:depends-on:coord-task:01kn9vd88apgdq35f4hr9tmsss",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "from": "coord-task:01kn9vdqfnnkkywq1bb0jk5fq8",
+        "to": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn9vdqfnnkkywq1bb0jk5fq8:depends-on:coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "from": "coord-task:01kn9vdqfnnkkywq1bb0jk5fq8",
+        "to": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn9vdznkm34knqjxgdqdqcxe:depends-on:coord-task:01kn9vd88apgdq35f4hr9tmsss",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "from": "coord-task:01kn9vdznkm34knqjxgdqdqcxe",
+        "to": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn9vdznkm34knqjxgdqdqcxe:depends-on:coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "from": "coord-task:01kn9vdznkm34knqjxgdqdqcxe",
+        "to": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn9ve8ants7rmt18m4rpf25b:depends-on:coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "from": "coord-task:01kn9ve8ants7rmt18m4rpf25b",
+        "to": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn9ve8ants7rmt18m4rpf25b:depends-on:coord-task:01kn9vdqfnnkkywq1bb0jk5fq8",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "from": "coord-task:01kn9ve8ants7rmt18m4rpf25b",
+        "to": "coord-task:01kn9vdqfnnkkywq1bb0jk5fq8",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn9ve8ants7rmt18m4rpf25b:depends-on:coord-task:01kn9vdznkm34knqjxgdqdqcxe",
+        "plan_id": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "from": "coord-task:01kn9ve8ants7rmt18m4rpf25b",
+        "to": "coord-task:01kn9vdznkm34knqjxgdqdqcxe",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      }
+    ]
+  },
+  "executionOverlays": []
+}

@@ -1,0 +1,66 @@
+{
+  "id": "coord-task:01kn9hnfwp7s16np7cf557cxwr",
+  "plan": "plan:01kn9hkjxnzdj4qtt4fa25cr6y",
+  "kind": "Edit",
+  "title": "Implement tracked snapshot writers and signed publish manifests",
+  "summary": "Tracing the current tracked publication writers and protected-state signing path so snapshot writers and signed publish manifests can replace repo-committed append-log publication.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn9hmj8kajwtre6xq83jbt12",
+    "coord-task:01kn9hmqncfe5nfm4chtm6dt2s",
+    "coord-task:01kn9hn12c7s4bymzxdwea8qfn",
+    "coord-task:01kn9hn84cet00qdmq429cc7cg"
+  ],
+  "acceptance": [
+    {
+      "label": "Manifest signing and verification replace per-event repo-log signing on the tracked repo path",
+      "anchors": []
+    },
+    {
+      "label": "Snapshot publication is deterministic enough for reviewable Git diffs and reproducible regeneration",
+      "anchors": []
+    },
+    {
+      "label": "Tracked .prism publication writes stable snapshot files and one updated manifest for each publish boundary",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 950,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

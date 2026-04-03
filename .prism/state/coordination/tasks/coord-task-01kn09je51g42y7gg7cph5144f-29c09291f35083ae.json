@@ -1,0 +1,51 @@
+{
+  "id": "coord-task:01kn09je51g42y7gg7cph5144f",
+  "plan": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+  "kind": "Edit",
+  "title": "Replace broad runtime reloads with region-scoped incremental mutation and bounded hot-state hydration",
+  "summary": null,
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn09je3c546kafd2z7bcgnyq",
+    "coord-task:01kn09je49f0ncgdyh2jng7whm"
+  ],
+  "acceptance": [],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 747,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

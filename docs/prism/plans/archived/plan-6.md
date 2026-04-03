@@ -26,10 +26,19 @@
 
 Finish refresh-model simplification by quarantining persisted reload, consolidating refresh ownership, and demoting DB snapshots to optional durability.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:6.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:6.json`
+- Legacy migration log path: `.prism/plans/streams/plan:6.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

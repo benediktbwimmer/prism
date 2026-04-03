@@ -26,10 +26,19 @@
 
 Complete the portfolio dispatch feature by modeling cross-plan dependencies explicitly, ranking actionable work across plans with explainable scoring, and exposing a practical inbox/next-work surface for agents.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn8n8wvmcvrqx1tvd6x93qpg.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn8n8wvmcvrqx1tvd6x93qpg.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn8n8wvmcvrqx1tvd6x93qpg.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

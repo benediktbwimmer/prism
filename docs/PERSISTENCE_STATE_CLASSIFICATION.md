@@ -18,6 +18,11 @@ PRISM should converge on three distinct state planes:
 
 The most important design rule is that a shared database complements `.prism`; it does not replace it.
 
+Tracked `.prism` should now be interpreted as the repo-published authoritative snapshot format, not
+as a second repo-committed operational append log. Git carries durable history, branching, and
+time travel for that snapshot state. Runtime/shared storage carries the fine-grained append-only
+operational journal.
+
 Within the shared backend plane, PRISM should distinguish two very different roles:
 
 - synchronous authoritative journals for crash-sensitive mutable facts
@@ -54,7 +59,7 @@ The migration should classify persisted state into four concrete durability clas
 
 | Class | Meaning | Request-path requirement | Recovery role |
 | --- | --- | --- | --- |
-| Repo-published authority | Durable truth the repository carries in `.prism` | Synchronous when publishing repo-owned knowledge | Canonical repo truth across clones |
+| Repo-published authority | Durable signed snapshot truth the repository carries in `.prism` | Synchronous when publishing repo-owned knowledge | Canonical repo truth across clones |
 | Sync runtime authority | Crash-sensitive mutable runtime facts stored in the shared backend | Synchronous and minimal | Replayed after crash or restart |
 | Async checkpoint / materialization | Rebuildable snapshots, projections, and read models | Off the critical path when correctness allows | Speeds hydration and cold queries |
 | Process-local cache | Ephemeral in-memory state and convenience materializations | Hot only; never required for crash durability | Rebuilt from authoritative state |
@@ -100,12 +105,12 @@ Representative surfaces:
 | --- | --- | --- | --- |
 | Structural graph and file state | Durable graph/file state and raw observed changes owned by `prism-store` | Replaced derived edges, convenience materializations, one-shot bootstrap views | Structure remains the repo/runtime authority. Derived edges stay additive. |
 | Lineage and temporal identity | Durable lineage history, tombstones, and identity assignment state owned by `prism-history` | Co-change counts, lineage summaries, replay-oriented snapshots | Temporal identity is authoritative; co-change and similar aggregates are rebuildable. |
-| Outcomes and workspace memory | Outcome events, append-only memory events, and published repo memory events | Episodic snapshots, recall indexes, fuzzy recall helpers, hydrated memory views | Event history is authoritative; snapshot forms are acceleration or hydration aids. |
-| Curated repo knowledge | Published concept events, concept-relation events, and repo memory events under `.prism/` | Hydrated concept packets, decode lenses, search bundles, curator convenience views | Published repo knowledge travels by event log, not by hydrated packet shape. |
-| Native plans and authored plan bindings | `.prism/plans/index.jsonl` plus per-plan event logs; authored plan metadata; authored node fields, including task-backed authored fields in `TaskExecution` plans; authored edges; stable published refs in bindings | Hydrated plan graphs, runtime binding overlays, compatibility task projections, `planSummary`, `planNext`, compact task guidance, plan resource views | For plans, authored intent is authoritative. For `TaskExecution` plans, repo-published plan state owns task-backed authored fields, while coordination owns live continuity overlays such as leases, claims, handoffs, reviews, artifacts, and execution overlays. Hydrated handles and runtime rebinding results are runtime-only. |
+| Outcomes and workspace memory | Runtime outcome/memory journals plus published repo memory snapshots and manifests under `.prism/` | Recall indexes, fuzzy recall helpers, hydrated memory views, runtime checkpoints | Fine-grained memory history is operational runtime truth; tracked repo memory is durable snapshot truth for cold clones. |
+| Curated repo knowledge | Published concept, relation, contract, and memory snapshot artifacts plus signed publish manifests under `.prism/` | Hydrated concept packets, decode lenses, search bundles, curator convenience views | Published repo knowledge now travels as shard-oriented snapshot state, not as a repo-committed event log. |
+| Native plans and authored plan bindings | Snapshot-form published plan state, authored plan metadata, authored node fields, authored edges, stable published refs, and signed publish manifests under `.prism/` | Hydrated plan graphs, runtime binding overlays, compatibility task projections, `planSummary`, `planNext`, compact task guidance, plan resource views | For plans, authored intent is authoritative. Runtime coordination still owns live overlays such as leases, claims, handoffs, reviews, artifacts, and execution overlays. |
 | Shared workflow continuity | Durable claim, artifact, review, handoff, and policy-relevant continuity state | Blocker summaries, inbox/task context views, conflict summaries, risk hints | Continuity that changes completion or contention semantics is authoritative; summaries are not. |
 | Projections and read models | None by default; these are derived from authoritative state | Projection snapshots, co-change neighbors, validation deltas, query-oriented summaries, recommendation frontiers, compatibility read models | If a projection is rebuildable from authoritative events/state, it is not a write authority. |
-| Snapshots, compaction, and exports | None by default; these remain derived | `GraphSnapshot`, `HistorySnapshot`, `OutcomeMemorySnapshot`, `ProjectionSnapshot`, `CoordinationSnapshot`, episodic/inference/curator snapshots, deterministic per-plan compaction outputs, export artifacts | Snapshots may accelerate reload or export state, but replay/event-backed state remains canonical. |
+| Snapshots, compaction, and exports | None by default outside the tracked `.prism` authority format; runtime checkpoints remain derived | `GraphSnapshot`, `HistorySnapshot`, `OutcomeMemorySnapshot`, `ProjectionSnapshot`, `CoordinationSnapshot`, episodic/inference/curator snapshots, deterministic runtime compaction outputs, export artifacts | Tracked `.prism` snapshots are now canonical repo authority; all other snapshot forms remain accelerators or exports. |
 
 Projection contract:
 

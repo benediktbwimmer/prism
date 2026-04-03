@@ -1,0 +1,66 @@
+{
+  "id": "coord-task:01kn7kd4qdqgr8t6s4yt4rn1sf",
+  "plan": "plan:01kn7kc7wd38p9kb8src073kpp",
+  "kind": "Edit",
+  "title": "Introduce first-class projection metadata and read-model contracts",
+  "summary": "Introduced first-class projection contract types in prism-projections, mirrored them into prism-js schema types, and surfaced them live through runtimeStatus() so projection scopes now declare class, authority planes, freshness, materialization, and per-read-model metadata without conflating derived read models with authored authority.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn7kcgg7q9qszsfsb3j2vs7s"
+  ],
+  "acceptance": [
+    {
+      "label": "Projection-facing types can distinguish source authority planes, freshness state, and projection class without leaking write-authority semantics into the read model.",
+      "anchors": []
+    },
+    {
+      "label": "The contract is reusable across query/runtime, MCP, CLI, and generated documentation surfaces.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [
+    {
+      "id": "crates/prism-ir"
+    },
+    {
+      "id": "crates/prism-query"
+    }
+  ],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 583,
+    "git_commit": null
+  },
+  "priority": 2,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

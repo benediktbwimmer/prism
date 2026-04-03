@@ -1,0 +1,4874 @@
+{
+  "meta": {
+    "id": "outcome:01kn9rjn4jfm5y8w30gs3qzcmt",
+    "ts": 1775223002,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-a:01kn4jw3waxc8qj2nysd3rsyvc",
+        "kind": null,
+        "name": "Codex A"
+      }
+    },
+    "correlation": "work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh",
+    "causation": "observed:01kn9rjn2zvrt4xc3jfbqn2n14",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:8719dd7db144e96f",
+      "branch_ref": "refs/heads/task/prism-snapshot-rewrite",
+      "instance_id": "instance:87879:1775222330633",
+      "work_context": {
+        "workId": "work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh",
+        "kind": "ad_hoc",
+        "title": "Plan the tracked .prism snapshot rewrite",
+        "planId": "plan:01kn9hkjxnzdj4qtt4fa25cr6y",
+        "planTitle": "Rewrite tracked .prism to signed snapshot publication"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 100
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::apply_native_event",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::sorted_nodes",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanLogState::next_log_sequence",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanEvent::payload",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::load_published_plan_log_state",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::published_plan_header",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::merge_published_plans_into_snapshot",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanHeader::scope",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::regenerate_repo_published_plan_artifacts",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::sync_repo_published_plan_state",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PlanStreamRepairInspection::redundant_edge_add_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanProjection::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::inspect_plan_stream_for_repair",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanEventKind",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::remove_legacy_plan_log_if_stale",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanProjection::next_log_sequence_for",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanEvent::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::HydratedCoordinationPlanState::execution_overlays",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::resolve_log_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::published_plan_record_map",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanProjection::records",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::stored_plan_event_plan_id",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanProjection::next_task",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanLogState",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanProjection::record",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanEvent",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanNode::title",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::protected_path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanRecord::header",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanEvent::payload",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::published_plan_policy_map",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanArtifactRepairReport::entries",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanArtifactRepairReport::scanned_plan_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanHeader::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::plan_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanHeader::title",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::execution_overlays_by_plan",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::load_hydrated_coordination_plan_state",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanEventKind",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanProjection::execution_overlays",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PlanStreamRepairInspection::event_count_after",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::next_log_sequence_from_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::event_count_before",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::cleanup_stale_derived_plan_logs",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PlanStreamRepairInspection::event_count_before",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::cleanup_stale_plan_logs",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanPayload",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanArtifactRepairReport::repaired_plan_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanEvent",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::repair_repo_published_plan_artifacts",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::merge_snapshot_bootstrap_into_plan_state",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::sync_derived_plan_log",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanHeader::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanHeader::metadata",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::sync_repo_published_plans",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanNode::assignee",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanIndexEntry::title",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::repaired",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanHeader::goal",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanEvent::event_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanLogState::record",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::normalize_relative_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::legacy_dependency_edges_for_task",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::apply_edge_repair_state",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::load_hydrated_coordination_snapshot",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanNode::anchors",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::load_stored_plan_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanHeader::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanEvent::plan_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanHeader::revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanRecord",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanNode::base_revision",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanEvent::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanIndexEntry::scope",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::load_repo_published_plan_projection",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::repo_published_execution_overlays",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanExecutionOverlay",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::redundant_edge_add_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanRecord::graph",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanEvent::event_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::load_repo_published_plan_index",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanProjection",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::normalize_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PlanStreamRepairInspection::rewritten_events",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanHeader::created_from",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::scan_or_repair_repo_published_plan_artifacts",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanProjection::next_log_sequence",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::published_plan_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::StoredPublishedPlanEvent",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanHeader::policy",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::write_jsonl_file",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::hydrated_plan_state_from_projection",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanExecutionOverlay::pending_handoff_to",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::derived_plan_log_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanNode::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::next_numeric_suffix",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::HydratedCoordinationPlanState",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanNode::plan",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::append_plan_delta_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::legacy_node_from_task",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::sorted_edges",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanNode::acceptance",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanProjection::next_plan",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanIndexEntry::status",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanIndexEntry::kind",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::observe_published_plan_step",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::next_published_event_id",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanEvent::edge_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::legacy_header_from_plan",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::apply_legacy_event",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::skipped_legacy_stream",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::project_plan_log",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanHeader::root_nodes",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanEvent::node_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::sync_repo_published_plan_state_observed",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::HydratedCoordinationPlanState::snapshot",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanEvent::plan_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanEvent::node_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanIndexEntry::plan_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanIndexEntry::log_path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanNode::depends_on",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanHeader",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PlanStreamRepairInspection::skipped_legacy_stream",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::inspect_repo_published_plan_artifacts",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanArtifactRepairReport",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanIndexEntry",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanNode",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::HydratedCoordinationPlanState::plan_graphs",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanArtifactRepairReport::redundant_edge_add_count",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::authoritative_plan_log_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::load_authoritative_published_plan_records",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::LegacyPublishedPlanNode::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanPayload",
+        "kind": "Enum"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::event_count_after",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PublishedPlanHeader::tags",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::load_jsonl_file",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::published_plans::PlanStreamRepairInspection",
+        "kind": "Struct"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 139 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 278,
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "removedCount": 0,
+        "updatedCount": 278
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::apply_native_event"
+        },
+        "kind": "Function",
+        "name": "apply_native_event",
+        "span": {
+          "end": 33767,
+          "start": 32136
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::apply_native_event"
+        },
+        "kind": "Function",
+        "name": "apply_native_event",
+        "span": {
+          "end": 35145,
+          "start": 33514
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::sorted_nodes"
+        },
+        "kind": "Function",
+        "name": "sorted_nodes",
+        "span": {
+          "end": 46694,
+          "start": 46531
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::sorted_nodes"
+        },
+        "kind": "Function",
+        "name": "sorted_nodes",
+        "span": {
+          "end": 48072,
+          "start": 47909
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanLogState::next_log_sequence"
+        },
+        "kind": "Field",
+        "name": "next_log_sequence",
+        "span": {
+          "end": 6799,
+          "start": 6777
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanLogState::next_log_sequence"
+        },
+        "kind": "Field",
+        "name": "next_log_sequence",
+        "span": {
+          "end": 6838,
+          "start": 6816
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanEvent::payload"
+        },
+        "kind": "Field",
+        "name": "payload",
+        "span": {
+          "end": 4002,
+          "start": 3967
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanEvent::payload"
+        },
+        "kind": "Field",
+        "name": "payload",
+        "span": {
+          "end": 4041,
+          "start": 4006
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::load_published_plan_log_state"
+        },
+        "kind": "Function",
+        "name": "load_published_plan_log_state",
+        "span": {
+          "end": 60725,
+          "start": 60127
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::load_published_plan_log_state"
+        },
+        "kind": "Function",
+        "name": "load_published_plan_log_state",
+        "span": {
+          "end": 62103,
+          "start": 61505
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::published_plan_header"
+        },
+        "kind": "Function",
+        "name": "published_plan_header",
+        "span": {
+          "end": 29997,
+          "start": 29296
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::published_plan_header"
+        },
+        "kind": "Function",
+        "name": "published_plan_header",
+        "span": {
+          "end": 31375,
+          "start": 30674
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::merge_published_plans_into_snapshot"
+        },
+        "kind": "Function",
+        "name": "merge_published_plans_into_snapshot",
+        "span": {
+          "end": 27572,
+          "start": 24998
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::merge_published_plans_into_snapshot"
+        },
+        "kind": "Function",
+        "name": "merge_published_plans_into_snapshot",
+        "span": {
+          "end": 28950,
+          "start": 26376
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::scope"
+        },
+        "kind": "Field",
+        "name": "scope",
+        "span": {
+          "end": 3152,
+          "start": 3126
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::scope"
+        },
+        "kind": "Field",
+        "name": "scope",
+        "span": {
+          "end": 3191,
+          "start": 3165
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::regenerate_repo_published_plan_artifacts"
+        },
+        "kind": "Function",
+        "name": "regenerate_repo_published_plan_artifacts",
+        "span": {
+          "end": 9506,
+          "start": 7904
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::regenerate_repo_published_plan_artifacts"
+        },
+        "kind": "Function",
+        "name": "regenerate_repo_published_plan_artifacts",
+        "span": {
+          "end": 9545,
+          "start": 7943
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::published_plans"
+        },
+        "kind": "Module",
+        "name": "published_plans",
+        "span": {
+          "end": 64494,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::published_plans"
+        },
+        "kind": "Module",
+        "name": "published_plans",
+        "span": {
+          "end": 65872,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::sync_repo_published_plan_state"
+        },
+        "kind": "Function",
+        "name": "sync_repo_published_plan_state",
+        "span": {
+          "end": 10479,
+          "start": 9860
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::sync_repo_published_plan_state"
+        },
+        "kind": "Function",
+        "name": "sync_repo_published_plan_state",
+        "span": {
+          "end": 10518,
+          "start": 9899
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PlanStreamRepairInspection::redundant_edge_add_count"
+        },
+        "kind": "Field",
+        "name": "redundant_edge_add_count",
+        "span": {
+          "end": 55078,
+          "start": 55047
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PlanStreamRepairInspection::redundant_edge_add_count"
+        },
+        "kind": "Field",
+        "name": "redundant_edge_add_count",
+        "span": {
+          "end": 56456,
+          "start": 56425
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::published_plans::PublishedPlanProjection::impl"
+        },
+        "kind": "Impl",
+        "name": "PublishedPlanProjection",
+        "span": {
+          "end": 6723,
+          "start": 6307
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Impl",
+          "path": "prism_core::published_plans::PublishedPlanProjection::impl"
+        },
+        "kind": "Impl",
+        "name": "PublishedPlanProjection",
+        "span": {
+          "end": 6762,
+          "start": 6346
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::inspect_plan_stream_for_repair"
+        },
+        "kind": "Function",
+        "name": "inspect_plan_stream_for_repair",
+        "span": {
+          "end": 56763,
+          "start": 55173
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::inspect_plan_stream_for_repair"
+        },
+        "kind": "Function",
+        "name": "inspect_plan_stream_for_repair",
+        "span": {
+          "end": 58141,
+          "start": 56551
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Enum",
+          "path": "prism_core::published_plans::PublishedPlanEventKind"
+        },
+        "kind": "Enum",
+        "name": "PublishedPlanEventKind",
+        "span": {
+          "end": 2319,
+          "start": 2133
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Enum",
+          "path": "prism_core::published_plans::PublishedPlanEventKind"
+        },
+        "kind": "Enum",
+        "name": "PublishedPlanEventKind",
+        "span": {
+          "end": 2358,
+          "start": 2172
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::remove_legacy_plan_log_if_stale"
+        },
+        "kind": "Function",
+        "name": "remove_legacy_plan_log_if_stale",
+        "span": {
+          "end": 62219,
+          "start": 61885
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::remove_legacy_plan_log_if_stale"
+        },
+        "kind": "Function",
+        "name": "remove_legacy_plan_log_if_stale",
+        "span": {
+          "end": 63597,
+          "start": 63263
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::published_plans::PublishedPlanProjection::next_log_sequence_for"
+        },
+        "kind": "Method",
+        "name": "next_log_sequence_for",
+        "span": {
+          "end": 6721,
+          "start": 6541
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::published_plans::PublishedPlanProjection::next_log_sequence_for"
+        },
+        "kind": "Method",
+        "name": "next_log_sequence_for",
+        "span": {
+          "end": 6760,
+          "start": 6580
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanEvent::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 2462,
+          "start": 2434
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanEvent::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 2501,
+          "start": 2473
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::HydratedCoordinationPlanState::execution_overlays"
+        },
+        "kind": "Field",
+        "name": "execution_overlays",
+        "span": {
+          "end": 7088,
+          "start": 7014
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::HydratedCoordinationPlanState::execution_overlays"
+        },
+        "kind": "Field",
+        "name": "execution_overlays",
+        "span": {
+          "end": 7127,
+          "start": 7053
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::resolve_log_path"
+        },
+        "kind": "Function",
+        "name": "resolve_log_path",
+        "span": {
+          "end": 50834,
+          "start": 50657
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::resolve_log_path"
+        },
+        "kind": "Function",
+        "name": "resolve_log_path",
+        "span": {
+          "end": 52212,
+          "start": 52035
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::published_plan_record_map"
+        },
+        "kind": "Function",
+        "name": "published_plan_record_map",
+        "span": {
+          "end": 30559,
+          "start": 29999
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::published_plan_record_map"
+        },
+        "kind": "Function",
+        "name": "published_plan_record_map",
+        "span": {
+          "end": 31937,
+          "start": 31377
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanProjection::records"
+        },
+        "kind": "Field",
+        "name": "records",
+        "span": {
+          "end": 6147,
+          "start": 6114
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanProjection::records"
+        },
+        "kind": "Field",
+        "name": "records",
+        "span": {
+          "end": 6186,
+          "start": 6153
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::stored_plan_event_plan_id"
+        },
+        "kind": "Function",
+        "name": "stored_plan_event_plan_id",
+        "span": {
+          "end": 57013,
+          "start": 56765
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::stored_plan_event_plan_id"
+        },
+        "kind": "Function",
+        "name": "stored_plan_event_plan_id",
+        "span": {
+          "end": 58391,
+          "start": 58143
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanProjection::next_task"
+        },
+        "kind": "Field",
+        "name": "next_task",
+        "span": {
+          "end": 6256,
+          "start": 6242
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanProjection::next_task"
+        },
+        "kind": "Field",
+        "name": "next_task",
+        "span": {
+          "end": 6295,
+          "start": 6281
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::PublishedPlanLogState"
+        },
+        "kind": "Struct",
+        "name": "PublishedPlanLogState",
+        "span": {
+          "end": 6843,
+          "start": 6742
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::PublishedPlanLogState"
+        },
+        "kind": "Struct",
+        "name": "PublishedPlanLogState",
+        "span": {
+          "end": 6882,
+          "start": 6781
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::published_plans::PublishedPlanProjection::record"
+        },
+        "kind": "Method",
+        "name": "record",
+        "span": {
+          "end": 6535,
+          "start": 6342
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Method",
+          "path": "prism_core::published_plans::PublishedPlanProjection::record"
+        },
+        "kind": "Method",
+        "name": "record",
+        "span": {
+          "end": 6574,
+          "start": 6381
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::PublishedPlanEvent"
+        },
+        "kind": "Struct",
+        "name": "PublishedPlanEvent",
+        "span": {
+          "end": 2713,
+          "start": 2380
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::PublishedPlanEvent"
+        },
+        "kind": "Struct",
+        "name": "PublishedPlanEvent",
+        "span": {
+          "end": 2752,
+          "start": 2419
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanNode::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 4460,
+          "start": 4447
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanNode::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 4499,
+          "start": 4486
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::protected_path"
+        },
+        "kind": "Field",
+        "name": "protected_path",
+        "span": {
+          "end": 5559,
+          "start": 5533
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::protected_path"
+        },
+        "kind": "Field",
+        "name": "protected_path",
+        "span": {
+          "end": 5598,
+          "start": 5572
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanRecord::header"
+        },
+        "kind": "Field",
+        "name": "header",
+        "span": {
+          "end": 3525,
+          "start": 3498
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanRecord::header"
+        },
+        "kind": "Field",
+        "name": "header",
+        "span": {
+          "end": 3564,
+          "start": 3537
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanEvent::payload"
+        },
+        "kind": "Field",
+        "name": "payload",
+        "span": {
+          "end": 2710,
+          "start": 2681
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanEvent::payload"
+        },
+        "kind": "Field",
+        "name": "payload",
+        "span": {
+          "end": 2749,
+          "start": 2720
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::published_plan_policy_map"
+        },
+        "kind": "Function",
+        "name": "published_plan_policy_map",
+        "span": {
+          "end": 29294,
+          "start": 29033
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::published_plan_policy_map"
+        },
+        "kind": "Function",
+        "name": "published_plan_policy_map",
+        "span": {
+          "end": 30672,
+          "start": 30411
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairReport::entries"
+        },
+        "kind": "Field",
+        "name": "entries",
+        "span": {
+          "end": 6046,
+          "start": 5996
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairReport::entries"
+        },
+        "kind": "Field",
+        "name": "entries",
+        "span": {
+          "end": 6085,
+          "start": 6035
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairReport::scanned_plan_count"
+        },
+        "kind": "Field",
+        "name": "scanned_plan_count",
+        "span": {
+          "end": 5913,
+          "start": 5884
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairReport::scanned_plan_count"
+        },
+        "kind": "Field",
+        "name": "scanned_plan_count",
+        "span": {
+          "end": 5952,
+          "start": 5923
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 3243,
+          "start": 3225
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 3282,
+          "start": 3264
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::plan_id"
+        },
+        "kind": "Field",
+        "name": "plan_id",
+        "span": {
+          "end": 5527,
+          "start": 5508
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::plan_id"
+        },
+        "kind": "Field",
+        "name": "plan_id",
+        "span": {
+          "end": 5566,
+          "start": 5547
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 3201,
+          "start": 3188
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 3240,
+          "start": 3227
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::execution_overlays_by_plan"
+        },
+        "kind": "Function",
+        "name": "execution_overlays_by_plan",
+        "span": {
+          "end": 46529,
+          "start": 45914
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::execution_overlays_by_plan"
+        },
+        "kind": "Function",
+        "name": "execution_overlays_by_plan",
+        "span": {
+          "end": 47907,
+          "start": 47292
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::load_hydrated_coordination_plan_state"
+        },
+        "kind": "Function",
+        "name": "load_hydrated_coordination_plan_state",
+        "span": {
+          "end": 22961,
+          "start": 20800
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::load_hydrated_coordination_plan_state"
+        },
+        "kind": "Function",
+        "name": "load_hydrated_coordination_plan_state",
+        "span": {
+          "end": 24339,
+          "start": 22178
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Enum",
+          "path": "prism_core::published_plans::LegacyPublishedPlanEventKind"
+        },
+        "kind": "Enum",
+        "name": "LegacyPublishedPlanEventKind",
+        "span": {
+          "end": 3733,
+          "start": 3640
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Enum",
+          "path": "prism_core::published_plans::LegacyPublishedPlanEventKind"
+        },
+        "kind": "Enum",
+        "name": "LegacyPublishedPlanEventKind",
+        "span": {
+          "end": 3772,
+          "start": 3679
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanProjection::execution_overlays"
+        },
+        "kind": "Field",
+        "name": "execution_overlays",
+        "span": {
+          "end": 6216,
+          "start": 6153
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanProjection::execution_overlays"
+        },
+        "kind": "Field",
+        "name": "execution_overlays",
+        "span": {
+          "end": 6255,
+          "start": 6192
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PlanStreamRepairInspection::event_count_after"
+        },
+        "kind": "Field",
+        "name": "event_count_after",
+        "span": {
+          "end": 55041,
+          "start": 55017
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PlanStreamRepairInspection::event_count_after"
+        },
+        "kind": "Field",
+        "name": "event_count_after",
+        "span": {
+          "end": 56419,
+          "start": 56395
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::next_log_sequence_from_events"
+        },
+        "kind": "Function",
+        "name": "next_log_sequence_from_events",
+        "span": {
+          "end": 64115,
+          "start": 63683
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::next_log_sequence_from_events"
+        },
+        "kind": "Function",
+        "name": "next_log_sequence_from_events",
+        "span": {
+          "end": 65493,
+          "start": 65061
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::event_count_before"
+        },
+        "kind": "Field",
+        "name": "event_count_before",
+        "span": {
+          "end": 5594,
+          "start": 5565
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::event_count_before"
+        },
+        "kind": "Field",
+        "name": "event_count_before",
+        "span": {
+          "end": 5633,
+          "start": 5604
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::cleanup_stale_derived_plan_logs"
+        },
+        "kind": "Function",
+        "name": "cleanup_stale_derived_plan_logs",
+        "span": {
+          "end": 52120,
+          "start": 51467
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::cleanup_stale_derived_plan_logs"
+        },
+        "kind": "Function",
+        "name": "cleanup_stale_derived_plan_logs",
+        "span": {
+          "end": 53498,
+          "start": 52845
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PlanStreamRepairInspection::event_count_before"
+        },
+        "kind": "Field",
+        "name": "event_count_before",
+        "span": {
+          "end": 55011,
+          "start": 54986
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PlanStreamRepairInspection::event_count_before"
+        },
+        "kind": "Field",
+        "name": "event_count_before",
+        "span": {
+          "end": 56389,
+          "start": 56364
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::cleanup_stale_plan_logs"
+        },
+        "kind": "Function",
+        "name": "cleanup_stale_plan_logs",
+        "span": {
+          "end": 51465,
+          "start": 50836
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::cleanup_stale_plan_logs"
+        },
+        "kind": "Function",
+        "name": "cleanup_stale_plan_logs",
+        "span": {
+          "end": 52843,
+          "start": 52214
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Enum",
+          "path": "prism_core::published_plans::LegacyPublishedPlanPayload"
+        },
+        "kind": "Enum",
+        "name": "LegacyPublishedPlanPayload",
+        "span": {
+          "end": 4314,
+          "start": 4105
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Enum",
+          "path": "prism_core::published_plans::LegacyPublishedPlanPayload"
+        },
+        "kind": "Enum",
+        "name": "LegacyPublishedPlanPayload",
+        "span": {
+          "end": 4353,
+          "start": 4144
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairReport::repaired_plan_count"
+        },
+        "kind": "Field",
+        "name": "repaired_plan_count",
+        "span": {
+          "end": 5949,
+          "start": 5919
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairReport::repaired_plan_count"
+        },
+        "kind": "Field",
+        "name": "repaired_plan_count",
+        "span": {
+          "end": 5988,
+          "start": 5958
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::LegacyPublishedPlanEvent"
+        },
+        "kind": "Struct",
+        "name": "LegacyPublishedPlanEvent",
+        "span": {
+          "end": 4005,
+          "start": 3783
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::LegacyPublishedPlanEvent"
+        },
+        "kind": "Struct",
+        "name": "LegacyPublishedPlanEvent",
+        "span": {
+          "end": 4044,
+          "start": 3822
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::repair_repo_published_plan_artifacts"
+        },
+        "kind": "Function",
+        "name": "repair_repo_published_plan_artifacts",
+        "span": {
+          "end": 9858,
+          "start": 9685
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::repair_repo_published_plan_artifacts"
+        },
+        "kind": "Function",
+        "name": "repair_repo_published_plan_artifacts",
+        "span": {
+          "end": 9897,
+          "start": 9724
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::merge_snapshot_bootstrap_into_plan_state"
+        },
+        "kind": "Function",
+        "name": "merge_snapshot_bootstrap_into_plan_state",
+        "span": {
+          "end": 24996,
+          "start": 24044
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::merge_snapshot_bootstrap_into_plan_state"
+        },
+        "kind": "Function",
+        "name": "merge_snapshot_bootstrap_into_plan_state",
+        "span": {
+          "end": 26374,
+          "start": 25422
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::sync_derived_plan_log"
+        },
+        "kind": "Function",
+        "name": "sync_derived_plan_log",
+        "span": {
+          "end": 61883,
+          "start": 60727
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::sync_derived_plan_log"
+        },
+        "kind": "Function",
+        "name": "sync_derived_plan_log",
+        "span": {
+          "end": 63261,
+          "start": 62105
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 3120,
+          "start": 3110
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 3159,
+          "start": 3149
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::metadata"
+        },
+        "kind": "Field",
+        "name": "metadata",
+        "span": {
+          "end": 3373,
+          "start": 3358
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::metadata"
+        },
+        "kind": "Field",
+        "name": "metadata",
+        "span": {
+          "end": 3412,
+          "start": 3397
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::sync_repo_published_plans"
+        },
+        "kind": "Function",
+        "name": "sync_repo_published_plans",
+        "span": {
+          "end": 7514,
+          "start": 7093
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::sync_repo_published_plans"
+        },
+        "kind": "Function",
+        "name": "sync_repo_published_plans",
+        "span": {
+          "end": 7553,
+          "start": 7132
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanNode::assignee"
+        },
+        "kind": "Field",
+        "name": "assignee",
+        "span": {
+          "end": 4547,
+          "start": 4512
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanNode::assignee"
+        },
+        "kind": "Field",
+        "name": "assignee",
+        "span": {
+          "end": 4586,
+          "start": 4551
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanIndexEntry::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 5228,
+          "start": 5204
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanIndexEntry::title"
+        },
+        "kind": "Field",
+        "name": "title",
+        "span": {
+          "end": 5267,
+          "start": 5243
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::repaired"
+        },
+        "kind": "Field",
+        "name": "repaired",
+        "span": {
+          "end": 5693,
+          "start": 5675
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::repaired"
+        },
+        "kind": "Field",
+        "name": "repaired",
+        "span": {
+          "end": 5732,
+          "start": 5714
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::goal"
+        },
+        "kind": "Field",
+        "name": "goal",
+        "span": {
+          "end": 3219,
+          "start": 3207
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::goal"
+        },
+        "kind": "Field",
+        "name": "goal",
+        "span": {
+          "end": 3258,
+          "start": 3246
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanEvent::event_id"
+        },
+        "kind": "Field",
+        "name": "event_id",
+        "span": {
+          "end": 2428,
+          "start": 2412
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanEvent::event_id"
+        },
+        "kind": "Field",
+        "name": "event_id",
+        "span": {
+          "end": 2467,
+          "start": 2451
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanLogState::record"
+        },
+        "kind": "Field",
+        "name": "record",
+        "span": {
+          "end": 6840,
+          "start": 6805
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanLogState::record"
+        },
+        "kind": "Field",
+        "name": "record",
+        "span": {
+          "end": 6879,
+          "start": 6844
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::normalize_relative_path"
+        },
+        "kind": "Function",
+        "name": "normalize_relative_path",
+        "span": {
+          "end": 64493,
+          "start": 64374
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::normalize_relative_path"
+        },
+        "kind": "Function",
+        "name": "normalize_relative_path",
+        "span": {
+          "end": 65871,
+          "start": 65752
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::legacy_dependency_edges_for_task"
+        },
+        "kind": "Function",
+        "name": "legacy_dependency_edges_for_task",
+        "span": {
+          "end": 50140,
+          "start": 49386
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::legacy_dependency_edges_for_task"
+        },
+        "kind": "Function",
+        "name": "legacy_dependency_edges_for_task",
+        "span": {
+          "end": 51518,
+          "start": 50764
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::apply_edge_repair_state"
+        },
+        "kind": "Function",
+        "name": "apply_edge_repair_state",
+        "span": {
+          "end": 57763,
+          "start": 57015
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::apply_edge_repair_state"
+        },
+        "kind": "Function",
+        "name": "apply_edge_repair_state",
+        "span": {
+          "end": 59141,
+          "start": 58393
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::load_hydrated_coordination_snapshot"
+        },
+        "kind": "Function",
+        "name": "load_hydrated_coordination_snapshot",
+        "span": {
+          "end": 20798,
+          "start": 19885
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::load_hydrated_coordination_snapshot"
+        },
+        "kind": "Function",
+        "name": "load_hydrated_coordination_snapshot",
+        "span": {
+          "end": 22176,
+          "start": 21263
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanNode::anchors"
+        },
+        "kind": "Field",
+        "name": "anchors",
+        "span": {
+          "end": 4586,
+          "start": 4553
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanNode::anchors"
+        },
+        "kind": "Field",
+        "name": "anchors",
+        "span": {
+          "end": 4625,
+          "start": 4592
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::load_stored_plan_events"
+        },
+        "kind": "Function",
+        "name": "load_stored_plan_events",
+        "span": {
+          "end": 60125,
+          "start": 58748
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::load_stored_plan_events"
+        },
+        "kind": "Function",
+        "name": "load_stored_plan_events",
+        "span": {
+          "end": 61503,
+          "start": 60126
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 3182,
+          "start": 3158
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 3221,
+          "start": 3197
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanEvent::plan_id"
+        },
+        "kind": "Field",
+        "name": "plan_id",
+        "span": {
+          "end": 2483,
+          "start": 2468
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanEvent::plan_id"
+        },
+        "kind": "Field",
+        "name": "plan_id",
+        "span": {
+          "end": 2522,
+          "start": 2507
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::revision"
+        },
+        "kind": "Field",
+        "name": "revision",
+        "span": {
+          "end": 3262,
+          "start": 3249
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::revision"
+        },
+        "kind": "Field",
+        "name": "revision",
+        "span": {
+          "end": 3301,
+          "start": 3288
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::PublishedPlanRecord"
+        },
+        "kind": "Struct",
+        "name": "PublishedPlanRecord",
+        "span": {
+          "end": 3550,
+          "start": 3465
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::PublishedPlanRecord"
+        },
+        "kind": "Struct",
+        "name": "PublishedPlanRecord",
+        "span": {
+          "end": 3589,
+          "start": 3504
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanNode::base_revision"
+        },
+        "kind": "Field",
+        "name": "base_revision",
+        "span": {
+          "end": 4737,
+          "start": 4695
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanNode::base_revision"
+        },
+        "kind": "Field",
+        "name": "base_revision",
+        "span": {
+          "end": 4776,
+          "start": 4734
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanEvent::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 3877,
+          "start": 3843
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanEvent::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 3916,
+          "start": 3882
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanIndexEntry::scope"
+        },
+        "kind": "Field",
+        "name": "scope",
+        "span": {
+          "end": 5293,
+          "start": 5269
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanIndexEntry::scope"
+        },
+        "kind": "Field",
+        "name": "scope",
+        "span": {
+          "end": 5332,
+          "start": 5308
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::load_repo_published_plan_projection"
+        },
+        "kind": "Function",
+        "name": "load_repo_published_plan_projection",
+        "span": {
+          "end": 29031,
+          "start": 27574
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::load_repo_published_plan_projection"
+        },
+        "kind": "Function",
+        "name": "load_repo_published_plan_projection",
+        "span": {
+          "end": 30409,
+          "start": 28952
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::repo_published_execution_overlays"
+        },
+        "kind": "Function",
+        "name": "repo_published_execution_overlays",
+        "span": {
+          "end": 45912,
+          "start": 45532
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::repo_published_execution_overlays"
+        },
+        "kind": "Function",
+        "name": "repo_published_execution_overlays",
+        "span": {
+          "end": 47290,
+          "start": 46910
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::LegacyPublishedPlanExecutionOverlay"
+        },
+        "kind": "Struct",
+        "name": "LegacyPublishedPlanExecutionOverlay",
+        "span": {
+          "end": 4887,
+          "start": 4790
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::LegacyPublishedPlanExecutionOverlay"
+        },
+        "kind": "Struct",
+        "name": "LegacyPublishedPlanExecutionOverlay",
+        "span": {
+          "end": 4926,
+          "start": 4829
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::redundant_edge_add_count"
+        },
+        "kind": "Field",
+        "name": "redundant_edge_add_count",
+        "span": {
+          "end": 5669,
+          "start": 5634
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::redundant_edge_add_count"
+        },
+        "kind": "Field",
+        "name": "redundant_edge_add_count",
+        "span": {
+          "end": 5708,
+          "start": 5673
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanRecord::graph"
+        },
+        "kind": "Field",
+        "name": "graph",
+        "span": {
+          "end": 3547,
+          "start": 3531
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanRecord::graph"
+        },
+        "kind": "Field",
+        "name": "graph",
+        "span": {
+          "end": 3586,
+          "start": 3570
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanEvent::event_id"
+        },
+        "kind": "Field",
+        "name": "event_id",
+        "span": {
+          "end": 3837,
+          "start": 3821
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanEvent::event_id"
+        },
+        "kind": "Field",
+        "name": "event_id",
+        "span": {
+          "end": 3876,
+          "start": 3860
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::load_repo_published_plan_index"
+        },
+        "kind": "Function",
+        "name": "load_repo_published_plan_index",
+        "span": {
+          "end": 7902,
+          "start": 7516
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::load_repo_published_plan_index"
+        },
+        "kind": "Function",
+        "name": "load_repo_published_plan_index",
+        "span": {
+          "end": 7941,
+          "start": 7555
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::PublishedPlanProjection"
+        },
+        "kind": "Struct",
+        "name": "PublishedPlanProjection",
+        "span": {
+          "end": 6305,
+          "start": 6077
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::PublishedPlanProjection"
+        },
+        "kind": "Struct",
+        "name": "PublishedPlanProjection",
+        "span": {
+          "end": 6344,
+          "start": 6116
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::normalize_path"
+        },
+        "kind": "Function",
+        "name": "normalize_path",
+        "span": {
+          "end": 64372,
+          "start": 64294
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::normalize_path"
+        },
+        "kind": "Function",
+        "name": "normalize_path",
+        "span": {
+          "end": 65750,
+          "start": 65672
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PlanStreamRepairInspection::rewritten_events"
+        },
+        "kind": "Field",
+        "name": "rewritten_events",
+        "span": {
+          "end": 55168,
+          "start": 55117
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PlanStreamRepairInspection::rewritten_events"
+        },
+        "kind": "Field",
+        "name": "rewritten_events",
+        "span": {
+          "end": 56546,
+          "start": 56495
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::created_from"
+        },
+        "kind": "Field",
+        "name": "created_from",
+        "span": {
+          "end": 3352,
+          "start": 3324
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::created_from"
+        },
+        "kind": "Field",
+        "name": "created_from",
+        "span": {
+          "end": 3391,
+          "start": 3363
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::scan_or_repair_repo_published_plan_artifacts"
+        },
+        "kind": "Function",
+        "name": "scan_or_repair_repo_published_plan_artifacts",
+        "span": {
+          "end": 54920,
+          "start": 52122
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::scan_or_repair_repo_published_plan_artifacts"
+        },
+        "kind": "Function",
+        "name": "scan_or_repair_repo_published_plan_artifacts",
+        "span": {
+          "end": 56298,
+          "start": 53500
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanProjection::next_log_sequence"
+        },
+        "kind": "Field",
+        "name": "next_log_sequence",
+        "span": {
+          "end": 6302,
+          "start": 6262
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanProjection::next_log_sequence"
+        },
+        "kind": "Field",
+        "name": "next_log_sequence",
+        "span": {
+          "end": 6341,
+          "start": 6301
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::published_plan_events"
+        },
+        "kind": "Function",
+        "name": "published_plan_events",
+        "span": {
+          "end": 37516,
+          "start": 35600
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::published_plan_events"
+        },
+        "kind": "Function",
+        "name": "published_plan_events",
+        "span": {
+          "end": 38894,
+          "start": 36978
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Enum",
+          "path": "prism_core::published_plans::StoredPublishedPlanEvent"
+        },
+        "kind": "Enum",
+        "name": "StoredPublishedPlanEvent",
+        "span": {
+          "end": 5059,
+          "start": 4956
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Enum",
+          "path": "prism_core::published_plans::StoredPublishedPlanEvent"
+        },
+        "kind": "Enum",
+        "name": "StoredPublishedPlanEvent",
+        "span": {
+          "end": 5098,
+          "start": 4995
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::policy"
+        },
+        "kind": "Field",
+        "name": "policy",
+        "span": {
+          "end": 3425,
+          "start": 3379
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::policy"
+        },
+        "kind": "Field",
+        "name": "policy",
+        "span": {
+          "end": 3464,
+          "start": 3418
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::write_jsonl_file"
+        },
+        "kind": "Function",
+        "name": "write_jsonl_file",
+        "span": {
+          "end": 63529,
+          "start": 62925
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::write_jsonl_file"
+        },
+        "kind": "Function",
+        "name": "write_jsonl_file",
+        "span": {
+          "end": 64907,
+          "start": 64303
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::hydrated_plan_state_from_projection"
+        },
+        "kind": "Function",
+        "name": "hydrated_plan_state_from_projection",
+        "span": {
+          "end": 24042,
+          "start": 22963
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::hydrated_plan_state_from_projection"
+        },
+        "kind": "Function",
+        "name": "hydrated_plan_state_from_projection",
+        "span": {
+          "end": 25420,
+          "start": 24341
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanExecutionOverlay::pending_handoff_to"
+        },
+        "kind": "Field",
+        "name": "pending_handoff_to",
+        "span": {
+          "end": 4884,
+          "start": 4839
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanExecutionOverlay::pending_handoff_to"
+        },
+        "kind": "Field",
+        "name": "pending_handoff_to",
+        "span": {
+          "end": 4923,
+          "start": 4878
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::derived_plan_log_path"
+        },
+        "kind": "Function",
+        "name": "derived_plan_log_path",
+        "span": {
+          "end": 50655,
+          "start": 50329
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::derived_plan_log_path"
+        },
+        "kind": "Function",
+        "name": "derived_plan_log_path",
+        "span": {
+          "end": 52033,
+          "start": 51707
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanNode::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 4506,
+          "start": 4466
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanNode::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 4545,
+          "start": 4505
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::next_numeric_suffix"
+        },
+        "kind": "Function",
+        "name": "next_numeric_suffix",
+        "span": {
+          "end": 64292,
+          "start": 64117
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::next_numeric_suffix"
+        },
+        "kind": "Function",
+        "name": "next_numeric_suffix",
+        "span": {
+          "end": 65670,
+          "start": 65495
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::HydratedCoordinationPlanState"
+        },
+        "kind": "Struct",
+        "name": "HydratedCoordinationPlanState",
+        "span": {
+          "end": 7091,
+          "start": 6869
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::HydratedCoordinationPlanState"
+        },
+        "kind": "Struct",
+        "name": "HydratedCoordinationPlanState",
+        "span": {
+          "end": 7130,
+          "start": 6908
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanNode::plan"
+        },
+        "kind": "Field",
+        "name": "plan",
+        "span": {
+          "end": 4441,
+          "start": 4429
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanNode::plan"
+        },
+        "kind": "Field",
+        "name": "plan",
+        "span": {
+          "end": 4480,
+          "start": 4468
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::append_plan_delta_events"
+        },
+        "kind": "Function",
+        "name": "append_plan_delta_events",
+        "span": {
+          "end": 45530,
+          "start": 37518
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::append_plan_delta_events"
+        },
+        "kind": "Function",
+        "name": "append_plan_delta_events",
+        "span": {
+          "end": 46908,
+          "start": 38896
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::legacy_node_from_task"
+        },
+        "kind": "Function",
+        "name": "legacy_node_from_task",
+        "span": {
+          "end": 49384,
+          "start": 47491
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::legacy_node_from_task"
+        },
+        "kind": "Function",
+        "name": "legacy_node_from_task",
+        "span": {
+          "end": 50762,
+          "start": 48869
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::sorted_edges"
+        },
+        "kind": "Function",
+        "name": "sorted_edges",
+        "span": {
+          "end": 46859,
+          "start": 46696
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::sorted_edges"
+        },
+        "kind": "Function",
+        "name": "sorted_edges",
+        "span": {
+          "end": 48237,
+          "start": 48074
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanNode::acceptance"
+        },
+        "kind": "Field",
+        "name": "acceptance",
+        "span": {
+          "end": 4689,
+          "start": 4633
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanNode::acceptance"
+        },
+        "kind": "Field",
+        "name": "acceptance",
+        "span": {
+          "end": 4728,
+          "start": 4672
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanProjection::next_plan"
+        },
+        "kind": "Field",
+        "name": "next_plan",
+        "span": {
+          "end": 6236,
+          "start": 6222
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanProjection::next_plan"
+        },
+        "kind": "Field",
+        "name": "next_plan",
+        "span": {
+          "end": 6275,
+          "start": 6261
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanIndexEntry::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 5263,
+          "start": 5234
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanIndexEntry::status"
+        },
+        "kind": "Field",
+        "name": "status",
+        "span": {
+          "end": 5302,
+          "start": 5273
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanIndexEntry::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 5322,
+          "start": 5299
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanIndexEntry::kind"
+        },
+        "kind": "Field",
+        "name": "kind",
+        "span": {
+          "end": 5361,
+          "start": 5338
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::observe_published_plan_step"
+        },
+        "kind": "Function",
+        "name": "observe_published_plan_step",
+        "span": {
+          "end": 2032,
+          "start": 1161
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::observe_published_plan_step"
+        },
+        "kind": "Function",
+        "name": "observe_published_plan_step",
+        "span": {
+          "end": 2071,
+          "start": 1200
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::next_published_event_id"
+        },
+        "kind": "Function",
+        "name": "next_published_event_id",
+        "span": {
+          "end": 63681,
+          "start": 63531
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::next_published_event_id"
+        },
+        "kind": "Function",
+        "name": "next_published_event_id",
+        "span": {
+          "end": 65059,
+          "start": 64909
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanEvent::edge_id"
+        },
+        "kind": "Field",
+        "name": "edge_id",
+        "span": {
+          "end": 2675,
+          "start": 2648
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanEvent::edge_id"
+        },
+        "kind": "Field",
+        "name": "edge_id",
+        "span": {
+          "end": 2714,
+          "start": 2687
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::legacy_header_from_plan"
+        },
+        "kind": "Function",
+        "name": "legacy_header_from_plan",
+        "span": {
+          "end": 47489,
+          "start": 46861
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::legacy_header_from_plan"
+        },
+        "kind": "Function",
+        "name": "legacy_header_from_plan",
+        "span": {
+          "end": 48867,
+          "start": 48239
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::apply_legacy_event"
+        },
+        "kind": "Function",
+        "name": "apply_legacy_event",
+        "span": {
+          "end": 35598,
+          "start": 33769
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::apply_legacy_event"
+        },
+        "kind": "Function",
+        "name": "apply_legacy_event",
+        "span": {
+          "end": 36976,
+          "start": 35147
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::skipped_legacy_stream"
+        },
+        "kind": "Field",
+        "name": "skipped_legacy_stream",
+        "span": {
+          "end": 5730,
+          "start": 5699
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry::skipped_legacy_stream"
+        },
+        "kind": "Field",
+        "name": "skipped_legacy_stream",
+        "span": {
+          "end": 5769,
+          "start": 5738
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::project_plan_log"
+        },
+        "kind": "Function",
+        "name": "project_plan_log",
+        "span": {
+          "end": 32134,
+          "start": 30561
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::project_plan_log"
+        },
+        "kind": "Function",
+        "name": "project_plan_log",
+        "span": {
+          "end": 33512,
+          "start": 31939
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::root_nodes"
+        },
+        "kind": "Field",
+        "name": "root_nodes",
+        "span": {
+          "end": 3295,
+          "start": 3268
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanHeader::root_nodes"
+        },
+        "kind": "Field",
+        "name": "root_nodes",
+        "span": {
+          "end": 3334,
+          "start": 3307
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanEvent::node_id"
+        },
+        "kind": "Field",
+        "name": "node_id",
+        "span": {
+          "end": 3961,
+          "start": 3926
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanEvent::node_id"
+        },
+        "kind": "Field",
+        "name": "node_id",
+        "span": {
+          "end": 4000,
+          "start": 3965
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::sync_repo_published_plan_state_observed"
+        },
+        "kind": "Function",
+        "name": "sync_repo_published_plan_state_observed",
+        "span": {
+          "end": 19883,
+          "start": 10481
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::sync_repo_published_plan_state_observed"
+        },
+        "kind": "Function",
+        "name": "sync_repo_published_plan_state_observed",
+        "span": {
+          "end": 21261,
+          "start": 10520
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::HydratedCoordinationPlanState::snapshot"
+        },
+        "kind": "Field",
+        "name": "snapshot",
+        "span": {
+          "end": 6964,
+          "start": 6923
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::HydratedCoordinationPlanState::snapshot"
+        },
+        "kind": "Field",
+        "name": "snapshot",
+        "span": {
+          "end": 7003,
+          "start": 6962
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanEvent::plan_id"
+        },
+        "kind": "Field",
+        "name": "plan_id",
+        "span": {
+          "end": 3898,
+          "start": 3883
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanEvent::plan_id"
+        },
+        "kind": "Field",
+        "name": "plan_id",
+        "span": {
+          "end": 3937,
+          "start": 3922
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanEvent::node_id"
+        },
+        "kind": "Field",
+        "name": "node_id",
+        "span": {
+          "end": 2579,
+          "start": 2552
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanEvent::node_id"
+        },
+        "kind": "Field",
+        "name": "node_id",
+        "span": {
+          "end": 2618,
+          "start": 2591
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanIndexEntry::plan_id"
+        },
+        "kind": "Field",
+        "name": "plan_id",
+        "span": {
+          "end": 5198,
+          "start": 5172
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanIndexEntry::plan_id"
+        },
+        "kind": "Field",
+        "name": "plan_id",
+        "span": {
+          "end": 5237,
+          "start": 5211
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry"
+        },
+        "kind": "Struct",
+        "name": "PublishedPlanArtifactRepairEntry",
+        "span": {
+          "end": 5733,
+          "start": 5458
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairEntry"
+        },
+        "kind": "Struct",
+        "name": "PublishedPlanArtifactRepairEntry",
+        "span": {
+          "end": 5772,
+          "start": 5497
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanIndexEntry::log_path"
+        },
+        "kind": "Field",
+        "name": "log_path",
+        "span": {
+          "end": 5355,
+          "start": 5328
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PublishedPlanIndexEntry::log_path"
+        },
+        "kind": "Field",
+        "name": "log_path",
+        "span": {
+          "end": 5394,
+          "start": 5367
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanNode::depends_on"
+        },
+        "kind": "Field",
+        "name": "depends_on",
+        "span": {
+          "end": 4627,
+          "start": 4592
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::LegacyPublishedPlanNode::depends_on"
+        },
+        "kind": "Field",
+        "name": "depends_on",
+        "span": {
+          "end": 4666,
+          "start": 4631
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::PublishedPlanHeader"
+        },
+        "kind": "Struct",
+        "name": "PublishedPlanHeader",
+        "span": {
+          "end": 3428,
+          "start": 3077
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::PublishedPlanHeader"
+        },
+        "kind": "Struct",
+        "name": "PublishedPlanHeader",
+        "span": {
+          "end": 3467,
+          "start": 3116
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PlanStreamRepairInspection::skipped_legacy_stream"
+        },
+        "kind": "Field",
+        "name": "skipped_legacy_stream",
+        "span": {
+          "end": 55111,
+          "start": 55084
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Field",
+          "path": "prism_core::published_plans::PlanStreamRepairInspection::skipped_legacy_stream"
+        },
+        "kind": "Field",
+        "name": "skipped_legacy_stream",
+        "span": {
+          "end": 56489,
+          "start": 56462
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::inspect_repo_published_plan_artifacts"
+        },
+        "kind": "Function",
+        "name": "inspect_repo_published_plan_artifacts",
+        "span": {
+          "end": 9683,
+          "start": 9508
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::published_plans::inspect_repo_published_plan_artifacts"
+        },
+        "kind": "Function",
+        "name": "inspect_repo_published_plan_artifacts",
+        "span": {
+          "end": 9722,
+          "start": 9547
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairReport"
+        },
+        "kind": "Struct",
+        "name": "PublishedPlanArtifactRepairReport",
+        "span": {
+          "end": 6049,
+          "start": 5833
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::PublishedPlanArtifactRepairReport"
+        },
+        "kind": "Struct",
+        "name": "PublishedPlanArtifactRepairReport",
+        "span": {
+          "end": 6088,
+          "start": 5872
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::PublishedPlanIndexEntry"
+        },
+        "kind": "Struct",
+        "name": "PublishedPlanIndexEntry",
+        "span": {
+          "end": 5358,
+          "start": 5124
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Struct",
+          "path": "prism_core::published_plans::PublishedPlanIndexEntry"
+        },
+        "kind": "Struct",
+        "name": "PublishedPlanIndexEntry",
+        "span": {
+          "end": 5397,
+          "start": 5163
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 278,
+    "changedSymbolsTruncated": true,
+    "filePaths": [
+      "/Users/bene/code/prism/crates/prism-core/src/published_plans.rs"
+    ],
+    "files": [
+      100
+    ],
+    "reason": "work Plan the tracked .prism snapshot rewrite (work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh)",
+    "trigger": "FsWatch"
+  }
+}

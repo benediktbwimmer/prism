@@ -26,10 +26,19 @@
 
 refresh-01: make workspace refresh behavior sound and optimized by explaining and reducing full refreshes, fixing pathological deferred behavior, and tightening overall refresh performance semantics
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn0sh5q9vv9j2q2n6jwxhtep.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn0sh5q9vv9j2q2n6jwxhtep.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn0sh5q9vv9j2q2n6jwxhtep.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

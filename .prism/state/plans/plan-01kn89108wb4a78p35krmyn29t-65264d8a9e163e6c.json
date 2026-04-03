@@ -1,0 +1,190 @@
+{
+  "plan": {
+    "id": "plan:01kn89108wb4a78p35krmyn29t",
+    "goal": "Publish always-up-to-date human-readable markdown projections under docs/prism for all persisted .prism state surfaces, with a clear hierarchy for plans, memories, concepts, contracts, relations, and other current repo-state projections.",
+    "title": "Publish always-up-to-date human-readable markdown projections under docs/prism for all persisted .prism state surfaces, with a clear hierarchy for plans, memories, concepts, contracts, relations, and other current repo-state projections.",
+    "status": "Active",
+    "policy": {
+      "default_claim_mode": "Advisory",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": false,
+      "stale_after_graph_change": true,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "off",
+        "completionMode": "off",
+        "targetRef": null,
+        "targetBranch": "",
+        "requireTaskBranch": false,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": null
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01kn891asb951r6bdzws74dbtv",
+      "coord-task:01kn891bw81xnx9tddb0vb99t7",
+      "coord-task:01kn891d13gpz3snkn2k5qfww2"
+    ]
+  },
+  "graph": {
+    "id": "plan:01kn89108wb4a78p35krmyn29t",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Publish always-up-to-date human-readable markdown projections under docs/prism for all persisted .prism state surfaces, with a clear hierarchy for plans, memories, concepts, contracts, relations, and other current repo-state projections.",
+    "goal": "Publish always-up-to-date human-readable markdown projections under docs/prism for all persisted .prism state surfaces, with a clear hierarchy for plans, memories, concepts, contracts, relations, and other current repo-state projections.",
+    "status": "Active",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01kn891asb951r6bdzws74dbtv",
+      "coord-task:01kn891bw81xnx9tddb0vb99t7",
+      "coord-task:01kn891d13gpz3snkn2k5qfww2"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01kn891asb951r6bdzws74dbtv",
+        "plan_id": "plan:01kn89108wb4a78p35krmyn29t",
+        "kind": "Edit",
+        "title": "Define the docs/prism projection hierarchy and coverage map",
+        "summary": null,
+        "status": "InProgress",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Implementation targets for projection generation and refresh are identified",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Projection hierarchy is chosen and mapped to the persisted .prism state families that should publish into docs/prism",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 52,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn891bw81xnx9tddb0vb99t7",
+        "plan_id": "plan:01kn89108wb4a78p35krmyn29t",
+        "kind": "Edit",
+        "title": "Implement generated markdown projections for persisted .prism state",
+        "summary": null,
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Projection generator emits human-readable markdown files under docs/prism for current persisted state families",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Published docs update deterministically from repo state",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 52,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn891d13gpz3snkn2k5qfww2",
+        "plan_id": "plan:01kn89108wb4a78p35krmyn29t",
+        "kind": "Edit",
+        "title": "Validate regenerated projections and refresh live PRISM surfaces",
+        "summary": null,
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Full cargo test passes or flakes are isolated per repo policy",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Release binaries are rebuilt and the MCP daemon is restarted if PRISM behavior changed",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Targeted validation passes for the projection implementation",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 52,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      }
+    ],
+    "edges": []
+  },
+  "executionOverlays": []
+}

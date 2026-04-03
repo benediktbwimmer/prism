@@ -1,0 +1,66 @@
+{
+  "id": "coord-task:01kn2edqbj2w6gfhv8xnw00abb",
+  "plan": "plan:01kn2edq9k2cr10t7p9pwscpjz",
+  "kind": "Edit",
+  "title": "Build WorkspaceRuntimeEngine and the coalescing-aware command model",
+  "summary": "Introduce a single-writer WorkspaceRuntimeEngine per bound worktree context inside one machine-scoped MCP host that owns authoritative mutable semantic state and accepts coalescing-aware commands. The actor is the commit kernel: it owns admission, authoritative state transitions, commit ordering, generation publication, and queue-class policy, while heavy parse and analysis work stays off-actor against immutable inputs and returns deterministic deltas for commit. One daemon per machine is the default deployment shape, but the host and backend interfaces must remain multi-instance-clean so multiple daemons can safely share one machine-local runtime store without blurring per-worktree authority.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn2edqappsmarg40z5ta9x02",
+    "coord-task:01kn2g2ajr16mv2s6g5xtm47dv"
+  ],
+  "acceptance": [
+    {
+      "label": "A worktree-scoped workspace engine exists under the default machine-scoped host shape with queue classes, coalescing, cancellation, and serialized authoritative commits, while preserving correctness if multiple local MCP daemons share the same backend runtime store.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 1637,
+    "git_commit": null
+  },
+  "priority": 1,
+  "tags": [
+    "actor",
+    "admission",
+    "coalescing",
+    "commit-kernel",
+    "default-topology",
+    "engine",
+    "machine-host",
+    "multi-instance",
+    "worktree-context"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "id": "coord-task:01kn8n9z7yxmpw7fnhzz8fchjj",
+  "plan": "plan:01kn8n8wvmcvrqx1tvd6x93qpg",
+  "kind": "Investigate",
+  "title": "Define the cross-plan dependency model and dispatch inputs",
+  "summary": null,
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [],
+  "acceptance": [
+    {
+      "label": "The portfolio scheduler inputs and inter-plan relation semantics are concrete and bounded.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 73,
+    "git_commit": null
+  },
+  "priority": 80,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

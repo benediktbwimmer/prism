@@ -1,0 +1,70 @@
+{
+  "id": "coord-task:01kn08efjpe3avh5zc4xm918sq",
+  "plan": "plan:01kn08dk7n4ym7vrdzp2nkdjy1",
+  "kind": "Validate",
+  "title": "Gate: Predictable operational smoothness",
+  "summary": "Treat operational smoothness as a release gate across the milestone set. Each implementation track must improve dogfooding reliability, freshness, and diagnostics so agents can stay inside PRISM for orient, workset, open, mutate, and validate loops without repeated fallback caused by abstraction leaks.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn08e5zpqsed4xsmjy2g0zq5",
+    "coord-task:01kn08e60qbk9fe00zn861x5j4",
+    "coord-task:01kn08e61maayjpm61gyp35s70"
+  ],
+  "acceptance": [
+    {
+      "label": "Each milestone ships with at least one dogfooding scenario and one freshness or diagnostic check.",
+      "anchors": []
+    },
+    {
+      "label": "PRISM-first workflows stay inside PRISM for orient, workset, open, mutate, and validate loops without repeated shell fallback caused by ambiguity or unsupported paths.",
+      "anchors": []
+    },
+    {
+      "label": "Operational diagnostics are specific enough to explain failures like unsupported session actions or empty-member worksets.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 826,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [
+    "dogfood",
+    "gate",
+    "operations",
+    "validation"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

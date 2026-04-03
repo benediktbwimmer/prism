@@ -26,10 +26,19 @@
 
 Implement the projections architecture from docs/PRISM_PROJECTIONS.md by making authority planes explicit, introducing first-class projection contracts and freshness semantics, separating published/serving/ad-hoc projections cleanly from authored truth, and exposing stable projection-oriented read surfaces across PRISM docs, MCP, CLI, and query/runtime layers.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn7kc7wd38p9kb8src073kpp.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn7kc7wd38p9kb8src073kpp.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn7kc7wd38p9kb8src073kpp.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

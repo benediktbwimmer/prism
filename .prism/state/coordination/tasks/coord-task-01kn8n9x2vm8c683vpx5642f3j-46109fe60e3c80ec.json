@@ -1,0 +1,56 @@
+{
+  "id": "coord-task:01kn8n9x2vm8c683vpx5642f3j",
+  "plan": "plan:01kn8n8v0ns6jcj0xgge5f0adv",
+  "kind": "Validate",
+  "title": "Dogfood start and complete flows against real task claims and branch state",
+  "summary": null,
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn8n9txdczd5dmtf1maheqpw",
+    "coord-task:01kn8yzs3354nger6td7q3x24r"
+  ],
+  "acceptance": [
+    {
+      "label": "Claim/start and complete/publish flows are exercised end to end against real repo conditions.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 96,
+    "git_commit": null
+  },
+  "priority": 92,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

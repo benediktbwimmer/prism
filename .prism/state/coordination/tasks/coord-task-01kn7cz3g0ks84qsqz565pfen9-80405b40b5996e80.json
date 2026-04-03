@@ -1,0 +1,66 @@
+{
+  "id": "coord-task:01kn7cz3g0ks84qsqz565pfen9",
+  "plan": "plan:01kn7cxa9tvnaa1svrgppcth4a",
+  "kind": "Edit",
+  "title": "Trim daemon startup and recovery fixed costs",
+  "summary": "Writer-open full projection co-change prune is now a one-time backfill guarded by metadata. Live steady-state daemon restarts dropped worktree writer-open prune_ms from ~342ms to 0ms and full indexer prep from ~814ms to ~730ms.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn7cxtgg1r28ntzg41pgzt2r"
+  ],
+  "acceptance": [
+    {
+      "label": "Daemon startup or recovery traces show materially reduced fixed-cost time in one or more of store open, prune, graph load, coordination load, projection restore, or replay volume.",
+      "anchors": []
+    },
+    {
+      "label": "The optimization preserves correct runtime hydration and does not reintroduce stale projections or recovery divergence.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [
+    {
+      "id": "bench:daemon-startup-timeline"
+    },
+    {
+      "id": "log:runtime-startup-timeline"
+    }
+  ],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 560,
+    "git_commit": null
+  },
+  "priority": 5,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

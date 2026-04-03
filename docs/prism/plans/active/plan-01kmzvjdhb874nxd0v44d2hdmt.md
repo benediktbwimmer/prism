@@ -26,10 +26,19 @@
 
 Build a first-class Prism UI control plane around the existing dashboard, with an overview landing surface, a plans view, an architecture graph explorer, shared cross-links, and final concept curation so the repo-native architecture reflects the new human-facing product.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kmzvjdhb874nxd0v44d2hdmt.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kmzvjdhb874nxd0v44d2hdmt.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kmzvjdhb874nxd0v44d2hdmt.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

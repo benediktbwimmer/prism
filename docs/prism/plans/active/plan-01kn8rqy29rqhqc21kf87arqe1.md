@@ -26,10 +26,19 @@
 
 Exercise live require-mode completion behavior on a temporary task.
 
+## Git Execution Policy
+
+- Start mode: `require`
+- Completion mode: `require`
+- Target branch: `main`
+- Require task branch: `true`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn8rqy29rqhqc21kf87arqe1.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn8rqy29rqhqc21kf87arqe1.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn8rqy29rqhqc21kf87arqe1.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

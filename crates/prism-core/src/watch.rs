@@ -1076,6 +1076,28 @@ fn can_scope_watch_refresh(root: &Path, dirty_paths: &[PathBuf]) -> bool {
     dirty_paths.iter().all(|path| path.starts_with(root))
 }
 
+fn is_authoritative_protected_state_fallback_path(relative: &Path) -> bool {
+    let segments = relative
+        .iter()
+        .map(|segment| segment.to_string_lossy().to_string())
+        .collect::<Vec<_>>();
+    matches!(segments.as_slice(), [prism] if prism == ".prism")
+        || matches!(
+            segments.as_slice(),
+            [prism, second]
+                if prism == ".prism"
+                    && matches!(
+                        second.as_str(),
+                        "memory" | "changes" | "concepts" | "contracts" | "plans"
+                    )
+        )
+        || matches!(
+        segments.as_slice(),
+        [prism, plans, streams]
+            if prism == ".prism" && plans == "plans" && streams == "streams"
+    )
+}
+
 fn relevant_protected_state_streams(root: &Path, event: &Event) -> Vec<ProtectedRepoStream> {
     let mut streams = BTreeMap::<String, ProtectedRepoStream>::new();
     let mut saw_prism_path = false;
@@ -1088,7 +1110,7 @@ fn relevant_protected_state_streams(root: &Path, event: &Event) -> Vec<Protected
             .next()
             .is_some_and(|component| component.as_os_str() == ".prism")
         {
-            saw_prism_path = true;
+            saw_prism_path |= is_authoritative_protected_state_fallback_path(relative);
         }
         let Some(stream) = classify_protected_repo_relative_path(relative) else {
             continue;
@@ -1431,6 +1453,23 @@ mod tests {
         assert!(streams
             .iter()
             .any(|stream| stream.stream().starts_with("repo_plan")));
+    }
+
+    #[test]
+    fn relevant_protected_state_streams_ignore_snapshot_outputs() {
+        let root = PathBuf::from("/workspace/prism");
+        let event = Event {
+            kind: EventKind::Modify(ModifyKind::Any),
+            paths: vec![
+                root.join(".prism/state/manifest.json"),
+                root.join(".prism/state/plans/plan-demo.json"),
+                root.join(".prism/plans/active/plan:demo.jsonl"),
+            ],
+            attrs: EventAttributes::new(),
+        };
+
+        let streams = relevant_protected_state_streams(&root, &event);
+        assert!(streams.is_empty());
     }
 
     #[test]

@@ -1,0 +1,62 @@
+{
+  "id": "coord-task:01kn2edqh1zkhb8br4za6tx8ha",
+  "plan": "plan:01kn2edq9k2cr10t7p9pwscpjz",
+  "kind": "Edit",
+  "title": "Implement the fast-path commit and layered freshness semantics",
+  "summary": "Define and implement the fast-path correctness envelope: small edits publish a new generation after a minimal serialized commit, emit a monotonic committed delta batch suitable for replay and downstream consumers, and surface unsettled downstream domains explicitly through layered freshness metadata. The fast path may be conservative, but it must never be silently misleading about unsettled cross-file facts or stale derived domains.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn2edqf5rm8zt5aczfqrqp7f",
+    "coord-task:01kn2edqg7qjtwt4xmtgkwyxyz"
+  ],
+  "acceptance": [
+    {
+      "label": "Small edits publish a new generation after a short serialized commit, emit a monotonic committed delta batch for downstream consumers, and surface all unsettled semantic or diagnostics domains explicitly through freshness/materialization metadata.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 1841,
+    "git_commit": null
+  },
+  "priority": 1,
+  "tags": [
+    "commit",
+    "correctness",
+    "delta-journal",
+    "fast-path",
+    "freshness"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

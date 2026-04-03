@@ -1,0 +1,61 @@
+{
+  "id": "coord-task:01kn7wpf732s15kpc7fnwj50ns",
+  "plan": "plan:01kn7wmt2vfdy77mxc3apcp1qw",
+  "kind": "Edit",
+  "title": "Validate compact-read latency improvements against live MCP traces and full repo checks",
+  "summary": null,
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn7wnjqg9s6j9ttbvmh1z3g3",
+    "coord-task:01kn7wnt1me2w8bsq5pkz31tvt",
+    "coord-task:01kn7wp5gccdrhaq1y969tpbtv"
+  ],
+  "acceptance": [
+    {
+      "label": "Live prism.mcpLog and prism.mcpTrace evidence show compact reads no longer spend most wall time in refresh-wrapper bookkeeping under current-state usage.",
+      "anchors": []
+    },
+    {
+      "label": "Targeted tests, full workspace tests, release rebuild, daemon restart, status, and health all pass.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 760,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

@@ -1,0 +1,209 @@
+{
+  "meta": {
+    "id": "outcome:01kn9mxbwtc37jkhh8e6snyjmk",
+    "ts": 1775219158,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-a:01kn4jw3waxc8qj2nysd3rsyvc",
+        "kind": null,
+        "name": "Codex A"
+      }
+    },
+    "correlation": "work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh",
+    "causation": "observed:01kn9mxbvj7t91b3bnhdqxhye3",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:8719dd7db144e96f",
+      "branch_ref": "refs/heads/task/prism-snapshot-rewrite",
+      "instance_id": "instance:27006:1775218679650",
+      "work_context": {
+        "workId": "work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh",
+        "kind": "ad_hoc",
+        "title": "Plan the tracked .prism snapshot rewrite",
+        "planId": "plan:01kn9hkjxnzdj4qtt4fa25cr6y",
+        "planTitle": "Rewrite tracked .prism to signed snapshot publication"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 77
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::concept_events::load_repo_curated_concepts",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::concept_events",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::concept_events::load_repo_concept_events",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::concept_events::append_repo_concept_event",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 4 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 8,
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/concept_events.rs",
+        "removedCount": 0,
+        "updatedCount": 8
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/concept_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::concept_events::load_repo_curated_concepts"
+        },
+        "kind": "Function",
+        "name": "load_repo_curated_concepts",
+        "span": {
+          "end": 1656,
+          "start": 1483
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/concept_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::concept_events::load_repo_curated_concepts"
+        },
+        "kind": "Function",
+        "name": "load_repo_curated_concepts",
+        "span": {
+          "end": 1970,
+          "start": 1797
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/concept_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::concept_events"
+        },
+        "kind": "Module",
+        "name": "concept_events",
+        "span": {
+          "end": 1657,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/concept_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::concept_events"
+        },
+        "kind": "Module",
+        "name": "concept_events",
+        "span": {
+          "end": 1971,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/concept_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::concept_events::load_repo_concept_events"
+        },
+        "kind": "Function",
+        "name": "load_repo_concept_events",
+        "span": {
+          "end": 1481,
+          "start": 730
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/concept_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::concept_events::load_repo_concept_events"
+        },
+        "kind": "Function",
+        "name": "load_repo_concept_events",
+        "span": {
+          "end": 1795,
+          "start": 1044
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/concept_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::concept_events::append_repo_concept_event"
+        },
+        "kind": "Function",
+        "name": "append_repo_concept_event",
+        "span": {
+          "end": 728,
+          "start": 405
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/crates/prism-core/src/concept_events.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::concept_events::append_repo_concept_event"
+        },
+        "kind": "Function",
+        "name": "append_repo_concept_event",
+        "span": {
+          "end": 1042,
+          "start": 487
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 8,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism/crates/prism-core/src/concept_events.rs"
+    ],
+    "files": [
+      77
+    ],
+    "reason": "work Plan the tracked .prism snapshot rewrite (work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh)",
+    "trigger": "FsWatch"
+  }
+}

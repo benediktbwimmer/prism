@@ -1,0 +1,199 @@
+{
+  "plan": {
+    "id": "plan:01kn82nwqnv42m6fw33pgrabss",
+    "goal": "Extend PRISM runtime and MCP log query views so agents can analyze daemon and MCP call state at worktree scope, repo-wide across all worktrees for the same repo on one machine, and across all available log files, while preserving current worktree-local behavior as the default.",
+    "title": "Extend PRISM runtime and MCP log query views so agents can analyze daemon and MCP call state at worktree scope, repo-wide across all worktrees for the same repo on one machine, and across all available log files, while preserving current worktree-local behavior as the default.",
+    "status": "Completed",
+    "policy": {
+      "default_claim_mode": "SoftExclusive",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": true,
+      "stale_after_graph_change": true,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "off",
+        "completionMode": "off",
+        "targetRef": null,
+        "targetBranch": "",
+        "requireTaskBranch": false,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": null
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01kn82papt611bh6q661hx7b6e"
+    ]
+  },
+  "graph": {
+    "id": "plan:01kn82nwqnv42m6fw33pgrabss",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Extend PRISM runtime and MCP log query views so agents can analyze daemon and MCP call state at worktree scope, repo-wide across all worktrees for the same repo on one machine, and across all available log files, while preserving current worktree-local behavior as the default.",
+    "goal": "Extend PRISM runtime and MCP log query views so agents can analyze daemon and MCP call state at worktree scope, repo-wide across all worktrees for the same repo on one machine, and across all available log files, while preserving current worktree-local behavior as the default.",
+    "status": "Completed",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01kn82papt611bh6q661hx7b6e"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01kn82papt611bh6q661hx7b6e",
+        "plan_id": "plan:01kn82nwqnv42m6fw33pgrabss",
+        "kind": "Edit",
+        "title": "Add scope-aware runtime and MCP log backends",
+        "summary": "Implementing scope-aware selection and aggregation for daemon and MCP call logs.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Runtime and MCP log readers can resolve worktree, repo, and all-log scopes without changing the default current-worktree behavior.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The implementation can distinguish per-worktree files and per-instance MCP records when aggregating results.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-b-fresh",
+        "base_revision": {
+          "graph_version": 22,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn82pbhvpkb21qpmpwjb046k",
+        "plan_id": "plan:01kn82nwqnv42m6fw33pgrabss",
+        "kind": "Edit",
+        "title": "Expose scoped query options and add coverage",
+        "summary": null,
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Existing callers keep current behavior when they omit the new options.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The query surface exposes scope controls for runtime and MCP log views and tests cover worktree, repo, and all scopes.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-b-fresh",
+        "base_revision": {
+          "graph_version": 22,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn82pcbg8whg9ecy6wnkhxex",
+        "plan_id": "plan:01kn82nwqnv42m6fw33pgrabss",
+        "kind": "Edit",
+        "title": "Run repo validation for scoped log queries",
+        "summary": null,
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Targeted tests for scoped log queries pass.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The full workspace cargo test suite passes, or any flakes are isolated and rerun successfully.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-b-fresh",
+        "base_revision": {
+          "graph_version": 22,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "plan-edge:coord-task:01kn82pbhvpkb21qpmpwjb046k:depends-on:coord-task:01kn82papt611bh6q661hx7b6e",
+        "plan_id": "plan:01kn82nwqnv42m6fw33pgrabss",
+        "from": "coord-task:01kn82pbhvpkb21qpmpwjb046k",
+        "to": "coord-task:01kn82papt611bh6q661hx7b6e",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn82pcbg8whg9ecy6wnkhxex:depends-on:coord-task:01kn82pbhvpkb21qpmpwjb046k",
+        "plan_id": "plan:01kn82nwqnv42m6fw33pgrabss",
+        "from": "coord-task:01kn82pcbg8whg9ecy6wnkhxex",
+        "to": "coord-task:01kn82pbhvpkb21qpmpwjb046k",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      }
+    ]
+  },
+  "executionOverlays": []
+}

@@ -26,10 +26,19 @@
 
 Disposable coordination admission trace check
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn7fengcreskhwsy0a4wf6bb.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn7fengcreskhwsy0a4wf6bb.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn7fengcreskhwsy0a4wf6bb.jsonl` (compatibility only, not current tracked authority)
 
 ## Nodes
 

@@ -36,6 +36,7 @@ mod session_bootstrap;
 mod shared_runtime;
 mod shared_runtime_backend;
 mod shared_runtime_store;
+mod tracked_snapshot;
 mod util;
 mod validation_feedback;
 mod watch;

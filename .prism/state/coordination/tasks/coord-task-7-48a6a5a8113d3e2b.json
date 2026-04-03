@@ -1,0 +1,63 @@
+{
+  "id": "coord-task:7",
+  "plan": "plan:1",
+  "kind": "Edit",
+  "title": "Introduce backend-neutral persistence and session abstractions for native plans and coordination state",
+  "summary": "Create backend-neutral persistence and session interfaces that cover native plan event storage, snapshot loading, coordination continuity, and binding hydration so SQLite becomes one implementation rather than the architectural center.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:1"
+  ],
+  "acceptance": [
+    {
+      "label": "Shared persistence and session contracts explicitly distinguish repo-published truth in `.prism`, shared mutable runtime state in the backend, and process-local ephemeral caches.",
+      "anchors": []
+    },
+    {
+      "label": "Backend-neutral interfaces cover native plan event storage, coordination continuity state, runtime overlays, and optional snapshot or compaction loaders without SQLite-specific assumptions.",
+      "anchors": []
+    },
+    {
+      "label": "A future Postgres backend can implement the same shared-runtime contracts for plans, memories, concepts, claims, handoffs, and coordination state without another architectural rewrite.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 158710,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "id": "coord-task:01kn2edqg7qjtwt4xmtgkwyxyz",
+  "plan": "plan:01kn2edq9k2cr10t7p9pwscpjz",
+  "kind": "Edit",
+  "title": "Parallelize file-local preparation for bursty batched edits",
+  "summary": "Make coalescing a native part of the command model and parallelize file-local preparation aggressively. Bursty editor or agent writes must collapse obsolete intermediate versions, parallelize file-local read/parse/extract work, and merge only the newest surviving deltas into the engine commit batch.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn2edqe64parv20k1n5k4npw"
+  ],
+  "acceptance": [
+    {
+      "label": "Many-file edit bursts are coalesced and prepared in parallel, and stale intermediate file versions are cancelled instead of fully processed.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 1832,
+    "git_commit": null
+  },
+  "priority": 1,
+  "tags": [
+    "batching",
+    "coalescing",
+    "parallelism",
+    "preparation"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

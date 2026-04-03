@@ -1,0 +1,72 @@
+{
+  "id": "coord-task:01kmyy5z9yg4m41vgvsp52jjhb",
+  "plan": "plan:01kmyy4ykg8sh1apt74er1t0fm",
+  "kind": "Edit",
+  "title": "Milestone 2: Expose contract mutations, schemas, and resource surfaces",
+  "summary": "Milestone 2 is complete: contract mutations, schemas, examples, and the prism://contracts resource surface are implemented and validated.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kmyy5z9e5b2qv0j9gkq9db84"
+  ],
+  "acceptance": [
+    {
+      "label": "prism_mutate exposes explicit contract lifecycle operations with validated payloads and actionable schema examples",
+      "anchors": []
+    },
+    {
+      "label": "The MCP resource surface exposes inspectable contract state without reading raw event logs directly",
+      "anchors": []
+    },
+    {
+      "label": "Hosted contract mutations update the live runtime consistently with persisted contract state",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [
+    {
+      "id": "contracts:m2-mcp-surface"
+    }
+  ],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 313,
+    "git_commit": null
+  },
+  "priority": 1,
+  "tags": [
+    "contracts",
+    "mcp",
+    "mutation",
+    "resources"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

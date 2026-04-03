@@ -1,0 +1,63 @@
+{
+  "id": "coord-task:01kn6s12m8w9qgs766n8453aa4",
+  "plan": "plan:01kn6rkat0t02ncv5pj0756yyz",
+  "kind": "Edit",
+  "title": "Audit and enforce `.prism` self-containment boundaries",
+  "summary": "Audited the live .prism publication paths, codified the semantic-versus-correlation boundary, and tightened plan-stream export/tests so runtime session/worktree/branch scope cannot leak into repo-published plan logs.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn6rm7bf7k1qnmhcegvypt86"
+  ],
+  "acceptance": [
+    {
+      "label": "Defines the concrete enforcement points so repo-published writes cannot introduce unresolved shared-runtime-only references.",
+      "anchors": []
+    },
+    {
+      "label": "Enumerates all repo-published event and artifact families that can carry references into provenance or coordination state.",
+      "anchors": []
+    },
+    {
+      "label": "For each reference shape, classifies semantic versus correlation usage and forbids runtime-only semantic dependencies in `.prism`.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 368,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "id": "coord-task:01kn80ry7wvfr9w7gp0dw8s5s6",
+  "plan": "plan:01kn80rqn6t0pgv1dt0zqay9j5",
+  "kind": "Investigate",
+  "title": "Trace daemon lifecycle, supervisor, and authority persistence paths in code",
+  "summary": "Traced the daemon lifecycle, bridge reconnect, auth injection, and principal-registry paths; confirmed missing exit instrumentation, stale runtime-state pruning without observability, bridge retrying dead upstream URIs without restart escalation, and bridge auth reporting bound state without live authority validation.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [],
+  "acceptance": [
+    {
+      "label": "Relevant daemon, bridge, launcher, runtime-state, and auth/authority code owners are identified with specific failure hypotheses.",
+      "anchors": []
+    },
+    {
+      "label": "The plan names where to instrument exit, restart, authority lookup, and bridge-auth invalidation paths.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 14,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [
+    "auth",
+    "daemon",
+    "investigation"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

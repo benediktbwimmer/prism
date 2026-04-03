@@ -1,0 +1,544 @@
+{
+  "plan": {
+    "id": "plan:01kn3p2nf687bn24v4seqzbey0",
+    "goal": "Implement principal identity, authenticated mutation provenance, task and claim lease lifecycle, heartbeat advisories, and CLI/bootstrap auth so PRISM coordination becomes principal-authenticated instead of session-authenticated.",
+    "title": "Implement principal identity, authenticated mutation provenance, task and claim lease lifecycle, heartbeat advisories, and CLI/bootstrap auth so PRISM coordination becomes principal-authenticated instead of session-authenticated.",
+    "status": "Active",
+    "policy": {
+      "default_claim_mode": "Advisory",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": true,
+      "stale_after_graph_change": true,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "off",
+        "completionMode": "off",
+        "targetRef": null,
+        "targetBranch": "",
+        "requireTaskBranch": false,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": null
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01kn3p2s5d0jx3bgtzpt61sk10"
+    ]
+  },
+  "graph": {
+    "id": "plan:01kn3p2nf687bn24v4seqzbey0",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Implement principal identity, authenticated mutation provenance, task and claim lease lifecycle, heartbeat advisories, and CLI/bootstrap auth so PRISM coordination becomes principal-authenticated instead of session-authenticated.",
+    "goal": "Implement principal identity, authenticated mutation provenance, task and claim lease lifecycle, heartbeat advisories, and CLI/bootstrap auth so PRISM coordination becomes principal-authenticated instead of session-authenticated.",
+    "status": "Active",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01kn3p2s5d0jx3bgtzpt61sk10"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01kn3p2s5d0jx3bgtzpt61sk10",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "kind": "Investigate",
+        "title": "Inventory current session, actor, and coordination touchpoints for the cutover",
+        "summary": "Identify every mutation entrypoint, persistence path, query/read surface, and prism_session dependency that currently relies on ambient session semantics so the implementation can cut over cleanly without hidden authority leaks.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 1987,
+          "git_commit": null
+        },
+        "priority": 1,
+        "tags": [
+          "auth",
+          "cutover",
+          "principal-identity"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn3p2xd54tw03hvpwb7bgd9c",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "kind": "Edit",
+        "title": "Add principal, authority, credential, and capability primitives to shared runtime state",
+        "summary": "Define the principal core types, parent linkage, lifecycle fields, credential verifier storage, and coarse capability model in the shared runtime plane so later mutation auth and lease work has a stable substrate.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 2036,
+          "git_commit": null
+        },
+        "priority": 1,
+        "tags": [
+          "credentials",
+          "principal-identity",
+          "shared-runtime"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn3p329sn75tz26x0z73xb3s",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "kind": "Edit",
+        "title": "Implement trusted bootstrap and CLI auth flows for human and child principals",
+        "summary": "Add machine-local bootstrap, prism auth init/login flows, and child-principal minting paths so humans and parent agents can obtain credentials without assembling raw mutation payloads by hand.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 2054,
+          "git_commit": null
+        },
+        "priority": 2,
+        "tags": [
+          "bootstrap",
+          "cli",
+          "credentials"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn3p363cmz6sfqstd0s5tgac",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "kind": "Edit",
+        "title": "Require authenticated mutation envelopes and capability checks on authoritative writes",
+        "summary": "Thread credential verification and coarse capability checks through prism_mutate, coordination, claim, artifact, memory, and any remaining authoritative mutation paths so ambient session state no longer acts as the authority boundary.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 2098,
+          "git_commit": null
+        },
+        "priority": 1,
+        "tags": [
+          "auth",
+          "capabilities",
+          "mutation-envelope"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn3p3cy48hz6m3g42e0374xj",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "kind": "Edit",
+        "title": "Persist canonical provenance and execution-context snapshots in mutation events",
+        "summary": "Authoritative mutation events now snapshot request-level correlation alongside principal, worktree, session, instance, and credential context, and authenticated coordination/event-path coverage verifies the persisted provenance.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 124,
+          "git_commit": null
+        },
+        "priority": 1,
+        "tags": [
+          "audit",
+          "event-log",
+          "provenance"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn3p3gsrp451he4fbaj7a74c",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "kind": "Edit",
+        "title": "Implement task and claim lease lifecycle with stale, expired, resume, and reclaim semantics",
+        "summary": "Task and claim execution ownership is modeled through explicit leases with narrow refresh rules, stale-versus-expired evaluation, resume/reclaim transitions for tasks, and same-principal claim renewal semantics; focused coordination tests covering those paths are green.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 124,
+          "git_commit": null
+        },
+        "priority": 1,
+        "tags": [
+          "coordination",
+          "leases",
+          "reclaim"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn3p3mfw8cnhvv3m8s2bdzgq",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "kind": "Edit",
+        "title": "Add heartbeat_lease, server-side due-state evaluation, and bounded assisted watcher renewal",
+        "summary": "Added the authenticated `heartbeat_lease` mutation for tasks and claims, server-side lease due-state evaluation, and explicit opt-in bounded assisted watcher renewal for trusted single-principal single-lease worktrees; focused coordination, MCP, and watcher tests cover the new paths.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 128,
+          "git_commit": null
+        },
+        "priority": 1,
+        "tags": [
+          "heartbeat",
+          "leases",
+          "mutation"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn3p3rzhgskr8vc63c5yr9af",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "kind": "Edit",
+        "title": "Surface lease holder, heartbeat advisories, and task-scoped next actions on reads",
+        "summary": "Task brief and session/task read surfaces now emit server-authored heartbeat nextAction guidance when a bound task lease is due, carry lease-related read advisories through shared helpers, and the agent instructions explicitly require obeying heartbeat prompts before other follow-up work.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 128,
+          "git_commit": null
+        },
+        "priority": 1,
+        "tags": [
+          "heartbeat",
+          "instructions",
+          "read-surfaces"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn3p3ya2p1aemdxb2bbye2sy",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "kind": "Edit",
+        "title": "Cut over away from prism_session as coordination authority and migrate legacy actor history",
+        "summary": "Legacy coarse actor history now canonicalizes through synthetic fallback principals at query/index boundaries, fallback mutation provenance writes principal-shaped actor snapshots, and session task reads derive stale-task repair context from `coord-task:` identities even when older metadata omitted an explicit coordination binding; focused cutover tests, the full workspace suite, and release-binary MCP restart/status/health validation all passed.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 128,
+          "git_commit": null
+        },
+        "priority": 2,
+        "tags": [
+          "cutover",
+          "migration",
+          "prism-session"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn3p44q0f2yjwf1nhg936ekj",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "kind": "Validate",
+        "title": "Validate the end-to-end principal-authenticated coordination cutover",
+        "summary": "Focused heartbeat/lease tests, the full workspace test suite, and the release-binary MCP restart/status/health checks all passed; a live post-restart task brief also succeeded, and dogfooding feedback feedback:01kn4rsn3j27xxq4ad6bphk1ef captured one remaining noisy nextAction on completed tasks.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 128,
+          "git_commit": null
+        },
+        "priority": 1,
+        "tags": [
+          "dogfooding",
+          "release",
+          "validation"
+        ],
+        "metadata": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "plan-edge:coord-task:01kn3p2xd54tw03hvpwb7bgd9c:depends-on:coord-task:01kn3p2s5d0jx3bgtzpt61sk10",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p2xd54tw03hvpwb7bgd9c",
+        "to": "coord-task:01kn3p2s5d0jx3bgtzpt61sk10",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p329sn75tz26x0z73xb3s:depends-on:coord-task:01kn3p2xd54tw03hvpwb7bgd9c",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p329sn75tz26x0z73xb3s",
+        "to": "coord-task:01kn3p2xd54tw03hvpwb7bgd9c",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p363cmz6sfqstd0s5tgac:depends-on:coord-task:01kn3p2xd54tw03hvpwb7bgd9c",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p363cmz6sfqstd0s5tgac",
+        "to": "coord-task:01kn3p2xd54tw03hvpwb7bgd9c",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p3cy48hz6m3g42e0374xj:depends-on:coord-task:01kn3p2xd54tw03hvpwb7bgd9c",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p3cy48hz6m3g42e0374xj",
+        "to": "coord-task:01kn3p2xd54tw03hvpwb7bgd9c",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p3gsrp451he4fbaj7a74c:depends-on:coord-task:01kn3p363cmz6sfqstd0s5tgac",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p3gsrp451he4fbaj7a74c",
+        "to": "coord-task:01kn3p363cmz6sfqstd0s5tgac",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p3mfw8cnhvv3m8s2bdzgq:depends-on:coord-task:01kn3p3gsrp451he4fbaj7a74c",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p3mfw8cnhvv3m8s2bdzgq",
+        "to": "coord-task:01kn3p3gsrp451he4fbaj7a74c",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p3rzhgskr8vc63c5yr9af:depends-on:coord-task:01kn3p3cy48hz6m3g42e0374xj",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p3rzhgskr8vc63c5yr9af",
+        "to": "coord-task:01kn3p3cy48hz6m3g42e0374xj",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p3rzhgskr8vc63c5yr9af:depends-on:coord-task:01kn3p3mfw8cnhvv3m8s2bdzgq",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p3rzhgskr8vc63c5yr9af",
+        "to": "coord-task:01kn3p3mfw8cnhvv3m8s2bdzgq",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p3ya2p1aemdxb2bbye2sy:depends-on:coord-task:01kn3p329sn75tz26x0z73xb3s",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p3ya2p1aemdxb2bbye2sy",
+        "to": "coord-task:01kn3p329sn75tz26x0z73xb3s",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p3ya2p1aemdxb2bbye2sy:depends-on:coord-task:01kn3p363cmz6sfqstd0s5tgac",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p3ya2p1aemdxb2bbye2sy",
+        "to": "coord-task:01kn3p363cmz6sfqstd0s5tgac",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p3ya2p1aemdxb2bbye2sy:depends-on:coord-task:01kn3p3cy48hz6m3g42e0374xj",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p3ya2p1aemdxb2bbye2sy",
+        "to": "coord-task:01kn3p3cy48hz6m3g42e0374xj",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p3ya2p1aemdxb2bbye2sy:depends-on:coord-task:01kn3p3gsrp451he4fbaj7a74c",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p3ya2p1aemdxb2bbye2sy",
+        "to": "coord-task:01kn3p3gsrp451he4fbaj7a74c",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p3ya2p1aemdxb2bbye2sy:depends-on:coord-task:01kn3p3rzhgskr8vc63c5yr9af",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p3ya2p1aemdxb2bbye2sy",
+        "to": "coord-task:01kn3p3rzhgskr8vc63c5yr9af",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p44q0f2yjwf1nhg936ekj:depends-on:coord-task:01kn3p329sn75tz26x0z73xb3s",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p44q0f2yjwf1nhg936ekj",
+        "to": "coord-task:01kn3p329sn75tz26x0z73xb3s",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p44q0f2yjwf1nhg936ekj:depends-on:coord-task:01kn3p363cmz6sfqstd0s5tgac",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p44q0f2yjwf1nhg936ekj",
+        "to": "coord-task:01kn3p363cmz6sfqstd0s5tgac",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p44q0f2yjwf1nhg936ekj:depends-on:coord-task:01kn3p3cy48hz6m3g42e0374xj",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p44q0f2yjwf1nhg936ekj",
+        "to": "coord-task:01kn3p3cy48hz6m3g42e0374xj",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p44q0f2yjwf1nhg936ekj:depends-on:coord-task:01kn3p3gsrp451he4fbaj7a74c",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p44q0f2yjwf1nhg936ekj",
+        "to": "coord-task:01kn3p3gsrp451he4fbaj7a74c",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p44q0f2yjwf1nhg936ekj:depends-on:coord-task:01kn3p3mfw8cnhvv3m8s2bdzgq",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p44q0f2yjwf1nhg936ekj",
+        "to": "coord-task:01kn3p3mfw8cnhvv3m8s2bdzgq",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p44q0f2yjwf1nhg936ekj:depends-on:coord-task:01kn3p3rzhgskr8vc63c5yr9af",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p44q0f2yjwf1nhg936ekj",
+        "to": "coord-task:01kn3p3rzhgskr8vc63c5yr9af",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn3p44q0f2yjwf1nhg936ekj:depends-on:coord-task:01kn3p3ya2p1aemdxb2bbye2sy",
+        "plan_id": "plan:01kn3p2nf687bn24v4seqzbey0",
+        "from": "coord-task:01kn3p44q0f2yjwf1nhg936ekj",
+        "to": "coord-task:01kn3p3ya2p1aemdxb2bbye2sy",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      }
+    ]
+  },
+  "executionOverlays": []
+}

@@ -1,0 +1,60 @@
+{
+  "id": "coord-task:01kn3p6jdzqwasz42a35dahesz",
+  "plan": "plan:01kn3p64051s9g42gmzr2xa2mb",
+  "kind": "Validate",
+  "title": "Validate the large-edit follow-up on the live daemon log",
+  "summary": "Validated the large-edit follow-up on the live daemon after release rebuild and daemon restart recovery. Recent daemon-log evidence shows oversized co-change sampling is active instead of skipping, and large-file refreshes now stay on the in-place persist path with `restore_runtime_ms=0`, `reanchor_memory_ms=0`, `persist_ms` reduced into the teens-to-20s for the controlled large-file probes, and total refreshes reduced from the previous 300-400ms range to roughly 136-183ms on the targeted `crates/prism-mcp/src/tests.rs` workload. Full `cargo test --workspace` and release `mcp status`/`health` are green.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn3p6wyqn4ecaczcsr51wy1m",
+    "coord-task:01kn3p6x28h7567wcmymy825g3"
+  ],
+  "acceptance": [
+    {
+      "label": "Live daemon validation covers an oversized-change case and a larger-fanout edit case",
+      "anchors": []
+    },
+    {
+      "label": "The remaining pathological behavior is explicitly documented with current numbers",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 2035,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

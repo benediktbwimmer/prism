@@ -1,0 +1,69 @@
+{
+  "id": "coord-task:01kmzvjdhbpqxs2nzjxwbvznp9",
+  "plan": "plan:01kmzvjdhb874nxd0v44d2hdmt",
+  "kind": "Edit",
+  "title": "Milestone 2: Introduce a routed frontend shell and shared client data layer",
+  "summary": "Completed the routed frontend shell and shared client data layer: the monolithic dashboard app is split into an app frame, route model, reusable dashboard bootstrap/SSE hook, dedicated dashboard page, overview page, and placeholder plans/graph pages without discarding the current dashboard surface.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [
+      "concept://dashboard_surface"
+    ],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kmzvjdhbwhnhz1fgkrebe94p"
+  ],
+  "acceptance": [
+    {
+      "label": "The frontend has an app shell and navigation that can host Overview, Dashboard, Plans, and Graph as coherent sibling surfaces",
+      "anchors": []
+    },
+    {
+      "label": "Shared fetching, bootstrap, and SSE connection state live in reusable client infrastructure instead of being duplicated per page",
+      "anchors": []
+    },
+    {
+      "label": "The current dashboard UI survives as a dedicated page inside the new shell rather than being discarded as throwaway code",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 491,
+    "git_commit": null
+  },
+  "priority": 2,
+  "tags": [
+    "frontend",
+    "navigation",
+    "shell"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

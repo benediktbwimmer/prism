@@ -26,10 +26,19 @@
 
 Trace the daemon death and auth-drift failure paths in code, add durable observability so future daemon exits are diagnosable, and harden the bridge so dead daemons and stale credentials recover automatically or fail with actionable state.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn80rqn6t0pgv1dt0zqay9j5.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn80rqn6t0pgv1dt0zqay9j5.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn80rqn6t0pgv1dt0zqay9j5.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

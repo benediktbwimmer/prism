@@ -554,13 +554,16 @@ fn render_plan_doc(plan: &PublishedPlanDoc) -> String {
     markdown.push('\n');
 
     markdown.push_str("## Source of Truth\n\n");
-    markdown.push_str("- Index path: `.prism/plans/index.jsonl`\n");
+    markdown.push_str("- Snapshot manifest: `.prism/state/manifest.json`\n");
+    markdown.push_str("- Snapshot plan shard: `.prism/state/plans/");
+    markdown.push_str(&plan.graph.id.0);
+    markdown.push_str(".json`\n");
     if let Some(index) = &plan.index {
-        markdown.push_str("- Log path: `");
+        markdown.push_str("- Legacy migration log path: `");
         markdown.push_str(&index.log_path);
-        markdown.push_str("`\n\n");
+        markdown.push_str("` (compatibility only, not current tracked authority)\n\n");
     } else {
-        markdown.push_str("- Log path: unavailable in the current projection\n\n");
+        markdown.push_str("- Legacy migration log path: unavailable in the current projection\n\n");
     }
 
     if !plan.graph.root_nodes.is_empty() {

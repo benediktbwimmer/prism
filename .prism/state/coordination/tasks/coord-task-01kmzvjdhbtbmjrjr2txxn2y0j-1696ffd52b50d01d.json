@@ -1,0 +1,81 @@
+{
+  "id": "coord-task:01kmzvjdhbtbmjrjr2txxn2y0j",
+  "plan": "plan:01kmzvjdhb874nxd0v44d2hdmt",
+  "kind": "Edit",
+  "title": "Milestone 11: Refresh Prism concepts, relations, contracts, and generated docs for the new UI reality",
+  "summary": "Refresh the repo-native knowledge layer so Prism’s own architecture, contracts, and generated docs describe the product as a multi-surface human control plane rather than just a standalone dashboard.",
+  "status": "Proposed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [
+      "concept://coordination_and_plan_runtime",
+      "concept://dashboard_surface",
+      "concept://prism_architecture"
+    ],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kmzvjdhb531p74z3efn6smg3"
+  ],
+  "acceptance": [
+    {
+      "label": "Existing dashboard concepts are updated or split so Overview, Plans, Graph, shared UI shell, and new control-plane ownership boundaries are represented accurately",
+      "anchors": []
+    },
+    {
+      "label": "New or updated concept relations and contracts capture how the UI surface connects architecture, intent, execution, evidence, and route or transport ownership",
+      "anchors": []
+    },
+    {
+      "label": "Repo-scoped concept, contract, memory, and generated doc updates land only after the implementation is real enough that future agents can rely on them",
+      "anchors": []
+    },
+    {
+      "label": "Generated artifacts such as `PRISM.md` and `docs/prism/*` reflect the new UI reality, including the contract catalog where relevant",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [
+    {
+      "id": "concepts:prism-ui-reality"
+    }
+  ],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 538,
+    "git_commit": null
+  },
+  "priority": 11,
+  "tags": [
+    "closeout",
+    "concepts",
+    "contracts",
+    "curation",
+    "docs"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

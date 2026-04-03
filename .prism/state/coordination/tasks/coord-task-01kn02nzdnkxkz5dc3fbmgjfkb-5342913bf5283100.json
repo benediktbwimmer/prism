@@ -1,0 +1,94 @@
+{
+  "id": "coord-task:01kn02nzdnkxkz5dc3fbmgjfkb",
+  "plan": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+  "kind": "Edit",
+  "title": "Remove cold co-change history from hot runtime hydration",
+  "summary": "Startup hydration now loads authoritative history and bounded serving projections only; legacy unbounded co-change history is no longer hydrated into the live daemon, which materially reduced restart memory and startup latency on the previously oversized cache DB.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [
+    {
+      "File": 104
+    },
+    {
+      "File": 260
+    },
+    {
+      "File": 74
+    },
+    {
+      "File": 86
+    }
+  ],
+  "bindings": {
+    "anchors": [
+      {
+        "File": 104
+      },
+      {
+        "File": 260
+      },
+      {
+        "File": 74
+      },
+      {
+        "File": 86
+      }
+    ],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn02mwy8twwr8mcjrc6w60qn"
+  ],
+  "acceptance": [
+    {
+      "label": "Daemon startup no longer hydrates unbounded history co-change rows into in-memory runtime state",
+      "anchors": []
+    },
+    {
+      "label": "Hot runtime memory is bounded by authoritative state plus serving projections rather than cold analytical history",
+      "anchors": []
+    },
+    {
+      "label": "Startup and restart latency improve measurably on an existing large cache DB",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 608,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [
+    "history",
+    "hydration",
+    "memory",
+    "startup"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

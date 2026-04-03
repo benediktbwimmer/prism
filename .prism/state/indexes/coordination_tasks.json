@@ -1,0 +1,1838 @@
+[
+  {
+    "id": "coord-task:01kmwmwtsvsb4fnsekv4hd29fd",
+    "title": "Phase 1: Split the prism-mcp test monolith into focused modules and shared support",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kmwmwtsvsb4fnsekv4hd29fd-b8a10a00e7d88f17.json"
+  },
+  {
+    "id": "coord-task:01kmwmx0mgvnar7ttdgbx5vqp7",
+    "title": "Phase 2: Introduce reusable workspace, host, and server fixtures",
+    "status": "Proposed",
+    "path": "tasks/coord-task-01kmwmx0mgvnar7ttdgbx5vqp7-6107859611cbf45f.json"
+  },
+  {
+    "id": "coord-task:01kmwmx66n1p6yd7ynxefdxmwm",
+    "title": "Phase 3: Replace sleep-based waits with deterministic polling helpers",
+    "status": "Proposed",
+    "path": "tasks/coord-task-01kmwmx66n1p6yd7ynxefdxmwm-67c65b456a890d01.json"
+  },
+  {
+    "id": "coord-task:01kmwmxdydjdfqt637qws4020s",
+    "title": "Phase 4: Isolate transport and bridge tests into a slower integration layer",
+    "status": "Proposed",
+    "path": "tasks/coord-task-01kmwmxdydjdfqt637qws4020s-2686d4a3afddc9c4.json"
+  },
+  {
+    "id": "coord-task:01kmwmxn7rrwce389gmwgw91r9",
+    "title": "Phase 5: Push pure logic tests down into the owning crates",
+    "status": "Proposed",
+    "path": "tasks/coord-task-01kmwmxn7rrwce389gmwgw91r9-3df07f87eb6136c1.json"
+  },
+  {
+    "id": "coord-task:01kmwmxw55q5xvpqg4r5g5x393",
+    "title": "Phase 6: Add explicit CI lanes for fast, indexed, and slow integration tests",
+    "status": "Proposed",
+    "path": "tasks/coord-task-01kmwmxw55q5xvpqg4r5g5x393-0cc2c13b3c0241bb.json"
+  },
+  {
+    "id": "coord-task:01kmwq21ymh3cqdzbggynehfxv",
+    "title": "Milestone 0: Establish performance baselines, budgets, and regression guardrails",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmwq21ymh3cqdzbggynehfxv-4dc2f536d6adcf4a.json"
+  },
+  {
+    "id": "coord-task:01kmwq21zg4hy0etha7x0nj40a",
+    "title": "Milestone 1: Replace full refresh reconstruction with a persistent runtime and narrower lock boundaries",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01kmwq21zg4hy0etha7x0nj40a-4295423e5a5dd415.json"
+  },
+  {
+    "id": "coord-task:01kmwq220anv077nkqm8pqpe89",
+    "title": "Milestone 2: Make repo memory ingestion and episodic materialization strictly suffix-based",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kmwq220anv077nkqm8pqpe89-6b04c9f8b9c727a6.json"
+  },
+  {
+    "id": "coord-task:01kmwq2215db6wsf87n689k12p",
+    "title": "Milestone 3: Convert coordination reload and persistence to incremental read/write models",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kmwq2215db6wsf87n689k12p-a3a107e1cca2c5e4.json"
+  },
+  {
+    "id": "coord-task:01kmwq2220x7gt4s80n933sh93",
+    "title": "Milestone 4: Batch and incrementalize projection concept maintenance",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kmwq2220x7gt4s80n933sh93-c8c22df91079b371.json"
+  },
+  {
+    "id": "coord-task:01kmwq222tvk94q3crqke24zw1",
+    "title": "Milestone 5: Burn down residual bottlenecks and prove the audit is closed",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kmwq222tvk94q3crqke24zw1-7939fce4e7adc372.json"
+  },
+  {
+    "id": "coord-task:01kmwxt05gtntnfmn60ppbwpaf",
+    "title": "Milestone 0: Query-view registry and runtime feature gating",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmwxt05gtntnfmn60ppbwpaf-0ecdc39b85469c00.json"
+  },
+  {
+    "id": "coord-task:01kmwxt8f457f2f0kwzfbfq50h",
+    "title": "Milestone 1: Harden existing query surfaces and docs",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmwxt8f457f2f0kwzfbfq50h-4c7be717d2789db6.json"
+  },
+  {
+    "id": "coord-task:01kmwxth0nk7w9jrf4zhs8w348",
+    "title": "Milestone 2: Add repoPlaybook() and validationPlan(...)",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmwxth0nk7w9jrf4zhs8w348-39edce81342f0aff.json"
+  },
+  {
+    "id": "coord-task:01kmwxtrc6vbrsmv2xx2phnv8k",
+    "title": "Milestone 3: Add impact(...) and afterEdit(...)",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmwxtrc6vbrsmv2xx2phnv8k-9f766974541452bf.json"
+  },
+  {
+    "id": "coord-task:01kmwxv28vwzpra08sz1qznxfm",
+    "title": "Milestone 4: Add command memory from explicit observed evidence",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmwxv28vwzpra08sz1qznxfm-c094da814b79e58d.json"
+  },
+  {
+    "id": "coord-task:01kmwxv9nm654h46g4p3gbxcy4",
+    "title": "Milestone 5: Add adoption review, prune dead views, and promote survivors",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kmwxv9nm654h46g4p3gbxcy4-6fbfaf3135458ede.json"
+  },
+  {
+    "id": "coord-task:01kmyy5z8vc59p39fyp82qh98h",
+    "title": "Milestone 0: Lock the contracts V1 ontology and rollout boundaries",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmyy5z8vc59p39fyp82qh98h-c3d634dfc0bb7d08.json"
+  },
+  {
+    "id": "coord-task:01kmyy5z9e5b2qv0j9gkq9db84",
+    "title": "Milestone 1: Add contract IR, event storage, and projection loading",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmyy5z9e5b2qv0j9gkq9db84-70e01c30a118304b.json"
+  },
+  {
+    "id": "coord-task:01kmyy5z9yg4m41vgvsp52jjhb",
+    "title": "Milestone 2: Expose contract mutations, schemas, and resource surfaces",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmyy5z9yg4m41vgvsp52jjhb-fc2c1ae0a6bbdafb.json"
+  },
+  {
+    "id": "coord-task:01kmyy5zaha779zg71a25vgpb9",
+    "title": "Milestone 3: Integrate contracts into normal query and review flows",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmyy5zaha779zg71a25vgpb9-ef35b967e9372605.json"
+  },
+  {
+    "id": "coord-task:01kmyy5zb6c4dexq044bz52jvj",
+    "title": "Milestone 4: Validate, dogfood, and restart the live MCP runtime",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmyy5zb6c4dexq044bz52jvj-a6d6247299befb63.json"
+  },
+  {
+    "id": "coord-task:01kmzvjdhb4depcxapk8a14naz",
+    "title": "Milestone 7: Add cross-view linking, overlays, and shared architectural context",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kmzvjdhb4depcxapk8a14naz-cd825001414aece1.json"
+  },
+  {
+    "id": "coord-task:01kmzvjdhb531p74z3efn6smg3",
+    "title": "Milestone 10: Dogfood, validate, and ship the Prism UI control plane safely",
+    "status": "Proposed",
+    "path": "tasks/coord-task-01kmzvjdhb531p74z3efn6smg3-1fc8964fade31ae7.json"
+  },
+  {
+    "id": "coord-task:01kmzvjdhb96zxv7pnt1t06fj8",
+    "title": "Milestone 5: Define the concept-graph projection, zoom model, and overlay contract",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmzvjdhb96zxv7pnt1t06fj8-846a9f57aba0eab8.json"
+  },
+  {
+    "id": "coord-task:01kmzvjdhbgcw86tj5tjs7cd1b",
+    "title": "Milestone 6: Implement a contract-ready graph explorer baseline on typed read models",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmzvjdhbgcw86tj5tjs7cd1b-fceb82e899bbcb39.json"
+  },
+  {
+    "id": "coord-task:01kmzvjdhbpqxs2nzjxwbvznp9",
+    "title": "Milestone 2: Introduce a routed frontend shell and shared client data layer",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmzvjdhbpqxs2nzjxwbvznp9-c4fa5ae06dd14ef9.json"
+  },
+  {
+    "id": "coord-task:01kmzvjdhbsgjm53m3ws4r2ax8",
+    "title": "Milestone 4: Build a plans view on native coordination and plan-runtime data",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmzvjdhbsgjm53m3ws4r2ax8-0bcc48370ea898a8.json"
+  },
+  {
+    "id": "coord-task:01kmzvjdhbtbmjrjr2txxn2y0j",
+    "title": "Milestone 11: Refresh Prism concepts, relations, contracts, and generated docs for the new UI reality",
+    "status": "Proposed",
+    "path": "tasks/coord-task-01kmzvjdhbtbmjrjr2txxn2y0j-1696ffd52b50d01d.json"
+  },
+  {
+    "id": "coord-task:01kmzvjdhbwhnhz1fgkrebe94p",
+    "title": "Milestone 1: Generalize dashboard serving into a top-level Prism app shell",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmzvjdhbwhnhz1fgkrebe94p-dbf96b84e7d8dd81.json"
+  },
+  {
+    "id": "coord-task:01kmzvjdhbwtrnjz0q7w13337m",
+    "title": "Milestone 3: Build the overview page as the human entrypoint",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmzvjdhbwtrnjz0q7w13337m-d88c47276f0a41a6.json"
+  },
+  {
+    "id": "coord-task:01kmzvjdhbybkjn70sasjwahwd",
+    "title": "Milestone 0: Lock the Prism UI information architecture, route map, and reuse boundaries",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kmzvjdhbybkjn70sasjwahwd-9c30d132ba8af594.json"
+  },
+  {
+    "id": "coord-task:01kn00sx8j4fjmtbte3bsyf8pv",
+    "title": "Milestone 8: Add freshness and live-update trust signals across control-plane surfaces",
+    "status": "Proposed",
+    "path": "tasks/coord-task-01kn00sx8j4fjmtbte3bsyf8pv-2b333094b0c20599.json"
+  },
+  {
+    "id": "coord-task:01kn00t3b6svvvcm759dwvt8fw",
+    "title": "Milestone 9: Add structured human intervention flows for plans",
+    "status": "Proposed",
+    "path": "tasks/coord-task-01kn00t3b6svvvcm759dwvt8fw-401849ae9debf656.json"
+  },
+  {
+    "id": "coord-task:01kn02mwy8twwr8mcjrc6w60qn",
+    "title": "Capture migration invariants and baseline the current failure mode",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn02mwy8twwr8mcjrc6w60qn-8f24832073045017.json"
+  },
+  {
+    "id": "coord-task:01kn02nzcts148twpb0t9ssxp6",
+    "title": "Add immediate guardrails against pathological co-change batches",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn02nzcts148twpb0t9ssxp6-3d9e8fb99377ff20.json"
+  },
+  {
+    "id": "coord-task:01kn02nzdnkxkz5dc3fbmgjfkb",
+    "title": "Remove cold co-change history from hot runtime hydration",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn02nzdnkxkz5dc3fbmgjfkb-5342913bf5283100.json"
+  },
+  {
+    "id": "coord-task:01kn02nzedf9pa1689y558kzk2",
+    "title": "Introduce a cold evidence model and bounded projection materialization pipeline",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn02nzedf9pa1689y558kzk2-779e57a252e44d09.json"
+  },
+  {
+    "id": "coord-task:01kn02nzf7ftmveaznb5hh2r4j",
+    "title": "Migrate and compact legacy cache state safely",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn02nzf7ftmveaznb5hh2r4j-f6cc1e047b044f02.json"
+  },
+  {
+    "id": "coord-task:01kn02nzgqcvhrahmb2wt92gfw",
+    "title": "Harden refresh, locking, and freshness behavior around long-running persistence work",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn02nzgqcvhrahmb2wt92gfw-97f49a8b8846d2ed.json"
+  },
+  {
+    "id": "coord-task:01kn02nzhkyych6dhta2d3he9x",
+    "title": "Validate the migration against daemon health, performance, and correctness",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn02nzhkyych6dhta2d3he9x-f0d3afeebdbe7d46.json"
+  },
+  {
+    "id": "coord-task:01kn08e5zpqsed4xsmjy2g0zq5",
+    "title": "Milestone 1: Trusted workflow contracts",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn08e5zpqsed4xsmjy2g0zq5-6f94b044bcab1f5e.json"
+  },
+  {
+    "id": "coord-task:01kn08e60qbk9fe00zn861x5j4",
+    "title": "Milestone 2: Ownership-aware compact editing",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn08e60qbk9fe00zn861x5j4-cbf969cfa32e240e.json"
+  },
+  {
+    "id": "coord-task:01kn08e61maayjpm61gyp35s70",
+    "title": "Milestone 3: Durable knowledge publication",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn08e61maayjpm61gyp35s70-72df28db59ca496b.json"
+  },
+  {
+    "id": "coord-task:01kn08efjpe3avh5zc4xm918sq",
+    "title": "Gate: Predictable operational smoothness",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn08efjpe3avh5zc4xm918sq-0233d494efdcd58f.json"
+  },
+  {
+    "id": "coord-task:01kn09je3c546kafd2z7bcgnyq",
+    "title": "Define the runtime rewrite contracts and migration invariants",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn09je3c546kafd2z7bcgnyq-ee413c40eeaa6d94.json"
+  },
+  {
+    "id": "coord-task:01kn09je49f0ncgdyh2jng7whm",
+    "title": "Complete the incremental invalidation substrate with formal dependency-aware propagation and localized reprojection",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn09je49f0ncgdyh2jng7whm-f5659f412de5fc49.json"
+  },
+  {
+    "id": "coord-task:01kn09je51g42y7gg7cph5144f",
+    "title": "Replace broad runtime reloads with region-scoped incremental mutation and bounded hot-state hydration",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn09je51g42y7gg7cph5144f-29c09291f35083ae.json"
+  },
+  {
+    "id": "coord-task:01kn09je5pxad8grjdhf7hata8",
+    "title": "Introduce partial materialization and explicit index-depth tiers across the runtime",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn09je5pxad8grjdhf7hata8-ce3ec50ea830e0c4.json"
+  },
+  {
+    "id": "coord-task:01kn09je8z6tgxpsxh2f115wb2",
+    "title": "Add explicit boundary-node semantics for non-materialized, sparse, and out-of-scope regions",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn09je8z6tgxpsxh2f115wb2-694652421297a552.json"
+  },
+  {
+    "id": "coord-task:01kn09jea5pj0zgsd2m6n9c0f2",
+    "title": "Move history, outcomes, curator, and analytical evidence onto warm and cold lazy-read paths",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn09jea5pj0zgsd2m6n9c0f2-ac148007304f7ee5.json"
+  },
+  {
+    "id": "coord-task:01kn09jeavcan93vyc9z9jvfkm",
+    "title": "Make runtime projections and overlays explicitly repo-, worktree-, and session-scoped",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn09jeavcan93vyc9z9jvfkm-fa92311fbd10fd15.json"
+  },
+  {
+    "id": "coord-task:01kn09jebspnr1xzpwtypb938p",
+    "title": "Add lazy JIT deep parsing and selective structural enrichment on first touch",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn09jebspnr1xzpwtypb938p-d1fa94a66b1101f3.json"
+  },
+  {
+    "id": "coord-task:01kn09jecg1haxe1vh7a7t13yd",
+    "title": "Add scalable architectural ranking signals for broad-query and impact precision",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01kn09jecg1haxe1vh7a7t13yd-365133501251a952.json"
+  },
+  {
+    "id": "coord-task:01kn09jed6ybpsksq7d7sp1phw",
+    "title": "Measure and validate the rewrite against startup, incremental latency, memory, and retrieval quality",
+    "status": "Proposed",
+    "path": "tasks/coord-task-01kn09jed6ybpsksq7d7sp1phw-3c7eb1823a98f0cd.json"
+  },
+  {
+    "id": "coord-task:01kn0c0vv128bn1qyntk6nbenq",
+    "title": "Universal request envelope",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0c0vv128bn1qyntk6nbenq-6b7a247aa853ad97.json"
+  },
+  {
+    "id": "coord-task:01kn0c0zcaprzd5d0v654wrt1v",
+    "title": "Shared bottleneck coverage",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0c0zcaprzd5d0v654wrt1v-06c3d4a7de83f8d0.json"
+  },
+  {
+    "id": "coord-task:01kn0c12nn24r0d6sdphez2gtj",
+    "title": "Lock and queue observability",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0c12nn24r0d6sdphez2gtj-514f0ce98ea8ff19.json"
+  },
+  {
+    "id": "coord-task:01kn0c15wy4qv1yz37kzqkfcv5",
+    "title": "Automatic slow-call capture",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0c15wy4qv1yz37kzqkfcv5-a5aa8e2aca0e36af.json"
+  },
+  {
+    "id": "coord-task:01kn0c1941bxe5hyxtm90hvee9",
+    "title": "Coverage closure",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0c1941bxe5hyxtm90hvee9-04d5ccde28780941.json"
+  },
+  {
+    "id": "coord-task:01kn0c1df70t70650rs2y9b261",
+    "title": "Behavior fixes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0c1df70t70650rs2y9b261-819d9f30c7ff22a8.json"
+  },
+  {
+    "id": "coord-task:01kn0shaxw8prtd5jrvtbxtn6n",
+    "title": "Baseline the live refresh paths and quantify full vs deferred triggers",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0shaxw8prtd5jrvtbxtn6n-854b53e00a616856.json"
+  },
+  {
+    "id": "coord-task:01kn0shet61b27jzmdh97t3mmn",
+    "title": "Eliminate unnecessary full refreshes and reduce unavoidable rescan cost",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0shet61b27jzmdh97t3mmn-531bef1f90dad9c7.json"
+  },
+  {
+    "id": "coord-task:01kn0shjk66y4khmr563jwk5nn",
+    "title": "Fix pathological deferred refresh behavior",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0shjk66y4khmr563jwk5nn-2bdae4fcd062cc59.json"
+  },
+  {
+    "id": "coord-task:01kn0shpfzn7pdnhw9m0qrchp9",
+    "title": "Harden the refresh state machine and fallback semantics",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0shpfzn7pdnhw9m0qrchp9-e883334c821c7512.json"
+  },
+  {
+    "id": "coord-task:01kn0sht5tag5vmmjqn127rcvd",
+    "title": "Validate refresh performance and regression coverage",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0sht5tag5vmmjqn127rcvd-f653bd1cd36d10b1.json"
+  },
+  {
+    "id": "coord-task:01kn0yb9zz75x9sngz7eppvvt8",
+    "title": "Instrument and rank hidden repo-scale persistence work",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0yb9zz75x9sngz7eppvvt8-57469d1209fb24f3.json"
+  },
+  {
+    "id": "coord-task:01kn0yba1epg1zwxbfpwevnyva",
+    "title": "Remove full-log snapshot reloads from auxiliary persistence",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0yba1epg1zwxbfpwevnyva-cb4145699a99a1bb.json"
+  },
+  {
+    "id": "coord-task:01kn0yba2qp9xsp8wrvxx0qwad",
+    "title": "Make projection maintenance proportional to changed scope",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0yba2qp9xsp8wrvxx0qwad-1de5c47c94546ac3.json"
+  },
+  {
+    "id": "coord-task:01kn0yba4t8v1r8tvgxe2aphna",
+    "title": "Validate persistence hot-path improvements with runtime evidence",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0yba4t8v1r8tvgxe2aphna-82d1b62cd74b8aff.json"
+  },
+  {
+    "id": "coord-task:01kn0ybpgxrm7ddbhaxkq78kx5",
+    "title": "Eliminate global graph rewrites from targeted index persistence",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn0ybpgxrm7ddbhaxkq78kx5-6f016b29e3c6fac9.json"
+  },
+  {
+    "id": "coord-task:01kn11fy74f41qhc9qb5grrceq",
+    "title": "Define canonical ownership boundaries for task-execution plans versus graph-native standalone plan nodes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn11fy74f41qhc9qb5grrceq-22358ebcbf1a2dc2.json"
+  },
+  {
+    "id": "coord-task:01kn11g3qvfcx3dtbgqpxpjjkr",
+    "title": "Refactor task-backed plan graph projection so task state is the only source of truth",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn11g3qvfcx3dtbgqpxpjjkr-2d2f6a7ab0da4156.json"
+  },
+  {
+    "id": "coord-task:01kn11gdk11zw3kmv05j66gdxb",
+    "title": "Route MCP coordination mutations and task-shaped query surfaces through task ownership for task-backed ids",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn11gdk11zw3kmv05j66gdxb-0fc884c5c70d43d7.json"
+  },
+  {
+    "id": "coord-task:01kn11gkbcr6dyf31n9d03qb37",
+    "title": "Preserve standalone native plan nodes and graph-only authored structure for non-task plans",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn11gkbcr6dyf31n9d03qb37-a42edc7323d3db50.json"
+  },
+  {
+    "id": "coord-task:01kn11h4jf0zhf89bsjfrcty7n",
+    "title": "Align plan completion, blockers, task brief, and validation surfaces with the unified ownership model",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn11h4jf0zhf89bsjfrcty7n-e04ed0904bd7e68e.json"
+  },
+  {
+    "id": "coord-task:01kn11hc4p50xjgr374gqqe624",
+    "title": "Validate the rewrite end-to-end and document migration rules for task-backed versus standalone plan nodes",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn11hc4p50xjgr374gqqe624-59d38f333af155f5.json"
+  },
+  {
+    "id": "coord-task:01kn13pz030s4q1c3qrbbg203f",
+    "title": "Specify authoritative-vs-derived persistence boundaries and crash semantics for every persisted domain",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13pz030s4q1c3qrbbg203f-53eb7b07b080b85b.json"
+  },
+  {
+    "id": "coord-task:01kn13q61f8j93je9vws9kdqjy",
+    "title": "Design backend-neutral persistence interfaces that separate synchronous journal appends from asynchronous checkpoints and materialized views",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13q61f8j93je9vws9kdqjy-b9b414b4d92309c5.json"
+  },
+  {
+    "id": "coord-task:01kn13qdfw63hwrr79cqm7rqs3",
+    "title": "Refactor WorkspaceSession, watch, and runtime plumbing so live in-memory state is authoritative and no core request path depends on SqliteStore as the semantic source of truth",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13qdfw63hwrr79cqm7rqs3-76c1a88e311d9118.json"
+  },
+  {
+    "id": "coord-task:01kn13qj69y75rtwrbw6ewqzw5",
+    "title": "Implement synchronous authoritative journals for coordination continuity and other crash-sensitive workflow state",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13qj69y75rtwrbw6ewqzw5-2082f11c2eece2d1.json"
+  },
+  {
+    "id": "coord-task:01kn13qsapc9fjk72wvth681yf",
+    "title": "Implement synchronous authoritative journals for lineage/history deltas and authored memory and outcome events",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13qsapc9fjk72wvth681yf-abefffce039dcc38.json"
+  },
+  {
+    "id": "coord-task:01kn13qykg063n2zc3h5rt507q",
+    "title": "Convert graph snapshots, derived edges, projections, workspace tree state, and compatibility read models into asynchronous coalesced checkpoints and materializations",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13qykg063n2zc3h5rt507q-1d471db890d60878.json"
+  },
+  {
+    "id": "coord-task:01kn13r7qf0yf4kqqng4a3nt4w",
+    "title": "Preserve bounded hot memory and codify explicit hot-only, hot-plus-cold, and cold-backed query paths",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13r7qf0yf4kqqng4a3nt4w-4570a08e1fd6a866.json"
+  },
+  {
+    "id": "coord-task:01kn13rgty80e4y885n1vzb170",
+    "title": "Implement checkpoint-plus-journal recovery, revision-lag observability, and replay bounds for restart behavior",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13rgty80e4y885n1vzb170-ecc5e0cc2b57d5c9.json"
+  },
+  {
+    "id": "coord-task:01kn13rrg3yzbrcgrjh06ppv3h",
+    "title": "Validate crash safety, restart behavior, latency reduction, memory bounds, and multi-instance shared-runtime correctness for the migration",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13rrg3yzbrcgrjh06ppv3h-bb5c45b28cb37608.json"
+  },
+  {
+    "id": "coord-task:01kn13ryrrk04aacsvg1ac96c2",
+    "title": "Review the migration outcome with the user and decide together whether a separate persistence worker deserves a follow-up plan",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn13ryrrk04aacsvg1ac96c2-bc7d69a13bfdc56c.json"
+  },
+  {
+    "id": "coord-task:01kn2edqappsmarg40z5ta9x02",
+    "title": "Codify runtime generations, consistency envelopes, and hard budgets",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqappsmarg40z5ta9x02-841c2e1b11a1ab7b.json"
+  },
+  {
+    "id": "coord-task:01kn2edqbj2w6gfhv8xnw00abb",
+    "title": "Build WorkspaceRuntimeEngine and the coalescing-aware command model",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqbj2w6gfhv8xnw00abb-c86044d40f6cad10.json"
+  },
+  {
+    "id": "coord-task:01kn2edqccqazhjhrj7dfx4a2t",
+    "title": "Separate mutable engine state from published immutable generations",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqccqazhjhrj7dfx4a2t-84daacb22acd590d.json"
+  },
+  {
+    "id": "coord-task:01kn2edqd9zwb32v5zrwrrff2z",
+    "title": "Remove reconstructive refresh and ordinary live-state indexer rebuilds",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqd9zwb32v5zrwrrff2z-85ac01a6949f3dcf.json"
+  },
+  {
+    "id": "coord-task:01kn2edqe64parv20k1n5k4npw",
+    "title": "Implement persistent per-file semantic facts and delta batches",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqe64parv20k1n5k4npw-c74949c0a6de5aea.json"
+  },
+  {
+    "id": "coord-task:01kn2edqf5rm8zt5aczfqrqp7f",
+    "title": "Add precise invalidation and reverse dependency indexes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqf5rm8zt5aczfqrqp7f-46274bd52c66a30a.json"
+  },
+  {
+    "id": "coord-task:01kn2edqg7qjtwt4xmtgkwyxyz",
+    "title": "Parallelize file-local preparation for bursty batched edits",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqg7qjtwt4xmtgkwyxyz-26fe94d09f6e63ae.json"
+  },
+  {
+    "id": "coord-task:01kn2edqh1zkhb8br4za6tx8ha",
+    "title": "Implement the fast-path commit and layered freshness semantics",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqh1zkhb8br4za6tx8ha-d448396d08c39e46.json"
+  },
+  {
+    "id": "coord-task:01kn2edqj2yfbe50m4hgy6cspx",
+    "title": "Add parallel settle workers, prioritization, and stale-work cancellation",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqj2yfbe50m4hgy6cspx-45753fd33c16e7e5.json"
+  },
+  {
+    "id": "coord-task:01kn2edqjy6xsjev29fs0jrs1x",
+    "title": "Move non-authoritative side effects off commit and demote snapshots",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqjy6xsjev29fs0jrs1x-0ce807af92856f28.json"
+  },
+  {
+    "id": "coord-task:01kn2edqkt2rd8zxerns99v957",
+    "title": "Replace lock-based fail-fast admission with engine-queued mutation admission",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqkt2rd8zxerns99v957-47b8d0379612e7ea.json"
+  },
+  {
+    "id": "coord-task:01kn2edqmq4f43nnryqptyhfjy",
+    "title": "Finalize checkpoint-plus-replay recovery on the incremental core",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqmq4f43nnryqptyhfjy-9f3a98c934f21dd0.json"
+  },
+  {
+    "id": "coord-task:01kn2edqnp3sj59dpc6qzv6ba0",
+    "title": "Validate the performance-beast end state and remove backsliding surfaces",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2edqnp3sj59dpc6qzv6ba0-8f7cfd06ba2923f6.json"
+  },
+  {
+    "id": "coord-task:01kn2g2ajr16mv2s6g5xtm47dv",
+    "title": "Preserve the three-plane persistence split and the machine-scoped shared runtime host",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2g2ajr16mv2s6g5xtm47dv-9fe28dcbdc9b4a18.json"
+  },
+  {
+    "id": "coord-task:01kn2n9bp2xgmxbq9xvj4we2b8",
+    "title": "Inventory PRISM spec docs and define the spec-drift validation matrix",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01kn2n9bp2xgmxbq9xvj4we2b8-5ed9dd198cb93a2f.json"
+  },
+  {
+    "id": "coord-task:01kn2n9fbf4gcvq9hbx1dzzz07",
+    "title": "Exercise spec drift on every spec doc and capture failures, gaps, and noisy outputs",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn2n9fbf4gcvq9hbx1dzzz07-4d41105bfafa222a.json"
+  },
+  {
+    "id": "coord-task:01kn2n9jhrtr361x3t0pej23d9",
+    "title": "Improve spec links, target resolution, and drift explanations until spec drift is broadly useful",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn2n9jhrtr361x3t0pej23d9-94148bc2750b5866.json"
+  },
+  {
+    "id": "coord-task:01kn2na0msksb21hqg2321ta0k",
+    "title": "Validate spec drift end-to-end across the spec corpus and harden regressions",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn2na0msksb21hqg2321ta0k-0872bf2257f45bf5.json"
+  },
+  {
+    "id": "coord-task:01kn2na4qh0vhn6h9fbdce9s9v",
+    "title": "Update prism://instructions and supporting guidance so agents naturally reach for spec-drift analysis",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn2na4qh0vhn6h9fbdce9s9v-bbf8f61e6d0aced3.json"
+  },
+  {
+    "id": "coord-task:01kn2nhtq3a0h7aym135p3gxe4",
+    "title": "Align plan status and lifecycle semantics with the first-class plans spec",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2nhtq3a0h7aym135p3gxe4-fe327dfce9f26f95.json"
+  },
+  {
+    "id": "coord-task:01kn2nhy59rebs6sz3xs7rzgc8",
+    "title": "Implement first-class archive semantics in mutation, persistence, and hydration paths",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2nhy59rebs6sz3xs7rzgc8-80518d3e12947a29.json"
+  },
+  {
+    "id": "coord-task:01kn2nj1rsdv7bs5vws1fynq7g",
+    "title": "Audit runtime-state process lifecycle and define the canonical pruning/update rules for cheap multi-instance-safe runtimeStatus reporting",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2nj1rsdv7bs5vws1fynq7g-5a2c419db9a18f17.json"
+  },
+  {
+    "id": "coord-task:01kn2nj1t95nwaytv4gd7hd2k8",
+    "title": "Implement stale runtime-state process pruning and live-process filtering so daemon and bridge counts stay accurate without expensive broad process scans",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2nj1t95nwaytv4gd7hd2k8-345a682fba979815.json"
+  },
+  {
+    "id": "coord-task:01kn2nj1wbag9jvvajz4ma081y",
+    "title": "Validate runtimeStatus end to end under daemon restart, stale runtime-state records, and live dogfooding before closing the cleanup plan",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2nj1wbag9jvvajz4ma081y-0e810e179f125947.json"
+  },
+  {
+    "id": "coord-task:01kn2nj34195h92ky0qzxz009y",
+    "title": "Make completion and blocker surfaces explain spec-level gating in structured form",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2nj34195h92ky0qzxz009y-6091c8641526c440.json"
+  },
+  {
+    "id": "coord-task:01kn2nj66tmkgxqtv0f02fy1qc",
+    "title": "Align MCP schemas, vocab, and query surfaces with the full first-class plans contract",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2nj66tmkgxqtv0f02fy1qc-016c90c9a4bf04e4.json"
+  },
+  {
+    "id": "coord-task:01kn2nj70jmf7vkecd8jdjn8b5",
+    "title": "Tighten runtimeStatus process and connection reporting semantics so cheap introspection stays correct for one or many local MCP daemons sharing the machine",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2nj70jmf7vkecd8jdjn8b5-e0a072dc14f19ae4.json"
+  },
+  {
+    "id": "coord-task:01kn2nj9rnhx2smh3c0w2van6s",
+    "title": "Validate end-to-end spec alignment and update the published plans docs to match the shipped behavior",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2nj9rnhx2smh3c0w2van6s-3cbb5e52c766f14c.json"
+  },
+  {
+    "id": "coord-task:01kn2qbpkx5z0n3jv4d1e4r1wm",
+    "title": "Build an incremental diagnostics and runtime read-model plane",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2qbpkx5z0n3jv4d1e4r1wm-804fbc0aeba56780.json"
+  },
+  {
+    "id": "coord-task:01kn2qbpn743ksd9zb4j24njtm",
+    "title": "Implement a cheap machine-scoped process and instance ledger for diagnostics",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2qbpn743ksd9zb4j24njtm-07eb80f4f2717079.json"
+  },
+  {
+    "id": "coord-task:01kn2qbppm2bz9w5e37rfe8cm8",
+    "title": "Route runtimeStatus, dashboard summary, and recent operation views to materialized read models",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn2qbppm2bz9w5e37rfe8cm8-c1caecdfaec704be.json"
+  },
+  {
+    "id": "coord-task:01kn384q9273c7ak2baermst1v",
+    "title": "Triage and prioritize PRISM dogfooding improvements",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn384q9273c7ak2baermst1v-dc763500f6d4bf4b.json"
+  },
+  {
+    "id": "coord-task:01kn385db3vr1skpmntyn34vcq",
+    "title": "Improve heading-aware doc discovery and first-hop ranking",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn385db3vr1skpmntyn34vcq-780dad310d166c6c.json"
+  },
+  {
+    "id": "coord-task:01kn385dcetbhcjm4hpse9y4jw",
+    "title": "Strengthen concept packets with concrete follow-through targets",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn385dcetbhcjm4hpse9y4jw-bb6677e9eeaa4b3b.json"
+  },
+  {
+    "id": "coord-task:01kn385ddnwb09zzn36a69f4mm",
+    "title": "Clarify session and task-context UX",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn385ddnwb09zzn36a69f4mm-79070ae0e1400496.json"
+  },
+  {
+    "id": "coord-task:01kn385dezjaxe8thgz70v74b0",
+    "title": "Make compact tools more forgiving and self-correcting",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn385dezjaxe8thgz70v74b0-afc34e76a665c2d7.json"
+  },
+  {
+    "id": "coord-task:01kn385dg7g1pgcxnnntbjzhef",
+    "title": "Add governing-section and cross-doc navigation affordances",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn385dg7g1pgcxnnntbjzhef-d0c6fadedc9e4bcb.json"
+  },
+  {
+    "id": "coord-task:01kn3ccwasnywp14s14dfnpcxw",
+    "title": "Explain why compact-tool results won ranking",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3ccwasnywp14s14dfnpcxw-f4890fdd81397e70.json"
+  },
+  {
+    "id": "coord-task:01kn3ccwc6s0q937rgb9h3w4st",
+    "title": "Strengthen concept to doc to code continuity",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3ccwc6s0q937rgb9h3w4st-5ac0711a8b59683a.json"
+  },
+  {
+    "id": "coord-task:01kn3ccwdc8vykc0ctjpsxyn3n",
+    "title": "Harden workspace and path edge cases",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3ccwdc8vykc0ctjpsxyn3n-1a016c156e0e232f.json"
+  },
+  {
+    "id": "coord-task:01kn3ccwek828erfngwv7tjk4d",
+    "title": "Tighten stale-context repair loops",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3ccwek828erfngwv7tjk4d-315b486592441aa0.json"
+  },
+  {
+    "id": "coord-task:01kn3g1ye0mc3v6rrthj04rfk5",
+    "title": "Prioritize the next PRISM MCP agent-UX improvements by day-to-day impact",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3g1ye0mc3v6rrthj04rfk5-163c0e9683aa3b5e.json"
+  },
+  {
+    "id": "coord-task:01kn3g2axtp38kdahjc7p1nrad",
+    "title": "Lean more on active task context in compact-tool ranking and follow-through",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3g2axtp38kdahjc7p1nrad-b5df5badc417217a.json"
+  },
+  {
+    "id": "coord-task:01kn3g2az4kq3g8nahzdnxeaw7",
+    "title": "Strengthen concept -> doc -> code continuity across compact flows",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3g2az4kq3g8nahzdnxeaw7-919599b73dae557d.json"
+  },
+  {
+    "id": "coord-task:01kn3g2b0a14g01m2w768mawpp",
+    "title": "Explain why close alternatives lost in compact-tool ranking",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3g2b0a14g01m2w768mawpp-93790d4b7ee11195.json"
+  },
+  {
+    "id": "coord-task:01kn3g2b1hje6ht1tbmfcz93mp",
+    "title": "Surface confidence and freshness more explicitly in compact results",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3g2b1hje6ht1tbmfcz93mp-0f32ae7125465408.json"
+  },
+  {
+    "id": "coord-task:01kn3g2b2vd1e8q3hmshsf6p88",
+    "title": "Generalize empty-string optional-input normalization across MCP-facing enums",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3g2b2vd1e8q3hmshsf6p88-553c6c7def608567.json"
+  },
+  {
+    "id": "coord-task:01kn3g2b41q01esvn3spmhxe3w",
+    "title": "Strengthen doc-governance and adjacent-spec navigation",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3g2b41q01esvn3spmhxe3w-ce968db426b81de7.json"
+  },
+  {
+    "id": "coord-task:01kn3g2b58twgvqcb0ftsra75n",
+    "title": "Improve frontend-language degradation behavior when semantic coverage is thin",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3g2b58twgvqcb0ftsra75n-152e3afa2637677f.json"
+  },
+  {
+    "id": "coord-task:01kn3g2b6expme2z26e91r8n9a",
+    "title": "Turn repairAction guidance into one-hop safe session repairs",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3g2b6expme2z26e91r8n9a-45c394cde47fdd59.json"
+  },
+  {
+    "id": "coord-task:01kn3p2s5d0jx3bgtzpt61sk10",
+    "title": "Inventory current session, actor, and coordination touchpoints for the cutover",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p2s5d0jx3bgtzpt61sk10-a08ad0ad58ec92f9.json"
+  },
+  {
+    "id": "coord-task:01kn3p2xd54tw03hvpwb7bgd9c",
+    "title": "Add principal, authority, credential, and capability primitives to shared runtime state",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p2xd54tw03hvpwb7bgd9c-bec80dd9bc320e81.json"
+  },
+  {
+    "id": "coord-task:01kn3p329sn75tz26x0z73xb3s",
+    "title": "Implement trusted bootstrap and CLI auth flows for human and child principals",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p329sn75tz26x0z73xb3s-bd5faf100576be07.json"
+  },
+  {
+    "id": "coord-task:01kn3p363cmz6sfqstd0s5tgac",
+    "title": "Require authenticated mutation envelopes and capability checks on authoritative writes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p363cmz6sfqstd0s5tgac-7df53d438616f077.json"
+  },
+  {
+    "id": "coord-task:01kn3p3cy48hz6m3g42e0374xj",
+    "title": "Persist canonical provenance and execution-context snapshots in mutation events",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p3cy48hz6m3g42e0374xj-4dd0ba36a1a74421.json"
+  },
+  {
+    "id": "coord-task:01kn3p3gsrp451he4fbaj7a74c",
+    "title": "Implement task and claim lease lifecycle with stale, expired, resume, and reclaim semantics",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p3gsrp451he4fbaj7a74c-66fc304ba1ed7d0b.json"
+  },
+  {
+    "id": "coord-task:01kn3p3mfw8cnhvv3m8s2bdzgq",
+    "title": "Add heartbeat_lease, server-side due-state evaluation, and bounded assisted watcher renewal",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p3mfw8cnhvv3m8s2bdzgq-1a46b1a0c025980a.json"
+  },
+  {
+    "id": "coord-task:01kn3p3rzhgskr8vc63c5yr9af",
+    "title": "Surface lease holder, heartbeat advisories, and task-scoped next actions on reads",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p3rzhgskr8vc63c5yr9af-e9a77360141e52c9.json"
+  },
+  {
+    "id": "coord-task:01kn3p3ya2p1aemdxb2bbye2sy",
+    "title": "Cut over away from prism_session as coordination authority and migrate legacy actor history",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p3ya2p1aemdxb2bbye2sy-a21c621ad718ee1f.json"
+  },
+  {
+    "id": "coord-task:01kn3p44q0f2yjwf1nhg936ekj",
+    "title": "Validate the end-to-end principal-authenticated coordination cutover",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p44q0f2yjwf1nhg936ekj-4e38d1a22b8dbc65.json"
+  },
+  {
+    "id": "coord-task:01kn3p6jbrntr931d9tqn8xrwk",
+    "title": "Profile the remaining large-edit hot path from live daemon evidence",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p6jbrntr931d9tqn8xrwk-3ec163765084a1a6.json"
+  },
+  {
+    "id": "coord-task:01kn3p6jdzqwasz42a35dahesz",
+    "title": "Validate the large-edit follow-up on the live daemon log",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p6jdzqwasz42a35dahesz-d3ab2df0aaa00888.json"
+  },
+  {
+    "id": "coord-task:01kn3p6wyqn4ecaczcsr51wy1m",
+    "title": "Preserve more co-change fidelity for oversized change sets without reintroducing hot-path blowups",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p6wyqn4ecaczcsr51wy1m-2ed2e3d0c13c1a26.json"
+  },
+  {
+    "id": "coord-task:01kn3p6x28h7567wcmymy825g3",
+    "title": "Reduce parse/apply and persist cost for large fanout edits",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn3p6x28h7567wcmymy825g3-9d5186e32fc7abff.json"
+  },
+  {
+    "id": "coord-task:01kn46t33h51asymhpnse5h0g1",
+    "title": "Classify persisted domains into shared runtime, worktree-local cache, and process-local hot state",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn46t33h51asymhpnse5h0g1-2e60d1e2da909e4e.json"
+  },
+  {
+    "id": "coord-task:01kn46t35msk4qky98byxn789j",
+    "title": "Introduce distinct path and bootstrap defaults for worktree cache db vs shared runtime db",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn46t35msk4qky98byxn789j-68d310e5c6dcfb6e.json"
+  },
+  {
+    "id": "coord-task:01kn46t37cc06aaktw6z4rtsbm",
+    "title": "Split store interfaces so shared runtime and local semantic cache expose different capabilities",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn46t37cc06aaktw6z4rtsbm-0ba89ab200bd89d0.json"
+  },
+  {
+    "id": "coord-task:01kn46t38scs0cybmvnbw7ws7r",
+    "title": "Decide ownership, retention, and compaction rules for outcomes and curator state under the split",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn46t38scs0cybmvnbw7ws7r-ab6124bbd3868dc6.json"
+  },
+  {
+    "id": "coord-task:01kn46t3a8m0agn27rwb66gk9h",
+    "title": "Migrate existing repos by moving worktree-local semantic tables out of the shared runtime db",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn46t3a8m0agn27rwb66gk9h-0ec6889146329311.json"
+  },
+  {
+    "id": "coord-task:01kn46t3bs7y9qppsnf8wkp2tx",
+    "title": "Validate cross-worktree shared semantics, migration safety, and post-split db health",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn46t3bs7y9qppsnf8wkp2tx-63a55574ce7c3bb3.json"
+  },
+  {
+    "id": "coord-task:01kn55dvkdfvxg8pdfk72p0h72",
+    "title": "Instrument refresh latency against the architecture budgets",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01kn55dvkdfvxg8pdfk72p0h72-6d0555d2609720ef.json"
+  },
+  {
+    "id": "coord-task:01kn55e2ery38vr30wxe3ca5r3",
+    "title": "Define the incremental delta-commit contract for refresh",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn55e2ery38vr30wxe3ca5r3-0cb20a6dc18760cf.json"
+  },
+  {
+    "id": "coord-task:01kn55e93ftgm9bra7wfs4fnfs",
+    "title": "Move file-local delta construction out of the serialized refresh path",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn55e93ftgm9bra7wfs4fnfs-73f7ef9482418e46.json"
+  },
+  {
+    "id": "coord-task:01kn55egap84qbyxkarhq6y7vz",
+    "title": "Reduce commit to authoritative apply, journal append, and generation publish",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn55egap84qbyxkarhq6y7vz-faaf8778928b212e.json"
+  },
+  {
+    "id": "coord-task:01kn55eps6ms9b7hr6nexfnjhr",
+    "title": "Move derived projections, memory reanchor, and coordination reloads fully behind settle",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn55eps6ms9b7hr6nexfnjhr-2bf256ffcdbe647e.json"
+  },
+  {
+    "id": "coord-task:01kn55f0wgfw5rcrxzbqa0qpm4",
+    "title": "Separate hot commit persistence from asynchronous materialization and remove SQLite contention",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn55f0wgfw5rcrxzbqa0qpm4-3f1124058f7771e7.json"
+  },
+  {
+    "id": "coord-task:01kn55f7ffvqmnm2gkdptvdttd",
+    "title": "Tighten coalescing, stale-work cancellation, and invalidation precision for repeated edits",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn55f7ffvqmnm2gkdptvdttd-d9a9cf3e811d02f7.json"
+  },
+  {
+    "id": "coord-task:01kn55feg438a0sr325zc2k313",
+    "title": "Validate refresh latency against the document budgets and publish residual gaps",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn55feg438a0sr325zc2k313-d17f4010ee7e7c75.json"
+  },
+  {
+    "id": "coord-task:01kn5xzdb5p8pyyx0kxjpx0epx",
+    "title": "Stabilize full-workspace parallel tests against SQLite locking flakes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5xzdb5p8pyyx0kxjpx0epx-66567c654de77de2.json"
+  },
+  {
+    "id": "coord-task:01kn5ydetjt5w7xfn8x71qk7x7",
+    "title": "Inventory current unsigned repo publication and hydration paths",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5ydetjt5w7xfn8x71qk7x7-a98bd8cd7a9cd516.json"
+  },
+  {
+    "id": "coord-task:01kn5ydewgd87bncbkdehbrd41",
+    "title": "Define the protected-state foundation and canonical envelope model",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5ydewgd87bncbkdehbrd41-b58a991bb61a50df.json"
+  },
+  {
+    "id": "coord-task:01kn5ydey4tjr0n6na2ymkejfj",
+    "title": "Extend the shared-runtime trust plane with signing keys and trust bundles",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5ydey4tjr0n6na2ymkejfj-5d155aa50096600d.json"
+  },
+  {
+    "id": "coord-task:01kn5ydezjztsey6m03tvhrgn3",
+    "title": "Build the shared protected-stream append and verify engine",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5ydezjztsey6m03tvhrgn3-c8691be5a806bc36.json"
+  },
+  {
+    "id": "coord-task:01kn5ydf14v5ce5m5qbd22ykbe",
+    "title": "Migrate repo knowledge streams onto the protected engine",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5ydf14v5ce5m5qbd22ykbe-a391199fb5709faa.json"
+  },
+  {
+    "id": "coord-task:01kn5ydf2qhfjjb50zav19rvm0",
+    "title": "Rework published plan persistence into signed per-plan streams with derived indexes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5ydf2qhfjjb50zav19rvm0-5fba03656272906a.json"
+  },
+  {
+    "id": "coord-task:01kn5ydf4876gvnh5c20zaw9w6",
+    "title": "Integrate verification gates into hydration, mutation, and watcher handling",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5ydf4876gvnh5c20zaw9w6-e04ec48f1b913923.json"
+  },
+  {
+    "id": "coord-task:01kn5ydf5tdhdry9ftd4wjwq7c",
+    "title": "Expose operator tooling and diagnostics for verification, migration, repair, and trust workflows",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5ydf5tdhdry9ftd4wjwq7c-2e4c8a5bd3803026.json"
+  },
+  {
+    "id": "coord-task:01kn5ydf7fed6cqt4xw7jftw6g",
+    "title": "Validate migration semantics, tamper handling, and full-workspace behavior",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn5ydf7fed6cqt4xw7jftw6g-72dfb48a9e4256bd.json"
+  },
+  {
+    "id": "coord-task:01kn6fa2xeg8f0rayk8n0zwtkm",
+    "title": "Curate concept packs for principal identity and authenticated coordination",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6fa2xeg8f0rayk8n0zwtkm-e892ece08d1dde17.json"
+  },
+  {
+    "id": "coord-task:01kn6rm7bf7k1qnmhcegvypt86",
+    "title": "Lock the provenance model, terminology, and invariants",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6rm7bf7k1qnmhcegvypt86-8c6fb3446d7def59.json"
+  },
+  {
+    "id": "coord-task:01kn6rmjszn0az4kypvh97yq1d",
+    "title": "Introduce first-class work context types and durable event snapshots",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6rmjszn0az4kypvh97yq1d-8d886a55ec067b11.json"
+  },
+  {
+    "id": "coord-task:01kn6rn36wwvrz8ezq8p0e02d6",
+    "title": "Add authenticated declare-work bootstrap and current-work runtime state",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6rn36wwvrz8ezq8p0e02d6-e337d7de090daecc.json"
+  },
+  {
+    "id": "coord-task:01kn6rnm8sffvrtsv6km1btd98",
+    "title": "Reject undeclared mutations and remove implicit session-task fallback",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6rnm8sffvrtsv6km1btd98-12bc4b08430c0950.json"
+  },
+  {
+    "id": "coord-task:01kn6rnxxzfcwhtfmty9j1hdvr",
+    "title": "Thread work attribution through all mutation provenance and read surfaces",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6rnxxzfcwhtfmty9j1hdvr-72b990f3309e3503.json"
+  },
+  {
+    "id": "coord-task:01kn6rp7gt1mjkkz13ev37dc76",
+    "title": "Unify coordination binding, plan attribution, and delegated-work semantics",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6rp7gt1mjkkz13ev37dc76-e1eab0246cbda7d5.json"
+  },
+  {
+    "id": "coord-task:01kn6rppndba3zmwxf2fhcjr24",
+    "title": "Update instructions, schemas, examples, specs, and concept docs for strict declared work",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6rppndba3zmwxf2fhcjr24-3c5329d76ab8f0d1.json"
+  },
+  {
+    "id": "coord-task:01kn6rq1n2ggm0m47a37ewascn",
+    "title": "Migrate and repair legacy session-task and detached-context behavior",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6rq1n2ggm0m47a37ewascn-1d3dbead7eb0aa35.json"
+  },
+  {
+    "id": "coord-task:01kn6rqgdfassyvep8q89sd0mk",
+    "title": "Validate cold-clone self-containment and end-to-end declared-work enforcement",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6rqgdfassyvep8q89sd0mk-9459226da6c0e286.json"
+  },
+  {
+    "id": "coord-task:01kn6s12m8w9qgs766n8453aa4",
+    "title": "Audit and enforce `.prism` self-containment boundaries",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6s12m8w9qgs766n8453aa4-c749fb2a90e5efd0.json"
+  },
+  {
+    "id": "coord-task:01kn6t3shx6ks37m500hme2gpj",
+    "title": "Enforce exclusive principal binding per worktree and define pre-declare edit policy",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6t3shx6ks37m500hme2gpj-c422c51af800c6cb.json"
+  },
+  {
+    "id": "coord-task:01kn6t41ekhqwqedjg2p7pctt7",
+    "title": "Accumulate watcher-observed file changes by worktree, principal, and work with automatic flush boundaries",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6t41ekhqwqedjg2p7pctt7-f8078622b2868120.json"
+  },
+  {
+    "id": "coord-task:01kn6t48enhz3xvyer1j7r8tck",
+    "title": "Publish auto-flushed change checkpoints and add an explicit checkpoint escape hatch",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn6t48enhz3xvyer1j7r8tck-b6dc16b41e5df67e.json"
+  },
+  {
+    "id": "coord-task:01kn7cxtgg1r28ntzg41pgzt2r",
+    "title": "Turn the current log audit into a reproducible hotspot baseline",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7cxtgg1r28ntzg41pgzt2r-59467c62863f17ef.json"
+  },
+  {
+    "id": "coord-task:01kn7cy67chqrcz18kvnpk7gmm",
+    "title": "Slim the prism_task_brief critical path and degrade gracefully under stale runtime state",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7cy67chqrcz18kvnpk7gmm-64b3a4a4cf1c4a28.json"
+  },
+  {
+    "id": "coord-task:01kn7cym8fe0dxg3ehd19fp9ge",
+    "title": "Remove long refresh-lock stalls from coordination mutation admission",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7cym8fe0dxg3ehd19fp9ge-5d7cce0ecf338298.json"
+  },
+  {
+    "id": "coord-task:01kn7cywwqynsppzxgn5rqawmc",
+    "title": "Bound oversized co-change work during incremental indexing",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7cywwqynsppzxgn5rqawmc-77821862b3aeb55a.json"
+  },
+  {
+    "id": "coord-task:01kn7cz3g0ks84qsqz565pfen9",
+    "title": "Trim daemon startup and recovery fixed costs",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7cz3g0ks84qsqz565pfen9-80405b40b5996e80.json"
+  },
+  {
+    "id": "coord-task:01kn7cz9ysdjmzcdr8sqtk388j",
+    "title": "Reduce noisy bridge transport warnings and make bridge lifecycle state clearer",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7cz9ysdjmzcdr8sqtk388j-73bb278efbc2cc17.json"
+  },
+  {
+    "id": "coord-task:01kn7czn5h7s8396kc9a2jcgpf",
+    "title": "Validate log-backed runtime and MCP performance improvements end to end",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7czn5h7s8396kc9a2jcgpf-2de8bd053054a7aa.json"
+  },
+  {
+    "id": "coord-task:01kn7kcgg7q9qszsfsb3j2vs7s",
+    "title": "Lock projection contracts, authority planes, and freshness invariants",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7kcgg7q9qszsfsb3j2vs7s-60a7ea9aa2ad6784.json"
+  },
+  {
+    "id": "coord-task:01kn7kd4qdqgr8t6s4yt4rn1sf",
+    "title": "Introduce first-class projection metadata and read-model contracts",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7kd4qdqgr8t6s4yt4rn1sf-39c06d68db0b8262.json"
+  },
+  {
+    "id": "coord-task:01kn7kd59d7m289c02x11e3z0p",
+    "title": "Implement published projection generation and source stamping",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7kd59d7m289c02x11e3z0p-9ac5a9c5c6159334.json"
+  },
+  {
+    "id": "coord-task:01kn7kd5vsbjjt95a5m6axdcpk",
+    "title": "Build serving projection read models with explicit freshness",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7kd5vsbjjt95a5m6axdcpk-b6566c05b7352491.json"
+  },
+  {
+    "id": "coord-task:01kn7kd6e5d4bcd4vy3jqzhtc5",
+    "title": "Add ad hoc projection requests for time-travel and diff views",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7kd6e5d4bcd4vy3jqzhtc5-3aceb43e0e2ff404.json"
+  },
+  {
+    "id": "coord-task:01kn7kd70a3ba70rv75vj27nbk",
+    "title": "Expose projection-oriented MCP and CLI surfaces",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7kd70a3ba70rv75vj27nbk-a9d34d1b55453d9b.json"
+  },
+  {
+    "id": "coord-task:01kn7kd7jzw8ss2yj734zffnv1",
+    "title": "Integrate projection persistence, invalidation, and refresh boundaries",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7kd7jzw8ss2yj734zffnv1-c8e53008b4069a46.json"
+  },
+  {
+    "id": "coord-task:01kn7kd857b3amezy4qd3v253j",
+    "title": "Validate deterministic rebuilds, cold-clone behavior, and latency/freshness guarantees",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7kd857b3amezy4qd3v253j-620d9d8bf4e2080e.json"
+  },
+  {
+    "id": "coord-task:01kn7wn9a19ytcvcza32byvhcs",
+    "title": "Instrument compact refresh-wrapper latency and queueing boundaries",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7wn9a19ytcvcza32byvhcs-aff0da869b4c4fb4.json"
+  },
+  {
+    "id": "coord-task:01kn7wnjqg9s6j9ttbvmh1z3g3",
+    "title": "Add a true current-state fast path for compact read tools",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7wnjqg9s6j9ttbvmh1z3g3-38c059d9f084f8bb.json"
+  },
+  {
+    "id": "coord-task:01kn7wnt1me2w8bsq5pkz31tvt",
+    "title": "Coalesce concurrent compact-read refresh work across sessions",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7wnt1me2w8bsq5pkz31tvt-eb539fcf8b40d6a3.json"
+  },
+  {
+    "id": "coord-task:01kn7wp5gccdrhaq1y969tpbtv",
+    "title": "Reduce bridge pressure and expose contention diagnostics for slow compact reads",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7wp5gccdrhaq1y969tpbtv-67df24271998ceb1.json"
+  },
+  {
+    "id": "coord-task:01kn7wpf732s15kpc7fnwj50ns",
+    "title": "Validate compact-read latency improvements against live MCP traces and full repo checks",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn7wpf732s15kpc7fnwj50ns-ccdbc43e9e7dae7e.json"
+  },
+  {
+    "id": "coord-task:01kn80axazq1a4yan9avjtsv9e",
+    "title": "Codify the protected-state runtime contract in docs and invariants",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn80axazq1a4yan9avjtsv9e-c54cf97650f204ea.json"
+  },
+  {
+    "id": "coord-task:01kn80b3hb260q2xqehsh73xs0",
+    "title": "Replace memory-only read-path sync with one generalized protected-state sync surface",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn80b3hb260q2xqehsh73xs0-f8439c69f0b7fe16.json"
+  },
+  {
+    "id": "coord-task:01kn80bbb2ty6xt505xtxsw4hw",
+    "title": "Implement stream-oriented protected-state import handlers and runtime freshness tracking",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn80bbb2ty6xt505xtxsw4hw-adaaaccb16c04a08.json"
+  },
+  {
+    "id": "coord-task:01kn80bmhav84s54wm0j8rt3am",
+    "title": "Add a dedicated protected-state watcher while keeping the source watcher blind to .prism",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn80bmhav84s54wm0j8rt3am-e0ab175763e1538b.json"
+  },
+  {
+    "id": "coord-task:01kn80bw4gasjmyaxhkd47x116",
+    "title": "Suppress self-writes and patch live runtime state directly on protected-state publishes",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01kn80bw4gasjmyaxhkd47x116-2498a65ee0ea219d.json"
+  },
+  {
+    "id": "coord-task:01kn80c3hk4bk0kt0391289zh5",
+    "title": "Expose protected-state sync status, diagnostics, and fallback reconciliation",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn80c3hk4bk0kt0391289zh5-2d06dd1e77a0ddc3.json"
+  },
+  {
+    "id": "coord-task:01kn80cbhehcndfs9fv21dbk4f",
+    "title": "Validate bootstrap, live-sync, self-write suppression, and missed-event recovery across all protected streams",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn80cbhehcndfs9fv21dbk4f-9050e10174a6a8d8.json"
+  },
+  {
+    "id": "coord-task:01kn80ry7wvfr9w7gp0dw8s5s6",
+    "title": "Trace daemon lifecycle, supervisor, and authority persistence paths in code",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn80ry7wvfr9w7gp0dw8s5s6-81e76f5e785f84dd.json"
+  },
+  {
+    "id": "coord-task:01kn80s8e7gg2n1czt0jwrh8w5",
+    "title": "Add durable daemon crash and shutdown observability",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn80s8e7gg2n1czt0jwrh8w5-97f9f314e0698063.json"
+  },
+  {
+    "id": "coord-task:01kn80sf4w82cwjjy9xtsdatq8",
+    "title": "Make the bridge self-heal dead upstream daemons instead of retrying a stale URI indefinitely",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn80sf4w82cwjjy9xtsdatq8-b34702c8419c6483.json"
+  },
+  {
+    "id": "coord-task:01kn80sr1ye602pq4smc2t7s6t",
+    "title": "Revalidate or invalidate stale bridge auth bindings after daemon or authority changes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn80sr1ye602pq4smc2t7s6t-ecd82c37f9875a47.json"
+  },
+  {
+    "id": "coord-task:01kn80szsnae110gap6ca3gaqp",
+    "title": "Validate crash logging, bridge auto-recovery, and stale-auth recovery with injected failures",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn80szsnae110gap6ca3gaqp-3ac0edfbe8e1f668.json"
+  },
+  {
+    "id": "coord-task:01kn82papt611bh6q661hx7b6e",
+    "title": "Add scope-aware runtime and MCP log backends",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn82papt611bh6q661hx7b6e-7d911ab379262d5c.json"
+  },
+  {
+    "id": "coord-task:01kn82pbhvpkb21qpmpwjb046k",
+    "title": "Expose scoped query options and add coverage",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn82pbhvpkb21qpmpwjb046k-7c089da57b576580.json"
+  },
+  {
+    "id": "coord-task:01kn82pcbg8whg9ecy6wnkhxex",
+    "title": "Run repo validation for scoped log queries",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn82pcbg8whg9ecy6wnkhxex-e435c025367dbe37.json"
+  },
+  {
+    "id": "coord-task:01kn88705a26qcc46r29w6zy5k",
+    "title": "Fix prism_task_brief next-action drift for completed and self-contained tasks",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn88705a26qcc46r29w6zy5k-605faf0ef0f395e9.json"
+  },
+  {
+    "id": "coord-task:01kn887c7vzqbqeq28g6dpejs7",
+    "title": "Improve compact ranking and docs-to-code follow-through for repo-awareness queries",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn887c7vzqbqeq28g6dpejs7-c762813559ce438c.json"
+  },
+  {
+    "id": "coord-task:01kn887qhy3394rwdsqj43tzz3",
+    "title": "Make runtimeStatus trustworthy for process and memory diagnostics",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn887qhy3394rwdsqj43tzz3-661ac6df335bbbdb.json"
+  },
+  {
+    "id": "coord-task:01kn8881wy1ezws32kge141gk7",
+    "title": "Tighten freshness for newly added files and docs in anchors and compact reads",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn8881wy1ezws32kge141gk7-4f51e8eab949f1e1.json"
+  },
+  {
+    "id": "coord-task:01kn888c0tajwyg12b26d389nf",
+    "title": "Eliminate the remaining known workspace validation flakes",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn888c0tajwyg12b26d389nf-8ed7c5783e31cb73.json"
+  },
+  {
+    "id": "coord-task:01kn888p792g26q4napd7sy96b",
+    "title": "Validate the feedback-driven repo-awareness improvements end to end",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn888p792g26q4napd7sy96b-5b3235cc4a31ba57.json"
+  },
+  {
+    "id": "coord-task:01kn88mvdemb54hwcw9wczv19j",
+    "title": "Trace the prism://plans hot path and identify why the warm resource handler still spends about 1.27s outside runtime sync.",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn88mvdemb54hwcw9wczv19j-053edef89a4ab485.json"
+  },
+  {
+    "id": "coord-task:01kn88n8aef9wcbvsbb6bjhfpq",
+    "title": "Profile warm prism_concept latency and isolate the expensive concept resolution, decode, and render work.",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn88n8aef9wcbvsbb6bjhfpq-d866cb58dd33fac0.json"
+  },
+  {
+    "id": "coord-task:01kn88n9bxjefsmjc8pqv1dhcq",
+    "title": "Profile the shared compact-tool hot path behind prism_open, prism_workset, prism_locate, and prism_gather.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn88n9bxjefsmjc8pqv1dhcq-d457c134e99a1c5c.json"
+  },
+  {
+    "id": "coord-task:01kn88naczk5jdjtgm5qzf23be",
+    "title": "Design a lighter MCP log introspection path so slow prism_query diagnostics do not need many per-call prism.mcpTrace lookups.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn88naczk5jdjtgm5qzf23be-2bd80388e8ecf025.json"
+  },
+  {
+    "id": "coord-task:01kn88ntbg34qjspspev07mxj1",
+    "title": "Implement the prism://plans latency fixes with a warm-path target comfortably below the current 1.27s read.",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn88ntbg34qjspspev07mxj1-1fdaeb684f53614c.json"
+  },
+  {
+    "id": "coord-task:01kn88nvmc3xnak8b7y6z7a297",
+    "title": "Implement the prism_concept latency fixes so common warm concept reads stop spending most time in the compact handler.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn88nvmc3xnak8b7y6z7a297-5ea875ea2438df58.json"
+  },
+  {
+    "id": "coord-task:01kn88nwp3cqgppdhgn8zv10vw",
+    "title": "Validate the latency work with targeted timing checks and a fresh repo-wide slow-call log pass.",
+    "status": "Blocked",
+    "path": "tasks/coord-task-01kn88nwp3cqgppdhgn8zv10vw-aecca1cde42f40a4.json"
+  },
+  {
+    "id": "coord-task:01kn88nxq7nkrkmydemx7rpry1",
+    "title": "Implement shared compact-tool latency fixes across prism_open, prism_workset, prism_locate, and prism_gather.",
+    "status": "Blocked",
+    "path": "tasks/coord-task-01kn88nxq7nkrkmydemx7rpry1-c0dcb1d5a842d925.json"
+  },
+  {
+    "id": "coord-task:01kn891asb951r6bdzws74dbtv",
+    "title": "Define the docs/prism projection hierarchy and coverage map",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01kn891asb951r6bdzws74dbtv-bc1a59f9f46dc0fe.json"
+  },
+  {
+    "id": "coord-task:01kn891bw81xnx9tddb0vb99t7",
+    "title": "Implement generated markdown projections for persisted .prism state",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn891bw81xnx9tddb0vb99t7-2eb86e35b1ca4c5c.json"
+  },
+  {
+    "id": "coord-task:01kn891d13gpz3snkn2k5qfww2",
+    "title": "Validate regenerated projections and refresh live PRISM surfaces",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn891d13gpz3snkn2k5qfww2-321e17ee4d4de291.json"
+  },
+  {
+    "id": "coord-task:01kn8dq98qhhd6m31kdcavrhvr",
+    "title": "Profile the full cargo test suite and identify the slowest crates and test cases.",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01kn8dq98qhhd6m31kdcavrhvr-f54eaf26b2add56c.json"
+  },
+  {
+    "id": "coord-task:01kn8dqgf7v523n7bbrp0p3bxm",
+    "title": "Audit repeated fixture, indexing, SQLite, and process-startup patterns in the slowest tests.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8dqgf7v523n7bbrp0p3bxm-1df83109db12e7a6.json"
+  },
+  {
+    "id": "coord-task:01kn8dqwqxreh653af5apa1yv0",
+    "title": "Implement first-pass test-speed wins in the highest-leverage fixtures and harness helpers.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8dqwqxreh653af5apa1yv0-74d6af3273085ff1.json"
+  },
+  {
+    "id": "coord-task:01kn8dqyvrpbxe16xxwwfd29dy",
+    "title": "Improve reliability by removing brittle timing waits and separating truly heavy end-to-end cases from the default suite.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8dqyvrpbxe16xxwwfd29dy-39f86e967bae975a.json"
+  },
+  {
+    "id": "coord-task:01kn8dr8dw1b6t5726j9sy76xe",
+    "title": "Validate the new default test path with before/after timings and record the updated repo guidance.",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8dr8dw1b6t5726j9sy76xe-50468e30eca3bcae.json"
+  },
+  {
+    "id": "coord-task:01kn8n9ssejh5kkx8zb4hjxt09",
+    "title": "Audit remaining git execution gaps after the merged implementation",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn8n9ssejh5kkx8zb4hjxt09-6473d79e7051409a.json"
+  },
+  {
+    "id": "coord-task:01kn8n9txdczd5dmtf1maheqpw",
+    "title": "Expose git execution policy and state clearly in MCP, query, and docs surfaces",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01kn8n9txdczd5dmtf1maheqpw-76d0f87f6efc2f37.json"
+  },
+  {
+    "id": "coord-task:01kn8n9w0r3ydrfs64cdy58t12",
+    "title": "Split task lifecycle from publish lifecycle and harden strict completion semantics",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn8n9w0r3ydrfs64cdy58t12-0a4e9424d2dbd0a6.json"
+  },
+  {
+    "id": "coord-task:01kn8n9x2vm8c683vpx5642f3j",
+    "title": "Dogfood start and complete flows against real task claims and branch state",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8n9x2vm8c683vpx5642f3j-46109fe60e3c80ec.json"
+  },
+  {
+    "id": "coord-task:01kn8n9y54tz8h72ex327yyt9w",
+    "title": "Make strict require the default and remove auto after proven dogfooding",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8n9y54tz8h72ex327yyt9w-8c8a54250dcc4a18.json"
+  },
+  {
+    "id": "coord-task:01kn8n9z7yxmpw7fnhzz8fchjj",
+    "title": "Define the cross-plan dependency model and dispatch inputs",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8n9z7yxmpw7fnhzz8fchjj-dc0d2bb892aea3f4.json"
+  },
+  {
+    "id": "coord-task:01kn8na0axebh607nk06be0hkg",
+    "title": "Implement cross-plan relations and blocking semantics",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8na0axebh607nk06be0hkg-c8952febcaf5afc2.json"
+  },
+  {
+    "id": "coord-task:01kn8na1d7v4knswb3jmp21p7m",
+    "title": "Implement a ranked portfolio inbox and next-work query",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8na1d7v4knswb3jmp21p7m-9746c4439bb3101e.json"
+  },
+  {
+    "id": "coord-task:01kn8na2fnmy9efdqc2g57t9nn",
+    "title": "Expose score breakdowns and explanations in read surfaces",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8na2fnmy9efdqc2g57t9nn-e5b8dff5db8ade26.json"
+  },
+  {
+    "id": "coord-task:01kn8na3jdcx78a3t4n9htmhx5",
+    "title": "Dogfood the portfolio inbox against concurrent active plans",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8na3jdcx78a3t4n9htmhx5-a0f909114fa0ea79.json"
+  },
+  {
+    "id": "coord-task:01kn8rmqrchgcb1ym5btdszded",
+    "title": "Lock the logical repo identity contract and naming invariants",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8rmqrchgcb1ym5btdszded-3dd99482c88d51e3.json"
+  },
+  {
+    "id": "coord-task:01kn8rn49cxj6cs4rdhxxg0j8c",
+    "title": "Define the protected repo-published logical identity artifact in .prism",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8rn49cxj6cs4rdhxxg0j8c-c7a0ac4c631b468b.json"
+  },
+  {
+    "id": "coord-task:01kn8rnk0ek3mjnmpbx4d3atz2",
+    "title": "Specify logical identity bootstrap and clone propagation workflow",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8rnk0ek3mjnmpbx4d3atz2-d0ec2dbf5b88d29a.json"
+  },
+  {
+    "id": "coord-task:01kn8rr5zr0md0jzevcfssaqvc",
+    "title": "Live require completion dogfood",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01kn8rr5zr0md0jzevcfssaqvc-08f150f5bb13c7db.json"
+  },
+  {
+    "id": "coord-task:01kn8rz9qnzcwan5vd2cs7c99j",
+    "title": "Thread logical identity through runtime context, provenance, logs, and diagnostics",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8rz9qnzcwan5vd2cs7c99j-7ecef8f47c0a9c7a.json"
+  },
+  {
+    "id": "coord-task:01kn8rzmv5sa7xj8xt557rtzrg",
+    "title": "Namespace shared runtime backends by logical repo identity",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8rzmv5sa7xj8xt557rtzrg-80167037ba5e77d3.json"
+  },
+  {
+    "id": "coord-task:01kn8rzyqxvzpnw7m4c0zzk9ex",
+    "title": "Map local repo-instance migration and compatibility rules around the new logical identity",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8rzyqxvzpnw7m4c0zzk9ex-876630cbf18b8428.json"
+  },
+  {
+    "id": "coord-task:01kn8s096yzxzw3cwvyc4t3gg3",
+    "title": "Add mismatch detection and repair surfaces for logical identity conflicts",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8s096yzxzw3cwvyc4t3gg3-bacaa05869461fe8.json"
+  },
+  {
+    "id": "coord-task:01kn8s0kxdap9nc8376dvaap5q",
+    "title": "Validate multi-worktree and multi-clone convergence on one logical repo identity",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8s0kxdap9nc8376dvaap5q-396df7c4f0a94e0b.json"
+  },
+  {
+    "id": "coord-task:01kn8s0zewczf185w547hbf46x",
+    "title": "Update specs, instructions, and release validation for logical repo identity",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8s0zewczf185w547hbf46x-5308b61a242a31d8.json"
+  },
+  {
+    "id": "coord-task:01kn8vptjxtbw2tnffjg5gsf9e",
+    "title": "Warm follow-up coordination mutation",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn8vptjxtbw2tnffjg5gsf9e-7ed64671a4b920da.json"
+  },
+  {
+    "id": "coord-task:01kn8yzs3354nger6td7q3x24r",
+    "title": "Finalize strict require mode with explicit freshness policy and PRISM-only projection commits",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn8yzs3354nger6td7q3x24r-d3df93d90088f901.json"
+  },
+  {
+    "id": "coord-task:01kn9hmd10c4x9nzzmp1b5h53a",
+    "title": "Lock the tracked .prism snapshot authority contract",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hmd10c4x9nzzmp1b5h53a-7668b8f8ea3c4060.json"
+  },
+  {
+    "id": "coord-task:01kn9hmj8kajwtre6xq83jbt12",
+    "title": "Define the tracked snapshot file layout and shard strategy",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hmj8kajwtre6xq83jbt12-fd66df504d586ce4.json"
+  },
+  {
+    "id": "coord-task:01kn9hmqncfe5nfm4chtm6dt2s",
+    "title": "Define signed publish manifests, chaining, and publish atomicity",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hmqncfe5nfm4chtm6dt2s-6b959e8f1c332b3e.json"
+  },
+  {
+    "id": "coord-task:01kn9hn12c7s4bymzxdwea8qfn",
+    "title": "Define the runtime or shared journal model and snapshot linkage",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hn12c7s4bymzxdwea8qfn-65a7de3e09718189.json"
+  },
+  {
+    "id": "coord-task:01kn9hn84cet00qdmq429cc7cg",
+    "title": "Define which coordination state is durable enough to publish",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hn84cet00qdmq429cc7cg-849b71f968d4c852.json"
+  },
+  {
+    "id": "coord-task:01kn9hnfwp7s16np7cf557cxwr",
+    "title": "Implement tracked snapshot writers and signed publish manifests",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hnfwp7s16np7cf557cxwr-30d2f1fbcae66df2.json"
+  },
+  {
+    "id": "coord-task:01kn9hnq7j6p60y8arjfrccw5r",
+    "title": "Replace tracked append-log surfaces with snapshot publication and snapshot-backed reads",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hnq7j6p60y8arjfrccw5r-3a0ced6117bf8fb5.json"
+  },
+  {
+    "id": "coord-task:01kn9hnzqwjgfenrc5tf2jdxsw",
+    "title": "Rework hot and cold startup around snapshot restore and cheap journal reconciliation",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hnzqwjgfenrc5tf2jdxsw-69720e776292d260.json"
+  },
+  {
+    "id": "coord-task:01kn9hp5yrtkn0dh3fv6anbwb8",
+    "title": "Build the migration bridge from legacy tracked event logs to the first snapshot publish",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hp5yrtkn0dh3fv6anbwb8-8f8fe25170dc19ff.json"
+  },
+  {
+    "id": "coord-task:01kn9hpcdqsrjqcg23rate5ps8",
+    "title": "Update projections, tooling, docs, and validation around the new authority model",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hpcdqsrjqcg23rate5ps8-c46246bb1f73568a.json"
+  },
+  {
+    "id": "coord-task:01kn9hphz797055gppgx8dwfwa",
+    "title": "Validate cold-clone restore, Git time travel, startup performance, and published trust semantics",
+    "status": "Completed",
+    "path": "tasks/coord-task-01kn9hphz797055gppgx8dwfwa-f7eeb1ae2f9d90f9.json"
+  },
+  {
+    "id": "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+    "title": "Lock the canonical path identity contract and no-absolute-path boundary",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn9vd1qxxaht9ap1ygbmd23g-d9269388d653f53f.json"
+  },
+  {
+    "id": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+    "title": "Canonicalize graph and workspace file identity around file ids plus repo-relative paths",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn9vd88apgdq35f4hr9tmsss-ff41bf160cc41b2a.json"
+  },
+  {
+    "id": "coord-task:01kn9vdfjsrbzwz5w5mff8yqck",
+    "title": "Normalize tracked snapshot, protected publication, and shared/runtime serialization to repo-relative paths",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn9vdfjsrbzwz5w5mff8yqck-28360e8f7ddfa227.json"
+  },
+  {
+    "id": "coord-task:01kn9vdqfnnkkywq1bb0jk5fq8",
+    "title": "Audit MCP/query/docs/projection surfaces for path leakage and anchor misuse",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn9vdqfnnkkywq1bb0jk5fq8-e8f227e8f9eb292e.json"
+  },
+  {
+    "id": "coord-task:01kn9vdznkm34knqjxgdqdqcxe",
+    "title": "Add migration, auditing, and repair paths for legacy absolute-path data",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn9vdznkm34knqjxgdqdqcxe-971f0ebdb8afc96a.json"
+  },
+  {
+    "id": "coord-task:01kn9ve8ants7rmt18m4rpf25b",
+    "title": "Validate no absolute paths survive in published or shared PRISM state",
+    "status": "Ready",
+    "path": "tasks/coord-task-01kn9ve8ants7rmt18m4rpf25b-1b4143028d395cb8.json"
+  },
+  {
+    "id": "coord-task:1",
+    "title": "Classify authoritative state vs derived artifacts across persistence, plans, and projections",
+    "status": "Completed",
+    "path": "tasks/coord-task-1-12761fa8e93c5cba.json"
+  },
+  {
+    "id": "coord-task:10",
+    "title": "Make mutations patch live runtime first and isolate admin-only rebuild flows",
+    "status": "Completed",
+    "path": "tasks/coord-task-10-67c149fb5a3697c7.json"
+  },
+  {
+    "id": "coord-task:11",
+    "title": "Demote snapshots and cache to optional startup or recovery aids",
+    "status": "Ready",
+    "path": "tasks/coord-task-11-7fb2189d18d910e8.json"
+  },
+  {
+    "id": "coord-task:12",
+    "title": "Instrument freshness and materialization state and validate latency behavior",
+    "status": "Ready",
+    "path": "tasks/coord-task-12-212d7f4ad59c33be.json"
+  },
+  {
+    "id": "coord-task:13",
+    "title": "Quarantine persisted reload behind an explicit admin or recovery path",
+    "status": "Completed",
+    "path": "tasks/coord-task-13-6489120b6d9e0a7e.json"
+  },
+  {
+    "id": "coord-task:14",
+    "title": "Make refresh ownership singular across watcher, runtime, and status surfaces",
+    "status": "Completed",
+    "path": "tasks/coord-task-14-851c69a13d8f481e.json"
+  },
+  {
+    "id": "coord-task:15",
+    "title": "Demote DB and snapshot hydration to optional startup or durability concerns",
+    "status": "Completed",
+    "path": "tasks/coord-task-15-4400379b138733c6.json"
+  },
+  {
+    "id": "coord-task:16",
+    "title": "Instrument and benchmark the refresh path for no-op, one-file, and contention cases",
+    "status": "Ready",
+    "path": "tasks/coord-task-16-e1c20850321b9cf1.json"
+  },
+  {
+    "id": "coord-task:17",
+    "title": "Identify the dominant refresh costs across fs refresh, materialization checks, runtime sync, and persisted-state interactions",
+    "status": "Ready",
+    "path": "tasks/coord-task-17-ca6e5f249ab80d33.json"
+  },
+  {
+    "id": "coord-task:18",
+    "title": "Evaluate relevant OPTIMIZATIONS.md items and decide whether any should be folded into refresh tuning",
+    "status": "Ready",
+    "path": "tasks/coord-task-18-c1ed32e474cc703d.json"
+  },
+  {
+    "id": "coord-task:19",
+    "title": "Implement the selected refresh-path fixes and any approved optimization work",
+    "status": "Ready",
+    "path": "tasks/coord-task-19-6388dabdc4e7bb8e.json"
+  },
+  {
+    "id": "coord-task:2",
+    "title": "Make native plan and coordination writes authoritative via incremental DB-native persistence",
+    "status": "Completed",
+    "path": "tasks/coord-task-2-3a965438b24c3f20.json"
+  },
+  {
+    "id": "coord-task:20",
+    "title": "Validate latency improvements and regression risk for request-path and background refresh behavior",
+    "status": "Ready",
+    "path": "tasks/coord-task-20-18533c849066454e.json"
+  },
+  {
+    "id": "coord-task:3",
+    "title": "Move outcomes, projections, and plan read models onto incremental maintenance",
+    "status": "Completed",
+    "path": "tasks/coord-task-3-0a021695632428f6.json"
+  },
+  {
+    "id": "coord-task:4",
+    "title": "Refactor WorkspaceSession hydration around incremental loads, binding hydration, and repo-motion recovery",
+    "status": "Completed",
+    "path": "tasks/coord-task-4-758de4882d0a1ca4.json"
+  },
+  {
+    "id": "coord-task:5",
+    "title": "Demote snapshots to compatibility caches, bootstrap accelerators, export artifacts, and plan compaction outputs",
+    "status": "Completed",
+    "path": "tasks/coord-task-5-9fd5ed10665d87a1.json"
+  },
+  {
+    "id": "coord-task:6",
+    "title": "Validate reload latency, concurrency behavior, migration safety, and native plan persistence correctness",
+    "status": "Ready",
+    "path": "tasks/coord-task-6-640871102e895ef2.json"
+  },
+  {
+    "id": "coord-task:7",
+    "title": "Introduce backend-neutral persistence and session abstractions for native plans and coordination state",
+    "status": "Completed",
+    "path": "tasks/coord-task-7-48a6a5a8113d3e2b.json"
+  },
+  {
+    "id": "coord-task:8",
+    "title": "Define refresh-runtime invariants and explicit delete list",
+    "status": "Completed",
+    "path": "tasks/coord-task-8-a7fbfd4a1542a493.json"
+  },
+  {
+    "id": "coord-task:9",
+    "title": "Cut synchronous request-path refresh from read surfaces",
+    "status": "Completed",
+    "path": "tasks/coord-task-9-91d485fc38df27f2.json"
+  }
+]

@@ -1,0 +1,59 @@
+{
+  "id": "coord-task:01kn8dqgf7v523n7bbrp0p3bxm",
+  "plan": "plan:01kn8dprbn5qf3fjpvj1zjxfb0",
+  "kind": "Edit",
+  "title": "Audit repeated fixture, indexing, SQLite, and process-startup patterns in the slowest tests.",
+  "summary": null,
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn8dq98qhhd6m31kdcavrhvr"
+  ],
+  "acceptance": [
+    {
+      "label": "The main repeated setup patterns behind the slowest tests are mapped to owning helpers or modules.",
+      "anchors": []
+    },
+    {
+      "label": "The repo has a prioritized list of the most leverageful test-speed interventions.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 73,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

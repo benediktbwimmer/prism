@@ -1,0 +1,66 @@
+{
+  "id": "coord-task:01kn7cz9ysdjmzcdr8sqtk388j",
+  "plan": "plan:01kn7cxa9tvnaa1svrgppcth4a",
+  "kind": "Edit",
+  "title": "Reduce noisy bridge transport warnings and make bridge lifecycle state clearer",
+  "summary": "Default MCP logging now suppresses generic rmcp transport warnings while keeping rmcp::service warnings visible. Fresh restart windows no longer emit new benign SSE decode or cancelled-stream warnings from the new binaries.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn7cxtgg1r28ntzg41pgzt2r"
+  ],
+  "acceptance": [
+    {
+      "label": "Expected bridge reconnect or restart churn no longer produces repeated high-severity transport warnings that look like data corruption or service faults.",
+      "anchors": []
+    },
+    {
+      "label": "Runtime status or logs make it easier to distinguish healthy active bridges from stale or idle long-lived bridge sessions.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [
+    {
+      "id": "log:bridge-lifecycle-visibility"
+    },
+    {
+      "id": "log:bridge-transport-warnings"
+    }
+  ],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 560,
+    "git_commit": null
+  },
+  "priority": 6,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

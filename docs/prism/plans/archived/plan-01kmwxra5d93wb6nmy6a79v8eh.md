@@ -26,10 +26,19 @@
 
 prism-query-01: add a runtime-gated query-view registry, harden existing PRISM query surfaces, and ship a small measured set of new agent-facing prism_query views with usage logging and pruning discipline.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kmwxra5d93wb6nmy6a79v8eh.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kmwxra5d93wb6nmy6a79v8eh.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kmwxra5d93wb6nmy6a79v8eh.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

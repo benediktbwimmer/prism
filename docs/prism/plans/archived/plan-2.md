@@ -26,10 +26,19 @@
 
 Redesign PRISM refresh/runtime so request paths never block on full persisted rebuilds, the live runtime is authoritative for serving reads and applying mutations, snapshots/cache become optional startup or recovery aids only, and repo-committed memories, concepts, and plans remain the only durable truth that must survive storage resets.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:2.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:2.json`
+- Legacy migration log path: `.prism/plans/streams/plan:2.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

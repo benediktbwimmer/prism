@@ -26,10 +26,19 @@
 
 Investigate and reduce the next observed PRISM runtime and MCP performance hotspots from live daemon and MCP logs by tackling compact-task latency, refresh-lock admission stalls, oversized co-change work, startup/recovery fixed costs, and noisy bridge transport behavior, while preserving correctness and proving improvements with log-backed validation.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn7cxa9tvnaa1svrgppcth4a.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn7cxa9tvnaa1svrgppcth4a.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn7cxa9tvnaa1svrgppcth4a.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

@@ -1,0 +1,57 @@
+{
+  "id": "coord-task:01kn384q9273c7ak2baermst1v",
+  "plan": "plan:01kn384cseg90m3a2gpf3802ca",
+  "kind": "Investigate",
+  "title": "Triage and prioritize PRISM dogfooding improvements",
+  "summary": "Prioritized order: (1) improve heading-aware doc discovery and first-hop ranking, (2) add governing-section and cross-doc navigation affordances, (3) make compact tools more forgiving and self-correcting, (4) strengthen concept packets with concrete follow-through targets, (5) clarify session and task-context UX. Rationale: the first two items share the same compact text/doc ranking surface and directly address the highest-friction failure seen in live use; compact-tool normalization is a bounded high-leverage ergonomics fix; concept follow-through is valuable but likely reaches deeper into concept publication and decode paths; session/task-context clarity matters but is lower-frequency and touches broader host/session UX decisions.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [],
+  "acceptance": [
+    {
+      "label": "The plan captures the concrete PRISM issues surfaced during live use and orders them by impact and implementation cost.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 1625,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [
+    "dogfooding",
+    "mcp",
+    "planning"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

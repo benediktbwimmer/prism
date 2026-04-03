@@ -19,6 +19,7 @@ use crate::published_plans::{
     sync_repo_published_plan_state, sync_repo_published_plan_state_observed,
     sync_repo_published_plans, HydratedCoordinationPlanState,
 };
+use crate::tracked_snapshot::publish_context_from_coordination_events;
 use crate::workspace_identity::coordination_persist_context_for_root;
 
 const COORDINATION_COMPACTION_SUFFIX_THRESHOLD: usize = 128;
@@ -96,8 +97,9 @@ pub(crate) trait CoordinationPersistenceBackend:
                 None,
                 plan_graphs.to_vec(),
                 execution_overlays.clone(),
+                None,
             )?,
-            _ => sync_repo_published_plans(root, snapshot)?,
+            _ => sync_repo_published_plans(root, snapshot, None)?,
         }
         Ok(result)
     }
@@ -202,6 +204,7 @@ pub(crate) trait CoordinationPersistenceBackend:
         } else {
             "snapshot"
         };
+        let publish_context = publish_context_from_coordination_events(appended_events);
         let sync_result = if authoritative_only_coordination_delta(appended_events) {
             Ok(())
         } else {
@@ -223,6 +226,7 @@ pub(crate) trait CoordinationPersistenceBackend:
                     Some(previous_plan_graphs),
                     plan_graphs.to_vec(),
                     execution_overlays.clone(),
+                    publish_context.as_ref(),
                     &mut observe_phase,
                 ),
                 (_, _, Some(plan_graphs), Some(execution_overlays)) => {
@@ -233,10 +237,11 @@ pub(crate) trait CoordinationPersistenceBackend:
                         None,
                         plan_graphs.to_vec(),
                         execution_overlays.clone(),
+                        publish_context.as_ref(),
                         &mut observe_phase,
                     )
                 }
-                _ => sync_repo_published_plans(root, snapshot),
+                _ => sync_repo_published_plans(root, snapshot, publish_context.as_ref()),
             }
         };
         match sync_result {

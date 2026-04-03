@@ -1,0 +1,87 @@
+{
+  "id": "coord-task:01kn5ydewgd87bncbkdehbrd41",
+  "plan": "plan:01kn5y6qqpxt3qaecccg12h03e",
+  "kind": "Decide",
+  "title": "Define the protected-state foundation and canonical envelope model",
+  "summary": "Introduce the shared protected-state subsystem that freezes the v1 protected stream set, verification statuses, canonical JCS envelope schema, hash/signature rules, predecessor linkage, and stream-family abstractions used by all protected repo `.prism` logs.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [
+    {
+      "File": 340
+    },
+    {
+      "File": 88
+    },
+    {
+      "File": 99
+    }
+  ],
+  "bindings": {
+    "anchors": [
+      {
+        "File": 340
+      },
+      {
+        "File": 88
+      },
+      {
+        "File": 99
+      }
+    ],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn5ydetjt5w7xfn8x71qk7x7"
+  ],
+  "acceptance": [
+    {
+      "label": "One protected-state module owns stream ids, verification statuses, envelope/payload types, and canonical serialization rules.",
+      "anchors": []
+    },
+    {
+      "label": "The design keeps `lib.rs` as a facade and places substantive logic in dedicated submodules.",
+      "anchors": []
+    },
+    {
+      "label": "Protected authoritative scope is fixed to the spec’s v1 stream set and does not silently expand.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 325,
+    "git_commit": null
+  },
+  "priority": 1,
+  "tags": [
+    "foundation",
+    "protected-state",
+    "schema"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

@@ -14,6 +14,10 @@ use crate::published_plans::{
     load_hydrated_coordination_plan_state, HydratedCoordinationPlanState,
 };
 use crate::repo_patch_events::load_repo_patch_events;
+use crate::tracked_snapshot::{
+    load_concept_snapshots, load_contract_snapshots, load_memory_snapshot_events,
+    load_patch_snapshots, load_relation_snapshots,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct RepoProtectedKnowledge {
@@ -76,6 +80,19 @@ impl ProtectedStateImportSelection {
 }
 
 pub(crate) fn load_repo_protected_knowledge(root: &Path) -> Result<RepoProtectedKnowledge> {
+    let snapshot_concepts = load_concept_snapshots(root)?;
+    let snapshot_contracts = load_contract_snapshots(root)?;
+    let snapshot_relations = load_relation_snapshots(root)?;
+    if !snapshot_concepts.is_empty()
+        || !snapshot_contracts.is_empty()
+        || !snapshot_relations.is_empty()
+    {
+        return Ok(RepoProtectedKnowledge {
+            curated_concepts: snapshot_concepts,
+            curated_contracts: snapshot_contracts,
+            concept_relations: snapshot_relations,
+        });
+    }
     Ok(RepoProtectedKnowledge {
         curated_concepts: load_repo_concept_stream(root)?,
         curated_contracts: load_repo_contract_stream(root)?,
@@ -152,10 +169,18 @@ fn sync_repo_patch_stream<S: prism_store::EventJournalStore>(
 }
 
 fn load_repo_memory_stream(root: &Path) -> Result<Vec<prism_memory::MemoryEvent>> {
+    let snapshots = load_memory_snapshot_events(root)?;
+    if !snapshots.is_empty() {
+        return Ok(snapshots);
+    }
     load_repo_memory_events(root)
 }
 
 fn load_repo_patch_stream(root: &Path) -> Result<Vec<prism_memory::OutcomeEvent>> {
+    let snapshots = load_patch_snapshots(root)?;
+    if !snapshots.is_empty() {
+        return Ok(snapshots);
+    }
     load_repo_patch_events(root)
 }
 

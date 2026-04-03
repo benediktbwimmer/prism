@@ -1,0 +1,89 @@
+{
+  "id": "coord-task:01kn55feg438a0sr325zc2k313",
+  "plan": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+  "kind": "Validate",
+  "title": "Validate refresh latency against the document budgets and publish residual gaps",
+  "summary": "Use live daemon evidence and reproducible workloads to confirm whether the rewritten path hits the architecture budgets, and publish any remaining misses with attributed causes rather than hand-waving them away.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [
+    {
+      "File": 256
+    },
+    {
+      "File": 343
+    },
+    {
+      "File": 84
+    }
+  ],
+  "bindings": {
+    "anchors": [
+      {
+        "File": 256
+      },
+      {
+        "File": 343
+      },
+      {
+        "File": 84
+      }
+    ],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn55dvkdfvxg8pdfk72p0h72",
+    "coord-task:01kn55eps6ms9b7hr6nexfnjhr",
+    "coord-task:01kn55f0wgfw5rcrxzbqa0qpm4",
+    "coord-task:01kn55f7ffvqmnm2gkdptvdttd"
+  ],
+  "acceptance": [
+    {
+      "label": "The repo has reproducible measurements for tiny-edit publish latency, queue wait, direct dependent settle latency, and checkpoint lag under nominal load.",
+      "anchors": []
+    },
+    {
+      "label": "If any budget is still missed, the remaining gap is attributed to named subsystems with follow-up work, not a generic 'needs tuning' conclusion.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [
+    {
+      "id": "bench:refresh-budget-validation"
+    },
+    {
+      "id": "log:live-daemon-refresh-timings"
+    }
+  ],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 246,
+    "git_commit": null
+  },
+  "priority": 8,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

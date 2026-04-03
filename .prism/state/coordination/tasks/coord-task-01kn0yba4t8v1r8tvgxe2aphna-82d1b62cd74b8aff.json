@@ -1,0 +1,73 @@
+{
+  "id": "coord-task:01kn0yba4t8v1r8tvgxe2aphna",
+  "plan": "plan:01kn0yaqr4ktj8ey63r1r3n79q",
+  "kind": "Edit",
+  "title": "Validate persistence hot-path improvements with runtime evidence",
+  "summary": null,
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [
+    {
+      "File": 167
+    },
+    {
+      "File": 206
+    },
+    {
+      "File": 74
+    }
+  ],
+  "bindings": {
+    "anchors": [
+      {
+        "File": 167
+      },
+      {
+        "File": 206
+      },
+      {
+        "File": 74
+      }
+    ],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [],
+  "acceptance": [
+    {
+      "label": "Runtime logs and focused regressions show materially lower narrow-scope persist and refresh costs after the fixes.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 1198,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

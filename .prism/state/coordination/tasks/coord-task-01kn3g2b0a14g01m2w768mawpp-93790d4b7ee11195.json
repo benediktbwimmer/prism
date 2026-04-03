@@ -1,0 +1,50 @@
+{
+  "id": "coord-task:01kn3g2b0a14g01m2w768mawpp",
+  "plan": "plan:01kn3g1v47d46eppvcahky430e",
+  "kind": "Edit",
+  "title": "Explain why close alternatives lost in compact-tool ranking",
+  "summary": "Add whyNotTop runner-up explanations to compact locate results, backed by ranking-signal comparisons so close alternatives explain which stronger winner signal beat them without overwhelming the normal winner-oriented selectionReason surface.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn3g1ye0mc3v6rrthj04rfk5"
+  ],
+  "acceptance": [],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 1939,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

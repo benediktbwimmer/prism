@@ -1,0 +1,61 @@
+{
+  "id": "coord-task:01kn888c0tajwyg12b26d389nf",
+  "plan": "plan:01kn8868kh84bkb3rtdc12bdkc",
+  "kind": "Edit",
+  "title": "Eliminate the remaining known workspace validation flakes",
+  "summary": "Hardened the two remaining workspace-parallel PRISM MCP flakes by removing brittle wall-clock timing from the refresh-lock test, making query-history assertions uniquely scoped and order-independent, and invalidating cached runtimeStatus after query-log writes so the live status surface no longer reports stale mcpCallLogBytes. Validation passed via targeted reruns, short stress loops, cargo test -p prism-mcp --quiet, cargo test --workspace --quiet, and the required release build plus daemon restart/status/health sequence.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [],
+  "acceptance": [
+    {
+      "label": "Flake-specific regressions or harness hardening cover the resolved root causes",
+      "anchors": []
+    },
+    {
+      "label": "Full workspace validation stops depending on isolated rerun exceptions for those tests",
+      "anchors": []
+    },
+    {
+      "label": "The recurring prism-mcp query-history and runtime-sync suite flakes stop failing under normal full-suite parallel runs",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 862,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

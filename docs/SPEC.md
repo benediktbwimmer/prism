@@ -136,9 +136,9 @@ PRISM separates authority from interface-layer read models.
 
 Authority planes:
 
-* published repo authority: repo-scoped append-only truth under `.prism/**/*`
+* published repo authority: repo-scoped signed snapshot state under `.prism/**/*`
 * shared runtime authority: mutable runtime-scoped truth such as trust state, coordination
-  continuity, leases, and unpublished working state
+  continuity, leases, unpublished working state, and fine-grained operational journals
 * derived projection state: read-optimized indexes, packets, summaries, caches, and generated
   documentation derived from one or more authority planes
 
@@ -157,7 +157,18 @@ Rules:
 * projections must surface freshness or materialization state when it affects trust in the answer
 * persisted projection accelerators remain derived and rebuildable, not hidden write authority
 * published projection artifacts are committed because they are useful interfaces, not because they
-  replace the underlying ledger
+  replace the underlying snapshot authority format
+
+Tracked `.prism` is no longer the repo-committed operational ledger.
+
+Rules for tracked `.prism`:
+
+* tracked `.prism` is the repo-published authoritative snapshot format
+* Git is the durable history, branch, and time-travel substrate for tracked `.prism`
+* tracked `.prism` must stay self-contained for cold-clone interpretation
+* fine-grained append-only operational history belongs in runtime/shared journals, not in tracked
+  repo state
+* signed publish manifests define the durable publication boundary for tracked `.prism`
 
 Protected-state runtime import rule:
 
@@ -1685,7 +1696,7 @@ Repo semantic codec:
 * each packet carries a canonical name, short summary, aliases, core members, supporting members, likely tests, evidence, confidence, and decode lenses
 * the codec stays lightweight and inspectable rather than trying to model a giant ontology
 * decoding a concept packet reuses ordinary Prism context such as symbols, validations, recent failures, patches, and memory recall
-* repo-promoted concept packets are append-only exported through `.prism/concepts/events.jsonl`, then hydrated into the live concept layer during workspace load and refresh
+* repo-promoted concept packets are published as tracked snapshot shards under `.prism/state/concepts/**`, chained by `.prism/state/manifest.json`, and then hydrated into the live concept layer during workspace load and refresh
 * explicit mutations promote and update concept packets through `prism_mutate` instead of hiding concept curation inside ad hoc memory writes
 
 Expected query shape:

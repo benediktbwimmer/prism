@@ -26,10 +26,19 @@
 
 Measure live coordination mutation latency after restarting onto the latest binary.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn8wz88kerc8wjp37ra0peet.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn8wz88kerc8wjp37ra0peet.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn8wz88kerc8wjp37ra0peet.jsonl` (compatibility only, not current tracked authority)
 
 ## Nodes
 

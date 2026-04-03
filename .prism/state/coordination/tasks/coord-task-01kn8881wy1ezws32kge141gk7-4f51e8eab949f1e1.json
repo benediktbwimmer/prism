@@ -1,0 +1,61 @@
+{
+  "id": "coord-task:01kn8881wy1ezws32kge141gk7",
+  "plan": "plan:01kn8868kh84bkb3rtdc12bdkc",
+  "kind": "Edit",
+  "title": "Tighten freshness for newly added files and docs in anchors and compact reads",
+  "summary": "Improved freshness for newly added files and docs by teaching anchor conversion to trigger scoped workspace refreshes for previously unseen files and by adding workspace-path fallbacks for prism_locate and compact text reads before semantic indexing catches up. Validation passed via targeted anchor and compact-locate regressions, cargo test -p prism-mcp --quiet, cargo test --workspace --quiet, and the required release build plus daemon restart/status/health sequence.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [],
+  "acceptance": [
+    {
+      "label": "Compact locate or read flows can surface newly added docs without manual fallbacks",
+      "anchors": []
+    },
+    {
+      "label": "Freshness regressions cover new-file and new-doc cases",
+      "anchors": []
+    },
+    {
+      "label": "Newly added files become anchorable and queryable without stale-path surprises",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 862,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

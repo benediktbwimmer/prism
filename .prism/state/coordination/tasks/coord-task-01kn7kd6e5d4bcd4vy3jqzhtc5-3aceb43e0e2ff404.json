@@ -1,0 +1,67 @@
+{
+  "id": "coord-task:01kn7kd6e5d4bcd4vy3jqzhtc5",
+  "plan": "plan:01kn7kc7wd38p9kb8src073kpp",
+  "kind": "Edit",
+  "title": "Add ad hoc projection requests for time-travel and diff views",
+  "summary": "Added first-class ad hoc plan projection requests in prism-query for point-in-time and diff views by replaying coordination history into raw historical plan graphs and execution overlays, plus documented the structural replay semantics and latency honesty contract in PRISM_PROJECTIONS.md.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn7kcgg7q9qszsfsb3j2vs7s",
+    "coord-task:01kn7kd5vsbjjt95a5m6axdcpk"
+  ],
+  "acceptance": [
+    {
+      "label": "Historical read paths state replay and latency expectations explicitly rather than implying all time-travel views are cheap.",
+      "anchors": []
+    },
+    {
+      "label": "There is a clear request model for time-scoped and diff-scoped projection reads over plans or coordination state.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [
+    {
+      "id": "crates/prism-query"
+    },
+    {
+      "id": "docs/PRISM_PROJECTIONS.md"
+    }
+  ],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 633,
+    "git_commit": null
+  },
+  "priority": 5,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

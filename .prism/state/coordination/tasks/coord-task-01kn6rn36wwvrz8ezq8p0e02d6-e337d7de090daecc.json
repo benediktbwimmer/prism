@@ -1,0 +1,63 @@
+{
+  "id": "coord-task:01kn6rn36wwvrz8ezq8p0e02d6",
+  "plan": "plan:01kn6rkat0t02ncv5pj0756yyz",
+  "kind": "Edit",
+  "title": "Add authenticated declare-work bootstrap and current-work runtime state",
+  "summary": "Implementing explicit authenticated declare-work bootstrap and runtime current-work state so authoritative mutations can require declared intent instead of falling back to implicit session tasks.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn6rm7bf7k1qnmhcegvypt86"
+  ],
+  "acceptance": [
+    {
+      "label": "Adds an authenticated mutation for declaring work intent before other authoritative mutations.",
+      "anchors": []
+    },
+    {
+      "label": "Session/runtime state tracks current declared work separately from coordination task bindings.",
+      "anchors": []
+    },
+    {
+      "label": "Spawned or delegated work can carry an optional parent-work relationship without making bootstrap tokens semantically authoritative.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 402,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

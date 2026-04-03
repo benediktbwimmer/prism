@@ -1,0 +1,79 @@
+{
+  "id": "coord-task:01kn55eps6ms9b7hr6nexfnjhr",
+  "plan": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+  "kind": "Edit",
+  "title": "Move derived projections, memory reanchor, and coordination reloads fully behind settle",
+  "summary": "Push non-authoritative downstream work behind coalesced settle lanes and surface pending or stale domain states rather than doing hidden work on the publish path.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [
+    {
+      "File": 108
+    },
+    {
+      "File": 256
+    },
+    {
+      "File": 84
+    }
+  ],
+  "bindings": {
+    "anchors": [
+      {
+        "File": 108
+      },
+      {
+        "File": 256
+      },
+      {
+        "File": 84
+      }
+    ],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn55egap84qbyxkarhq6y7vz"
+  ],
+  "acceptance": [
+    {
+      "label": "Projection reload, memory reanchor, and coordination refresh run as explicit settle work with target-generation cancellation or coalescing.",
+      "anchors": []
+    },
+    {
+      "label": "Queries and runtime status expose pending or stale domains instead of implying fully current derived state after the fast publish path.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 249,
+    "git_commit": null
+  },
+  "priority": 5,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

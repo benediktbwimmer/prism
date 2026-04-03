@@ -26,10 +26,19 @@
 
 Implement principal identity, authenticated mutation provenance, task and claim lease lifecycle, heartbeat advisories, and CLI/bootstrap auth so PRISM coordination becomes principal-authenticated instead of session-authenticated.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn3p2nf687bn24v4seqzbey0.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn3p2nf687bn24v4seqzbey0.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn3p2nf687bn24v4seqzbey0.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

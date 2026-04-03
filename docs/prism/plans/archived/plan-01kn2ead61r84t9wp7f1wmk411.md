@@ -26,10 +26,19 @@
 
 test plan create from direct http
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn2ead61r84t9wp7f1wmk411.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn2ead61r84t9wp7f1wmk411.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn2ead61r84t9wp7f1wmk411.jsonl` (compatibility only, not current tracked authority)
 
 ## Nodes
 

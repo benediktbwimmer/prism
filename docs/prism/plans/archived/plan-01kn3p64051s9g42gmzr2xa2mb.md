@@ -26,10 +26,19 @@
 
 large-edit-follow-up: eliminate the remaining large-edit pathologies in the daemon by preserving better co-change fidelity for oversized change sets, reducing parse/apply and persist cost on large fanout edits, and validating the resulting behavior from the live daemon log.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn3p64051s9g42gmzr2xa2mb.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn3p64051s9g42gmzr2xa2mb.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn3p64051s9g42gmzr2xa2mb.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

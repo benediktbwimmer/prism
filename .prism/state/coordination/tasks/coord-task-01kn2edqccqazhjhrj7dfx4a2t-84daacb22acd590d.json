@@ -1,0 +1,61 @@
+{
+  "id": "coord-task:01kn2edqccqazhjhrj7dfx4a2t",
+  "plan": "plan:01kn2edq9k2cr10t7p9pwscpjz",
+  "kind": "Edit",
+  "title": "Separate mutable engine state from published immutable generations",
+  "summary": "Make published Prism generations an immutable read surface instead of the mutable working substrate. The engine should retain long-lived mutable state internally, publish structurally shared immutable generations for readers, retain only a bounded generation window, and attach explicit per-domain freshness and materialization state to every published generation so readers can distinguish file-local currentness, unsettled cross-file facts, pending reanchor work, and older but valid checkpoints.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn2edqbj2w6gfhv8xnw00abb"
+  ],
+  "acceptance": [
+    {
+      "label": "Queries and diagnostics read published generations or bounded materialized derivatives, working mutations no longer rebuild from published Prism state, and retained generation count and memory shape are explicitly bounded.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 1665,
+    "git_commit": null
+  },
+  "priority": 1,
+  "tags": [
+    "domain-freshness",
+    "read-view",
+    "runtime",
+    "snapshots",
+    "structural-sharing"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

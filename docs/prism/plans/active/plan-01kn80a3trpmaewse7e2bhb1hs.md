@@ -26,10 +26,19 @@
 
 Implement the Protected State Runtime Sync design from docs/PROTECTED_STATE_RUNTIME_SYNC.md so repo-published .prism streams follow one uniform runtime import contract across bootstrap, live sync, self-write suppression, diagnostics, and recovery.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn80a3trpmaewse7e2bhb1hs.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn80a3trpmaewse7e2bhb1hs.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn80a3trpmaewse7e2bhb1hs.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

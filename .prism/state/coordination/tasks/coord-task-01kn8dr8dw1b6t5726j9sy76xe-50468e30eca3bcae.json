@@ -1,0 +1,60 @@
+{
+  "id": "coord-task:01kn8dr8dw1b6t5726j9sy76xe",
+  "plan": "plan:01kn8dprbn5qf3fjpvj1zjxfb0",
+  "kind": "Edit",
+  "title": "Validate the new default test path with before/after timings and record the updated repo guidance.",
+  "summary": null,
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn8dqwqxreh653af5apa1yv0",
+    "coord-task:01kn8dqyvrpbxe16xxwwfd29dy"
+  ],
+  "acceptance": [
+    {
+      "label": "Before/after timings exist for the default suite and the targeted hotspots.",
+      "anchors": []
+    },
+    {
+      "label": "The repo guidance reflects the intended split between fast default coverage and explicit heavier coverage.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 73,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

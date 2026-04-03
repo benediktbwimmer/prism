@@ -1,0 +1,63 @@
+{
+  "id": "coord-task:01kn13rrg3yzbrcgrjh06ppv3h",
+  "plan": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+  "kind": "Edit",
+  "title": "Validate crash safety, restart behavior, latency reduction, memory bounds, and multi-instance shared-runtime correctness for the migration",
+  "summary": null,
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn13qj69y75rtwrbw6ewqzw5",
+    "coord-task:01kn13qsapc9fjk72wvth681yf",
+    "coord-task:01kn13qykg063n2zc3h5rt507q",
+    "coord-task:01kn13r7qf0yf4kqqng4a3nt4w",
+    "coord-task:01kn13rgty80e4y885n1vzb170"
+  ],
+  "acceptance": [
+    {
+      "label": "Tests and live dogfooding cover crash recovery, cold-query correctness, checkpoint lag, reduced hot-path persistence cost, and bounded memory growth.",
+      "anchors": []
+    },
+    {
+      "label": "The migration is documented clearly enough that follow-on persistence changes can preserve the same authority and durability rules.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 1290,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

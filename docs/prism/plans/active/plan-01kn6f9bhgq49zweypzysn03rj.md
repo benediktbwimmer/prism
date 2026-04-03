@@ -26,10 +26,19 @@
 
 Curate PRISM concepts for the implemented principal identity and authenticated coordination system
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn6f9bhgq49zweypzysn03rj.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn6f9bhgq49zweypzysn03rj.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn6f9bhgq49zweypzysn03rj.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

@@ -1,0 +1,79 @@
+{
+  "id": "coord-task:01kn55e93ftgm9bra7wfs4fnfs",
+  "plan": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+  "kind": "Edit",
+  "title": "Move file-local delta construction out of the serialized refresh path",
+  "summary": "Build immutable candidate deltas in parallel from changed files and invalidation inputs, instead of mutating authoritative graph/history/outcome/projection state file-by-file inside the current refresh loop.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [
+    {
+      "File": 116
+    },
+    {
+      "File": 84
+    },
+    {
+      "File": 94
+    }
+  ],
+  "bindings": {
+    "anchors": [
+      {
+        "File": 116
+      },
+      {
+        "File": 84
+      },
+      {
+        "File": 94
+      }
+    ],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn55e2ery38vr30wxe3ca5r3"
+  ],
+  "acceptance": [
+    {
+      "label": "File-local parse and candidate delta construction run off the authoritative state and can execute in parallel for multi-file refreshes.",
+      "anchors": []
+    },
+    {
+      "label": "The current serial apply_parsed loop no longer owns parse-time history, co-change, outcome, and projection mutation work.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 249,
+    "git_commit": null
+  },
+  "priority": 3,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

@@ -1,0 +1,361 @@
+{
+  "plan": {
+    "id": "plan:01kn46s1pk7s8wdbwrv302ws1g",
+    "goal": "storage-boundary-redesign: separate true shared runtime state from worktree-local semantic cache state, introduce explicit shared-vs-local store ownership and paths, migrate existing repos safely, and validate that cross-worktree shared semantics remain correct while local semantic cache state no longer bloats the shared runtime db.",
+    "title": "storage-boundary-redesign: separate true shared runtime state from worktree-local semantic cache state, introduce explicit shared-vs-local store ownership and paths, migrate existing repos safely, and validate that cross-worktree shared semantics remain correct while local semantic cache state no longer bloats the shared runtime db.",
+    "status": "Active",
+    "policy": {
+      "default_claim_mode": "Advisory",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": false,
+      "stale_after_graph_change": true,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "off",
+        "completionMode": "off",
+        "targetRef": null,
+        "targetBranch": "",
+        "requireTaskBranch": false,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": null
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01kn46t33h51asymhpnse5h0g1"
+    ]
+  },
+  "graph": {
+    "id": "plan:01kn46s1pk7s8wdbwrv302ws1g",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "storage-boundary-redesign: separate true shared runtime state from worktree-local semantic cache state, introduce explicit shared-vs-local store ownership and paths, migrate existing repos safely, and validate that cross-worktree shared semantics remain correct while local semantic cache state no longer bloats the shared runtime db.",
+    "goal": "storage-boundary-redesign: separate true shared runtime state from worktree-local semantic cache state, introduce explicit shared-vs-local store ownership and paths, migrate existing repos safely, and validate that cross-worktree shared semantics remain correct while local semantic cache state no longer bloats the shared runtime db.",
+    "status": "Active",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01kn46t33h51asymhpnse5h0g1"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01kn46t33h51asymhpnse5h0g1",
+        "plan_id": "plan:01kn46s1pk7s8wdbwrv302ws1g",
+        "kind": "Decide",
+        "title": "Classify persisted domains into shared runtime, worktree-local cache, and process-local hot state",
+        "summary": "Classification decision recorded. Shared runtime should stay lean and hold only true cross-worktree continuity: coordination continuity, episodic memory, session/shared concepts, principal registry, and the authoritative outcome journal. Worktree-local cache should own graph/history/projections/workspace tree, curator state, and the heavy derived outcome anchor/index layer. Process-local hot state remains published generations, worker queues, and ephemeral caches.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Every persisted domain has an explicit owner and authority class, including graph, history, projections, workspace tree, coordination, episodic memory, outcomes, curator state, and principal registry.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The redesign records which domains must remain shared across worktrees and which must become worktree-local.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 2289,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn46t35msk4qky98byxn789j",
+        "plan_id": "plan:01kn46s1pk7s8wdbwrv302ws1g",
+        "kind": "Edit",
+        "title": "Introduce distinct path and bootstrap defaults for worktree cache db vs shared runtime db",
+        "summary": "Split the worktree cache db path from the shared runtime db path. PrismPaths now exposes a dedicated worktree cache db/bootstrap path, cache_path(root) points the local semantic store at that worktree db, CLI/runtime status surfaces report the worktree cache path, and validations were updated to assert the new ownership boundary between local cache and shared runtime persistence.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Workspace cache paths no longer resolve to the shared runtime db by default.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Session/bootstrap wiring can open a worktree-local cache store and a separate shared runtime store without aliasing them accidentally.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 1,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn46t37cc06aaktw6z4rtsbm",
+        "plan_id": "plan:01kn46s1pk7s8wdbwrv302ws1g",
+        "kind": "Edit",
+        "title": "Split store interfaces so shared runtime and local semantic cache expose different capabilities",
+        "summary": "Completed the shared-runtime interface split. SharedRuntimeStore no longer exposes the full Store surface; it now wraps only narrow shared-runtime capabilities via CoordinationJournal, CoordinationCheckpointStore, ColdQueryStore, EventJournalStore, and MaterializationStore, plus explicit shared-runtime helper methods. WorkspaceSession and memory-refresh paths were updated to use those narrower capabilities, the focused shared-runtime tests passed, cargo test --workspace passed, and the release daemon was rebuilt and restarted successfully on the new split.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Shared runtime code no longer wraps the full local semantic cache store surface as if it were one broad sqlite authority.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Local semantic cache and shared runtime code paths depend on narrower role-specific traits or types with explicit ownership boundaries.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 19,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn46t38scs0cybmvnbw7ws7r",
+        "plan_id": "plan:01kn46s1pk7s8wdbwrv302ws1g",
+        "kind": "Decide",
+        "title": "Decide ownership, retention, and compaction rules for outcomes and curator state under the split",
+        "summary": "Ownership and retention decision recorded. Curator becomes fully worktree-local. Outcomes split into a shared authoritative journal for cross-worktree task replay and continuity, plus a worktree-local derived anchor/index/read-model layer for code-oriented queries. The local outcome layer must include explicit retention/compaction so anchor rows and derived projections stay bounded instead of growing without limit.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "The redesign explicitly decides whether outcomes and curator state are shared, worktree-local, or split across both planes.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The redesign defines retention or compaction rules that prevent unbounded shared-runtime growth for the chosen ownership model.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 2289,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn46t3a8m0agn27rwb66gk9h",
+        "plan_id": "plan:01kn46s1pk7s8wdbwrv302ws1g",
+        "kind": "Edit",
+        "title": "Migrate existing repos by moving worktree-local semantic tables out of the shared runtime db",
+        "summary": "Migrated clearly worktree-local semantic state out of the shared runtime DB into the dedicated worktree cache DB, added bootstrap migration, and validated the live repo now holds graph/history/projection/workspace-tree/curator state in the worktree cache while the shared DB is cleared of those local tables.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Existing repos can migrate without losing authoritative shared coordination or memory state.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The migration relocates worktree-local semantic cache tables and rehydrates bootstrap state from the new split correctly.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 32,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn46t3bs7y9qppsnf8wkp2tx",
+        "plan_id": "plan:01kn46s1pk7s8wdbwrv302ws1g",
+        "kind": "Validate",
+        "title": "Validate cross-worktree shared semantics, migration safety, and post-split db health",
+        "summary": "Validated the split with cargo test --workspace, release rebuild and daemon restart, healthy live MCP status, and direct SQLite row checks showing the shared runtime DB no longer contains local graph/history/projection/workspace-tree/curator state while the worktree cache DB does.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Cross-worktree shared memory and coordination semantics still replay correctly after the split.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Validation demonstrates smaller shared-runtime db scope and correct local semantic cache ownership after migration.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 32,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "plan-edge:coord-task:01kn46t35msk4qky98byxn789j:depends-on:coord-task:01kn46t33h51asymhpnse5h0g1",
+        "plan_id": "plan:01kn46s1pk7s8wdbwrv302ws1g",
+        "from": "coord-task:01kn46t35msk4qky98byxn789j",
+        "to": "coord-task:01kn46t33h51asymhpnse5h0g1",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn46t37cc06aaktw6z4rtsbm:depends-on:coord-task:01kn46t33h51asymhpnse5h0g1",
+        "plan_id": "plan:01kn46s1pk7s8wdbwrv302ws1g",
+        "from": "coord-task:01kn46t37cc06aaktw6z4rtsbm",
+        "to": "coord-task:01kn46t33h51asymhpnse5h0g1",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn46t38scs0cybmvnbw7ws7r:depends-on:coord-task:01kn46t33h51asymhpnse5h0g1",
+        "plan_id": "plan:01kn46s1pk7s8wdbwrv302ws1g",
+        "from": "coord-task:01kn46t38scs0cybmvnbw7ws7r",
+        "to": "coord-task:01kn46t33h51asymhpnse5h0g1",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn46t3a8m0agn27rwb66gk9h:depends-on:coord-task:01kn46t35msk4qky98byxn789j",
+        "plan_id": "plan:01kn46s1pk7s8wdbwrv302ws1g",
+        "from": "coord-task:01kn46t3a8m0agn27rwb66gk9h",
+        "to": "coord-task:01kn46t35msk4qky98byxn789j",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn46t3a8m0agn27rwb66gk9h:depends-on:coord-task:01kn46t37cc06aaktw6z4rtsbm",
+        "plan_id": "plan:01kn46s1pk7s8wdbwrv302ws1g",
+        "from": "coord-task:01kn46t3a8m0agn27rwb66gk9h",
+        "to": "coord-task:01kn46t37cc06aaktw6z4rtsbm",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn46t3a8m0agn27rwb66gk9h:depends-on:coord-task:01kn46t38scs0cybmvnbw7ws7r",
+        "plan_id": "plan:01kn46s1pk7s8wdbwrv302ws1g",
+        "from": "coord-task:01kn46t3a8m0agn27rwb66gk9h",
+        "to": "coord-task:01kn46t38scs0cybmvnbw7ws7r",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn46t3bs7y9qppsnf8wkp2tx:depends-on:coord-task:01kn46t3a8m0agn27rwb66gk9h",
+        "plan_id": "plan:01kn46s1pk7s8wdbwrv302ws1g",
+        "from": "coord-task:01kn46t3bs7y9qppsnf8wkp2tx",
+        "to": "coord-task:01kn46t3a8m0agn27rwb66gk9h",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      }
+    ]
+  },
+  "executionOverlays": []
+}

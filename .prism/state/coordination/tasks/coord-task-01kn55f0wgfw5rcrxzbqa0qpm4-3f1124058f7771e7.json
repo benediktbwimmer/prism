@@ -1,0 +1,79 @@
+{
+  "id": "coord-task:01kn55f0wgfw5rcrxzbqa0qpm4",
+  "plan": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+  "kind": "Edit",
+  "title": "Separate hot commit persistence from asynchronous materialization and remove SQLite contention",
+  "summary": "Keep the authoritative commit journal and minimal runtime state durable on the hot path, but push derived snapshots and checkpoint materialization behind low-contention workers that stop fighting SQLite locks.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [
+    {
+      "File": 316
+    },
+    {
+      "File": 76
+    },
+    {
+      "File": 84
+    }
+  ],
+  "bindings": {
+    "anchors": [
+      {
+        "File": 316
+      },
+      {
+        "File": 76
+      },
+      {
+        "File": 84
+      }
+    ],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn55egap84qbyxkarhq6y7vz"
+  ],
+  "acceptance": [
+    {
+      "label": "The hot commit transaction excludes derived graph or projection materialization work not needed for correctness.",
+      "anchors": []
+    },
+    {
+      "label": "Nominal daemon usage no longer produces recurring checkpoint materializer 'database is locked' warnings.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 249,
+    "git_commit": null
+  },
+  "priority": 6,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

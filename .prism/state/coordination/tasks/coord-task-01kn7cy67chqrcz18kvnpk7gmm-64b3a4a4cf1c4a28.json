@@ -1,0 +1,66 @@
+{
+  "id": "coord-task:01kn7cy67chqrcz18kvnpk7gmm",
+  "plan": "plan:01kn7cxa9tvnaa1svrgppcth4a",
+  "kind": "Edit",
+  "title": "Slim the prism_task_brief critical path and degrade gracefully under stale runtime state",
+  "summary": "Attack the historical compact-task latency hotspot by separating cheap task-summary data from expensive refresh or enrichment work, so task briefs stay responsive even when runtime sync is deferred or stale.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn7cxtgg1r28ntzg41pgzt2r"
+  ],
+  "acceptance": [
+    {
+      "label": "Typical prism_task_brief calls no longer wait on heavyweight runtime refresh or broad enrichment to return a minimally useful brief.",
+      "anchors": []
+    },
+    {
+      "label": "Slow-call traces and query traces for prism_task_brief clearly attribute any remaining expensive phases instead of collapsing into opaque compact handler time.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [
+    {
+      "id": "bench:prism-task-brief-latency"
+    },
+    {
+      "id": "log:task-brief-traces"
+    }
+  ],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 533,
+    "git_commit": null
+  },
+  "priority": 2,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

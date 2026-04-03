@@ -1,0 +1,53 @@
+{
+  "id": "coord-task:01kn8s0kxdap9nc8376dvaap5q",
+  "plan": "plan:01kn8rmbb3qf6bxw45w0141rkr",
+  "kind": "Edit",
+  "title": "Validate multi-worktree and multi-clone convergence on one logical repo identity",
+  "summary": null,
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn8rz9qnzcwan5vd2cs7c99j",
+    "coord-task:01kn8rzmv5sa7xj8xt557rtzrg",
+    "coord-task:01kn8rzyqxvzpnw7m4c0zzk9ex",
+    "coord-task:01kn8s096yzxzw3cwvyc4t3gg3"
+  ],
+  "acceptance": [],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 895,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

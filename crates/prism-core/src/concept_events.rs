@@ -1,21 +1,36 @@
 use std::path::Path;
 
 use anyhow::{bail, Result};
-use prism_projections::{curated_concepts_from_events, ConceptEvent, ConceptPacket};
+use prism_projections::{ConceptEvent, ConceptPacket};
 
 use crate::protected_state::repo_streams::{
     append_protected_stream_event, implicit_principal_identity, inspect_protected_stream,
 };
 use crate::protected_state::streams::{ProtectedRepoStream, ProtectedVerificationStatus};
+use crate::tracked_snapshot::{
+    legacy_tracked_stream_bridge_active, load_concept_snapshots, publish_context_from_event,
+    sync_concept_snapshot, tracked_snapshot_authority_active,
+};
 use crate::util::repo_concept_events_path;
 
 pub(crate) fn append_repo_concept_event(root: &Path, event: &ConceptEvent) -> Result<()> {
-    append_protected_stream_event(
+    if legacy_tracked_stream_bridge_active(root)? {
+        append_protected_stream_event(
+            root,
+            &ProtectedRepoStream::concept_events(),
+            &event.id,
+            event,
+            &implicit_principal_identity(event.actor.as_ref(), event.execution_context.as_ref()),
+        )?;
+    }
+    sync_concept_snapshot(
         root,
-        &ProtectedRepoStream::concept_events(),
-        &event.id,
-        event,
-        &implicit_principal_identity(event.actor.as_ref(), event.execution_context.as_ref()),
+        &event.concept,
+        &publish_context_from_event(
+            event.actor.as_ref(),
+            event.execution_context.as_ref(),
+            event.recorded_at,
+        ),
     )
 }
 
@@ -39,7 +54,11 @@ pub(crate) fn load_repo_concept_events(root: &Path) -> Result<Vec<ConceptEvent>>
 }
 
 pub(crate) fn load_repo_curated_concepts(root: &Path) -> Result<Vec<ConceptPacket>> {
-    Ok(curated_concepts_from_events(&load_repo_concept_events(
-        root,
-    )?))
+    let path = repo_concept_events_path(root);
+    if tracked_snapshot_authority_active(root)? || !path.exists() {
+        return load_concept_snapshots(root);
+    }
+    Ok(prism_projections::curated_concepts_from_events(
+        &load_repo_concept_events(root)?,
+    ))
 }

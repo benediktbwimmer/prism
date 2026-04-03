@@ -1,0 +1,60 @@
+{
+  "id": "coord-task:01kn13qykg063n2zc3h5rt507q",
+  "plan": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+  "kind": "Edit",
+  "title": "Convert graph snapshots, derived edges, projections, workspace tree state, and compatibility read models into asynchronous coalesced checkpoints and materializations",
+  "summary": null,
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn13qj69y75rtwrbw6ewqzw5",
+    "coord-task:01kn13qsapc9fjk72wvth681yf"
+  ],
+  "acceptance": [
+    {
+      "label": "Checkpoint and materialization work can coalesce multiple runtime updates into fewer storage writes without changing semantic truth.",
+      "anchors": []
+    },
+    {
+      "label": "Single-file and small-batch runtime writes no longer synchronously pay for rebuildable graph/projection/checkpoint persistence.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 1274,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

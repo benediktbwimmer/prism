@@ -1,0 +1,85 @@
+{
+  "id": "coord-task:01kn55e2ery38vr30wxe3ca5r3",
+  "plan": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+  "kind": "Decide",
+  "title": "Define the incremental delta-commit contract for refresh",
+  "summary": "Specify the exact boundary between parallel file-local preparation, tiny authoritative commit, and parallel settle so ordinary edits stop flowing through reconstructive WorkspaceIndexer refresh.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [
+    {
+      "File": 104
+    },
+    {
+      "File": 107
+    },
+    {
+      "File": 116
+    },
+    {
+      "File": 343
+    }
+  ],
+  "bindings": {
+    "anchors": [
+      {
+        "File": 104
+      },
+      {
+        "File": 107
+      },
+      {
+        "File": 116
+      },
+      {
+        "File": 343
+      }
+    ],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn55dvkdfvxg8pdfk72p0h72"
+  ],
+  "acceptance": [
+    {
+      "label": "The design names the committed delta payload, file-facts substrate, domain freshness semantics, and what work is permitted inside the serialized commit.",
+      "anchors": []
+    },
+    {
+      "label": "The design explicitly removes reconstructive refresh from the normal edit path and identifies the residual recovery-only rebuild path.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 249,
+    "git_commit": null
+  },
+  "priority": 2,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

@@ -26,10 +26,19 @@
 
 plans-task-graph-node-rewrite: make coordination tasks canonical for task-execution plans, reduce task-backed plan nodes to pure projections, and preserve standalone native plan nodes for graph-native planning.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn11fra3ddvjqmtw4qjrqax2.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn11fra3ddvjqmtw4qjrqax2.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn11fra3ddvjqmtw4qjrqax2.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

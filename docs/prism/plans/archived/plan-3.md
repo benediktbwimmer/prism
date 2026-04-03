@@ -26,10 +26,19 @@
 
 Simplify the post-redesign refresh model by removing misleading persisted-refresh naming, consolidating refresh ownership, and further demoting local snapshot/DB authority from steady-state serving.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:3.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:3.json`
+- Legacy migration log path: `.prism/plans/streams/plan:3.jsonl` (compatibility only, not current tracked authority)
 
 ## Nodes
 

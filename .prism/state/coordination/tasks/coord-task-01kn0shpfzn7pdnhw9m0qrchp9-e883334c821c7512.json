@@ -1,0 +1,59 @@
+{
+  "id": "coord-task:01kn0shpfzn7pdnhw9m0qrchp9",
+  "plan": "plan:01kn0sh5q9vv9j2q2n6jwxhtep",
+  "kind": "Decide",
+  "title": "Harden the refresh state machine and fallback semantics",
+  "summary": "Separated fallback cached rescans from true full rebuilds by introducing a distinct `rescan` refresh mode/status through prism-core and prism-mcp. Fallback snapshot diff paths now record `rescan` in session/runtime status and keep `fullRebuildCount`/`workspaceReloaded` reserved for true full rebuilds, with focused regressions in prism-core and workspace_runtime plus a release rebuild/restart to refresh the live daemon.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn0shaxw8prtd5jrvtbxtn6n"
+  ],
+  "acceptance": [
+    {
+      "label": "Refresh path semantics are coherent and intentionally separated between scoped refresh, rescan, and deferred runtime sync.",
+      "anchors": []
+    },
+    {
+      "label": "Fallback behavior is minimal, justified, and measurable.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 1134,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

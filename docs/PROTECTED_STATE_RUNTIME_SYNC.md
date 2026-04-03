@@ -102,7 +102,18 @@ The sync path should:
 
 Each protected stream class should map to one runtime import handler.
 
-Initial stream classes:
+Initial tracked publication classes:
+
+- `.prism/state/manifest.json`
+- `.prism/state/memory/**/*.json`
+- `.prism/state/changes/**/*.json`
+- `.prism/state/concepts/**/*.json`
+- `.prism/state/relations/**/*.json`
+- `.prism/state/contracts/**/*.json`
+- `.prism/state/plans/**/*.json`
+- `.prism/state/coordination/**/*.json`
+
+Legacy migration-only compatibility inputs may still include:
 
 - `.prism/memory/*.jsonl`
 - `.prism/changes/events.jsonl`
@@ -113,9 +124,9 @@ Initial stream classes:
 
 Each handler should:
 
-- validate stream integrity
-- decode append-only events
-- dedupe against already imported event ids or stream sequence
+- validate manifest and snapshot digest integrity
+- decode the current shard set for the affected domain
+- use legacy stream replay only during explicit migration compatibility
 - patch the corresponding in-memory/runtime-backed domain
 - optionally update local/shared durability projections
 

@@ -1,0 +1,589 @@
+{
+  "plan": {
+    "id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+    "goal": "persistence-migration: migrate PRISM to a memory-authoritative runtime with synchronous authoritative journals, asynchronous checkpoint/materialization persistence, bounded hot state, and explicit cold-query semantics; finish by reviewing with the user whether a separate persistence worker deserves a follow-up plan.",
+    "title": "persistence-migration: migrate PRISM to a memory-authoritative runtime with synchronous authoritative journals, asynchronous checkpoint/materialization persistence, bounded hot state, and explicit cold-query semantics; finish by reviewing with the user whether a separate persistence worker deserves a follow-up plan.",
+    "status": "Archived",
+    "policy": {
+      "default_claim_mode": "Advisory",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": false,
+      "stale_after_graph_change": true,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "off",
+        "completionMode": "off",
+        "targetRef": null,
+        "targetBranch": "",
+        "requireTaskBranch": false,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": null
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01kn13pz030s4q1c3qrbbg203f"
+    ]
+  },
+  "graph": {
+    "id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "persistence-migration: migrate PRISM to a memory-authoritative runtime with synchronous authoritative journals, asynchronous checkpoint/materialization persistence, bounded hot state, and explicit cold-query semantics; finish by reviewing with the user whether a separate persistence worker deserves a follow-up plan.",
+    "goal": "persistence-migration: migrate PRISM to a memory-authoritative runtime with synchronous authoritative journals, asynchronous checkpoint/materialization persistence, bounded hot state, and explicit cold-query semantics; finish by reviewing with the user whether a separate persistence worker deserves a follow-up plan.",
+    "status": "Archived",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01kn13pz030s4q1c3qrbbg203f"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01kn13pz030s4q1c3qrbbg203f",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "kind": "Edit",
+        "title": "Specify authoritative-vs-derived persistence boundaries and crash semantics for every persisted domain",
+        "summary": null,
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Each persisted domain has an explicit durability class, crash guarantee, source-of-truth owner, rebuild path, and allowed read surfaces.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The migration rules align with docs/PERSISTENCE_STATE_CLASSIFICATION.md and do not leave any snapshot or compatibility view as implicit semantic authority.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 1206,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn13q61f8j93je9vws9kdqjy",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "kind": "Edit",
+        "title": "Design backend-neutral persistence interfaces that separate synchronous journal appends from asynchronous checkpoints and materialized views",
+        "summary": null,
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "The interface shape remains compatible with local SQLite first and future shared-runtime backends.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The store/runtime boundary has explicit interfaces for authoritative journal writes, checkpoint reads/writes, and cold-query backends instead of one snapshot-shaped Store authority.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 1210,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn13qdfw63hwrr79cqm7rqs3",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "kind": "Edit",
+        "title": "Refactor WorkspaceSession, watch, and runtime plumbing so live in-memory state is authoritative and no core request path depends on SqliteStore as the semantic source of truth",
+        "summary": null,
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Concrete SqliteStore coupling is reduced enough that a memory-authoritative runtime can evolve without rewriting every request-path consumer.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Core runtime/session/watch code no longer treats SqliteStore as the canonical semantic state holder for live operations.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 1212,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn13qj69y75rtwrbw6ewqzw5",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "kind": "Edit",
+        "title": "Implement synchronous authoritative journals for coordination continuity and other crash-sensitive workflow state",
+        "summary": null,
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Plan-close, blocker, and coordination mutation semantics no longer depend on async snapshot persistence for correctness.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Plans, tasks, claims, artifacts, reviews, handoffs, and other policy-relevant workflow continuity survive crashes through a minimal synchronous durable write path.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 1274,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn13qsapc9fjk72wvth681yf",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "kind": "Edit",
+        "title": "Implement synchronous authoritative journals for lineage/history deltas and authored memory and outcome events",
+        "summary": null,
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Hydrated snapshots remain accelerators only; the event/journal layer is the semantic recovery authority for these domains.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Rename/lineage continuity, authored memory facts, and authored outcome facts survive crashes through append-oriented durable writes.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 1218,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn13qykg063n2zc3h5rt507q",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "kind": "Edit",
+        "title": "Convert graph snapshots, derived edges, projections, workspace tree state, and compatibility read models into asynchronous coalesced checkpoints and materializations",
+        "summary": null,
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Checkpoint and materialization work can coalesce multiple runtime updates into fewer storage writes without changing semantic truth.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Single-file and small-batch runtime writes no longer synchronously pay for rebuildable graph/projection/checkpoint persistence.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 1274,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn13r7qf0yf4kqqng4a3nt4w",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "kind": "Edit",
+        "title": "Preserve bounded hot memory and codify explicit hot-only, hot-plus-cold, and cold-backed query paths",
+        "summary": null,
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Each query surface explicitly declares whether it reads authoritative hot memory, merges hot memory with cold persisted state, or serves a cold-backed historical view.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The migration does not accidentally hydrate unbounded historical or projection state into RAM.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 1278,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn13rgty80e4y885n1vzb170",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "kind": "Edit",
+        "title": "Implement checkpoint-plus-journal recovery, revision-lag observability, and replay bounds for restart behavior",
+        "summary": null,
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Runtime recovery correctness comes from authoritative journal replay plus bounded checkpoints rather than snapshot authority.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The system exposes replay time, checkpoint age, backlog, and hot-versus-persisted revision lag so recovery and lag are observable.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 1284,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn13rrg3yzbrcgrjh06ppv3h",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "kind": "Edit",
+        "title": "Validate crash safety, restart behavior, latency reduction, memory bounds, and multi-instance shared-runtime correctness for the migration",
+        "summary": null,
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Tests and live dogfooding cover crash recovery, cold-query correctness, checkpoint lag, reduced hot-path persistence cost, and bounded memory growth.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The migration is documented clearly enough that follow-on persistence changes can preserve the same authority and durability rules.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 1290,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn13ryrrk04aacsvg1ac96c2",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "kind": "Edit",
+        "title": "Review the migration outcome with the user and decide together whether a separate persistence worker deserves a follow-up plan",
+        "summary": null,
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "If needed, the follow-up worker plan is scoped from post-migration evidence rather than guessed upfront.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The user and agent explicitly evaluate whether remaining contention, isolation needs, or backend evolution justify a separate persistence-worker follow-up plan.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 1290,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "plan-edge:coord-task:01kn13q61f8j93je9vws9kdqjy:depends-on:coord-task:01kn13pz030s4q1c3qrbbg203f",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "from": "coord-task:01kn13q61f8j93je9vws9kdqjy",
+        "to": "coord-task:01kn13pz030s4q1c3qrbbg203f",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn13qdfw63hwrr79cqm7rqs3:depends-on:coord-task:01kn13q61f8j93je9vws9kdqjy",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "from": "coord-task:01kn13qdfw63hwrr79cqm7rqs3",
+        "to": "coord-task:01kn13q61f8j93je9vws9kdqjy",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn13qj69y75rtwrbw6ewqzw5:depends-on:coord-task:01kn13qdfw63hwrr79cqm7rqs3",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "from": "coord-task:01kn13qj69y75rtwrbw6ewqzw5",
+        "to": "coord-task:01kn13qdfw63hwrr79cqm7rqs3",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn13qsapc9fjk72wvth681yf:depends-on:coord-task:01kn13qdfw63hwrr79cqm7rqs3",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "from": "coord-task:01kn13qsapc9fjk72wvth681yf",
+        "to": "coord-task:01kn13qdfw63hwrr79cqm7rqs3",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn13qykg063n2zc3h5rt507q:depends-on:coord-task:01kn13qj69y75rtwrbw6ewqzw5",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "from": "coord-task:01kn13qykg063n2zc3h5rt507q",
+        "to": "coord-task:01kn13qj69y75rtwrbw6ewqzw5",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn13qykg063n2zc3h5rt507q:depends-on:coord-task:01kn13qsapc9fjk72wvth681yf",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "from": "coord-task:01kn13qykg063n2zc3h5rt507q",
+        "to": "coord-task:01kn13qsapc9fjk72wvth681yf",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn13r7qf0yf4kqqng4a3nt4w:depends-on:coord-task:01kn13qdfw63hwrr79cqm7rqs3",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "from": "coord-task:01kn13r7qf0yf4kqqng4a3nt4w",
+        "to": "coord-task:01kn13qdfw63hwrr79cqm7rqs3",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn13rgty80e4y885n1vzb170:depends-on:coord-task:01kn13qykg063n2zc3h5rt507q",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "from": "coord-task:01kn13rgty80e4y885n1vzb170",
+        "to": "coord-task:01kn13qykg063n2zc3h5rt507q",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn13rgty80e4y885n1vzb170:depends-on:coord-task:01kn13r7qf0yf4kqqng4a3nt4w",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "from": "coord-task:01kn13rgty80e4y885n1vzb170",
+        "to": "coord-task:01kn13r7qf0yf4kqqng4a3nt4w",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn13rrg3yzbrcgrjh06ppv3h:depends-on:coord-task:01kn13qj69y75rtwrbw6ewqzw5",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "from": "coord-task:01kn13rrg3yzbrcgrjh06ppv3h",
+        "to": "coord-task:01kn13qj69y75rtwrbw6ewqzw5",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn13rrg3yzbrcgrjh06ppv3h:depends-on:coord-task:01kn13qsapc9fjk72wvth681yf",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "from": "coord-task:01kn13rrg3yzbrcgrjh06ppv3h",
+        "to": "coord-task:01kn13qsapc9fjk72wvth681yf",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn13rrg3yzbrcgrjh06ppv3h:depends-on:coord-task:01kn13qykg063n2zc3h5rt507q",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "from": "coord-task:01kn13rrg3yzbrcgrjh06ppv3h",
+        "to": "coord-task:01kn13qykg063n2zc3h5rt507q",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn13rrg3yzbrcgrjh06ppv3h:depends-on:coord-task:01kn13r7qf0yf4kqqng4a3nt4w",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "from": "coord-task:01kn13rrg3yzbrcgrjh06ppv3h",
+        "to": "coord-task:01kn13r7qf0yf4kqqng4a3nt4w",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn13rrg3yzbrcgrjh06ppv3h:depends-on:coord-task:01kn13rgty80e4y885n1vzb170",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "from": "coord-task:01kn13rrg3yzbrcgrjh06ppv3h",
+        "to": "coord-task:01kn13rgty80e4y885n1vzb170",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn13ryrrk04aacsvg1ac96c2:depends-on:coord-task:01kn13rrg3yzbrcgrjh06ppv3h",
+        "plan_id": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+        "from": "coord-task:01kn13ryrrk04aacsvg1ac96c2",
+        "to": "coord-task:01kn13rrg3yzbrcgrjh06ppv3h",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      }
+    ]
+  },
+  "executionOverlays": []
+}

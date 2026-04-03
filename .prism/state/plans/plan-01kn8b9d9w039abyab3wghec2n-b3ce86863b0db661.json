@@ -1,0 +1,58 @@
+{
+  "plan": {
+    "id": "plan:01kn8b9d9w039abyab3wghec2n",
+    "goal": "Implement a portfolio-wide prioritization and dispatch capability for PRISM that can rank actionable work across active plans with explainable scoring, plan-level scheduling metadata, and explicit inter-plan dependencies, while also introducing a feature-flagged git execution policy layer that enforces or assists claim-time sync and completion-time publish workflow safely through coordination state, blockers, and execution evidence.",
+    "title": "Implement a portfolio-wide prioritization and dispatch capability for PRISM that can rank actionable work across active plans with explainable scoring, plan-level scheduling metadata, and explicit inter-plan dependencies, while also introducing a feature-flagged git execution policy layer that enforces or assists claim-time sync and completion-time publish workflow safely through coordination state, blockers, and execution evidence.",
+    "status": "Archived",
+    "policy": {
+      "default_claim_mode": "SoftExclusive",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": true,
+      "stale_after_graph_change": false,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "off",
+        "completionMode": "off",
+        "targetRef": null,
+        "targetBranch": "",
+        "requireTaskBranch": false,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": null
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": []
+  },
+  "graph": {
+    "id": "plan:01kn8b9d9w039abyab3wghec2n",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Implement a portfolio-wide prioritization and dispatch capability for PRISM that can rank actionable work across active plans with explainable scoring, plan-level scheduling metadata, and explicit inter-plan dependencies, while also introducing a feature-flagged git execution policy layer that enforces or assists claim-time sync and completion-time publish workflow safely through coordination state, blockers, and execution evidence.",
+    "goal": "Implement a portfolio-wide prioritization and dispatch capability for PRISM that can rank actionable work across active plans with explainable scoring, plan-level scheduling metadata, and explicit inter-plan dependencies, while also introducing a feature-flagged git execution policy layer that enforces or assists claim-time sync and completion-time publish workflow safely through coordination state, blockers, and execution evidence.",
+    "status": "Archived",
+    "revision": 0,
+    "root_nodes": [],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [],
+    "edges": []
+  },
+  "executionOverlays": []
+}

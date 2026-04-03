@@ -1,0 +1,63 @@
+{
+  "id": "coord-task:01kn9hn84cet00qdmq429cc7cg",
+  "plan": "plan:01kn9hkjxnzdj4qtt4fa25cr6y",
+  "kind": "Edit",
+  "title": "Define which coordination state is durable enough to publish",
+  "summary": "Defined the durable coordination subset for tracked snapshots and explicitly excluded leases, heartbeats, watcher churn, and short-lived runtime continuity noise.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn9hmd10c4x9nzzmp1b5h53a"
+  ],
+  "acceptance": [
+    {
+      "label": "Ephemeral lease, heartbeat, and short-lived runtime continuity data are explicitly excluded from tracked snapshots",
+      "anchors": []
+    },
+    {
+      "label": "Published coordination scope is limited to state later agents need to understand current repo intent and execution state",
+      "anchors": []
+    },
+    {
+      "label": "Snapshot contents for plans and coordination are stable enough for Git review and narrow merge surfaces",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 933,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

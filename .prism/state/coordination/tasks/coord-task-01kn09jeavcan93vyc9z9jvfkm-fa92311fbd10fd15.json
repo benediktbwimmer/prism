@@ -1,0 +1,52 @@
+{
+  "id": "coord-task:01kn09jeavcan93vyc9z9jvfkm",
+  "plan": "plan:01kn09gyzw4e8wzwvgvbbj9mkk",
+  "kind": "Edit",
+  "title": "Make runtime projections and overlays explicitly repo-, worktree-, and session-scoped",
+  "summary": "Runtime status and runtime inspection now expose explicit repo, worktree, and session scope slices for projections and overlays, using live coordination overlays instead of flattened published state.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn09je3c546kafd2z7bcgnyq",
+    "coord-task:01kn09je5pxad8grjdhf7hata8",
+    "coord-task:01kn09je8z6tgxpsxh2f115wb2"
+  ],
+  "acceptance": [],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 994,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

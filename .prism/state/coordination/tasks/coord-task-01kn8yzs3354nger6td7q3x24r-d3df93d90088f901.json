@@ -1,0 +1,67 @@
+{
+  "id": "coord-task:01kn8yzs3354nger6td7q3x24r",
+  "plan": "plan:01kn8n8v0ns6jcj0xgge5f0adv",
+  "kind": "Edit",
+  "title": "Finalize strict require mode with explicit freshness policy and PRISM-only projection commits",
+  "summary": "Define `require` as the recommended safe mode: verify explicit git/workflow invariants, require intentionally committed user-code changes, let PRISM finalize only allowlisted PRISM-managed projection files, and eliminate any remaining broad auto-publication behavior.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn8n9w0r3ydrfs64cdy58t12"
+  ],
+  "acceptance": [
+    {
+      "label": "`require` never selects user-code commit scope and blocks completion when uncommitted non-PRISM changes make publication ambiguous.",
+      "anchors": []
+    },
+    {
+      "label": "Freshness enforcement is expressed as explicit policy fields such as target ref, max commits behind target, and optional fetch-age thresholds rather than hidden heuristics.",
+      "anchors": []
+    },
+    {
+      "label": "Any automatic follow-up commit or push in `require` is restricted to allowlisted PRISM-managed paths such as `.prism/**`, `docs/prism/**`, and `PRISM.md`.",
+      "anchors": []
+    },
+    {
+      "label": "The path from pending publication to completed is idempotent and cannot report a false completed state when publication fails.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 119,
+    "git_commit": null
+  },
+  "priority": 94,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

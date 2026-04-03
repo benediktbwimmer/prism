@@ -26,10 +26,19 @@
 
 Address the highest-priority remaining PRISM validation-feedback issues across task-brief guidance, compact ranking and follow-through, runtime diagnostics, freshness for newly added files, and deterministic validation stability.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn8868kh84bkb3rtdc12bdkc.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn8868kh84bkb3rtdc12bdkc.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn8868kh84bkb3rtdc12bdkc.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

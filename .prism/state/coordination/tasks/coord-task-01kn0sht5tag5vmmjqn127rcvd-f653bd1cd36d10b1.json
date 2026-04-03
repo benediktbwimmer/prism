@@ -1,0 +1,61 @@
+{
+  "id": "coord-task:01kn0sht5tag5vmmjqn127rcvd",
+  "plan": "plan:01kn0sh5q9vv9j2q2n6jwxhtep",
+  "kind": "Validate",
+  "title": "Validate refresh performance and regression coverage",
+  "summary": "Validated the refresh plan end-to-end with focused regressions across the repaired surfaces: core watch-driven refresh still updates live session state, deferred runtime-sync reporting still skips reload work, the first mutation after a workspace refresh still avoids persisted reload, and persisted notes still reload when freshness requires it. Combined with the new `rescan` regressions and a healthy release rebuild/restart, the plan now has both semantic and behavioral coverage for the refreshed runtime path.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn0shet61b27jzmdh97t3mmn",
+    "coord-task:01kn0shjk66y4khmr563jwk5nn",
+    "coord-task:01kn0shpfzn7pdnhw9m0qrchp9"
+  ],
+  "acceptance": [
+    {
+      "label": "Validation demonstrates fewer or rarer full refreshes, corrected deferred behavior, and improved latency.",
+      "anchors": []
+    },
+    {
+      "label": "Regression coverage protects the intended refresh semantics going forward.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 1134,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

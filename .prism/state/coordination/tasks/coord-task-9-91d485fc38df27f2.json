@@ -1,0 +1,63 @@
+{
+  "id": "coord-task:9",
+  "plan": "plan:2",
+  "kind": "Edit",
+  "title": "Cut synchronous request-path refresh from read surfaces",
+  "summary": null,
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:8"
+  ],
+  "acceptance": [
+    {
+      "label": "Background refresh is the only owner of heavy refresh work",
+      "anchors": []
+    },
+    {
+      "label": "Compact, query, and resource reads do not call full persisted sync on the request path",
+      "anchors": []
+    },
+    {
+      "label": "Read freshness is observed and surfaced without blocking reload",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 174889,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

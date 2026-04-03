@@ -1,0 +1,72 @@
+{
+  "id": "coord-task:01kmwxtrc6vbrsmv2xx2phnv8k",
+  "plan": "plan:01kmwxra5d93wb6nmy6a79v8eh",
+  "kind": "Edit",
+  "title": "Milestone 3: Add impact(...) and afterEdit(...)",
+  "summary": "Added `impact(...)` and `afterEdit(...)`, wired them into the dynamic query-view registry, extended the typed/docs surface, added focused feature-flag and query-history coverage, and refreshed the live daemon.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kmwxth0nk7w9jrf4zhs8w348"
+  ],
+  "acceptance": [
+    {
+      "label": "impact(...) returns downstream files or targets, risk hints, and recommended checks with explicit why fields",
+      "anchors": []
+    },
+    {
+      "label": "afterEdit(...) turns recent edits or task changes into the next high-value reads, tests, and docs to inspect",
+      "anchors": []
+    },
+    {
+      "label": "Both views stay compact, deterministic, independently gateable, and measurable through registry logging",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [
+    {
+      "id": "pq01:m3-impact-after-edit"
+    }
+  ],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 192,
+    "git_commit": null
+  },
+  "priority": 2,
+  "tags": [
+    "after-edit",
+    "explainable",
+    "impact",
+    "new-view"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

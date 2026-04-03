@@ -190,7 +190,38 @@ The exact file split can change, but the contract should stay:
 - state files are updated in place at publish boundaries
 - Git commit history carries prior versions automatically
 
-### 6.1 Snapshot requirements
+### 6.1 Shard strategy
+
+Tracked snapshot layout should optimize for:
+
+- narrow Git diffs
+- narrow merge conflict surfaces
+- deterministic overwrite-in-place publication
+- cold-clone self-containment without replaying committed logs
+
+The default bias should therefore be:
+
+- one stable file per durable object where that object has a natural stable id
+- small grouped shards only when objects are too small or too numerous for one-file-per-object to stay practical
+- separate lookup indexes for discovery convenience rather than stuffing many authoritative records into one domain blob
+
+Good shard examples:
+
+- one file per plan
+- one file per concept
+- one file per contract
+- one file per durable memory record, or small stable memory shards if count pressure requires grouping
+
+Bad shard examples:
+
+- one giant `plans.json`
+- one giant `concepts.json`
+- one giant `contracts.json`
+- any layout where touching one object rewrites a broad unrelated domain file
+
+Snapshot-oriented means overwrite-in-place authority files, not monolithic per-domain blobs.
+
+### 6.2 Snapshot requirements
 
 Each snapshot file should be:
 
@@ -201,7 +232,62 @@ Each snapshot file should be:
 
 Each snapshot should be understandable from the repo alone.
 
-### 6.2 Snapshot scope
+### 6.3 File classes and responsibilities
+
+Tracked snapshot files should fall into three explicit classes:
+
+1. authoritative object files
+   These are the durable published state shards, such as `plans/<plan-id>.json` or `concepts/<concept-id>.json`.
+
+2. stable manifest files
+   These define one coherent publish boundary and attest to the exact authoritative object files in that boundary.
+
+3. convenience indexes
+   These support efficient discovery, lookup, or human navigation, but they are not the authority for the underlying objects.
+
+The boundary must stay crisp:
+
+- per-object snapshot files hold the durable semantic state
+- `manifest.json` attests the current coherent snapshot boundary
+- `indexes/**` accelerate lookup and browsing only
+
+Indexes must be rebuildable from the authoritative object files and manifest.
+They should never be the only place where a durable record exists.
+
+### 6.4 Suggested tracked layout
+
+A more explicit target layout is:
+
+```text
+.prism/
+  state/
+    manifest.json
+    plans/
+      <plan-id>.json
+    concepts/
+      <concept-id>.json
+    contracts/
+      <contract-id>.json
+    memory/
+      <memory-id>.json
+    coordination/
+      tasks/<task-id>.json
+      artifacts/<artifact-id>.json
+    indexes/
+      plans.json
+      concepts.json
+      contracts.json
+      memory.json
+```
+
+This layout is illustrative, but the structural rules should hold:
+
+- manifest is one stable file, overwritten in place
+- authoritative records live in stable object-oriented paths
+- indexes are grouped convenience files
+- adding or updating one durable object should usually touch one object file, one manifest, and only the relevant index shards
+
+### 6.5 Snapshot scope
 
 Tracked snapshot content should represent:
 
@@ -217,6 +303,7 @@ Examples of good published coordination state:
 - durable plan and task state
 - durable authored task/work bindings
 - durable artifacts and outcomes that later agents need to understand current repo state
+- durable review or validation state when it changes the repo's shared understanding of whether work is ready, accepted, or blocked
 
 Examples of coordination state that should stay out of tracked snapshots:
 
@@ -225,6 +312,51 @@ Examples of coordination state that should stay out of tracked snapshots:
 - transient execution internals
 - heartbeat noise
 - short-lived handoff mechanics that do not change durable repo understanding
+
+### 6.6 Coordination publication rule
+
+The decision test for coordination state should be:
+
+- would a fresh clone need this state to understand current repo intent, execution state, or review state?
+
+If the answer is no, it should stay out of tracked snapshots.
+
+State that should normally be published:
+
+- current durable plan structure
+- current durable task status
+- authored dependencies and bindings
+- accepted or pending review artifacts that later agents must inspect
+- durable validation or outcome markers that change shared execution understanding
+
+State that should normally remain runtime-only:
+
+- active claim leases
+- lease renewals and heartbeats
+- watcher-derived change batches
+- publish-in-flight bookkeeping
+- temporary assignee/session continuity details
+- short-lived handoff transport mechanics once their durable result is reflected elsewhere
+
+The snapshot should prefer the minimum stable coordination state that makes the current repo collaboration state intelligible on a fresh clone.
+
+### 6.7 Review and merge pressure
+
+Published coordination shards should also be judged against Git review and merge behavior.
+
+Good published coordination shape:
+
+- stable per-task or per-artifact files where changes are localized
+- indexes or manifests that update predictably
+- durable review state that produces understandable diffs
+
+Bad published coordination shape:
+
+- broad grouped files that churn when unrelated tasks change
+- embedding ephemeral runtime fields into durable task snapshots
+- publication that makes parallel task work constantly conflict in Git
+
+Tracked coordination state should be stable enough for narrow diffs and practical multi-agent merging, not just semantically correct in the abstract.
 
 ---
 
@@ -247,6 +379,17 @@ Each publish manifest should attest:
 - hashes of those snapshot files
 - the previous manifest digest or previous snapshot root digest
 - optional linkage to the summarized runtime journal range
+
+There should be one manifest authority file per publish boundary:
+
+- `manifest.json` describes the current published snapshot boundary in `HEAD`
+- Git history preserves prior manifest versions automatically
+- PRISM should not accumulate `manifest-<timestamp>.json` or similar files in tracked state
+
+The manifest is therefore both:
+
+- the current publish-boundary attestation for the checked-out repo state
+- the stable file whose historical versions Git exposes for time travel and branching
 
 An illustrative manifest shape:
 
@@ -283,7 +426,49 @@ An illustrative manifest shape:
 }
 ```
 
-### 7.2 Why this boundary is correct
+Required manifest fields should be treated as contract, not example:
+
+- manifest version
+- publish timestamp
+- publisher principal id
+- publishing runtime authority id
+- declared work context summary
+- exact file digest map for authoritative snapshot files
+- previous manifest digest or previous snapshot-root digest
+- signature metadata and signature bytes
+
+Optional manifest fields may include:
+
+- runtime journal linkage
+- migration continuity linkage
+- publish tooling metadata that does not affect snapshot interpretation
+
+### 7.2 Manifest chaining
+
+Each manifest should chain to the previous publish boundary by digest.
+
+The preferred default is:
+
+- `previousManifestDigest` points to the immediately prior manifest digest
+
+If migration or bootstrapping needs a slightly different first boundary, PRISM may also support:
+
+- `previousSnapshotRootDigest`
+- `migrationSourceDigest`
+
+But the steady-state rule should be simple:
+
+- every publish manifest links to the previous publish manifest digest
+
+This internal chain is still valuable even though Git carries history, because it gives PRISM a continuity primitive that survives:
+
+- rebases
+- squash merges
+- mirrored history
+- partial Git history transport
+- future non-Git publication/export contexts
+
+### 7.3 Why this boundary is correct
 
 This lets PRISM answer:
 
@@ -294,19 +479,26 @@ This lets PRISM answer:
 
 without requiring tracked `.prism` to preserve a full fine-grained event ledger.
 
-### 7.3 Publish boundary
+### 7.4 Publish boundary
 
 The publish boundary should be a single logical PRISM publication step:
 
-- PRISM computes the new tracked snapshot files
-- PRISM writes the updated stable snapshot files
-- PRISM writes the updated stable `manifest.json`
-- Git commit records that coherent snapshot state
+1. PRISM computes the next authoritative object files and indexes for the new snapshot state
+2. PRISM computes the next `manifest.json` against those exact files
+3. PRISM writes the authoritative object files and indexes
+4. PRISM writes the updated stable `manifest.json`
+5. Git commit records that coherent snapshot state
 
 The boundary should be treated as atomic in PRISM's semantics.
 It should not be modeled as a fuzzy sequence of loosely related repo updates.
 
-### 7.4 Manifest handling
+The important semantic rule is:
+
+- the manifest is only valid for the exact snapshot file set it digests
+- readers should treat `manifest.json` as the final authority gate for the current publish boundary
+- partially written intermediate states are implementation detail, not observable PRISM publish states
+
+### 7.5 Manifest handling
 
 The manifest should itself be snapshot-shaped.
 
@@ -330,6 +522,13 @@ It becomes the place for:
 - recovery and continuity detail
 - optional later export of high-resolution lineage
 
+The intended authority boundary is:
+
+- tracked `.prism` answers what durable repo state is currently published
+- runtime/shared journals answer how the runtime moved between publish boundaries
+
+That means the journal is authoritative for operational history, but not required for interpreting the published repo snapshot.
+
 ### 8.1 Runtime journal requirements
 
 The runtime/shared journal should be:
@@ -339,7 +538,26 @@ The runtime/shared journal should be:
 - compactable
 - namespaceable by logical repo identity once that layer exists
 
-### 8.2 Runtime journal retention
+It should also support two concrete serving modes:
+
+- local journal mode for a single local runtime or offline clone
+- shared journal mode when multiple worktrees, clones, or machines participate in one shared runtime
+
+The shared mode is the long-term authoritative home for high-resolution operational history.
+The local mode is the fallback and offline spool.
+
+### 8.2 Local versus shared behavior
+
+PRISM should treat local and shared journals as the same logical model with different placement:
+
+- local runtime keeps the journal when no shared runtime is available
+- shared runtime absorbs or supersedes that journal when shared coordination exists
+- publication manifests may reference either local or shared journal checkpoints through a neutral journal namespace field
+
+The repo snapshot should not need to know which storage tier held the detailed journal.
+It only needs a stable optional reference to the summarized journal range.
+
+### 8.3 Runtime journal retention
 
 PRISM may later support:
 
@@ -370,6 +588,29 @@ The publish manifest may include:
 
 If that runtime history still exists, PRISM can reconstruct the fine-grained path.
 If it does not, the repo snapshot remains valid and interpretable.
+
+The practical rule is:
+
+- repo snapshot restore must succeed without the journal
+- journal linkage enriches provenance and deep replay only when the journal is available
+
+### 9.1 Snapshot-to-journal linkage shape
+
+The snapshot boundary should only link to the journal at a coarse summarized range, for example:
+
+- `journalNamespace`
+- `fromCheckpoint`
+- `toCheckpoint`
+- `eventCount`
+- `eventDigest`
+
+That is enough to:
+
+- prove which journal slice the publish summarized
+- let a later runtime reconnect the durable snapshot to high-resolution operational history
+- avoid embedding the detailed journal payload into tracked repo state
+
+It is intentionally not enough to make the snapshot depend on replaying the journal.
 
 This preserves self-contained cold-clone semantics while keeping optional high-resolution traceability.
 

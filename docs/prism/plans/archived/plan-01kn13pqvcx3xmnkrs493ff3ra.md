@@ -26,10 +26,19 @@
 
 persistence-migration: migrate PRISM to a memory-authoritative runtime with synchronous authoritative journals, asynchronous checkpoint/materialization persistence, bounded hot state, and explicit cold-query semantics; finish by reviewing with the user whether a separate persistence worker deserves a follow-up plan.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn13pqvcx3xmnkrs493ff3ra.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn13pqvcx3xmnkrs493ff3ra.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn13pqvcx3xmnkrs493ff3ra.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

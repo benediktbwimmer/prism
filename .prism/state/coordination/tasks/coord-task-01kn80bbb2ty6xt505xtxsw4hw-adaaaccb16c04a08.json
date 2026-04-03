@@ -1,0 +1,63 @@
+{
+  "id": "coord-task:01kn80bbb2ty6xt505xtxsw4hw",
+  "plan": "plan:01kn80a3trpmaewse7e2bhb1hs",
+  "kind": "Edit",
+  "title": "Implement stream-oriented protected-state import handlers and runtime freshness tracking",
+  "summary": "Add per-stream import handlers for memory, changes, concepts, concept relations, contracts, and published plan streams with verification, append-only decode, dedupe, targeted runtime patching, and domain freshness/materialization updates.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn80b3hb260q2xqehsh73xs0"
+  ],
+  "acceptance": [
+    {
+      "label": "Each protected stream class maps to one import handler with verification and dedupe.",
+      "anchors": []
+    },
+    {
+      "label": "Runtime freshness/materialization metadata is updated per affected domain or stream.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 788,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [
+    "freshness",
+    "phase-1",
+    "stream-handlers"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

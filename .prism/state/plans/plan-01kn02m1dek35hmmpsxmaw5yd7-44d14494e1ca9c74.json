@@ -1,0 +1,592 @@
+{
+  "plan": {
+    "id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+    "goal": "Rewrite PRISM co-change persistence and refresh materialization boundaries so authoritative runtime state, bounded serving projections, and cold analytical evidence are separated; eliminate pathological co-change growth from the daemon hot path; and migrate existing cache state without regressing correctness, startup time, or daemon health.",
+    "title": "Rewrite PRISM co-change persistence and refresh materialization boundaries so authoritative runtime state, bounded serving projections, and cold analytical evidence are separated; eliminate pathological co-change growth from the daemon hot path; and migrate existing cache state without regressing correctness, startup time, or daemon health.",
+    "status": "Archived",
+    "policy": {
+      "default_claim_mode": "SoftExclusive",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": true,
+      "stale_after_graph_change": false,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "off",
+        "completionMode": "off",
+        "targetRef": null,
+        "targetBranch": "",
+        "requireTaskBranch": false,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": null
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01kn02mwy8twwr8mcjrc6w60qn"
+    ]
+  },
+  "graph": {
+    "id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Rewrite PRISM co-change persistence and refresh materialization boundaries so authoritative runtime state, bounded serving projections, and cold analytical evidence are separated; eliminate pathological co-change growth from the daemon hot path; and migrate existing cache state without regressing correctness, startup time, or daemon health.",
+    "goal": "Rewrite PRISM co-change persistence and refresh materialization boundaries so authoritative runtime state, bounded serving projections, and cold analytical evidence are separated; eliminate pathological co-change growth from the daemon hot path; and migrate existing cache state without regressing correctness, startup time, or daemon health.",
+    "status": "Archived",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01kn02mwy8twwr8mcjrc6w60qn"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01kn02mwy8twwr8mcjrc6w60qn",
+        "plan_id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+        "kind": "Investigate",
+        "title": "Capture migration invariants and baseline the current failure mode",
+        "summary": "Baseline and migration invariants are captured in docs/CO_CHANGE_RUNTIME_REWRITE.md, including current cache and daemon metrics, the pathological 3.49M co-change delta refresh, and the required boundary split between authoritative state, bounded serving projections, and cold analytical evidence.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [
+            {
+              "File": 104
+            },
+            {
+              "File": 231
+            },
+            {
+              "File": 260
+            },
+            {
+              "File": 275
+            },
+            {
+              "File": 281
+            },
+            {
+              "File": 74
+            }
+          ],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Documents the current pathological path from refresh to co-change persistence to daemon health degradation",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Defines the target separation between authoritative runtime state, bounded serving projections, and cold analytical evidence",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Captures baseline measurements for cache growth, startup load, refresh latency, and daemon RSS",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 544,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [
+          "architecture",
+          "baseline",
+          "co-change",
+          "runtime"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn02nzcts148twpb0t9ssxp6",
+        "plan_id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+        "kind": "Edit",
+        "title": "Add immediate guardrails against pathological co-change batches",
+        "summary": "The co-change rewrite removed the hot-path source of pathological pairwise writes, so large refreshes no longer persist unbounded symbol-pair history and daemon responsiveness no longer depends on short-term guardrail skips.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [
+            {
+              "File": 231
+            },
+            {
+              "File": 263
+            },
+            {
+              "File": 74
+            }
+          ],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Large or bulk refreshes no longer emit pathological co-change delta volumes on the hot path",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Containment behavior is explicit and observable in logs or diagnostics",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The daemon remains responsive while the broader migration is still incomplete",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 608,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [
+          "co-change",
+          "containment",
+          "runtime"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn02nzdnkxkz5dc3fbmgjfkb",
+        "plan_id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+        "kind": "Edit",
+        "title": "Remove cold co-change history from hot runtime hydration",
+        "summary": "Startup hydration now loads authoritative history and bounded serving projections only; legacy unbounded co-change history is no longer hydrated into the live daemon, which materially reduced restart memory and startup latency on the previously oversized cache DB.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [
+            {
+              "File": 104
+            },
+            {
+              "File": 260
+            },
+            {
+              "File": 74
+            },
+            {
+              "File": 86
+            }
+          ],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Daemon startup no longer hydrates unbounded history co-change rows into in-memory runtime state",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Hot runtime memory is bounded by authoritative state plus serving projections rather than cold analytical history",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Startup and restart latency improve measurably on an existing large cache DB",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 608,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [
+          "history",
+          "hydration",
+          "memory",
+          "startup"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn02nzedf9pa1689y558kzk2",
+        "plan_id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+        "kind": "Edit",
+        "title": "Introduce a cold evidence model and bounded projection materialization pipeline",
+        "summary": "Unbounded persisted pairwise co-change history was removed from authoritative state; the store now keeps plain lineage history and derives bounded serving co-change from colder evidence instead of hydrating or persisting an unbounded historical pair table.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [
+            {
+              "File": 231
+            },
+            {
+              "File": 260
+            },
+            {
+              "File": 265
+            },
+            {
+              "File": 275
+            }
+          ],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Authoritative state and analytical co-change evidence are persisted in separate layers with clear ownership",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Serving-side co-change projection remains bounded and can be refreshed without full historical hydration",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The new model preserves enough evidence to derive co-change behavior without quadratic hot-path writes",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 608,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [
+          "analytics",
+          "materialization",
+          "persistence",
+          "projection"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn02nzf7ftmveaznb5hh2r4j",
+        "plan_id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+        "kind": "Edit",
+        "title": "Migrate and compact legacy cache state safely",
+        "summary": "Store open now retires legacy history_co_change state, records the migration, and vacuums when reclaim is large enough; on the live cache this shrank the DB from roughly 2.25 GB to roughly 278 MB while preserving startup correctness.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [
+            {
+              "File": 260
+            },
+            {
+              "File": 263
+            },
+            {
+              "File": 266
+            }
+          ],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Existing oversized cache DBs can migrate to the new shape without losing authoritative runtime correctness",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Legacy co-change data is compacted, retired, or rebuilt according to the new architecture",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Post-migration database size and freelist growth are materially reduced",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 608,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [
+          "compaction",
+          "migration",
+          "sqlite"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn02nzgqcvhrahmb2wt92gfw",
+        "plan_id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+        "kind": "Edit",
+        "title": "Harden refresh, locking, and freshness behavior around long-running persistence work",
+        "summary": "Runtime refresh and freshness now treat bounded lag as a deferred state instead of a daemon failure: workspace-runtime snapshot loaders use pure-read session helpers, transient SQLite lock contention in the background refresh loop is downgraded to deferred refresh bookkeeping, and runtimeStatus reports health ok while freshness surfaces deferred lag explicitly.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [
+            {
+              "File": 206
+            },
+            {
+              "File": 263
+            },
+            {
+              "File": 281
+            },
+            {
+              "File": 86
+            }
+          ],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Background refresh no longer repeatedly fails with database-locked errors during expected long-running maintenance or projection work",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Daemon health and freshness reporting distinguish bounded lag from hard failure",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Request paths remain orientation-giving even while derived state is catching up",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 620,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [
+          "freshness",
+          "health",
+          "locking",
+          "runtime"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn02nzhkyych6dhta2d3he9x",
+        "plan_id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+        "kind": "Validate",
+        "title": "Validate the migration against daemon health, performance, and correctness",
+        "summary": "The migration has now been validated end to end: required prism-js and prism-mcp checks passed on the rewritten co-change architecture, the release prism-cli/prism-mcp build succeeded, the restarted daemon is healthy, and native plan completion bookkeeping now accepts task-correlated validation outcomes for native node ids without requiring anchors or a backing coordination task.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [
+            {
+              "File": 198
+            },
+            {
+              "File": 269
+            },
+            {
+              "File": 284
+            },
+            {
+              "File": 90
+            }
+          ],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Representative tests cover startup, restart, refresh, and migration behavior under large historical state",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Measured daemon RSS, cache DB growth, and refresh latency improve against the recorded baseline",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "No correctness regressions appear in lineage, projection, or query behavior after migration",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 631,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [
+          "health",
+          "performance",
+          "validation"
+        ],
+        "metadata": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "plan-edge:coord-task:01kn02nzcts148twpb0t9ssxp6:depends-on:coord-task:01kn02mwy8twwr8mcjrc6w60qn",
+        "plan_id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+        "from": "coord-task:01kn02nzcts148twpb0t9ssxp6",
+        "to": "coord-task:01kn02mwy8twwr8mcjrc6w60qn",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn02nzdnkxkz5dc3fbmgjfkb:depends-on:coord-task:01kn02mwy8twwr8mcjrc6w60qn",
+        "plan_id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+        "from": "coord-task:01kn02nzdnkxkz5dc3fbmgjfkb",
+        "to": "coord-task:01kn02mwy8twwr8mcjrc6w60qn",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn02nzedf9pa1689y558kzk2:depends-on:coord-task:01kn02mwy8twwr8mcjrc6w60qn",
+        "plan_id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+        "from": "coord-task:01kn02nzedf9pa1689y558kzk2",
+        "to": "coord-task:01kn02mwy8twwr8mcjrc6w60qn",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn02nzf7ftmveaznb5hh2r4j:depends-on:coord-task:01kn02nzdnkxkz5dc3fbmgjfkb",
+        "plan_id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+        "from": "coord-task:01kn02nzf7ftmveaznb5hh2r4j",
+        "to": "coord-task:01kn02nzdnkxkz5dc3fbmgjfkb",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn02nzf7ftmveaznb5hh2r4j:depends-on:coord-task:01kn02nzedf9pa1689y558kzk2",
+        "plan_id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+        "from": "coord-task:01kn02nzf7ftmveaznb5hh2r4j",
+        "to": "coord-task:01kn02nzedf9pa1689y558kzk2",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn02nzgqcvhrahmb2wt92gfw:depends-on:coord-task:01kn02nzdnkxkz5dc3fbmgjfkb",
+        "plan_id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+        "from": "coord-task:01kn02nzgqcvhrahmb2wt92gfw",
+        "to": "coord-task:01kn02nzdnkxkz5dc3fbmgjfkb",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn02nzgqcvhrahmb2wt92gfw:depends-on:coord-task:01kn02nzedf9pa1689y558kzk2",
+        "plan_id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+        "from": "coord-task:01kn02nzgqcvhrahmb2wt92gfw",
+        "to": "coord-task:01kn02nzedf9pa1689y558kzk2",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn02nzhkyych6dhta2d3he9x:depends-on:coord-task:01kn02nzcts148twpb0t9ssxp6",
+        "plan_id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+        "from": "coord-task:01kn02nzhkyych6dhta2d3he9x",
+        "to": "coord-task:01kn02nzcts148twpb0t9ssxp6",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn02nzhkyych6dhta2d3he9x:depends-on:coord-task:01kn02nzf7ftmveaznb5hh2r4j",
+        "plan_id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+        "from": "coord-task:01kn02nzhkyych6dhta2d3he9x",
+        "to": "coord-task:01kn02nzf7ftmveaznb5hh2r4j",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn02nzhkyych6dhta2d3he9x:depends-on:coord-task:01kn02nzgqcvhrahmb2wt92gfw",
+        "plan_id": "plan:01kn02m1dek35hmmpsxmaw5yd7",
+        "from": "coord-task:01kn02nzhkyych6dhta2d3he9x",
+        "to": "coord-task:01kn02nzgqcvhrahmb2wt92gfw",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      }
+    ]
+  },
+  "executionOverlays": []
+}

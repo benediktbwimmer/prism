@@ -18,10 +18,11 @@ use prism_curator::{
 };
 use prism_ir::{
     AnchorRef, ChangeTrigger, CoordinationEventKind, CredentialCapability, CredentialId,
-    CredentialRecord, CredentialStatus, EdgeKind, EventActor, EventId, EventMeta, GraphChange,
-    LineageEvent, LineageEventKind, LineageEvidence, LineageId, NodeId, NodeKind,
-    PrincipalAuthorityId, PrincipalId, PrincipalKind, PrincipalProfile, PrincipalRegistrySnapshot,
-    PrincipalStatus, SessionId, TaskId, WorkContextKind,
+    CredentialRecord, CredentialStatus, EdgeKind, EventActor, EventExecutionContext, EventId,
+    EventMeta, GraphChange, LineageEvent, LineageEventKind, LineageEvidence, LineageId, NodeId,
+    NodeKind, PrincipalAuthorityId, PrincipalId, PrincipalKind, PrincipalProfile,
+    PrincipalRegistrySnapshot, PrincipalStatus, SessionId, TaskId, WorkContextKind,
+    WorkContextSnapshot,
 };
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryEventQuery, MemoryId,
@@ -52,13 +53,14 @@ use super::{
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator_support::build_curator_context;
 use crate::materialization::summarize_workspace_materialization;
+use crate::concept_events::append_repo_concept_event;
 use crate::memory_events::append_repo_memory_event;
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::protected_state::repo_streams::{
     append_protected_stream_event, inspect_protected_stream,
 };
 use crate::protected_state::streams::ProtectedRepoStream;
-use crate::repo_patch_events::load_repo_patch_events;
+use crate::repo_patch_events::{append_repo_patch_event, load_repo_patch_events};
 use crate::session::HOT_OUTCOME_HYDRATION_LIMIT;
 use crate::workspace_identity::{canonical_root_repo_id, workspace_identity_for_root};
 use crate::workspace_tree::build_workspace_tree_snapshot;
@@ -2570,6 +2572,523 @@ fn protected_state_watcher_imports_repo_memory_without_source_refresh() {
 }
 
 #[test]
+fn repo_published_memory_writes_tracked_snapshot_manifest() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    let mut entry = MemoryEntry::new(
+        MemoryKind::Structural,
+        "tracked snapshot publication for repo memory",
+    );
+    entry.id = MemoryId("structural:tracked-snapshot-memory".to_string());
+    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.scope = MemoryScope::Repo;
+    entry.source = MemorySource::Agent;
+    entry.trust = 0.95;
+
+    let mut event = MemoryEvent::from_entry(
+        MemoryEventKind::Promoted,
+        entry.clone(),
+        Some("task:tracked-snapshot-memory".to_string()),
+        Vec::new(),
+        Vec::new(),
+    );
+    event.actor = Some(EventActor::Principal(prism_ir::PrincipalActor {
+        authority_id: PrincipalAuthorityId::new("local-daemon"),
+        principal_id: PrincipalId::new("codex-test"),
+        kind: Some(PrincipalKind::Agent),
+        name: Some("codex-test".to_string()),
+    }));
+    event.execution_context = Some(EventExecutionContext {
+        credential_id: Some(CredentialId::new("credential:test")),
+        work_context: Some(WorkContextSnapshot {
+            work_id: "work:tracked-snapshot-memory".to_string(),
+            kind: WorkContextKind::AdHoc,
+            title: "Publish tracked repo memory snapshot".to_string(),
+            parent_work_id: None,
+            coordination_task_id: None,
+            plan_id: None,
+            plan_title: None,
+        }),
+        ..Default::default()
+    });
+
+    append_repo_memory_event(&root, &event).unwrap();
+
+    let memory_files = fs::read_dir(root.join(".prism/state/memory"))
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .collect::<Vec<_>>();
+    assert_eq!(memory_files.len(), 1);
+
+    let manifest: serde_json::Value = serde_json::from_slice(
+        &fs::read(root.join(".prism/state/manifest.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(manifest["publisher"]["principalId"], "codex-test");
+    assert_eq!(
+        manifest["publisher"]["principalAuthorityId"],
+        "local-daemon"
+    );
+    assert_eq!(
+        manifest["workContext"]["workId"],
+        "work:tracked-snapshot-memory"
+    );
+    assert!(manifest["migrationSourceDigest"].is_string());
+    let relative_memory_path = memory_files[0]
+        .strip_prefix(&root)
+        .unwrap()
+        .to_string_lossy()
+        .replace('\\', "/");
+    assert!(manifest["files"].get(&relative_memory_path).is_some());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_published_memory_backfills_migration_digest_when_previous_manifest_lacked_it() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    let make_event = |id: &str, ts: u64| {
+        let mut entry = MemoryEntry::new(MemoryKind::Structural, "tracked snapshot migration");
+        entry.id = MemoryId(id.to_string());
+        entry.anchors = vec![AnchorRef::Node(alpha.clone())];
+        entry.scope = MemoryScope::Repo;
+        entry.source = MemorySource::Agent;
+        entry.trust = 0.95;
+
+        let mut event = MemoryEvent::from_entry(
+            MemoryEventKind::Promoted,
+            entry,
+            Some("task:tracked-snapshot-migration".to_string()),
+            Vec::new(),
+            Vec::new(),
+        );
+        event.actor = Some(EventActor::Principal(prism_ir::PrincipalActor {
+            authority_id: PrincipalAuthorityId::new("local-daemon"),
+            principal_id: PrincipalId::new("codex-test"),
+            kind: Some(PrincipalKind::Agent),
+            name: Some("codex-test".to_string()),
+        }));
+        event.execution_context = Some(EventExecutionContext {
+            credential_id: Some(CredentialId::new("credential:test")),
+            work_context: Some(WorkContextSnapshot {
+                work_id: "work:tracked-snapshot-memory".to_string(),
+                kind: WorkContextKind::AdHoc,
+                title: "Publish tracked repo memory snapshot".to_string(),
+                parent_work_id: None,
+                coordination_task_id: None,
+                plan_id: None,
+                plan_title: None,
+            }),
+            ..Default::default()
+        });
+        event.recorded_at = ts;
+        event
+    };
+
+    append_repo_memory_event(&root, &make_event("structural:tracked-snapshot-memory-1", 1)).unwrap();
+
+    let manifest_path = root.join(".prism/state/manifest.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    let original_digest = manifest["migrationSourceDigest"]
+        .as_str()
+        .expect("first manifest should carry migration digest")
+        .to_string();
+    manifest
+        .as_object_mut()
+        .expect("manifest should be an object")
+        .remove("migrationSourceDigest");
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).expect("manifest should serialize"),
+    )
+    .unwrap();
+
+    append_repo_memory_event(&root, &make_event("structural:tracked-snapshot-memory-2", 2)).unwrap();
+
+    let refreshed: serde_json::Value =
+        serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    assert_eq!(
+        refreshed["migrationSourceDigest"].as_str(),
+        Some(original_digest.as_str())
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_published_memory_reads_fall_back_to_tracked_snapshots() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    let mut entry = MemoryEntry::new(
+        MemoryKind::Structural,
+        "tracked snapshot fallback for repo memory",
+    );
+    entry.id = MemoryId("structural:tracked-snapshot-memory-read".to_string());
+    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.scope = MemoryScope::Repo;
+    entry.source = MemorySource::Agent;
+    entry.trust = 0.9;
+
+    let mut event = MemoryEvent::from_entry(
+        MemoryEventKind::Promoted,
+        entry.clone(),
+        Some("task:tracked-snapshot-memory-read".to_string()),
+        Vec::new(),
+        Vec::new(),
+    );
+    event.actor = Some(EventActor::Agent);
+    append_repo_memory_event(&root, &event).unwrap();
+
+    fs::remove_file(root.join(".prism/memory/events.jsonl")).unwrap();
+
+    let loaded = crate::memory_events::load_repo_memory_events(&root).unwrap();
+    assert_eq!(loaded.len(), 1);
+    assert_eq!(loaded[0].memory_id, entry.id);
+    assert_eq!(loaded[0].entry.as_ref(), Some(&entry));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_published_memory_ignores_legacy_log_once_snapshot_authority_exists() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    let mut entry = MemoryEntry::new(
+        MemoryKind::Structural,
+        "tracked snapshot cutover ignores legacy repo memory log",
+    );
+    entry.id = MemoryId("structural:tracked-snapshot-memory-cutover".to_string());
+    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.scope = MemoryScope::Repo;
+    entry.source = MemorySource::Agent;
+    entry.trust = 0.9;
+
+    let mut event = MemoryEvent::from_entry(
+        MemoryEventKind::Promoted,
+        entry.clone(),
+        Some("task:tracked-snapshot-memory-cutover".to_string()),
+        Vec::new(),
+        Vec::new(),
+    );
+    event.actor = Some(EventActor::Agent);
+    append_repo_memory_event(&root, &event).unwrap();
+
+    fs::write(root.join(".prism/memory/events.jsonl"), "tampered legacy log\n").unwrap();
+
+    let loaded = crate::memory_events::load_repo_memory_events(&root).unwrap();
+    assert_eq!(loaded.len(), 1);
+    assert_eq!(loaded[0].memory_id, entry.id);
+    assert_eq!(loaded[0].entry.as_ref(), Some(&entry));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_published_memory_stops_growing_legacy_log_after_snapshot_cutover() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    let make_event = |id: &str, text: &str| {
+        let mut entry = MemoryEntry::new(MemoryKind::Structural, text);
+        entry.id = MemoryId(id.to_string());
+        entry.anchors = vec![AnchorRef::Node(alpha.clone())];
+        entry.scope = MemoryScope::Repo;
+        entry.source = MemorySource::Agent;
+        entry.trust = 0.9;
+
+        let mut event = MemoryEvent::from_entry(
+            MemoryEventKind::Promoted,
+            entry,
+            Some("task:tracked-snapshot-memory-cutover".to_string()),
+            Vec::new(),
+            Vec::new(),
+        );
+        event.actor = Some(EventActor::Agent);
+        event
+    };
+
+    append_repo_memory_event(
+        &root,
+        &make_event(
+            "structural:tracked-snapshot-memory-cutover-first",
+            "first tracked snapshot cutover event",
+        ),
+    )
+    .unwrap();
+    let legacy_path = root.join(".prism/memory/events.jsonl");
+    let line_count_before = fs::read_to_string(&legacy_path).unwrap().lines().count();
+    assert_eq!(line_count_before, 1);
+
+    append_repo_memory_event(
+        &root,
+        &make_event(
+            "structural:tracked-snapshot-memory-cutover-second",
+            "second tracked snapshot cutover event",
+        ),
+    )
+    .unwrap();
+    let line_count_after = fs::read_to_string(&legacy_path).unwrap().lines().count();
+    assert_eq!(line_count_after, line_count_before);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_published_patch_reads_fall_back_to_tracked_snapshots() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    let event = OutcomeEvent {
+        meta: EventMeta {
+            id: EventId::new("outcome:tracked-snapshot-patch"),
+            ts: 7,
+            actor: EventActor::Principal(prism_ir::PrincipalActor {
+                authority_id: PrincipalAuthorityId::new("local-daemon"),
+                principal_id: PrincipalId::new("codex-patch"),
+                kind: Some(PrincipalKind::Agent),
+                name: Some("codex-patch".to_string()),
+            }),
+            correlation: Some(TaskId::new("task:tracked-snapshot-patch")),
+            causation: None,
+            execution_context: Some(EventExecutionContext {
+                credential_id: Some(CredentialId::new("credential:patch-snapshot")),
+                work_context: Some(WorkContextSnapshot {
+                    work_id: "work:tracked-snapshot-patch".to_string(),
+                    kind: WorkContextKind::AdHoc,
+                    title: "Publish tracked patch snapshot".to_string(),
+                    parent_work_id: None,
+                    coordination_task_id: None,
+                    plan_id: None,
+                    plan_title: None,
+                }),
+                ..Default::default()
+            }),
+        },
+        anchors: vec![AnchorRef::Node(alpha)],
+        kind: OutcomeKind::PatchApplied,
+        summary: "Apply tracked patch snapshot".to_string(),
+        result: OutcomeResult::Success,
+        evidence: vec![OutcomeEvidence::DiffSummary {
+            text: "tracked snapshot patch".to_string(),
+        }],
+        metadata: json!({}),
+    };
+
+    append_repo_patch_event(&root, &event).unwrap();
+    fs::remove_file(root.join(".prism/changes/events.jsonl")).unwrap();
+
+    let events = load_repo_patch_events(&root).unwrap();
+    assert_eq!(events, vec![event]);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_published_concepts_read_from_tracked_snapshots_without_event_log() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { beta(); }\npub fn beta() {}\n",
+    )
+    .unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+    let beta = session
+        .prism()
+        .symbol("beta")
+        .into_iter()
+        .next()
+        .expect("beta should be indexed")
+        .id()
+        .clone();
+
+    append_repo_concept_event(
+        &root,
+        &prism_projections::ConceptEvent {
+            id: "concept:event:tracked-snapshot".to_string(),
+            recorded_at: 11,
+            task_id: Some("task:tracked-snapshot-concept".to_string()),
+            actor: Some(EventActor::Principal(prism_ir::PrincipalActor {
+                authority_id: PrincipalAuthorityId::new("local-daemon"),
+                principal_id: PrincipalId::new("codex-concept"),
+                kind: Some(PrincipalKind::Agent),
+                name: Some("codex-concept".to_string()),
+            })),
+            execution_context: Some(EventExecutionContext {
+                credential_id: Some(CredentialId::new("credential:concept-snapshot")),
+                work_context: Some(WorkContextSnapshot {
+                    work_id: "work:tracked-snapshot-concept".to_string(),
+                    kind: WorkContextKind::AdHoc,
+                    title: "Publish tracked concept snapshot".to_string(),
+                    parent_work_id: None,
+                    coordination_task_id: None,
+                    plan_id: None,
+                    plan_title: None,
+                }),
+                ..Default::default()
+            }),
+            action: ConceptEventAction::Promote,
+            patch: None,
+            concept: prism_projections::ConceptPacket {
+                handle: "concept://tracked_snapshot_reader".to_string(),
+                canonical_name: "tracked_snapshot_reader".to_string(),
+                summary: "Snapshot-backed curated concept load.".to_string(),
+                aliases: vec!["snapshot reader".to_string()],
+                confidence: 0.91,
+                core_members: vec![alpha, beta],
+                core_member_lineages: Vec::new(),
+                supporting_members: Vec::new(),
+                supporting_member_lineages: Vec::new(),
+                likely_tests: Vec::new(),
+                likely_test_lineages: Vec::new(),
+                evidence: vec!["stored in tracked snapshot".to_string()],
+                risk_hint: None,
+                decode_lenses: vec![prism_projections::ConceptDecodeLens::Open],
+                scope: prism_projections::ConceptScope::Repo,
+                provenance: prism_projections::ConceptProvenance {
+                    origin: "test".to_string(),
+                    kind: "tracked_snapshot".to_string(),
+                    task_id: Some("task:tracked-snapshot-concept".to_string()),
+                },
+                publication: Some(prism_projections::ConceptPublication {
+                    published_at: 11,
+                    last_reviewed_at: Some(11),
+                    status: prism_projections::ConceptPublicationStatus::Active,
+                    supersedes: Vec::new(),
+                    retired_at: None,
+                    retirement_reason: None,
+                }),
+            },
+        },
+    )
+    .unwrap();
+
+    fs::remove_file(root.join(".prism/concepts/events.jsonl")).unwrap();
+    let concepts = crate::concept_events::load_repo_curated_concepts(&root).unwrap();
+    assert_eq!(concepts.len(), 1);
+    assert_eq!(concepts[0].handle, "concept://tracked_snapshot_reader");
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn protected_state_watcher_imports_repo_concepts_without_source_refresh() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -2837,6 +3356,7 @@ fn tampered_repo_concept_stream_is_rejected_on_reload() {
         "Tampered concept summary for tamper coverage.",
     );
     fs::write(&repo_log, tampered).unwrap();
+    let _ = fs::remove_dir_all(root.join(".prism/state"));
 
     let error = match index_workspace_session(&root) {
         Ok(_) => panic!("tampered concept stream should not reload"),
@@ -4553,6 +5073,277 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
 }
 
 #[test]
+fn repo_published_plans_write_tracked_snapshot_manifest() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let execution_context = EventExecutionContext {
+        credential_id: Some(CredentialId::new("credential:plan-snapshot")),
+        work_context: Some(WorkContextSnapshot {
+            work_id: "work:tracked-snapshot-plan".to_string(),
+            kind: WorkContextKind::Coordination,
+            title: "Publish tracked plan snapshot".to_string(),
+            parent_work_id: None,
+            coordination_task_id: None,
+            plan_id: None,
+            plan_title: None,
+        }),
+        ..Default::default()
+    };
+
+    session
+        .mutate_coordination(|prism| {
+            let base_revision = prism.workspace_revision();
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:tracked-plan-snapshot"),
+                    ts: 1,
+                    actor: EventActor::Principal(prism_ir::PrincipalActor {
+                        authority_id: PrincipalAuthorityId::new("local-daemon"),
+                        principal_id: PrincipalId::new("codex-plan"),
+                        kind: Some(PrincipalKind::Agent),
+                        name: Some("codex-plan".to_string()),
+                    }),
+                    correlation: Some(TaskId::new("task:tracked-plan-snapshot")),
+                    causation: None,
+                    execution_context: Some(execution_context.clone()),
+                },
+                "Tracked snapshot plan".into(),
+                "Tracked snapshot plan".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:tracked-plan-snapshot-task"),
+                    ts: 2,
+                    actor: EventActor::Principal(prism_ir::PrincipalActor {
+                        authority_id: PrincipalAuthorityId::new("local-daemon"),
+                        principal_id: PrincipalId::new("codex-plan"),
+                        kind: Some(PrincipalKind::Agent),
+                        name: Some("codex-plan".to_string()),
+                    }),
+                    correlation: Some(TaskId::new("task:tracked-plan-snapshot")),
+                    causation: None,
+                    execution_context: Some(execution_context.clone()),
+                },
+                prism_coordination::TaskCreateInput {
+                    plan_id: plan_id.clone(),
+                    title: "Persist task shard".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision,
+                },
+            )?;
+            anyhow::Ok(())
+        })
+        .unwrap();
+
+    let plan_files = fs::read_dir(root.join(".prism/state/plans"))
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .collect::<Vec<_>>();
+    let task_files = fs::read_dir(root.join(".prism/state/coordination/tasks"))
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .collect::<Vec<_>>();
+    assert_eq!(plan_files.len(), 1);
+    assert_eq!(task_files.len(), 1);
+
+    let manifest: serde_json::Value = serde_json::from_slice(
+        &fs::read(root.join(".prism/state/manifest.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(manifest["publisher"]["principalId"], "codex-plan");
+    assert_eq!(manifest["workContext"]["workId"], "work:tracked-snapshot-plan");
+    assert!(manifest["migrationSourceDigest"].is_string());
+    let relative_plan_path = plan_files[0]
+        .strip_prefix(&root)
+        .unwrap()
+        .to_string_lossy()
+        .replace('\\', "/");
+    let relative_task_path = task_files[0]
+        .strip_prefix(&root)
+        .unwrap()
+        .to_string_lossy()
+        .replace('\\', "/");
+    assert!(manifest["files"].get(&relative_plan_path).is_some());
+    assert!(manifest["files"].get(&relative_task_path).is_some());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_published_plans_hydrate_from_tracked_snapshots_without_plan_logs() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let (plan_id, task_id) = session
+        .mutate_coordination(|prism| {
+            let base_revision = prism.workspace_revision();
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:tracked-plan-fallback"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:tracked-plan-fallback")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Hydrate tracked plan snapshot".into(),
+                "Hydrate tracked plan snapshot".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            let task = prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:tracked-plan-fallback-task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:tracked-plan-fallback")),
+                    causation: None,
+                    execution_context: None,
+                },
+                prism_coordination::TaskCreateInput {
+                    plan_id: plan_id.clone(),
+                    title: "Load from tracked plan snapshot".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision,
+                },
+            )?;
+            Ok((plan_id, task.id))
+        })
+        .unwrap();
+
+    fs::remove_dir_all(root.join(".prism/plans")).unwrap();
+
+    let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
+        .unwrap()
+        .expect("tracked snapshots should hydrate plan state");
+    assert!(hydrated
+        .snapshot
+        .plans
+        .iter()
+        .any(|plan| plan.id == plan_id && plan.title == "Hydrate tracked plan snapshot"));
+    assert!(hydrated
+        .snapshot
+        .tasks
+        .iter()
+        .any(|task| task.id == task_id && task.plan == plan_id));
+    assert!(hydrated.plan_graphs.iter().any(|graph| graph.id == plan_id));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_published_plans_ignore_tampered_legacy_streams_once_snapshot_authority_exists() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let (plan_id, task_id) = session
+        .mutate_coordination(|prism| {
+            let base_revision = prism.workspace_revision();
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:tracked-plan-cutover"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:tracked-plan-cutover")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Ignore stale legacy plan stream".into(),
+                "Ignore stale legacy plan stream".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            let task = prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:tracked-plan-cutover-task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:tracked-plan-cutover")),
+                    causation: None,
+                    execution_context: None,
+                },
+                prism_coordination::TaskCreateInput {
+                    plan_id: plan_id.clone(),
+                    title: "Hydrate from snapshot despite stale stream".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision,
+                },
+            )?;
+            Ok((plan_id, task.id))
+        })
+        .unwrap();
+
+    let stream_path = root
+        .join(".prism/plans/streams")
+        .join(format!("{}.jsonl", plan_id.0));
+    assert!(stream_path.exists());
+    fs::write(&stream_path, "tampered legacy plan stream\n").unwrap();
+
+    let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
+        .unwrap()
+        .expect("tracked snapshots should remain authoritative");
+    assert!(hydrated
+        .snapshot
+        .plans
+        .iter()
+        .any(|plan| plan.id == plan_id && plan.title == "Ignore stale legacy plan stream"));
+    assert!(hydrated
+        .snapshot
+        .tasks
+        .iter()
+        .any(|task| task.id == task_id && task.plan == plan_id));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn repo_published_plans_merge_into_existing_coordination_snapshot() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -5699,7 +6490,7 @@ fn legacy_repo_published_plan_logs_still_hydrate() {
 }
 
 #[test]
-fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
+fn repo_published_plan_snapshot_persists_task_status_updates_after_cutover() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -5710,7 +6501,7 @@ fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
 
     let session = index_workspace_session(&root).unwrap();
-    let (plan_id, task_id) = session
+    let (_plan_id, task_id) = session
         .mutate_coordination(|prism| {
             let base_revision = prism.workspace_revision();
             let plan_id = prism.create_native_plan(
@@ -5754,14 +6545,6 @@ fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
         })
         .unwrap();
 
-    let log_path = root
-        .join(".prism")
-        .join("plans")
-        .join("active")
-        .join(format!("{}.jsonl", plan_id.0));
-    let initial_lines = fs::read_to_string(&log_path).unwrap().lines().count();
-    assert_eq!(initial_lines, 2, "initial publish should write plan + node");
-
     session
         .mutate_coordination(|prism| {
             let _ = prism.update_native_task(
@@ -5803,10 +6586,19 @@ fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
         })
         .unwrap();
 
-    let updated_lines = fs::read_to_string(&log_path).unwrap().lines().count();
+    let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
+        .unwrap()
+        .expect("tracked snapshots should hydrate plan state");
     assert_eq!(
-        updated_lines, 3,
-        "task status change should append one delta event instead of rewriting the full log"
+        hydrated
+            .snapshot
+            .tasks
+            .iter()
+            .find(|task| task.id == task_id)
+            .expect("published task")
+            .status,
+        prism_ir::CoordinationTaskStatus::InProgress,
+        "task status change should persist in tracked snapshots after cutover"
     );
 
     let _ = fs::remove_dir_all(root);
@@ -6198,7 +6990,7 @@ fn repair_repo_published_plan_artifacts_removes_redundant_edge_adds() {
 }
 
 #[test]
-fn completing_last_task_appends_plan_completion_to_published_plan_log() {
+fn completing_last_task_persists_plan_completion_in_tracked_snapshot() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -6294,26 +7086,30 @@ fn completing_last_task_appends_plan_completion_to_published_plan_log() {
         })
         .unwrap();
 
-    let log_path = root
-        .join(".prism")
-        .join("plans")
-        .join("active")
-        .join(format!("{}.jsonl", plan_id.0));
-    let log_contents = fs::read_to_string(&log_path).unwrap();
+    let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
+        .unwrap()
+        .expect("tracked snapshots should hydrate plan state");
     assert!(
-        log_contents.contains("\"kind\":\"plan_updated\""),
-        "completing the last task should append a plan update event"
+        hydrated
+            .snapshot
+            .plans
+            .iter()
+            .any(|plan| plan.id == plan_id && plan.status == prism_ir::PlanStatus::Completed),
+        "completing the last task should persist a completed plan status in tracked snapshots"
     );
     assert!(
-        log_contents.contains("\"status\":\"Completed\""),
-        "published plan log should persist the derived completed plan status"
+        hydrated
+            .plan_graphs
+            .iter()
+            .any(|graph| graph.id == plan_id && graph.status == prism_ir::PlanStatus::Completed),
+        "tracked snapshot plan graph should persist the derived completed plan status"
     );
 
     let _ = fs::remove_dir_all(root);
 }
 
 #[test]
-fn releasing_last_claim_appends_plan_completion_to_published_plan_log() {
+fn releasing_last_claim_persists_plan_completion_in_tracked_snapshot() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -6467,26 +7263,30 @@ fn releasing_last_claim_appends_plan_completion_to_published_plan_log() {
         prism_ir::PlanStatus::Completed
     );
 
-    let log_path = root
-        .join(".prism")
-        .join("plans")
-        .join("active")
-        .join(format!("{}.jsonl", plan_id.0));
-    let log_contents = fs::read_to_string(&log_path).unwrap();
+    let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
+        .unwrap()
+        .expect("tracked snapshots should hydrate plan state");
     assert!(
-        log_contents.contains("\"kind\":\"plan_updated\""),
-        "releasing the last claim should append a plan update event"
+        hydrated
+            .snapshot
+            .plans
+            .iter()
+            .any(|plan| plan.id == plan_id && plan.status == prism_ir::PlanStatus::Completed),
+        "releasing the last claim should persist a completed plan status in tracked snapshots"
     );
     assert!(
-        log_contents.contains("\"status\":\"Completed\""),
-        "published plan log should persist the derived completed plan status after claim release"
+        hydrated
+            .plan_graphs
+            .iter()
+            .any(|graph| graph.id == plan_id && graph.status == prism_ir::PlanStatus::Completed),
+        "tracked snapshot plan graph should persist the derived completed plan status after claim release"
     );
 
     let _ = fs::remove_dir_all(root);
 }
 
 #[test]
-fn repo_published_plan_logs_skip_runtime_handoff_deltas() {
+fn repo_published_plan_snapshot_skips_runtime_handoff_deltas() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -6572,26 +7372,24 @@ fn repo_published_plan_logs_skip_runtime_handoff_deltas() {
         })
         .unwrap();
 
-    let log_contents = fs::read_to_string(&log_path).unwrap();
-    let updated_lines = log_contents.lines().count();
-    assert_eq!(
-        updated_lines, 3,
-        "handoff should only publish the task-backed node delta, not a separate execution overlay event"
-    );
+    let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
+        .unwrap()
+        .expect("tracked snapshots should hydrate plan state");
+    let published_task = hydrated
+        .snapshot
+        .tasks
+        .iter()
+        .find(|task| task.id == task_id)
+        .expect("published task");
     assert!(
-        !log_contents.contains("\"kind\":\"execution_updated\""),
-        "published plan logs should not emit execution overlay events for handoffs"
+        published_task.pending_handoff_to.is_none(),
+        "tracked snapshots should not persist runtime handoff overlay fields"
     );
-    assert!(
-        !log_contents.contains("pending_handoff_to"),
-        "published plan logs should not serialize runtime handoff overlay fields"
-    );
-
     let _ = fs::remove_dir_all(root);
 }
 
 #[test]
-fn repo_published_plans_archive_transition_emits_archive_event_and_moves_log() {
+fn repo_published_plan_snapshot_persists_archive_transition() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -6621,17 +7419,6 @@ fn repo_published_plans_archive_transition_emits_archive_event_and_moves_log() {
         })
         .unwrap();
 
-    let active_log_path = root
-        .join(".prism")
-        .join("plans")
-        .join("active")
-        .join(format!("{}.jsonl", plan_id.0));
-    let archived_log_path = root
-        .join(".prism")
-        .join("plans")
-        .join("archived")
-        .join(format!("{}.jsonl", plan_id.0));
-
     session
         .mutate_coordination(|prism| {
             prism.update_native_plan(
@@ -6651,18 +7438,16 @@ fn repo_published_plans_archive_transition_emits_archive_event_and_moves_log() {
             )
         })
         .unwrap();
+    let abandoned = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
+        .unwrap()
+        .expect("tracked snapshots should hydrate plan state");
     assert!(
-        active_log_path.exists(),
-        "abandoned plans should remain under the active log directory until archived"
-    );
-    assert!(
-        !archived_log_path.exists(),
-        "archive storage should not move on abandonment alone"
-    );
-    let abandoned_log = fs::read_to_string(&active_log_path).unwrap();
-    assert!(
-        abandoned_log.contains("\"kind\":\"plan_updated\""),
-        "abandoning the plan should stay a normal plan update"
+        abandoned
+            .snapshot
+            .plans
+            .iter()
+            .any(|plan| plan.id == plan_id && plan.status == prism_ir::PlanStatus::Abandoned),
+        "abandoning the plan should persist in tracked snapshots"
     );
 
     session
@@ -6684,27 +7469,6 @@ fn repo_published_plans_archive_transition_emits_archive_event_and_moves_log() {
             )
         })
         .unwrap();
-
-    assert!(
-        !active_log_path.exists(),
-        "archived plans should move out of the active log directory"
-    );
-    assert!(
-        archived_log_path.exists(),
-        "archived plans should persist under the archived log directory"
-    );
-    let archived_log = fs::read_to_string(&archived_log_path).unwrap();
-    assert!(
-        archived_log.contains("\"kind\":\"plan_archived\""),
-        "archiving the plan should emit a first-class archive event"
-    );
-
-    let index_contents =
-        fs::read_to_string(root.join(".prism").join("plans").join("index.jsonl")).unwrap();
-    assert!(index_contents.contains(&format!(
-        "\"log_path\":\".prism/plans/streams/{}.jsonl\"",
-        plan_id.0
-    )));
 
     drop(session);
     fs::remove_file(
@@ -6768,6 +7532,7 @@ fn tampered_authoritative_plan_stream_is_rejected_on_reload() {
         .unwrap()
         .replace("Signed plan goal", "Tampered plan goal");
     fs::write(&stream_path, tampered).unwrap();
+    let _ = fs::remove_dir_all(root.join(".prism").join("state"));
 
     let error = match index_workspace_session(&root) {
         Ok(_) => panic!("tampered authoritative plan stream should not reload"),

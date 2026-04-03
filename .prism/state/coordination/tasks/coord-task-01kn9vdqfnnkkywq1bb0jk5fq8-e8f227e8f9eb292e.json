@@ -1,0 +1,61 @@
+{
+  "id": "coord-task:01kn9vdqfnnkkywq1bb0jk5fq8",
+  "plan": "plan:01kn9vcavs4jft9eqw82ysmghq",
+  "kind": "Edit",
+  "title": "Audit MCP/query/docs/projection surfaces for path leakage and anchor misuse",
+  "summary": "Update public schemas, PRISM query surfaces, docs, generated projections, and read models so portable repo-relative paths and semantic anchors are exposed consistently, and machine-local absolute paths never leak into durable or shared surfaces.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn9vd1qxxaht9ap1ygbmd23g",
+    "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+    "coord-task:01kn9vdfjsrbzwz5w5mff8yqck"
+  ],
+  "acceptance": [
+    {
+      "label": "Public docs and schemas no longer present absolute paths as durable PRISM identity",
+      "anchors": []
+    },
+    {
+      "label": "Public read surfaces prefer anchors and repo-relative paths for portable file references",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 1015,
+    "git_commit": null
+  },
+  "priority": 1,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

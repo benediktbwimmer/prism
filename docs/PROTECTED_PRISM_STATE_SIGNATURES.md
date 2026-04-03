@@ -14,14 +14,14 @@ Instead:
 
 - repo `.prism` remains the durable published repo plane
 - shared runtime state remains the mutable identity and coordination plane
-- authoritative repo `.prism` records are accepted only when they are emitted as canonical
-  runtime-attested signed events from an authenticated PRISM mutation path
+- authoritative tracked repo `.prism` state is accepted only when it is emitted as a canonical
+  runtime-attested signed publish boundary from an authenticated PRISM mutation path
 - external or unknown filesystem edits to protected repo `.prism` paths are treated as tamper or
   drift, not as valid state transitions
 
 The key design moves are:
 
-- sign canonical append-only events, not files and not individual lines
+- sign canonical publish manifests, not informal file edits and not individual lines
 - require PRISM runtime attestation for authoritative repo publication
 
 This preserves the properties we want from repo `.prism`:
@@ -98,9 +98,9 @@ PRISM cannot stop a user or tool from editing a file on disk.
 What it can do is refuse to treat such an edit as an authoritative state transition unless it
 verifies as one.
 
-### 4.2 Runtime-attest canonical events, not files
+### 4.2 Runtime-attest canonical publish boundaries, not file edits
 
-PRISM should sign canonical append-only mutation events with a trusted PRISM runtime authority key.
+PRISM should sign canonical publish manifests with a trusted PRISM runtime authority key.
 
 PRISM should **not** attempt to:
 
@@ -113,10 +113,11 @@ Authoritative state should flow as:
 
 1. authenticated mutation request
 2. runtime verification of principal identity and policy
-3. canonical event payload containing principal identity, authority identity, and mutation body
-4. runtime attestation signature over the canonical payload
-5. append signed event to protected `.prism` event log
-6. hydrate only from verified runtime-attested events
+3. canonical publish payload containing principal identity, authority identity, work context, and
+   snapshot file digests
+4. runtime attestation signature over the canonical publish payload
+5. write the updated tracked snapshot files and stable protected manifest
+6. hydrate only from verified runtime-attested snapshot state
 
 Optional principal countersignatures can be added later, but they should not be the authoritative
 mechanism in v1.
@@ -156,23 +157,20 @@ That does **not** mean every repo `.prism` file is equally authoritative.
 
 PRISM should distinguish:
 
-- authoritative protected event logs
-- derived or convenience artifacts regenerated from authoritative logs
+- authoritative protected snapshot artifacts and manifests
+- derived or convenience artifacts regenerated from authoritative snapshot state
 
 V1 protected authoritative scope is fixed to exactly:
 
-- `.prism/plans/streams/*.jsonl`
-- `.prism/concepts/events.jsonl`
-- `.prism/concepts/relations.jsonl`
-- `.prism/contracts/events.jsonl`
-- `.prism/memory/*.jsonl`
+- snapshot-form plan, concept, relation, contract, and memory state under tracked `.prism/state/**`
+- the stable protected publish manifest that attests to that snapshot boundary
 
 Plan-specific rule:
 
-- authoritative plan truth in v1 lives only in signed per-plan streams under
-  `.prism/plans/streams/*.jsonl`
-- plan lifecycle state such as `Active` or `Archived` is carried in signed plan events
-- `.prism/plans/index.jsonl` is derived from verified plan streams
+- authoritative plan truth in v1 lives in signed snapshot-form published plan state
+- plan lifecycle state such as `Active` or `Archived` is carried in the signed snapshot and its
+  protected manifest
+- repo indexes and generated placement files remain derived convenience state
 - any `active/` or `archived/` plan placement is derived convenience state, not authoritative truth
 
 Derived repo artifacts such as generated docs may still be PRISM-managed, but they should not be
@@ -476,6 +474,11 @@ PRISM should pin:
 
 ## 11. Write Path
 
+Tracked repo publication now uses signed snapshot manifests as the durable boundary.
+The append-only protected event-log path below should be treated as the legacy or migration model
+for repo-tracked `.prism` state, while runtime/shared journals may still use append-only signed
+event streams for high-resolution operational history.
+
 The authoritative write path for protected repo `.prism` state should be:
 
 1. client sends authenticated mutation with credential
@@ -489,11 +492,12 @@ The authoritative write path for protected repo `.prism` state should be:
    authority
 7. PRISM signs the payload with the trusted runtime authority signing key
 8. PRISM computes the derived `entry_hash`
-9. PRISM appends the signed event to the protected event log as one JSONL record
-10. PRISM fsyncs the file after append
-11. if the file was newly created or replaced, PRISM fsyncs the parent directory as well
-12. PRISM updates hot memory from the accepted event
-13. watcher echoes of PRISM's own write are suppressed as self-writes, not re-ingested as new
+9. PRISM writes the updated tracked snapshot shards for the affected published state
+10. PRISM computes and signs the stable `.prism/state/manifest.json` over that exact file set
+11. PRISM fsyncs the manifest and any newly written authoritative snapshot shards
+12. if a file was newly created or replaced, PRISM fsyncs the parent directory as well
+13. PRISM updates hot memory from the accepted publication
+14. watcher echoes of PRISM's own write are suppressed as self-writes, not re-ingested as new
     mutations
 
 The protected repo write should be the published artifact of an authenticated mutation, not an
@@ -515,18 +519,20 @@ Authoritative writes must refuse to append when the stream status is:
 
 ## 12. Hydration and Verification
 
+For tracked repo `.prism` state, hydration should verify the current snapshot manifest and shard
+digests directly. Full append-log replay remains relevant for runtime/shared journals and for
+legacy migration inputs, but it is no longer the steady-state tracked repo restore path.
+
 Hydration of protected repo `.prism` state should:
 
-1. open the append-only event log
-2. parse each event envelope
-3. canonicalize the payload exactly as the signer did
-4. recompute the payload hash
-5. resolve `trust_bundle_id` to imported public verification material
-6. verify that `runtime_key_id` was valid for the declared `runtime_authority_id` under that bundle
-7. verify the signature against the trusted public key for `runtime_key_id`
-8. verify predecessor linkage, including `prev_event_id` and `prev_entry_hash`
-9. classify the stream result
-10. project only `Verified` streams into hot state for authoritative reads and writes
+1. open `.prism/state/manifest.json`
+2. canonicalize the manifest signing view exactly as the signer did
+3. resolve `trust_bundle_id` to imported public verification material
+4. verify that `runtime_key_id` was valid for the declared `runtime_authority_id` under that bundle
+5. verify the manifest signature against the trusted public key for `runtime_key_id`
+6. verify every authoritative shard digest referenced by the manifest
+7. classify the snapshot result
+8. project only `Verified` snapshot sets into hot state for authoritative reads and writes
 
 Portable verification should work with imported public trust material on a fresh machine, even when
 the original mutable local trust database is not present.

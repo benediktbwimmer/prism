@@ -1,0 +1,59 @@
+{
+  "id": "coord-task:01kn13ryrrk04aacsvg1ac96c2",
+  "plan": "plan:01kn13pqvcx3xmnkrs493ff3ra",
+  "kind": "Edit",
+  "title": "Review the migration outcome with the user and decide together whether a separate persistence worker deserves a follow-up plan",
+  "summary": null,
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn13rrg3yzbrcgrjh06ppv3h"
+  ],
+  "acceptance": [
+    {
+      "label": "If needed, the follow-up worker plan is scoped from post-migration evidence rather than guessed upfront.",
+      "anchors": []
+    },
+    {
+      "label": "The user and agent explicitly evaluate whether remaining contention, isolation needs, or backend evolution justify a separate persistence-worker follow-up plan.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 1290,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

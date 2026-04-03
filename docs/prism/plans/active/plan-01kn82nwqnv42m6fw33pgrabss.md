@@ -26,10 +26,19 @@
 
 Extend PRISM runtime and MCP log query views so agents can analyze daemon and MCP call state at worktree scope, repo-wide across all worktrees for the same repo on one machine, and across all available log files, while preserving current worktree-local behavior as the default.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn82nwqnv42m6fw33pgrabss.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn82nwqnv42m6fw33pgrabss.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn82nwqnv42m6fw33pgrabss.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

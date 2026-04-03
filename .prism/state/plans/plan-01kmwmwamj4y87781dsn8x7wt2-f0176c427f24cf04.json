@@ -1,0 +1,367 @@
+{
+  "plan": {
+    "id": "plan:01kmwmwamj4y87781dsn8x7wt2",
+    "goal": "Refactor the prism-mcp test suite so routine feedback loops are faster and the integration-heavy cases are less flaky and more deterministic.",
+    "title": "Refactor the prism-mcp test suite so routine feedback loops are faster and the integration-heavy cases are less flaky and more deterministic.",
+    "status": "Archived",
+    "policy": {
+      "default_claim_mode": "Advisory",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": false,
+      "stale_after_graph_change": true,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "off",
+        "completionMode": "off",
+        "targetRef": null,
+        "targetBranch": "",
+        "requireTaskBranch": false,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": null
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01kmwmwtsvsb4fnsekv4hd29fd"
+    ]
+  },
+  "graph": {
+    "id": "plan:01kmwmwamj4y87781dsn8x7wt2",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Refactor the prism-mcp test suite so routine feedback loops are faster and the integration-heavy cases are less flaky and more deterministic.",
+    "goal": "Refactor the prism-mcp test suite so routine feedback loops are faster and the integration-heavy cases are less flaky and more deterministic.",
+    "status": "Archived",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01kmwmwtsvsb4fnsekv4hd29fd"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01kmwmwtsvsb4fnsekv4hd29fd",
+        "plan_id": "plan:01kmwmwamj4y87781dsn8x7wt2",
+        "kind": "Edit",
+        "title": "Phase 1: Split the prism-mcp test monolith into focused modules and shared support",
+        "summary": "Extract the 16k-line tests.rs file into cohesive test modules plus a shared support layer so routine edits stop rebuilding one giant unit-test binary.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "tests.rs is decomposed into focused modules and common helpers live in shared support",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Small surface edits no longer require touching one monolithic test source file",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 2308,
+          "git_commit": null
+        },
+        "priority": 1,
+        "tags": [
+          "modularity",
+          "phase-1",
+          "tests"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kmwmx0mgvnar7ttdgbx5vqp7",
+        "plan_id": "plan:01kmwmwamj4y87781dsn8x7wt2",
+        "kind": "Edit",
+        "title": "Phase 2: Introduce reusable workspace, host, and server fixtures",
+        "summary": "Replace repeated temp workspace and indexing boilerplate with fixture builders for indexed workspaces, in-process hosts, and slow transport scenarios.",
+        "status": "Proposed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Common fixture builders cover basic workspace, indexed host, and server cases",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Repeated temp_workspace and index_workspace_session setup is materially reduced across the suite",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 2308,
+          "git_commit": null
+        },
+        "priority": 2,
+        "tags": [
+          "fixtures",
+          "phase-2",
+          "tests"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kmwmx66n1p6yd7ynxefdxmwm",
+        "plan_id": "plan:01kmwmwamj4y87781dsn8x7wt2",
+        "kind": "Edit",
+        "title": "Phase 3: Replace sleep-based waits with deterministic polling helpers",
+        "summary": "Remove raw thread and tokio sleeps from tests in favor of wait-until helpers tied to real readiness and refresh conditions.",
+        "status": "Proposed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Raw sleep calls in ordinary prism-mcp tests are removed or isolated behind deterministic helpers",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Timing-sensitive tests wait on explicit readiness predicates instead of fixed delays",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 2308,
+          "git_commit": null
+        },
+        "priority": 3,
+        "tags": [
+          "phase-3",
+          "stability",
+          "tests"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kmwmxdydjdfqt637qws4020s",
+        "plan_id": "plan:01kmwmwamj4y87781dsn8x7wt2",
+        "kind": "Decide",
+        "title": "Phase 4: Isolate transport and bridge tests into a slower integration layer",
+        "summary": "Keep only a small explicit set of real HTTP and bridge end-to-end tests in a dedicated slow layer, while moving most surface tests to in-process execution.",
+        "status": "Proposed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Transport and bridge scenarios are separated from the routine fast suite",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Most MCP surface behavior is verified without sockets or bridge startup",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 2308,
+          "git_commit": null
+        },
+        "priority": 4,
+        "tags": [
+          "integration",
+          "phase-4",
+          "tests"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kmwmxn7rrwce389gmwgw91r9",
+        "plan_id": "plan:01kmwmwamj4y87781dsn8x7wt2",
+        "kind": "Edit",
+        "title": "Phase 5: Push pure logic tests down into the owning crates",
+        "summary": "Move log-store, filtering, serialization, and other non-surface behavior tests into their owning crates so prism-mcp stays focused on wiring and MCP behavior.",
+        "status": "Proposed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Pure logic tests live with the modules and crates that own the behavior",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "prism-mcp retains primarily surface and wiring coverage instead of lower-layer rule tests",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 2308,
+          "git_commit": null
+        },
+        "priority": 5,
+        "tags": [
+          "ownership",
+          "phase-5",
+          "tests"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kmwmxw55q5xvpqg4r5g5x393",
+        "plan_id": "plan:01kmwmwamj4y87781dsn8x7wt2",
+        "kind": "Validate",
+        "title": "Phase 6: Add explicit CI lanes for fast, indexed, and slow integration tests",
+        "summary": "Define separate execution classes so local and PR feedback loops stay fast while still covering indexed-workspace and transport-heavy scenarios in the right place.",
+        "status": "Proposed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "CI distinguishes routine fast tests from indexed-workspace and slow integration suites",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Developers can run the fast lane without paying for the full slow matrix",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 2308,
+          "git_commit": null
+        },
+        "priority": 6,
+        "tags": [
+          "ci",
+          "phase-6",
+          "tests"
+        ],
+        "metadata": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "plan-edge:coord-task:01kmwmx0mgvnar7ttdgbx5vqp7:depends-on:coord-task:01kmwmwtsvsb4fnsekv4hd29fd",
+        "plan_id": "plan:01kmwmwamj4y87781dsn8x7wt2",
+        "from": "coord-task:01kmwmx0mgvnar7ttdgbx5vqp7",
+        "to": "coord-task:01kmwmwtsvsb4fnsekv4hd29fd",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kmwmx66n1p6yd7ynxefdxmwm:depends-on:coord-task:01kmwmx0mgvnar7ttdgbx5vqp7",
+        "plan_id": "plan:01kmwmwamj4y87781dsn8x7wt2",
+        "from": "coord-task:01kmwmx66n1p6yd7ynxefdxmwm",
+        "to": "coord-task:01kmwmx0mgvnar7ttdgbx5vqp7",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kmwmxdydjdfqt637qws4020s:depends-on:coord-task:01kmwmx66n1p6yd7ynxefdxmwm",
+        "plan_id": "plan:01kmwmwamj4y87781dsn8x7wt2",
+        "from": "coord-task:01kmwmxdydjdfqt637qws4020s",
+        "to": "coord-task:01kmwmx66n1p6yd7ynxefdxmwm",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kmwmxn7rrwce389gmwgw91r9:depends-on:coord-task:01kmwmxdydjdfqt637qws4020s",
+        "plan_id": "plan:01kmwmwamj4y87781dsn8x7wt2",
+        "from": "coord-task:01kmwmxn7rrwce389gmwgw91r9",
+        "to": "coord-task:01kmwmxdydjdfqt637qws4020s",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kmwmxw55q5xvpqg4r5g5x393:depends-on:coord-task:01kmwmxn7rrwce389gmwgw91r9",
+        "plan_id": "plan:01kmwmwamj4y87781dsn8x7wt2",
+        "from": "coord-task:01kmwmxw55q5xvpqg4r5g5x393",
+        "to": "coord-task:01kmwmxn7rrwce389gmwgw91r9",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      }
+    ]
+  },
+  "executionOverlays": []
+}

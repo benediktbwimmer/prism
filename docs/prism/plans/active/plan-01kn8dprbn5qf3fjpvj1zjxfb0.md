@@ -26,10 +26,19 @@
 
 Reduce full cargo test latency and improve test reliability by profiling the slowest test paths, separating heavy integration-style coverage from cheap unit-style coverage, removing avoidable setup and timing overhead, and validating the new default suite behavior with measured before/after timings.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn8dprbn5qf3fjpvj1zjxfb0.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn8dprbn5qf3fjpvj1zjxfb0.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn8dprbn5qf3fjpvj1zjxfb0.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

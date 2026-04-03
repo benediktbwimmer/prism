@@ -1,0 +1,72 @@
+{
+  "id": "coord-task:01kmyy5zaha779zg71a25vgpb9",
+  "plan": "plan:01kmyy4ykg8sh1apt74er1t0fm",
+  "kind": "Edit",
+  "title": "Milestone 3: Integrate contracts into normal query and review flows",
+  "summary": "Milestone 3 is complete: contracts now participate in normal query and review flows through contract-aware impact, afterEdit, validationPlan, readContext, workset, taskRisk, artifactRisk, and task-brief guidance.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kmyy5z9yg4m41vgvsp52jjhb"
+  ],
+  "acceptance": [
+    {
+      "label": "Agents can ask which contracts govern a target and inspect those contracts through standard read flows",
+      "anchors": []
+    },
+    {
+      "label": "At least one existing impact-oriented surface reports touched contracts, affected consumers, or contract-linked validations when relevant",
+      "anchors": []
+    },
+    {
+      "label": "The first integration distinguishes implementation-only edits from contract-affecting edits more clearly than the current baseline",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [
+    {
+      "id": "contracts:m3-query-integration"
+    }
+  ],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 484,
+    "git_commit": null
+  },
+  "priority": 1,
+  "tags": [
+    "contracts",
+    "impact",
+    "query",
+    "review"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

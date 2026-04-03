@@ -1,0 +1,83 @@
+{
+  "id": "coord-task:01kn55dvkdfvxg8pdfk72p0h72",
+  "plan": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+  "kind": "Investigate",
+  "title": "Instrument refresh latency against the architecture budgets",
+  "summary": "Live refresh instrumentation is now materially advanced. The daemon emits attributed refresh-pipeline and indexing timings from the live log, and the current pass used that evidence to remove two request-path bottlenecks: the async curator store-lock convoy and the incremental IndexPersistBatch clone. Live probes improved from 435ms add / 335ms delete to 139ms add / 229ms delete, with build_persist_batch_ms collapsing from 168ms and 91ms to 0ms. This node remains in progress because queue-wait, lock-hold, publish/settle, and checkpoint-lag coverage is still incomplete, and startup hydration remains a separate unclosed budget miss.",
+  "status": "InProgress",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [
+    {
+      "File": 116
+    },
+    {
+      "File": 256
+    },
+    {
+      "File": 343
+    },
+    {
+      "File": 84
+    }
+  ],
+  "bindings": {
+    "anchors": [
+      {
+        "File": 116
+      },
+      {
+        "File": 256
+      },
+      {
+        "File": 343
+      },
+      {
+        "File": 84
+      }
+    ],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [],
+  "acceptance": [
+    {
+      "label": "The daemon exposes queue wait, lock hold, prepare, delta construction, commit, publish, and settle timing fields with enough detail to explain the current missing 'other' bucket.",
+      "anchors": []
+    },
+    {
+      "label": "A repeatable benchmark or log-extraction workflow reports p50 and p95 for tiny-edit publish latency, queue wait, direct dependent settle, and checkpoint lag.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 340,
+    "git_commit": null
+  },
+  "priority": 1,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

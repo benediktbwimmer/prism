@@ -1,0 +1,65 @@
+{
+  "id": "coord-task:01kmwq21ymh3cqdzbggynehfxv",
+  "plan": "plan:01kmwq0gyrjr66sv91wnknhzmf",
+  "kind": "Investigate",
+  "title": "Milestone 0: Establish performance baselines, budgets, and regression guardrails",
+  "summary": "Established milestone baselines and guardrails: attached per-milestone validation recipes and before/after measurement targets, exposed lockHoldMs plus loadedBytes/replayVolume/fullRebuildCount in refresh telemetry, and validated the refresh-path baseline with targeted prism-mcp tests.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [],
+  "acceptance": [
+    {
+      "label": "Benchmarks and traces cover no-op refresh, scoped refresh, stale auxiliary read refresh, coordination reload, coordination mutate, startup, and background indexing throughput",
+      "anchors": []
+    },
+    {
+      "label": "Every later milestone has explicit before/after metrics and a validation recipe attached before implementation starts",
+      "anchors": []
+    },
+    {
+      "label": "Instrumentation exposes lock hold time, replay volume, loaded bytes, and full-rebuild counts for the audited paths",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 16026,
+    "git_commit": null
+  },
+  "priority": 0,
+  "tags": [
+    "baseline",
+    "benchmark",
+    "perf"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

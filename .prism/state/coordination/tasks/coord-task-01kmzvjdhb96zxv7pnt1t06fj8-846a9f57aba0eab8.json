@@ -1,0 +1,70 @@
+{
+  "id": "coord-task:01kmzvjdhb96zxv7pnt1t06fj8",
+  "plan": "plan:01kmzvjdhb874nxd0v44d2hdmt",
+  "kind": "Decide",
+  "title": "Milestone 5: Define the concept-graph projection, zoom model, and overlay contract",
+  "summary": "Decide the first-cut architecture explorer contract around subsystem-level semantic zoom, typed relations, and bounded overlays so the graph page is inspectable instead of noisy.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [
+      "concept://dashboard_surface",
+      "concept://prism_architecture"
+    ],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kmzvjdhbybkjn70sasjwahwd"
+  ],
+  "acceptance": [
+    {
+      "label": "The graph starts at subsystem or concept level instead of trying to render the whole repo graph at once",
+      "anchors": []
+    },
+    {
+      "label": "The first release contract covers semantic zoom, neighborhood expansion, evidence inspection, and typed relation rendering",
+      "anchors": []
+    },
+    {
+      "label": "Overlay priority is explicit: concept relations first, then plan touchpoints, health or risk, and active work; freeform graph editing stays out of scope",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 521,
+    "git_commit": null
+  },
+  "priority": 5,
+  "tags": [
+    "concepts",
+    "design",
+    "graph"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

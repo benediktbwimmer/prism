@@ -26,10 +26,19 @@
 
 runtime-status-cleanup: make runtimeStatus cheap, accurate, and trustworthy by pruning stale runtime-state process records, tightening process/count reporting, and validating the cleaned status surface under real daemon usage.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn2nhs48pj2kqeqqgtrqsded.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn2nhs48pj2kqeqqgtrqsded.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn2nhs48pj2kqeqqgtrqsded.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

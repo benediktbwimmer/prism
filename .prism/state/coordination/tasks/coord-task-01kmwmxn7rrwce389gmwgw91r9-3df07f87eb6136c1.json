@@ -1,0 +1,63 @@
+{
+  "id": "coord-task:01kmwmxn7rrwce389gmwgw91r9",
+  "plan": "plan:01kmwmwamj4y87781dsn8x7wt2",
+  "kind": "Edit",
+  "title": "Phase 5: Push pure logic tests down into the owning crates",
+  "summary": "Move log-store, filtering, serialization, and other non-surface behavior tests into their owning crates so prism-mcp stays focused on wiring and MCP behavior.",
+  "status": "Proposed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kmwmxdydjdfqt637qws4020s"
+  ],
+  "acceptance": [
+    {
+      "label": "Pure logic tests live with the modules and crates that own the behavior",
+      "anchors": []
+    },
+    {
+      "label": "prism-mcp retains primarily surface and wiring coverage instead of lower-layer rule tests",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 2308,
+    "git_commit": null
+  },
+  "priority": 5,
+  "tags": [
+    "ownership",
+    "phase-5",
+    "tests"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

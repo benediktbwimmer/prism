@@ -314,7 +314,7 @@ fn render_root_prism_doc(catalog: &PrismDocCatalog) -> String {
         "- Use `docs/prism/plans/index.md` when you need the current published plan catalog and per-plan markdown projections.\n",
     );
     markdown.push_str(
-        "- Treat `.prism/concepts/events.jsonl`, `.prism/concepts/relations.jsonl`, `.prism/contracts/events.jsonl`, `.prism/memory/events.jsonl`, `.prism/changes/events.jsonl`, and `.prism/plans/**/*` as the source of truth; these markdown files are derived artifacts.\n\n",
+        "- Treat tracked `.prism/state/**` snapshot shards plus `.prism/state/manifest.json` as the current repo-published source of truth; the legacy tracked `.jsonl` streams are migration-era compatibility inputs, and these markdown files are derived artifacts.\n\n",
     );
 
     if let Some(architecture) = catalog.architecture_concept() {

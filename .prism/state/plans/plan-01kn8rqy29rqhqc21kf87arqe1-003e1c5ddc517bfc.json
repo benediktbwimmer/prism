@@ -1,0 +1,89 @@
+{
+  "plan": {
+    "id": "plan:01kn8rqy29rqhqc21kf87arqe1",
+    "goal": "Exercise live require-mode completion behavior on a temporary task.",
+    "title": "Dogfood require-vs-auto git execution",
+    "status": "Active",
+    "policy": {
+      "default_claim_mode": "Advisory",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": false,
+      "stale_after_graph_change": true,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "require",
+        "completionMode": "require",
+        "targetRef": null,
+        "targetBranch": "main",
+        "requireTaskBranch": true,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": null
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01kn8rr5zr0md0jzevcfssaqvc"
+    ]
+  },
+  "graph": {
+    "id": "plan:01kn8rqy29rqhqc21kf87arqe1",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Dogfood require-vs-auto git execution",
+    "goal": "Exercise live require-mode completion behavior on a temporary task.",
+    "status": "Active",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01kn8rr5zr0md0jzevcfssaqvc"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01kn8rr5zr0md0jzevcfssaqvc",
+        "plan_id": "plan:01kn8rqy29rqhqc21kf87arqe1",
+        "kind": "Edit",
+        "title": "Live require completion dogfood",
+        "summary": null,
+        "status": "InProgress",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 84,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      }
+    ],
+    "edges": []
+  },
+  "executionOverlays": []
+}

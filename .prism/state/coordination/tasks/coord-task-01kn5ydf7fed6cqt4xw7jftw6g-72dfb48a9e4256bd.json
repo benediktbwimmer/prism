@@ -1,0 +1,96 @@
+{
+  "id": "coord-task:01kn5ydf7fed6cqt4xw7jftw6g",
+  "plan": "plan:01kn5y6qqpxt3qaecccg12h03e",
+  "kind": "Validate",
+  "title": "Validate migration semantics, tamper handling, and full-workspace behavior",
+  "summary": "Validation completed for the protected-state rollout. Targeted prism-core operator tests, prism-cli protected-state command tests, focused prism-mcp protected-state resource tests, `cargo test -p prism-mcp --quiet`, and `cargo test --workspace --quiet` all passed, with the known `queries_defer_request_path_refresh_when_runtime_sync_is_busy` parallel-suite flake passing immediately in isolated rerun per repo policy. Release binaries were rebuilt and the live daemon restart/status/health sequence passed on the rebuilt prism-cli and prism-mcp binaries.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [
+    {
+      "File": 113
+    },
+    {
+      "File": 21
+    },
+    {
+      "File": 242
+    },
+    {
+      "File": 340
+    }
+  ],
+  "bindings": {
+    "anchors": [
+      {
+        "File": 113
+      },
+      {
+        "File": 21
+      },
+      {
+        "File": 242
+      },
+      {
+        "File": 340
+      }
+    ],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn5ydf14v5ce5m5qbd22ykbe",
+    "coord-task:01kn5ydf2qhfjjb50zav19rvm0",
+    "coord-task:01kn5ydf4876gvnh5c20zaw9w6",
+    "coord-task:01kn5ydf5tdhdry9ftd4wjwq7c"
+  ],
+  "acceptance": [
+    {
+      "label": "Existing tests that allow unsigned legacy hydration or external authoritative edits are replaced with migration or failure-mode expectations.",
+      "anchors": []
+    },
+    {
+      "label": "Targeted tests cover canonical serialization bytes, signature verification, trust-bundle resolution, conflict detection, truncation, quarantine/repair, and self-write suppression.",
+      "anchors": []
+    },
+    {
+      "label": "After targeted validation passes, the full workspace test suite passes and the release MCP binaries are rebuilt and restarted if required by the changed surface.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 524,
+    "git_commit": null
+  },
+  "priority": 1,
+  "tags": [
+    "protected-state",
+    "tests",
+    "validation"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

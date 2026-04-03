@@ -1,0 +1,302 @@
+{
+  "plan": {
+    "id": "plan:01kn08dk7n4ym7vrdzp2nkdjy1",
+    "goal": "Improve PRISM’s agent-facing workflow by hardening workflow contracts, making compact discovery and editing ownership-aware and large-file-aware, and making durable knowledge publication easier to promote safely, while closing the dogfooding friction surfaced during live use.",
+    "title": "Improve PRISM’s agent-facing workflow by hardening workflow contracts, making compact discovery and editing ownership-aware and large-file-aware, and making durable knowledge publication easier to promote safely, while closing the dogfooding friction surfaced during live use.",
+    "status": "Active",
+    "policy": {
+      "default_claim_mode": "Advisory",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": false,
+      "stale_after_graph_change": true,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "off",
+        "completionMode": "off",
+        "targetRef": null,
+        "targetBranch": "",
+        "requireTaskBranch": false,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": null
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01kn08e5zpqsed4xsmjy2g0zq5",
+      "coord-task:01kn08e60qbk9fe00zn861x5j4",
+      "coord-task:01kn08e61maayjpm61gyp35s70"
+    ]
+  },
+  "graph": {
+    "id": "plan:01kn08dk7n4ym7vrdzp2nkdjy1",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Improve PRISM’s agent-facing workflow by hardening workflow contracts, making compact discovery and editing ownership-aware and large-file-aware, and making durable knowledge publication easier to promote safely, while closing the dogfooding friction surfaced during live use.",
+    "goal": "Improve PRISM’s agent-facing workflow by hardening workflow contracts, making compact discovery and editing ownership-aware and large-file-aware, and making durable knowledge publication easier to promote safely, while closing the dogfooding friction surfaced during live use.",
+    "status": "Active",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01kn08e5zpqsed4xsmjy2g0zq5",
+      "coord-task:01kn08e60qbk9fe00zn861x5j4",
+      "coord-task:01kn08e61maayjpm61gyp35s70"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01kn08e5zpqsed4xsmjy2g0zq5",
+        "plan_id": "plan:01kn08dk7n4ym7vrdzp2nkdjy1",
+        "kind": "Edit",
+        "title": "Milestone 1: Trusted workflow contracts",
+        "summary": "Unify native plan-node, coordination-task, session-state, and schema-surface behavior so agents do not need to care which workflow shape is active. Fold in the live friction where repo guidance implied a `prism_session` inspect hop that the server does not actually support.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "The same validation and completion flow succeeds for coordination tasks and native plan nodes.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Schema examples, tool schemas, and live behavior agree for prism_session and high-value prism_mutate paths.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Session and workflow diagnostics clearly explain which workflow unit is active and what action is supported next.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 722,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [
+          "contracts",
+          "dogfood",
+          "milestone",
+          "workflow"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn08e60qbk9fe00zn861x5j4",
+        "plan_id": "plan:01kn08dk7n4ym7vrdzp2nkdjy1",
+        "kind": "Edit",
+        "title": "Milestone 2: Ownership-aware compact editing",
+        "summary": "Improve locate, workset, and open follow-through so PRISM ranks owning modules first, preserves semantic-to-exact edit momentum in large files, and emits explicit monolith-pressure diagnostics instead of quietly degrading. Fold in the live friction where concept-driven worksets resolved directionally but then failed with `no reusable members`.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Known routing, shell, and ownership-oriented queries rank the owning module ahead of nearby consumers.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "prism_open returns edit-shaped structural context for large files without immediately forcing shell fallback.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "prism_workset and related concept flows either produce reusable follow-through or fail with explicit next actions instead of empty-member dead ends.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Large-file and mixed-purpose targets emit useful pressure diagnostics and decomposition-aware next steps.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 826,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [
+          "compact-tools",
+          "dogfood",
+          "edit-handoff",
+          "milestone",
+          "ranking"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn08e61maayjpm61gyp35s70",
+        "plan_id": "plan:01kn08dk7n4ym7vrdzp2nkdjy1",
+        "kind": "Edit",
+        "title": "Milestone 3: Durable knowledge publication",
+        "summary": "Make the last mile from strong session findings to repo-scoped memory and concepts low-friction, safe, and reviewable so durable lessons stop getting rediscovered across sessions.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Strong session memories surface clear repo-promotion candidates with duplicate detection and sensible defaults.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Repo-scoped memory and concept publication support review, supersede, and retire flows that feel safe to use routinely.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Real tasks promote the strongest architectural or workflow lessons without flooding repo knowledge with one-off notes.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 824,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [
+          "concepts",
+          "memory",
+          "milestone",
+          "publication"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn08efjpe3avh5zc4xm918sq",
+        "plan_id": "plan:01kn08dk7n4ym7vrdzp2nkdjy1",
+        "kind": "Validate",
+        "title": "Gate: Predictable operational smoothness",
+        "summary": "Treat operational smoothness as a release gate across the milestone set. Each implementation track must improve dogfooding reliability, freshness, and diagnostics so agents can stay inside PRISM for orient, workset, open, mutate, and validate loops without repeated fallback caused by abstraction leaks.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Each milestone ships with at least one dogfooding scenario and one freshness or diagnostic check.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "PRISM-first workflows stay inside PRISM for orient, workset, open, mutate, and validate loops without repeated shell fallback caused by ambiguity or unsupported paths.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Operational diagnostics are specific enough to explain failures like unsupported session actions or empty-member worksets.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 826,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [
+          "dogfood",
+          "gate",
+          "operations",
+          "validation"
+        ],
+        "metadata": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "plan-edge:coord-task:01kn08efjpe3avh5zc4xm918sq:depends-on:coord-task:01kn08e5zpqsed4xsmjy2g0zq5",
+        "plan_id": "plan:01kn08dk7n4ym7vrdzp2nkdjy1",
+        "from": "coord-task:01kn08efjpe3avh5zc4xm918sq",
+        "to": "coord-task:01kn08e5zpqsed4xsmjy2g0zq5",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn08efjpe3avh5zc4xm918sq:depends-on:coord-task:01kn08e60qbk9fe00zn861x5j4",
+        "plan_id": "plan:01kn08dk7n4ym7vrdzp2nkdjy1",
+        "from": "coord-task:01kn08efjpe3avh5zc4xm918sq",
+        "to": "coord-task:01kn08e60qbk9fe00zn861x5j4",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn08efjpe3avh5zc4xm918sq:depends-on:coord-task:01kn08e61maayjpm61gyp35s70",
+        "plan_id": "plan:01kn08dk7n4ym7vrdzp2nkdjy1",
+        "from": "coord-task:01kn08efjpe3avh5zc4xm918sq",
+        "to": "coord-task:01kn08e61maayjpm61gyp35s70",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      }
+    ]
+  },
+  "executionOverlays": []
+}

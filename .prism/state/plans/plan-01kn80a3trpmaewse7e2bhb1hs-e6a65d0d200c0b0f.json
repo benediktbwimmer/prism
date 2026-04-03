@@ -1,0 +1,421 @@
+{
+  "plan": {
+    "id": "plan:01kn80a3trpmaewse7e2bhb1hs",
+    "goal": "Implement the Protected State Runtime Sync design from docs/PROTECTED_STATE_RUNTIME_SYNC.md so repo-published .prism streams follow one uniform runtime import contract across bootstrap, live sync, self-write suppression, diagnostics, and recovery.",
+    "title": "Implement the Protected State Runtime Sync design from docs/PROTECTED_STATE_RUNTIME_SYNC.md so repo-published .prism streams follow one uniform runtime import contract across bootstrap, live sync, self-write suppression, diagnostics, and recovery.",
+    "status": "Active",
+    "policy": {
+      "default_claim_mode": "SoftExclusive",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": true,
+      "stale_after_graph_change": false,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "off",
+        "completionMode": "off",
+        "targetRef": null,
+        "targetBranch": "",
+        "requireTaskBranch": false,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": null
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01kn80axazq1a4yan9avjtsv9e",
+      "coord-task:01kn80b3hb260q2xqehsh73xs0"
+    ]
+  },
+  "graph": {
+    "id": "plan:01kn80a3trpmaewse7e2bhb1hs",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Implement the Protected State Runtime Sync design from docs/PROTECTED_STATE_RUNTIME_SYNC.md so repo-published .prism streams follow one uniform runtime import contract across bootstrap, live sync, self-write suppression, diagnostics, and recovery.",
+    "goal": "Implement the Protected State Runtime Sync design from docs/PROTECTED_STATE_RUNTIME_SYNC.md so repo-published .prism streams follow one uniform runtime import contract across bootstrap, live sync, self-write suppression, diagnostics, and recovery.",
+    "status": "Active",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01kn80axazq1a4yan9avjtsv9e",
+      "coord-task:01kn80b3hb260q2xqehsh73xs0"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01kn80axazq1a4yan9avjtsv9e",
+        "plan_id": "plan:01kn80a3trpmaewse7e2bhb1hs",
+        "kind": "Edit",
+        "title": "Codify the protected-state runtime contract in docs and invariants",
+        "summary": "Add the runtime rule that repo-published .prism state is imported only by bootstrap or the dedicated protected-state sync path, never by ad hoc read-path hooks, and explicitly document why the source watcher continues to ignore .prism.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Core docs state the single protected-state import rule and the intentional watcher split.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The plan captures TODO-PSYNC-1 and TODO-PSYNC-5 as explicit implementation expectations.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 779,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [
+          "docs",
+          "protected-state",
+          "runtime-contract"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn80b3hb260q2xqehsh73xs0",
+        "plan_id": "plan:01kn80a3trpmaewse7e2bhb1hs",
+        "kind": "Edit",
+        "title": "Replace memory-only read-path sync with one generalized protected-state sync surface",
+        "summary": "Remove session read-path calls to sync_repo_memory_events_locked(...) and introduce a single protected-state sync entry point that bootstrap and later live sync can share without ad hoc domain exceptions.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "No read path performs memory-specific opportunistic repo import anymore.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "A generalized protected-state sync surface exists for bootstrap and targeted stream sync work.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 779,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [
+          "memory",
+          "phase-1",
+          "sync-surface"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn80bbb2ty6xt505xtxsw4hw",
+        "plan_id": "plan:01kn80a3trpmaewse7e2bhb1hs",
+        "kind": "Edit",
+        "title": "Implement stream-oriented protected-state import handlers and runtime freshness tracking",
+        "summary": "Add per-stream import handlers for memory, changes, concepts, concept relations, contracts, and published plan streams with verification, append-only decode, dedupe, targeted runtime patching, and domain freshness/materialization updates.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Each protected stream class maps to one import handler with verification and dedupe.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Runtime freshness/materialization metadata is updated per affected domain or stream.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 788,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [
+          "freshness",
+          "phase-1",
+          "stream-handlers"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn80bmhav84s54wm0j8rt3am",
+        "plan_id": "plan:01kn80a3trpmaewse7e2bhb1hs",
+        "kind": "Edit",
+        "title": "Add a dedicated protected-state watcher while keeping the source watcher blind to .prism",
+        "summary": "Introduce a protected-state watcher/importer for .prism/** that drives targeted protected-state sync without triggering source indexing, while preserving the normal watcher policy that intentionally ignores .prism.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "A dedicated watcher path exists for protected-state streams only.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The normal source watcher still ignores .prism and that behavior is intentional, not incidental.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 804,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [
+          ".prism",
+          "phase-2",
+          "watcher"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn80bw4gasjmyaxhkd47x116",
+        "plan_id": "plan:01kn80a3trpmaewse7e2bhb1hs",
+        "kind": "Edit",
+        "title": "Suppress self-writes and patch live runtime state directly on protected-state publishes",
+        "summary": "Track per-stream self-write markers so PRISM does not react to its own repo-publish operations as upstream changes, and ensure mutation paths patch live runtime state directly instead of relying on persist-then-reload semantics.",
+        "status": "InProgress",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Protected-state publishes update suppression markers so self-authored writes do not churn back through import.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Mutation paths expose authored state directly in runtime without waiting for a later reload or watcher echo.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 804,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [
+          "mutation-paths",
+          "phase-2",
+          "self-write"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn80c3hk4bk0kt0391289zh5",
+        "plan_id": "plan:01kn80a3trpmaewse7e2bhb1hs",
+        "kind": "Edit",
+        "title": "Expose protected-state sync status, diagnostics, and fallback reconciliation",
+        "summary": "Extend runtime status and internal developer surfaces to report per-stream sync state, watcher activity, suppressed self-writes, verified imports, and failed imports, then add a bounded reconciliation sweep that repairs missed watcher events without becoming the primary freshness mechanism.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Runtime status and internal developer diagnostics report protected-state sync activity and freshness per stream or domain.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "A bounded reconciliation sweep exists as a safety net and is not the primary freshness path.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 7,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [
+          "diagnostics",
+          "phase-3",
+          "reconciliation"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn80cbhehcndfs9fv21dbk4f",
+        "plan_id": "plan:01kn80a3trpmaewse7e2bhb1hs",
+        "kind": "Validate",
+        "title": "Validate bootstrap, live-sync, self-write suppression, and missed-event recovery across all protected streams",
+        "summary": "Add targeted and full validation coverage for startup hydration, upstream merge simulation during a live session, uniform behavior across memory/changes/concepts/relations/contracts/plans, absence of memory-only lazy imports, correct self-write suppression, correct external watcher imports, and bounded reconciliation recovery.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Tests cover bootstrap hydration, live upstream merge, and uniform import behavior across all protected stream classes.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "ValidationOnly"
+          },
+          {
+            "label": "Tests prove read paths no longer special-case memory and that self-write suppression plus missed-event recovery behave correctly.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "ValidationOnly"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 7,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [
+          "integration",
+          "tests",
+          "validation"
+        ],
+        "metadata": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "plan-edge:coord-task:01kn80bbb2ty6xt505xtxsw4hw:depends-on:coord-task:01kn80b3hb260q2xqehsh73xs0",
+        "plan_id": "plan:01kn80a3trpmaewse7e2bhb1hs",
+        "from": "coord-task:01kn80bbb2ty6xt505xtxsw4hw",
+        "to": "coord-task:01kn80b3hb260q2xqehsh73xs0",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn80bmhav84s54wm0j8rt3am:depends-on:coord-task:01kn80bbb2ty6xt505xtxsw4hw",
+        "plan_id": "plan:01kn80a3trpmaewse7e2bhb1hs",
+        "from": "coord-task:01kn80bmhav84s54wm0j8rt3am",
+        "to": "coord-task:01kn80bbb2ty6xt505xtxsw4hw",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn80bw4gasjmyaxhkd47x116:depends-on:coord-task:01kn80bbb2ty6xt505xtxsw4hw",
+        "plan_id": "plan:01kn80a3trpmaewse7e2bhb1hs",
+        "from": "coord-task:01kn80bw4gasjmyaxhkd47x116",
+        "to": "coord-task:01kn80bbb2ty6xt505xtxsw4hw",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn80c3hk4bk0kt0391289zh5:depends-on:coord-task:01kn80bmhav84s54wm0j8rt3am",
+        "plan_id": "plan:01kn80a3trpmaewse7e2bhb1hs",
+        "from": "coord-task:01kn80c3hk4bk0kt0391289zh5",
+        "to": "coord-task:01kn80bmhav84s54wm0j8rt3am",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn80c3hk4bk0kt0391289zh5:depends-on:coord-task:01kn80bw4gasjmyaxhkd47x116",
+        "plan_id": "plan:01kn80a3trpmaewse7e2bhb1hs",
+        "from": "coord-task:01kn80c3hk4bk0kt0391289zh5",
+        "to": "coord-task:01kn80bw4gasjmyaxhkd47x116",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn80cbhehcndfs9fv21dbk4f:depends-on:coord-task:01kn80c3hk4bk0kt0391289zh5",
+        "plan_id": "plan:01kn80a3trpmaewse7e2bhb1hs",
+        "from": "coord-task:01kn80cbhehcndfs9fv21dbk4f",
+        "to": "coord-task:01kn80c3hk4bk0kt0391289zh5",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      }
+    ]
+  },
+  "executionOverlays": []
+}

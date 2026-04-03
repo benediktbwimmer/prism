@@ -26,10 +26,19 @@
 
 Eliminate the current slow compact MCP calls by instrumenting refresh-wrapper latency precisely, adding a true current-state fast path for compact reads, coalescing concurrent refresh work across sessions, and validating the resulting latency reduction against live PRISM MCP traces.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn7wmt2vfdy77mxc3apcp1qw.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn7wmt2vfdy77mxc3apcp1qw.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn7wmt2vfdy77mxc3apcp1qw.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

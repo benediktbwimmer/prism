@@ -2609,7 +2609,7 @@ likely validations, and 1 to 2 `nextReads`.
 - Available now: ambiguity-aware search narrowing through `path`, `module`, `taskId`, behavioral owner hints, and exact focused-block follow-ups surfaced directly from diagnostics and search resources.
 - Available now: a durable canonical MCP call log through `prism.mcpLog(...)`, `prism.slowMcpCalls(...)`, `prism.mcpTrace(id)`, and `prism.mcpStats(...)` with per-runtime execution history, duration, diagnostics, payload summaries, previews, and phase breakdowns for tools and resources.
 - Available now: spec-to-code clustering and drift explanations that group direct links with read/write/persistence/test owners for spec-like symbols.
-- Available now: repo-exported curated concept packets that hydrate into the live concept layer and travel with the repo through `.prism/concepts/events.jsonl`.
+- Available now: repo-exported curated concept packets that hydrate into the live concept layer and travel with the repo through tracked snapshot shards under `.prism/state/concepts/**`, chained by `.prism/state/manifest.json`.
 - Available now: session/workspace memory recall for anchored memory entries, filtered outcome history, and promoted curator memories.
 - Available now: workspace-backed curator job inspection through `prism.curator.jobs()`, flat proposal inspection through `prism.curator.proposals()`, and job detail through `prism.curator.job()`.
 - Available now: a canonical capabilities resource at `prism://capabilities` plus tool input schema resources through `prism://tool-schemas` and `prism://schema/tool/{toolName}` for direct MCP introspection.

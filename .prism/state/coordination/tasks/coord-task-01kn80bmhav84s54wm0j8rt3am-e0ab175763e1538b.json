@@ -1,0 +1,63 @@
+{
+  "id": "coord-task:01kn80bmhav84s54wm0j8rt3am",
+  "plan": "plan:01kn80a3trpmaewse7e2bhb1hs",
+  "kind": "Edit",
+  "title": "Add a dedicated protected-state watcher while keeping the source watcher blind to .prism",
+  "summary": "Introduce a protected-state watcher/importer for .prism/** that drives targeted protected-state sync without triggering source indexing, while preserving the normal watcher policy that intentionally ignores .prism.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn80bbb2ty6xt505xtxsw4hw"
+  ],
+  "acceptance": [
+    {
+      "label": "A dedicated watcher path exists for protected-state streams only.",
+      "anchors": []
+    },
+    {
+      "label": "The normal source watcher still ignores .prism and that behavior is intentional, not incidental.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 804,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [
+    ".prism",
+    "phase-2",
+    "watcher"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

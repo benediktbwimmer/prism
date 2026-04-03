@@ -1,0 +1,559 @@
+{
+  "plan": {
+    "id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+    "goal": "Hit the refresh latency targets in docs/RUNTIME_REWRITE_ARCHITECTURE.md by replacing reconstructive workspace refresh with a true parallel-prepare / tiny-commit / parallel-settle runtime path, reducing hot-path persistence and lock contention, and validating the resulting daemon behavior against explicit p50/p95 budgets.",
+    "title": "Hit the refresh latency targets in docs/RUNTIME_REWRITE_ARCHITECTURE.md by replacing reconstructive workspace refresh with a true parallel-prepare / tiny-commit / parallel-settle runtime path, reducing hot-path persistence and lock contention, and validating the resulting daemon behavior against explicit p50/p95 budgets.",
+    "status": "Active",
+    "policy": {
+      "default_claim_mode": "SoftExclusive",
+      "max_parallel_editors_per_anchor": 1,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": false,
+      "stale_after_graph_change": false,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "off",
+        "completionMode": "off",
+        "targetRef": null,
+        "targetBranch": "",
+        "requireTaskBranch": false,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": null
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01kn55dvkdfvxg8pdfk72p0h72"
+    ]
+  },
+  "graph": {
+    "id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Hit the refresh latency targets in docs/RUNTIME_REWRITE_ARCHITECTURE.md by replacing reconstructive workspace refresh with a true parallel-prepare / tiny-commit / parallel-settle runtime path, reducing hot-path persistence and lock contention, and validating the resulting daemon behavior against explicit p50/p95 budgets.",
+    "goal": "Hit the refresh latency targets in docs/RUNTIME_REWRITE_ARCHITECTURE.md by replacing reconstructive workspace refresh with a true parallel-prepare / tiny-commit / parallel-settle runtime path, reducing hot-path persistence and lock contention, and validating the resulting daemon behavior against explicit p50/p95 budgets.",
+    "status": "Active",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01kn55dvkdfvxg8pdfk72p0h72"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01kn55dvkdfvxg8pdfk72p0h72",
+        "plan_id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+        "kind": "Investigate",
+        "title": "Instrument refresh latency against the architecture budgets",
+        "summary": "Live refresh instrumentation is now materially advanced. The daemon emits attributed refresh-pipeline and indexing timings from the live log, and the current pass used that evidence to remove two request-path bottlenecks: the async curator store-lock convoy and the incremental IndexPersistBatch clone. Live probes improved from 435ms add / 335ms delete to 139ms add / 229ms delete, with build_persist_batch_ms collapsing from 168ms and 91ms to 0ms. This node remains in progress because queue-wait, lock-hold, publish/settle, and checkpoint-lag coverage is still incomplete, and startup hydration remains a separate unclosed budget miss.",
+        "status": "InProgress",
+        "bindings": {
+          "anchors": [
+            {
+              "File": 116
+            },
+            {
+              "File": 256
+            },
+            {
+              "File": 343
+            },
+            {
+              "File": 84
+            }
+          ],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "The daemon exposes queue wait, lock hold, prepare, delta construction, commit, publish, and settle timing fields with enough detail to explain the current missing 'other' bucket.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "A repeatable benchmark or log-extraction workflow reports p50 and p95 for tiny-edit publish latency, queue wait, direct dependent settle, and checkpoint lag.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 340,
+          "git_commit": null
+        },
+        "priority": 1,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn55e2ery38vr30wxe3ca5r3",
+        "plan_id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+        "kind": "Decide",
+        "title": "Define the incremental delta-commit contract for refresh",
+        "summary": "Specify the exact boundary between parallel file-local preparation, tiny authoritative commit, and parallel settle so ordinary edits stop flowing through reconstructive WorkspaceIndexer refresh.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [
+            {
+              "File": 104
+            },
+            {
+              "File": 107
+            },
+            {
+              "File": 116
+            },
+            {
+              "File": 343
+            }
+          ],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "The design names the committed delta payload, file-facts substrate, domain freshness semantics, and what work is permitted inside the serialized commit.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The design explicitly removes reconstructive refresh from the normal edit path and identifies the residual recovery-only rebuild path.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 249,
+          "git_commit": null
+        },
+        "priority": 2,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn55e93ftgm9bra7wfs4fnfs",
+        "plan_id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+        "kind": "Edit",
+        "title": "Move file-local delta construction out of the serialized refresh path",
+        "summary": "Build immutable candidate deltas in parallel from changed files and invalidation inputs, instead of mutating authoritative graph/history/outcome/projection state file-by-file inside the current refresh loop.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [
+            {
+              "File": 116
+            },
+            {
+              "File": 84
+            },
+            {
+              "File": 94
+            }
+          ],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "File-local parse and candidate delta construction run off the authoritative state and can execute in parallel for multi-file refreshes.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The current serial apply_parsed loop no longer owns parse-time history, co-change, outcome, and projection mutation work.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 249,
+          "git_commit": null
+        },
+        "priority": 3,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn55egap84qbyxkarhq6y7vz",
+        "plan_id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+        "kind": "Edit",
+        "title": "Reduce commit to authoritative apply, journal append, and generation publish",
+        "summary": "Make the serialized commit kernel only apply prebuilt deltas to mutable runtime state, append the committed batch, and publish the next immutable generation with explicit domain freshness.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [
+            {
+              "File": 104
+            },
+            {
+              "File": 108
+            },
+            {
+              "File": 256
+            }
+          ],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "The commit path excludes broad parsing, rebuild, projection mutation, memory reanchor, and checkpoint work.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Generation publication exposes honest freshness for any domains left to settle after commit.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 249,
+          "git_commit": null
+        },
+        "priority": 4,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn55eps6ms9b7hr6nexfnjhr",
+        "plan_id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+        "kind": "Edit",
+        "title": "Move derived projections, memory reanchor, and coordination reloads fully behind settle",
+        "summary": "Push non-authoritative downstream work behind coalesced settle lanes and surface pending or stale domain states rather than doing hidden work on the publish path.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [
+            {
+              "File": 108
+            },
+            {
+              "File": 256
+            },
+            {
+              "File": 84
+            }
+          ],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Projection reload, memory reanchor, and coordination refresh run as explicit settle work with target-generation cancellation or coalescing.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Queries and runtime status expose pending or stale domains instead of implying fully current derived state after the fast publish path.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 249,
+          "git_commit": null
+        },
+        "priority": 5,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn55f0wgfw5rcrxzbqa0qpm4",
+        "plan_id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+        "kind": "Edit",
+        "title": "Separate hot commit persistence from asynchronous materialization and remove SQLite contention",
+        "summary": "Keep the authoritative commit journal and minimal runtime state durable on the hot path, but push derived snapshots and checkpoint materialization behind low-contention workers that stop fighting SQLite locks.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [
+            {
+              "File": 316
+            },
+            {
+              "File": 76
+            },
+            {
+              "File": 84
+            }
+          ],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "The hot commit transaction excludes derived graph or projection materialization work not needed for correctness.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Nominal daemon usage no longer produces recurring checkpoint materializer 'database is locked' warnings.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 249,
+          "git_commit": null
+        },
+        "priority": 6,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn55f7ffvqmnm2gkdptvdttd",
+        "plan_id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+        "kind": "Edit",
+        "title": "Tighten coalescing, stale-work cancellation, and invalidation precision for repeated edits",
+        "summary": "Reduce repeated work under edit storms by coalescing path requests to the latest revision, cancelling stale prepare or settle work aggressively, and shrinking dependency fanout for ordinary small edits.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [
+            {
+              "File": 107
+            },
+            {
+              "File": 256
+            },
+            {
+              "File": 84
+            }
+          ],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Repeated edits to the same paths cancel or supersede stale prepare and settle work instead of replaying obsolete refreshes.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Small edits reduce dependency refresh scope and direct dependent work compared with the current reconstructive path.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 249,
+          "git_commit": null
+        },
+        "priority": 7,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kn55feg438a0sr325zc2k313",
+        "plan_id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+        "kind": "Validate",
+        "title": "Validate refresh latency against the document budgets and publish residual gaps",
+        "summary": "Use live daemon evidence and reproducible workloads to confirm whether the rewritten path hits the architecture budgets, and publish any remaining misses with attributed causes rather than hand-waving them away.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [
+            {
+              "File": 256
+            },
+            {
+              "File": 343
+            },
+            {
+              "File": 84
+            }
+          ],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "The repo has reproducible measurements for tiny-edit publish latency, queue wait, direct dependent settle latency, and checkpoint lag under nominal load.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "If any budget is still missed, the remaining gap is attributed to named subsystems with follow-up work, not a generic 'needs tuning' conclusion.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [
+          {
+            "id": "bench:refresh-budget-validation"
+          },
+          {
+            "id": "log:live-daemon-refresh-timings"
+          }
+        ],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 246,
+          "git_commit": null
+        },
+        "priority": 8,
+        "tags": [],
+        "metadata": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "plan-edge:coord-task:01kn55e2ery38vr30wxe3ca5r3:depends-on:coord-task:01kn55dvkdfvxg8pdfk72p0h72",
+        "plan_id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+        "from": "coord-task:01kn55e2ery38vr30wxe3ca5r3",
+        "to": "coord-task:01kn55dvkdfvxg8pdfk72p0h72",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn55e93ftgm9bra7wfs4fnfs:depends-on:coord-task:01kn55e2ery38vr30wxe3ca5r3",
+        "plan_id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+        "from": "coord-task:01kn55e93ftgm9bra7wfs4fnfs",
+        "to": "coord-task:01kn55e2ery38vr30wxe3ca5r3",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn55egap84qbyxkarhq6y7vz:depends-on:coord-task:01kn55e93ftgm9bra7wfs4fnfs",
+        "plan_id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+        "from": "coord-task:01kn55egap84qbyxkarhq6y7vz",
+        "to": "coord-task:01kn55e93ftgm9bra7wfs4fnfs",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn55eps6ms9b7hr6nexfnjhr:depends-on:coord-task:01kn55egap84qbyxkarhq6y7vz",
+        "plan_id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+        "from": "coord-task:01kn55eps6ms9b7hr6nexfnjhr",
+        "to": "coord-task:01kn55egap84qbyxkarhq6y7vz",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn55f0wgfw5rcrxzbqa0qpm4:depends-on:coord-task:01kn55egap84qbyxkarhq6y7vz",
+        "plan_id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+        "from": "coord-task:01kn55f0wgfw5rcrxzbqa0qpm4",
+        "to": "coord-task:01kn55egap84qbyxkarhq6y7vz",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn55f7ffvqmnm2gkdptvdttd:depends-on:coord-task:01kn55e93ftgm9bra7wfs4fnfs",
+        "plan_id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+        "from": "coord-task:01kn55f7ffvqmnm2gkdptvdttd",
+        "to": "coord-task:01kn55e93ftgm9bra7wfs4fnfs",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn55feg438a0sr325zc2k313:depends-on:coord-task:01kn55dvkdfvxg8pdfk72p0h72",
+        "plan_id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+        "from": "coord-task:01kn55feg438a0sr325zc2k313",
+        "to": "coord-task:01kn55dvkdfvxg8pdfk72p0h72",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn55feg438a0sr325zc2k313:depends-on:coord-task:01kn55eps6ms9b7hr6nexfnjhr",
+        "plan_id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+        "from": "coord-task:01kn55feg438a0sr325zc2k313",
+        "to": "coord-task:01kn55eps6ms9b7hr6nexfnjhr",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn55feg438a0sr325zc2k313:depends-on:coord-task:01kn55f0wgfw5rcrxzbqa0qpm4",
+        "plan_id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+        "from": "coord-task:01kn55feg438a0sr325zc2k313",
+        "to": "coord-task:01kn55f0wgfw5rcrxzbqa0qpm4",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kn55feg438a0sr325zc2k313:depends-on:coord-task:01kn55f7ffvqmnm2gkdptvdttd",
+        "plan_id": "plan:01kn55dg8tfv1ybq9nga9md1ye",
+        "from": "coord-task:01kn55feg438a0sr325zc2k313",
+        "to": "coord-task:01kn55f7ffvqmnm2gkdptvdttd",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      }
+    ]
+  },
+  "executionOverlays": []
+}

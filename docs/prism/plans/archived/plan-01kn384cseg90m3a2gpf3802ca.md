@@ -26,10 +26,19 @@
 
 prism-general-improvements: improve PRISM MCP and repo-awareness dogfooding quality by fixing first-hop doc discovery noise, strengthening concept-to-concrete follow-through, making session/task context clearer, improving compact-tool ergonomics, and adding better governing-section or cross-doc navigation.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn384cseg90m3a2gpf3802ca.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn384cseg90m3a2gpf3802ca.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn384cseg90m3a2gpf3802ca.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

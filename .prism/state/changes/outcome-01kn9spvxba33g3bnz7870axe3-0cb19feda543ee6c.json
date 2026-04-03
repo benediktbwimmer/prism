@@ -1,0 +1,2133 @@
+{
+  "meta": {
+    "id": "outcome:01kn9spvxba33g3bnz7870axe3",
+    "ts": 1775224188,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-a:01kn4jw3waxc8qj2nysd3rsyvc",
+        "kind": null,
+        "name": "Codex A"
+      }
+    },
+    "correlation": "work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh",
+    "causation": "observed:01kn9spvw1hnttvpt3p49tty75",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:8719dd7db144e96f",
+      "branch_ref": "refs/heads/task/prism-snapshot-rewrite",
+      "instance_id": "instance:9401:1775223545095",
+      "work_context": {
+        "workId": "work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh",
+        "kind": "ad_hoc",
+        "title": "Plan the tracked .prism snapshot rewrite",
+        "planId": "plan:01kn9hkjxnzdj4qtt4fa25cr6y",
+        "planTitle": "Rewrite tracked .prism to signed snapshot publication"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 334
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_6_keep_the_credential_cost_bounded",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_4_use_projections_for_fast_lookups",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::9_1_keep_room_for_authenticated_reads_and_introspection_later",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_11_remaining_future_policy_space",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_5_require_credentials_on_all_mutations",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_4_remove_the_current_prism_session_tool_as_a_coordination_mechanism",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::4_5_define_the_bootstrap_trust_root_explicitly",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_2_extend_event_actor_metadata_from_coarse_kind_to_durable_identity",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_6_principal_profile_mutability",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::4_authentication_model",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_2_1_distinguish_principal_identity_from_issuing_authority",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::6_lease_model",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::6_1_leases_are_for_execution_ownership",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_3_lease_policy",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_10_backward_compatibility_and_migration",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::5_3_cli_minting_should_be_a_first_class_human_path",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md",
+        "kind": "Document"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_8_imported_external_identities",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_3_do_not_trust_ambient_mcp_session_state_as_authority",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::7_credential_handling_and_storage",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_2_separate_durable_identity_from_live_execution_state",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_resolved_implementation_decisions",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::11_non_goals",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_3_record_execution_context_separately_from_actor_identity",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_1_credential_lifecycle",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_5_self_containment_boundary_by_published_surface",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_4_resume_versus_reclaim_policy",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_9_query_and_projection_surfaces",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_provenance_and_audit_trail",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::6_3_1_optional_assisted_watcher_renewal_may_exist_as_an_explicit_trust_policy",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::1_summary",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::5_1_1_principal_scope",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::6_2_leases_must_expire",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_2_parent_child_principal_semantics",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::13_recommended_implementation_order",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::4_4_credentials_should_carry_minimal_capabilities",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_7_human_principal_ux",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::4_3_parent_child_agent_minting_should_be_supported",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::7_1_server_side_handling",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_3_1_record_declared_work_context_separately_from_runtime_correlation",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::9_practical_behavior_in_the_common_host_agnostic_case",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::5_principal_model",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::6_4_reclaiming_stale_work_must_be_explicit",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::10_system_and_runtime_principals",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_core_design_decisions",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::5_1_shared_core",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::2_why_this_is_needed",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::7_2_client_side_handling",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::4_2_use_a_public_identity_and_a_separate_secret",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::6_3_ambient_activity_must_not_refresh_leases",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::5_2_kind_specific_optional_attributes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_1_use_principals_not_just_agents",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::prism_principal_identity_and_coordination",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_5_event_schema_shape",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_1_canonical_provenance_belongs_in_the_event_log",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::4_1_mint_principal_credentials_through_mutation_not_resources",
+        "kind": "MarkdownHeading"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 56 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 112,
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "removedCount": 0,
+        "updatedCount": 112
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_6_keep_the_credential_cost_bounded"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.6 Keep the credential cost bounded",
+        "span": {
+          "end": 6509,
+          "start": 6258
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_6_keep_the_credential_cost_bounded"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.6 Keep the credential cost bounded",
+        "span": {
+          "end": 6509,
+          "start": 6258
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_4_use_projections_for_fast_lookups"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.4 Use projections for fast lookups",
+        "span": {
+          "end": 19362,
+          "start": 18847
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_4_use_projections_for_fast_lookups"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.4 Use projections for fast lookups",
+        "span": {
+          "end": 19362,
+          "start": 18847
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::9_1_keep_room_for_authenticated_reads_and_introspection_later"
+        },
+        "kind": "MarkdownHeading",
+        "name": "9.1 Keep room for authenticated reads and introspection later",
+        "span": {
+          "end": 22537,
+          "start": 21803
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::9_1_keep_room_for_authenticated_reads_and_introspection_later"
+        },
+        "kind": "MarkdownHeading",
+        "name": "9.1 Keep room for authenticated reads and introspection later",
+        "span": {
+          "end": 22533,
+          "start": 21799
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_11_remaining_future_policy_space"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.11 Remaining future policy space",
+        "span": {
+          "end": 33709,
+          "start": 33269
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_11_remaining_future_policy_space"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.11 Remaining future policy space",
+        "span": {
+          "end": 33705,
+          "start": 33265
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_5_require_credentials_on_all_mutations"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.5 Require credentials on all mutations",
+        "span": {
+          "end": 6258,
+          "start": 5704
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_5_require_credentials_on_all_mutations"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.5 Require credentials on all mutations",
+        "span": {
+          "end": 6258,
+          "start": 5704
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_4_remove_the_current_prism_session_tool_as_a_coordination_mechanism"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.4 Remove the current `prism_session` tool as a coordination mechanism",
+        "span": {
+          "end": 5704,
+          "start": 5183
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_4_remove_the_current_prism_session_tool_as_a_coordination_mechanism"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.4 Remove the current `prism_session` tool as a coordination mechanism",
+        "span": {
+          "end": 5704,
+          "start": 5183
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::4_5_define_the_bootstrap_trust_root_explicitly"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4.5 Define the bootstrap trust root explicitly",
+        "span": {
+          "end": 8818,
+          "start": 8321
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::4_5_define_the_bootstrap_trust_root_explicitly"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4.5 Define the bootstrap trust root explicitly",
+        "span": {
+          "end": 8818,
+          "start": 8321
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_2_extend_event_actor_metadata_from_coarse_kind_to_durable_identity"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.2 Extend event actor metadata from coarse kind to durable identity",
+        "span": {
+          "end": 16768,
+          "start": 16394
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_2_extend_event_actor_metadata_from_coarse_kind_to_durable_identity"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.2 Extend event actor metadata from coarse kind to durable identity",
+        "span": {
+          "end": 16768,
+          "start": 16394
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_6_principal_profile_mutability"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.6 Principal profile mutability",
+        "span": {
+          "end": 30171,
+          "start": 29578
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_6_principal_profile_mutability"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.6 Principal profile mutability",
+        "span": {
+          "end": 30167,
+          "start": 29574
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::4_authentication_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4. Authentication model",
+        "span": {
+          "end": 8818,
+          "start": 6509
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::4_authentication_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4. Authentication model",
+        "span": {
+          "end": 8818,
+          "start": 6509
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_2_1_distinguish_principal_identity_from_issuing_authority"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.2.1 Distinguish principal identity from issuing authority",
+        "span": {
+          "end": 4744,
+          "start": 4030
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_2_1_distinguish_principal_identity_from_issuing_authority"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.2.1 Distinguish principal identity from issuing authority",
+        "span": {
+          "end": 4744,
+          "start": 4030
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::6_lease_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6. Lease model",
+        "span": {
+          "end": 15061,
+          "start": 11443
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::6_lease_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6. Lease model",
+        "span": {
+          "end": 15061,
+          "start": 11443
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::6_1_leases_are_for_execution_ownership"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.1 Leases are for execution ownership",
+        "span": {
+          "end": 11724,
+          "start": 11462
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::6_1_leases_are_for_execution_ownership"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.1 Leases are for execution ownership",
+        "span": {
+          "end": 11724,
+          "start": 11462
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_3_lease_policy"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.3 Lease policy",
+        "span": {
+          "end": 28049,
+          "start": 26137
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_3_lease_policy"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.3 Lease policy",
+        "span": {
+          "end": 28045,
+          "start": 26133
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_10_backward_compatibility_and_migration"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.10 Backward compatibility and migration",
+        "span": {
+          "end": 33269,
+          "start": 31750
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_10_backward_compatibility_and_migration"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.10 Backward compatibility and migration",
+        "span": {
+          "end": 33265,
+          "start": 31746
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::5_3_cli_minting_should_be_a_first_class_human_path"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.3 CLI minting should be a first-class human path",
+        "span": {
+          "end": 11443,
+          "start": 10705
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::5_3_cli_minting_should_be_a_first_class_human_path"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.3 CLI minting should be a first-class human path",
+        "span": {
+          "end": 11443,
+          "start": 10705
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "Document",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md"
+        },
+        "kind": "Document",
+        "name": "docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "span": {
+          "end": 34696,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "Document",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md"
+        },
+        "kind": "Document",
+        "name": "docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "span": {
+          "end": 34692,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_8_imported_external_identities"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.8 Imported external identities",
+        "span": {
+          "end": 31241,
+          "start": 30881
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_8_imported_external_identities"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.8 Imported external identities",
+        "span": {
+          "end": 31237,
+          "start": 30877
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_3_do_not_trust_ambient_mcp_session_state_as_authority"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.3 Do not trust ambient MCP session state as authority",
+        "span": {
+          "end": 5183,
+          "start": 4744
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_3_do_not_trust_ambient_mcp_session_state_as_authority"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.3 Do not trust ambient MCP session state as authority",
+        "span": {
+          "end": 5183,
+          "start": 4744
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::7_credential_handling_and_storage"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7. Credential handling and storage",
+        "span": {
+          "end": 16048,
+          "start": 15061
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::7_credential_handling_and_storage"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7. Credential handling and storage",
+        "span": {
+          "end": 16048,
+          "start": 15061
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_2_separate_durable_identity_from_live_execution_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.2 Separate durable identity from live execution state",
+        "span": {
+          "end": 4030,
+          "start": 3445
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_2_separate_durable_identity_from_live_execution_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.2 Separate durable identity from live execution state",
+        "span": {
+          "end": 4030,
+          "start": 3445
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_resolved_implementation_decisions"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12. Resolved implementation decisions",
+        "span": {
+          "end": 33709,
+          "start": 24565
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_resolved_implementation_decisions"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12. Resolved implementation decisions",
+        "span": {
+          "end": 33705,
+          "start": 24561
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::11_non_goals"
+        },
+        "kind": "MarkdownHeading",
+        "name": "11. Non-goals",
+        "span": {
+          "end": 24565,
+          "start": 23723
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::11_non_goals"
+        },
+        "kind": "MarkdownHeading",
+        "name": "11. Non-goals",
+        "span": {
+          "end": 24561,
+          "start": 23719
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_3_record_execution_context_separately_from_actor_identity"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.3 Record execution context separately from actor identity",
+        "span": {
+          "end": 17579,
+          "start": 16768
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_3_record_execution_context_separately_from_actor_identity"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.3 Record execution context separately from actor identity",
+        "span": {
+          "end": 17579,
+          "start": 16768
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_1_credential_lifecycle"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.1 Credential lifecycle",
+        "span": {
+          "end": 25551,
+          "start": 24704
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_1_credential_lifecycle"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.1 Credential lifecycle",
+        "span": {
+          "end": 25547,
+          "start": 24700
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_5_self_containment_boundary_by_published_surface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.5 Self-containment boundary by published surface",
+        "span": {
+          "end": 20637,
+          "start": 19362
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_5_self_containment_boundary_by_published_surface"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.5 Self-containment boundary by published surface",
+        "span": {
+          "end": 20633,
+          "start": 19362
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_4_resume_versus_reclaim_policy"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.4 Resume versus reclaim policy",
+        "span": {
+          "end": 28538,
+          "start": 28049
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_4_resume_versus_reclaim_policy"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.4 Resume versus reclaim policy",
+        "span": {
+          "end": 28534,
+          "start": 28045
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_9_query_and_projection_surfaces"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.9 Query and projection surfaces",
+        "span": {
+          "end": 31750,
+          "start": 31241
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_9_query_and_projection_surfaces"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.9 Query and projection surfaces",
+        "span": {
+          "end": 31746,
+          "start": 31237
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_provenance_and_audit_trail"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8. Provenance and audit trail",
+        "span": {
+          "end": 20637,
+          "start": 16048
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_provenance_and_audit_trail"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8. Provenance and audit trail",
+        "span": {
+          "end": 20633,
+          "start": 16048
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::6_3_1_optional_assisted_watcher_renewal_may_exist_as_an_explicit_trust_policy"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.3.1 Optional assisted watcher renewal may exist as an explicit trust policy",
+        "span": {
+          "end": 14786,
+          "start": 13462
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::6_3_1_optional_assisted_watcher_renewal_may_exist_as_an_explicit_trust_policy"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.3.1 Optional assisted watcher renewal may exist as an explicit trust policy",
+        "span": {
+          "end": 14786,
+          "start": 13462
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::1_summary"
+        },
+        "kind": "MarkdownHeading",
+        "name": "1. Summary",
+        "span": {
+          "end": 2385,
+          "start": 441
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::1_summary"
+        },
+        "kind": "MarkdownHeading",
+        "name": "1. Summary",
+        "span": {
+          "end": 2385,
+          "start": 441
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::5_1_1_principal_scope"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.1.1 Principal scope",
+        "span": {
+          "end": 9902,
+          "start": 9298
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::5_1_1_principal_scope"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.1.1 Principal scope",
+        "span": {
+          "end": 9902,
+          "start": 9298
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::6_2_leases_must_expire"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.2 Leases must expire",
+        "span": {
+          "end": 12372,
+          "start": 11724
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::6_2_leases_must_expire"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.2 Leases must expire",
+        "span": {
+          "end": 12372,
+          "start": 11724
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_2_parent_child_principal_semantics"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.2 Parent-child principal semantics",
+        "span": {
+          "end": 26137,
+          "start": 25551
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_2_parent_child_principal_semantics"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.2 Parent-child principal semantics",
+        "span": {
+          "end": 26133,
+          "start": 25547
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::13_recommended_implementation_order"
+        },
+        "kind": "MarkdownHeading",
+        "name": "13. Recommended implementation order",
+        "span": {
+          "end": 34696,
+          "start": 33709
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::13_recommended_implementation_order"
+        },
+        "kind": "MarkdownHeading",
+        "name": "13. Recommended implementation order",
+        "span": {
+          "end": 34692,
+          "start": 33705
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::4_4_credentials_should_carry_minimal_capabilities"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4.4 Credentials should carry minimal capabilities",
+        "span": {
+          "end": 8321,
+          "start": 7594
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::4_4_credentials_should_carry_minimal_capabilities"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4.4 Credentials should carry minimal capabilities",
+        "span": {
+          "end": 8321,
+          "start": 7594
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_7_human_principal_ux"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.7 Human principal UX",
+        "span": {
+          "end": 30881,
+          "start": 30171
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_7_human_principal_ux"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.7 Human principal UX",
+        "span": {
+          "end": 30877,
+          "start": 30167
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::4_3_parent_child_agent_minting_should_be_supported"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4.3 Parent-child agent minting should be supported",
+        "span": {
+          "end": 7594,
+          "start": 7259
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::4_3_parent_child_agent_minting_should_be_supported"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4.3 Parent-child agent minting should be supported",
+        "span": {
+          "end": 7594,
+          "start": 7259
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::7_1_server_side_handling"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.1 Server-side handling",
+        "span": {
+          "end": 15421,
+          "start": 15100
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::7_1_server_side_handling"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.1 Server-side handling",
+        "span": {
+          "end": 15421,
+          "start": 15100
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_3_1_record_declared_work_context_separately_from_runtime_correlation"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.3.1 Record declared work context separately from runtime correlation",
+        "span": {
+          "end": 18847,
+          "start": 17579
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_3_1_record_declared_work_context_separately_from_runtime_correlation"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.3.1 Record declared work context separately from runtime correlation",
+        "span": {
+          "end": 18847,
+          "start": 17579
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::9_practical_behavior_in_the_common_host_agnostic_case"
+        },
+        "kind": "MarkdownHeading",
+        "name": "9. Practical behavior in the common host-agnostic case",
+        "span": {
+          "end": 22537,
+          "start": 20637
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::9_practical_behavior_in_the_common_host_agnostic_case"
+        },
+        "kind": "MarkdownHeading",
+        "name": "9. Practical behavior in the common host-agnostic case",
+        "span": {
+          "end": 22533,
+          "start": 20633
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::5_principal_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5. Principal model",
+        "span": {
+          "end": 11443,
+          "start": 8818
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::5_principal_model"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5. Principal model",
+        "span": {
+          "end": 11443,
+          "start": 8818
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::6_4_reclaiming_stale_work_must_be_explicit"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.4 Reclaiming stale work must be explicit",
+        "span": {
+          "end": 15061,
+          "start": 14786
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::6_4_reclaiming_stale_work_must_be_explicit"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.4 Reclaiming stale work must be explicit",
+        "span": {
+          "end": 15061,
+          "start": 14786
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::10_system_and_runtime_principals"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10. System and runtime principals",
+        "span": {
+          "end": 23723,
+          "start": 22537
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::10_system_and_runtime_principals"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10. System and runtime principals",
+        "span": {
+          "end": 23719,
+          "start": 22533
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_core_design_decisions"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3. Core design decisions",
+        "span": {
+          "end": 6509,
+          "start": 3091
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_core_design_decisions"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3. Core design decisions",
+        "span": {
+          "end": 6509,
+          "start": 3091
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::5_1_shared_core"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.1 Shared core",
+        "span": {
+          "end": 9298,
+          "start": 8935
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::5_1_shared_core"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.1 Shared core",
+        "span": {
+          "end": 9298,
+          "start": 8935
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::2_why_this_is_needed"
+        },
+        "kind": "MarkdownHeading",
+        "name": "2. Why this is needed",
+        "span": {
+          "end": 3091,
+          "start": 2385
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::2_why_this_is_needed"
+        },
+        "kind": "MarkdownHeading",
+        "name": "2. Why this is needed",
+        "span": {
+          "end": 3091,
+          "start": 2385
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::7_2_client_side_handling"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.2 Client-side handling",
+        "span": {
+          "end": 16048,
+          "start": 15421
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::7_2_client_side_handling"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7.2 Client-side handling",
+        "span": {
+          "end": 16048,
+          "start": 15421
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::4_2_use_a_public_identity_and_a_separate_secret"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4.2 Use a public identity and a separate secret",
+        "span": {
+          "end": 7259,
+          "start": 6867
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::4_2_use_a_public_identity_and_a_separate_secret"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4.2 Use a public identity and a separate secret",
+        "span": {
+          "end": 7259,
+          "start": 6867
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::6_3_ambient_activity_must_not_refresh_leases"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.3 Ambient activity must not refresh leases",
+        "span": {
+          "end": 13462,
+          "start": 12372
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::6_3_ambient_activity_must_not_refresh_leases"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6.3 Ambient activity must not refresh leases",
+        "span": {
+          "end": 13462,
+          "start": 12372
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::5_2_kind_specific_optional_attributes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.2 Kind-specific optional attributes",
+        "span": {
+          "end": 10705,
+          "start": 9902
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::5_2_kind_specific_optional_attributes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5.2 Kind-specific optional attributes",
+        "span": {
+          "end": 10705,
+          "start": 9902
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_1_use_principals_not_just_agents"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.1 Use principals, not just agents",
+        "span": {
+          "end": 3445,
+          "start": 3120
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::3_1_use_principals_not_just_agents"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3.1 Use principals, not just agents",
+        "span": {
+          "end": 3445,
+          "start": 3120
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::prism_principal_identity_and_coordination"
+        },
+        "kind": "MarkdownHeading",
+        "name": "PRISM Principal Identity and Coordination",
+        "span": {
+          "end": 34696,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::prism_principal_identity_and_coordination"
+        },
+        "kind": "MarkdownHeading",
+        "name": "PRISM Principal Identity and Coordination",
+        "span": {
+          "end": 34692,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_5_event_schema_shape"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.5 Event schema shape",
+        "span": {
+          "end": 29578,
+          "start": 28538
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::12_5_event_schema_shape"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.5 Event schema shape",
+        "span": {
+          "end": 29574,
+          "start": 28534
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_1_canonical_provenance_belongs_in_the_event_log"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.1 Canonical provenance belongs in the event log",
+        "span": {
+          "end": 16394,
+          "start": 16082
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::8_1_canonical_provenance_belongs_in_the_event_log"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8.1 Canonical provenance belongs in the event log",
+        "span": {
+          "end": 16394,
+          "start": 16082
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::4_1_mint_principal_credentials_through_mutation_not_resources"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4.1 Mint principal credentials through mutation, not resources",
+        "span": {
+          "end": 6867,
+          "start": 6537
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRINCIPAL_IDENTITY_AND_COORDINATION_md::4_1_mint_principal_credentials_through_mutation_not_resources"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4.1 Mint principal credentials through mutation, not resources",
+        "span": {
+          "end": 6867,
+          "start": 6537
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 112,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md"
+    ],
+    "files": [
+      334
+    ],
+    "reason": "work Plan the tracked .prism snapshot rewrite (work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh)",
+    "trigger": "FsWatch"
+  }
+}

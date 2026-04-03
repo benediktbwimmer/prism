@@ -26,10 +26,19 @@
 
 Reduce the next highest-priority MCP slow-call hotspots after excluding prism_mutate mutate.coordination, starting with prism://plans, prism_concept, and shared compact-tool read paths, then validate the latency improvements with repo-wide call-log evidence.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn88m9a9ckax8ft3pwm7ahgq.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn88m9a9ckax8ft3pwm7ahgq.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn88m9a9ckax8ft3pwm7ahgq.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

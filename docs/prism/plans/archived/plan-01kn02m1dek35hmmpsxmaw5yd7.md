@@ -26,10 +26,19 @@
 
 Rewrite PRISM co-change persistence and refresh materialization boundaries so authoritative runtime state, bounded serving projections, and cold analytical evidence are separated; eliminate pathological co-change growth from the daemon hot path; and migrate existing cache state without regressing correctness, startup time, or daemon health.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn02m1dek35hmmpsxmaw5yd7.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn02m1dek35hmmpsxmaw5yd7.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn02m1dek35hmmpsxmaw5yd7.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

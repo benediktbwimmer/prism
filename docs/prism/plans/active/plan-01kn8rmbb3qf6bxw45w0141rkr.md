@@ -26,10 +26,19 @@
 
 Implement a stable repo-published logical_repo_id in .prism, separate it cleanly from local repo-instance and worktree identity, and use it as the future namespace boundary for shared runtime coordination across clones and machines.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn8rmbb3qf6bxw45w0141rkr.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn8rmbb3qf6bxw45w0141rkr.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn8rmbb3qf6bxw45w0141rkr.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

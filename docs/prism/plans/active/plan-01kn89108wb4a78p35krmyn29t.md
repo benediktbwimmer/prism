@@ -26,10 +26,19 @@
 
 Publish always-up-to-date human-readable markdown projections under docs/prism for all persisted .prism state surfaces, with a clear hierarchy for plans, memories, concepts, contracts, relations, and other current repo-state projections.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn89108wb4a78p35krmyn29t.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn89108wb4a78p35krmyn29t.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn89108wb4a78p35krmyn29t.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

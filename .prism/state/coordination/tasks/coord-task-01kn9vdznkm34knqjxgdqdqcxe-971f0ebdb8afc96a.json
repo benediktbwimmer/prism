@@ -1,0 +1,60 @@
+{
+  "id": "coord-task:01kn9vdznkm34knqjxgdqdqcxe",
+  "plan": "plan:01kn9vcavs4jft9eqw82ysmghq",
+  "kind": "Edit",
+  "title": "Add migration, auditing, and repair paths for legacy absolute-path data",
+  "summary": "Detect and repair existing absolute-path leakage in tracked snapshot state, shared/runtime records, and caches so current repos can converge onto the corrected path model without carrying machine-specific artifacts forward.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+    "coord-task:01kn9vdfjsrbzwz5w5mff8yqck"
+  ],
+  "acceptance": [
+    {
+      "label": "Existing tracked or shared data with absolute paths can be detected and repaired deterministically",
+      "anchors": []
+    },
+    {
+      "label": "Migration does not require preserving machine-specific absolute path identity in repo-published state",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 1015,
+    "git_commit": null
+  },
+  "priority": 1,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

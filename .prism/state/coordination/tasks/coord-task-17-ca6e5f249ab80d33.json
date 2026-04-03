@@ -1,0 +1,59 @@
+{
+  "id": "coord-task:17",
+  "plan": "plan:7",
+  "kind": "Edit",
+  "title": "Identify the dominant refresh costs across fs refresh, materialization checks, runtime sync, and persisted-state interactions",
+  "summary": null,
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:16"
+  ],
+  "acceptance": [
+    {
+      "label": "Names the concrete dominant costs instead of only aggregate query latency",
+      "anchors": []
+    },
+    {
+      "label": "Separates true compute cost from lock waiting, reload checks, and derived cache or persistence work",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 2074,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

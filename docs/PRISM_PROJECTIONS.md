@@ -27,14 +27,16 @@ The following rules are implementation requirements:
 
 ## The Problem: Authoritative Truth Is Not a Usable Interface
 
-PRISM already treats append-only event logs under `.prism/**/*.jsonl` as the published
-source of truth for repo-scoped knowledge. Those logs are optimized for:
+PRISM now treats tracked snapshot shards under `.prism/state/**` plus the signed
+`.prism/state/manifest.json` publish boundary as the published source of truth for repo-scoped
+knowledge. The old tracked `.prism/**/*.jsonl` event logs are migration-era compatibility inputs,
+not the enduring authority model. Snapshot publication is optimized for:
 
-1. Immutability and provenance
-2. Cold-clone replay
-3. Machine validation against strict schemas
+1. Trusted publisher attestation at the publish boundary
+2. Cold-clone restore of current repo state
+3. Machine validation against strict schemas and file digests
 
-That is the right write model, but it is the wrong human interface.
+That is the right authority model, but it is still the wrong human interface.
 
 A human should not need to inspect raw event envelopes to understand:
 
@@ -79,7 +81,7 @@ PRISM should say this directly instead of flattening everything into “the ledg
 
 ### 1. Published Repo Authority
 
-This is the repo-scoped, append-only, replayable truth committed under `.prism/**/*`.
+This is the repo-scoped, signed snapshot authority committed under `.prism/state/**` and described by `.prism/state/manifest.json`.
 
 Examples:
 
@@ -87,7 +89,7 @@ Examples:
 - published concept relations
 - published contracts
 - published repo memory
-- published plan logs
+- published plan and coordination snapshot shards
 
 ### 2. Shared Runtime Authority
 

@@ -26,10 +26,19 @@
 
 Improve PRISM MCP day-to-day agent ergonomics after the latest dogfooding round
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn3g1v47d46eppvcahky430e.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn3g1v47d46eppvcahky430e.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn3g1v47d46eppvcahky430e.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

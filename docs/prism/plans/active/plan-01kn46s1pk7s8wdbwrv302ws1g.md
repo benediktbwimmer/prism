@@ -26,10 +26,19 @@
 
 storage-boundary-redesign: separate true shared runtime state from worktree-local semantic cache state, introduce explicit shared-vs-local store ownership and paths, migrate existing repos safely, and validate that cross-worktree shared semantics remain correct while local semantic cache state no longer bloats the shared runtime db.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn46s1pk7s8wdbwrv302ws1g.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn46s1pk7s8wdbwrv302ws1g.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn46s1pk7s8wdbwrv302ws1g.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 

@@ -567,8 +567,8 @@ Applied to current published surfaces:
   - may publish plan headers, nodes, edges, authored bindings, and repo-semantic handoff state
   - must not publish runtime session ids, worktree ids, branch refs, active lease holders, or
     other shared-runtime-only ownership fields
-- `.prism/memory/events.jsonl`
-  - may publish repo-scoped memory entries and their authored event snapshots
+- `.prism/state/memory/**`
+  - may publish repo-scoped memory entries and their authored snapshot shards
   - any work/task reference must be understandable without runtime lookup once declared-work
     cutover lands
 - `.prism/concepts/...`, `.prism/contracts/...`, and concept relations

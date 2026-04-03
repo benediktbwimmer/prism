@@ -1,0 +1,64 @@
+{
+  "id": "coord-task:01kn9hnzqwjgfenrc5tf2jdxsw",
+  "plan": "plan:01kn9hkjxnzdj4qtt4fa25cr6y",
+  "kind": "Edit",
+  "title": "Rework hot and cold startup around snapshot restore and cheap journal reconciliation",
+  "summary": null,
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kn9hn12c7s4bymzxdwea8qfn",
+    "coord-task:01kn9hnfwp7s16np7cf557cxwr"
+  ],
+  "acceptance": [
+    {
+      "label": "Cold startup verifies manifest and snapshot digests directly from the repo and loads current published state without historical repo replay",
+      "anchors": []
+    },
+    {
+      "label": "Hot startup restores from current snapshot state instead of replaying tracked repo event streams",
+      "anchors": []
+    },
+    {
+      "label": "Runtime or shared journal reconciliation is incremental and cheap enough to preserve practical hot restart performance",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 980,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

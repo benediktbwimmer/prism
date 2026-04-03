@@ -26,10 +26,19 @@
 
 Implement a portfolio-wide prioritization and dispatch capability for PRISM that can rank actionable work across active plans with explainable scoring, plan-level scheduling metadata, and explicit inter-plan dependencies, while also introducing a feature-flagged git execution policy layer that enforces or assists claim-time sync and completion-time publish workflow safely through coordination state, blockers, and execution evidence.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn8b9d9w039abyab3wghec2n.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn8b9d9w039abyab3wghec2n.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn8b9d9w039abyab3wghec2n.jsonl` (compatibility only, not current tracked authority)
 
 ## Nodes
 

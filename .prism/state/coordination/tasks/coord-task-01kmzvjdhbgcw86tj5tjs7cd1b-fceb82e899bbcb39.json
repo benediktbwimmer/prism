@@ -1,0 +1,81 @@
+{
+  "id": "coord-task:01kmzvjdhbgcw86tj5tjs7cd1b",
+  "plan": "plan:01kmzvjdhb874nxd0v44d2hdmt",
+  "kind": "Edit",
+  "title": "Milestone 6: Implement a contract-ready graph explorer baseline on typed read models",
+  "summary": "Ship the Graph page on top of explicit UI-facing graph read models and query adapters, with concept-first neighborhood loading, typed node and edge semantics, deep-linkable focus state, evidence inspection, and a data contract that is ready to incorporate contracts later without redesign.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [
+      "concept://dashboard_surface",
+      "concept://prism_architecture"
+    ],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01kmzvjdhb96zxv7pnt1t06fj8",
+    "coord-task:01kmzvjdhbpqxs2nzjxwbvznp9"
+  ],
+  "acceptance": [
+    {
+      "label": "The Graph page is backed by explicit UI-facing graph read models or query adapters rather than raw MCP payload dumping",
+      "anchors": []
+    },
+    {
+      "label": "Users can start from a clean architectural graph, expand concept neighborhoods, inspect evidence, and follow links down toward code or supporting context",
+      "anchors": []
+    },
+    {
+      "label": "The first release graph contract uses typed node and edge semantics plus deep-linkable focus state instead of an untyped whole-graph dump",
+      "anchors": []
+    },
+    {
+      "label": "The graph data model is contract-ready even if the first UI only renders concept-centered neighborhoods",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [
+    {
+      "id": "ui:graph-explorer-baseline"
+    }
+  ],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 541,
+    "git_commit": null
+  },
+  "priority": 6,
+  "tags": [
+    "contracts",
+    "explorer",
+    "frontend",
+    "graph",
+    "read-models"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

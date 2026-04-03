@@ -1,0 +1,83 @@
+{
+  "id": "coord-task:01kn5xzdb5p8pyyx0kxjpx0epx",
+  "plan": "plan:01kn5xz844mc22fb9g7g5czxw7",
+  "kind": "Edit",
+  "title": "Stabilize full-workspace parallel tests against SQLite locking flakes",
+  "summary": "Centralized SQLite write retries and immediate transactions across the store, moved malformed unresolved-row scrubbing off the graph read path, and validated with repeated full workspace runs.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [
+    {
+      "File": 242
+    },
+    {
+      "File": 243
+    },
+    {
+      "File": 316
+    },
+    {
+      "File": 406
+    }
+  ],
+  "bindings": {
+    "anchors": [
+      {
+        "File": 242
+      },
+      {
+        "File": 243
+      },
+      {
+        "File": 316
+      },
+      {
+        "File": 406
+      }
+    ],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [],
+  "acceptance": [
+    {
+      "label": "Full workspace test suite runs deterministically in parallel without transient SQLite lock failures",
+      "anchors": []
+    },
+    {
+      "label": "Lock handling is centralized in shared runtime/store paths rather than ad hoc test-local retries",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 288,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

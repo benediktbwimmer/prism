@@ -26,10 +26,19 @@
 
 Rewrite the PRISM runtime around incremental invalidation, partial materialization, explicit boundary semantics, worktree-aware overlays, lazy deep parsing, and scalable ranking so the daemon stays radically efficient on small repos and scales cleanly to large monorepos, excluding the remote shared runtime backend and database-pushed traversals.
 
+## Git Execution Policy
+
+- Start mode: `off`
+- Completion mode: `off`
+- Target branch: ``
+- Require task branch: `false`
+- Max commits behind target: `0`
+
 ## Source of Truth
 
-- Index path: `.prism/plans/index.jsonl`
-- Log path: `.prism/plans/streams/plan:01kn09gyzw4e8wzwvgvbbj9mkk.jsonl`
+- Snapshot manifest: `.prism/state/manifest.json`
+- Snapshot plan shard: `.prism/state/plans/plan:01kn09gyzw4e8wzwvgvbbj9mkk.json`
+- Legacy migration log path: `.prism/plans/streams/plan:01kn09gyzw4e8wzwvgvbbj9mkk.jsonl` (compatibility only, not current tracked authority)
 
 ## Root Nodes
 
