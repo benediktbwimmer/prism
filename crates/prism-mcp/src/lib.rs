@@ -978,10 +978,20 @@ impl QueryHost {
         session: &SessionState,
         summary: Option<&str>,
     ) -> Result<Vec<EventId>> {
+        Ok(self
+            .persist_flushed_observed_change_checkpoints_detailed(session, summary)?
+            .event_ids)
+    }
+
+    pub(crate) fn persist_flushed_observed_change_checkpoints_detailed(
+        &self,
+        session: &SessionState,
+        summary: Option<&str>,
+    ) -> Result<prism_core::PersistedObservedChangeCheckpointResult> {
         let Some(workspace) = self.workspace_session_ref() else {
-            return Ok(Vec::new());
+            return Ok(prism_core::PersistedObservedChangeCheckpointResult::default());
         };
-        workspace.persist_flushed_observed_change_checkpoints(
+        workspace.persist_flushed_observed_change_checkpoints_detailed(
             Some(&session.session_id()),
             current_request_id(),
             None,

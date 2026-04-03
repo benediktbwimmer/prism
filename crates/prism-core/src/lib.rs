@@ -85,8 +85,9 @@ pub use published_plans::{
     PublishedPlanArtifactRepairReport,
 };
 pub use session::{
-    CoordinationPlanState, FsRefreshStatus, WorkspaceFsRefreshOutcome, WorkspaceRefreshBreakdown,
-    WorkspaceRefreshWork, WorkspaceSession, WorkspaceSnapshotRevisions,
+    CoordinationPlanState, FsRefreshStatus, PersistedObservedChangeCheckpointResult,
+    WorkspaceFsRefreshOutcome, WorkspaceRefreshBreakdown, WorkspaceRefreshWork, WorkspaceSession,
+    WorkspaceSnapshotRevisions,
 };
 pub use shared_runtime_backend::SharedRuntimeBackend;
 pub use validation_feedback::{

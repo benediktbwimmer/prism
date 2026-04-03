@@ -4,9 +4,10 @@ use serde_json::{json, Value};
 use super::*;
 use crate::tests_support::{
     call_tool_request, first_tool_content_json, host_with_session_internal,
-    host_with_shared_session_internal, host_with_shared_session_and_features, initialize_client,
+    host_with_shared_session_and_features, host_with_shared_session_internal, initialize_client,
     initialized_notification, mutation_credential_json, retry_on_runtime_sync_busy,
-    shared_workspace_session, temp_workspace, test_session, workspace_session_with_owner_credential,
+    shared_workspace_session, temp_workspace, test_session,
+    workspace_session_with_owner_credential,
 };
 #[tokio::test]
 async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
@@ -242,10 +243,8 @@ fn coordination_resume_mutation_dispatches_through_authenticated_host() {
 fn coordination_workflow_helpers_summarize_inbox_context_and_claim_preview() {
     let root = temp_workspace();
     let workspace = shared_workspace_session(&root);
-    let writer = host_with_shared_session_and_features(
-        Arc::clone(&workspace),
-        PrismMcpFeatures::full(),
-    );
+    let writer =
+        host_with_shared_session_and_features(Arc::clone(&workspace), PrismMcpFeatures::full());
     let host = host_with_shared_session_and_features(workspace, PrismMcpFeatures::full());
 
     let plan = retry_on_runtime_sync_busy(|| {

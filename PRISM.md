@@ -18,8 +18,8 @@
 - Active repo relations: 206
 - Active repo contracts: 8
 - Active repo memories: 27
-- Published plans: 45
-- Published patch events: 121
+- Published plans: 48
+- Published patch events: 439
 - Full concept catalog: `docs/prism/concepts.md`
 - Full relation catalog: `docs/prism/relations.md`
 - Full contract catalog: `docs/prism/contracts.md`

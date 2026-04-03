@@ -13,7 +13,7 @@ use rmcp::{
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::dashboard_events::MutationRun;
 use crate::*;
@@ -381,15 +381,99 @@ impl PrismMcpServer {
             }
         }
 
-        let operation_started = Instant::now();
+        let pre_operation_started = Instant::now();
+        let mut pre_operation_accounted = Duration::ZERO;
         if action != "mutate.declare_work" && action != "mutate.checkpoint" {
             if let Some(workspace) = self.host.workspace_session_ref() {
-                workspace.flush_observed_changes(ObservedChangeFlushTrigger::MutationBoundary);
+                let flush_started = Instant::now();
+                let flushed_set_count =
+                    workspace.flush_observed_changes(ObservedChangeFlushTrigger::MutationBoundary);
+                let flush_duration = flush_started.elapsed();
+                pre_operation_accounted += flush_duration;
+                run.record_phase(
+                    "mutation.flushObservedChanges",
+                    &json!({
+                        "trigger": "mutation_boundary",
+                        "flushedSetCount": flushed_set_count,
+                    }),
+                    flush_duration,
+                    true,
+                    None,
+                );
             }
-            self.host
-                .persist_flushed_observed_change_checkpoints(self.session.as_ref(), None)
-                .map_err(map_query_error)?;
+            let persist_started = Instant::now();
+            match self
+                .host
+                .persist_flushed_observed_change_checkpoints_detailed(self.session.as_ref(), None)
+            {
+                Ok(result) => {
+                    let persist_duration = persist_started.elapsed();
+                    pre_operation_accounted += persist_duration;
+                    run.record_phase(
+                        "mutation.persistObservedChangeCheckpoints",
+                        &json!({
+                            "flushedSetCount": result.flushed_set_count,
+                            "checkpointCount": result.event_ids.len(),
+                            "changedPathCount": result.changed_path_count,
+                            "entryCount": result.entry_count,
+                        }),
+                        persist_duration,
+                        true,
+                        None,
+                    );
+                }
+                Err(error) => {
+                    let mapped = map_query_error(error);
+                    run.record_phase(
+                        "mutation.persistObservedChangeCheckpoints",
+                        &json!({}),
+                        persist_started.elapsed(),
+                        false,
+                        Some(mapped.to_string()),
+                    );
+                    run.finish_error(mapped.to_string());
+                    return Err(mapped);
+                }
+            }
+        } else {
+            run.record_phase(
+                "mutation.flushObservedChanges",
+                &json!({
+                    "skipped": true,
+                    "reason": "action_opted_out",
+                }),
+                Duration::ZERO,
+                true,
+                None,
+            );
+            run.record_phase(
+                "mutation.persistObservedChangeCheckpoints",
+                &json!({
+                    "skipped": true,
+                    "reason": "action_opted_out",
+                }),
+                Duration::ZERO,
+                true,
+                None,
+            );
         }
+        let pre_operation_total = pre_operation_started.elapsed();
+        let pre_operation_unattributed =
+            pre_operation_total.saturating_sub(pre_operation_accounted);
+        if !pre_operation_unattributed.is_zero() {
+            run.record_phase(
+                "mutation.preOperation.unattributed",
+                &json!({
+                    "accountedMs": pre_operation_accounted.as_millis(),
+                    "totalMs": pre_operation_total.as_millis(),
+                    "action": action,
+                }),
+                pre_operation_unattributed,
+                true,
+                None,
+            );
+        }
+        let operation_started = Instant::now();
         let (operation_result, traced_phases) =
             prism_core::mutation_trace::scope(|| operation(&run));
         for phase in traced_phases {

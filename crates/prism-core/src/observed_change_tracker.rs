@@ -153,8 +153,10 @@ impl ObservedChangeTracker {
         }
     }
 
-    pub(crate) fn flush(&mut self, trigger: ObservedChangeFlushTrigger) {
+    pub(crate) fn flush(&mut self, trigger: ObservedChangeFlushTrigger) -> usize {
+        let before = self.flushed.len();
         self.flush_active(trigger);
+        self.flushed.len().saturating_sub(before)
     }
 
     pub(crate) fn take_flushed(&mut self) -> Vec<FlushedObservedChangeSet> {

@@ -990,26 +990,14 @@ return {
 "#
     .replace("__TOKEN__", &filter_token);
 
-    host.execute(
-        test_session(&host),
-        &search_query,
-        QueryLanguage::Ts,
-    )
-    .expect("text search query should succeed");
+    host.execute(test_session(&host), &search_query, QueryLanguage::Ts)
+        .expect("text search query should succeed");
 
-    host.execute(
-        test_session(&host),
-        &file_query,
-        QueryLanguage::Ts,
-    )
-    .expect("file slice query should succeed");
+    host.execute(test_session(&host), &file_query, QueryLanguage::Ts)
+        .expect("file slice query should succeed");
 
     let result = host
-        .execute(
-            test_session(&host),
-            &history_query,
-            QueryLanguage::Ts,
-        )
+        .execute(test_session(&host), &history_query, QueryLanguage::Ts)
         .expect("mcp log query should succeed");
 
     let recent = result.result["recent"].as_array().expect("recent mcp log");
@@ -1051,7 +1039,9 @@ return {
     );
 
     let trace = &result.result["trace"];
-    assert!(recent.iter().any(|entry| entry["id"] == trace["entry"]["id"]));
+    assert!(recent
+        .iter()
+        .any(|entry| entry["id"] == trace["entry"]["id"]));
     assert_eq!(trace["metadata"]["tool"], "prism_query");
     assert!(trace["metadata"]["queryText"]
         .as_str()

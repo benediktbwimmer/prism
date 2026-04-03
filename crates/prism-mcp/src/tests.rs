@@ -10970,7 +10970,10 @@ fn compact_task_brief_completed_task_avoids_unrelated_follow_up_guidance() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
-                payload: json!({ "goal": "Coordinate completed alpha task" }),
+                payload: json!({
+                    "title": "Completed alpha follow-up",
+                    "goal": "Coordinate completed alpha task"
+                }),
                 task_id: None,
             },
         )
@@ -13686,6 +13689,8 @@ fn mutation_trace_records_internal_phases_for_persisted_only_mutations() {
     assert!(operations.contains(&"runtimeSync.refreshFs"));
     assert!(operations.contains(&"runtimeSync.snapshotRevisions"));
     assert!(operations.contains(&"mutation.refreshWorkspace"));
+    assert!(operations.contains(&"mutation.flushObservedChanges"));
+    assert!(operations.contains(&"mutation.persistObservedChangeCheckpoints"));
     assert!(operations.contains(&"mutation.operation"));
     assert!(operations.contains(&"mutation.encodeResult"));
     assert!(operations.contains(&"mutation.publishTaskUpdate"));
@@ -13698,6 +13703,12 @@ fn mutation_trace_records_internal_phases_for_persisted_only_mutations() {
         .find(|phase| phase.operation == "mutation.refreshWorkspace")
         .and_then(|phase| phase.args_summary.as_ref())
         .is_some_and(|args| args["refreshPath"] != Value::String("skipped".to_string())));
+    assert!(trace
+        .phases
+        .iter()
+        .find(|phase| phase.operation == "mutation.persistObservedChangeCheckpoints")
+        .and_then(|phase| phase.args_summary.as_ref())
+        .is_some_and(|args| args["checkpointCount"].is_u64()));
 }
 
 #[test]
@@ -13966,6 +13977,8 @@ fn coordination_mutation_trace_records_persistence_subphases() {
     assert!(operations.contains(&"mutation.coordination.publishedPlans.writeIndex"));
     assert!(!operations.contains(&"mutation.coordination.publishedPlans.loadProjection"));
     assert!(operations.contains(&"mutation.coordination.syncLoadedRevisionAfter"));
+    assert!(operations.contains(&"mutation.flushObservedChanges"));
+    assert!(operations.contains(&"mutation.persistObservedChangeCheckpoints"));
 }
 
 #[tokio::test]

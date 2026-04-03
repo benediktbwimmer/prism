@@ -114,6 +114,14 @@ pub struct WorkspaceFsRefreshOutcome {
     pub breakdown: WorkspaceRefreshBreakdown,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PersistedObservedChangeCheckpointResult {
+    pub event_ids: Vec<EventId>,
+    pub flushed_set_count: usize,
+    pub changed_path_count: usize,
+    pub entry_count: usize,
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct WorkspaceRefreshBreakdown {
     pub plan_refresh_ms: u64,
@@ -487,11 +495,11 @@ impl WorkspaceSession {
             .active_work()
     }
 
-    pub fn flush_observed_changes(&self, trigger: ObservedChangeFlushTrigger) {
+    pub fn flush_observed_changes(&self, trigger: ObservedChangeFlushTrigger) -> usize {
         self.observed_change_tracker
             .lock()
             .expect("observed change tracker lock poisoned")
-            .flush(trigger);
+            .flush(trigger)
     }
 
     pub fn take_flushed_observed_changes(&self) -> Vec<FlushedObservedChangeSet> {
@@ -508,14 +516,40 @@ impl WorkspaceSession {
         credential_id: Option<&CredentialId>,
         summary: Option<&str>,
     ) -> Result<Vec<EventId>> {
+        Ok(self
+            .persist_flushed_observed_change_checkpoints_detailed(
+                session_id,
+                request_id,
+                credential_id,
+                summary,
+            )?
+            .event_ids)
+    }
+
+    pub fn persist_flushed_observed_change_checkpoints_detailed(
+        &self,
+        session_id: Option<&SessionId>,
+        request_id: Option<String>,
+        credential_id: Option<&CredentialId>,
+        summary: Option<&str>,
+    ) -> Result<PersistedObservedChangeCheckpointResult> {
         let flushed = self.take_flushed_observed_changes();
         if flushed.is_empty() {
-            return Ok(Vec::new());
+            return Ok(PersistedObservedChangeCheckpointResult::default());
         }
         let normalized_summary = summary
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(ToOwned::to_owned);
+        let flushed_set_count = flushed.len();
+        let changed_path_count = flushed
+            .iter()
+            .map(|change_set| change_set.changed_paths.len())
+            .sum();
+        let entry_count = flushed
+            .iter()
+            .map(|change_set| change_set.entries.len())
+            .sum();
         let mut event_ids = Vec::with_capacity(flushed.len());
         for change_set in flushed {
             let checkpoint = ObservedChangeCheckpoint {
@@ -580,7 +614,12 @@ impl WorkspaceSession {
             };
             event_ids.push(self.append_outcome(event)?);
         }
-        Ok(event_ids)
+        Ok(PersistedObservedChangeCheckpointResult {
+            event_ids,
+            flushed_set_count,
+            changed_path_count,
+            entry_count,
+        })
     }
 
     fn shared_runtime_store(&self) -> Option<&Arc<Mutex<SharedRuntimeStore>>> {
