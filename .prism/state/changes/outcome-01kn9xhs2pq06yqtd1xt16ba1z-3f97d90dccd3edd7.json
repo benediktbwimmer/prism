@@ -1,0 +1,808 @@
+{
+  "meta": {
+    "id": "outcome:01kn9xhs2pq06yqtd1xt16ba1z",
+    "ts": 1775228216,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-a:01kn4jw3waxc8qj2nysd3rsyvc",
+        "kind": null,
+        "name": "Codex A"
+      }
+    },
+    "correlation": "work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh",
+    "causation": "observed:01kn9xhs1xzk4zkw2dka7hmzaj",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:8719dd7db144e96f",
+      "branch_ref": "refs/heads/task/prism-changes-state-rewrite",
+      "instance_id": "instance:50089:1775225056256",
+      "work_context": {
+        "workId": "work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh",
+        "kind": "ad_hoc",
+        "title": "Plan the tracked .prism snapshot rewrite",
+        "planId": "plan:01kn9hkjxnzdj4qtt4fa25cr6y",
+        "planTitle": "Rewrite tracked .prism to signed snapshot publication"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 500
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::13_locked_decisions",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::13_open_questions",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::12_migration_strategy",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::14_recommendation",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::3_core_principle",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::12_1_stop_writing_new_tracked_changes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::2_problem",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::6_why_signed_git_commits_are_the_right_coarse_grained_replacement",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::12_4_keep_trust_continuity_explicit",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::10_time_travel_and_branching",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::11_target_state",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::9_cold_clone_story_after_removing_tracked_changes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::12_2_preserve_current_semantic_state_without_tracked_changes",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::4_what_belongs_in_tracked_prism_state",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::8_shared_runtime_becomes_the_sole_append_log_owner",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::1_summary",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::12_3_repair_existing_tracked_repos",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md",
+        "kind": "Document"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::prism_tracked_changes_removal",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::7_why_the_prism_manifest_still_matters",
+        "kind": "MarkdownHeading"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism",
+        "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::5_what_leaves_tracked_prism_state",
+        "kind": "MarkdownHeading"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 1 added, 1 removed, 19 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 1,
+        "changedSymbolCount": 40,
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "removedCount": 1,
+        "updatedCount": 38
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::13_locked_decisions"
+        },
+        "kind": "MarkdownHeading",
+        "name": "13. Locked Decisions",
+        "span": {
+          "end": 11541,
+          "start": 10027
+        },
+        "status": "added"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::13_open_questions"
+        },
+        "kind": "MarkdownHeading",
+        "name": "13. Open Questions",
+        "span": {
+          "end": 10964,
+          "start": 10027
+        },
+        "status": "removed"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::12_migration_strategy"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12. Migration Strategy",
+        "span": {
+          "end": 10027,
+          "start": 8687
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::12_migration_strategy"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12. Migration Strategy",
+        "span": {
+          "end": 10027,
+          "start": 8687
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::14_recommendation"
+        },
+        "kind": "MarkdownHeading",
+        "name": "14. Recommendation",
+        "span": {
+          "end": 11444,
+          "start": 10964
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::14_recommendation"
+        },
+        "kind": "MarkdownHeading",
+        "name": "14. Recommendation",
+        "span": {
+          "end": 12021,
+          "start": 11541
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::3_core_principle"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3. Core Principle",
+        "span": {
+          "end": 2519,
+          "start": 1933
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::3_core_principle"
+        },
+        "kind": "MarkdownHeading",
+        "name": "3. Core Principle",
+        "span": {
+          "end": 2519,
+          "start": 1933
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::12_1_stop_writing_new_tracked_changes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.1 Stop writing new tracked `changes`",
+        "span": {
+          "end": 8969,
+          "start": 8755
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::12_1_stop_writing_new_tracked_changes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.1 Stop writing new tracked `changes`",
+        "span": {
+          "end": 8969,
+          "start": 8755
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::2_problem"
+        },
+        "kind": "MarkdownHeading",
+        "name": "2. Problem",
+        "span": {
+          "end": 1933,
+          "start": 1221
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::2_problem"
+        },
+        "kind": "MarkdownHeading",
+        "name": "2. Problem",
+        "span": {
+          "end": 1933,
+          "start": 1221
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::6_why_signed_git_commits_are_the_right_coarse_grained_replacement"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6. Why Signed Git Commits Are the Right Coarse-Grained Replacement",
+        "span": {
+          "end": 4859,
+          "start": 3918
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::6_why_signed_git_commits_are_the_right_coarse_grained_replacement"
+        },
+        "kind": "MarkdownHeading",
+        "name": "6. Why Signed Git Commits Are the Right Coarse-Grained Replacement",
+        "span": {
+          "end": 4859,
+          "start": 3918
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::12_4_keep_trust_continuity_explicit"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.4 Keep trust continuity explicit",
+        "span": {
+          "end": 10027,
+          "start": 9695
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::12_4_keep_trust_continuity_explicit"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.4 Keep trust continuity explicit",
+        "span": {
+          "end": 10027,
+          "start": 9695
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::10_time_travel_and_branching"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10. Time Travel and Branching",
+        "span": {
+          "end": 8108,
+          "start": 7551
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::10_time_travel_and_branching"
+        },
+        "kind": "MarkdownHeading",
+        "name": "10. Time Travel and Branching",
+        "span": {
+          "end": 8108,
+          "start": 7551
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::11_target_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "11. Target State",
+        "span": {
+          "end": 8687,
+          "start": 8108
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::11_target_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "11. Target State",
+        "span": {
+          "end": 8687,
+          "start": 8108
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::9_cold_clone_story_after_removing_tracked_changes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "9. Cold Clone Story After Removing Tracked `changes`",
+        "span": {
+          "end": 7551,
+          "start": 6747
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::9_cold_clone_story_after_removing_tracked_changes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "9. Cold Clone Story After Removing Tracked `changes`",
+        "span": {
+          "end": 7551,
+          "start": 6747
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::12_2_preserve_current_semantic_state_without_tracked_changes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.2 Preserve current semantic state without tracked `changes`",
+        "span": {
+          "end": 9329,
+          "start": 8969
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::12_2_preserve_current_semantic_state_without_tracked_changes"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.2 Preserve current semantic state without tracked `changes`",
+        "span": {
+          "end": 9329,
+          "start": 8969
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::4_what_belongs_in_tracked_prism_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4. What Belongs in Tracked `.prism/state`",
+        "span": {
+          "end": 3237,
+          "start": 2519
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::4_what_belongs_in_tracked_prism_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "4. What Belongs in Tracked `.prism/state`",
+        "span": {
+          "end": 3237,
+          "start": 2519
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::8_shared_runtime_becomes_the_sole_append_log_owner"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8. Shared Runtime Becomes the Sole Append-Log Owner",
+        "span": {
+          "end": 6747,
+          "start": 5889
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::8_shared_runtime_becomes_the_sole_append_log_owner"
+        },
+        "kind": "MarkdownHeading",
+        "name": "8. Shared Runtime Becomes the Sole Append-Log Owner",
+        "span": {
+          "end": 6747,
+          "start": 5889
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::1_summary"
+        },
+        "kind": "MarkdownHeading",
+        "name": "1. Summary",
+        "span": {
+          "end": 1221,
+          "start": 315
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::1_summary"
+        },
+        "kind": "MarkdownHeading",
+        "name": "1. Summary",
+        "span": {
+          "end": 1221,
+          "start": 315
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::12_3_repair_existing_tracked_repos"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.3 Repair existing tracked repos",
+        "span": {
+          "end": 9695,
+          "start": 9329
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::12_3_repair_existing_tracked_repos"
+        },
+        "kind": "MarkdownHeading",
+        "name": "12.3 Repair existing tracked repos",
+        "span": {
+          "end": 9695,
+          "start": 9329
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "Document",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md"
+        },
+        "kind": "Document",
+        "name": "docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "span": {
+          "end": 11444,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "Document",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md"
+        },
+        "kind": "Document",
+        "name": "docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "span": {
+          "end": 12021,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::prism_tracked_changes_removal"
+        },
+        "kind": "MarkdownHeading",
+        "name": "PRISM Tracked Changes Removal",
+        "span": {
+          "end": 11444,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::prism_tracked_changes_removal"
+        },
+        "kind": "MarkdownHeading",
+        "name": "PRISM Tracked Changes Removal",
+        "span": {
+          "end": 12021,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::7_why_the_prism_manifest_still_matters"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7. Why the PRISM Manifest Still Matters",
+        "span": {
+          "end": 5889,
+          "start": 4859
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::7_why_the_prism_manifest_still_matters"
+        },
+        "kind": "MarkdownHeading",
+        "name": "7. Why the PRISM Manifest Still Matters",
+        "span": {
+          "end": 5889,
+          "start": 4859
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::5_what_leaves_tracked_prism_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5. What Leaves Tracked `.prism/state`",
+        "span": {
+          "end": 3918,
+          "start": 3237
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md",
+        "id": {
+          "crate_name": "prism",
+          "kind": "MarkdownHeading",
+          "path": "prism::document::docs::PRISM_TRACKED_CHANGES_REMOVAL_md::5_what_leaves_tracked_prism_state"
+        },
+        "kind": "MarkdownHeading",
+        "name": "5. What Leaves Tracked `.prism/state`",
+        "span": {
+          "end": 3918,
+          "start": 3237
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 40,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md"
+    ],
+    "files": [
+      500
+    ],
+    "reason": "work Plan the tracked .prism snapshot rewrite (work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh)",
+    "trigger": "FsWatch"
+  }
+}

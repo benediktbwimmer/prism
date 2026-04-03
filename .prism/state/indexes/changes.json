@@ -484,5 +484,17 @@
     "title": "observed file change: 0 added, 0 removed, 141 updated symbols",
     "status": "Success",
     "path": "changes/outcome-01kn9tb0f59q5zz604vcymn172-74f4204b51c94766.json"
+  },
+  {
+    "id": "outcome:01kn9x9k07fjvhmwdq3zqaet2p",
+    "title": "observed file change: 20 added, 0 removed, 0 updated symbols",
+    "status": "Success",
+    "path": "changes/outcome-01kn9x9k07fjvhmwdq3zqaet2p-b9a8d0e375d61217.json"
+  },
+  {
+    "id": "outcome:01kn9xhs2pq06yqtd1xt16ba1z",
+    "title": "observed file change: 1 added, 1 removed, 19 updated symbols",
+    "status": "Success",
+    "path": "changes/outcome-01kn9xhs2pq06yqtd1xt16ba1z-3f97d90dccd3edd7.json"
   }
 ]

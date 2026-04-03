@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "publishedAt": 1775225940,
+  "publishedAt": 1775228481,
   "publisher": {
     "principalAuthorityId": "local-daemon",
     "principalId": "principal:codex-a:01kn4jw3waxc8qj2nysd3rsyvc",
@@ -337,6 +337,14 @@
     ".prism/state/changes/outcome-01kn9tb0f59q5zz604vcymn172-74f4204b51c94766.json": {
       "path": ".prism/state/changes/outcome-01kn9tb0f59q5zz604vcymn172-74f4204b51c94766.json",
       "sha256": "sha256:a87e18614d989109dfe4d2ce87cbe77db468bb1a11102dd0a68434c0fece7d6c"
+    },
+    ".prism/state/changes/outcome-01kn9x9k07fjvhmwdq3zqaet2p-b9a8d0e375d61217.json": {
+      "path": ".prism/state/changes/outcome-01kn9x9k07fjvhmwdq3zqaet2p-b9a8d0e375d61217.json",
+      "sha256": "sha256:970d4c2246214a51f5d406a341504f43f46684fd92918af677bee9bfc8bf4793"
+    },
+    ".prism/state/changes/outcome-01kn9xhs2pq06yqtd1xt16ba1z-3f97d90dccd3edd7.json": {
+      "path": ".prism/state/changes/outcome-01kn9xhs2pq06yqtd1xt16ba1z-3f97d90dccd3edd7.json",
+      "sha256": "sha256:64d80ae743631004e943adec76dbc651837e6732dfb2df181ace563c246b3443"
     },
     ".prism/state/coordination/tasks/coord-task-01kmwmwtsvsb4fnsekv4hd29fd-b8a10a00e7d88f17.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kmwmwtsvsb4fnsekv4hd29fd-b8a10a00e7d88f17.json",
@@ -1482,6 +1490,30 @@
       "path": ".prism/state/coordination/tasks/coord-task-01kn9ve8ants7rmt18m4rpf25b-1b4143028d395cb8.json",
       "sha256": "sha256:ab36972577b35a4941d34faa2c4291ed5b08eefaa7e221a68ca5c29681c007f5"
     },
+    ".prism/state/coordination/tasks/coord-task-01kn9xt9h76645shp4jcmt0bsv-b278826451d81676.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01kn9xt9h76645shp4jcmt0bsv-b278826451d81676.json",
+      "sha256": "sha256:43f67e4d7b4731cb1ca368be20c6ee1da9f8f9c60ddfc6c282bfa243a411930b"
+    },
+    ".prism/state/coordination/tasks/coord-task-01kn9xtjh9ac4zwwfx2mbn9k0j-dd1c1887953b493c.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01kn9xtjh9ac4zwwfx2mbn9k0j-dd1c1887953b493c.json",
+      "sha256": "sha256:34680ab5bb6a6a1483d4ac6de5ea23e929dfb0c5b2a3dfe9eca9e957852585af"
+    },
+    ".prism/state/coordination/tasks/coord-task-01kn9xtsf57cqfxa0a7hd2wsx8-8f33405002315284.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01kn9xtsf57cqfxa0a7hd2wsx8-8f33405002315284.json",
+      "sha256": "sha256:2e318da1750336ed2ff8d7973f5acd307ff00d2ce59d7d19cc0a5ff6d3604347"
+    },
+    ".prism/state/coordination/tasks/coord-task-01kn9xv2a54t54pbzbbremqrc7-bd684786fb6d98ab.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01kn9xv2a54t54pbzbbremqrc7-bd684786fb6d98ab.json",
+      "sha256": "sha256:27e3fde5095bd0534bc035a242c4a99a99238260698405c518def604f490b2df"
+    },
+    ".prism/state/coordination/tasks/coord-task-01kn9xv8x94h8gwja48wahgsnb-cdfe79523838ee90.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01kn9xv8x94h8gwja48wahgsnb-cdfe79523838ee90.json",
+      "sha256": "sha256:aca930eba9b68bac18f147af4cf32d2fe13db50a40ce371d6ce4473443d8b888"
+    },
+    ".prism/state/coordination/tasks/coord-task-01kn9xvmrn86qb17qz7w97na8n-9d7710759c599d94.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01kn9xvmrn86qb17qz7w97na8n-9d7710759c599d94.json",
+      "sha256": "sha256:99c310b3b23ef81fb5769d1e1a317c5cab69e015bb4b8f74a16f562300932ff6"
+    },
     ".prism/state/coordination/tasks/coord-task-1-12761fa8e93c5cba.json": {
       "path": ".prism/state/coordination/tasks/coord-task-1-12761fa8e93c5cba.json",
       "sha256": "sha256:1ca48a0990d9244736454ca1ba072d6aa52525be1eccfaca374e4b0af2ca2596"
@@ -1564,7 +1596,7 @@
     },
     ".prism/state/indexes/changes.json": {
       "path": ".prism/state/indexes/changes.json",
-      "sha256": "sha256:33e12f674a0be6b5fc998d5849b91a035d5fb9eca40a7701e5e4c45c72a25ee3"
+      "sha256": "sha256:a9a77dec871196e6e43a7c84e8888f77ae5b3d979ce7e0dd315e36bd9c5cd579"
     },
     ".prism/state/indexes/coordination_artifacts.json": {
       "path": ".prism/state/indexes/coordination_artifacts.json",
@@ -1572,11 +1604,11 @@
     },
     ".prism/state/indexes/coordination_tasks.json": {
       "path": ".prism/state/indexes/coordination_tasks.json",
-      "sha256": "sha256:1cb5a034aa36404dd9238c7e30d3f8678653de093efe4d5571283815c4ca3f9d"
+      "sha256": "sha256:2b886472b7b51ae8cbc32a9e6270b44ce8640bba0f07319b10e58df4d4de41ea"
     },
     ".prism/state/indexes/plans.json": {
       "path": ".prism/state/indexes/plans.json",
-      "sha256": "sha256:98df1452bebc8185942b53a86743ee8dfb3dd32600d04397d742fc498f472ef5"
+      "sha256": "sha256:904a4ee093124001094c210b504e72b75df54c7849398d8c8e62b242fc96392c"
     },
     ".prism/state/plans/plan-01kmwmwamj4y87781dsn8x7wt2-f0176c427f24cf04.json": {
       "path": ".prism/state/plans/plan-01kmwmwamj4y87781dsn8x7wt2-f0176c427f24cf04.json",
@@ -1782,6 +1814,10 @@
       "path": ".prism/state/plans/plan-01kn9vcavs4jft9eqw82ysmghq-140ec859a05ac8c9.json",
       "sha256": "sha256:33a64ac87561e8f26bb174fc22e9ea5fbf5a355d2c02b412e59b7e4f1c5f8dea"
     },
+    ".prism/state/plans/plan-01kn9xsvp1a376w7xmq08gn4nh-36bad8e44d57f454.json": {
+      "path": ".prism/state/plans/plan-01kn9xsvp1a376w7xmq08gn4nh-36bad8e44d57f454.json",
+      "sha256": "sha256:e12d4480672f46a2a0ae6138b7c1f9632bc6d5a683dccaba882e18846f1e0c46"
+    },
     ".prism/state/plans/plan-1-8fd52ae04f462646.json": {
       "path": ".prism/state/plans/plan-1-8fd52ae04f462646.json",
       "sha256": "sha256:6d1bb7bd5382a7ac339747f1038a0f01bd49d9204e28dfe81158055cf061e718"
@@ -1811,13 +1847,13 @@
       "sha256": "sha256:25b396965686f9dc300002f26a9ba19c826a387a00b6e3ee799116d6a0f64457"
     }
   },
-  "previousManifestDigest": "sha256:fe3b88954a477eedf26aa7c8132a6178f2c8dc34f92eb3fa64bb9f98970145fb",
+  "previousManifestDigest": "sha256:512ed8698bd755c01c92689e4c64f2dfa3a1debd8850b992aa613780db4ef470",
   "migrationSourceDigest": "sha256:29be826a9e4869880d788dda166c588fd3513bcecc43c4b019205486a2115994",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:amYu1+xxj8pNgPucCcnTtxbF5FlYLZ2Rpx+c3GMihcZBg/8SfbA9lFEUBEQyGIGXyrp8T7Swb1Mv2POVcWc/DA=="
+    "value": "base64:BSRY2VMJ/kKEj+pGsXoyLCmlaIurwEznK0RuTOBSFlySYk3dyRX1fTCRkykyHWrVOisuNiOtUaIW0s0no5A6AA=="
   }
 }

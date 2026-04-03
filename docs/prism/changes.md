@@ -8,14 +8,14 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:e5cd416774818a2b5dea0a49644ecede6c276c9afe586d4f049b68f782088998`
-- Source logical timestamp: `1775224848`
-- Source snapshot: `81 published patch events, 23 unique touched files`
+- Source head: `sha256:d918c4ea9543a1dbd92ad455312bfea3d7c0ccba5cded908cbe7595817db59e1`
+- Source logical timestamp: `1775228216`
+- Source snapshot: `83 published patch events, 24 unique touched files`
 
 ## Overview
 
-- Published patch events: 81
-- Unique files touched: 23
+- Published patch events: 83
+- Unique files touched: 24
 
 ## Most Touched Files
 
@@ -33,14 +33,32 @@
 - `/Users/bene/code/prism/crates/prism-core/src/watch.rs`: `2` patch event(s)
 - `/Users/bene/code/prism/crates/prism-mcp/src/tests/coordination_surface.rs`: `2` patch event(s)
 - `/Users/bene/code/prism/docs/PRISM_PROJECTIONS.md`: `2` patch event(s)
+- `/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md`: `2` patch event(s)
 - `/Users/bene/code/prism/crates/prism-core/src/lib.rs`: `1` patch event(s)
 - `/Users/bene/code/prism/crates/prism-core/src/prism_doc.rs`: `1` patch event(s)
 - `/Users/bene/code/prism/crates/prism-core/src/prism_doc/repo_state.rs`: `1` patch event(s)
 - `/Users/bene/code/prism/crates/prism-js/src/docs.rs`: `1` patch event(s)
 - `/Users/bene/code/prism/crates/prism-js/src/runtime.rs`: `1` patch event(s)
-- `/Users/bene/code/prism/docs/PRINCIPAL_IDENTITY_AND_COORDINATION.md`: `1` patch event(s)
 
 ## Recent Published Patch Events
+
+### outcome:01kn9xhs2pq06yqtd1xt16ba1z
+
+- Summary: observed file change: 1 added, 1 removed, 19 updated symbols
+- Result: `success`
+- Recorded at: `1775228216`
+- Work: `Plan the tracked .prism snapshot rewrite` (work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh)
+- Files:
+  - `/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md`
+
+### outcome:01kn9x9k07fjvhmwdq3zqaet2p
+
+- Summary: observed file change: 20 added, 0 removed, 0 updated symbols
+- Result: `success`
+- Recorded at: `1775227948`
+- Work: `Plan the tracked .prism snapshot rewrite` (work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh)
+- Files:
+  - `/Users/bene/code/prism/docs/PRISM_TRACKED_CHANGES_REMOVAL.md`
 
 ### outcome:01kn9tb0f59q5zz604vcymn172
 
@@ -245,24 +263,6 @@
 - Summary: observed file change: 0 added, 0 removed, 140 updated symbols
 - Result: `success`
 - Recorded at: `1775223264`
-- Work: `Plan the tracked .prism snapshot rewrite` (work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-core/src/tests.rs`
-
-### outcome:01kn9rs5s0a60tdbksy5pbfavn
-
-- Summary: observed file change: 3 added, 3 removed, 137 updated symbols
-- Result: `success`
-- Recorded at: `1775223215`
-- Work: `Plan the tracked .prism snapshot rewrite` (work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh)
-- Files:
-  - `/Users/bene/code/prism/crates/prism-core/src/tests.rs`
-
-### outcome:01kn9rpj9hr5frdvt3kgb3k28x
-
-- Summary: observed file change: 2 added, 2 removed, 138 updated symbols
-- Result: `success`
-- Recorded at: `1775223130`
 - Work: `Plan the tracked .prism snapshot rewrite` (work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh)
 - Files:
   - `/Users/bene/code/prism/crates/prism-core/src/tests.rs`
