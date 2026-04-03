@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Canonicalize graph and workspace file identity around file ids plus repo-relative paths",
   "summary": "Make file ids the primary internal key, make repo-relative paths the canonical stored path identity, and ensure absolute paths are derived only in local worktree runtime code that actually touches the filesystem.",
-  "status": "Ready",
+  "status": "InProgress",
   "published_task_status": null,
   "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
   "pending_handoff_to": null,
@@ -40,7 +40,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1015,
+    "graph_version": 81,
     "git_commit": null
   },
   "priority": 1,

@@ -1,0 +1,5050 @@
+{
+  "meta": {
+    "id": "outcome:01kn9z4ptk39y35sk2p7p40jpq",
+    "ts": 1775229885,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+    "causation": "observed:01kn9z4psvwdm454cx5j1gcwex",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/task/path-identity-repo-relative",
+      "instance_id": "instance:54440:1775229195928",
+      "work_context": {
+        "workId": "work:canonicalize-graph-and-workspace-file-identity-around-file-ids-plus-repo-relative-paths:01kn9yh35e8ed6c7aea7w0q0gc",
+        "kind": "coordination",
+        "title": "Canonicalize graph and workspace file identity around file ids plus repo-relative paths",
+        "coordinationTaskId": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+        "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 322
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::index_file_record",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::rebuild_node_indexes",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::canonical_unresolved_intent_shape",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::observed_node",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::unresolved_impl_name_index",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::neighboring_files_for_path",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::add_edge",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::derived_edge_incidence",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::canonical_edge_shape",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::GraphSnapshot::edges",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::unindex_vec_value",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileRecord::parse_depth",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::rebuild_edge_indexes",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::runtime_file_path",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::canonical_unresolved_impl_shape",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileUpdate::requires_index_rebuild",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::file_count",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::canonical_node_id_key",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::normalize_input_path",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::same_unresolved_call_shape",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::unresolved_calls_for_paths",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::unresolved_import_name_index",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileRecord::edges",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::edge_count",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::node_name_index",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileRecord::unresolved_impls",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::compute_observed_changes",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::unresolved_call_target_path_index",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::workspace_root",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::GraphSnapshot::next_file_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::current_timestamp",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::upsert_file",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::node_count",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::edges_to",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::retain_root_nodes",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileState::record",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::add_node",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::rewrite_paths_as_repo_relative",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileState::nodes",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::DependencyInvalidationKeys::symbol_paths",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::extend_edges",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::DependencyInvalidationKeys::extend_from",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::DependencyInvalidationKeys",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::unindex_file_record",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileRecord::fingerprints",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileState::edges",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::normalize_repo_relative_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::runtime_path_for_stored",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::unindex_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::unresolved_calls",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::ensure_file",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::indexed_paths",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::unresolved_impls",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::dependency_invalidation_keys_for_observed",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::same_unresolved_intent_shape",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::file_reverse_dependency_index",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileUpdate::requires_edge_resolution",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::new",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::path_to_file",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::tracked_files",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::canonical_unresolved_call_shape",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::same_file_graph_shape",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::edges",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::adjacency",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::unresolved_intents_for_paths",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::remove_file_with_observed_internal",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::unresolved_imports",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileRecord::unresolved_intents",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::files_with_unresolved_intent_target",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::DependencyInvalidationKeys::symbol_names",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::derived_edges",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileUpdate",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::node",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::nodes_by_exact_path",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::DependencyInvalidationKeys::is_empty",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::reverse_adjacency",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::upsert_file_from_with_observed_without_rebuild",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::canonical_unresolved_import_shape",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::next_file_id",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::unresolved_imports_for_paths",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileRecord",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileState::path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileRecord::unresolved_calls",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::edges_from",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::clear_root_contains_edges",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileRecord::unresolved_imports",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::unresolved_import_path_index",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::unresolved_intent_target_index",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::same_unresolved_impl_shape",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::file_records",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileRecord::hash",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::canonical_node_shape",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::root_nodes",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::file_dependency_index",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::unindex_node",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::from_snapshot",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::compute_file_changes",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::index_file_dependency_for_edge",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::GraphSnapshot::nodes",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::normalize_input_paths",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileUpdate::persist_in_place",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::remove_file_with_observed",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::bind_workspace_root",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileState",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::default_event_meta",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::files_with_unresolved_impl_name",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::rebuild_indexes",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::snapshot",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::upsert_file_from_with_observed_internal",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::DependencyInvalidationKeys::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::clear_edges_by_kind",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::index_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileUpdate::changes",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::node_ids_for_paths",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::normalize_path_components",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileUpdate::file_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::runtime_tracked_files",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::file_state",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::file_paths",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::index_node",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::files_with_unresolved_import_path",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::file_path",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::files_with_unresolved_call_name",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::node_path_index",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::remove_file_with_update",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::remove_file_with_observed_without_rebuild",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::unresolved_impl_target_index",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::remove_file",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::file_id",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::unresolved_call_name_index",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileRecord::nodes",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::root_edges",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::clear_derived_edges_for_nodes",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::remove_file_with_changes",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileUpdate::observed",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::add_dependency_invalidation_node",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::next_file_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::remove_file_nodes",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileUpdate::dependency_invalidation_keys",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::is_derived_kind",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::FileRecord::file_id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::upsert_file_with_reanchors",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::files_with_unresolved_call_target_path",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::files_with_unresolved_impl_target",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::upsert_file_from",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::same_unresolved_import_shape",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::GraphSnapshot::file_records",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::files_with_unresolved_import_name",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::unresolved_impls_for_paths",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::GraphSnapshot",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::reverse_dependent_files_for_path",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::runtime_paths_for_index",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::upsert_file_from_with_observed",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::file_record",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::nodes_by_name",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::rebuild_adjacency",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::nodes",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::file_records",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::unresolved_intents",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::edge_key",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_store",
+        "path": "prism_store::graph::Graph::all_nodes",
+        "kind": "Method"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 164 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 328,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "removedCount": 0,
+        "updatedCount": 328
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Struct",
+          "path": "prism_store::graph::Graph"
+        },
+        "kind": "Struct",
+        "name": "Graph",
+        "span": {
+          "end": 3745,
+          "start": 2334
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Struct",
+          "path": "prism_store::graph::Graph"
+        },
+        "kind": "Struct",
+        "name": "Graph",
+        "span": {
+          "end": 3745,
+          "start": 2334
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::index_file_record"
+        },
+        "kind": "Method",
+        "name": "index_file_record",
+        "span": {
+          "end": 40493,
+          "start": 38627
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::index_file_record"
+        },
+        "kind": "Method",
+        "name": "index_file_record",
+        "span": {
+          "end": 40496,
+          "start": 38630
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::rebuild_node_indexes"
+        },
+        "kind": "Method",
+        "name": "rebuild_node_indexes",
+        "span": {
+          "end": 38077,
+          "start": 35217
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::rebuild_node_indexes"
+        },
+        "kind": "Method",
+        "name": "rebuild_node_indexes",
+        "span": {
+          "end": 38080,
+          "start": 35220
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::canonical_unresolved_intent_shape"
+        },
+        "kind": "Function",
+        "name": "canonical_unresolved_intent_shape",
+        "span": {
+          "end": 53093,
+          "start": 52670
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::canonical_unresolved_intent_shape"
+        },
+        "kind": "Function",
+        "name": "canonical_unresolved_intent_shape",
+        "span": {
+          "end": 53096,
+          "start": 52673
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::observed_node"
+        },
+        "kind": "Function",
+        "name": "observed_node",
+        "span": {
+          "end": 53784,
+          "start": 53534
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::observed_node"
+        },
+        "kind": "Function",
+        "name": "observed_node",
+        "span": {
+          "end": 53787,
+          "start": 53537
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::unresolved_impl_name_index"
+        },
+        "kind": "Field",
+        "name": "unresolved_impl_name_index",
+        "span": {
+          "end": 3242,
+          "start": 3181
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::unresolved_impl_name_index"
+        },
+        "kind": "Field",
+        "name": "unresolved_impl_name_index",
+        "span": {
+          "end": 3242,
+          "start": 3181
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::neighboring_files_for_path"
+        },
+        "kind": "Method",
+        "name": "neighboring_files_for_path",
+        "span": {
+          "end": 20237,
+          "start": 19518
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::neighboring_files_for_path"
+        },
+        "kind": "Method",
+        "name": "neighboring_files_for_path",
+        "span": {
+          "end": 20239,
+          "start": 19518
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::add_edge"
+        },
+        "kind": "Method",
+        "name": "add_edge",
+        "span": {
+          "end": 16669,
+          "start": 16573
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::add_edge"
+        },
+        "kind": "Method",
+        "name": "add_edge",
+        "span": {
+          "end": 16669,
+          "start": 16573
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::derived_edge_incidence"
+        },
+        "kind": "Field",
+        "name": "derived_edge_incidence",
+        "span": {
+          "end": 3491,
+          "start": 3445
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::derived_edge_incidence"
+        },
+        "kind": "Field",
+        "name": "derived_edge_incidence",
+        "span": {
+          "end": 3491,
+          "start": 3445
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::canonical_edge_shape"
+        },
+        "kind": "Function",
+        "name": "canonical_edge_shape",
+        "span": {
+          "end": 51349,
+          "start": 50849
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::canonical_edge_shape"
+        },
+        "kind": "Function",
+        "name": "canonical_edge_shape",
+        "span": {
+          "end": 51352,
+          "start": 50852
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::GraphSnapshot::edges"
+        },
+        "kind": "Field",
+        "name": "edges",
+        "span": {
+          "end": 1190,
+          "start": 1170
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::GraphSnapshot::edges"
+        },
+        "kind": "Field",
+        "name": "edges",
+        "span": {
+          "end": 1190,
+          "start": 1170
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::unindex_vec_value"
+        },
+        "kind": "Function",
+        "name": "unindex_vec_value",
+        "span": {
+          "end": 49425,
+          "start": 49096
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::unindex_vec_value"
+        },
+        "kind": "Function",
+        "name": "unindex_vec_value",
+        "span": {
+          "end": 49428,
+          "start": 49099
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileRecord::parse_depth"
+        },
+        "kind": "Field",
+        "name": "parse_depth",
+        "span": {
+          "end": 742,
+          "start": 715
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileRecord::parse_depth"
+        },
+        "kind": "Field",
+        "name": "parse_depth",
+        "span": {
+          "end": 742,
+          "start": 715
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::rebuild_edge_indexes"
+        },
+        "kind": "Method",
+        "name": "rebuild_edge_indexes",
+        "span": {
+          "end": 34390,
+          "start": 33339
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::rebuild_edge_indexes"
+        },
+        "kind": "Method",
+        "name": "rebuild_edge_indexes",
+        "span": {
+          "end": 34393,
+          "start": 33342
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::runtime_file_path"
+        },
+        "kind": "Method",
+        "name": "runtime_file_path",
+        "span": {
+          "end": 6467,
+          "start": 6281
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::runtime_file_path"
+        },
+        "kind": "Method",
+        "name": "runtime_file_path",
+        "span": {
+          "end": 6467,
+          "start": 6281
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::canonical_unresolved_impl_shape"
+        },
+        "kind": "Function",
+        "name": "canonical_unresolved_impl_shape",
+        "span": {
+          "end": 52668,
+          "start": 52193
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::canonical_unresolved_impl_shape"
+        },
+        "kind": "Function",
+        "name": "canonical_unresolved_impl_shape",
+        "span": {
+          "end": 52671,
+          "start": 52196
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileUpdate::requires_index_rebuild"
+        },
+        "kind": "Field",
+        "name": "requires_index_rebuild",
+        "span": {
+          "end": 1651,
+          "start": 1619
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileUpdate::requires_index_rebuild"
+        },
+        "kind": "Field",
+        "name": "requires_index_rebuild",
+        "span": {
+          "end": 1651,
+          "start": 1619
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Impl",
+          "path": "prism_store::graph::Graph::impl"
+        },
+        "kind": "Impl",
+        "name": "Graph",
+        "span": {
+          "end": 47523,
+          "start": 3747
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Impl",
+          "path": "prism_store::graph::Graph::impl"
+        },
+        "kind": "Impl",
+        "name": "Graph",
+        "span": {
+          "end": 47526,
+          "start": 3747
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::file_count"
+        },
+        "kind": "Method",
+        "name": "file_count",
+        "span": {
+          "end": 21716,
+          "start": 21643
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::file_count"
+        },
+        "kind": "Method",
+        "name": "file_count",
+        "span": {
+          "end": 21719,
+          "start": 21646
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::canonical_node_id_key"
+        },
+        "kind": "Function",
+        "name": "canonical_node_id_key",
+        "span": {
+          "end": 53257,
+          "start": 53095
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::canonical_node_id_key"
+        },
+        "kind": "Function",
+        "name": "canonical_node_id_key",
+        "span": {
+          "end": 53260,
+          "start": 53098
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::normalize_input_path"
+        },
+        "kind": "Method",
+        "name": "normalize_input_path",
+        "span": {
+          "end": 31772,
+          "start": 31558
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::normalize_input_path"
+        },
+        "kind": "Method",
+        "name": "normalize_input_path",
+        "span": {
+          "end": 31775,
+          "start": 31561
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::same_unresolved_call_shape"
+        },
+        "kind": "Function",
+        "name": "same_unresolved_call_shape",
+        "span": {
+          "end": 49865,
+          "start": 49685
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::same_unresolved_call_shape"
+        },
+        "kind": "Function",
+        "name": "same_unresolved_call_shape",
+        "span": {
+          "end": 49868,
+          "start": 49688
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::unresolved_calls_for_paths"
+        },
+        "kind": "Method",
+        "name": "unresolved_calls_for_paths",
+        "span": {
+          "end": 28601,
+          "start": 28246
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::unresolved_calls_for_paths"
+        },
+        "kind": "Method",
+        "name": "unresolved_calls_for_paths",
+        "span": {
+          "end": 28604,
+          "start": 28249
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::unresolved_import_name_index"
+        },
+        "kind": "Field",
+        "name": "unresolved_import_name_index",
+        "span": {
+          "end": 3068,
+          "start": 3005
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::unresolved_import_name_index"
+        },
+        "kind": "Field",
+        "name": "unresolved_import_name_index",
+        "span": {
+          "end": 3068,
+          "start": 3005
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileRecord::edges"
+        },
+        "kind": "Field",
+        "name": "edges",
+        "span": {
+          "end": 796,
+          "start": 776
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileRecord::edges"
+        },
+        "kind": "Field",
+        "name": "edges",
+        "span": {
+          "end": 796,
+          "start": 776
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::edge_count"
+        },
+        "kind": "Method",
+        "name": "edge_count",
+        "span": {
+          "end": 21637,
+          "start": 21571
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::edge_count"
+        },
+        "kind": "Method",
+        "name": "edge_count",
+        "span": {
+          "end": 21640,
+          "start": 21574
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::node_name_index"
+        },
+        "kind": "Field",
+        "name": "node_name_index",
+        "span": {
+          "end": 2731,
+          "start": 2686
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::node_name_index"
+        },
+        "kind": "Field",
+        "name": "node_name_index",
+        "span": {
+          "end": 2731,
+          "start": 2686
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileRecord::unresolved_impls"
+        },
+        "kind": "Field",
+        "name": "unresolved_impls",
+        "span": {
+          "end": 997,
+          "start": 956
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileRecord::unresolved_impls"
+        },
+        "kind": "Field",
+        "name": "unresolved_impls",
+        "span": {
+          "end": 997,
+          "start": 956
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::compute_observed_changes"
+        },
+        "kind": "Method",
+        "name": "compute_observed_changes",
+        "span": {
+          "end": 47521,
+          "start": 43935
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::compute_observed_changes"
+        },
+        "kind": "Method",
+        "name": "compute_observed_changes",
+        "span": {
+          "end": 47524,
+          "start": 43938
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::unresolved_call_target_path_index"
+        },
+        "kind": "Field",
+        "name": "unresolved_call_target_path_index",
+        "span": {
+          "end": 2980,
+          "start": 2912
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::unresolved_call_target_path_index"
+        },
+        "kind": "Field",
+        "name": "unresolved_call_target_path_index",
+        "span": {
+          "end": 2980,
+          "start": 2912
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::workspace_root"
+        },
+        "kind": "Field",
+        "name": "workspace_root",
+        "span": {
+          "end": 3719,
+          "start": 3688
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::workspace_root"
+        },
+        "kind": "Field",
+        "name": "workspace_root",
+        "span": {
+          "end": 3719,
+          "start": 3688
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::GraphSnapshot::next_file_id"
+        },
+        "kind": "Field",
+        "name": "next_file_id",
+        "span": {
+          "end": 1269,
+          "start": 1248
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::GraphSnapshot::next_file_id"
+        },
+        "kind": "Field",
+        "name": "next_file_id",
+        "span": {
+          "end": 1269,
+          "start": 1248
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::current_timestamp"
+        },
+        "kind": "Function",
+        "name": "current_timestamp",
+        "span": {
+          "end": 55360,
+          "start": 55191
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::current_timestamp"
+        },
+        "kind": "Function",
+        "name": "current_timestamp",
+        "span": {
+          "end": 55363,
+          "start": 55194
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::upsert_file"
+        },
+        "kind": "Method",
+        "name": "upsert_file",
+        "span": {
+          "end": 7554,
+          "start": 6801
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::upsert_file"
+        },
+        "kind": "Method",
+        "name": "upsert_file",
+        "span": {
+          "end": 7554,
+          "start": 6801
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::node_count"
+        },
+        "kind": "Method",
+        "name": "node_count",
+        "span": {
+          "end": 21565,
+          "start": 21499
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::node_count"
+        },
+        "kind": "Method",
+        "name": "node_count",
+        "span": {
+          "end": 21568,
+          "start": 21502
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::edges_to"
+        },
+        "kind": "Method",
+        "name": "edges_to",
+        "span": {
+          "end": 21397,
+          "start": 21032
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::edges_to"
+        },
+        "kind": "Method",
+        "name": "edges_to",
+        "span": {
+          "end": 21400,
+          "start": 21035
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::retain_root_nodes"
+        },
+        "kind": "Method",
+        "name": "retain_root_nodes",
+        "span": {
+          "end": 23705,
+          "start": 23314
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::retain_root_nodes"
+        },
+        "kind": "Method",
+        "name": "retain_root_nodes",
+        "span": {
+          "end": 23708,
+          "start": 23317
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileState::record"
+        },
+        "kind": "Field",
+        "name": "record",
+        "span": {
+          "end": 1370,
+          "start": 1348
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileState::record"
+        },
+        "kind": "Field",
+        "name": "record",
+        "span": {
+          "end": 1370,
+          "start": 1348
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::add_node"
+        },
+        "kind": "Method",
+        "name": "add_node",
+        "span": {
+          "end": 16567,
+          "start": 16471
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::add_node"
+        },
+        "kind": "Method",
+        "name": "add_node",
+        "span": {
+          "end": 16567,
+          "start": 16471
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::rewrite_paths_as_repo_relative"
+        },
+        "kind": "Method",
+        "name": "rewrite_paths_as_repo_relative",
+        "span": {
+          "end": 33333,
+          "start": 32572
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::rewrite_paths_as_repo_relative"
+        },
+        "kind": "Method",
+        "name": "rewrite_paths_as_repo_relative",
+        "span": {
+          "end": 33336,
+          "start": 32575
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Module",
+          "path": "prism_store::graph"
+        },
+        "kind": "Module",
+        "name": "graph",
+        "span": {
+          "end": 55361,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Module",
+          "path": "prism_store::graph"
+        },
+        "kind": "Module",
+        "name": "graph",
+        "span": {
+          "end": 55364,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileState::nodes"
+        },
+        "kind": "Field",
+        "name": "nodes",
+        "span": {
+          "end": 1396,
+          "start": 1376
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileState::nodes"
+        },
+        "kind": "Field",
+        "name": "nodes",
+        "span": {
+          "end": 1396,
+          "start": 1376
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::DependencyInvalidationKeys::symbol_paths"
+        },
+        "kind": "Field",
+        "name": "symbol_paths",
+        "span": {
+          "end": 1926,
+          "start": 1893
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::DependencyInvalidationKeys::symbol_paths"
+        },
+        "kind": "Field",
+        "name": "symbol_paths",
+        "span": {
+          "end": 1926,
+          "start": 1893
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::extend_edges"
+        },
+        "kind": "Method",
+        "name": "extend_edges",
+        "span": {
+          "end": 17673,
+          "start": 16675
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::extend_edges"
+        },
+        "kind": "Method",
+        "name": "extend_edges",
+        "span": {
+          "end": 17673,
+          "start": 16675
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::DependencyInvalidationKeys::extend_from"
+        },
+        "kind": "Method",
+        "name": "extend_from",
+        "span": {
+          "end": 2273,
+          "start": 2082
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::DependencyInvalidationKeys::extend_from"
+        },
+        "kind": "Method",
+        "name": "extend_from",
+        "span": {
+          "end": 2273,
+          "start": 2082
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Struct",
+          "path": "prism_store::graph::DependencyInvalidationKeys"
+        },
+        "kind": "Struct",
+        "name": "DependencyInvalidationKeys",
+        "span": {
+          "end": 1929,
+          "start": 1810
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Struct",
+          "path": "prism_store::graph::DependencyInvalidationKeys"
+        },
+        "kind": "Struct",
+        "name": "DependencyInvalidationKeys",
+        "span": {
+          "end": 1929,
+          "start": 1810
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::unindex_file_record"
+        },
+        "kind": "Method",
+        "name": "unindex_file_record",
+        "span": {
+          "end": 42161,
+          "start": 40499
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::unindex_file_record"
+        },
+        "kind": "Method",
+        "name": "unindex_file_record",
+        "span": {
+          "end": 42164,
+          "start": 40502
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileRecord::fingerprints"
+        },
+        "kind": "Field",
+        "name": "fingerprints",
+        "span": {
+          "end": 852,
+          "start": 802
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileRecord::fingerprints"
+        },
+        "kind": "Field",
+        "name": "fingerprints",
+        "span": {
+          "end": 852,
+          "start": 802
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileState::edges"
+        },
+        "kind": "Field",
+        "name": "edges",
+        "span": {
+          "end": 1422,
+          "start": 1402
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileState::edges"
+        },
+        "kind": "Field",
+        "name": "edges",
+        "span": {
+          "end": 1422,
+          "start": 1402
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::normalize_repo_relative_path"
+        },
+        "kind": "Function",
+        "name": "normalize_repo_relative_path",
+        "span": {
+          "end": 54696,
+          "start": 54426
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::normalize_repo_relative_path"
+        },
+        "kind": "Function",
+        "name": "normalize_repo_relative_path",
+        "span": {
+          "end": 54699,
+          "start": 54429
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::runtime_path_for_stored"
+        },
+        "kind": "Method",
+        "name": "runtime_path_for_stored",
+        "span": {
+          "end": 32271,
+          "start": 31983
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::runtime_path_for_stored"
+        },
+        "kind": "Method",
+        "name": "runtime_path_for_stored",
+        "span": {
+          "end": 32274,
+          "start": 31986
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::unindex_path"
+        },
+        "kind": "Function",
+        "name": "unindex_path",
+        "span": {
+          "end": 47993,
+          "start": 47700
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::unindex_path"
+        },
+        "kind": "Function",
+        "name": "unindex_path",
+        "span": {
+          "end": 47996,
+          "start": 47703
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::unresolved_calls"
+        },
+        "kind": "Method",
+        "name": "unresolved_calls",
+        "span": {
+          "end": 28240,
+          "start": 28044
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::unresolved_calls"
+        },
+        "kind": "Method",
+        "name": "unresolved_calls",
+        "span": {
+          "end": 28243,
+          "start": 28047
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::ensure_file"
+        },
+        "kind": "Method",
+        "name": "ensure_file",
+        "span": {
+          "end": 5870,
+          "start": 5473
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::ensure_file"
+        },
+        "kind": "Method",
+        "name": "ensure_file",
+        "span": {
+          "end": 5870,
+          "start": 5473
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::indexed_paths"
+        },
+        "kind": "Function",
+        "name": "indexed_paths",
+        "span": {
+          "end": 48137,
+          "start": 47995
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::indexed_paths"
+        },
+        "kind": "Function",
+        "name": "indexed_paths",
+        "span": {
+          "end": 48140,
+          "start": 47998
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::unresolved_impls"
+        },
+        "kind": "Method",
+        "name": "unresolved_impls",
+        "span": {
+          "end": 29378,
+          "start": 29182
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::unresolved_impls"
+        },
+        "kind": "Method",
+        "name": "unresolved_impls",
+        "span": {
+          "end": 29381,
+          "start": 29185
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::dependency_invalidation_keys_for_observed"
+        },
+        "kind": "Function",
+        "name": "dependency_invalidation_keys_for_observed",
+        "span": {
+          "end": 48892,
+          "start": 48139
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::dependency_invalidation_keys_for_observed"
+        },
+        "kind": "Function",
+        "name": "dependency_invalidation_keys_for_observed",
+        "span": {
+          "end": 48895,
+          "start": 48142
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::same_unresolved_intent_shape"
+        },
+        "kind": "Function",
+        "name": "same_unresolved_intent_shape",
+        "span": {
+          "end": 50431,
+          "start": 50241
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::same_unresolved_intent_shape"
+        },
+        "kind": "Function",
+        "name": "same_unresolved_intent_shape",
+        "span": {
+          "end": 50434,
+          "start": 50244
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::file_reverse_dependency_index"
+        },
+        "kind": "Field",
+        "name": "file_reverse_dependency_index",
+        "span": {
+          "end": 3663,
+          "start": 3598
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::file_reverse_dependency_index"
+        },
+        "kind": "Field",
+        "name": "file_reverse_dependency_index",
+        "span": {
+          "end": 3663,
+          "start": 3598
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileUpdate::requires_edge_resolution"
+        },
+        "kind": "Field",
+        "name": "requires_edge_resolution",
+        "span": {
+          "end": 1691,
+          "start": 1657
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileUpdate::requires_edge_resolution"
+        },
+        "kind": "Field",
+        "name": "requires_edge_resolution",
+        "span": {
+          "end": 1691,
+          "start": 1657
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::new"
+        },
+        "kind": "Method",
+        "name": "new",
+        "span": {
+          "end": 3816,
+          "start": 3764
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::new"
+        },
+        "kind": "Method",
+        "name": "new",
+        "span": {
+          "end": 3816,
+          "start": 3764
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::path_to_file"
+        },
+        "kind": "Field",
+        "name": "path_to_file",
+        "span": {
+          "end": 2661,
+          "start": 2623
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::path_to_file"
+        },
+        "kind": "Field",
+        "name": "path_to_file",
+        "span": {
+          "end": 2661,
+          "start": 2623
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::tracked_files"
+        },
+        "kind": "Method",
+        "name": "tracked_files",
+        "span": {
+          "end": 21825,
+          "start": 21722
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::tracked_files"
+        },
+        "kind": "Method",
+        "name": "tracked_files",
+        "span": {
+          "end": 21828,
+          "start": 21725
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::canonical_unresolved_call_shape"
+        },
+        "kind": "Function",
+        "name": "canonical_unresolved_call_shape",
+        "span": {
+          "end": 51761,
+          "start": 51351
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::canonical_unresolved_call_shape"
+        },
+        "kind": "Function",
+        "name": "canonical_unresolved_call_shape",
+        "span": {
+          "end": 51764,
+          "start": 51354
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::same_file_graph_shape"
+        },
+        "kind": "Function",
+        "name": "same_file_graph_shape",
+        "span": {
+          "end": 49683,
+          "start": 49427
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::same_file_graph_shape"
+        },
+        "kind": "Function",
+        "name": "same_file_graph_shape",
+        "span": {
+          "end": 49686,
+          "start": 49430
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::edges"
+        },
+        "kind": "Field",
+        "name": "edges",
+        "span": {
+          "end": 2415,
+          "start": 2395
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::edges"
+        },
+        "kind": "Field",
+        "name": "edges",
+        "span": {
+          "end": 2415,
+          "start": 2395
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::adjacency"
+        },
+        "kind": "Field",
+        "name": "adjacency",
+        "span": {
+          "end": 2467,
+          "start": 2421
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::adjacency"
+        },
+        "kind": "Field",
+        "name": "adjacency",
+        "span": {
+          "end": 2467,
+          "start": 2421
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::unresolved_intents_for_paths"
+        },
+        "kind": "Method",
+        "name": "unresolved_intents_for_paths",
+        "span": {
+          "end": 30314,
+          "start": 29953
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::unresolved_intents_for_paths"
+        },
+        "kind": "Method",
+        "name": "unresolved_intents_for_paths",
+        "span": {
+          "end": 30317,
+          "start": 29956
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::remove_file_with_observed_internal"
+        },
+        "kind": "Method",
+        "name": "remove_file_with_observed_internal",
+        "span": {
+          "end": 26851,
+          "start": 25123
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::remove_file_with_observed_internal"
+        },
+        "kind": "Method",
+        "name": "remove_file_with_observed_internal",
+        "span": {
+          "end": 26854,
+          "start": 25126
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::unresolved_imports"
+        },
+        "kind": "Method",
+        "name": "unresolved_imports",
+        "span": {
+          "end": 28809,
+          "start": 28607
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::unresolved_imports"
+        },
+        "kind": "Method",
+        "name": "unresolved_imports",
+        "span": {
+          "end": 28812,
+          "start": 28610
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileRecord::unresolved_intents"
+        },
+        "kind": "Field",
+        "name": "unresolved_intents",
+        "span": {
+          "end": 1048,
+          "start": 1003
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileRecord::unresolved_intents"
+        },
+        "kind": "Field",
+        "name": "unresolved_intents",
+        "span": {
+          "end": 1048,
+          "start": 1003
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::files_with_unresolved_intent_target"
+        },
+        "kind": "Method",
+        "name": "files_with_unresolved_intent_target",
+        "span": {
+          "end": 19512,
+          "start": 19338
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::files_with_unresolved_intent_target"
+        },
+        "kind": "Method",
+        "name": "files_with_unresolved_intent_target",
+        "span": {
+          "end": 19512,
+          "start": 19338
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::DependencyInvalidationKeys::symbol_names"
+        },
+        "kind": "Field",
+        "name": "symbol_names",
+        "span": {
+          "end": 1887,
+          "start": 1854
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::DependencyInvalidationKeys::symbol_names"
+        },
+        "kind": "Field",
+        "name": "symbol_names",
+        "span": {
+          "end": 1887,
+          "start": 1854
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::derived_edges"
+        },
+        "kind": "Method",
+        "name": "derived_edges",
+        "span": {
+          "end": 24202,
+          "start": 24015
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::derived_edges"
+        },
+        "kind": "Method",
+        "name": "derived_edges",
+        "span": {
+          "end": 24205,
+          "start": 24018
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Struct",
+          "path": "prism_store::graph::FileUpdate"
+        },
+        "kind": "Struct",
+        "name": "FileUpdate",
+        "span": {
+          "end": 1760,
+          "start": 1462
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Struct",
+          "path": "prism_store::graph::FileUpdate"
+        },
+        "kind": "Struct",
+        "name": "FileUpdate",
+        "span": {
+          "end": 1760,
+          "start": 1462
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::node"
+        },
+        "kind": "Method",
+        "name": "node",
+        "span": {
+          "end": 17762,
+          "start": 17679
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::node"
+        },
+        "kind": "Method",
+        "name": "node",
+        "span": {
+          "end": 17762,
+          "start": 17679
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::nodes_by_exact_path"
+        },
+        "kind": "Method",
+        "name": "nodes_by_exact_path",
+        "span": {
+          "end": 18280,
+          "start": 18024
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::nodes_by_exact_path"
+        },
+        "kind": "Method",
+        "name": "nodes_by_exact_path",
+        "span": {
+          "end": 18280,
+          "start": 18024
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::DependencyInvalidationKeys::is_empty"
+        },
+        "kind": "Method",
+        "name": "is_empty",
+        "span": {
+          "end": 2076,
+          "start": 1969
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::DependencyInvalidationKeys::is_empty"
+        },
+        "kind": "Method",
+        "name": "is_empty",
+        "span": {
+          "end": 2076,
+          "start": 1969
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::reverse_adjacency"
+        },
+        "kind": "Field",
+        "name": "reverse_adjacency",
+        "span": {
+          "end": 2527,
+          "start": 2473
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::reverse_adjacency"
+        },
+        "kind": "Field",
+        "name": "reverse_adjacency",
+        "span": {
+          "end": 2527,
+          "start": 2473
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::upsert_file_from_with_observed_without_rebuild"
+        },
+        "kind": "Method",
+        "name": "upsert_file_from_with_observed_without_rebuild",
+        "span": {
+          "end": 11476,
+          "start": 10442
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::upsert_file_from_with_observed_without_rebuild"
+        },
+        "kind": "Method",
+        "name": "upsert_file_from_with_observed_without_rebuild",
+        "span": {
+          "end": 11476,
+          "start": 10442
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::canonical_unresolved_import_shape"
+        },
+        "kind": "Function",
+        "name": "canonical_unresolved_import_shape",
+        "span": {
+          "end": 52191,
+          "start": 51763
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::canonical_unresolved_import_shape"
+        },
+        "kind": "Function",
+        "name": "canonical_unresolved_import_shape",
+        "span": {
+          "end": 52194,
+          "start": 51766
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::next_file_id"
+        },
+        "kind": "Method",
+        "name": "next_file_id",
+        "span": {
+          "end": 22214,
+          "start": 22147
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::next_file_id"
+        },
+        "kind": "Method",
+        "name": "next_file_id",
+        "span": {
+          "end": 22217,
+          "start": 22150
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::unresolved_imports_for_paths"
+        },
+        "kind": "Method",
+        "name": "unresolved_imports_for_paths",
+        "span": {
+          "end": 29176,
+          "start": 28815
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::unresolved_imports_for_paths"
+        },
+        "kind": "Method",
+        "name": "unresolved_imports_for_paths",
+        "span": {
+          "end": 29179,
+          "start": 28818
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Struct",
+          "path": "prism_store::graph::FileRecord"
+        },
+        "kind": "Struct",
+        "name": "FileRecord",
+        "span": {
+          "end": 1051,
+          "start": 643
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Struct",
+          "path": "prism_store::graph::FileRecord"
+        },
+        "kind": "Struct",
+        "name": "FileRecord",
+        "span": {
+          "end": 1051,
+          "start": 643
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileState::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 1342,
+          "start": 1325
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileState::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 1342,
+          "start": 1325
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileRecord::unresolved_calls"
+        },
+        "kind": "Field",
+        "name": "unresolved_calls",
+        "span": {
+          "end": 899,
+          "start": 858
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileRecord::unresolved_calls"
+        },
+        "kind": "Field",
+        "name": "unresolved_calls",
+        "span": {
+          "end": 899,
+          "start": 858
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::edges_from"
+        },
+        "kind": "Method",
+        "name": "edges_from",
+        "span": {
+          "end": 21026,
+          "start": 20667
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::edges_from"
+        },
+        "kind": "Method",
+        "name": "edges_from",
+        "span": {
+          "end": 21029,
+          "start": 20670
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::clear_root_contains_edges"
+        },
+        "kind": "Method",
+        "name": "clear_root_contains_edges",
+        "span": {
+          "end": 24009,
+          "start": 23711
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::clear_root_contains_edges"
+        },
+        "kind": "Method",
+        "name": "clear_root_contains_edges",
+        "span": {
+          "end": 24012,
+          "start": 23714
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileRecord::unresolved_imports"
+        },
+        "kind": "Field",
+        "name": "unresolved_imports",
+        "span": {
+          "end": 950,
+          "start": 905
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileRecord::unresolved_imports"
+        },
+        "kind": "Field",
+        "name": "unresolved_imports",
+        "span": {
+          "end": 950,
+          "start": 905
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::unresolved_import_path_index"
+        },
+        "kind": "Field",
+        "name": "unresolved_import_path_index",
+        "span": {
+          "end": 3156,
+          "start": 3093
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::unresolved_import_path_index"
+        },
+        "kind": "Field",
+        "name": "unresolved_import_path_index",
+        "span": {
+          "end": 3156,
+          "start": 3093
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::unresolved_intent_target_index"
+        },
+        "kind": "Field",
+        "name": "unresolved_intent_target_index",
+        "span": {
+          "end": 3420,
+          "start": 3355
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::unresolved_intent_target_index"
+        },
+        "kind": "Field",
+        "name": "unresolved_intent_target_index",
+        "span": {
+          "end": 3420,
+          "start": 3355
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::same_unresolved_impl_shape"
+        },
+        "kind": "Function",
+        "name": "same_unresolved_impl_shape",
+        "span": {
+          "end": 50239,
+          "start": 50059
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::same_unresolved_impl_shape"
+        },
+        "kind": "Function",
+        "name": "same_unresolved_impl_shape",
+        "span": {
+          "end": 50242,
+          "start": 50062
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::file_records"
+        },
+        "kind": "Method",
+        "name": "file_records",
+        "span": {
+          "end": 22141,
+          "start": 22025
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::file_records"
+        },
+        "kind": "Method",
+        "name": "file_records",
+        "span": {
+          "end": 22144,
+          "start": 22028
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileRecord::hash"
+        },
+        "kind": "Field",
+        "name": "hash",
+        "span": {
+          "end": 709,
+          "start": 696
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileRecord::hash"
+        },
+        "kind": "Field",
+        "name": "hash",
+        "span": {
+          "end": 709,
+          "start": 696
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::canonical_node_shape"
+        },
+        "kind": "Function",
+        "name": "canonical_node_shape",
+        "span": {
+          "end": 50847,
+          "start": 50433
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::canonical_node_shape"
+        },
+        "kind": "Function",
+        "name": "canonical_node_shape",
+        "span": {
+          "end": 50850,
+          "start": 50436
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::root_nodes"
+        },
+        "kind": "Method",
+        "name": "root_nodes",
+        "span": {
+          "end": 22957,
+          "start": 22737
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::root_nodes"
+        },
+        "kind": "Method",
+        "name": "root_nodes",
+        "span": {
+          "end": 22960,
+          "start": 22740
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::file_dependency_index"
+        },
+        "kind": "Field",
+        "name": "file_dependency_index",
+        "span": {
+          "end": 3573,
+          "start": 3516
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::file_dependency_index"
+        },
+        "kind": "Field",
+        "name": "file_dependency_index",
+        "span": {
+          "end": 3573,
+          "start": 3516
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::unindex_node"
+        },
+        "kind": "Method",
+        "name": "unindex_node",
+        "span": {
+          "end": 38621,
+          "start": 38403
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::unindex_node"
+        },
+        "kind": "Method",
+        "name": "unindex_node",
+        "span": {
+          "end": 38624,
+          "start": 38406
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::from_snapshot"
+        },
+        "kind": "Method",
+        "name": "from_snapshot",
+        "span": {
+          "end": 5467,
+          "start": 4085
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::from_snapshot"
+        },
+        "kind": "Method",
+        "name": "from_snapshot",
+        "span": {
+          "end": 5467,
+          "start": 4085
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::compute_file_changes"
+        },
+        "kind": "Method",
+        "name": "compute_file_changes",
+        "span": {
+          "end": 43929,
+          "start": 42167
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::compute_file_changes"
+        },
+        "kind": "Method",
+        "name": "compute_file_changes",
+        "span": {
+          "end": 43932,
+          "start": 42170
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::index_file_dependency_for_edge"
+        },
+        "kind": "Method",
+        "name": "index_file_dependency_for_edge",
+        "span": {
+          "end": 35211,
+          "start": 34396
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::index_file_dependency_for_edge"
+        },
+        "kind": "Method",
+        "name": "index_file_dependency_for_edge",
+        "span": {
+          "end": 35214,
+          "start": 34399
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::GraphSnapshot::nodes"
+        },
+        "kind": "Field",
+        "name": "nodes",
+        "span": {
+          "end": 1164,
+          "start": 1132
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::GraphSnapshot::nodes"
+        },
+        "kind": "Field",
+        "name": "nodes",
+        "span": {
+          "end": 1164,
+          "start": 1132
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::normalize_input_paths"
+        },
+        "kind": "Method",
+        "name": "normalize_input_paths",
+        "span": {
+          "end": 31977,
+          "start": 31778
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::normalize_input_paths"
+        },
+        "kind": "Method",
+        "name": "normalize_input_paths",
+        "span": {
+          "end": 31980,
+          "start": 31781
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileUpdate::persist_in_place"
+        },
+        "kind": "Field",
+        "name": "persist_in_place",
+        "span": {
+          "end": 1613,
+          "start": 1587
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileUpdate::persist_in_place"
+        },
+        "kind": "Field",
+        "name": "persist_in_place",
+        "span": {
+          "end": 1613,
+          "start": 1587
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::remove_file_with_observed"
+        },
+        "kind": "Method",
+        "name": "remove_file_with_observed",
+        "span": {
+          "end": 24861,
+          "start": 24628
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::remove_file_with_observed"
+        },
+        "kind": "Method",
+        "name": "remove_file_with_observed",
+        "span": {
+          "end": 24864,
+          "start": 24631
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::bind_workspace_root"
+        },
+        "kind": "Method",
+        "name": "bind_workspace_root",
+        "span": {
+          "end": 6163,
+          "start": 5876
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::bind_workspace_root"
+        },
+        "kind": "Method",
+        "name": "bind_workspace_root",
+        "span": {
+          "end": 6163,
+          "start": 5876
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Struct",
+          "path": "prism_store::graph::FileState"
+        },
+        "kind": "Struct",
+        "name": "FileState",
+        "span": {
+          "end": 1425,
+          "start": 1298
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Struct",
+          "path": "prism_store::graph::FileState"
+        },
+        "kind": "Struct",
+        "name": "FileState",
+        "span": {
+          "end": 1425,
+          "start": 1298
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::default_event_meta"
+        },
+        "kind": "Function",
+        "name": "default_event_meta",
+        "span": {
+          "end": 54424,
+          "start": 54094
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::default_event_meta"
+        },
+        "kind": "Function",
+        "name": "default_event_meta",
+        "span": {
+          "end": 54427,
+          "start": 54097
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::files_with_unresolved_impl_name"
+        },
+        "kind": "Method",
+        "name": "files_with_unresolved_impl_name",
+        "span": {
+          "end": 19156,
+          "start": 18994
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::files_with_unresolved_impl_name"
+        },
+        "kind": "Method",
+        "name": "files_with_unresolved_impl_name",
+        "span": {
+          "end": 19156,
+          "start": 18994
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::rebuild_indexes"
+        },
+        "kind": "Method",
+        "name": "rebuild_indexes",
+        "span": {
+          "end": 26932,
+          "start": 26857
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::rebuild_indexes"
+        },
+        "kind": "Method",
+        "name": "rebuild_indexes",
+        "span": {
+          "end": 26935,
+          "start": 26860
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::snapshot"
+        },
+        "kind": "Method",
+        "name": "snapshot",
+        "span": {
+          "end": 4079,
+          "start": 3822
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::snapshot"
+        },
+        "kind": "Method",
+        "name": "snapshot",
+        "span": {
+          "end": 4079,
+          "start": 3822
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::upsert_file_from_with_observed_internal"
+        },
+        "kind": "Method",
+        "name": "upsert_file_from_with_observed_internal",
+        "span": {
+          "end": 16465,
+          "start": 11482
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::upsert_file_from_with_observed_internal"
+        },
+        "kind": "Method",
+        "name": "upsert_file_from_with_observed_internal",
+        "span": {
+          "end": 16465,
+          "start": 11482
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Impl",
+          "path": "prism_store::graph::DependencyInvalidationKeys::impl"
+        },
+        "kind": "Impl",
+        "name": "DependencyInvalidationKeys",
+        "span": {
+          "end": 2275,
+          "start": 1931
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Impl",
+          "path": "prism_store::graph::DependencyInvalidationKeys::impl"
+        },
+        "kind": "Impl",
+        "name": "DependencyInvalidationKeys",
+        "span": {
+          "end": 2275,
+          "start": 1931
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::clear_edges_by_kind"
+        },
+        "kind": "Method",
+        "name": "clear_edges_by_kind",
+        "span": {
+          "end": 27269,
+          "start": 26938
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::clear_edges_by_kind"
+        },
+        "kind": "Method",
+        "name": "clear_edges_by_kind",
+        "span": {
+          "end": 27272,
+          "start": 26941
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::index_path"
+        },
+        "kind": "Function",
+        "name": "index_path",
+        "span": {
+          "end": 47698,
+          "start": 47525
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::index_path"
+        },
+        "kind": "Function",
+        "name": "index_path",
+        "span": {
+          "end": 47701,
+          "start": 47528
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileUpdate::changes"
+        },
+        "kind": "Field",
+        "name": "changes",
+        "span": {
+          "end": 1581,
+          "start": 1552
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileUpdate::changes"
+        },
+        "kind": "Field",
+        "name": "changes",
+        "span": {
+          "end": 1581,
+          "start": 1552
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::node_ids_for_paths"
+        },
+        "kind": "Method",
+        "name": "node_ids_for_paths",
+        "span": {
+          "end": 30648,
+          "start": 30320
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::node_ids_for_paths"
+        },
+        "kind": "Method",
+        "name": "node_ids_for_paths",
+        "span": {
+          "end": 30651,
+          "start": 30323
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::normalize_path_components"
+        },
+        "kind": "Function",
+        "name": "normalize_path_components",
+        "span": {
+          "end": 55189,
+          "start": 54698
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Function",
+          "path": "prism_store::graph::normalize_path_components"
+        },
+        "kind": "Function",
+        "name": "normalize_path_components",
+        "span": {
+          "end": 55192,
+          "start": 54701
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileUpdate::file_id"
+        },
+        "kind": "Field",
+        "name": "file_id",
+        "span": {
+          "end": 1509,
+          "start": 1490
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::FileUpdate::file_id"
+        },
+        "kind": "Field",
+        "name": "file_id",
+        "span": {
+          "end": 1509,
+          "start": 1490
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::runtime_tracked_files"
+        },
+        "kind": "Method",
+        "name": "runtime_tracked_files",
+        "span": {
+          "end": 22019,
+          "start": 21831
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::runtime_tracked_files"
+        },
+        "kind": "Method",
+        "name": "runtime_tracked_files",
+        "span": {
+          "end": 22022,
+          "start": 21834
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::file_state"
+        },
+        "kind": "Method",
+        "name": "file_state",
+        "span": {
+          "end": 22731,
+          "start": 22220
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::file_state"
+        },
+        "kind": "Method",
+        "name": "file_state",
+        "span": {
+          "end": 22734,
+          "start": 22223
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::file_paths"
+        },
+        "kind": "Field",
+        "name": "file_paths",
+        "span": {
+          "end": 2617,
+          "start": 2581
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::file_paths"
+        },
+        "kind": "Field",
+        "name": "file_paths",
+        "span": {
+          "end": 2617,
+          "start": 2581
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::index_node"
+        },
+        "kind": "Method",
+        "name": "index_node",
+        "span": {
+          "end": 38397,
+          "start": 38083
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::index_node"
+        },
+        "kind": "Method",
+        "name": "index_node",
+        "span": {
+          "end": 38400,
+          "start": 38086
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::files_with_unresolved_import_path"
+        },
+        "kind": "Method",
+        "name": "files_with_unresolved_import_path",
+        "span": {
+          "end": 18988,
+          "start": 18822
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::files_with_unresolved_import_path"
+        },
+        "kind": "Method",
+        "name": "files_with_unresolved_import_path",
+        "span": {
+          "end": 18988,
+          "start": 18822
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::file_path"
+        },
+        "kind": "Method",
+        "name": "file_path",
+        "span": {
+          "end": 6275,
+          "start": 6169
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::file_path"
+        },
+        "kind": "Method",
+        "name": "file_path",
+        "span": {
+          "end": 6275,
+          "start": 6169
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::files_with_unresolved_call_name"
+        },
+        "kind": "Method",
+        "name": "files_with_unresolved_call_name",
+        "span": {
+          "end": 18448,
+          "start": 18286
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::files_with_unresolved_call_name"
+        },
+        "kind": "Method",
+        "name": "files_with_unresolved_call_name",
+        "span": {
+          "end": 18448,
+          "start": 18286
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::node_path_index"
+        },
+        "kind": "Field",
+        "name": "node_path_index",
+        "span": {
+          "end": 2801,
+          "start": 2756
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Field",
+          "path": "prism_store::graph::Graph::node_path_index"
+        },
+        "kind": "Field",
+        "name": "node_path_index",
+        "span": {
+          "end": 2801,
+          "start": 2756
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::remove_file_with_update"
+        },
+        "kind": "Method",
+        "name": "remove_file_with_update",
+        "span": {
+          "end": 24622,
+          "start": 24449
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs",
+        "id": {
+          "crate_name": "prism_store",
+          "kind": "Method",
+          "path": "prism_store::graph::Graph::remove_file_with_update"
+        },
+        "kind": "Method",
+        "name": "remove_file_with_update",
+        "span": {
+          "end": 24625,
+          "start": 24452
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 328,
+    "changedSymbolsTruncated": true,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-store/src/graph.rs"
+    ],
+    "files": [
+      322
+    ],
+    "reason": "work Canonicalize graph and workspace file identity around file ids plus repo-relative paths (work:canonicalize-graph-and-workspace-file-identity-around-file-ids-plus-repo-relative-paths:01kn9yh35e8ed6c7aea7w0q0gc)",
+    "trigger": "FsWatch"
+  }
+}

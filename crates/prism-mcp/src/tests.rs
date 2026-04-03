@@ -19286,8 +19286,8 @@ fn validation_feedback_mutation_accepts_unsupported_text_file_anchor_paths() {
             if reloaded
                 .prism()
                 .graph()
-                .file_path(*file_id)
-                .is_some_and(|path| path == &app_path)
+                .runtime_file_path(*file_id)
+                .is_some_and(|path| path == app_path)
     ));
 }
 
@@ -19347,8 +19347,8 @@ fn validation_feedback_mutation_refreshes_new_file_path_anchors() {
             if reloaded
                 .prism()
                 .graph()
-                .file_path(*file_id)
-                .is_some_and(|path| path == &doc_path)
+                .runtime_file_path(*file_id)
+                .is_some_and(|path| path == doc_path)
     ));
 }
 

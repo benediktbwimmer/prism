@@ -1,0 +1,247 @@
+{
+  "meta": {
+    "id": "outcome:01kn9z2rq2r3g9wcsew7558b82",
+    "ts": 1775229821,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+    "causation": "observed:01kn9z2r6j2p3b4760t4phtvzw",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/task/path-identity-repo-relative",
+      "instance_id": "instance:54440:1775229195928",
+      "work_context": {
+        "workId": "work:canonicalize-graph-and-workspace-file-identity-around-file-ids-plus-repo-relative-paths:01kn9yh35e8ed6c7aea7w0q0gc",
+        "kind": "coordination",
+        "title": "Canonicalize graph and workspace file identity around file ids plus repo-relative paths",
+        "coordinationTaskId": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+        "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 114
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::reanchor::parent_path",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::reanchor::score_reanchor_candidate",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::reanchor::infer_reanchors",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::reanchor",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_core",
+        "path": "prism_core::reanchor::detect_moved_files",
+        "kind": "Function"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 5 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 10,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/reanchor.rs",
+        "removedCount": 0,
+        "updatedCount": 10
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/reanchor.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::reanchor::parent_path"
+        },
+        "kind": "Function",
+        "name": "parent_path",
+        "span": {
+          "end": 5791,
+          "start": 5666
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/reanchor.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::reanchor::parent_path"
+        },
+        "kind": "Function",
+        "name": "parent_path",
+        "span": {
+          "end": 5799,
+          "start": 5674
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/reanchor.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::reanchor::score_reanchor_candidate"
+        },
+        "kind": "Function",
+        "name": "score_reanchor_candidate",
+        "span": {
+          "end": 5664,
+          "start": 5026
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/reanchor.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::reanchor::score_reanchor_candidate"
+        },
+        "kind": "Function",
+        "name": "score_reanchor_candidate",
+        "span": {
+          "end": 5672,
+          "start": 5034
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/reanchor.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::reanchor::infer_reanchors"
+        },
+        "kind": "Function",
+        "name": "infer_reanchors",
+        "span": {
+          "end": 5024,
+          "start": 1574
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/reanchor.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::reanchor::infer_reanchors"
+        },
+        "kind": "Function",
+        "name": "infer_reanchors",
+        "span": {
+          "end": 5032,
+          "start": 1582
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/reanchor.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::reanchor"
+        },
+        "kind": "Module",
+        "name": "reanchor",
+        "span": {
+          "end": 5792,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/reanchor.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Module",
+          "path": "prism_core::reanchor"
+        },
+        "kind": "Module",
+        "name": "reanchor",
+        "span": {
+          "end": 5800,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/reanchor.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::reanchor::detect_moved_files"
+        },
+        "kind": "Function",
+        "name": "detect_moved_files",
+        "span": {
+          "end": 1572,
+          "start": 252
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/reanchor.rs",
+        "id": {
+          "crate_name": "prism_core",
+          "kind": "Function",
+          "path": "prism_core::reanchor::detect_moved_files"
+        },
+        "kind": "Function",
+        "name": "detect_moved_files",
+        "span": {
+          "end": 1580,
+          "start": 252
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 10,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-core/src/reanchor.rs"
+    ],
+    "files": [
+      114
+    ],
+    "reason": "work Canonicalize graph and workspace file identity around file ids plus repo-relative paths (work:canonicalize-graph-and-workspace-file-identity-around-file-ids-plus-repo-relative-paths:01kn9yh35e8ed6c7aea7w0q0gc)",
+    "trigger": "FsWatch"
+  }
+}

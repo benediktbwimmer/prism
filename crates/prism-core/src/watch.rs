@@ -536,11 +536,13 @@ fn refresh_prism_snapshot_with_guard(
         match indexer.index_with_refresh_plan_and_meta(trigger.clone(), &plan, observed_meta) {
             Ok(observed) => observed,
             Err(error) => {
+                let mut fallback_graph = Graph::from_snapshot(current_prism.graph().snapshot());
+                fallback_graph.bind_workspace_root(root);
                 *runtime_state
                     .lock()
                     .expect("workspace runtime state lock poisoned") = WorkspaceRuntimeState::new(
                     next_layout,
-                    Graph::from_snapshot(current_prism.graph().snapshot()),
+                    fallback_graph,
                     HistoryStore::from_snapshot(current_prism.history_snapshot()),
                     OutcomeMemory::from_snapshot(current_prism.outcome_snapshot()),
                     current_prism.coordination_snapshot(),

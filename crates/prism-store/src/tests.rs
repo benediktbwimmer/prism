@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -51,6 +52,40 @@ fn coordination_context() -> CoordinationPersistContext {
         session_id: Some("session:test".to_string()),
         instance_id: Some("instance:test".to_string()),
     }
+}
+
+#[test]
+fn workspace_bound_graph_stores_repo_relative_paths_and_derives_runtime_paths() {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!("prism-store-paths-{unique}"));
+    fs::create_dir_all(root.join("src")).unwrap();
+    let source_path = root.join("src/lib.rs");
+    fs::write(&source_path, "fn alpha() {}\n").unwrap();
+    let runtime_source_path = source_path.canonicalize().unwrap();
+
+    let mut graph = Graph::new();
+    graph.bind_workspace_root(&root);
+    let file_id = graph.upsert_file(
+        &source_path,
+        1,
+        vec![node("alpha")],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+
+    assert_eq!(graph.file_path(file_id), Some(&PathBuf::from("src/lib.rs")));
+    assert_eq!(graph.runtime_file_path(file_id), Some(runtime_source_path));
+    assert_eq!(graph.file_id(&source_path), Some(file_id));
+    assert!(graph.file_record(&source_path).is_some());
+
+    let _ = fs::remove_dir_all(root);
 }
 
 #[test]

@@ -177,7 +177,7 @@ impl Prism {
 
     fn matches_path_filter(&self, node: &Node, path_filter: &str) -> bool {
         self.graph
-            .file_path(node.file)
+            .runtime_file_path(node.file)
             .map(|path| {
                 path.to_string_lossy()
                     .to_ascii_lowercase()
@@ -210,7 +210,7 @@ impl Prism {
         let path = node.id.path.as_str().to_ascii_lowercase();
         let file_path = self
             .graph
-            .file_path(node.file)
+            .runtime_file_path(node.file)
             .map(|path| path.to_string_lossy().to_ascii_lowercase())
             .unwrap_or_default();
         path.contains("query_replay_cases")
@@ -222,7 +222,7 @@ impl Prism {
         let path = node.id.path.as_str().to_ascii_lowercase();
         let file_path = self
             .graph
-            .file_path(node.file)
+            .runtime_file_path(node.file)
             .map(|path| path.to_string_lossy().to_ascii_lowercase())
             .unwrap_or_default();
         file_path.ends_with("package-lock.json")
@@ -323,7 +323,7 @@ impl<'a> Symbol<'a> {
 
     fn read_source(&self) -> Option<String> {
         let node = self.node();
-        let path = self.prism.graph.file_path(node.file)?;
+        let path = self.prism.graph.runtime_file_path(node.file)?;
         fs::read_to_string(path).ok()
     }
 

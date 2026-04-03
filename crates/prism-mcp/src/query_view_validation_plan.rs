@@ -499,7 +499,7 @@ fn resolve_targets_for_paths(
         .graph()
         .all_nodes()
         .filter_map(|node| {
-            let file_path = prism.graph().file_path(node.file)?;
+            let file_path = prism.graph().runtime_file_path(node.file)?;
             let actual = file_path.to_string_lossy().into_owned();
             let matched = paths
                 .iter()

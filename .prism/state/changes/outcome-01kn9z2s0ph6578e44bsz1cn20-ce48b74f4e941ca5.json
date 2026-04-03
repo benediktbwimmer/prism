@@ -1,0 +1,2467 @@
+{
+  "meta": {
+    "id": "outcome:01kn9z2s0ph6578e44bsz1cn20",
+    "ts": 1775229821,
+    "actor": {
+      "Principal": {
+        "authority_id": "local-daemon",
+        "principal_id": "principal:codex-b:01kn80974nee67v9zbjf28q67a",
+        "kind": null,
+        "name": "codex-b"
+      }
+    },
+    "correlation": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+    "causation": "observed:01kn9z2r6j2p3b4760t4phtvzw",
+    "execution_context": {
+      "repo_id": "repo:763c8d2ae95d5376",
+      "worktree_id": "worktree:38d65972b1359401",
+      "branch_ref": "refs/heads/task/path-identity-repo-relative",
+      "instance_id": "instance:54440:1775229195928",
+      "work_context": {
+        "workId": "work:canonicalize-graph-and-workspace-file-identity-around-file-ids-plus-repo-relative-paths:01kn9yh35e8ed6c7aea7w0q0gc",
+        "kind": "coordination",
+        "title": "Canonicalize graph and workspace file identity around file ids plus repo-relative paths",
+        "coordinationTaskId": "coord-task:01kn9vd88apgdq35f4hr9tmsss",
+        "planId": "plan:01kn9vcavs4jft9eqw82ysmghq",
+        "planTitle": "Eliminate absolute path leakage and make path identity repo-relative across PRISM"
+      }
+    }
+  },
+  "anchors": [
+    {
+      "File": 319
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Match::node",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::document_stem",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::implemented_by",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Match",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Match::path_len",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Prism::symbol_by_id",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::broad_query_preference_rank",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Match::path",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol::id",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::name",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::implements",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Relations::outgoing_implements",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::match_score",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol::prism",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Relations::incoming_implements",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::node",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Prism::sorted_matches",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Relations::outgoing_calls",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Prism::is_low_signal_broad_query_node",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::tokens",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Relations::incoming_related",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol",
+        "kind": "Module"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::excerpt",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Prism::symbol",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::identifier_stem",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::full",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Prism::is_query_replay_case_node",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::call_graph",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Prism::is_dependency_metadata_node",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::has_token",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::imported_by",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::relations",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::direct_symbol_match_rank",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Match::is_test",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::imports",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Relations::incoming_validates",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Prism::entrypoints",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::id",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Prism::search",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::skeleton",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Relations::incoming_calls",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Relations::outgoing_related",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Prism::matches_path_filter",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Relations::incoming_specifies",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::read_source",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Relations::outgoing_imports",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::is_broad_identifier_query",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::has_token_prefix",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Relations::incoming_imports",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::targets",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Relations::outgoing_validates",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::is_test_node",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::location",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Prism::is_suppressed_broad_query_node",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::edit_slice",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Prism::impl",
+        "kind": "Impl"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::signature",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::last_path_segment",
+        "kind": "Function"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::sources",
+        "kind": "Method"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Relations::outgoing_specifies",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Relations",
+        "kind": "Struct"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Match::score",
+        "kind": "Field"
+      }
+    },
+    {
+      "Node": {
+        "crate_name": "prism_query",
+        "path": "prism_query::symbol::Symbol_'a::callers",
+        "kind": "Method"
+      }
+    }
+  ],
+  "kind": "PatchApplied",
+  "result": "Success",
+  "summary": "observed file change: 0 added, 0 removed, 65 updated symbols",
+  "evidence": [],
+  "metadata": {
+    "changedFilesSummary": [
+      {
+        "addedCount": 0,
+        "changedSymbolCount": 130,
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "removedCount": 0,
+        "updatedCount": 130
+      }
+    ],
+    "changedSymbols": [
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Match::node"
+        },
+        "kind": "Field",
+        "name": "node",
+        "span": {
+          "end": 414,
+          "start": 400
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Match::node"
+        },
+        "kind": "Field",
+        "name": "node",
+        "span": {
+          "end": 414,
+          "start": 400
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::document_stem"
+        },
+        "kind": "Function",
+        "name": "document_stem",
+        "span": {
+          "end": 13800,
+          "start": 13622
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::document_stem"
+        },
+        "kind": "Function",
+        "name": "document_stem",
+        "span": {
+          "end": 13808,
+          "start": 13630
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::implemented_by"
+        },
+        "kind": "Method",
+        "name": "implemented_by",
+        "span": {
+          "end": 8646,
+          "start": 8552
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::implemented_by"
+        },
+        "kind": "Method",
+        "name": "implemented_by",
+        "span": {
+          "end": 8646,
+          "start": 8552
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Struct",
+          "path": "prism_query::symbol::Match"
+        },
+        "kind": "Struct",
+        "name": "Match",
+        "span": {
+          "end": 417,
+          "start": 304
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Struct",
+          "path": "prism_query::symbol::Match"
+        },
+        "kind": "Struct",
+        "name": "Match",
+        "span": {
+          "end": 417,
+          "start": 304
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Match::path_len"
+        },
+        "kind": "Field",
+        "name": "path_len",
+        "span": {
+          "end": 376,
+          "start": 361
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Match::path_len"
+        },
+        "kind": "Field",
+        "name": "path_len",
+        "span": {
+          "end": 376,
+          "start": 361
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::symbol_by_id"
+        },
+        "kind": "Method",
+        "name": "symbol_by_id",
+        "span": {
+          "end": 1238,
+          "start": 1060
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::symbol_by_id"
+        },
+        "kind": "Method",
+        "name": "symbol_by_id",
+        "span": {
+          "end": 1238,
+          "start": 1060
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::broad_query_preference_rank"
+        },
+        "kind": "Function",
+        "name": "broad_query_preference_rank",
+        "span": {
+          "end": 15434,
+          "start": 14321
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::broad_query_preference_rank"
+        },
+        "kind": "Function",
+        "name": "broad_query_preference_rank",
+        "span": {
+          "end": 15442,
+          "start": 14329
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Match::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 394,
+          "start": 382
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Match::path"
+        },
+        "kind": "Field",
+        "name": "path",
+        "span": {
+          "end": 394,
+          "start": 382
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Symbol::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 501,
+          "start": 480
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Symbol::id"
+        },
+        "kind": "Field",
+        "name": "id",
+        "span": {
+          "end": 501,
+          "start": 480
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::name"
+        },
+        "kind": "Method",
+        "name": "name",
+        "span": {
+          "end": 8036,
+          "start": 7968
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::name"
+        },
+        "kind": "Method",
+        "name": "name",
+        "span": {
+          "end": 8036,
+          "start": 7968
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::implements"
+        },
+        "kind": "Method",
+        "name": "implements",
+        "span": {
+          "end": 8546,
+          "start": 8456
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::implements"
+        },
+        "kind": "Method",
+        "name": "implements",
+        "span": {
+          "end": 8546,
+          "start": 8456
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::outgoing_implements"
+        },
+        "kind": "Field",
+        "name": "outgoing_implements",
+        "span": {
+          "end": 754,
+          "start": 718
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::outgoing_implements"
+        },
+        "kind": "Field",
+        "name": "outgoing_implements",
+        "span": {
+          "end": 754,
+          "start": 718
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::match_score"
+        },
+        "kind": "Function",
+        "name": "match_score",
+        "span": {
+          "end": 13537,
+          "start": 12206
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::match_score"
+        },
+        "kind": "Function",
+        "name": "match_score",
+        "span": {
+          "end": 13545,
+          "start": 12214
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Symbol::prism"
+        },
+        "kind": "Field",
+        "name": "prism",
+        "span": {
+          "end": 474,
+          "start": 447
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Symbol::prism"
+        },
+        "kind": "Field",
+        "name": "prism",
+        "span": {
+          "end": 474,
+          "start": 447
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::incoming_implements"
+        },
+        "kind": "Field",
+        "name": "incoming_implements",
+        "span": {
+          "end": 796,
+          "start": 760
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::incoming_implements"
+        },
+        "kind": "Field",
+        "name": "incoming_implements",
+        "span": {
+          "end": 796,
+          "start": 760
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::node"
+        },
+        "kind": "Method",
+        "name": "node",
+        "span": {
+          "end": 7962,
+          "start": 7806
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::node"
+        },
+        "kind": "Method",
+        "name": "node",
+        "span": {
+          "end": 7962,
+          "start": 7806
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::sorted_matches"
+        },
+        "kind": "Method",
+        "name": "sorted_matches",
+        "span": {
+          "end": 5543,
+          "start": 4541
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::sorted_matches"
+        },
+        "kind": "Method",
+        "name": "sorted_matches",
+        "span": {
+          "end": 5543,
+          "start": 4541
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::outgoing_calls"
+        },
+        "kind": "Field",
+        "name": "outgoing_calls",
+        "span": {
+          "end": 597,
+          "start": 566
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::outgoing_calls"
+        },
+        "kind": "Field",
+        "name": "outgoing_calls",
+        "span": {
+          "end": 597,
+          "start": 566
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::is_low_signal_broad_query_node"
+        },
+        "kind": "Method",
+        "name": "is_low_signal_broad_query_node",
+        "span": {
+          "end": 6559,
+          "start": 6403
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::is_low_signal_broad_query_node"
+        },
+        "kind": "Method",
+        "name": "is_low_signal_broad_query_node",
+        "span": {
+          "end": 6559,
+          "start": 6403
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::tokens"
+        },
+        "kind": "Function",
+        "name": "tokens",
+        "span": {
+          "end": 14179,
+          "start": 14015
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::tokens"
+        },
+        "kind": "Function",
+        "name": "tokens",
+        "span": {
+          "end": 14187,
+          "start": 14023
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::incoming_related"
+        },
+        "kind": "Field",
+        "name": "incoming_related",
+        "span": {
+          "end": 1038,
+          "start": 1005
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::incoming_related"
+        },
+        "kind": "Field",
+        "name": "incoming_related",
+        "span": {
+          "end": 1038,
+          "start": 1005
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Module",
+          "path": "prism_query::symbol"
+        },
+        "kind": "Module",
+        "name": "symbol",
+        "span": {
+          "end": 17006,
+          "start": 0
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Module",
+          "path": "prism_query::symbol"
+        },
+        "kind": "Module",
+        "name": "symbol",
+        "span": {
+          "end": 17014,
+          "start": 0
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::excerpt"
+        },
+        "kind": "Method",
+        "name": "excerpt",
+        "span": {
+          "end": 10047,
+          "start": 9842
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::excerpt"
+        },
+        "kind": "Method",
+        "name": "excerpt",
+        "span": {
+          "end": 10047,
+          "start": 9842
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::symbol"
+        },
+        "kind": "Method",
+        "name": "symbol",
+        "span": {
+          "end": 1720,
+          "start": 1244
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::symbol"
+        },
+        "kind": "Method",
+        "name": "symbol",
+        "span": {
+          "end": 1720,
+          "start": 1244
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::identifier_stem"
+        },
+        "kind": "Function",
+        "name": "identifier_stem",
+        "span": {
+          "end": 17005,
+          "start": 16558
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::identifier_stem"
+        },
+        "kind": "Function",
+        "name": "identifier_stem",
+        "span": {
+          "end": 17013,
+          "start": 16566
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::full"
+        },
+        "kind": "Method",
+        "name": "full",
+        "span": {
+          "end": 9836,
+          "start": 9600
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::full"
+        },
+        "kind": "Method",
+        "name": "full",
+        "span": {
+          "end": 9836,
+          "start": 9600
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::is_query_replay_case_node"
+        },
+        "kind": "Method",
+        "name": "is_query_replay_case_node",
+        "span": {
+          "end": 7066,
+          "start": 6565
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::is_query_replay_case_node"
+        },
+        "kind": "Method",
+        "name": "is_query_replay_case_node",
+        "span": {
+          "end": 7066,
+          "start": 6565
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::call_graph"
+        },
+        "kind": "Method",
+        "name": "call_graph",
+        "span": {
+          "end": 11726,
+          "start": 10618
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::call_graph"
+        },
+        "kind": "Method",
+        "name": "call_graph",
+        "span": {
+          "end": 11734,
+          "start": 10626
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::is_dependency_metadata_node"
+        },
+        "kind": "Method",
+        "name": "is_dependency_metadata_node",
+        "span": {
+          "end": 7718,
+          "start": 7072
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::is_dependency_metadata_node"
+        },
+        "kind": "Method",
+        "name": "is_dependency_metadata_node",
+        "span": {
+          "end": 7718,
+          "start": 7072
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::has_token"
+        },
+        "kind": "Function",
+        "name": "has_token",
+        "span": {
+          "end": 13898,
+          "start": 13802
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::has_token"
+        },
+        "kind": "Function",
+        "name": "has_token",
+        "span": {
+          "end": 13906,
+          "start": 13810
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::imported_by"
+        },
+        "kind": "Method",
+        "name": "imported_by",
+        "span": {
+          "end": 8450,
+          "start": 8362
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::imported_by"
+        },
+        "kind": "Method",
+        "name": "imported_by",
+        "span": {
+          "end": 8450,
+          "start": 8362
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::relations"
+        },
+        "kind": "Method",
+        "name": "relations",
+        "span": {
+          "end": 9594,
+          "start": 8740
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::relations"
+        },
+        "kind": "Method",
+        "name": "relations",
+        "span": {
+          "end": 9594,
+          "start": 8740
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::direct_symbol_match_rank"
+        },
+        "kind": "Function",
+        "name": "direct_symbol_match_rank",
+        "span": {
+          "end": 16307,
+          "start": 15436
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::direct_symbol_match_rank"
+        },
+        "kind": "Function",
+        "name": "direct_symbol_match_rank",
+        "span": {
+          "end": 16315,
+          "start": 15444
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Match::is_test"
+        },
+        "kind": "Field",
+        "name": "is_test",
+        "span": {
+          "end": 355,
+          "start": 342
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Match::is_test"
+        },
+        "kind": "Field",
+        "name": "is_test",
+        "span": {
+          "end": 355,
+          "start": 342
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::imports"
+        },
+        "kind": "Method",
+        "name": "imports",
+        "span": {
+          "end": 8356,
+          "start": 8272
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::imports"
+        },
+        "kind": "Method",
+        "name": "imports",
+        "span": {
+          "end": 8356,
+          "start": 8272
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::incoming_validates"
+        },
+        "kind": "Field",
+        "name": "incoming_validates",
+        "span": {
+          "end": 960,
+          "start": 925
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::incoming_validates"
+        },
+        "kind": "Field",
+        "name": "incoming_validates",
+        "span": {
+          "end": 960,
+          "start": 925
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::entrypoints"
+        },
+        "kind": "Method",
+        "name": "entrypoints",
+        "span": {
+          "end": 4535,
+          "start": 3631
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::entrypoints"
+        },
+        "kind": "Method",
+        "name": "entrypoints",
+        "span": {
+          "end": 4535,
+          "start": 3631
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::id"
+        },
+        "kind": "Method",
+        "name": "id",
+        "span": {
+          "end": 7800,
+          "start": 7748
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::id"
+        },
+        "kind": "Method",
+        "name": "id",
+        "span": {
+          "end": 7800,
+          "start": 7748
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::search"
+        },
+        "kind": "Method",
+        "name": "search",
+        "span": {
+          "end": 3625,
+          "start": 1726
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::search"
+        },
+        "kind": "Method",
+        "name": "search",
+        "span": {
+          "end": 3625,
+          "start": 1726
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::skeleton"
+        },
+        "kind": "Method",
+        "name": "skeleton",
+        "span": {
+          "end": 8266,
+          "start": 8146
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::skeleton"
+        },
+        "kind": "Method",
+        "name": "skeleton",
+        "span": {
+          "end": 8266,
+          "start": 8146
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::incoming_calls"
+        },
+        "kind": "Field",
+        "name": "incoming_calls",
+        "span": {
+          "end": 634,
+          "start": 603
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::incoming_calls"
+        },
+        "kind": "Field",
+        "name": "incoming_calls",
+        "span": {
+          "end": 634,
+          "start": 603
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::outgoing_related"
+        },
+        "kind": "Field",
+        "name": "outgoing_related",
+        "span": {
+          "end": 999,
+          "start": 966
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::outgoing_related"
+        },
+        "kind": "Field",
+        "name": "outgoing_related",
+        "span": {
+          "end": 999,
+          "start": 966
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::matches_path_filter"
+        },
+        "kind": "Method",
+        "name": "matches_path_filter",
+        "span": {
+          "end": 6184,
+          "start": 5549
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::matches_path_filter"
+        },
+        "kind": "Method",
+        "name": "matches_path_filter",
+        "span": {
+          "end": 6184,
+          "start": 5549
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::incoming_specifies"
+        },
+        "kind": "Field",
+        "name": "incoming_specifies",
+        "span": {
+          "end": 878,
+          "start": 843
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::incoming_specifies"
+        },
+        "kind": "Field",
+        "name": "incoming_specifies",
+        "span": {
+          "end": 878,
+          "start": 843
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::read_source"
+        },
+        "kind": "Method",
+        "name": "read_source",
+        "span": {
+          "end": 10612,
+          "start": 10436
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::read_source"
+        },
+        "kind": "Method",
+        "name": "read_source",
+        "span": {
+          "end": 10620,
+          "start": 10436
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::outgoing_imports"
+        },
+        "kind": "Field",
+        "name": "outgoing_imports",
+        "span": {
+          "end": 673,
+          "start": 640
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::outgoing_imports"
+        },
+        "kind": "Field",
+        "name": "outgoing_imports",
+        "span": {
+          "end": 673,
+          "start": 640
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::is_broad_identifier_query"
+        },
+        "kind": "Function",
+        "name": "is_broad_identifier_query",
+        "span": {
+          "end": 16556,
+          "start": 16309
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::is_broad_identifier_query"
+        },
+        "kind": "Function",
+        "name": "is_broad_identifier_query",
+        "span": {
+          "end": 16564,
+          "start": 16317
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::has_token_prefix"
+        },
+        "kind": "Function",
+        "name": "has_token_prefix",
+        "span": {
+          "end": 14013,
+          "start": 13900
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::has_token_prefix"
+        },
+        "kind": "Function",
+        "name": "has_token_prefix",
+        "span": {
+          "end": 14021,
+          "start": 13908
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::incoming_imports"
+        },
+        "kind": "Field",
+        "name": "incoming_imports",
+        "span": {
+          "end": 712,
+          "start": 679
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::incoming_imports"
+        },
+        "kind": "Field",
+        "name": "incoming_imports",
+        "span": {
+          "end": 712,
+          "start": 679
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::targets"
+        },
+        "kind": "Method",
+        "name": "targets",
+        "span": {
+          "end": 11965,
+          "start": 11732
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::targets"
+        },
+        "kind": "Method",
+        "name": "targets",
+        "span": {
+          "end": 11973,
+          "start": 11740
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::outgoing_validates"
+        },
+        "kind": "Field",
+        "name": "outgoing_validates",
+        "span": {
+          "end": 919,
+          "start": 884
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::outgoing_validates"
+        },
+        "kind": "Field",
+        "name": "outgoing_validates",
+        "span": {
+          "end": 919,
+          "start": 884
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Struct",
+          "path": "prism_query::symbol::Symbol"
+        },
+        "kind": "Struct",
+        "name": "Symbol",
+        "span": {
+          "end": 504,
+          "start": 419
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Struct",
+          "path": "prism_query::symbol::Symbol"
+        },
+        "kind": "Struct",
+        "name": "Symbol",
+        "span": {
+          "end": 504,
+          "start": 419
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::is_test_node"
+        },
+        "kind": "Function",
+        "name": "is_test_node",
+        "span": {
+          "end": 14319,
+          "start": 14181
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::is_test_node"
+        },
+        "kind": "Function",
+        "name": "is_test_node",
+        "span": {
+          "end": 14327,
+          "start": 14189
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Impl",
+          "path": "prism_query::symbol::Symbol_'a::impl"
+        },
+        "kind": "Impl",
+        "name": "Symbol_'a",
+        "span": {
+          "end": 12204,
+          "start": 7722
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Impl",
+          "path": "prism_query::symbol::Symbol_'a::impl"
+        },
+        "kind": "Impl",
+        "name": "Symbol_'a",
+        "span": {
+          "end": 12212,
+          "start": 7722
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::location"
+        },
+        "kind": "Method",
+        "name": "location",
+        "span": {
+          "end": 10430,
+          "start": 10262
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::location"
+        },
+        "kind": "Method",
+        "name": "location",
+        "span": {
+          "end": 10430,
+          "start": 10262
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::is_suppressed_broad_query_node"
+        },
+        "kind": "Method",
+        "name": "is_suppressed_broad_query_node",
+        "span": {
+          "end": 6397,
+          "start": 6190
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Prism::is_suppressed_broad_query_node"
+        },
+        "kind": "Method",
+        "name": "is_suppressed_broad_query_node",
+        "span": {
+          "end": 6397,
+          "start": 6190
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::edit_slice"
+        },
+        "kind": "Method",
+        "name": "edit_slice",
+        "span": {
+          "end": 10256,
+          "start": 10053
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::edit_slice"
+        },
+        "kind": "Method",
+        "name": "edit_slice",
+        "span": {
+          "end": 10256,
+          "start": 10053
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Impl",
+          "path": "prism_query::symbol::Prism::impl"
+        },
+        "kind": "Impl",
+        "name": "Prism",
+        "span": {
+          "end": 7720,
+          "start": 1043
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Impl",
+          "path": "prism_query::symbol::Prism::impl"
+        },
+        "kind": "Impl",
+        "name": "Prism",
+        "span": {
+          "end": 7720,
+          "start": 1043
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::signature"
+        },
+        "kind": "Method",
+        "name": "signature",
+        "span": {
+          "end": 8140,
+          "start": 8042
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::signature"
+        },
+        "kind": "Method",
+        "name": "signature",
+        "span": {
+          "end": 8140,
+          "start": 8042
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::last_path_segment"
+        },
+        "kind": "Function",
+        "name": "last_path_segment",
+        "span": {
+          "end": 13620,
+          "start": 13539
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Function",
+          "path": "prism_query::symbol::last_path_segment"
+        },
+        "kind": "Function",
+        "name": "last_path_segment",
+        "span": {
+          "end": 13628,
+          "start": 13547
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::sources"
+        },
+        "kind": "Method",
+        "name": "sources",
+        "span": {
+          "end": 12202,
+          "start": 11971
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::sources"
+        },
+        "kind": "Method",
+        "name": "sources",
+        "span": {
+          "end": 12210,
+          "start": 11979
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::outgoing_specifies"
+        },
+        "kind": "Field",
+        "name": "outgoing_specifies",
+        "span": {
+          "end": 837,
+          "start": 802
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Relations::outgoing_specifies"
+        },
+        "kind": "Field",
+        "name": "outgoing_specifies",
+        "span": {
+          "end": 837,
+          "start": 802
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Struct",
+          "path": "prism_query::symbol::Relations"
+        },
+        "kind": "Struct",
+        "name": "Relations",
+        "span": {
+          "end": 1041,
+          "start": 539
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Struct",
+          "path": "prism_query::symbol::Relations"
+        },
+        "kind": "Struct",
+        "name": "Relations",
+        "span": {
+          "end": 1041,
+          "start": 539
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Match::score"
+        },
+        "kind": "Field",
+        "name": "score",
+        "span": {
+          "end": 336,
+          "start": 327
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Field",
+          "path": "prism_query::symbol::Match::score"
+        },
+        "kind": "Field",
+        "name": "score",
+        "span": {
+          "end": 336,
+          "start": 327
+        },
+        "status": "updated_after"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::callers"
+        },
+        "kind": "Method",
+        "name": "callers",
+        "span": {
+          "end": 8734,
+          "start": 8652
+        },
+        "status": "updated_before"
+      },
+      {
+        "filePath": "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs",
+        "id": {
+          "crate_name": "prism_query",
+          "kind": "Method",
+          "path": "prism_query::symbol::Symbol_'a::callers"
+        },
+        "kind": "Method",
+        "name": "callers",
+        "span": {
+          "end": 8734,
+          "start": 8652
+        },
+        "status": "updated_after"
+      }
+    ],
+    "changedSymbolsTotalCount": 130,
+    "changedSymbolsTruncated": false,
+    "filePaths": [
+      "/Users/bene/code/prism-protected-state-runtime-sync/crates/prism-query/src/symbol.rs"
+    ],
+    "files": [
+      319
+    ],
+    "reason": "work Canonicalize graph and workspace file identity around file ids plus repo-relative paths (work:canonicalize-graph-and-workspace-file-identity-around-file-ids-plus-repo-relative-paths:01kn9yh35e8ed6c7aea7w0q0gc)",
+    "trigger": "FsWatch"
+  }
+}

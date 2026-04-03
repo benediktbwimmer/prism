@@ -617,7 +617,7 @@ fn prepare_candidate_search_data(
 ) -> Option<CandidateSearchData> {
     let file_path = prism
         .graph()
-        .file_path(node.file)
+        .runtime_file_path(node.file)
         .map(|path| path.to_string_lossy().into_owned())
         .unwrap_or_default();
     let file_name = std::path::Path::new(&file_path)
@@ -1146,7 +1146,7 @@ fn contains_any(value: &str, needles: &[&str]) -> bool {
 fn matches_path_filter(prism: &Prism, node: &prism_ir::Node, path_filter: &str) -> bool {
     prism
         .graph()
-        .file_path(node.file)
+        .runtime_file_path(node.file)
         .map(|path| {
             path.to_string_lossy()
                 .to_ascii_lowercase()

@@ -52,7 +52,7 @@ pub(crate) fn symbol_view_with_owner_hint(
         signature: symbol.signature(),
         file_path: prism
             .graph()
-            .file_path(node.file)
+            .runtime_file_path(node.file)
             .map(|path| path.to_string_lossy().into_owned()),
         span: node.span,
         location: symbol.location().map(source_location_view),

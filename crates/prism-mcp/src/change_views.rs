@@ -320,7 +320,7 @@ fn patch_files(prism: &Prism, event: &OutcomeEvent, metadata: &PatchMetadata) ->
     if files.is_empty() {
         if let Some(file_ids) = metadata.files.as_ref() {
             for file_id in file_ids {
-                if let Some(path) = prism.graph().file_path(FileId(*file_id)) {
+                if let Some(path) = prism.graph().runtime_file_path(FileId(*file_id)) {
                     let file_path = path.to_string_lossy().into_owned();
                     if seen.insert(file_path.clone()) {
                         files.push(file_path);
@@ -330,7 +330,7 @@ fn patch_files(prism: &Prism, event: &OutcomeEvent, metadata: &PatchMetadata) ->
         }
         for anchor in &event.anchors {
             if let AnchorRef::File(file_id) = anchor {
-                if let Some(path) = prism.graph().file_path(*file_id) {
+                if let Some(path) = prism.graph().runtime_file_path(*file_id) {
                     let file_path = path.to_string_lossy().into_owned();
                     if seen.insert(file_path.clone()) {
                         files.push(file_path);
@@ -371,7 +371,7 @@ fn patch_changed_symbols(
             kind: node.kind,
             file_path: prism
                 .graph()
-                .file_path(node.file)
+                .runtime_file_path(node.file)
                 .map(|path| path.to_string_lossy().into_owned()),
             span: node.span,
         });
@@ -627,7 +627,7 @@ fn symbol_file_path_equals(prism: &Prism, symbol: &PatchChangedSymbol, expected:
                 .id
                 .as_ref()
                 .and_then(|id| prism.graph().node(id))
-                .and_then(|node| prism.graph().file_path(node.file))
+                .and_then(|node| prism.graph().runtime_file_path(node.file))
                 .is_some_and(|path| path.to_string_lossy().as_ref() == expected)
         })
 }
@@ -642,7 +642,7 @@ fn symbol_file_path_matches(prism: &Prism, symbol: &PatchChangedSymbol, filter: 
                 .id
                 .as_ref()
                 .and_then(|id| prism.graph().node(id))
-                .and_then(|node| prism.graph().file_path(node.file))
+                .and_then(|node| prism.graph().runtime_file_path(node.file))
                 .is_some_and(|path| matches_path(path.to_string_lossy().as_ref(), filter))
         })
 }
@@ -653,7 +653,7 @@ fn symbol_file_path(prism: &Prism, symbol: &PatchChangedSymbol) -> Option<String
             prism
                 .graph()
                 .node(id)
-                .and_then(|node| prism.graph().file_path(node.file))
+                .and_then(|node| prism.graph().runtime_file_path(node.file))
                 .map(|path| path.to_string_lossy().into_owned())
         })
     })

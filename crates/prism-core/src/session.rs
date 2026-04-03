@@ -1255,9 +1255,11 @@ impl WorkspaceSession {
             &deep_paths,
         );
         if let Err(error) = index_result {
+            let mut fallback_graph = Graph::from_snapshot(current_prism.graph().snapshot());
+            fallback_graph.bind_workspace_root(&self.root);
             let fallback_state = WorkspaceRuntimeState::new(
                 next_layout,
-                Graph::from_snapshot(current_prism.graph().snapshot()),
+                fallback_graph,
                 HistoryStore::from_snapshot(current_prism.history_snapshot()),
                 OutcomeMemory::from_snapshot(current_prism.outcome_snapshot()),
                 current_prism.coordination_snapshot(),
@@ -1468,6 +1470,7 @@ impl WorkspaceSession {
         let workspace_revision =
             composite_workspace_revision(local_workspace_revision, shared_workspace_revision);
         let mut graph = store.load_graph()?.unwrap_or_default();
+        graph.bind_workspace_root(&self.root);
         let layout = discover_layout(&self.root)?;
         sync_root_nodes(&mut graph, &layout);
         resolve_graph_edges(&mut graph, None);

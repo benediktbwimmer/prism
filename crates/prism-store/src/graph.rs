@@ -105,6 +105,8 @@ pub struct Graph {
     file_dependency_index: HashMap<PathBuf, HashSet<PathBuf>>,
     #[serde(skip)]
     file_reverse_dependency_index: HashMap<PathBuf, HashSet<PathBuf>>,
+    #[serde(skip)]
+    workspace_root: Option<PathBuf>,
     next_file_id: u32,
 }
 
@@ -143,6 +145,7 @@ impl Graph {
             derived_edge_incidence: HashMap::new(),
             file_dependency_index: HashMap::new(),
             file_reverse_dependency_index: HashMap::new(),
+            workspace_root: None,
             next_file_id: snapshot.next_file_id,
         };
 
@@ -155,7 +158,7 @@ impl Graph {
     }
 
     pub fn ensure_file(&mut self, path: &Path) -> FileId {
-        let path = path.to_path_buf();
+        let path = self.normalize_input_path(path);
         if let Some(existing) = self.path_to_file.get(&path) {
             return *existing;
         }
@@ -167,16 +170,33 @@ impl Graph {
         id
     }
 
+    pub fn bind_workspace_root(&mut self, root: impl AsRef<Path>) {
+        self.workspace_root = Some(
+            root.as_ref()
+                .canonicalize()
+                .unwrap_or_else(|_| root.as_ref().to_path_buf()),
+        );
+        self.rewrite_paths_as_repo_relative();
+    }
+
     pub fn file_path(&self, file_id: FileId) -> Option<&PathBuf> {
         self.file_paths.get(&file_id)
     }
 
+    pub fn runtime_file_path(&self, file_id: FileId) -> Option<PathBuf> {
+        self.file_paths
+            .get(&file_id)
+            .map(|path| self.runtime_path_for_stored(path))
+    }
+
     pub fn file_id(&self, path: &Path) -> Option<FileId> {
-        self.path_to_file.get(path).copied()
+        let path = self.normalize_input_path(path);
+        self.path_to_file.get(&path).copied()
     }
 
     pub fn file_record(&self, path: &Path) -> Option<&FileRecord> {
-        self.file_records.get(path)
+        let path = self.normalize_input_path(path);
+        self.file_records.get(&path)
     }
 
     pub fn upsert_file(
@@ -362,18 +382,24 @@ impl Graph {
         trigger: ChangeTrigger,
         rebuild_indexes: bool,
     ) -> FileUpdate {
-        let baseline_path = previous_path.unwrap_or(path);
+        let normalized_path = self.normalize_input_path(path);
+        let normalized_previous_path = previous_path.map(|candidate| self.normalize_input_path(candidate));
+        let baseline_path = normalized_previous_path
+            .as_deref()
+            .unwrap_or(normalized_path.as_path());
         let previous = self.file_records.get(baseline_path).cloned();
         let previous_state = self.file_state(baseline_path);
         let file_id = previous
             .as_ref()
             .map(|record| record.file_id)
-            .unwrap_or_else(|| self.ensure_file(path));
+            .unwrap_or_else(|| self.ensure_file(&normalized_path));
         let observed = self.compute_observed_changes(
             previous_state.as_ref(),
             file_id,
-            previous_path.or(Some(path)),
-            Some(path),
+            normalized_previous_path
+                .as_deref()
+                .or(Some(normalized_path.as_path())),
+            Some(normalized_path.as_path()),
             &nodes,
             &edges,
             &fingerprints,
@@ -382,7 +408,7 @@ impl Graph {
         );
         let dependency_invalidation_keys = dependency_invalidation_keys_for_observed(&observed);
         let changes = self.compute_file_changes(previous.as_ref(), &nodes, reanchors);
-        let can_persist_in_place = previous_path.unwrap_or(path) == path
+        let can_persist_in_place = baseline_path == normalized_path.as_path()
             && previous_state
                 .as_ref()
                 .is_some_and(|state| same_file_graph_shape(state, &nodes, &edges));
@@ -400,7 +426,7 @@ impl Graph {
                 self.nodes.insert(node.id.clone(), node);
             }
             self.file_records.insert(
-                path.to_path_buf(),
+                normalized_path.clone(),
                 FileRecord {
                     file_id,
                     hash,
@@ -426,12 +452,12 @@ impl Graph {
         }
         self.remove_file_nodes(baseline_path);
 
-        if baseline_path != path {
+        if baseline_path != normalized_path.as_path() {
             if let Some(previous_file_id) = self.path_to_file.remove(baseline_path) {
                 self.file_paths.remove(&previous_file_id);
             }
-            self.file_paths.insert(file_id, path.to_path_buf());
-            self.path_to_file.insert(path.to_path_buf(), file_id);
+            self.file_paths.insert(file_id, normalized_path.clone());
+            self.path_to_file.insert(normalized_path.clone(), file_id);
         }
 
         for node in nodes {
@@ -451,8 +477,8 @@ impl Graph {
             unresolved_impls,
             unresolved_intents,
         };
-        self.index_file_record(path, &record);
-        self.file_records.insert(path.to_path_buf(), record);
+        self.index_file_record(&normalized_path, &record);
+        self.file_records.insert(normalized_path, record);
         if rebuild_indexes {
             self.rebuild_adjacency();
         }
@@ -530,48 +556,62 @@ impl Graph {
     }
 
     pub fn files_with_unresolved_call_name(&self, name: &str) -> HashSet<PathBuf> {
-        indexed_paths(&self.unresolved_call_name_index, name)
+        self.runtime_paths_for_index(&self.unresolved_call_name_index, name)
     }
 
     pub fn files_with_unresolved_call_target_path(&self, target_path: &str) -> HashSet<PathBuf> {
-        indexed_paths(&self.unresolved_call_target_path_index, target_path)
+        self.runtime_paths_for_index(&self.unresolved_call_target_path_index, target_path)
     }
 
     pub fn files_with_unresolved_import_name(&self, name: &str) -> HashSet<PathBuf> {
-        indexed_paths(&self.unresolved_import_name_index, name)
+        self.runtime_paths_for_index(&self.unresolved_import_name_index, name)
     }
 
     pub fn files_with_unresolved_import_path(&self, path: &str) -> HashSet<PathBuf> {
-        indexed_paths(&self.unresolved_import_path_index, path)
+        self.runtime_paths_for_index(&self.unresolved_import_path_index, path)
     }
 
     pub fn files_with_unresolved_impl_name(&self, name: &str) -> HashSet<PathBuf> {
-        indexed_paths(&self.unresolved_impl_name_index, name)
+        self.runtime_paths_for_index(&self.unresolved_impl_name_index, name)
     }
 
     pub fn files_with_unresolved_impl_target(&self, target: &str) -> HashSet<PathBuf> {
-        indexed_paths(&self.unresolved_impl_target_index, target)
+        self.runtime_paths_for_index(&self.unresolved_impl_target_index, target)
     }
 
     pub fn files_with_unresolved_intent_target(&self, target: &str) -> HashSet<PathBuf> {
-        indexed_paths(&self.unresolved_intent_target_index, target)
+        self.runtime_paths_for_index(&self.unresolved_intent_target_index, target)
     }
 
     pub fn neighboring_files_for_path(&self, path: &Path) -> HashSet<PathBuf> {
+        let path = self.normalize_input_path(path);
         let mut neighbors = HashSet::new();
-        if let Some(outgoing) = self.file_dependency_index.get(path) {
-            neighbors.extend(outgoing.iter().cloned());
+        if let Some(outgoing) = self.file_dependency_index.get(&path) {
+            neighbors.extend(
+                outgoing
+                    .iter()
+                    .map(|candidate| self.runtime_path_for_stored(candidate)),
+            );
         }
-        if let Some(incoming) = self.file_reverse_dependency_index.get(path) {
-            neighbors.extend(incoming.iter().cloned());
+        if let Some(incoming) = self.file_reverse_dependency_index.get(&path) {
+            neighbors.extend(
+                incoming
+                    .iter()
+                    .map(|candidate| self.runtime_path_for_stored(candidate)),
+            );
         }
         neighbors
     }
 
     pub fn reverse_dependent_files_for_path(&self, path: &Path) -> HashSet<PathBuf> {
+        let path = self.normalize_input_path(path);
         self.file_reverse_dependency_index
-            .get(path)
-            .cloned()
+            .get(&path)
+            .map(|paths| {
+                paths.iter()
+                    .map(|candidate| self.runtime_path_for_stored(candidate))
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
@@ -615,6 +655,13 @@ impl Graph {
         self.file_records.keys().cloned().collect()
     }
 
+    pub fn runtime_tracked_files(&self) -> Vec<PathBuf> {
+        self.file_records
+            .keys()
+            .map(|path| self.runtime_path_for_stored(path))
+            .collect()
+    }
+
     pub fn file_records(&self) -> impl Iterator<Item = (&PathBuf, &FileRecord)> {
         self.file_records.iter()
     }
@@ -624,7 +671,8 @@ impl Graph {
     }
 
     pub fn file_state(&self, path: &Path) -> Option<FileState> {
-        let record = self.file_records.get(path)?.clone();
+        let path = self.normalize_input_path(path);
+        let record = self.file_records.get(&path)?.clone();
         let nodes = record
             .nodes
             .iter()
@@ -724,10 +772,11 @@ impl Graph {
         trigger: ChangeTrigger,
         rebuild_indexes: bool,
     ) -> FileUpdate {
-        let previous_state = self.file_state(path);
+        let normalized_path = self.normalize_input_path(path);
+        let previous_state = self.file_state(&normalized_path);
         let changes = self
             .file_records
-            .get(path)
+            .get(&normalized_path)
             .map(|record| {
                 record
                     .nodes
@@ -744,7 +793,7 @@ impl Graph {
         let observed = self.compute_observed_changes(
             previous_state.as_ref(),
             file_id,
-            Some(path),
+            Some(normalized_path.as_path()),
             None,
             &[],
             &[],
@@ -753,8 +802,8 @@ impl Graph {
             trigger,
         );
         let dependency_invalidation_keys = dependency_invalidation_keys_for_observed(&observed);
-        self.remove_file_nodes(path);
-        if let Some(file_id) = self.path_to_file.remove(path) {
+        self.remove_file_nodes(&normalized_path);
+        if let Some(file_id) = self.path_to_file.remove(&normalized_path) {
             self.file_paths.remove(&file_id);
         }
         if rebuild_indexes {
@@ -818,9 +867,10 @@ impl Graph {
     }
 
     pub fn unresolved_calls_for_paths(&self, paths: &HashSet<PathBuf>) -> Vec<UnresolvedCall> {
+        let normalized = self.normalize_input_paths(paths);
         self.file_records
             .iter()
-            .filter(|(path, _)| paths.contains(*path))
+            .filter(|(path, _)| normalized.contains(*path))
             .flat_map(|(_, record)| record.unresolved_calls.clone())
             .collect()
     }
@@ -833,9 +883,10 @@ impl Graph {
     }
 
     pub fn unresolved_imports_for_paths(&self, paths: &HashSet<PathBuf>) -> Vec<UnresolvedImport> {
+        let normalized = self.normalize_input_paths(paths);
         self.file_records
             .iter()
-            .filter(|(path, _)| paths.contains(*path))
+            .filter(|(path, _)| normalized.contains(*path))
             .flat_map(|(_, record)| record.unresolved_imports.clone())
             .collect()
     }
@@ -848,9 +899,10 @@ impl Graph {
     }
 
     pub fn unresolved_impls_for_paths(&self, paths: &HashSet<PathBuf>) -> Vec<UnresolvedImpl> {
+        let normalized = self.normalize_input_paths(paths);
         self.file_records
             .iter()
-            .filter(|(path, _)| paths.contains(*path))
+            .filter(|(path, _)| normalized.contains(*path))
             .flat_map(|(_, record)| record.unresolved_impls.clone())
             .collect()
     }
@@ -863,15 +915,17 @@ impl Graph {
     }
 
     pub fn unresolved_intents_for_paths(&self, paths: &HashSet<PathBuf>) -> Vec<UnresolvedIntent> {
+        let normalized = self.normalize_input_paths(paths);
         self.file_records
             .iter()
-            .filter(|(path, _)| paths.contains(*path))
+            .filter(|(path, _)| normalized.contains(*path))
             .flat_map(|(_, record)| record.unresolved_intents.clone())
             .collect()
     }
 
     pub fn node_ids_for_paths(&self, paths: &HashSet<PathBuf>) -> HashSet<NodeId> {
-        paths
+        let normalized = self.normalize_input_paths(paths);
+        normalized
             .iter()
             .filter_map(|path| self.file_records.get(path))
             .flat_map(|record| record.nodes.iter().cloned())
@@ -879,10 +933,11 @@ impl Graph {
     }
 
     fn remove_file_nodes(&mut self, path: &Path) {
-        let Some(record) = self.file_records.remove(path) else {
+        let path = self.normalize_input_path(path);
+        let Some(record) = self.file_records.remove(&path) else {
             return;
         };
-        self.unindex_file_record(path, &record);
+        self.unindex_file_record(&path, &record);
 
         let removed: HashSet<NodeId> = record.nodes.into_iter().collect();
         let removed_nodes = removed
@@ -901,6 +956,63 @@ impl Graph {
     fn rebuild_adjacency(&mut self) {
         self.rebuild_node_indexes();
         self.rebuild_edge_indexes();
+    }
+
+    fn normalize_input_path(&self, path: &Path) -> PathBuf {
+        let Some(root) = &self.workspace_root else {
+            return path.to_path_buf();
+        };
+        normalize_repo_relative_path(root, path)
+    }
+
+    fn normalize_input_paths(&self, paths: &HashSet<PathBuf>) -> HashSet<PathBuf> {
+        paths
+            .iter()
+            .map(|path| self.normalize_input_path(path))
+            .collect()
+    }
+
+    fn runtime_path_for_stored(&self, path: &Path) -> PathBuf {
+        if path.is_absolute() {
+            return path.to_path_buf();
+        }
+        self.workspace_root
+            .as_ref()
+            .map(|root| root.join(path))
+            .unwrap_or_else(|| path.to_path_buf())
+    }
+
+    fn runtime_paths_for_index(
+        &self,
+        index: &HashMap<String, HashSet<PathBuf>>,
+        key: &str,
+    ) -> HashSet<PathBuf> {
+        indexed_paths(index, key)
+            .into_iter()
+            .map(|path| self.runtime_path_for_stored(&path))
+            .collect()
+    }
+
+    fn rewrite_paths_as_repo_relative(&mut self) {
+        let Some(root) = &self.workspace_root else {
+            return;
+        };
+        let rewritten = std::mem::take(&mut self.file_records)
+            .into_iter()
+            .map(|(path, record)| (normalize_repo_relative_path(root, &path), record))
+            .collect::<HashMap<_, _>>();
+        self.file_records = rewritten;
+        self.file_paths = self
+            .file_records
+            .iter()
+            .map(|(path, record)| (record.file_id, path.clone()))
+            .collect();
+        self.path_to_file = self
+            .file_records
+            .iter()
+            .map(|(path, record)| (path.clone(), record.file_id))
+            .collect();
+        self.rebuild_adjacency();
     }
 
     fn rebuild_edge_indexes(&mut self) {
@@ -1548,6 +1660,33 @@ fn default_event_meta() -> EventMeta {
         causation: None,
         execution_context: None,
     }
+}
+
+fn normalize_repo_relative_path(root: &Path, path: &Path) -> PathBuf {
+    if path.is_relative() {
+        return normalize_path_components(path);
+    }
+    let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    canonical
+        .strip_prefix(root)
+        .or_else(|_| path.strip_prefix(root))
+        .map(normalize_path_components)
+        .unwrap_or_else(|_| path.to_path_buf())
+}
+
+fn normalize_path_components(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                normalized.push(component.as_os_str());
+            }
+            std::path::Component::Normal(part) => normalized.push(part),
+            other => normalized.push(other.as_os_str()),
+        }
+    }
+    normalized
 }
 
 fn current_timestamp() -> u64 {

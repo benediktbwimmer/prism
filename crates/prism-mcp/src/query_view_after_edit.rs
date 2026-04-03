@@ -819,7 +819,7 @@ fn resolve_targets_for_paths(
     let mut matched_paths = BTreeSet::<String>::new();
     let mut candidates_by_path = BTreeMap::<String, Vec<PathTargetCandidate>>::new();
     for node in prism.graph().all_nodes() {
-        let Some(file_path) = prism.graph().file_path(node.file) else {
+        let Some(file_path) = prism.graph().runtime_file_path(node.file) else {
             continue;
         };
         let actual = file_path.to_string_lossy();

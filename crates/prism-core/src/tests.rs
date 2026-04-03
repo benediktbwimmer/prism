@@ -8782,10 +8782,10 @@ fn workspace_materialization_summary_reports_sparse_boundary_regions() {
     assert_eq!(boundary.id, "boundary:src:in_scope");
     assert_eq!(boundary.path, PathBuf::from("src"));
     assert_eq!(boundary.provenance, "workspace_tree");
-    assert_eq!(boundary.materialization_state, "known_unmaterialized");
+    assert_eq!(boundary.materialization_state, "sparse");
     assert_eq!(boundary.scope_state, "in_scope");
     assert_eq!(boundary.known_file_count, 2);
-    assert_eq!(boundary.materialized_file_count, 0);
+    assert_eq!(boundary.materialized_file_count, 1);
 }
 
 #[test]
@@ -9029,9 +9029,14 @@ fn index_workspace_tracks_unsupported_text_files_for_file_anchors() {
         .map(|record| record.file_id)
         .expect("unsupported text files should still produce file records");
     assert_eq!(
+        session.prism().graph().runtime_file_path(file_id),
+        Some(app_path.clone()),
+        "runtime file paths should still resolve to the local checkout"
+    );
+    assert_eq!(
         session.prism().graph().file_path(file_id),
-        Some(&app_path),
-        "file ids for unsupported text files should round-trip to paths"
+        Some(&PathBuf::from("www/dashboard/src/App.tsx")),
+        "file ids should now resolve to repo-relative stored paths"
     );
 
     let reloaded = index_workspace_session(&root).unwrap();

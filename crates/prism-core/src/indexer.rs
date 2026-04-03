@@ -390,6 +390,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         let discover_layout_ms = layout_started.elapsed().as_millis();
         let restore_runtime_started = Instant::now();
         let mut graph = Graph::from_snapshot(prism.graph().snapshot());
+        graph.bind_workspace_root(&root);
         sync_root_nodes(&mut graph, &layout);
         let mut history = HistoryStore::from_snapshot(prism.history_snapshot());
         history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
@@ -563,6 +564,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         let load_graph_ms = load_graph_started.elapsed().as_millis();
         let had_prior_snapshot = stored_graph.is_some();
         let mut graph = stored_graph.unwrap_or_default();
+        graph.bind_workspace_root(&root);
         sync_root_nodes(&mut graph, &layout);
         resolve_graph_edges(&mut graph, None);
         let load_projection_started = Instant::now();
@@ -1076,7 +1078,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         );
 
         let remove_missing_started = Instant::now();
-        for tracked in self.graph.tracked_files() {
+        for tracked in self.graph.runtime_tracked_files() {
             if refresh_scope
                 .as_ref()
                 .is_some_and(|scope| !path_matches_refresh_scope(&tracked, scope))
