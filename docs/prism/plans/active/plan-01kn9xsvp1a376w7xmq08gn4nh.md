@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:cb037ad2e8e407c125bed5532d927d6ab0b3ecea241aef95c252f8beb1ab2b84`
+- Source head: `sha256:738cf436204edb39a9faead1db1cffb14e6c1cdf346a0f698bee7f2227be108c`
 - Source logical timestamp: `unknown`
-- Source snapshot: `6 nodes, 11 edges, 4 overlays`
+- Source snapshot: `6 nodes, 11 edges, 5 overlays`
 
 ## Overview
 
@@ -106,7 +106,7 @@ Make shared runtime the sole owner of append-only change history, remove tracked
 
 - Node id: `coord-task:01kn9xv8x94h8gwja48wahgsnb`
 - Kind: `edit`
-- Status: `in_progress`
+- Status: `completed`
 - Summary: Provide deterministic migration for repos that already contain `.prism/state/changes/**`, including manifest/index repair, removal or archival of obsolete tracked change shards, and explicit continuity across the pre-removal and post-removal snapshot formats.
 - Priority: `1`
 - Assignee: `codex-runtime-storage-boundary-redesign-2026-04-01`
@@ -164,6 +164,12 @@ Make shared runtime the sole owner of append-only change history, remove tracked
   publish ref: `task/prism-changes-state-rewrite`
 - Node: `coord-task:01kn9xv2a54t54pbzbbremqrc7`
   git execution status: `published`
+  source ref: `task/prism-changes-state-rewrite`
+  target ref: `origin/main`
+  publish ref: `task/prism-changes-state-rewrite`
+- Node: `coord-task:01kn9xv8x94h8gwja48wahgsnb`
+  git execution status: `publish_pending`
+  pending task status: `completed`
   source ref: `task/prism-changes-state-rewrite`
   target ref: `origin/main`
   publish ref: `task/prism-changes-state-rewrite`
