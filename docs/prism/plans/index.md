@@ -8,14 +8,14 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:52db3abe1c4748955f88adbcc0329b1863e8f1aaa3442e8db55e043a119271bd`
+- Source head: `sha256:50b8bcdf7ef18768aacd79babd57da56bdc6177bbb03ba63d128993b28a69d01`
 - Source logical timestamp: `unknown`
-- Source snapshot: `50 plans, 28 active, 22 archived`
+- Source snapshot: `52 plans, 30 active, 22 archived`
 
 ## Overview
 
-- Published plans: 50
-- Active plans: 28
+- Published plans: 52
+- Active plans: 30
 - Archived plans: 22
 
 ## Active Plans
@@ -24,8 +24,10 @@
 - [Build a first-class Prism UI control plane around the existing dashboard, with an overview landing surface, a plans view, an architecture graph explorer, shared cross-links, and final concept curation so the repo-native architecture reflects the new human-facing product.](active/plan-01kmzvjdhb874nxd0v44d2hdmt.md): Build a first-class Prism UI control plane around the existing dashboard, with an overview landing surface, a plans view, an architecture graph explorer, shared cross-links, and final concept curation so the repo-native architecture reflects the new human-facing product. (`plan:01kmzvjdhb874nxd0v44d2hdmt`)
 - [Complete git execution policy rollout and harden publish semantics](active/plan-01kn8n8v0ns6jcj0xgge5f0adv.md): Finish the git execution policy feature by exposing policy surfaces clearly, hardening start and publish transitions, validating failure recovery, and defining the recommended default behavior so agents reliably sync and publish through PRISM. (`plan:01kn8n8v0ns6jcj0xgge5f0adv`)
 - [Curate PRISM concepts for the implemented principal identity and authenticated coordination system](active/plan-01kn6f9bhgq49zweypzysn03rj.md): Curate PRISM concepts for the implemented principal identity and authenticated coordination system (`plan:01kn6f9bhgq49zweypzysn03rj`)
+- [Dogfood require-vs-auto git execution](active/plan-01kn8rqy29rqhqc21kf87arqe1.md): Exercise live require-mode completion behavior on a temporary task. (`plan:01kn8rqy29rqhqc21kf87arqe1`)
 - [Eliminate nondeterministic SQLite locking failures from the full parallel workspace test suite](active/plan-01kn5xz844mc22fb9g7g5czxw7.md): Eliminate nondeterministic SQLite locking failures from the full parallel workspace test suite (`plan:01kn5xz844mc22fb9g7g5czxw7`)
 - [Eliminate the current slow compact MCP calls by instrumenting refresh-wrapper latency precisely, adding a true current-state fast path for compact reads, coalescing concurrent refresh work across sessions, and validating the resulting latency reduction against live PRISM MCP traces.](active/plan-01kn7wmt2vfdy77mxc3apcp1qw.md): Eliminate the current slow compact MCP calls by instrumenting refresh-wrapper latency precisely, adding a true current-state fast path for compact reads, coalescing concurrent refresh work across sessions, and validating the resulting latency reduction against live PRISM MCP traces. (`plan:01kn7wmt2vfdy77mxc3apcp1qw`)
+- [Explicit logical repo identity layer for clone-safe shared runtime](active/plan-01kn8rmbb3qf6bxw45w0141rkr.md): Implement a stable repo-published logical_repo_id in .prism, separate it cleanly from local repo-instance and worktree identity, and use it as the future namespace boundary for shared runtime coordination across clones and machines. (`plan:01kn8rmbb3qf6bxw45w0141rkr`)
 - [Extend PRISM runtime and MCP log query views so agents can analyze daemon and MCP call state at worktree scope, repo-wide across all worktrees for the same repo on one machine, and across all available log files, while preserving current worktree-local behavior as the default.](active/plan-01kn82nwqnv42m6fw33pgrabss.md): Extend PRISM runtime and MCP log query views so agents can analyze daemon and MCP call state at worktree scope, repo-wide across all worktrees for the same repo on one machine, and across all available log files, while preserving current worktree-local behavior as the default. (`plan:01kn82nwqnv42m6fw33pgrabss`)
 - [Finish portfolio dispatch with cross-plan dependencies and a ranked actionable inbox](active/plan-01kn8n8wvmcvrqx1tvd6x93qpg.md): Complete the portfolio dispatch feature by modeling cross-plan dependencies explicitly, ranking actionable work across plans with explainable scoring, and exposing a practical inbox/next-work surface for agents. (`plan:01kn8n8wvmcvrqx1tvd6x93qpg`)
 - [first-class-plans-spec-alignment](active/plan-01kn2nhn3trvbxej8av70jrvx2.md): first-class-plans-spec-alignment (`plan:01kn2nhn3trvbxej8av70jrvx2`)

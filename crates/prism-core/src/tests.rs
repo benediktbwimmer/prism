@@ -592,6 +592,71 @@ fn prism_paths_migrates_legacy_canonical_repo_home_into_git_common_dir_repo_home
     )
     .unwrap();
 
+    let legacy_runtime_db = legacy_repo_home.join("shared/runtime/state.db");
+    let current_runtime_db = current_repo_home.join("shared/runtime/state.db");
+    fs::create_dir_all(legacy_runtime_db.parent().unwrap()).unwrap();
+    fs::create_dir_all(current_runtime_db.parent().unwrap()).unwrap();
+    let legacy_principal = PrincipalProfile {
+        authority_id: PrincipalAuthorityId::new("local-daemon"),
+        principal_id: PrincipalId::new("principal:legacy"),
+        kind: PrincipalKind::Agent,
+        name: "Legacy".to_string(),
+        role: None,
+        status: PrincipalStatus::Active,
+        created_at: 10,
+        updated_at: 11,
+        parent_principal_id: None,
+        profile: serde_json::Value::Null,
+    };
+    let legacy_credential = CredentialRecord {
+        credential_id: CredentialId::new("credential:legacy"),
+        authority_id: legacy_principal.authority_id.clone(),
+        principal_id: legacy_principal.principal_id.clone(),
+        token_verifier: "sha256:legacy".to_string(),
+        capabilities: vec![CredentialCapability::MutateCoordination],
+        status: CredentialStatus::Active,
+        created_at: 10,
+        last_used_at: Some(12),
+        revoked_at: None,
+    };
+    let current_principal = PrincipalProfile {
+        authority_id: PrincipalAuthorityId::new("local-daemon"),
+        principal_id: PrincipalId::new("principal:current"),
+        kind: PrincipalKind::Human,
+        name: "Current".to_string(),
+        role: None,
+        status: PrincipalStatus::Active,
+        created_at: 20,
+        updated_at: 21,
+        parent_principal_id: None,
+        profile: serde_json::Value::Null,
+    };
+    let current_credential = CredentialRecord {
+        credential_id: CredentialId::new("credential:current"),
+        authority_id: current_principal.authority_id.clone(),
+        principal_id: current_principal.principal_id.clone(),
+        token_verifier: "sha256:current".to_string(),
+        capabilities: vec![CredentialCapability::MutateRepoMemory],
+        status: CredentialStatus::Active,
+        created_at: 20,
+        last_used_at: Some(22),
+        revoked_at: None,
+    };
+    let mut legacy_store = SqliteStore::open(&legacy_runtime_db).unwrap();
+    legacy_store
+        .save_principal_registry_snapshot(&PrincipalRegistrySnapshot {
+            principals: vec![legacy_principal.clone()],
+            credentials: vec![legacy_credential.clone()],
+        })
+        .unwrap();
+    let mut current_store = SqliteStore::open(&current_runtime_db).unwrap();
+    current_store
+        .save_principal_registry_snapshot(&PrincipalRegistrySnapshot {
+            principals: vec![current_principal.clone()],
+            credentials: vec![current_credential.clone()],
+        })
+        .unwrap();
+
     let sibling_worktree_dir = current_repo_home.join("worktrees/worktree-sibling");
     fs::create_dir_all(sibling_worktree_dir.join("mcp/logs")).unwrap();
     fs::create_dir_all(current_repo_home.join("feedback")).unwrap();
@@ -642,6 +707,27 @@ fn prism_paths_migrates_legacy_canonical_repo_home_into_git_common_dir_repo_home
         migrated_worktree_metadata["repo_id"],
         json!(identity.repo_id)
     );
+    let mut migrated_store = SqliteStore::open(current_runtime_db).unwrap();
+    let migrated_registry = migrated_store
+        .load_principal_registry_snapshot()
+        .unwrap()
+        .unwrap();
+    assert!(migrated_registry
+        .principals
+        .iter()
+        .any(|principal| principal.principal_id == legacy_principal.principal_id));
+    assert!(migrated_registry
+        .principals
+        .iter()
+        .any(|principal| principal.principal_id == current_principal.principal_id));
+    assert!(migrated_registry
+        .credentials
+        .iter()
+        .any(|credential| credential.credential_id == legacy_credential.credential_id));
+    assert!(migrated_registry
+        .credentials
+        .iter()
+        .any(|credential| credential.credential_id == current_credential.credential_id));
 
     let _ = fs::remove_dir_all(root);
     let _ = fs::remove_dir_all(prism_home);

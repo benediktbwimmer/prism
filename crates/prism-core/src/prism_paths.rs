@@ -7,7 +7,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use anyhow::{anyhow, Context, Result};
-use prism_store::migrate_worktree_cache_from_shared_runtime;
+use prism_ir::{CredentialRecord, CredentialStatus, PrincipalProfile, PrincipalRegistrySnapshot};
+use prism_store::{migrate_worktree_cache_from_shared_runtime, SqliteStore, Store};
 use serde::{Deserialize, Serialize};
 
 use crate::util::current_timestamp_millis;
@@ -18,6 +19,7 @@ use crate::workspace_identity::{
 const PRISM_HOME_ENV: &str = "PRISM_HOME";
 const PATH_METADATA_VERSION: u32 = 1;
 const MIGRATION_CONFLICTS_DIR_NAME: &str = "migration-conflicts";
+const PRINCIPAL_REGISTRY_RECONCILED_MARKER: &str = ".principal-registry-merged-v1";
 const REPO_METADATA_FILE_NAME: &str = "repo.json";
 const SESSION_SEED_FILE_NAME: &str = "prism-mcp-session-seed.json";
 const WORKTREE_METADATA_FILE_NAME: &str = "worktree.json";
@@ -75,6 +77,7 @@ impl PrismPaths {
             .join("repos")
             .join(storage_component(&identity.repo_id));
         maybe_migrate_legacy_repo_home(&home_root, &identity, &repo_home_dir)?;
+        reconcile_archived_shared_runtime_principal_registry(&repo_home_dir)?;
         let worktree_dir = repo_home_dir
             .join("worktrees")
             .join(storage_component(&identity.worktree_id));
@@ -369,6 +372,39 @@ fn maybe_migrate_legacy_repo_home(
     Ok(())
 }
 
+fn reconcile_archived_shared_runtime_principal_registry(repo_home_dir: &Path) -> Result<()> {
+    let conflicts_dir = repo_home_dir.join(MIGRATION_CONFLICTS_DIR_NAME);
+    if !conflicts_dir.exists() {
+        return Ok(());
+    }
+    let marker = conflicts_dir.join(PRINCIPAL_REGISTRY_RECONCILED_MARKER);
+    if marker.exists() {
+        return Ok(());
+    }
+
+    let target_db = repo_home_dir
+        .join("shared")
+        .join("runtime")
+        .join("state.db");
+    if !target_db.exists() {
+        return Ok(());
+    }
+
+    for entry in fs::read_dir(&conflicts_dir)
+        .with_context(|| format!("failed to read {}", conflicts_dir.display()))?
+    {
+        let entry = entry.with_context(|| format!("failed to read {}", conflicts_dir.display()))?;
+        let path = entry.path();
+        if !path.is_file() || !is_archived_shared_runtime_db(&path) {
+            continue;
+        }
+        merge_principal_registry_from_runtime_db(&path, &target_db)?;
+    }
+
+    write_json_file(&marker, &serde_json::json!({ "done": true }))?;
+    Ok(())
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct RepoMetadata {
     version: u32,
@@ -532,6 +568,118 @@ fn rewrite_worktree_repo_ids(worktrees_dir: &Path, repo_id: &str) -> Result<()> 
         write_json_file(&metadata_path, &metadata)?;
     }
     Ok(())
+}
+
+fn merge_principal_registry_from_runtime_db(source_db: &Path, target_db: &Path) -> Result<bool> {
+    if !source_db.exists() || !target_db.exists() {
+        return Ok(false);
+    }
+
+    let mut source = SqliteStore::open(source_db)
+        .with_context(|| format!("failed to open archived runtime db {}", source_db.display()))?;
+    let Some(source_snapshot) = Store::load_principal_registry_snapshot(&mut source)? else {
+        return Ok(false);
+    };
+
+    let mut target = SqliteStore::open(target_db)
+        .with_context(|| format!("failed to open runtime db {}", target_db.display()))?;
+    let mut target_snapshot =
+        Store::load_principal_registry_snapshot(&mut target)?.unwrap_or_default();
+
+    if !merge_principal_registry_snapshot(&mut target_snapshot, &source_snapshot) {
+        return Ok(false);
+    }
+
+    Store::save_principal_registry_snapshot(&mut target, &target_snapshot)?;
+    Ok(true)
+}
+
+fn merge_principal_registry_snapshot(
+    target: &mut PrincipalRegistrySnapshot,
+    source: &PrincipalRegistrySnapshot,
+) -> bool {
+    let mut changed = false;
+
+    for principal in &source.principals {
+        match target.principals.iter_mut().find(|candidate| {
+            candidate.authority_id == principal.authority_id
+                && candidate.principal_id == principal.principal_id
+        }) {
+            Some(existing) => {
+                if should_replace_principal(existing, principal) {
+                    *existing = principal.clone();
+                    changed = true;
+                }
+            }
+            None => {
+                target.principals.push(principal.clone());
+                changed = true;
+            }
+        }
+    }
+
+    for credential in &source.credentials {
+        match target
+            .credentials
+            .iter_mut()
+            .find(|candidate| candidate.credential_id == credential.credential_id)
+        {
+            Some(existing) => {
+                if merge_credential_record(existing, credential) {
+                    changed = true;
+                }
+            }
+            None => {
+                target.credentials.push(credential.clone());
+                changed = true;
+            }
+        }
+    }
+
+    changed
+}
+
+fn should_replace_principal(existing: &PrincipalProfile, candidate: &PrincipalProfile) -> bool {
+    candidate.updated_at > existing.updated_at
+        || (candidate.updated_at == existing.updated_at
+            && candidate.created_at > existing.created_at)
+}
+
+fn merge_credential_record(existing: &mut CredentialRecord, candidate: &CredentialRecord) -> bool {
+    let mut changed = false;
+
+    if candidate.created_at < existing.created_at {
+        existing.created_at = candidate.created_at;
+        changed = true;
+    }
+    if candidate.last_used_at > existing.last_used_at {
+        existing.last_used_at = candidate.last_used_at;
+        changed = true;
+    }
+    if candidate.revoked_at > existing.revoked_at {
+        existing.revoked_at = candidate.revoked_at;
+        changed = true;
+    }
+    if candidate.status == CredentialStatus::Revoked && existing.status != CredentialStatus::Revoked
+    {
+        existing.status = CredentialStatus::Revoked;
+        changed = true;
+    }
+    for capability in &candidate.capabilities {
+        if !existing.capabilities.contains(capability) {
+            existing.capabilities.push(*capability);
+            changed = true;
+        }
+    }
+
+    changed
+}
+
+fn is_archived_shared_runtime_db(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+        return false;
+    };
+    name.contains("shared-runtime-state-db") && !name.ends_with("-shm") && !name.ends_with("-wal")
 }
 
 fn read_json_file<T>(path: &Path) -> Option<T>
