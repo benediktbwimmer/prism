@@ -1,17 +1,18 @@
 {
   "version": 1,
-  "publishedAt": 1775228481,
+  "publishedAt": 1775229135,
   "publisher": {
     "principalAuthorityId": "local-daemon",
-    "principalId": "principal:codex-a:01kn4jw3waxc8qj2nysd3rsyvc",
-    "credentialId": "credential:01kn4jw3wa2ta5rc53j408qrk9"
+    "principalId": "principal:tracked-changes-rewrite:01kn9y81k21524vwvyy9y7nhbn",
+    "credentialId": "credential:01kn9y81k22x2tnr12cszr628e"
   },
   "workContext": {
-    "workId": "work:plan-the-tracked-prism-snapshot-rewrite:01kn9hk3shcn3e6d5tjp31zxxh",
-    "kind": "ad_hoc",
-    "title": "Plan the tracked .prism snapshot rewrite",
-    "planId": "plan:01kn9hkjxnzdj4qtt4fa25cr6y",
-    "planTitle": "Rewrite tracked .prism to signed snapshot publication"
+    "workId": "coord-task:01kn9xt9h76645shp4jcmt0bsv",
+    "kind": "coordination",
+    "title": "Lock the tracked changes removal contract and commit-history trust boundary",
+    "coordinationTaskId": "coord-task:01kn9xt9h76645shp4jcmt0bsv",
+    "planId": "plan:01kn9xsvp1a376w7xmq08gn4nh",
+    "planTitle": "Remove tracked changes from .prism state and rely on signed commit history plus manifest metadata"
   },
   "files": {
     ".prism/state/changes/outcome-01kn9mwxnr13aw4tjsp19xecrn-f23e661ac1f99fba.json": {
@@ -345,6 +346,14 @@
     ".prism/state/changes/outcome-01kn9xhs2pq06yqtd1xt16ba1z-3f97d90dccd3edd7.json": {
       "path": ".prism/state/changes/outcome-01kn9xhs2pq06yqtd1xt16ba1z-3f97d90dccd3edd7.json",
       "sha256": "sha256:64d80ae743631004e943adec76dbc651837e6732dfb2df181ace563c246b3443"
+    },
+    ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json": {
+      "path": ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json",
+      "sha256": "sha256:0d7765efeb305f3eaaf87783ef10d33248e5cb1d4390804a70e5fa6df559906d"
+    },
+    ".prism/state/contracts/contract-tracked_state_excludes_operational_change_history-bc5db267c8c11312.json": {
+      "path": ".prism/state/contracts/contract-tracked_state_excludes_operational_change_history-bc5db267c8c11312.json",
+      "sha256": "sha256:0a81db498639ef3845d8d1b94cd0debb4109f3b7f798bd5746a893a8862af7a8"
     },
     ".prism/state/coordination/tasks/coord-task-01kmwmwtsvsb4fnsekv4hd29fd-b8a10a00e7d88f17.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kmwmwtsvsb4fnsekv4hd29fd-b8a10a00e7d88f17.json",
@@ -1492,7 +1501,7 @@
     },
     ".prism/state/coordination/tasks/coord-task-01kn9xt9h76645shp4jcmt0bsv-b278826451d81676.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9xt9h76645shp4jcmt0bsv-b278826451d81676.json",
-      "sha256": "sha256:43f67e4d7b4731cb1ca368be20c6ee1da9f8f9c60ddfc6c282bfa243a411930b"
+      "sha256": "sha256:7a4020aa5636bf1f4383c498bdae1f0099ec46a4f77ecec986341c0d1ff5276e"
     },
     ".prism/state/coordination/tasks/coord-task-01kn9xtjh9ac4zwwfx2mbn9k0j-dd1c1887953b493c.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01kn9xtjh9ac4zwwfx2mbn9k0j-dd1c1887953b493c.json",
@@ -1598,13 +1607,21 @@
       "path": ".prism/state/indexes/changes.json",
       "sha256": "sha256:a9a77dec871196e6e43a7c84e8888f77ae5b3d979ce7e0dd315e36bd9c5cd579"
     },
+    ".prism/state/indexes/concepts.json": {
+      "path": ".prism/state/indexes/concepts.json",
+      "sha256": "sha256:0ef6c0d34e2b50b56202fa3fb90e13d6837a9328306bd8d85e0302eecb7794b3"
+    },
+    ".prism/state/indexes/contracts.json": {
+      "path": ".prism/state/indexes/contracts.json",
+      "sha256": "sha256:e36f0c04625c0f763c3aefa60343103cdd3205c9eeb051fa7d9fb818d15f7873"
+    },
     ".prism/state/indexes/coordination_artifacts.json": {
       "path": ".prism/state/indexes/coordination_artifacts.json",
       "sha256": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
     },
     ".prism/state/indexes/coordination_tasks.json": {
       "path": ".prism/state/indexes/coordination_tasks.json",
-      "sha256": "sha256:2b886472b7b51ae8cbc32a9e6270b44ce8640bba0f07319b10e58df4d4de41ea"
+      "sha256": "sha256:38212876dbdb318cc70081207e795a5bc5ce373804f5d9810291142ce7a145df"
     },
     ".prism/state/indexes/plans.json": {
       "path": ".prism/state/indexes/plans.json",
@@ -1816,7 +1833,7 @@
     },
     ".prism/state/plans/plan-01kn9xsvp1a376w7xmq08gn4nh-36bad8e44d57f454.json": {
       "path": ".prism/state/plans/plan-01kn9xsvp1a376w7xmq08gn4nh-36bad8e44d57f454.json",
-      "sha256": "sha256:e12d4480672f46a2a0ae6138b7c1f9632bc6d5a683dccaba882e18846f1e0c46"
+      "sha256": "sha256:a08d7b2f2f1e57b5735470f4b80ec4551825ad01eeb5fa448a7e0a7239cb1ca3"
     },
     ".prism/state/plans/plan-1-8fd52ae04f462646.json": {
       "path": ".prism/state/plans/plan-1-8fd52ae04f462646.json",
@@ -1847,13 +1864,13 @@
       "sha256": "sha256:25b396965686f9dc300002f26a9ba19c826a387a00b6e3ee799116d6a0f64457"
     }
   },
-  "previousManifestDigest": "sha256:512ed8698bd755c01c92689e4c64f2dfa3a1debd8850b992aa613780db4ef470",
+  "previousManifestDigest": "sha256:cecf18da22779d0add00f0b9696b6ed7f69de85964d74b75be2cfef7725c02d4",
   "migrationSourceDigest": "sha256:29be826a9e4869880d788dda166c588fd3513bcecc43c4b019205486a2115994",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:BSRY2VMJ/kKEj+pGsXoyLCmlaIurwEznK0RuTOBSFlySYk3dyRX1fTCRkykyHWrVOisuNiOtUaIW0s0no5A6AA=="
+    "value": "base64:wc0EBkRLdHYfApSSSvbofkInh+jigEBxComDNkEspHrBXne3nLOEIJsAsMCnvWTK2ERdenxJo+tezgqsvntECA=="
   }
 }

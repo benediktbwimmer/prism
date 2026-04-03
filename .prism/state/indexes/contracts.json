@@ -1,0 +1,8 @@
+[
+  {
+    "id": "contract://tracked_state_excludes_operational_change_history",
+    "title": "Repo-owned tracked `.prism/state` contains durable semantic state and publish metadata, not append-only operational change history.",
+    "status": "Active",
+    "path": "contracts/contract-tracked_state_excludes_operational_change_history-bc5db267c8c11312.json"
+  }
+]

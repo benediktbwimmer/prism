@@ -62,7 +62,7 @@
         "kind": "Edit",
         "title": "Lock the tracked changes removal contract and commit-history trust boundary",
         "summary": "Define that tracked `.prism/state` keeps only current semantic state, shared runtime becomes the sole append-log owner for changes, signed Git commit history becomes the coarse-grained durable change history, and the PRISM manifest carries structured publish metadata including a short `publishSummary`.",
-        "status": "Ready",
+        "status": "Completed",
         "bindings": {
           "anchors": [],
           "concept_handles": [],
@@ -399,5 +399,23 @@
       }
     ]
   },
-  "executionOverlays": []
+  "executionOverlays": [
+    {
+      "node_id": "coord-task:01kn9xt9h76645shp4jcmt0bsv",
+      "pending_handoff_to": null,
+      "session": null,
+      "worktree_id": null,
+      "branch_ref": null,
+      "effective_assignee": null,
+      "awaiting_handoff_from": null,
+      "git_execution": {
+        "status": "publish_pending",
+        "pendingTaskStatus": "Completed",
+        "sourceRef": "task/prism-changes-state-rewrite",
+        "targetRef": "origin/main",
+        "publishRef": "task/prism-changes-state-rewrite",
+        "targetBranch": "main"
+      }
+    }
+  ]
 }

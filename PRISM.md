@@ -8,15 +8,15 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:ba3fee871442fd017bcc2d2e3f5b96e6907f510f0ce4f156129d817c14de9a46`
-- Source logical timestamp: `unknown`
-- Source snapshot: `0` concepts, `0` relations, `0` contracts
+- Source head: `sha256:c16a125a8af58eb0b4e611004b010e0deddf0b34ba81ac166c8fab1285bd9b7b`
+- Source logical timestamp: `1775229116`
+- Source snapshot: `1` concepts, `0` relations, `1` contracts
 
 ## Overview
 
-- Active repo concepts: 0
+- Active repo concepts: 1
 - Active repo relations: 0
-- Active repo contracts: 0
+- Active repo contracts: 1
 - Active repo memories: 0
 - Published plans: 59
 - Published patch events: 83
@@ -37,6 +37,10 @@
 - Use `docs/prism/changes.md` when you need the summarized repo-published patch history.
 - Use `docs/prism/plans/index.md` when you need the current published plan catalog and per-plan markdown projections.
 - Treat tracked `.prism/state/**` snapshot shards plus `.prism/state/manifest.json` as the current repo-published source of truth; the legacy tracked `.jsonl` streams are migration-era compatibility inputs, and these markdown files are derived artifacts.
+
+## Key Concepts
+
+- `tracked_snapshot_semantic_state_and_runtime_change_history` (`concept://tracked_snapshot_semantic_state_and_runtime_change_history`): Tracked `.prism/state` publishes only current semantic state, shared runtime owns append-only operational change history, and signed Git commit history is the coarse durable change timeline.
 
 ## Generated Docs
 

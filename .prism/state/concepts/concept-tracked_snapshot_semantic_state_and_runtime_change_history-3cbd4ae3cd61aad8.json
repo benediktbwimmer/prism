@@ -1,0 +1,76 @@
+{
+  "handle": "concept://tracked_snapshot_semantic_state_and_runtime_change_history",
+  "canonical_name": "tracked_snapshot_semantic_state_and_runtime_change_history",
+  "summary": "Tracked `.prism/state` publishes only current semantic state, shared runtime owns append-only operational change history, and signed Git commit history is the coarse durable change timeline.",
+  "aliases": [
+    "tracked changes removal",
+    "snapshot semantic state",
+    "runtime change journal boundary"
+  ],
+  "confidence": 0.88,
+  "core_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::tracked_snapshot",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::repo_patch_events",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::memory_events",
+      "kind": "Module"
+    }
+  ],
+  "core_member_lineages": [
+    "lineage:01kn9mwxnpgzhqp3va4h65ym66",
+    "lineage:01kn7q0wgn1v56aprq7f4n15xc",
+    "lineage:01kn48h6gpmdpafvew9vrh9cxv"
+  ],
+  "supporting_members": [
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::published_plans",
+      "kind": "Module"
+    },
+    {
+      "crate_name": "prism_core",
+      "path": "prism_core::prism_doc::repo_state",
+      "kind": "Module"
+    }
+  ],
+  "supporting_member_lineages": [
+    "lineage:01kn48h6h7pf3r5z3c1qwtv9gb",
+    "lineage:01kn8j8feek8tzx0pcx697fet2"
+  ],
+  "likely_tests": [],
+  "likely_test_lineages": [],
+  "evidence": [
+    "The tracked changes removal rewrite makes shared runtime the sole append-log owner and removes tracked `.prism/state/changes` from repo authority.",
+    "Signed Git commit history already provides the durable coarse-grained change timeline at commit boundaries.",
+    "Cold clones should load current semantic state from tracked snapshot shards without replaying tracked operational change history."
+  ],
+  "risk_hint": null,
+  "decode_lenses": [
+    "open",
+    "workset",
+    "memory"
+  ],
+  "scope": "repo",
+  "provenance": {
+    "origin": "repo_mutation",
+    "kind": "manual_concept_promote",
+    "taskId": "coord-task:01kn9xt9h76645shp4jcmt0bsv"
+  },
+  "publication": {
+    "publishedAt": 1775229114,
+    "lastReviewedAt": 1775229114,
+    "status": "active",
+    "supersedes": [],
+    "retiredAt": null,
+    "retirementReason": null
+  }
+}
