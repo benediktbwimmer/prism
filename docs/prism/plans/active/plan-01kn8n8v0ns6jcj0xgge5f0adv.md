@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:573c2bc963815c740be913147a2fe805c41b7101e7e9204c49615ed25a233341`
+- Source head: `sha256:851057de4d43b4e8890577b098311ea0744a9c46ad393818e8d3f65006e4e914`
 - Source logical timestamp: `unknown`
-- Source snapshot: `5 nodes, 5 edges, 0 overlays`
+- Source snapshot: `6 nodes, 6 edges, 0 overlays`
 
 ## Overview
 
@@ -19,12 +19,12 @@
 - Kind: `task_execution`
 - Scope: `repo`
 - Revision: `0`
-- Nodes: `5`
-- Edges: `5`
+- Nodes: `6`
+- Edges: `6`
 
 ## Goal
 
-Finish the git execution policy feature by exposing policy surfaces clearly, separating task lifecycle from publish lifecycle, hardening start and publish transitions, validating strict/manual publication recovery, proving strict `require` through dogfooding, and making strict `require` the recommended default while removing `auto` after the migration path is no longer needed.
+Finish the git execution policy feature by exposing policy surfaces clearly, separating task lifecycle from publish lifecycle, making publish-pending and publication acknowledgement semantics explicit, finalizing strict `require` so agents own source-code commit scope while PRISM only finalizes allowlisted PRISM-managed projection files, making freshness policy explicit, validating the flow through dogfooding, and removing `auto` once strict `require` is proven.
 
 ## Source of Truth
 
@@ -64,14 +64,14 @@ Finish the git execution policy feature by exposing policy surfaces clearly, sep
 - Node id: `coord-task:01kn8n9w0r3ydrfs64cdy58t12`
 - Kind: `edit`
 - Status: `in_progress`
-- Summary: Make publish intent, publish-pending, publish-failed, and publish-ack semantics explicit so strict require mode can guarantee repo-published `.prism` state is manually committed and verified without automatic git mutations.
+- Summary: Make publish intent, publish-pending, publish-failed, and publish-ack semantics explicit so strict `require` can separate logical task completion from repo publication, prevent false completion during push failures, and keep user-code commit scope manual.
 - Priority: `95`
 
 #### Acceptance
 
-- PRISM can represent publish-pending and publish-failed states without falsely marking a task completed before the repo-published `.prism` state is actually committed and verified. [any]
+- PRISM can represent publish-pending and publish-failed states without falsely marking a task completed before repo publication succeeds. [any]
 - Publish acknowledgement and verification state live outside the repo-published projection so confirming publication does not re-dirty `.prism` artifacts or create a commit loop. [any]
-- Task lifecycle and publish lifecycle are represented separately enough for strict `require` mode to avoid automatic branch, commit, and push operations while still tracking desired completion. [any]
+- Task lifecycle and publish lifecycle are represented separately enough for `require` to track desired completion before final publication while keeping source-code commit scope with the agent or human. [any]
 
 ### Dogfood start and complete flows against real task claims and branch state
 
@@ -98,11 +98,27 @@ Finish the git execution policy feature by exposing policy surfaces clearly, sep
 - The repo guidance names strict `require` as the recommended default mode for normal PRISM agent work. [any]
 - The rollout plan only keeps `auto` as a temporary migration aid, and explicitly removes it once strict `require` has been proven through dogfooding and validation. [any]
 
+### Finalize strict require mode with explicit freshness policy and PRISM-only projection commits
+
+- Node id: `coord-task:01kn8yzs3354nger6td7q3x24r`
+- Kind: `edit`
+- Status: `ready`
+- Summary: Define `require` as the recommended safe mode: verify explicit git/workflow invariants, require intentionally committed user-code changes, let PRISM finalize only allowlisted PRISM-managed projection files, and eliminate any remaining broad auto-publication behavior.
+- Priority: `94`
+
+#### Acceptance
+
+- `require` never selects user-code commit scope and blocks completion when uncommitted non-PRISM changes make publication ambiguous. [any]
+- Freshness enforcement is expressed as explicit policy fields such as target ref, max commits behind target, and optional fetch-age thresholds rather than hidden heuristics. [any]
+- Any automatic follow-up commit or push in `require` is restricted to allowlisted PRISM-managed paths such as `.prism/**`, `docs/prism/**`, and `PRISM.md`. [any]
+- The path from pending publication to completed is idempotent and cannot report a false completed state when publication fails. [any]
+
 ## Edges
 
 - `plan-edge:coord-task:01kn8n9txdczd5dmtf1maheqpw:depends-on:coord-task:01kn8n9ssejh5kkx8zb4hjxt09`: `coord-task:01kn8n9txdczd5dmtf1maheqpw` depends on `coord-task:01kn8n9ssejh5kkx8zb4hjxt09`
 - `plan-edge:coord-task:01kn8n9w0r3ydrfs64cdy58t12:depends-on:coord-task:01kn8n9ssejh5kkx8zb4hjxt09`: `coord-task:01kn8n9w0r3ydrfs64cdy58t12` depends on `coord-task:01kn8n9ssejh5kkx8zb4hjxt09`
 - `plan-edge:coord-task:01kn8n9x2vm8c683vpx5642f3j:depends-on:coord-task:01kn8n9txdczd5dmtf1maheqpw`: `coord-task:01kn8n9x2vm8c683vpx5642f3j` depends on `coord-task:01kn8n9txdczd5dmtf1maheqpw`
-- `plan-edge:coord-task:01kn8n9x2vm8c683vpx5642f3j:depends-on:coord-task:01kn8n9w0r3ydrfs64cdy58t12`: `coord-task:01kn8n9x2vm8c683vpx5642f3j` depends on `coord-task:01kn8n9w0r3ydrfs64cdy58t12`
+- `plan-edge:coord-task:01kn8n9x2vm8c683vpx5642f3j:depends-on:coord-task:01kn8yzs3354nger6td7q3x24r`: `coord-task:01kn8n9x2vm8c683vpx5642f3j` depends on `coord-task:01kn8yzs3354nger6td7q3x24r`
 - `plan-edge:coord-task:01kn8n9y54tz8h72ex327yyt9w:depends-on:coord-task:01kn8n9x2vm8c683vpx5642f3j`: `coord-task:01kn8n9y54tz8h72ex327yyt9w` depends on `coord-task:01kn8n9x2vm8c683vpx5642f3j`
+- `plan-edge:coord-task:01kn8yzs3354nger6td7q3x24r:depends-on:coord-task:01kn8n9w0r3ydrfs64cdy58t12`: `coord-task:01kn8yzs3354nger6td7q3x24r` depends on `coord-task:01kn8n9w0r3ydrfs64cdy58t12`
 

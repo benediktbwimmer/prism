@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:b70c6f0cd2884c855219751f0ec9d94a9d92f68c3788ae5f64f90848479eba5b`
+- Source head: `sha256:e00d7ce50bc66e6c02771fb05734b996c9363e5b73ec21937b3ca840db330831`
 - Source logical timestamp: `unknown`
 - Source snapshot: `56 plans, 34 active, 22 archived`
 
@@ -22,7 +22,7 @@
 
 - [Address the highest-priority remaining PRISM validation-feedback issues across task-brief guidance, compact ranking and follow-through, runtime diagnostics, freshness for newly added files, and deterministic validation stability.](active/plan-01kn8868kh84bkb3rtdc12bdkc.md): Address the highest-priority remaining PRISM validation-feedback issues across task-brief guidance, compact ranking and follow-through, runtime diagnostics, freshness for newly added files, and deterministic validation stability. (`plan:01kn8868kh84bkb3rtdc12bdkc`)
 - [Build a first-class Prism UI control plane around the existing dashboard, with an overview landing surface, a plans view, an architecture graph explorer, shared cross-links, and final concept curation so the repo-native architecture reflects the new human-facing product.](active/plan-01kmzvjdhb874nxd0v44d2hdmt.md): Build a first-class Prism UI control plane around the existing dashboard, with an overview landing surface, a plans view, an architecture graph explorer, shared cross-links, and final concept curation so the repo-native architecture reflects the new human-facing product. (`plan:01kmzvjdhb874nxd0v44d2hdmt`)
-- [Complete git execution policy rollout and harden publish semantics](active/plan-01kn8n8v0ns6jcj0xgge5f0adv.md): Finish the git execution policy feature by exposing policy surfaces clearly, hardening start and publish transitions, validating failure recovery, and defining the recommended default behavior so agents reliably sync and publish through PRISM. (`plan:01kn8n8v0ns6jcj0xgge5f0adv`)
+- [Complete git execution policy rollout and harden publish semantics](active/plan-01kn8n8v0ns6jcj0xgge5f0adv.md): Finish the git execution policy feature by exposing policy surfaces clearly, separating task lifecycle from publish lifecycle, making publish-pending and publication acknowledgement semantics explicit, finalizing strict `require` so agents own source-code commit scope while PRISM only finalizes allowlisted PRISM-managed projection files, making freshness policy explicit, validating the flow through dogfooding, and removing `auto` once strict `require` is proven. (`plan:01kn8n8v0ns6jcj0xgge5f0adv`)
 - [Curate PRISM concepts for the implemented principal identity and authenticated coordination system](active/plan-01kn6f9bhgq49zweypzysn03rj.md): Curate PRISM concepts for the implemented principal identity and authenticated coordination system (`plan:01kn6f9bhgq49zweypzysn03rj`)
 - [Dogfood require-vs-auto git execution](active/plan-01kn8rqy29rqhqc21kf87arqe1.md): Exercise live require-mode completion behavior on a temporary task. (`plan:01kn8rqy29rqhqc21kf87arqe1`)
 - [Eliminate nondeterministic SQLite locking failures from the full parallel workspace test suite](active/plan-01kn5xz844mc22fb9g7g5czxw7.md): Eliminate nondeterministic SQLite locking failures from the full parallel workspace test suite (`plan:01kn5xz844mc22fb9g7g5czxw7`)
