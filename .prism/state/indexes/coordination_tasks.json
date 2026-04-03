@@ -1730,7 +1730,7 @@
   {
     "id": "coord-task:01kn9xtsf57cqfxa0a7hd2wsx8",
     "title": "Stop publishing tracked .prism state changes shards and indexes",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01kn9xtsf57cqfxa0a7hd2wsx8-8f33405002315284.json"
   },
   {

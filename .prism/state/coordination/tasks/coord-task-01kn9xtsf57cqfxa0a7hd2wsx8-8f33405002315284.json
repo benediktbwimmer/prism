@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Stop publishing tracked .prism state changes shards and indexes",
   "summary": "Remove `.prism/state/changes/**` and any tracked indexes or manifest inventory entries that treat change history as repo-owned snapshot authority, while preserving current semantic shards for memories, concepts, contracts, plans, and durable coordination.",
-  "status": "Ready",
+  "status": "Completed",
   "published_task_status": null,
   "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
   "pending_handoff_to": null,
@@ -41,7 +41,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1017,
+    "graph_version": 1030,
     "git_commit": null
   },
   "priority": 1,
