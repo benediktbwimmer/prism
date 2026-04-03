@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:ef58ffc3997fae4291a13762bdd0e74d50769f270393a686f86c871f5ee877bf`
+- Source head: `sha256:8e3fa5c05cb756c411c87b5c21657a060f9e3a683df0320e469cd56da6808ee5`
 - Source logical timestamp: `unknown`
-- Source snapshot: `6 nodes, 11 edges, 1 overlays`
+- Source snapshot: `6 nodes, 11 edges, 2 overlays`
 
 ## Overview
 
@@ -64,7 +64,7 @@ Make shared runtime the sole owner of append-only change history, remove tracked
 
 - Node id: `coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`
 - Kind: `edit`
-- Status: `in_progress`
+- Status: `completed`
 - Summary: Extend the tracked snapshot manifest so durable publish context lives there instead of in tracked change history, including a concise `publishSummary` and any required structured publish metadata for principal, work, and continuity.
 - Priority: `1`
 - Assignee: `codex-runtime-storage-boundary-redesign-2026-04-01`
@@ -149,6 +149,12 @@ Make shared runtime the sole owner of append-only change history, remove tracked
 
 - Node: `coord-task:01kn9xt9h76645shp4jcmt0bsv`
   git execution status: `published`
+  source ref: `task/prism-changes-state-rewrite`
+  target ref: `origin/main`
+  publish ref: `task/prism-changes-state-rewrite`
+- Node: `coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`
+  git execution status: `publish_pending`
+  pending task status: `completed`
   source ref: `task/prism-changes-state-rewrite`
   target ref: `origin/main`
   publish ref: `task/prism-changes-state-rewrite`
