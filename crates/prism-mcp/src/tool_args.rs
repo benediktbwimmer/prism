@@ -2729,6 +2729,7 @@ pub(crate) struct PlanCreatePayload {
     #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) status: Option<PlanStatusInput>,
     pub(crate) policy: Option<CoordinationPolicyPayload>,
+    pub(crate) scheduling: Option<PlanSchedulingPayload>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -2740,6 +2741,7 @@ pub(crate) struct PlanUpdatePayload {
     pub(crate) status: Option<PlanStatusInput>,
     pub(crate) goal: Option<String>,
     pub(crate) policy: Option<CoordinationPolicyPayload>,
+    pub(crate) scheduling: Option<PlanSchedulingPayload>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -2762,6 +2764,15 @@ pub(crate) struct CoordinationPolicyPayload {
     pub(crate) lease_expires_after_seconds: Option<u64>,
     #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) lease_renewal_mode: Option<LeaseRenewalModeInput>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PlanSchedulingPayload {
+    pub(crate) importance: Option<u8>,
+    pub(crate) urgency: Option<u8>,
+    pub(crate) manual_boost: Option<i16>,
+    pub(crate) due_at: Option<u64>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]

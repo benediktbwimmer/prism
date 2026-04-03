@@ -16,15 +16,16 @@ use crate::mutations::{
     accept_handoff_mutation, acquire_claim_mutation, create_plan_mutation, create_task_mutation,
     handoff_mutation, heartbeat_task_mutation, propose_artifact_mutation, reclaim_task_mutation,
     release_claim_mutation, renew_claim_mutation, resume_task_mutation, review_artifact_mutation,
-    supersede_artifact_mutation, update_plan_mutation, update_task_mutation,
+    set_plan_scheduling_mutation, supersede_artifact_mutation, update_plan_mutation,
+    update_task_mutation,
 };
 use crate::state::CoordinationState;
 use crate::types::{
     Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
     ClaimAcquireInput, CoordinationConflict, CoordinationEvent, CoordinationSnapshot,
-    CoordinationTask, HandoffAcceptInput, HandoffInput, Plan, PlanCreateInput, PlanUpdateInput,
-    PolicyViolation, PolicyViolationRecord, TaskBlocker, TaskCreateInput, TaskReclaimInput,
-    TaskResumeInput, TaskUpdateInput, WorkClaim,
+    CoordinationTask, HandoffAcceptInput, HandoffInput, Plan, PlanCreateInput, PlanScheduling,
+    PlanUpdateInput, PolicyViolation, PolicyViolationRecord, TaskBlocker, TaskCreateInput,
+    TaskReclaimInput, TaskResumeInput, TaskUpdateInput, WorkClaim,
 };
 
 pub struct CoordinationRuntimeState {
@@ -60,6 +61,15 @@ impl CoordinationRuntimeState {
 
     pub fn update_plan(&mut self, meta: EventMeta, input: PlanUpdateInput) -> Result<Plan> {
         update_plan_mutation(&mut self.state, meta, input)
+    }
+
+    pub fn set_plan_scheduling(
+        &mut self,
+        meta: EventMeta,
+        plan_id: PlanId,
+        scheduling: PlanScheduling,
+    ) -> Result<Plan> {
+        set_plan_scheduling_mutation(&mut self.state, meta, plan_id, scheduling)
     }
 
     pub fn task(&self, id: &prism_ir::CoordinationTaskId) -> Option<CoordinationTask> {

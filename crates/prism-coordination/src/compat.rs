@@ -186,6 +186,7 @@ fn plan_from_graph(graph: &PlanGraph) -> Plan {
         scope: graph.scope,
         kind: graph.kind,
         revision: graph.revision,
+        scheduling: crate::types::PlanScheduling::default(),
         tags: graph.tags.clone(),
         created_from: graph.created_from.clone(),
         metadata: graph.metadata.clone(),

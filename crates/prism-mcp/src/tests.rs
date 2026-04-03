@@ -1653,6 +1653,9 @@ fn plan_query_reads_surface_native_ready_nodes_and_blockers() {
             &format!(r#"{{ "planId": "{plan_id}", "limit": 3 }}"#),
         )
         .unwrap();
+    let portfolio_next = execution
+        .dispatch("portfolioNext", r#"{ "limit": 3 }"#)
+        .unwrap();
 
     let ready_ids = ready_nodes
         .as_array()
@@ -1739,6 +1742,11 @@ fn plan_query_reads_surface_native_ready_nodes_and_blockers() {
     ));
     assert_eq!(next[0]["actionable"], Value::Bool(true));
     assert_eq!(next[0]["unblocks"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        portfolio_next[0]["node"]["planId"],
+        Value::String(plan_id.clone())
+    );
+    assert_eq!(portfolio_next[0]["actionable"], Value::Bool(true));
 }
 
 #[test]
@@ -2329,6 +2337,70 @@ fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
         .violations
         .iter()
         .any(|violation| violation.code == "plan_closed"));
+}
+
+#[test]
+fn mcp_plan_create_and_update_surface_scheduling_metadata() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let created = retry_on_transient_sqlite_lock(|| {
+        host.store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Portfolio scheduling",
+                    "goal": "Portfolio scheduling",
+                    "scheduling": {
+                        "importance": 40,
+                        "urgency": 25,
+                        "manualBoost": 15
+                    }
+                }),
+                task_id: None,
+            },
+        )
+    })
+    .unwrap();
+    assert_eq!(created.state["scheduling"]["importance"], 40);
+    assert_eq!(created.state["scheduling"]["urgency"], 25);
+    assert_eq!(created.state["scheduling"]["manualBoost"], 15);
+
+    let plan_id = created.state["id"].as_str().unwrap().to_string();
+    let updated = retry_on_transient_sqlite_lock(|| {
+        host.store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanUpdate,
+                payload: json!({
+                    "planId": plan_id,
+                    "scheduling": {
+                        "importance": 60,
+                        "urgency": 10,
+                        "manualBoost": 5,
+                        "dueAt": 1_700_000_000u64
+                    }
+                }),
+                task_id: None,
+            },
+        )
+    })
+    .unwrap();
+    assert_eq!(updated.state["scheduling"]["importance"], 60);
+    assert_eq!(updated.state["scheduling"]["urgency"], 10);
+    assert_eq!(updated.state["scheduling"]["manualBoost"], 5);
+    assert_eq!(updated.state["scheduling"]["dueAt"], 1_700_000_000u64);
+
+    let execution = QueryExecution::new(
+        host.clone(),
+        test_session(&host),
+        host.current_prism(),
+        host.begin_query_run(test_session(&host).as_ref(), "test", "test", "plans"),
+    );
+    let plans = execution.dispatch("plans", "{}").unwrap();
+    let plans = plans.as_array().unwrap();
+    assert_eq!(plans[0]["scheduling"]["importance"], 60);
 }
 
 #[test]

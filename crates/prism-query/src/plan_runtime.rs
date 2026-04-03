@@ -4,6 +4,7 @@ use anyhow::{anyhow, Result};
 use prism_coordination::{
     coordination_snapshot_from_plan_graphs, execution_overlays_from_tasks, snapshot_plan_graphs,
     AcceptanceCriterion, CoordinationPolicy, CoordinationSnapshot, CoordinationTask, Plan,
+    PlanScheduling,
 };
 use prism_ir::{
     new_prefixed_id, AgentId, AnchorRef, BlockerCause, BlockerCauseSource, CoordinationTaskId,
@@ -18,6 +19,7 @@ pub(crate) struct NativePlanRuntimeState {
     graphs: BTreeMap<String, PlanGraph>,
     execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     policies: BTreeMap<String, CoordinationPolicy>,
+    schedules: BTreeMap<String, PlanScheduling>,
     next_plan: u64,
     next_task: u64,
 }
@@ -40,8 +42,15 @@ impl NativePlanRuntimeState {
             .cloned()
             .map(|plan| (plan.id.0.to_string(), plan.policy))
             .collect::<BTreeMap<_, _>>();
+        let schedules = snapshot
+            .plans
+            .iter()
+            .cloned()
+            .map(|plan| (plan.id.0.to_string(), plan.scheduling))
+            .collect::<BTreeMap<_, _>>();
         let mut state = Self::from_graphs_and_overlays(graphs, execution_overlays);
         state.policies = policies;
+        state.schedules = schedules;
         state.next_plan = snapshot.next_plan;
         state.next_task = snapshot.next_task;
         state
@@ -63,6 +72,7 @@ impl NativePlanRuntimeState {
             graphs,
             execution_overlays,
             policies: BTreeMap::new(),
+            schedules: BTreeMap::new(),
             next_plan: 0,
             next_task: 0,
         }
@@ -96,6 +106,10 @@ impl NativePlanRuntimeState {
         self.policies.get(plan_id.0.as_str()).cloned()
     }
 
+    pub(crate) fn scheduling(&self, plan_id: &PlanId) -> Option<PlanScheduling> {
+        self.schedules.get(plan_id.0.as_str()).cloned()
+    }
+
     pub(crate) fn apply_to_coordination_snapshot(
         &self,
         mut snapshot: CoordinationSnapshot,
@@ -121,6 +135,9 @@ impl NativePlanRuntimeState {
         for plan in &mut plan_snapshot.plans {
             if let Some(policy) = self.policies.get(plan.id.0.as_str()) {
                 plan.policy = policy.clone();
+            }
+            if let Some(scheduling) = self.schedules.get(plan.id.0.as_str()) {
+                plan.scheduling = scheduling.clone();
             }
         }
         for task in &mut plan_snapshot.tasks {
@@ -206,6 +223,9 @@ impl NativePlanRuntimeState {
             if let Some(policy) = self.policies.get(plan.id.0.as_str()) {
                 plan.policy = policy.clone();
             }
+            if let Some(scheduling) = self.schedules.get(plan.id.0.as_str()) {
+                plan.scheduling = scheduling.clone();
+            }
         }
         snapshot
             .plans
@@ -258,6 +278,8 @@ impl NativePlanRuntimeState {
             }
             self.policies
                 .insert(plan.id.0.to_string(), plan.policy.clone());
+            self.schedules
+                .insert(plan.id.0.to_string(), plan.scheduling.clone());
         }
         self.next_plan = self.next_plan.max(snapshot.next_plan);
         self.next_task = self.next_task.max(snapshot.next_task);
@@ -299,6 +321,8 @@ impl NativePlanRuntimeState {
             .or_default();
         self.policies
             .insert(plan.id.0.to_string(), plan.policy.clone());
+        self.schedules
+            .insert(plan.id.0.to_string(), plan.scheduling.clone());
         Ok(plan.id.clone())
     }
 
@@ -323,6 +347,8 @@ impl NativePlanRuntimeState {
         graph.metadata = plan.metadata.clone();
         self.policies
             .insert(plan.id.0.to_string(), plan.policy.clone());
+        self.schedules
+            .insert(plan.id.0.to_string(), plan.scheduling.clone());
         Ok(())
     }
 

@@ -921,6 +921,9 @@ const __prismBase = Object.freeze({
   planNext(planId, limit) {
     return __prismHost("planNext", limit == null ? { planId } : { planId, limit });
   },
+  portfolioNext(limit) {
+    return __prismHost("portfolioNext", limit == null ? {} : { limit });
+  },
   task(taskId) {
     return __prismHost("coordinationTask", { taskId });
   },

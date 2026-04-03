@@ -25,8 +25,8 @@ use crate::state::CoordinationStore;
 use crate::types::{
     Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
     ClaimAcquireInput, CoordinationEvent, CoordinationTask, HandoffAcceptInput, HandoffInput, Plan,
-    PlanCreateInput, PlanUpdateInput, PolicyViolation, PolicyViolationCode, TaskCreateInput,
-    TaskReclaimInput, TaskResumeInput, TaskUpdateInput, WorkClaim,
+    PlanCreateInput, PlanScheduling, PlanUpdateInput, PolicyViolation, PolicyViolationCode,
+    TaskCreateInput, TaskReclaimInput, TaskResumeInput, TaskUpdateInput, WorkClaim,
 };
 
 fn push_patch_op(patch: &mut serde_json::Map<String, Value>, field: &str, op: &str) {
@@ -1150,6 +1150,7 @@ pub(crate) fn create_plan_mutation(
         scope: PlanScope::Repo,
         kind: PlanKind::TaskExecution,
         revision: 0,
+        scheduling: PlanScheduling::default(),
         tags: Vec::new(),
         created_from: None,
         metadata: Value::Null,
@@ -1322,6 +1323,67 @@ pub(crate) fn update_plan_mutation(
         artifact: None,
         review: None,
         metadata: Value::Object(metadata),
+    });
+    Ok(plan)
+}
+
+pub(crate) fn set_plan_scheduling_mutation(
+    state: &mut CoordinationState,
+    meta: EventMeta,
+    plan_id: PlanId,
+    scheduling: PlanScheduling,
+) -> Result<Plan> {
+    let previous = state
+        .plans
+        .get(&plan_id)
+        .cloned()
+        .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
+    if plan_status_is_closed(previous.status) {
+        let violations = vec![policy_violation(
+            PolicyViolationCode::TerminalPlanEdit,
+            format!(
+                "terminal coordination plan `{}` cannot be edited",
+                previous.id.0
+            ),
+            Some(previous.id.clone()),
+            None,
+            None,
+            None,
+            Value::Null,
+        )];
+        return Err(rejection_error(
+            state,
+            &meta,
+            "coordination plan update rejected",
+            Some(previous.id),
+            None,
+            None,
+            None,
+            violations,
+        ));
+    }
+    let plan = state.plans.get_mut(&plan_id).expect("plan validated above");
+    plan.scheduling = scheduling;
+    let plan = plan.clone();
+    let mut patch = serde_json::Map::new();
+    push_patch_op(&mut patch, "scheduling", "set");
+    let mut patch_values = serde_json::Map::new();
+    insert_serialized(&mut patch_values, "scheduling", plan.scheduling.clone());
+    state.events.push(CoordinationEvent {
+        meta,
+        kind: CoordinationEventKind::PlanUpdated,
+        summary: plan.goal.clone(),
+        plan: Some(plan.id.clone()),
+        task: None,
+        claim: None,
+        artifact: None,
+        review: None,
+        metadata: json!({
+            "status": format!("{:?}", plan.status),
+            "previousStatus": format!("{:?}", previous.status),
+            "patch": patch,
+            "patchValues": patch_values,
+        }),
     });
     Ok(plan)
 }
@@ -2911,6 +2973,19 @@ impl CoordinationStore {
             .write()
             .expect("coordination store lock poisoned");
         update_plan_mutation(&mut state, meta, input)
+    }
+
+    pub fn set_plan_scheduling(
+        &self,
+        meta: EventMeta,
+        plan_id: PlanId,
+        scheduling: PlanScheduling,
+    ) -> Result<Plan> {
+        let mut state = self
+            .state
+            .write()
+            .expect("coordination store lock poisoned");
+        set_plan_scheduling_mutation(&mut state, meta, plan_id, scheduling)
     }
 
     pub fn create_task(

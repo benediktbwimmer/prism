@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use prism_coordination::{
     Artifact, ArtifactProposeInput, CoordinationPolicy, CoordinationRuntimeState,
-    CoordinationSnapshot, CoordinationStore, HandoffInput, PlanCreateInput, TaskCompletionContext,
-    TaskCreateInput, TaskUpdateInput, WorkClaim,
+    CoordinationSnapshot, CoordinationStore, HandoffInput, Plan, PlanCreateInput, PlanScheduling,
+    TaskCompletionContext, TaskCreateInput, TaskUpdateInput, WorkClaim,
 };
 use prism_history::HistoryStore;
 use prism_ir::{
@@ -4095,6 +4095,187 @@ fn native_plan_next_prefers_actionable_nodes_that_unblock_more_follow_up_work() 
 }
 
 #[test]
+fn portfolio_next_ranks_actionable_nodes_across_active_plans() {
+    fn node(
+        plan_id: &PlanId,
+        node_id: &PlanNodeId,
+        title: &str,
+        status: PlanNodeStatus,
+        priority: Option<u8>,
+    ) -> PlanNode {
+        PlanNode {
+            id: node_id.clone(),
+            plan_id: plan_id.clone(),
+            kind: PlanNodeKind::Edit,
+            title: title.into(),
+            summary: None,
+            status,
+            bindings: prism_ir::PlanBinding::default(),
+            acceptance: Vec::new(),
+            validation_refs: Vec::new(),
+            is_abstract: false,
+            assignee: None,
+            base_revision: WorkspaceRevision::default(),
+            priority,
+            tags: Vec::new(),
+            metadata: serde_json::Value::Null,
+        }
+    }
+
+    fn edge(plan_id: &PlanId, from: &PlanNodeId, to: &PlanNodeId) -> PlanEdge {
+        PlanEdge {
+            id: PlanEdgeId::new(format!("{}:depends_on:{}", from.0, to.0)),
+            plan_id: plan_id.clone(),
+            from: from.clone(),
+            to: to.clone(),
+            kind: PlanEdgeKind::DependsOn,
+            summary: None,
+            metadata: serde_json::Value::Null,
+        }
+    }
+
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+
+    let portfolio_plan_id = PlanId::new("plan:portfolio");
+    let portfolio_hub = PlanNodeId::new("plan-node:portfolio-hub");
+    let portfolio_leaf = PlanNodeId::new("plan-node:portfolio-leaf");
+
+    let git_plan_id = PlanId::new("plan:git-policy");
+    let git_focus = PlanNodeId::new("plan-node:git-focus");
+
+    let plan_graphs = vec![
+        PlanGraph {
+            id: portfolio_plan_id.clone(),
+            scope: PlanScope::Repo,
+            kind: PlanKind::TaskExecution,
+            title: "Portfolio dispatch".into(),
+            goal: "Rank work across plans".into(),
+            status: PlanStatus::Active,
+            revision: 1,
+            root_nodes: vec![portfolio_hub.clone(), portfolio_leaf.clone()],
+            tags: Vec::new(),
+            created_from: None,
+            metadata: serde_json::Value::Null,
+            nodes: vec![
+                node(
+                    &portfolio_plan_id,
+                    &portfolio_hub,
+                    "Portfolio hub",
+                    PlanNodeStatus::Ready,
+                    Some(40),
+                ),
+                node(
+                    &portfolio_plan_id,
+                    &portfolio_leaf,
+                    "Portfolio leaf",
+                    PlanNodeStatus::Ready,
+                    Some(5),
+                ),
+            ],
+            edges: vec![edge(&portfolio_plan_id, &portfolio_leaf, &portfolio_hub)],
+        },
+        PlanGraph {
+            id: git_plan_id.clone(),
+            scope: PlanScope::Repo,
+            kind: PlanKind::TaskExecution,
+            title: "Git execution policy".into(),
+            goal: "Enforce workflow sync and publish gates".into(),
+            status: PlanStatus::Active,
+            revision: 1,
+            root_nodes: vec![git_focus.clone()],
+            tags: Vec::new(),
+            created_from: None,
+            metadata: serde_json::Value::Null,
+            nodes: vec![node(
+                &git_plan_id,
+                &git_focus,
+                "Git focus",
+                PlanNodeStatus::InProgress,
+                Some(10),
+            )],
+            edges: Vec::new(),
+        },
+    ];
+
+    let coordination_snapshot = CoordinationSnapshot {
+        plans: vec![
+            Plan {
+                id: portfolio_plan_id.clone(),
+                goal: "Rank work across plans".into(),
+                title: "Portfolio dispatch".into(),
+                status: PlanStatus::Active,
+                policy: CoordinationPolicy::default(),
+                scope: PlanScope::Repo,
+                kind: PlanKind::TaskExecution,
+                revision: 1,
+                scheduling: PlanScheduling {
+                    importance: 30,
+                    urgency: 20,
+                    manual_boost: 0,
+                    due_at: None,
+                },
+                tags: Vec::new(),
+                created_from: None,
+                metadata: serde_json::Value::Null,
+                root_tasks: Vec::new(),
+            },
+            Plan {
+                id: git_plan_id.clone(),
+                goal: "Enforce workflow sync and publish gates".into(),
+                title: "Git execution policy".into(),
+                status: PlanStatus::Active,
+                policy: CoordinationPolicy::default(),
+                scope: PlanScope::Repo,
+                kind: PlanKind::TaskExecution,
+                revision: 1,
+                scheduling: PlanScheduling::default(),
+                tags: Vec::new(),
+                created_from: None,
+                metadata: serde_json::Value::Null,
+                root_tasks: Vec::new(),
+            },
+        ],
+        ..coordination.snapshot()
+    };
+
+    let prism = Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+        graph,
+        history,
+        outcomes,
+        coordination_snapshot,
+        ProjectionIndex::default(),
+        plan_graphs,
+        BTreeMap::new(),
+    );
+
+    let next = prism.portfolio_next(3);
+    assert_eq!(next.len(), 3);
+    assert_eq!(next[0].node.id, portfolio_hub);
+    assert_eq!(next[0].node.plan_id, portfolio_plan_id);
+    assert!(next[0].actionable);
+    assert!(next[0]
+        .reasons
+        .iter()
+        .any(|reason| reason.contains("Plan importance: 30")));
+
+    assert_eq!(next[0].unblocks, vec![portfolio_leaf.clone()]);
+    assert_eq!(next[1].node.id, git_focus);
+    assert_eq!(next[1].node.plan_id, git_plan_id);
+    assert!(next[1]
+        .reasons
+        .iter()
+        .any(|reason| reason.contains("Already in progress")));
+
+    let plans = prism.plans(None, None, None);
+    assert_eq!(plans[0].plan_id, portfolio_plan_id);
+    assert_eq!(plans[0].scheduling.importance, 30);
+    assert_eq!(plans[1].plan_id, git_plan_id);
+}
+
+#[test]
 fn native_plan_node_completion_rejects_missing_review_and_acceptance_validation() {
     let graph = Graph::new();
     let history = HistoryStore::new();
@@ -4336,6 +4517,7 @@ fn plans_cache_invalidates_when_workspace_revision_changes() {
                 execution_context: None,
             },
             PlanCreateInput {
+                title: "Invalidate cached plan summaries on workspace revision changes".into(),
                 goal: "Invalidate cached plan summaries on workspace revision changes".into(),
                 status: None,
                 policy: Some(CoordinationPolicy {

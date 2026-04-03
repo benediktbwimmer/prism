@@ -61,6 +61,19 @@ pub struct CoordinationPolicy {
     pub lease_renewal_mode: LeaseRenewalMode,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanScheduling {
+    #[serde(default)]
+    pub importance: u8,
+    #[serde(default)]
+    pub urgency: u8,
+    #[serde(default)]
+    pub manual_boost: i16,
+    #[serde(default)]
+    pub due_at: Option<Timestamp>,
+}
+
 impl Default for CoordinationPolicy {
     fn default() -> Self {
         Self {
@@ -97,6 +110,8 @@ pub struct Plan {
     pub kind: PlanKind,
     #[serde(default)]
     pub revision: u64,
+    #[serde(default)]
+    pub scheduling: PlanScheduling,
     #[serde(default)]
     pub tags: Vec<String>,
     #[serde(default)]

@@ -2637,6 +2637,7 @@ fn snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata() 
         scope: prism_ir::PlanScope::Repo,
         kind: prism_ir::PlanKind::Migration,
         revision: 7,
+        scheduling: PlanScheduling::default(),
         tags: vec!["persistence".to_string(), "ux".to_string()],
         created_from: Some("concept://persistence_runtime".to_string()),
         metadata: serde_json::json!({ "source": "native-plan" }),

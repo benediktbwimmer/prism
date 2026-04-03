@@ -1276,6 +1276,20 @@ impl QueryExecution {
                             .collect::<Vec<_>>(),
                     )?)
                 }
+                "portfolioNext" => {
+                    let args: LimitArgs = serde_json::from_value(args)?;
+                    let limit = args
+                        .limit
+                        .unwrap_or(5)
+                        .min(self.session.limits().max_result_nodes.max(1));
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .portfolio_next(limit)
+                            .into_iter()
+                            .map(plan_node_recommendation_view)
+                            .collect::<Vec<_>>(),
+                    )?)
+                }
                 "coordinationTask" => {
                     let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
                     Ok(serde_json::to_value(

@@ -1587,6 +1587,7 @@ type PlanView = {
   scope: string;
   kind: string;
   revision: number;
+  scheduling: PlanSchedulingView;
   tags: string[];
   createdFrom?: string;
   rootNodeIds: string[];
@@ -1599,9 +1600,17 @@ type PlanListEntryView = {
   status: string;
   scope: string;
   kind: string;
+  scheduling: PlanSchedulingView;
   rootNodeIds: string[];
   summary: string;
   planSummary: PlanSummaryView;
+};
+
+type PlanSchedulingView = {
+  importance: number;
+  urgency: number;
+  manualBoost: number;
+  dueAt?: number;
 };
 
 type ValidationRefView = {

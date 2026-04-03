@@ -221,6 +221,7 @@ impl PrismMcpFeatures {
             | "planNodeBlockers"
             | "planSummary"
             | "planNext"
+            | "portfolioNext"
             | "coordinationTask"
             | "readyTasks"
             | "blockers"

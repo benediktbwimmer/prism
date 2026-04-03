@@ -1470,6 +1470,7 @@ pub struct PlanView {
     pub scope: PlanScope,
     pub kind: PlanKind,
     pub revision: u64,
+    pub scheduling: PlanSchedulingView,
     pub tags: Vec<String>,
     pub created_from: Option<String>,
     pub root_node_ids: Vec<String>,
@@ -1484,9 +1485,19 @@ pub struct PlanListEntryView {
     pub status: PlanStatus,
     pub scope: PlanScope,
     pub kind: PlanKind,
+    pub scheduling: PlanSchedulingView,
     pub root_node_ids: Vec<String>,
     pub summary: String,
     pub plan_summary: PlanSummaryView,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanSchedulingView {
+    pub importance: u8,
+    pub urgency: u8,
+    pub manual_boost: i16,
+    pub due_at: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

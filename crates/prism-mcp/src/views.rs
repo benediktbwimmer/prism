@@ -18,10 +18,11 @@ use prism_js::{
     CuratorProposalView, DriftCandidateView, EdgeView, MemoryEntryView, MemoryEventView,
     NodeIdView, PlanAcceptanceCriterionView, PlanBindingView, PlanEdgeView,
     PlanExecutionOverlayView, PlanGraphView, PlanListEntryView, PlanNodeBlockerView,
-    PlanNodeRecommendationView, PlanNodeView, PlanSummaryView, PlanView, PolicyViolationRecordView,
-    PolicyViolationView, ProjectionAuthorityPlaneView, ProjectionClassView, QueryDiagnostic,
-    ScoredMemoryView, TaskIntentView, TaskRiskView, TaskValidationRecipeView, ValidationCheckView,
-    ValidationRecipeView, ValidationRefView, WorkspaceRevisionView,
+    PlanNodeRecommendationView, PlanNodeView, PlanSchedulingView, PlanSummaryView, PlanView,
+    PolicyViolationRecordView, PolicyViolationView, ProjectionAuthorityPlaneView,
+    ProjectionClassView, QueryDiagnostic, ScoredMemoryView, TaskIntentView, TaskRiskView,
+    TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView, ValidationRefView,
+    WorkspaceRevisionView,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
 use prism_projections::{ProjectionAuthorityPlane, ProjectionClass};
@@ -1286,6 +1287,7 @@ pub(crate) fn plan_view(
         scope: value.scope,
         kind: value.kind,
         revision: value.revision,
+        scheduling: plan_scheduling_view(value.scheduling),
         tags: value.tags,
         created_from: value.created_from,
         root_node_ids: root_node_ids
@@ -1303,6 +1305,7 @@ pub(crate) fn plan_list_entry_view(value: PlanListEntry) -> PlanListEntryView {
         status: value.status,
         scope: value.scope,
         kind: value.kind,
+        scheduling: plan_scheduling_view(value.scheduling),
         root_node_ids: value
             .root_node_ids
             .into_iter()
@@ -1310,6 +1313,17 @@ pub(crate) fn plan_list_entry_view(value: PlanListEntry) -> PlanListEntryView {
             .collect(),
         summary: value.summary,
         plan_summary: plan_summary_view(value.plan_summary),
+    }
+}
+
+pub(crate) fn plan_scheduling_view(
+    value: prism_coordination::PlanScheduling,
+) -> PlanSchedulingView {
+    PlanSchedulingView {
+        importance: value.importance,
+        urgency: value.urgency,
+        manual_boost: value.manual_boost,
+        due_at: value.due_at,
     }
 }
 

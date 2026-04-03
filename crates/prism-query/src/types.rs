@@ -133,6 +133,7 @@ pub struct PlanListEntry {
     pub status: PlanStatus,
     pub scope: PlanScope,
     pub kind: PlanKind,
+    pub scheduling: prism_coordination::PlanScheduling,
     pub root_node_ids: Vec<PlanNodeId>,
     pub summary: String,
     pub plan_summary: PlanSummary,

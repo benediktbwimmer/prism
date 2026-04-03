@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use prism_agent::InferredEdgeScope;
-use prism_coordination::{AcceptanceCriterion, CoordinationPolicy};
+use prism_coordination::{AcceptanceCriterion, CoordinationPolicy, PlanScheduling};
 use prism_ir::{
     AcceptanceEvidencePolicy, AnchorRef, Capability, ClaimMode, CoordinationTaskStatus, EdgeKind,
     EventActor, LeaseRenewalMode, NodeId, NodeKind, PlanAcceptanceCriterion, PlanBinding,
@@ -21,8 +21,8 @@ use crate::{
     CapabilityInput, ClaimModeInput, CoordinationPolicyPayload, CoordinationTaskStatusInput,
     InferredEdgeScopeInput, LeaseRenewalModeInput, MemoryKindInput, MemorySourceInput, NodeIdInput,
     OutcomeEvidenceInput, OutcomeKindInput, OutcomeResultInput, PlanBindingPayload,
-    PlanEdgeKindInput, PlanNodeKindInput, PlanNodeStatusInput, PlanStatusInput, ReviewVerdictInput,
-    TaskCompletionContextPayload,
+    PlanEdgeKindInput, PlanNodeKindInput, PlanNodeStatusInput, PlanSchedulingPayload,
+    PlanStatusInput, ReviewVerdictInput, TaskCompletionContextPayload,
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -855,6 +855,26 @@ pub(crate) fn convert_policy(
         };
     }
     Ok(Some(policy))
+}
+
+pub(crate) fn convert_plan_scheduling(
+    payload: Option<PlanSchedulingPayload>,
+) -> Option<PlanScheduling> {
+    let payload = payload?;
+    let mut scheduling = PlanScheduling::default();
+    if let Some(value) = payload.importance {
+        scheduling.importance = value;
+    }
+    if let Some(value) = payload.urgency {
+        scheduling.urgency = value;
+    }
+    if let Some(value) = payload.manual_boost {
+        scheduling.manual_boost = value;
+    }
+    if let Some(value) = payload.due_at {
+        scheduling.due_at = Some(value);
+    }
+    Some(scheduling)
 }
 
 pub(crate) fn convert_acceptance(

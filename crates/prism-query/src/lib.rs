@@ -877,17 +877,40 @@ impl Prism {
         status: Option<prism_ir::PlanStatus>,
         policy: Option<prism_coordination::CoordinationPolicy>,
     ) -> Result<PlanId> {
+        self.create_native_plan_with_scheduling(meta, title, goal, status, policy, None)
+    }
+
+    pub fn create_native_plan_with_scheduling(
+        &self,
+        meta: EventMeta,
+        title: String,
+        goal: String,
+        status: Option<prism_ir::PlanStatus>,
+        policy: Option<prism_coordination::CoordinationPolicy>,
+        scheduling: Option<prism_coordination::PlanScheduling>,
+    ) -> Result<PlanId> {
         let (before_snapshot, snapshot, result) =
             self.mutate_live_coordination_runtime(|runtime| {
-                runtime.create_plan(
-                    meta,
+                let (plan_id, _plan) = runtime.create_plan(
+                    meta.clone(),
                     prism_coordination::PlanCreateInput {
                         title,
                         goal,
                         status,
                         policy,
                     },
-                )
+                )?;
+                if let Some(scheduling) = scheduling {
+                    runtime.set_plan_scheduling(
+                        derived_coordination_meta(&meta, "plan-scheduling"),
+                        plan_id.clone(),
+                        scheduling,
+                    )?;
+                }
+                let plan = runtime
+                    .plan(&plan_id)
+                    .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
+                Ok((plan_id, plan))
             });
         match result {
             Ok((plan_id, plan)) => self
@@ -912,18 +935,43 @@ impl Prism {
         goal: Option<String>,
         policy: Option<prism_coordination::CoordinationPolicy>,
     ) -> Result<()> {
+        self.update_native_plan_with_scheduling(meta, plan_id, title, status, goal, policy, None)
+    }
+
+    pub fn update_native_plan_with_scheduling(
+        &self,
+        meta: EventMeta,
+        plan_id: &PlanId,
+        title: Option<String>,
+        status: Option<prism_ir::PlanStatus>,
+        goal: Option<String>,
+        policy: Option<prism_coordination::CoordinationPolicy>,
+        scheduling: Option<prism_coordination::PlanScheduling>,
+    ) -> Result<()> {
         let (before_snapshot, snapshot, result) =
             self.mutate_live_coordination_runtime(|runtime| {
-                runtime.update_plan(
-                    meta,
-                    prism_coordination::PlanUpdateInput {
-                        plan_id: plan_id.clone(),
-                        title,
-                        goal,
-                        status,
-                        policy,
-                    },
-                )
+                if title.is_some() || status.is_some() || goal.is_some() || policy.is_some() {
+                    runtime.update_plan(
+                        meta.clone(),
+                        prism_coordination::PlanUpdateInput {
+                            plan_id: plan_id.clone(),
+                            title,
+                            goal,
+                            status,
+                            policy,
+                        },
+                    )?;
+                }
+                if let Some(scheduling) = scheduling {
+                    runtime.set_plan_scheduling(
+                        derived_coordination_meta(&meta, "plan-scheduling"),
+                        plan_id.clone(),
+                        scheduling,
+                    )?;
+                }
+                runtime
+                    .plan(plan_id)
+                    .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))
             });
         match result {
             Ok(plan) => self
@@ -1337,6 +1385,12 @@ impl Prism {
             .expect("projection lock poisoned")
             .concept_health(handle)
     }
+}
+
+fn derived_coordination_meta(meta: &EventMeta, suffix: &str) -> EventMeta {
+    let mut derived = meta.clone();
+    derived.id = prism_ir::EventId::new(format!("{}:{suffix}", meta.id.0));
+    derived
 }
 
 fn merge_lineage_events(hot: Vec<LineageEvent>, cold: Vec<LineageEvent>) -> Vec<LineageEvent> {

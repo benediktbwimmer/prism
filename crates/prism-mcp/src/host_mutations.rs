@@ -40,13 +40,13 @@ use crate::{
     convert_inferred_scope, convert_memory_kind, convert_memory_scope, convert_memory_source,
     convert_node_id, convert_outcome_evidence, convert_outcome_kind, convert_outcome_result,
     convert_plan_acceptance, convert_plan_binding, convert_plan_edge_kind, convert_plan_node_kind,
-    convert_plan_node_status, convert_plan_status, convert_policy, convert_review_verdict,
-    convert_validation_refs, coordination_task_view, curator_disposition_label,
-    curator_job_status_label, curator_memory_metadata, curator_proposal, curator_proposal_state,
-    curator_trigger_label, current_timestamp, ensure_repo_publication_metadata,
-    manual_memory_metadata, parse_edge_kind, plan_edge_view, plan_node_view, plan_view,
-    retire_repo_publication_metadata, task_journal_memory_metadata, ArtifactActionInput,
-    ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
+    convert_plan_node_status, convert_plan_scheduling, convert_plan_status, convert_policy,
+    convert_review_verdict, convert_validation_refs, coordination_task_view,
+    curator_disposition_label, curator_job_status_label, curator_memory_metadata, curator_proposal,
+    curator_proposal_state, curator_trigger_label, current_timestamp,
+    ensure_repo_publication_metadata, manual_memory_metadata, parse_edge_kind, plan_edge_view,
+    plan_node_view, plan_view, retire_repo_publication_metadata, task_journal_memory_metadata,
+    ArtifactActionInput, ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
     ArtifactSupersedePayload, CheckpointMutationResult, ClaimAcquirePayload, ClaimActionInput,
     ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload, ConceptMutationOperationInput,
     ConceptMutationResult, ConceptRelationKindInput, ConceptRelationMutationOperationInput,
@@ -2122,12 +2122,13 @@ impl QueryHost {
         match args.kind {
             CoordinationMutationKindInput::PlanCreate => {
                 let payload: crate::PlanCreatePayload = serde_json::from_value(args.payload)?;
-                let plan_id = prism.create_native_plan(
+                let plan_id = prism.create_native_plan_with_scheduling(
                     meta,
                     payload.title,
                     payload.goal,
                     payload.status.map(convert_plan_status),
                     convert_policy(payload.policy)?,
+                    convert_plan_scheduling(payload.scheduling),
                 )?;
                 let plan = prism
                     .coordination_plan(&plan_id)
@@ -2146,13 +2147,14 @@ impl QueryHost {
             CoordinationMutationKindInput::PlanUpdate => {
                 let payload: PlanUpdatePayload = serde_json::from_value(args.payload)?;
                 let plan_id = PlanId::new(payload.plan_id);
-                prism.update_native_plan(
+                prism.update_native_plan_with_scheduling(
                     meta,
                     &plan_id,
                     payload.title,
                     payload.status.map(convert_plan_status),
                     payload.goal,
                     convert_policy(payload.policy)?,
+                    convert_plan_scheduling(payload.scheduling),
                 )?;
                 let plan = prism
                     .coordination_plan(&plan_id)

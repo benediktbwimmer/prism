@@ -405,6 +405,12 @@ pub(crate) fn query_method_specs() -> Vec<(
             "Recommend the next plan nodes to advance based on the native plan runtime.",
         ),
         (
+            "portfolioNext",
+            "coordination",
+            Some("workflow"),
+            "Recommend the next actionable plan nodes across all active plans.",
+        ),
+        (
             "coordinationTask",
             "coordination",
             Some("workflow"),

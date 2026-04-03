@@ -55,39 +55,64 @@ impl Prism {
             return entries;
         }
 
-        let mut plans = self
+        let mut plans: Vec<(PlanListEntry, Option<f32>, bool)> = self
             .hydrated_plan_graphs_for_runtime(runtime)
             .into_iter()
             .filter_map(|graph| {
-                let summary = self.plan_summary_for_hydrated_graph(runtime, &graph);
-                Some(PlanListEntry {
-                    plan_id: graph.id.clone(),
-                    title: graph.title,
-                    goal: graph.goal,
-                    status: graph.status,
-                    scope: graph.scope,
-                    kind: graph.kind,
-                    root_node_ids: graph.root_nodes,
-                    summary: plan_discovery_summary(&summary),
-                    plan_summary: summary,
-                })
+                let summary = self.plan_summary_for_runtime(runtime, &graph.id)?;
+                let top_recommendation = self
+                    .plan_next_for_runtime(runtime, &graph.id, 1)
+                    .into_iter()
+                    .next();
+                Some((
+                    PlanListEntry {
+                        plan_id: graph.id.clone(),
+                        title: graph.title,
+                        goal: graph.goal,
+                        status: graph.status,
+                        scope: graph.scope,
+                        kind: graph.kind,
+                        scheduling: runtime.scheduling(&graph.id).unwrap_or_default(),
+                        root_node_ids: graph.root_nodes,
+                        summary: plan_discovery_summary(&summary),
+                        plan_summary: summary,
+                    },
+                    top_recommendation
+                        .as_ref()
+                        .map(|recommendation| recommendation.score),
+                    top_recommendation
+                        .as_ref()
+                        .is_some_and(|recommendation| recommendation.actionable),
+                ))
             })
             .collect::<Vec<_>>();
 
         plans.sort_by(|left, right| {
-            plan_status_rank(left.status)
-                .cmp(&plan_status_rank(right.status))
+            let (left_entry, left_score, left_actionable) = left;
+            let (right_entry, right_score, right_actionable) = right;
+            plan_status_rank(left_entry.status)
+                .cmp(&plan_status_rank(right_entry.status))
+                .then_with(|| right_actionable.cmp(left_actionable))
                 .then_with(|| {
-                    right
+                    right_score
+                        .partial_cmp(left_score)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .then_with(|| {
+                    right_entry
                         .plan_summary
                         .actionable_nodes
-                        .cmp(&left.plan_summary.actionable_nodes)
+                        .cmp(&left_entry.plan_summary.actionable_nodes)
                 })
-                .then_with(|| left.title.cmp(&right.title))
-                .then_with(|| left.plan_id.0.cmp(&right.plan_id.0))
+                .then_with(|| left_entry.title.cmp(&right_entry.title))
+                .then_with(|| left_entry.plan_id.0.cmp(&right_entry.plan_id.0))
         });
-        self.store_plan_entries_cache(&plans);
-        filter_plan_entries(&plans, status, scope, contains.as_deref())
+        let entries = plans
+            .into_iter()
+            .map(|(entry, _, _)| entry)
+            .collect::<Vec<_>>();
+        self.store_plan_entries_cache(&entries);
+        filter_plan_entries(&entries, status, scope, contains.as_deref())
     }
 
     fn cached_plan_entries(
