@@ -8,14 +8,14 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:b72b1fe406da62be8e26139afa2ff706a78a2b9563d08d77c646d62c6f847b7f`
+- Source head: `sha256:abd37b3e05a206ca845beb191e18e008a8c6be901fe6465e15becde349f1b89b`
 - Source logical timestamp: `unknown`
 - Source snapshot: `1 nodes, 0 edges, 1 overlays`
 
 ## Overview
 
 - Plan id: `plan:01kna4g4q0xn8znaa7bn7s6vq0`
-- Status: `active`
+- Status: `completed`
 - Kind: `task_execution`
 - Scope: `repo`
 - Revision: `0`
@@ -60,8 +60,7 @@ No published plan edges are currently recorded.
 ## Execution Overlays
 
 - Node: `coord-task:01kna4g9fyxzpyykde9s9z1m1d`
-  git execution status: `publish_pending`
-  pending task status: `completed`
+  git execution status: `published`
   source ref: `task/remove-legacy-prism-logs`
   target ref: `origin/main`
   publish ref: `task/remove-legacy-prism-logs`
