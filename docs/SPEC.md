@@ -136,7 +136,7 @@ PRISM separates authority from interface-layer read models.
 
 Authority planes:
 
-* published repo authority: repo-scoped signed snapshot state under `.prism/**/*`
+* published repo authority: repo-scoped signed snapshot state under `.prism/state/**/*` plus the tracked publish manifest
 * shared runtime authority: mutable runtime-scoped truth such as trust state, coordination
   continuity, leases, unpublished working state, and fine-grained operational journals
 * derived projection state: read-optimized indexes, packets, summaries, caches, and generated
@@ -169,12 +169,14 @@ Rules for tracked `.prism`:
 * fine-grained append-only operational history belongs in runtime/shared journals, not in tracked
   repo state
 * signed publish manifests define the durable publication boundary for tracked `.prism`
+* legacy tracked `.jsonl` logs are migration artifacts only and must not remain authoritative in the steady state
 
 Protected-state runtime import rule:
 
-* repo-published `.prism` streams are imported into live runtime state only by bootstrap or a
-  dedicated protected-state sync mechanism
-* normal read paths must not opportunistically import `.prism` streams as per-domain exceptions
+* repo-published `.prism/state` snapshot shards and manifests are imported into live runtime state
+  only by bootstrap or a dedicated protected-state sync mechanism
+* normal read paths must not opportunistically import legacy `.jsonl` repo logs or snapshot files
+  as per-domain exceptions
 * the normal source watcher intentionally ignores `.prism`; protected-state imports belong to a
   separate watcher or sync path so repo-published state does not masquerade as source indexing work
 
