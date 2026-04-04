@@ -3851,7 +3851,7 @@ impl QueryHost {
                 "desiredStatus": format!("{desired_status:?}"),
                 "taskId": task_ref.0.as_str(),
             }),
-            true,
+            false,
             move |prism, meta| {
                 prism.update_native_task_authoritative_only(
                     meta,

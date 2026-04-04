@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
@@ -12,6 +13,7 @@ use crate::WorkspaceRefreshMetrics;
 use crate::{current_timestamp, PrismMcpCli, PrismMcpFeatures, PrismMcpMode};
 
 const MAX_RUNTIME_EVENTS: usize = 200;
+static RUNTIME_STATE_TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub(crate) struct RuntimeState {
@@ -406,7 +408,13 @@ fn runtime_state_temp_path(path: &Path) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_nanos())
         .unwrap_or(0);
-    path.with_extension(format!("json.{}.{}.tmp", std::process::id(), nonce))
+    let counter = RUNTIME_STATE_TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+    path.with_extension(format!(
+        "json.{}.{}.{}.tmp",
+        std::process::id(),
+        nonce,
+        counter
+    ))
 }
 
 fn push_event(

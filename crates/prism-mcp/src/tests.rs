@@ -1125,6 +1125,15 @@ fn git_execution_completion_trace_records_subphases_without_ui_publish() {
     assert!(operations.contains(
         &"mutation.gitExecution.recordPublishIntentStep.publishedPlans.syncSharedCoordinationRef"
     ));
+    assert!(trace
+        .phases
+        .iter()
+        .find(|phase| {
+            phase.operation
+                == "mutation.gitExecution.recordPublishIntentStep.scheduleMaterialization"
+        })
+        .and_then(|phase| phase.args_summary.as_ref())
+        .is_some_and(|args| args["suppressed"] == Value::Bool(true)));
     assert!(operations.contains(&"mutation.gitExecution.pushBranch"));
     assert!(operations.contains(&"mutation.gitExecution.recordAuthoritativeState"));
     assert!(operations.contains(&"mutation.gitExecution.recordAuthoritativeStateStep"));
