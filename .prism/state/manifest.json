@@ -1,22 +1,21 @@
 {
   "version": 1,
-  "publishedAt": 1775336490,
+  "publishedAt": 1775339189,
   "publisher": {
     "principalAuthorityId": "local-daemon",
-    "principalId": "principal:codex-shared-coordination-refs-gaps-2026-04-04:01knaqj9pv4p1vc9tfw82zvp6y",
-    "credentialId": "credential:01knaqj9pv0vx0h59cvge430j7"
+    "principalId": "principal:codex:01kn3xe812hzt1t0mxz2vsp4ds",
+    "credentialId": "credential:01kn3xe812gb7a5d5qgs1wwpez"
   },
   "workContext": {
-    "workId": "work:repair-shared-refs-plan-doc-closure-task-lease:01knd47tt9ba6t1hdcahfqas5z",
-    "kind": "ad_hoc",
-    "title": "Repair shared refs plan doc closure task lease",
-    "summary": "Repair stale task lease so the final shared coordination refs documentation node can be completed.",
-    "planId": "plan:01knav51cj8vgw0zp49qgktzps",
-    "planTitle": "Finish PRISM shared coordination refs end to end"
+    "workId": "coord-task:01knd319a34rh7yyev47j51gh7",
+    "kind": "coordination",
+    "title": "Implement the strategic plans portfolio and dependency graph read models with filters and sorting",
+    "coordinationTaskId": "coord-task:01knd319a34rh7yyev47j51gh7",
+    "planId": "plan:01knd2zj2hgp4qs7qzfc7rxdgg",
+    "planTitle": "Implement the operator console backend and bundled UI delivery"
   },
   "publishSummary": {
-    "title": "Repair shared refs plan doc closure task lease",
-    "summary": "Repair stale task lease so the final shared coordination refs documentation node can be completed."
+    "title": "Implement the strategic plans portfolio and dependency graph read models with filters and sorting"
   },
   "files": {
     ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json": {
@@ -37,7 +36,7 @@
     },
     ".prism/state/indexes/coordination_materialization.json": {
       "path": ".prism/state/indexes/coordination_materialization.json",
-      "sha256": "sha256:09d194c3bd48eeb0d906fc1f5bd072014bb09cdd237afbe140c7081720b45bb8"
+      "sha256": "sha256:b9a1e204802aae748ad0ab2175631e2a1fbe4e51584d8dde29482a668fb04690"
     },
     ".prism/state/indexes/memory.json": {
       "path": ".prism/state/indexes/memory.json",
@@ -52,12 +51,12 @@
       "sha256": "sha256:f77575ce54b660ea0c89621e1b65dc8e3f57f58533e2c5ddc0c7ad5ced01ef0d"
     }
   },
-  "previousManifestDigest": "sha256:d2d6fd8c3cd6b63b5f8674b37eb20a1a4db73f52df28440fd57ed6f89fe15793",
+  "previousManifestDigest": "sha256:6845a027521e9c9f6f2c78e245e494764142f318fd910098613c2777af268559",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:I7AzKQYEMoCtUMcNjzX0SqVhfme7tp0fynBL+slP7PlZb2gnRVXqxLLOOh8c2sni/xDe8GevbcT0VLJncjyNAQ=="
+    "value": "base64:s39tQjOOvZXXB7lOTCXBy5TClETSeJpN3ZNeW10ELltFg+07hqEyk8xdU5OSltq6NnbB+Lv8cuMAZkzjkZD4CQ=="
   }
 }
