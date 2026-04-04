@@ -88,6 +88,7 @@ pub fn execution_overlays_from_tasks(tasks: &[CoordinationTask]) -> Vec<PlanExec
                             .clone(),
                         review_artifact_ref: task.git_execution.review_artifact_ref.clone(),
                         integration_commit: task.git_execution.integration_commit.clone(),
+                        integration_evidence: task.git_execution.integration_evidence.clone(),
                         integration_mode: task.git_execution.integration_mode,
                         integration_status: task.git_execution.integration_status,
                     });
@@ -271,6 +272,7 @@ fn task_from_plan_node(
             target_commit_at_publish: overlay.target_commit_at_publish,
             review_artifact_ref: overlay.review_artifact_ref,
             integration_commit: overlay.integration_commit,
+            integration_evidence: overlay.integration_evidence,
             integration_mode: overlay.integration_mode,
             integration_status: overlay.integration_status,
             last_preflight: None,

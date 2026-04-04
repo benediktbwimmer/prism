@@ -105,30 +105,5 @@
     ],
     "edges": []
   },
-  "executionOverlays": [
-    {
-      "node_id": "coord-task:01knaqpp6mxkybk88n72frrq4p",
-      "pending_handoff_to": null,
-      "session": "session:01knaqn8dn48pczz5e1jzg2tzt",
-      "worktree_id": "worktree:38d65972b1359401",
-      "branch_ref": "refs/heads/task/shared-coordination-refs-gaps",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/shared-coordination-refs-gaps",
-        "targetRef": "origin/main",
-        "publishRef": "task/shared-coordination-refs-gaps",
-        "targetBranch": "main",
-        "sourceCommit": "e40147d4bbe0c78eca96b36bd9080c52b0871502",
-        "publishCommit": "7f951e630ea607454a10ec7575ae4b652b49f4ea",
-        "targetCommitAtPublish": "fe83a17a87055d6e904807dc298426f416db5da8",
-        "reviewArtifactRef": null,
-        "integrationCommit": "39256ebf694e8cade13757d894d4a4c602c60084",
-        "integrationMode": "external",
-        "integrationStatus": "integrated_to_target"
-      }
-    }
-  ]
+  "executionOverlays": []
 }

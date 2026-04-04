@@ -141,7 +141,7 @@
         "kind": "Edit",
         "title": "Validate local-machine peer observability, capability denial, and graceful fallback with no peer",
         "summary": null,
-        "status": "InProgress",
+        "status": "Completed",
         "bindings": {
           "anchors": [],
           "concept_handles": [],
@@ -192,102 +192,5 @@
       }
     ]
   },
-  "executionOverlays": [
-    {
-      "node_id": "coord-task:01kna8tgf7s523e5edfv0gc0v9",
-      "pending_handoff_to": null,
-      "session": "session:01kna8scypb498f69mxt571365",
-      "worktree_id": "worktree:5820c89d186523db",
-      "branch_ref": "refs/heads/task/shared-refs-federated-runtime-planning",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/federated-runtime-implementation",
-        "targetRef": "origin/main",
-        "publishRef": "task/federated-runtime-implementation",
-        "targetBranch": "main",
-        "sourceCommit": null,
-        "publishCommit": null,
-        "targetCommitAtPublish": null,
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "not_started"
-      }
-    },
-    {
-      "node_id": "coord-task:01kna8tv5khkd6ypdg9q6dfs87",
-      "pending_handoff_to": null,
-      "session": "session:01kna8scypb498f69mxt571365",
-      "worktree_id": "worktree:5820c89d186523db",
-      "branch_ref": "refs/heads/task/shared-refs-federated-runtime-planning",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/federated-runtime-implementation",
-        "targetRef": "origin/main",
-        "publishRef": "task/federated-runtime-implementation",
-        "targetBranch": "main",
-        "sourceCommit": null,
-        "publishCommit": null,
-        "targetCommitAtPublish": null,
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "not_started"
-      }
-    },
-    {
-      "node_id": "coord-task:01kna8v02c0p53pdfckcyq0vaw",
-      "pending_handoff_to": null,
-      "session": "session:01kna8scypb498f69mxt571365",
-      "worktree_id": "worktree:5820c89d186523db",
-      "branch_ref": "refs/heads/task/shared-refs-federated-runtime-planning",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/federated-runtime-implementation",
-        "targetRef": "origin/main",
-        "publishRef": "task/federated-runtime-implementation",
-        "targetBranch": "main",
-        "sourceCommit": "6e9ff9dea125a74d8261f87d7e5dad70cf776d64",
-        "publishCommit": "62818f267deb1ae0e70eaa00a28a447dfe531d74",
-        "targetCommitAtPublish": "2d50caeaa9447eca7bc3c2bc54fce93c8ce4532b",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "published_to_branch"
-      }
-    },
-    {
-      "node_id": "coord-task:01kna8v52e247h2xymfv8ksdb0",
-      "pending_handoff_to": null,
-      "session": "session:01kna8scypb498f69mxt571365",
-      "worktree_id": "worktree:5820c89d186523db",
-      "branch_ref": "refs/heads/task/shared-refs-federated-runtime-planning",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "in_progress",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/federated-runtime-implementation",
-        "targetRef": "origin/main",
-        "publishRef": "task/federated-runtime-implementation",
-        "targetBranch": "main",
-        "sourceCommit": "8e47e7dc2013b9203aba9d7fe414050fe5e05468",
-        "publishCommit": null,
-        "targetCommitAtPublish": "6a64dbf883cf97b0c1e32fa4927c9d6b4bd50310",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "not_started"
-      }
-    }
-  ]
+  "executionOverlays": []
 }

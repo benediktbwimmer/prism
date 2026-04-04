@@ -337,19 +337,19 @@
         "metadata": null
       },
       {
-        "id": "plan-edge:coord-task:01knb0nbyyzqs1bs768mxfmmvq:depends-on:coord-task:01knb0hdvk3pmkwcjkq0zzjgmq",
+        "id": "plan-edge:coord-task:01knb0k8skvp53g3hswbh5tyf2:depends-on:coord-task:01knb0nbyyzqs1bs768mxfmmvq",
         "plan_id": "plan:01knb0f1xztpmmbjjzetw9xbwg",
-        "from": "coord-task:01knb0nbyyzqs1bs768mxfmmvq",
-        "to": "coord-task:01knb0hdvk3pmkwcjkq0zzjgmq",
+        "from": "coord-task:01knb0k8skvp53g3hswbh5tyf2",
+        "to": "coord-task:01knb0nbyyzqs1bs768mxfmmvq",
         "kind": "DependsOn",
         "summary": null,
         "metadata": null
       },
       {
-        "id": "plan-edge:coord-task:01knb0k8skvp53g3hswbh5tyf2:depends-on:coord-task:01knb0nbyyzqs1bs768mxfmmvq",
+        "id": "plan-edge:coord-task:01knb0nbyyzqs1bs768mxfmmvq:depends-on:coord-task:01knb0hdvk3pmkwcjkq0zzjgmq",
         "plan_id": "plan:01knb0f1xztpmmbjjzetw9xbwg",
-        "from": "coord-task:01knb0k8skvp53g3hswbh5tyf2",
-        "to": "coord-task:01knb0nbyyzqs1bs768mxfmmvq",
+        "from": "coord-task:01knb0nbyyzqs1bs768mxfmmvq",
+        "to": "coord-task:01knb0hdvk3pmkwcjkq0zzjgmq",
         "kind": "DependsOn",
         "summary": null,
         "metadata": null
@@ -374,150 +374,5 @@
       }
     ]
   },
-  "executionOverlays": [
-    {
-      "node_id": "coord-task:01knb0g511dtavrvd5ban1x6jq",
-      "pending_handoff_to": null,
-      "session": null,
-      "worktree_id": null,
-      "branch_ref": null,
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/startup-materialized-snapshot",
-        "targetRef": "origin/main",
-        "publishRef": "task/startup-materialized-snapshot",
-        "targetBranch": "main",
-        "sourceCommit": "3757e4d53f66780352bc216056ef47f6c11c6447",
-        "publishCommit": "9f3c6f2fe1b68dee87dd1baa10e114c6f3184f8f",
-        "targetCommitAtPublish": "7fd6c92ccce62c9003d39337f0f07ad77f7b21e9",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "published_to_branch"
-      }
-    },
-    {
-      "node_id": "coord-task:01knb0hdvk3pmkwcjkq0zzjgmq",
-      "pending_handoff_to": null,
-      "session": null,
-      "worktree_id": null,
-      "branch_ref": null,
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/startup-materialized-snapshot",
-        "targetRef": "origin/main",
-        "publishRef": "task/startup-materialized-snapshot",
-        "targetBranch": "main",
-        "sourceCommit": "a1a0a4909e4ff441feb54338360f86d24584172e",
-        "publishCommit": "99a99599f1b5c77fd98626c780c985a805fe002a",
-        "targetCommitAtPublish": "7fd6c92ccce62c9003d39337f0f07ad77f7b21e9",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "published_to_branch"
-      }
-    },
-    {
-      "node_id": "coord-task:01knb0hxhtfxwqc1nm64dzjckx",
-      "pending_handoff_to": null,
-      "session": null,
-      "worktree_id": null,
-      "branch_ref": null,
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/startup-materialized-snapshot",
-        "targetRef": "origin/main",
-        "publishRef": "task/startup-materialized-snapshot",
-        "targetBranch": "main",
-        "sourceCommit": "509129cd368c84bc08199254bf19bf796bcbb04c",
-        "publishCommit": "187db8ef22320b9a5c18b80811c6838081286be5",
-        "targetCommitAtPublish": "3eb71291101017833779e0e7e0e3450573efd5af",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "published_to_branch"
-      }
-    },
-    {
-      "node_id": "coord-task:01knb0k8skvp53g3hswbh5tyf2",
-      "pending_handoff_to": null,
-      "session": null,
-      "worktree_id": null,
-      "branch_ref": null,
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/startup-materialized-snapshot",
-        "targetRef": "origin/main",
-        "publishRef": "task/startup-materialized-snapshot",
-        "targetBranch": "main",
-        "sourceCommit": "aa56119202e6973d7ca0878d25ae05e5cc4910de",
-        "publishCommit": "3acbe9d01d4805d4ab8faf40e0ac57ecc5209892",
-        "targetCommitAtPublish": "3eb71291101017833779e0e7e0e3450573efd5af",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "published_to_branch"
-      }
-    },
-    {
-      "node_id": "coord-task:01knb0nbyyzqs1bs768mxfmmvq",
-      "pending_handoff_to": null,
-      "session": null,
-      "worktree_id": null,
-      "branch_ref": null,
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/startup-materialized-snapshot",
-        "targetRef": "origin/main",
-        "publishRef": "task/startup-materialized-snapshot",
-        "targetBranch": "main",
-        "sourceCommit": "5f6efd9779cc5af62983247137447254f76e0557",
-        "publishCommit": "b9f4bb020b344de448924ebca4fccce608b4139a",
-        "targetCommitAtPublish": "3eb71291101017833779e0e7e0e3450573efd5af",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "published_to_branch"
-      }
-    },
-    {
-      "node_id": "coord-task:01knb0nvvkchbygemh7gxc9b6a",
-      "pending_handoff_to": null,
-      "session": null,
-      "worktree_id": null,
-      "branch_ref": null,
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/startup-materialized-snapshot",
-        "targetRef": "origin/main",
-        "publishRef": "task/startup-materialized-snapshot",
-        "targetBranch": "main",
-        "sourceCommit": "e96d012d210d73d4b0b2d0c7c7a619ea00ec4f26",
-        "publishCommit": "5ed0e7871c366a52b53a50ab7b86c1a734613c94",
-        "targetCommitAtPublish": "3eb71291101017833779e0e7e0e3450573efd5af",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "published_to_branch"
-      }
-    }
-  ]
+  "executionOverlays": []
 }

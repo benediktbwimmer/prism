@@ -414,6 +414,145 @@ fn expired_claim_can_be_renewed_by_same_principal() {
 }
 
 #[test]
+fn claim_renewal_before_due_without_extension_is_noop() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            principal_meta("event:plan", 1, "local", "agent:a", "session:a"),
+            PlanCreateInput {
+                title: "Skip early claim renewals".to_string(),
+                goal: "Skip early claim renewals".to_string(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, task) = store
+        .create_task(
+            principal_meta("event:task", 2, "local", "agent:a", "session:a"),
+            TaskCreateInput {
+                plan_id,
+                title: "Hold edit claim".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+    let (claim_id, _, acquired) = store
+        .acquire_claim(
+            principal_meta("event:claim", 3, "local", "agent:a", "session:a"),
+            prism_ir::SessionId::new("session:a"),
+            ClaimAcquireInput {
+                task_id: Some(task_id),
+                anchors: task.anchors.clone(),
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::HardExclusive),
+                ttl_seconds: None,
+                base_revision: revision(),
+                current_revision: revision(),
+                agent: Some(prism_ir::AgentId::new("agent:a")),
+                worktree_id: None,
+                branch_ref: None,
+            },
+        )
+        .unwrap();
+    let acquired = acquired.expect("claim should be created");
+    let event_count = store.events().len();
+
+    let renewed = store
+        .renew_claim(
+            principal_meta("event:renew", 4, "local", "agent:a", "session:a"),
+            &prism_ir::SessionId::new("session:a"),
+            &claim_id.expect("claim id"),
+            None,
+            "explicit",
+        )
+        .unwrap();
+
+    assert_eq!(renewed.refreshed_at, acquired.refreshed_at);
+    assert_eq!(renewed.stale_at, acquired.stale_at);
+    assert_eq!(renewed.expires_at, acquired.expires_at);
+    assert_eq!(store.events().len(), event_count);
+}
+
+#[test]
+fn claim_renewal_with_meaningful_ttl_extension_still_persists() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            principal_meta("event:plan", 1, "local", "agent:a", "session:a"),
+            PlanCreateInput {
+                title: "Extend claim lease".to_string(),
+                goal: "Extend claim lease".to_string(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, task) = store
+        .create_task(
+            principal_meta("event:task", 2, "local", "agent:a", "session:a"),
+            TaskCreateInput {
+                plan_id,
+                title: "Hold edit claim".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+    let (claim_id, _, acquired) = store
+        .acquire_claim(
+            principal_meta("event:claim", 3, "local", "agent:a", "session:a"),
+            prism_ir::SessionId::new("session:a"),
+            ClaimAcquireInput {
+                task_id: Some(task_id),
+                anchors: task.anchors.clone(),
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::HardExclusive),
+                ttl_seconds: Some(60),
+                base_revision: revision(),
+                current_revision: revision(),
+                agent: Some(prism_ir::AgentId::new("agent:a")),
+                worktree_id: None,
+                branch_ref: None,
+            },
+        )
+        .unwrap();
+    let acquired = acquired.expect("claim should be created");
+
+    let renewed = store
+        .renew_claim(
+            principal_meta("event:renew", 4, "local", "agent:a", "session:a"),
+            &prism_ir::SessionId::new("session:a"),
+            &claim_id.expect("claim id"),
+            Some(120),
+            "explicit",
+        )
+        .unwrap();
+
+    assert_eq!(renewed.refreshed_at, Some(4));
+    assert!(renewed.stale_at > acquired.stale_at);
+    assert!(renewed.expires_at > acquired.expires_at);
+    let event = store.events().last().unwrap().clone();
+    assert_eq!(event.kind, prism_ir::CoordinationEventKind::ClaimRenewed);
+    assert_eq!(event.metadata["renewalProvenance"], "explicit");
+}
+
+#[test]
 fn stale_claim_no_longer_blocks_new_acquire() {
     let store = CoordinationStore::new();
     let (plan_id, _) = store
@@ -1214,6 +1353,7 @@ fn validation_policy_requires_approved_artifact_checks() {
                     completion_context: Some(TaskCompletionContext {
                         risk_score: Some(0.4),
                         required_validations: vec!["test:main_integration".to_string()],
+                        ..TaskCompletionContext::default()
                     }),
                 },
                 prism_ir::WorkspaceRevision {
@@ -1294,6 +1434,7 @@ fn risk_threshold_requires_review_before_completion() {
                 completion_context: Some(TaskCompletionContext {
                     risk_score: Some(0.8),
                     required_validations: Vec::new(),
+                    ..TaskCompletionContext::default()
                 }),
             },
             prism_ir::WorkspaceRevision {
@@ -3473,18 +3614,66 @@ fn heartbeat_task_refreshes_active_lease_for_same_principal() {
 
     let heartbeated = store
         .heartbeat_task(
-            principal_meta("event:heartbeat", 100, "local", "agent:a", "session:a"),
+            principal_meta("event:heartbeat", 1700, "local", "agent:a", "session:a"),
             &task_id,
             "explicit",
         )
         .unwrap();
 
-    assert_eq!(heartbeated.lease_refreshed_at, Some(100));
+    assert_eq!(heartbeated.lease_refreshed_at, Some(1700));
     assert!(heartbeated.lease_stale_at > original.lease_stale_at);
     let event = store.events().last().unwrap().clone();
     assert_eq!(event.kind, prism_ir::CoordinationEventKind::TaskHeartbeated);
     assert_eq!(event.metadata["renewalProvenance"], "explicit");
     assert_eq!(event.metadata["leaseRenewalMode"], "strict");
+}
+
+#[test]
+fn heartbeat_task_before_due_is_noop() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            principal_meta("event:plan", 1, "local", "agent:a", "session:a"),
+            PlanCreateInput {
+                title: "Skip early task heartbeat".to_string(),
+                goal: "Skip early task heartbeat".to_string(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, original) = store
+        .create_task(
+            principal_meta("event:task", 2, "local", "agent:a", "session:a"),
+            TaskCreateInput {
+                plan_id,
+                title: "Edit alpha".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+    let event_count = store.events().len();
+
+    let heartbeated = store
+        .heartbeat_task(
+            principal_meta("event:heartbeat", 50, "local", "agent:a", "session:a"),
+            &task_id,
+            "explicit",
+        )
+        .unwrap();
+
+    assert_eq!(heartbeated.lease_refreshed_at, original.lease_refreshed_at);
+    assert_eq!(heartbeated.lease_stale_at, original.lease_stale_at);
+    assert_eq!(heartbeated.lease_expires_at, original.lease_expires_at);
+    assert_eq!(store.events().len(), event_count);
 }
 
 #[test]

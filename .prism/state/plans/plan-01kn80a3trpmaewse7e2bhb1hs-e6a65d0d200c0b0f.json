@@ -336,13 +336,13 @@
             "label": "Tests cover bootstrap hydration, live upstream merge, and uniform import behavior across all protected stream classes.",
             "anchors": [],
             "required_checks": [],
-            "evidence_policy": "ValidationOnly"
+            "evidence_policy": "Any"
           },
           {
             "label": "Tests prove read paths no longer special-case memory and that self-write suppression plus missed-event recovery behave correctly.",
             "anchors": [],
             "required_checks": [],
-            "evidence_policy": "ValidationOnly"
+            "evidence_policy": "Any"
           }
         ],
         "validation_refs": [],

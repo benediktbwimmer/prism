@@ -1393,6 +1393,7 @@ fn git_execution_overlay_view(value: prism_ir::GitExecutionOverlay) -> GitExecut
         target_commit_at_publish: value.target_commit_at_publish,
         review_artifact_ref: value.review_artifact_ref,
         integration_commit: value.integration_commit,
+        integration_evidence: value.integration_evidence,
         integration_mode: value.integration_mode,
         integration_status: value.integration_status,
     }
@@ -1674,13 +1675,14 @@ pub(crate) fn plan_edge_view(value: prism_ir::PlanEdge) -> PlanEdgeView {
 pub(crate) fn coordination_task_view(
     value: prism_coordination::CoordinationTask,
 ) -> CoordinationTaskView {
+    let effective_status = effective_coordination_task_status(&value);
     CoordinationTaskView {
         id: value.id.0.to_string(),
         plan_id: value.plan.0.to_string(),
         kind: value.kind,
         title: value.title,
         summary: value.summary,
-        status: value.status,
+        status: effective_status,
         published_task_status: value.published_task_status,
         assignee: value.assignee.map(|agent| agent.0.to_string()),
         pending_handoff_to: value.pending_handoff_to.map(|agent| agent.0.to_string()),
@@ -1712,6 +1714,7 @@ pub(crate) fn coordination_task_view(
             target_commit_at_publish: value.git_execution.target_commit_at_publish,
             review_artifact_ref: value.git_execution.review_artifact_ref,
             integration_commit: value.git_execution.integration_commit,
+            integration_evidence: value.git_execution.integration_evidence,
             integration_mode: value.git_execution.integration_mode,
             integration_status: value.git_execution.integration_status,
             last_preflight: value
@@ -1723,6 +1726,16 @@ pub(crate) fn coordination_task_view(
                 .last_publish
                 .map(git_publish_report_view),
         },
+    }
+}
+
+fn effective_coordination_task_status(
+    task: &prism_coordination::CoordinationTask,
+) -> prism_ir::CoordinationTaskStatus {
+    if task.pending_handoff_to.is_some() {
+        prism_ir::CoordinationTaskStatus::Blocked
+    } else {
+        task.published_task_status.unwrap_or(task.status)
     }
 }
 

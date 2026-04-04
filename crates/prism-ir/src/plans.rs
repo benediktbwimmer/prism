@@ -190,8 +190,8 @@ pub enum GitExecutionStatus {
     InProgress,
     PublishPending,
     PublishFailed,
-    #[serde(alias = "coordination_published")]
-    Published,
+    #[serde(alias = "published", alias = "coordination_published")]
+    CoordinationPublished,
 }
 
 impl Default for GitExecutionStatus {
@@ -206,9 +206,15 @@ mod tests {
 
     #[test]
     fn git_execution_status_accepts_legacy_coordination_published_alias() {
-        let parsed: GitExecutionStatus =
-            serde_json::from_str("\"coordination_published\"").expect("legacy alias should parse");
-        assert_eq!(parsed, GitExecutionStatus::Published);
+        let status: GitExecutionStatus = serde_json::from_str("\"coordination_published\"")
+            .expect("legacy shared-ref status should deserialize");
+        assert_eq!(status, GitExecutionStatus::CoordinationPublished);
+    }
+
+    #[test]
+    fn git_execution_status_accepts_legacy_published_variant() {
+        let status: GitExecutionStatus = serde_json::from_str("\"published\"").unwrap();
+        assert_eq!(status, GitExecutionStatus::CoordinationPublished);
     }
 }
 
@@ -244,6 +250,25 @@ impl Default for GitIntegrationStatus {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum GitIntegrationEvidenceKind {
+    Reachability,
+    ReviewArtifact,
+    TrustedRecord,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GitIntegrationEvidence {
+    pub kind: GitIntegrationEvidenceKind,
+    pub target_commit: String,
+    #[serde(default)]
+    pub review_artifact_ref: Option<String>,
+    #[serde(default)]
+    pub record_ref: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GitExecutionOverlay {
@@ -269,6 +294,8 @@ pub struct GitExecutionOverlay {
     pub review_artifact_ref: Option<String>,
     #[serde(default)]
     pub integration_commit: Option<String>,
+    #[serde(default)]
+    pub integration_evidence: Option<GitIntegrationEvidence>,
     #[serde(default)]
     pub integration_mode: GitIntegrationMode,
     #[serde(default)]

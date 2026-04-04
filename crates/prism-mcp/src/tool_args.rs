@@ -2545,9 +2545,9 @@ impl_vocab_deserialize!(
     "git integration mode",
     r#"{"integrationMode":"external"}"#,
     {
-        "manual_pr" => ManualPr,
-        "auto_pr" => AutoPr,
-        "direct_integrate" => DirectIntegrate,
+        "manualpr" => ManualPr,
+        "autopr" => AutoPr,
+        "directintegrate" => DirectIntegrate,
         "external" => External
     }
 );
@@ -2961,6 +2961,9 @@ pub(crate) struct PlanEdgeDeletePayload {
 pub(crate) struct TaskCompletionContextPayload {
     pub(crate) risk_score: Option<f32>,
     pub(crate) required_validations: Option<Vec<String>>,
+    pub(crate) review_artifact_ref: Option<String>,
+    pub(crate) integration_commit: Option<String>,
+    pub(crate) integration_evidence: Option<prism_ir::GitIntegrationEvidence>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]

@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:e32e5271298870b3803a0daf6a2e52a152dc836bce7989f36806ee6e93cc3d23`
+- Source head: `sha256:6d654a4d355f09503ad3bce3aa779ac90ff0f0012449e615cc2bece8c794de61`
 - Source logical timestamp: `unknown`
 - Source snapshot: `1 nodes, 0 edges, 1 overlays`
 
@@ -35,11 +35,12 @@ Finish every material remaining gap from PRISM_SHARED_COORDINATION_REFS.md by co
 - Require task branch: `true`
 - Max commits behind target: `0`
 
-## Source of Truth
+## Branch Snapshot Export
 
-- Snapshot manifest: `.prism/state/manifest.json`
-- Snapshot plan shard: `.prism/state/plans/plan:01knap36apc42jgrq3w7k300yz.json`
-- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
+- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority
+- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)
+- Snapshot plan shard: `.prism/state/plans/plan:01knap36apc42jgrq3w7k300yz.json` (derived branch export)
+- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority
 
 ## Root Nodes
 
@@ -67,7 +68,7 @@ No published plan edges are currently recorded.
 ## Execution Overlays
 
 - Node: `coord-task:01knaqpp6mxkybk88n72frrq4p`
-  git execution status: `published`
+  git execution status: `coordination_published`
   source ref: `task/shared-coordination-refs-gaps`
   target ref: `origin/main`
   publish ref: `task/shared-coordination-refs-gaps`

@@ -10,7 +10,7 @@ use prism_ir::{
     new_prefixed_id, AgentId, AnchorRef, BlockerCause, BlockerCauseSource, CoordinationTaskId,
     PlanAcceptanceCriterion, PlanBinding, PlanEdge, PlanEdgeId, PlanEdgeKind, PlanExecutionOverlay,
     PlanGraph, PlanId, PlanKind, PlanNode, PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId,
-    PlanNodeKind, PlanNodeStatus, SessionId, ValidationRef, WorkspaceRevision,
+    PlanNodeKind, PlanNodeStatus, SessionId, Timestamp, ValidationRef, WorkspaceRevision,
 };
 use serde_json::Value;
 
@@ -643,6 +643,7 @@ impl NativePlanRuntimeState {
                 target_commit_at_publish: task.git_execution.target_commit_at_publish.clone(),
                 review_artifact_ref: task.git_execution.review_artifact_ref.clone(),
                 integration_commit: task.git_execution.integration_commit.clone(),
+                integration_evidence: task.git_execution.integration_evidence.clone(),
                 integration_mode: task.git_execution.integration_mode,
                 integration_status: task.git_execution.integration_status,
             });
@@ -672,6 +673,11 @@ type TaskAuthoritativeState = (
     Option<prism_ir::CoordinationTaskStatus>,
     Option<AgentId>,
     Option<SessionId>,
+    Option<prism_coordination::LeaseHolder>,
+    Option<Timestamp>,
+    Option<Timestamp>,
+    Option<Timestamp>,
+    Option<Timestamp>,
     Option<String>,
     Option<String>,
     prism_coordination::TaskGitExecution,
@@ -690,6 +696,11 @@ fn task_authoritative_state(
                     task.published_task_status,
                     task.pending_handoff_to.clone(),
                     task.session.clone(),
+                    task.lease_holder.clone(),
+                    task.lease_started_at,
+                    task.lease_refreshed_at,
+                    task.lease_stale_at,
+                    task.lease_expires_at,
                     task.worktree_id.clone(),
                     task.branch_ref.clone(),
                     task.git_execution.clone(),
@@ -707,9 +718,14 @@ fn apply_authoritative_task_state(
     task.published_task_status = authoritative.1;
     task.pending_handoff_to = authoritative.2.clone();
     task.session = authoritative.3.clone();
-    task.worktree_id = authoritative.4.clone();
-    task.branch_ref = authoritative.5.clone();
-    task.git_execution = authoritative.6.clone();
+    task.lease_holder = authoritative.4.clone();
+    task.lease_started_at = authoritative.5;
+    task.lease_refreshed_at = authoritative.6;
+    task.lease_stale_at = authoritative.7;
+    task.lease_expires_at = authoritative.8;
+    task.worktree_id = authoritative.9.clone();
+    task.branch_ref = authoritative.10.clone();
+    task.git_execution = authoritative.11.clone();
 }
 
 fn sort_execution_overlays(mut overlays: Vec<PlanExecutionOverlay>) -> Vec<PlanExecutionOverlay> {
@@ -1251,7 +1267,11 @@ fn map_coordination_task_status(status: prism_ir::CoordinationTaskStatus) -> Pla
 }
 
 fn effective_coordination_task_status(task: &CoordinationTask) -> prism_ir::CoordinationTaskStatus {
-    task.published_task_status.unwrap_or(task.status)
+    if task.pending_handoff_to.is_some() {
+        prism_ir::CoordinationTaskStatus::Blocked
+    } else {
+        task.published_task_status.unwrap_or(task.status)
+    }
 }
 
 fn ensure_node_in_graph(graph: &PlanGraph, node_id: &PlanNodeId) -> Result<()> {

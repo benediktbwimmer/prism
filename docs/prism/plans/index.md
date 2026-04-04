@@ -8,14 +8,14 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:365693851b506bfbf361d3bc2e6c827e912eaf525ccd44990e2ab41b955956d2`
+- Source head: `sha256:1ea15bdd82f18c0a1d0896d237e18206175a554a72f0fee9532e3ab3ecb0ba54`
 - Source logical timestamp: `unknown`
-- Source snapshot: `71 plans, 47 active, 24 archived`
+- Source snapshot: `72 plans, 48 active, 24 archived`
 
 ## Overview
 
-- Published plans: 71
-- Active plans: 47
+- Published plans: 72
+- Active plans: 48
 - Archived plans: 24
 
 ## Active Plans
@@ -41,6 +41,7 @@
 - [Follow up on remaining PRISM usability gaps by improving compact-tool ranking transparency, strengthening concept-to-doc-to-code continuity, hardening workspace/path edge cases, and tightening stale-context repair loops.](active/plan-01kn3cceq1sh4s78yj4m34rww2.md): Follow up on remaining PRISM usability gaps by improving compact-tool ranking transparency, strengthening concept-to-doc-to-code continuity, hardening workspace/path edge cases, and tightening stale-context repair loops. (`plan:01kn3cceq1sh4s78yj4m34rww2`)
 - [Hit the refresh latency targets in docs/RUNTIME_REWRITE_ARCHITECTURE.md by replacing reconstructive workspace refresh with a true parallel-prepare / tiny-commit / parallel-settle runtime path, reducing hot-path persistence and lock contention, and validating the resulting daemon behavior against explicit p50/p95 budgets.](active/plan-01kn55dg8tfv1ybq9nga9md1ye.md): Hit the refresh latency targets in docs/RUNTIME_REWRITE_ARCHITECTURE.md by replacing reconstructive workspace refresh with a true parallel-prepare / tiny-commit / parallel-settle runtime path, reducing hot-path persistence and lock contention, and validating the resulting daemon behavior against explicit p50/p95 budgets. (`plan:01kn55dg8tfv1ybq9nga9md1ye`)
 - [Implement external bootstrap attestation auth](active/plan-01knannez4esfee0qx0yskagbe.md): Replace weak local-empty-registry bootstrap with externally attested human-root bootstrap, portable human principals, delegated server enrollment, assurance-labeled provenance, and recovery that cannot be bypassed by wiping local runtime state. (`plan:01knannez4esfee0qx0yskagbe`)
+- [Implement first working federated runtime via runtime-targeted prism_query](active/plan-01kncfv6c7tzkc21aemhr0pns2.md): Restore shared-ref runtime descriptors, execute authenticated remote prism_query reads keyed by runtime_id, surface them through prism.from("runtime-id"), and validate authority-aware two-runtime federation without relay or blob export. (`plan:01kncfv6c7tzkc21aemhr0pns2`)
 - [Implement principal identity, authenticated mutation provenance, task and claim lease lifecycle, heartbeat advisories, and CLI/bootstrap auth so PRISM coordination becomes principal-authenticated instead of session-authenticated.](active/plan-01kn3p2nf687bn24v4seqzbey0.md): Implement principal identity, authenticated mutation provenance, task and claim lease lifecycle, heartbeat advisories, and CLI/bootstrap auth so PRISM coordination becomes principal-authenticated instead of session-authenticated. (`plan:01kn3p2nf687bn24v4seqzbey0`)
 - [Implement PRISM snapshot merge repair and auto git support](active/plan-01knaqm4jgp5r12ee485ramvxe.md): Make snapshot-era PRISM state survivable in arbitrary repos by auto-installing repo git support on first attach, extending merge-driver coverage to tracked snapshot-era derived artifacts, and adding explicit repair/regeneration workflows for manifests and other generated PRISM files that cannot be safely hand-merged. (`plan:01knaqm4jgp5r12ee485ramvxe`)
 - [Implement shared coordination refs and bind git execution to them](active/plan-01kna8nm4nfh9mnvpcqy3h9q6s.md): Build the shared coordination ref authority plane, move core coordination truth onto it, and rebind git execution policy to that shared cross-branch control plane. (`plan:01kna8nm4nfh9mnvpcqy3h9q6s`)

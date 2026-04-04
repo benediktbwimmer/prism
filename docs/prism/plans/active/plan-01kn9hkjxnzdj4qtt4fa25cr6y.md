@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:457ee4883227b043af2210bffc71eee48cbec89070f0dbdd69eefcbe18d3c347`
+- Source head: `sha256:6562e708a3d686d249792c79ce349cbb661afd918fc8ae52eafa43bc88e004dc`
 - Source logical timestamp: `unknown`
-- Source snapshot: `11 nodes, 18 edges, 5 overlays`
+- Source snapshot: `11 nodes, 18 edges, 11 overlays`
 
 ## Overview
 
@@ -34,11 +34,12 @@ Replace repo-committed append-log authority with compact signed snapshot state i
 - Require task branch: `true`
 - Max commits behind target: `0`
 
-## Source of Truth
+## Branch Snapshot Export
 
-- Snapshot manifest: `.prism/state/manifest.json`
-- Snapshot plan shard: `.prism/state/plans/plan:01kn9hkjxnzdj4qtt4fa25cr6y.json`
-- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
+- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority
+- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)
+- Snapshot plan shard: `.prism/state/plans/plan:01kn9hkjxnzdj4qtt4fa25cr6y.json` (derived branch export)
+- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority
 
 ## Root Nodes
 
@@ -218,29 +219,15 @@ Replace repo-committed append-log authority with compact signed snapshot state i
 
 ## Execution Overlays
 
+- Node: `coord-task:01kn9hmd10c4x9nzzmp1b5h53a`
+- Node: `coord-task:01kn9hmj8kajwtre6xq83jbt12`
+- Node: `coord-task:01kn9hmqncfe5nfm4chtm6dt2s`
+- Node: `coord-task:01kn9hn12c7s4bymzxdwea8qfn`
+- Node: `coord-task:01kn9hn84cet00qdmq429cc7cg`
+- Node: `coord-task:01kn9hnfwp7s16np7cf557cxwr`
 - Node: `coord-task:01kn9hnq7j6p60y8arjfrccw5r`
-  git execution status: `published`
-  source ref: `task/prism-snapshot-rewrite`
-  target ref: `origin/main`
-  publish ref: `task/prism-snapshot-rewrite`
 - Node: `coord-task:01kn9hnzqwjgfenrc5tf2jdxsw`
-  git execution status: `published`
-  source ref: `task/prism-snapshot-rewrite`
-  target ref: `origin/main`
-  publish ref: `task/prism-snapshot-rewrite`
 - Node: `coord-task:01kn9hp5yrtkn0dh3fv6anbwb8`
-  git execution status: `published`
-  source ref: `task/prism-snapshot-rewrite`
-  target ref: `origin/main`
-  publish ref: `task/prism-snapshot-rewrite`
 - Node: `coord-task:01kn9hpcdqsrjqcg23rate5ps8`
-  git execution status: `published`
-  source ref: `task/prism-snapshot-rewrite`
-  target ref: `origin/main`
-  publish ref: `task/prism-snapshot-rewrite`
 - Node: `coord-task:01kn9hphz797055gppgx8dwfwa`
-  git execution status: `published`
-  source ref: `task/prism-snapshot-rewrite`
-  target ref: `origin/main`
-  publish ref: `task/prism-snapshot-rewrite`
 

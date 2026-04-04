@@ -34,11 +34,12 @@ Complete the portfolio dispatch feature by modeling cross-plan dependencies expl
 - Require task branch: `false`
 - Max commits behind target: `0`
 
-## Source of Truth
+## Branch Snapshot Export
 
-- Snapshot manifest: `.prism/state/manifest.json`
-- Snapshot plan shard: `.prism/state/plans/plan:01kn8n8wvmcvrqx1tvd6x93qpg.json`
-- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
+- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority
+- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)
+- Snapshot plan shard: `.prism/state/plans/plan:01kn8n8wvmcvrqx1tvd6x93qpg.json` (derived branch export)
+- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority
 
 ## Root Nodes
 

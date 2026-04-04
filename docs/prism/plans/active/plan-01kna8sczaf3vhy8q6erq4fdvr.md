@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:1d50fa9c1f87d329f588294bc0ff4fbe0d3d15d0268f99641bc165798387780a`
+- Source head: `sha256:7e013764d8a20f9cb9d3280751d4c5c238399632df04cb550fa937733174ef35`
 - Source logical timestamp: `unknown`
 - Source snapshot: `4 nodes, 3 edges, 4 overlays`
 
@@ -36,11 +36,12 @@ Add shared-ref runtime descriptors and authenticated peer runtime reads, while s
 - Max commits behind target: `0`
 - Max fetch age seconds: `300`
 
-## Source of Truth
+## Branch Snapshot Export
 
-- Snapshot manifest: `.prism/state/manifest.json`
-- Snapshot plan shard: `.prism/state/plans/plan:01kna8sczaf3vhy8q6erq4fdvr.json`
-- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
+- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority
+- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)
+- Snapshot plan shard: `.prism/state/plans/plan:01kna8sczaf3vhy8q6erq4fdvr.json` (derived branch export)
+- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority
 
 ## Root Nodes
 
@@ -70,7 +71,7 @@ Add shared-ref runtime descriptors and authenticated peer runtime reads, while s
 
 - Node id: `coord-task:01kna8v52e247h2xymfv8ksdb0`
 - Kind: `edit`
-- Status: `in_progress`
+- Status: `completed`
 
 ## Edges
 
@@ -81,22 +82,23 @@ Add shared-ref runtime descriptors and authenticated peer runtime reads, while s
 ## Execution Overlays
 
 - Node: `coord-task:01kna8tgf7s523e5edfv0gc0v9`
-  git execution status: `published`
+  git execution status: `coordination_published`
   source ref: `task/federated-runtime-implementation`
   target ref: `origin/main`
   publish ref: `task/federated-runtime-implementation`
 - Node: `coord-task:01kna8tv5khkd6ypdg9q6dfs87`
-  git execution status: `published`
+  git execution status: `coordination_published`
   source ref: `task/federated-runtime-implementation`
   target ref: `origin/main`
   publish ref: `task/federated-runtime-implementation`
 - Node: `coord-task:01kna8v02c0p53pdfckcyq0vaw`
-  git execution status: `published`
+  git execution status: `publish_pending`
+  pending task status: `completed`
   source ref: `task/federated-runtime-implementation`
   target ref: `origin/main`
   publish ref: `task/federated-runtime-implementation`
 - Node: `coord-task:01kna8v52e247h2xymfv8ksdb0`
-  git execution status: `in_progress`
+  git execution status: `coordination_published`
   source ref: `task/federated-runtime-implementation`
   target ref: `origin/main`
   publish ref: `task/federated-runtime-implementation`

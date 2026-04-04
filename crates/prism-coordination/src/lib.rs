@@ -20,8 +20,8 @@ pub use crate::types::{
     AcceptanceCriterion, Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput,
     ArtifactSupersedeInput, BlockerKind, ClaimAcquireInput, CoordinationConflict,
     CoordinationEvent, CoordinationPolicy, CoordinationSnapshot, CoordinationTask,
-    HandoffAcceptInput, HandoffInput, Plan, PlanCreateInput, PlanScheduling, PlanUpdateInput,
-    PolicyViolation, PolicyViolationCode, PolicyViolationRecord, TaskBlocker,
+    HandoffAcceptInput, HandoffInput, LeaseHolder, Plan, PlanCreateInput, PlanScheduling,
+    PlanUpdateInput, PolicyViolation, PolicyViolationCode, PolicyViolationRecord, TaskBlocker,
     TaskCompletionContext, TaskCreateInput, TaskReclaimInput, TaskResumeInput, TaskUpdateInput,
     WorkClaim,
 };

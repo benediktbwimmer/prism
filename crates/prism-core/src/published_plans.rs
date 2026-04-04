@@ -416,7 +416,7 @@ where
                 root,
                 snapshot,
                 &graphs,
-                &overlays_by_plan,
+                &repo_published_overlays_by_plan(&overlays_by_plan),
                 publish,
                 None,
             )
@@ -616,6 +616,11 @@ fn merge_published_plans_into_snapshot(
                 (
                     task.pending_handoff_to.clone(),
                     task.session.clone(),
+                    task.lease_holder.clone(),
+                    task.lease_started_at,
+                    task.lease_refreshed_at,
+                    task.lease_stale_at,
+                    task.lease_expires_at,
                     task.worktree_id.clone(),
                     task.branch_ref.clone(),
                 ),
@@ -636,11 +641,26 @@ fn merge_published_plans_into_snapshot(
             .filter(|task| task_backed_plan_ids.contains(task.plan.0.as_str()))
             .filter(|task| task.id.0.starts_with("coord-task:"))
             .map(|mut task| {
-                if let Some((pending_handoff_to, session, worktree_id, branch_ref)) =
+                if let Some((
+                    pending_handoff_to,
+                    session,
+                    lease_holder,
+                    lease_started_at,
+                    lease_refreshed_at,
+                    lease_stale_at,
+                    lease_expires_at,
+                    worktree_id,
+                    branch_ref,
+                )) =
                     runtime_scope_by_task.get(&task.id)
                 {
                     task.pending_handoff_to = pending_handoff_to.clone();
                     task.session = session.clone();
+                    task.lease_holder = lease_holder.clone();
+                    task.lease_started_at = *lease_started_at;
+                    task.lease_refreshed_at = *lease_refreshed_at;
+                    task.lease_stale_at = *lease_stale_at;
+                    task.lease_expires_at = *lease_expires_at;
                     task.worktree_id = worktree_id.clone();
                     task.branch_ref = branch_ref.clone();
                 }
@@ -919,6 +939,20 @@ fn repo_published_execution_overlays(
     // git preflight/publish state stays authoritative-only so task publication can be finalized
     // without creating a follow-up `.prism` commit loop.
     Vec::new()
+}
+
+fn repo_published_overlays_by_plan(
+    overlays_by_plan: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
+) -> BTreeMap<String, Vec<PlanExecutionOverlay>> {
+    overlays_by_plan
+        .iter()
+        .map(|(plan_id, overlays)| {
+            (
+                plan_id.clone(),
+                repo_published_execution_overlays(overlays.clone()),
+            )
+        })
+        .collect()
 }
 
 pub(crate) fn execution_overlays_by_plan(

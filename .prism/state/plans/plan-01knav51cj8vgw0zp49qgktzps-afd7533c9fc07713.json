@@ -210,7 +210,7 @@
         "kind": "Edit",
         "title": "Add trusted landing records for squash and rebase integration evidence",
         "summary": "Make target-integration verification work for non-merge landings by recording trusted landing evidence that binds rebased or squashed target commits back to the originating task and review artifacts.",
-        "status": "InProgress",
+        "status": "Completed",
         "bindings": {
           "anchors": [],
           "concept_handles": [],
@@ -242,7 +242,7 @@
         "is_abstract": false,
         "assignee": null,
         "base_revision": {
-          "graph_version": 220,
+          "graph_version": 235,
           "git_commit": null
         },
         "priority": 96,
@@ -259,7 +259,7 @@
         "kind": "Edit",
         "title": "Complete manual_pr integration mode with review-backed observation and landing verification",
         "summary": "Finish the manual PR mode so PRISM requires review artifacts, observes external PR landings correctly, and upgrades integration state only when landing evidence is trusted and complete.",
-        "status": "Ready",
+        "status": "Completed",
         "bindings": {
           "anchors": [],
           "concept_handles": [],
@@ -291,7 +291,7 @@
         "is_abstract": false,
         "assignee": null,
         "base_revision": {
-          "graph_version": 173,
+          "graph_version": 293,
           "git_commit": null
         },
         "priority": 95,
@@ -308,7 +308,7 @@
         "kind": "Edit",
         "title": "Complete auto_pr mode with review artifact creation, update flow, and post-land verification",
         "summary": "Implement the autonomous PR mode end to end so PRISM can create or refresh review artifacts, drive merge enablement within policy, and verify the eventual landing on the target branch.",
-        "status": "Ready",
+        "status": "Completed",
         "bindings": {
           "anchors": [],
           "concept_handles": [],
@@ -340,7 +340,7 @@
         "is_abstract": false,
         "assignee": null,
         "base_revision": {
-          "graph_version": 173,
+          "graph_version": 269,
           "git_commit": null
         },
         "priority": 94,
@@ -357,7 +357,7 @@
         "kind": "Edit",
         "title": "Complete direct_integrate mode with trusted direct landing execution and immediate verification",
         "summary": "Finish the direct integration mode so PRISM can land eligible task branches itself under policy, emit trusted landing metadata, and verify the target branch update immediately.",
-        "status": "Ready",
+        "status": "Completed",
         "bindings": {
           "anchors": [],
           "concept_handles": [],
@@ -389,7 +389,7 @@
         "is_abstract": false,
         "assignee": null,
         "base_revision": {
-          "graph_version": 173,
+          "graph_version": 276,
           "git_commit": null
         },
         "priority": 93,
@@ -455,7 +455,7 @@
         "kind": "Edit",
         "title": "Finish durable lease publication and low-frequency authoritative renewal on the shared ref",
         "summary": "Complete the lease model so authoritative lease facts, renewals, and staleness decisions live on the shared ref instead of drifting between local heartbeats and branch mirrors.",
-        "status": "Ready",
+        "status": "Completed",
         "bindings": {
           "anchors": [],
           "concept_handles": [],
@@ -487,7 +487,7 @@
         "is_abstract": false,
         "assignee": null,
         "base_revision": {
-          "graph_version": 173,
+          "graph_version": 326,
           "git_commit": null
         },
         "priority": 91,
@@ -746,6 +746,33 @@
     ],
     "edges": [
       {
+        "id": "plan-edge:coord-task:01knavc6b8qhznt2e1yrn7mmwh:depends-on:coord-task:01knav6qm2h72t0pc3xqmv92zt",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "from": "coord-task:01knavc6b8qhznt2e1yrn7mmwh",
+        "to": "coord-task:01knav6qm2h72t0pc3xqmv92zt",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knavcv05nn8t2gc1z31gg0fy:depends-on:coord-task:01knav6qm2h72t0pc3xqmv92zt",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "from": "coord-task:01knavcv05nn8t2gc1z31gg0fy",
+        "to": "coord-task:01knav6qm2h72t0pc3xqmv92zt",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knavdeaf5qs3zp6vycxgkg9t:depends-on:coord-task:01knavcv05nn8t2gc1z31gg0fy",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "from": "coord-task:01knavdeaf5qs3zp6vycxgkg9t",
+        "to": "coord-task:01knavcv05nn8t2gc1z31gg0fy",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
         "id": "plan-edge:coord-task:01knave01nvcrq91vnt8np1mkg:depends-on:coord-task:01knavdeaf5qs3zp6vycxgkg9t",
         "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
         "from": "coord-task:01knave01nvcrq91vnt8np1mkg",
@@ -777,15 +804,6 @@
         "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
         "from": "coord-task:01knavfm5fk9gsvb56pbsb58hh",
         "to": "coord-task:01knavcv05nn8t2gc1z31gg0fy",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knavg5dce3ytrw4pbsfrbz1g:depends-on:coord-task:01knav6qm2h72t0pc3xqmv92zt",
-        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
-        "from": "coord-task:01knavg5dce3ytrw4pbsfrbz1g",
-        "to": "coord-task:01knav6qm2h72t0pc3xqmv92zt",
         "kind": "DependsOn",
         "summary": null,
         "metadata": null
@@ -926,130 +944,15 @@
         "metadata": null
       },
       {
-        "id": "plan-edge:coord-task:01knavc6b8qhznt2e1yrn7mmwh:depends-on:coord-task:01knav6qm2h72t0pc3xqmv92zt",
+        "id": "plan-edge:coord-task:01knavg5dce3ytrw4pbsfrbz1g:depends-on:coord-task:01knav6qm2h72t0pc3xqmv92zt",
         "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
-        "from": "coord-task:01knavc6b8qhznt2e1yrn7mmwh",
+        "from": "coord-task:01knavg5dce3ytrw4pbsfrbz1g",
         "to": "coord-task:01knav6qm2h72t0pc3xqmv92zt",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knavcv05nn8t2gc1z31gg0fy:depends-on:coord-task:01knav6qm2h72t0pc3xqmv92zt",
-        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
-        "from": "coord-task:01knavcv05nn8t2gc1z31gg0fy",
-        "to": "coord-task:01knav6qm2h72t0pc3xqmv92zt",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knavdeaf5qs3zp6vycxgkg9t:depends-on:coord-task:01knavcv05nn8t2gc1z31gg0fy",
-        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
-        "from": "coord-task:01knavdeaf5qs3zp6vycxgkg9t",
-        "to": "coord-task:01knavcv05nn8t2gc1z31gg0fy",
         "kind": "DependsOn",
         "summary": null,
         "metadata": null
       }
     ]
   },
-  "executionOverlays": [
-    {
-      "node_id": "coord-task:01knav6qm2h72t0pc3xqmv92zt",
-      "pending_handoff_to": null,
-      "session": null,
-      "worktree_id": null,
-      "branch_ref": null,
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/shared-coordination-refs-gaps",
-        "targetRef": "origin/main",
-        "publishRef": "task/shared-coordination-refs-gaps",
-        "targetBranch": "main",
-        "sourceCommit": "a5a73e707b54082d450bf3c54ea5797f9cbb83aa",
-        "publishCommit": "493c98e35586d0a7c10857d40140bc58fdb4d4e0",
-        "targetCommitAtPublish": "76c00a93ee4465a8cd3f9a1ca5379ce9ed347c61",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "published_to_branch"
-      }
-    },
-    {
-      "node_id": "coord-task:01knavc6b8qhznt2e1yrn7mmwh",
-      "pending_handoff_to": null,
-      "session": null,
-      "worktree_id": null,
-      "branch_ref": null,
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/shared-coordination-refs-gaps",
-        "targetRef": "origin/main",
-        "publishRef": "task/shared-coordination-refs-gaps",
-        "targetBranch": "main",
-        "sourceCommit": "f6d1ea2a6e4345151b849fdd8d3ee5da0ba35fde",
-        "publishCommit": "f8aaeab074e30260a9a942fe781c55425d6bf335",
-        "targetCommitAtPublish": "57882a3163c88ae95c9146856cb539ab4bbcac24",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "published_to_branch"
-      }
-    },
-    {
-      "node_id": "coord-task:01knavcv05nn8t2gc1z31gg0fy",
-      "pending_handoff_to": null,
-      "session": null,
-      "worktree_id": null,
-      "branch_ref": null,
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/shared-coordination-refs-gaps",
-        "targetRef": "origin/main",
-        "publishRef": "task/shared-coordination-refs-gaps",
-        "targetBranch": "main",
-        "sourceCommit": "9f0a6ff64dfc3f9c2fb6eef9323bfaaf0ab944fa",
-        "publishCommit": "d587dfdd79181c4e86e67d156a13bbc23b7d7f61",
-        "targetCommitAtPublish": "57882a3163c88ae95c9146856cb539ab4bbcac24",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "published_to_branch"
-      }
-    },
-    {
-      "node_id": "coord-task:01knavdeaf5qs3zp6vycxgkg9t",
-      "pending_handoff_to": null,
-      "session": null,
-      "worktree_id": null,
-      "branch_ref": null,
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "in_progress",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/shared-coordination-refs-gaps",
-        "targetRef": "origin/main",
-        "publishRef": "task/shared-coordination-refs-gaps",
-        "targetBranch": "main",
-        "sourceCommit": "1458f9753b83fd6a2ab3e1c0dbf7a78ee86a0fc6",
-        "publishCommit": null,
-        "targetCommitAtPublish": "57882a3163c88ae95c9146856cb539ab4bbcac24",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "not_started"
-      }
-    }
-  ]
+  "executionOverlays": []
 }

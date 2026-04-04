@@ -30,6 +30,7 @@ const MANAGED_GITATTRIBUTES_BLOCK: &str = "\
 .prism/plans/archived/*.jsonl merge=prism-derived-prism
 .prism/state/manifest.json merge=prism-snapshot-derived
 .prism/state/indexes/*.json merge=prism-snapshot-derived
+.prism/state/plans/*.json merge=prism-snapshot-derived
 PRISM.md merge=prism-snapshot-derived
 docs/prism/** merge=prism-snapshot-derived
 # END PRISM MANAGED
@@ -484,6 +485,7 @@ fn is_snapshot_derived_prism_path(path: &Path) -> bool {
     let normalized = path.to_string_lossy().replace('\\', "/");
     normalized == ".prism/state/manifest.json"
         || normalized.starts_with(".prism/state/indexes/")
+        || normalized.starts_with(".prism/state/plans/")
         || normalized == "PRISM.md"
         || normalized.starts_with("docs/prism/")
 }
@@ -546,12 +548,12 @@ mod tests {
         assert!(is_snapshot_derived_prism_path(Path::new(
             ".prism/state/indexes/plans.json"
         )));
+        assert!(is_snapshot_derived_prism_path(Path::new(
+            ".prism/state/plans/plan-1.json"
+        )));
         assert!(is_snapshot_derived_prism_path(Path::new("PRISM.md")));
         assert!(is_snapshot_derived_prism_path(Path::new(
             "docs/prism/plans/index.md"
-        )));
-        assert!(!is_snapshot_derived_prism_path(Path::new(
-            ".prism/state/plans/plan-1.json"
         )));
     }
 
@@ -561,6 +563,8 @@ mod tests {
             .contains(".prism/state/manifest.json merge=prism-snapshot-derived"));
         assert!(MANAGED_GITATTRIBUTES_BLOCK
             .contains(".prism/state/indexes/*.json merge=prism-snapshot-derived"));
+        assert!(MANAGED_GITATTRIBUTES_BLOCK
+            .contains(".prism/state/plans/*.json merge=prism-snapshot-derived"));
         assert!(MANAGED_GITATTRIBUTES_BLOCK.contains("PRISM.md merge=prism-snapshot-derived"));
         assert!(MANAGED_GITATTRIBUTES_BLOCK.contains("docs/prism/** merge=prism-snapshot-derived"));
     }

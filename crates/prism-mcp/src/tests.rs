@@ -48,11 +48,26 @@ use std::collections::HashMap;
 use tracing::Level;
 
 fn test_git(root: &Path, args: &[&str]) -> String {
-    let output = Command::new("git")
-        .current_dir(root)
-        .args(args)
-        .output()
-        .expect("git command should run");
+    let run = || {
+        Command::new("git")
+            .current_dir(root)
+            .args(args)
+            .output()
+            .expect("git command should run")
+    };
+    let mut output = run();
+    if args.first() == Some(&"merge") {
+        for _ in 0..3 {
+            if output.status.success()
+                || !String::from_utf8_lossy(&output.stderr).contains(".prism/state/")
+            {
+                break;
+            }
+            remove_derived_prism_state(root);
+            std::thread::sleep(Duration::from_millis(25));
+            output = run();
+        }
+    }
     assert!(
         output.status.success(),
         "git {} failed: {}",
@@ -60,6 +75,10 @@ fn test_git(root: &Path, args: &[&str]) -> String {
         String::from_utf8_lossy(&output.stderr)
     );
     String::from_utf8_lossy(&output.stdout).trim().to_string()
+}
+
+fn remove_derived_prism_state(root: &Path) {
+    let _ = fs::remove_dir_all(root.join(".prism").join("state"));
 }
 
 fn init_git_workspace(branch: &str) -> PathBuf {
@@ -664,12 +683,12 @@ fn git_execution_preflight_respects_max_commits_behind_target() {
     let branch = "task/git-execution-behind";
     let root = init_git_workspace(branch);
 
-    test_git(&root, &["checkout", "main"]);
+    test_git(&root, &["checkout", "-f", "main"]);
     fs::write(root.join("src/lib.rs"), "pub fn advanced_main() {}\n").unwrap();
     test_git(&root, &["add", "src/lib.rs"]);
     test_git(&root, &["commit", "-m", "advance main"]);
     test_git(&root, &["push", "origin", "main"]);
-    test_git(&root, &["checkout", branch]);
+    test_git(&root, &["checkout", "-f", branch]);
 
     let policy = prism_coordination::GitExecutionPolicy {
         start_mode: prism_coordination::GitExecutionStartMode::Require,
@@ -904,7 +923,7 @@ fn git_execution_policy_completion_require_publishes_after_manual_code_commit() 
     assert_eq!(task.status, prism_ir::CoordinationTaskStatus::Completed);
     assert_eq!(
         task.git_execution.status,
-        prism_ir::GitExecutionStatus::Published
+        prism_ir::GitExecutionStatus::CoordinationPublished
     );
     assert_eq!(
         task.git_execution
@@ -1226,7 +1245,7 @@ fn git_execution_policy_completion_rehydrates_stale_plan_policy_before_publish()
     test_git(&root, &["commit", "-m", "manual code publish"]);
     let manual_commit = test_git(&root, &["rev-parse", "HEAD"]);
 
-    stale_host
+    let result = stale_host
         .store_coordination(
             stale_session.as_ref(),
             PrismCoordinationArgs {
@@ -1240,6 +1259,11 @@ fn git_execution_policy_completion_rehydrates_stale_plan_policy_before_publish()
             },
         )
         .unwrap();
+    assert!(
+        !result.rejected,
+        "completion publish should not be rejected: {:?}",
+        result.violations
+    );
 
     let task = stale_host
         .current_prism()
@@ -1248,7 +1272,7 @@ fn git_execution_policy_completion_rehydrates_stale_plan_policy_before_publish()
     assert_eq!(task.status, prism_ir::CoordinationTaskStatus::Completed);
     assert_eq!(
         task.git_execution.status,
-        prism_ir::GitExecutionStatus::Published
+        prism_ir::GitExecutionStatus::CoordinationPublished
     );
     assert_eq!(
         task.git_execution
@@ -1257,6 +1281,558 @@ fn git_execution_policy_completion_rehydrates_stale_plan_policy_before_publish()
             .and_then(|publish| publish.code_commit.as_deref()),
         Some(manual_commit.as_str())
     );
+}
+
+#[test]
+fn auto_pr_completion_creates_and_links_review_artifact() {
+    let branch = "task/git-execution-auto-pr";
+    let root = init_git_workspace(branch);
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
+    let host = host_with_session_internal(session);
+    let session_state = test_session(&host);
+
+    let plan = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Git execution",
+                    "goal": "Auto PR integration",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "require",
+                            "completionMode": "require",
+                            "integrationMode": "auto_pr",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "in_progress"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { beta(); gamma(); }\npub fn beta() {}\npub fn gamma() {}\n",
+    )
+    .unwrap();
+    test_git(&root, &["add", "src/lib.rs"]);
+    test_git(&root, &["commit", "-m", "manual code publish"]);
+
+    let result = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Update,
+                payload: json!({
+                    "id": task_id.clone(),
+                    "status": "completed",
+                    "completionContext": {}
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert!(!result.rejected);
+
+    let task = host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id.clone()))
+        .unwrap();
+    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::Completed);
+    assert_eq!(
+        task.git_execution.integration_mode,
+        prism_ir::GitIntegrationMode::AutoPr
+    );
+    assert_eq!(
+        task.git_execution.integration_status,
+        prism_ir::GitIntegrationStatus::IntegrationPending
+    );
+    let artifact_id = task
+        .git_execution
+        .review_artifact_ref
+        .clone()
+        .expect("auto_pr publish should link a review artifact");
+
+    let artifact = host
+        .current_prism()
+        .coordination_artifact(&prism_ir::ArtifactId::new(artifact_id.clone()))
+        .expect("linked review artifact should exist");
+    assert_eq!(artifact.task.0, task_id);
+    assert_eq!(artifact.status, prism_ir::ArtifactStatus::Proposed);
+    assert_eq!(
+        artifact.diff_ref.as_deref(),
+        Some("patch:task/git-execution-auto-pr")
+    );
+}
+
+#[test]
+fn auto_pr_approved_review_advances_integration_and_allows_verified_landing() {
+    let branch = "task/git-execution-auto-pr-landing";
+    let root = init_git_workspace(branch);
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
+    let host = host_with_session_internal(session);
+    let session_state = test_session(&host);
+
+    let plan = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Git execution",
+                    "goal": "Auto PR verified landing",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "require",
+                            "completionMode": "require",
+                            "integrationMode": "auto_pr",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "in_progress"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { beta(); gamma(); }\npub fn beta() {}\npub fn gamma() {}\n",
+    )
+    .unwrap();
+    test_git(&root, &["add", "src/lib.rs"]);
+    test_git(&root, &["commit", "-m", "manual code publish"]);
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "completed",
+                "completionContext": {}
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let artifact_id = host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id.clone()))
+        .unwrap()
+        .git_execution
+        .review_artifact_ref
+        .clone()
+        .expect("auto_pr publish should link a review artifact");
+
+    let error = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Update,
+                payload: json!({
+                    "id": task_id.clone(),
+                    "completionContext": {
+                        "integrationEvidence": {
+                            "kind": "trusted_record",
+                            "targetCommit": "deadbeef",
+                            "recordRef": "git:refs/heads/main"
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .expect_err("auto_pr landing should require an approved artifact");
+    assert!(error.to_string().contains("approved review artifact"));
+
+    host.store_artifact(
+        session_state.as_ref(),
+        PrismArtifactArgs {
+            action: ArtifactActionInput::Review,
+            payload: json!({
+                "artifactId": artifact_id.clone(),
+                "verdict": "approved",
+                "summary": "LGTM"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let task = host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id.clone()))
+        .unwrap();
+    assert_eq!(
+        task.git_execution.integration_status,
+        prism_ir::GitIntegrationStatus::IntegrationInProgress
+    );
+
+    test_git(&root, &["checkout", "-f", "main"]);
+    remove_derived_prism_state(&root);
+    test_git(&root, &["merge", "--squash", branch]);
+    test_git(&root, &["commit", "-m", "squash land task"]);
+    let target_commit = test_git(&root, &["rev-parse", "HEAD"]);
+    test_git(&root, &["push", "origin", "main"]);
+    test_git(&root, &["checkout", "-f", branch]);
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "completionContext": {
+                    "integrationEvidence": {
+                        "kind": "trusted_record",
+                        "targetCommit": target_commit,
+                        "recordRef": "git:refs/heads/main"
+                    }
+                }
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let task = host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id))
+        .unwrap();
+    assert_eq!(
+        task.git_execution.integration_status,
+        prism_ir::GitIntegrationStatus::IntegratedToTarget
+    );
+    assert_eq!(
+        task.git_execution.integration_commit.as_deref(),
+        Some(target_commit.as_str())
+    );
+    assert_eq!(
+        task.git_execution.review_artifact_ref.as_deref(),
+        Some(artifact_id.as_str())
+    );
+}
+
+#[test]
+fn auto_pr_rejected_review_marks_integration_failed() {
+    let branch = "task/git-execution-auto-pr-rejected";
+    let root = init_git_workspace(branch);
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
+    let host = host_with_session_internal(session);
+    let session_state = test_session(&host);
+
+    let plan = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Git execution",
+                    "goal": "Auto PR rejection stays actionable",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "require",
+                            "completionMode": "require",
+                            "integrationMode": "auto_pr",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "in_progress"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { beta(); gamma(); }\npub fn beta() {}\npub fn gamma() {}\n",
+    )
+    .unwrap();
+    test_git(&root, &["add", "src/lib.rs"]);
+    test_git(&root, &["commit", "-m", "manual code publish"]);
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "completed",
+                "completionContext": {}
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let artifact_id = host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id.clone()))
+        .unwrap()
+        .git_execution
+        .review_artifact_ref
+        .clone()
+        .expect("auto_pr publish should link a review artifact");
+
+    host.store_artifact(
+        session_state.as_ref(),
+        PrismArtifactArgs {
+            action: ArtifactActionInput::Review,
+            payload: json!({
+                "artifactId": artifact_id,
+                "verdict": "rejected",
+                "summary": "Cannot merge as-is"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let task = host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id))
+        .unwrap();
+    assert_eq!(
+        task.git_execution.integration_status,
+        prism_ir::GitIntegrationStatus::IntegrationFailed
+    );
+}
+
+#[test]
+fn direct_integrate_completion_lands_target_and_records_trusted_evidence() {
+    let branch = "task/git-execution-direct-integrate";
+    let root = init_git_workspace(branch);
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
+    let host = host_with_session_internal(session);
+    let session_state = test_session(&host);
+
+    let plan = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Git execution",
+                    "goal": "Direct integrate",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "require",
+                            "completionMode": "require",
+                            "integrationMode": "direct_integrate",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "in_progress"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { beta(); gamma(); }\npub fn beta() {}\npub fn gamma() {}\n",
+    )
+    .unwrap();
+    test_git(&root, &["add", "src/lib.rs"]);
+    test_git(&root, &["commit", "-m", "manual code publish"]);
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "completed",
+                "completionContext": {}
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let task = host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id))
+        .unwrap();
+    let target_commit = test_git(&root, &["rev-parse", "origin/main"]);
+    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::Completed);
+    assert_eq!(
+        task.git_execution.integration_mode,
+        prism_ir::GitIntegrationMode::DirectIntegrate
+    );
+    assert_eq!(
+        task.git_execution.integration_status,
+        prism_ir::GitIntegrationStatus::IntegratedToTarget
+    );
+    assert_eq!(
+        task.git_execution.integration_commit.as_deref(),
+        Some(target_commit.as_str())
+    );
+    let evidence = task
+        .git_execution
+        .integration_evidence
+        .as_ref()
+        .expect("direct integration should record trusted landing evidence");
+    assert_eq!(
+        evidence.kind,
+        prism_ir::GitIntegrationEvidenceKind::TrustedRecord
+    );
+    assert_eq!(evidence.target_commit, target_commit);
+    assert_eq!(evidence.record_ref.as_deref(), Some("git:refs/heads/main"));
+    assert_eq!(test_git(&root, &["branch", "--show-current"]), branch);
 }
 
 #[test]
@@ -9001,6 +9577,902 @@ pub fn validation_recipe_test() {}
         .as_ref()
         .and_then(|decode| decode.validation_recipe.as_ref())
         .is_some());
+}
+
+#[test]
+fn coordination_update_records_trusted_landing_evidence_after_coordination_publication() {
+    let branch = "task/git-execution-trusted-landing";
+    let root = init_git_workspace(branch);
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
+    let host = host_with_session_internal(session);
+    let session_state = test_session(&host);
+
+    let plan = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Git execution",
+                    "goal": "Record trusted landing evidence",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "require",
+                            "completionMode": "require",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "in_progress"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { beta(); gamma(); }\npub fn beta() {}\npub fn gamma() {}\n",
+    )
+    .unwrap();
+    test_git(&root, &["add", "src/lib.rs"]);
+    test_git(&root, &["commit", "-m", "manual code publish"]);
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "completed",
+                "completionContext": {}
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    test_git(&root, &["checkout", "-f", "main"]);
+    remove_derived_prism_state(&root);
+    test_git(&root, &["merge", "--squash", branch]);
+    test_git(&root, &["commit", "-m", "squash land task"]);
+    let target_commit = test_git(&root, &["rev-parse", "HEAD"]);
+    test_git(&root, &["push", "origin", "main"]);
+    test_git(&root, &["checkout", "-f", branch]);
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "completionContext": {
+                    "integrationEvidence": {
+                        "kind": "trusted_record",
+                        "targetCommit": target_commit,
+                        "reviewArtifactRef": "artifact:review/trusted-landing",
+                        "recordRef": "git:refs/heads/main"
+                    }
+                }
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let task = host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id))
+        .unwrap();
+    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::Completed);
+    assert_eq!(
+        task.git_execution.status,
+        prism_ir::GitExecutionStatus::CoordinationPublished
+    );
+    assert_eq!(
+        task.git_execution.integration_status,
+        prism_ir::GitIntegrationStatus::IntegratedToTarget
+    );
+    assert_eq!(
+        task.git_execution.integration_commit.as_deref(),
+        Some(target_commit.as_str())
+    );
+    assert_eq!(
+        task.git_execution.review_artifact_ref.as_deref(),
+        Some("artifact:review/trusted-landing")
+    );
+    let evidence = task
+        .git_execution
+        .integration_evidence
+        .as_ref()
+        .expect("trusted landing evidence should persist");
+    assert_eq!(
+        evidence.kind,
+        prism_ir::GitIntegrationEvidenceKind::TrustedRecord
+    );
+    assert_eq!(evidence.target_commit, target_commit);
+    assert_eq!(
+        evidence.review_artifact_ref.as_deref(),
+        Some("artifact:review/trusted-landing")
+    );
+    assert_eq!(evidence.record_ref.as_deref(), Some("git:refs/heads/main"));
+}
+
+#[test]
+fn manual_pr_requires_approved_review_artifact_before_recording_target_landing() {
+    let branch = "task/git-execution-manual-pr";
+    let root = init_git_workspace(branch);
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
+    let host = host_with_session_internal(session);
+    let session_state = test_session(&host);
+
+    let plan = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Git execution",
+                    "goal": "Manual PR integration",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "require",
+                            "completionMode": "require",
+                            "integrationMode": "manual_pr",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "in_progress"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { beta(); gamma(); }\npub fn beta() {}\npub fn gamma() {}\n",
+    )
+    .unwrap();
+    test_git(&root, &["add", "src/lib.rs"]);
+    test_git(&root, &["commit", "-m", "manual code publish"]);
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "completed",
+                "completionContext": {}
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let task = host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id.clone()))
+        .unwrap();
+    assert_eq!(
+        task.git_execution.integration_mode,
+        prism_ir::GitIntegrationMode::ManualPr
+    );
+    assert_eq!(
+        task.git_execution.integration_status,
+        prism_ir::GitIntegrationStatus::IntegrationPending
+    );
+    assert_eq!(task.git_execution.review_artifact_ref, None);
+
+    let artifact = host
+        .store_artifact(
+            session_state.as_ref(),
+            PrismArtifactArgs {
+                action: ArtifactActionInput::Propose,
+                payload: json!({
+                    "taskId": task_id.clone(),
+                    "diffRef": "https://example.invalid/pr/123"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let artifact_id = artifact.artifact_id.expect("artifact id should be present");
+
+    let task = host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id.clone()))
+        .unwrap();
+    assert_eq!(
+        task.git_execution.review_artifact_ref.as_deref(),
+        Some(artifact_id.as_str())
+    );
+    assert_eq!(
+        task.git_execution.integration_status,
+        prism_ir::GitIntegrationStatus::IntegrationPending
+    );
+
+    test_git(&root, &["checkout", "-f", "main"]);
+    remove_derived_prism_state(&root);
+    test_git(&root, &["merge", "--squash", branch]);
+    test_git(&root, &["commit", "-m", "squash land task"]);
+    let target_commit = test_git(&root, &["rev-parse", "HEAD"]);
+    test_git(&root, &["push", "origin", "main"]);
+    test_git(&root, &["checkout", "-f", branch]);
+
+    let error = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Update,
+                payload: json!({
+                    "id": task_id.clone(),
+                    "completionContext": {
+                        "integrationEvidence": {
+                            "kind": "trusted_record",
+                            "targetCommit": target_commit,
+                            "recordRef": "git:refs/heads/main"
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .expect_err("manual_pr landing should require an approved artifact");
+    assert!(error.to_string().contains("approved review artifact"));
+
+    host.store_artifact(
+        session_state.as_ref(),
+        PrismArtifactArgs {
+            action: ArtifactActionInput::Review,
+            payload: json!({
+                "artifactId": artifact_id,
+                "verdict": "approved",
+                "summary": "LGTM"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let unpublished_target_commit = test_git(&root, &["rev-parse", "HEAD"]);
+    let error = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Update,
+                payload: json!({
+                    "id": task_id.clone(),
+                    "completionContext": {
+                        "integrationEvidence": {
+                            "kind": "trusted_record",
+                            "targetCommit": unpublished_target_commit,
+                            "recordRef": "git:refs/heads/main"
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .expect_err("trusted landing evidence should verify the target ref");
+    assert!(error
+        .to_string()
+        .contains("does not contain verified integration evidence"));
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "completionContext": {
+                    "integrationEvidence": {
+                        "kind": "trusted_record",
+                        "targetCommit": target_commit,
+                        "recordRef": "git:refs/heads/main"
+                    }
+                }
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let task = host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id))
+        .unwrap();
+    assert_eq!(
+        task.git_execution.integration_status,
+        prism_ir::GitIntegrationStatus::IntegratedToTarget
+    );
+    assert_eq!(
+        task.git_execution.integration_commit.as_deref(),
+        Some(target_commit.as_str())
+    );
+    assert_eq!(
+        task.git_execution.review_artifact_ref.as_deref(),
+        Some(artifact_id.as_str())
+    );
+}
+
+#[test]
+fn manual_pr_approved_review_auto_observes_merge_landing_on_task_touch() {
+    let branch = "task/git-execution-manual-pr-merge-observe";
+    let root = init_git_workspace(branch);
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
+    let host = host_with_session_internal(session);
+    let session_state = test_session(&host);
+
+    let plan = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Git execution",
+                    "goal": "Manual PR observed merge landing",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "require",
+                            "completionMode": "require",
+                            "integrationMode": "manual_pr",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "in_progress"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { beta(); gamma(); }\npub fn beta() {}\npub fn gamma() {}\n",
+    )
+    .unwrap();
+    test_git(&root, &["add", "src/lib.rs"]);
+    test_git(&root, &["commit", "-m", "manual code publish"]);
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "completed",
+                "completionContext": {}
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let artifact_id = host
+        .store_artifact(
+            session_state.as_ref(),
+            PrismArtifactArgs {
+                action: ArtifactActionInput::Propose,
+                payload: json!({
+                    "taskId": task_id.clone(),
+                    "diffRef": "https://example.invalid/pr/456"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap()
+        .artifact_id
+        .expect("artifact id should be present");
+
+    host.store_artifact(
+        session_state.as_ref(),
+        PrismArtifactArgs {
+            action: ArtifactActionInput::Review,
+            payload: json!({
+                "artifactId": artifact_id.clone(),
+                "verdict": "approved",
+                "summary": "LGTM"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    test_git(&root, &["checkout", "-f", "main"]);
+    remove_derived_prism_state(&root);
+    test_git(
+        &root,
+        &["merge", "--no-ff", branch, "-m", "merge land task"],
+    );
+    let target_commit = test_git(&root, &["rev-parse", "HEAD"]);
+    test_git(&root, &["push", "origin", "main"]);
+    test_git(&root, &["checkout", "-f", branch]);
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone()
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let task = host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id))
+        .unwrap();
+    assert_eq!(
+        task.git_execution.integration_status,
+        prism_ir::GitIntegrationStatus::IntegratedToTarget
+    );
+    assert_eq!(
+        task.git_execution.integration_commit.as_deref(),
+        Some(target_commit.as_str())
+    );
+    let evidence = task
+        .git_execution
+        .integration_evidence
+        .as_ref()
+        .expect("merge landing should record reachability evidence");
+    assert_eq!(
+        evidence.kind,
+        prism_ir::GitIntegrationEvidenceKind::Reachability
+    );
+    assert_eq!(evidence.target_commit, target_commit);
+    assert_eq!(
+        evidence.review_artifact_ref.as_deref(),
+        Some(artifact_id.as_str())
+    );
+}
+
+#[test]
+fn manual_pr_review_approval_observes_already_landed_merge() {
+    let branch = "task/git-execution-manual-pr-late-approval";
+    let root = init_git_workspace(branch);
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
+    let host = host_with_session_internal(session);
+    let session_state = test_session(&host);
+
+    let plan = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Git execution",
+                    "goal": "Manual PR late approval observation",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "require",
+                            "completionMode": "require",
+                            "integrationMode": "manual_pr",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "in_progress"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { beta(); gamma(); }\npub fn beta() {}\npub fn gamma() {}\n",
+    )
+    .unwrap();
+    test_git(&root, &["add", "src/lib.rs"]);
+    test_git(&root, &["commit", "-m", "manual code publish"]);
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "completed",
+                "completionContext": {}
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let artifact_id = host
+        .store_artifact(
+            session_state.as_ref(),
+            PrismArtifactArgs {
+                action: ArtifactActionInput::Propose,
+                payload: json!({
+                    "taskId": task_id.clone(),
+                    "diffRef": "https://example.invalid/pr/789"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap()
+        .artifact_id
+        .expect("artifact id should be present");
+
+    test_git(&root, &["checkout", "-f", "main"]);
+    remove_derived_prism_state(&root);
+    test_git(
+        &root,
+        &["merge", "--no-ff", branch, "-m", "merge land task"],
+    );
+    let target_commit = test_git(&root, &["rev-parse", "HEAD"]);
+    test_git(&root, &["push", "origin", "main"]);
+    test_git(&root, &["checkout", "-f", branch]);
+
+    host.store_artifact(
+        session_state.as_ref(),
+        PrismArtifactArgs {
+            action: ArtifactActionInput::Review,
+            payload: json!({
+                "artifactId": artifact_id.clone(),
+                "verdict": "approved",
+                "summary": "LGTM"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let task = host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id))
+        .unwrap();
+    assert_eq!(
+        task.git_execution.integration_status,
+        prism_ir::GitIntegrationStatus::IntegratedToTarget
+    );
+    assert_eq!(
+        task.git_execution.integration_commit.as_deref(),
+        Some(target_commit.as_str())
+    );
+    let evidence = task
+        .git_execution
+        .integration_evidence
+        .as_ref()
+        .expect("late approval should observe the existing landing");
+    assert_eq!(
+        evidence.kind,
+        prism_ir::GitIntegrationEvidenceKind::Reachability
+    );
+    assert_eq!(
+        evidence.review_artifact_ref.as_deref(),
+        Some(artifact_id.as_str())
+    );
+}
+
+#[test]
+fn manual_pr_rebase_landing_accepts_verified_trusted_record() {
+    let branch = "task/git-execution-manual-pr-rebase";
+    let root = init_git_workspace(branch);
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .unwrap();
+    let host = host_with_session_internal(session);
+    let session_state = test_session(&host);
+
+    let plan = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Git execution",
+                    "goal": "Manual PR rebase landing",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "require",
+                            "completionMode": "require",
+                            "integrationMode": "manual_pr",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "in_progress"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { beta(); gamma(); }\npub fn beta() {}\npub fn gamma() {}\n",
+    )
+    .unwrap();
+    test_git(&root, &["add", "src/lib.rs"]);
+    test_git(&root, &["commit", "-m", "manual code publish"]);
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "status": "completed",
+                "completionContext": {}
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let artifact_id = host
+        .store_artifact(
+            session_state.as_ref(),
+            PrismArtifactArgs {
+                action: ArtifactActionInput::Propose,
+                payload: json!({
+                    "taskId": task_id.clone(),
+                    "diffRef": "https://example.invalid/pr/999"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap()
+        .artifact_id
+        .expect("artifact id should be present");
+
+    host.store_artifact(
+        session_state.as_ref(),
+        PrismArtifactArgs {
+            action: ArtifactActionInput::Review,
+            payload: json!({
+                "artifactId": artifact_id.clone(),
+                "verdict": "approved",
+                "summary": "LGTM"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    test_git(&root, &["checkout", "-f", "main"]);
+    remove_derived_prism_state(&root);
+    fs::write(root.join("README.md"), "main branch divergence\n").unwrap();
+    test_git(&root, &["add", "README.md"]);
+    test_git(&root, &["commit", "-m", "prepare main for rebase landing"]);
+    test_git(&root, &["push", "origin", "main"]);
+
+    test_git(&root, &["checkout", "-f", branch]);
+    test_git(&root, &["rebase", "main"]);
+    let target_commit = test_git(&root, &["rev-parse", "HEAD"]);
+
+    test_git(&root, &["checkout", "-f", "main"]);
+    test_git(&root, &["merge", "--ff-only", branch]);
+    test_git(&root, &["push", "origin", "main"]);
+    test_git(&root, &["checkout", "-f", branch]);
+
+    host.store_coordination(
+        session_state.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id.clone(),
+                "completionContext": {
+                    "integrationEvidence": {
+                        "kind": "trusted_record",
+                        "targetCommit": target_commit,
+                        "recordRef": "git:refs/heads/main"
+                    }
+                }
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let task = host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(task_id))
+        .unwrap();
+    assert_eq!(
+        task.git_execution.integration_status,
+        prism_ir::GitIntegrationStatus::IntegratedToTarget
+    );
+    assert_eq!(
+        task.git_execution.integration_commit.as_deref(),
+        Some(target_commit.as_str())
+    );
+    let evidence = task
+        .git_execution
+        .integration_evidence
+        .as_ref()
+        .expect("rebase landing should persist trusted evidence");
+    assert_eq!(
+        evidence.kind,
+        prism_ir::GitIntegrationEvidenceKind::TrustedRecord
+    );
+    assert_eq!(evidence.target_commit, target_commit);
+    assert_eq!(
+        evidence.review_artifact_ref.as_deref(),
+        Some(artifact_id.as_str())
+    );
 }
 
 #[test]
@@ -20300,6 +21772,9 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
         },
     )
     .expect("task create should succeed");
+    if let Some(workspace) = host.workspace_session() {
+        workspace.flush_materializations().unwrap();
+    }
 
     let status =
         crate::runtime_views::runtime_status(&host).expect("runtime status should succeed");

@@ -4890,8 +4890,12 @@ fn repo_plan_events_auto_sync_prism_doc() {
     assert!(plan_doc.contains("- Target ref: `origin/main`"));
     assert!(plan_doc.contains("- Max commits behind target: `2`"));
     assert!(plan_doc.contains("- Max fetch age seconds: `300`"));
+    assert!(plan_doc.contains("## Branch Snapshot Export"));
     assert!(plan_doc.contains(
-        "- Legacy migration log path: none; tracked snapshot shards are the only current repo authority"
+        "- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority"
+    ));
+    assert!(plan_doc.contains(
+        "- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority"
     ));
 
     let sync = session.sync_prism_doc().unwrap();
@@ -5725,13 +5729,8 @@ fn repo_published_plans_write_tracked_snapshot_manifest() {
         .filter_map(Result::ok)
         .map(|entry| entry.path())
         .collect::<Vec<_>>();
-    let task_files = fs::read_dir(root.join(".prism/state/coordination/tasks"))
-        .unwrap()
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .collect::<Vec<_>>();
     assert_eq!(plan_files.len(), 1);
-    assert_eq!(task_files.len(), 1);
+    assert!(!root.join(".prism/state/coordination/tasks").exists());
 
     let manifest: serde_json::Value =
         serde_json::from_slice(&fs::read(root.join(".prism/state/manifest.json")).unwrap())
@@ -5755,13 +5754,13 @@ fn repo_published_plans_write_tracked_snapshot_manifest() {
         .unwrap()
         .to_string_lossy()
         .replace('\\', "/");
-    let relative_task_path = task_files[0]
-        .strip_prefix(&root)
-        .unwrap()
-        .to_string_lossy()
-        .replace('\\', "/");
     assert!(manifest["files"].get(&relative_plan_path).is_some());
-    assert!(manifest["files"].get(&relative_task_path).is_some());
+    let manifest_files = manifest["files"]
+        .as_object()
+        .expect("snapshot manifest files should be an object");
+    assert!(!manifest_files
+        .keys()
+        .any(|path| path.starts_with(".prism/state/coordination/")));
 
     let _ = fs::remove_dir_all(root);
 }
@@ -7017,6 +7016,221 @@ fn coordination_persistence_compacts_large_event_suffixes_into_optional_baseline
     assert!(hydrated.events.is_empty());
 
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn load_hydrated_coordination_snapshot_preserves_authoritative_task_lease_fields() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coordination:lease-hydration-plan"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:lease-hydration")),
+                causation: None,
+                execution_context: None,
+            },
+            PlanCreateInput {
+                title: "Preserve durable lease facts".into(),
+                goal: "Preserve durable lease facts".into(),
+                status: None,
+                policy: Default::default(),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coordination:lease-hydration-task"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:lease-hydration")),
+                causation: None,
+                execution_context: None,
+            },
+            TaskCreateInput {
+                plan_id,
+                title: "Keep lease timestamps through hydration".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(SessionId::new("session:lease-hydration")),
+                worktree_id: Some("worktree:lease-hydration".into()),
+                branch_ref: Some("refs/heads/task/lease-hydration".into()),
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    coordination
+        .heartbeat_task(
+            EventMeta {
+                id: EventId::new("coordination:lease-hydration-heartbeat"),
+                ts: 1700,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:lease-hydration")),
+                causation: None,
+                execution_context: None,
+            },
+            &task_id,
+            "explicit",
+        )
+        .unwrap();
+
+    let snapshot = coordination.snapshot();
+    let mut store = MemoryStore::default();
+    store
+        .persist_coordination_snapshot_for_root(&root, &snapshot)
+        .unwrap();
+
+    let loaded = store
+        .load_hydrated_coordination_snapshot_for_root(&root)
+        .unwrap()
+        .expect("hydrated coordination snapshot");
+    let loaded_task = loaded
+        .tasks
+        .into_iter()
+        .find(|candidate| candidate.id == task_id)
+        .expect("task should survive hydration");
+    assert!(loaded_task.session.is_none());
+    assert_eq!(loaded_task.lease_started_at, Some(2));
+    assert_eq!(loaded_task.lease_refreshed_at, Some(1700));
+    assert!(loaded_task.lease_stale_at.is_some_and(|value| value > 1700));
+    assert!(loaded_task.lease_expires_at.is_some_and(|value| value > 1700));
+    assert_eq!(
+        loaded_task
+            .lease_holder
+            .as_ref()
+            .and_then(|holder| holder.session_id.clone()),
+        Some(SessionId::new("session:lease-hydration"))
+    );
+    assert!(loaded_task.worktree_id.is_none());
+    assert!(loaded_task.branch_ref.is_none());
+}
+
+#[test]
+fn checkpoint_materialization_preserves_authoritative_task_lease_fields() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    run_git(&root, &["init"]);
+    run_git(&root, &["config", "user.email", "test@example.com"]);
+    run_git(&root, &["config", "user.name", "Test User"]);
+    run_git(&root, &["add", "."]);
+    run_git(&root, &["commit", "-m", "init"]);
+
+    let session = index_workspace_session(&root).unwrap();
+    let task_id = session
+        .mutate_coordination(|prism| {
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:lease-checkpoint-plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:lease-checkpoint")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Preserve durable checkpoint lease facts".into(),
+                "Preserve durable checkpoint lease facts".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            let task = prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:lease-checkpoint-task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:lease-checkpoint")),
+                    causation: None,
+                    execution_context: None,
+                },
+                TaskCreateInput {
+                    plan_id,
+                    title: "Persist durable lease facts in startup checkpoints".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: Some(SessionId::new("session:lease-checkpoint")),
+                    worktree_id: Some("worktree:lease-checkpoint".into()),
+                    branch_ref: Some("refs/heads/task/lease-checkpoint".into()),
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: prism.workspace_revision(),
+                },
+            )?;
+            let task = prism.heartbeat_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:lease-checkpoint-heartbeat"),
+                    ts: 1700,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:lease-checkpoint")),
+                    causation: None,
+                    execution_context: None,
+                },
+                &task.id,
+                "explicit",
+            )?;
+            Ok::<_, anyhow::Error>(task.id)
+        })
+        .unwrap();
+    flush_coordination_materializations(&session);
+
+    assert!(
+        crate::shared_coordination_ref::shared_coordination_startup_authority(&root)
+            .unwrap()
+            .is_some()
+    );
+
+    let checkpoint = if let Some(shared_runtime_store) = session.shared_runtime_store.as_ref() {
+        let mut store = shared_runtime_store
+            .lock()
+            .expect("shared runtime store lock poisoned");
+        prism_store::CoordinationCheckpointStore::load_coordination_startup_checkpoint(&mut *store)
+            .unwrap()
+            .expect("coordination startup checkpoint")
+    } else {
+        let mut store = session.store.lock().expect("workspace store lock poisoned");
+        prism_store::CoordinationCheckpointStore::load_coordination_startup_checkpoint(&mut *store)
+            .unwrap()
+            .expect("coordination startup checkpoint")
+    };
+    let loaded_task = checkpoint
+        .snapshot
+        .tasks
+        .into_iter()
+        .find(|candidate| candidate.id == task_id)
+        .expect("task should be included in the startup checkpoint");
+    assert!(loaded_task.session.is_none());
+    assert_eq!(loaded_task.lease_started_at, Some(2));
+    assert_eq!(loaded_task.lease_refreshed_at, Some(1700));
+    assert!(loaded_task.lease_stale_at.is_some_and(|value| value > 1700));
+    assert!(loaded_task.lease_expires_at.is_some_and(|value| value > 1700));
+    assert_eq!(
+        loaded_task
+            .lease_holder
+            .as_ref()
+            .and_then(|holder| holder.session_id.clone()),
+        Some(SessionId::new("session:lease-checkpoint"))
+    );
+    assert!(loaded_task.worktree_id.is_none());
+    assert!(loaded_task.branch_ref.is_none());
 }
 
 #[test]

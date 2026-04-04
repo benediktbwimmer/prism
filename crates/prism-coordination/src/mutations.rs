@@ -17,8 +17,10 @@ use crate::helpers::{
     simulate_conflicts, validate_plan_transition, validate_task_transition,
 };
 use crate::lease::{
-    claim_lease_state, clear_task_lease, current_claim_holder, current_task_holder,
-    refresh_claim_lease, refresh_task_lease, same_holder, task_lease_state, LeaseState,
+    authoritative_task_holder, claim_lease_state, claim_renewal_should_refresh,
+    clear_task_lease, current_claim_holder, current_task_holder, refresh_claim_lease,
+    refresh_task_lease, same_holder,
+    task_heartbeat_should_refresh, task_lease_state, LeaseState,
 };
 use crate::state::CoordinationState;
 use crate::state::CoordinationStore;
@@ -60,11 +62,11 @@ fn enforce_task_lease_for_standard_mutation(
     if matches!(lease_state, LeaseState::Unleased) {
         return Ok(());
     }
-    let Some(lease_holder) = task.lease_holder.as_ref() else {
+    let Some(lease_holder) = authoritative_task_holder(task) else {
         return Ok(());
     };
     let current_holder = current_task_holder(meta, task);
-    if matches!(lease_state, LeaseState::Active) && same_holder(lease_holder, &current_holder) {
+    if matches!(lease_state, LeaseState::Active) && same_holder(&lease_holder, &current_holder) {
         return Ok(());
     }
 
@@ -76,7 +78,9 @@ fn enforce_task_lease_for_standard_mutation(
                 task.id.0
             ),
         ),
-        LeaseState::Stale | LeaseState::Expired if same_holder(lease_holder, &current_holder) => (
+        LeaseState::Stale | LeaseState::Expired
+            if same_holder(&lease_holder, &current_holder) =>
+        (
             PolicyViolationCode::TaskResumeRequired,
             format!(
                 "coordination task `{}` has a {:?} lease and must be resumed before it can be mutated",
@@ -100,13 +104,13 @@ fn enforce_task_lease_for_standard_mutation(
         None,
         None,
         json!({
-            "leaseState": format!("{lease_state:?}").to_ascii_lowercase(),
-            "leaseHolder": lease_holder_details(Some(lease_holder)),
-            "currentHolder": lease_holder_details(Some(&current_holder)),
-            "leaseStaleAt": task.lease_stale_at,
-            "leaseExpiresAt": task.lease_expires_at,
-        }),
-    )];
+                "leaseState": format!("{lease_state:?}").to_ascii_lowercase(),
+                "leaseHolder": lease_holder_details(Some(&lease_holder)),
+                "currentHolder": lease_holder_details(Some(&current_holder)),
+                "leaseStaleAt": task.lease_stale_at,
+                "leaseExpiresAt": task.lease_expires_at,
+            }),
+        )];
     Err(rejection_error(
         state,
         meta,
@@ -546,6 +550,9 @@ pub(crate) fn renew_claim_mutation(
     if claim.status == prism_ir::ClaimStatus::Released {
         return Err(anyhow!("claim `{}` has already been released", claim_id.0));
     }
+    if !claim_renewal_should_refresh(&claim_snapshot, claim_policy.as_ref(), meta.ts, ttl_seconds) {
+        return Ok(claim_snapshot);
+    }
     claim.status = prism_ir::ClaimStatus::Active;
     refresh_claim_lease(claim, &meta, meta.ts, claim_policy.as_ref(), ttl_seconds);
     let claim = claim.clone();
@@ -582,13 +589,13 @@ pub(crate) fn heartbeat_task_mutation(
     };
     let lease_state = task_lease_state(&previous, meta.ts);
     let current_holder = current_task_holder(&meta, &previous);
-    let Some(lease_holder) = previous.lease_holder.as_ref() else {
+    let Some(lease_holder) = authoritative_task_holder(&previous) else {
         return Err(anyhow!(
             "coordination task `{}` does not have an active lease to heartbeat",
             previous.id.0
         ));
     };
-    if !same_holder(lease_holder, &current_holder) {
+    if !same_holder(&lease_holder, &current_holder) {
         let violations = vec![policy_violation(
             PolicyViolationCode::TaskLeaseHeldByOther,
             format!(
@@ -601,7 +608,7 @@ pub(crate) fn heartbeat_task_mutation(
             None,
             json!({
                 "leaseState": format!("{lease_state:?}").to_ascii_lowercase(),
-                "leaseHolder": lease_holder_details(Some(lease_holder)),
+                "leaseHolder": lease_holder_details(Some(&lease_holder)),
                 "currentHolder": lease_holder_details(Some(&current_holder)),
                 "leaseStaleAt": previous.lease_stale_at,
                 "leaseExpiresAt": previous.lease_expires_at,
@@ -631,7 +638,7 @@ pub(crate) fn heartbeat_task_mutation(
             None,
             json!({
                 "leaseState": format!("{lease_state:?}").to_ascii_lowercase(),
-                "leaseHolder": lease_holder_details(Some(lease_holder)),
+                "leaseHolder": lease_holder_details(Some(&lease_holder)),
                 "currentHolder": lease_holder_details(Some(&current_holder)),
                 "leaseStaleAt": previous.lease_stale_at,
                 "leaseExpiresAt": previous.lease_expires_at,
@@ -647,6 +654,9 @@ pub(crate) fn heartbeat_task_mutation(
             None,
             violations,
         ));
+    }
+    if !task_heartbeat_should_refresh(&previous, &plan.policy, meta.ts) {
+        return Ok(previous);
     }
 
     let task = state.tasks.get_mut(task_id).expect("task validated above");
@@ -2719,8 +2729,7 @@ pub(crate) fn resume_task_mutation(
         ));
     }
     let current_holder = current_task_holder(&meta, &previous);
-    if previous
-        .lease_holder
+    if authoritative_task_holder(&previous)
         .as_ref()
         .is_none_or(|lease_holder| !same_holder(lease_holder, &current_holder))
     {
@@ -2878,8 +2887,7 @@ pub(crate) fn reclaim_task_mutation(
         ));
     }
     let current_holder = current_task_holder(&meta, &previous);
-    if previous
-        .lease_holder
+    if authoritative_task_holder(&previous)
         .as_ref()
         .is_some_and(|lease_holder| same_holder(lease_holder, &current_holder))
     {

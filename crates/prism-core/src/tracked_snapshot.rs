@@ -8,7 +8,7 @@ use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
 use ed25519_dalek::Signer;
 use prism_coordination::{
-    Artifact, CoordinationEvent, CoordinationSnapshot, CoordinationTask, Plan,
+    coordination_snapshot_from_plan_graphs, CoordinationEvent, CoordinationSnapshot, Plan,
 };
 use prism_ir::{
     EventActor, EventExecutionContext, PlanExecutionOverlay, PlanGraph, WorkContextKind,
@@ -313,14 +313,6 @@ fn plan_snapshot_path(root: &Path, plan_id: &str) -> PathBuf {
     snapshot_plans_dir(root).join(snapshot_file_name(plan_id))
 }
 
-fn task_snapshot_path(root: &Path, task_id: &str) -> PathBuf {
-    snapshot_coordination_tasks_dir(root).join(snapshot_file_name(task_id))
-}
-
-fn artifact_snapshot_path(root: &Path, artifact_id: &str) -> PathBuf {
-    snapshot_coordination_artifacts_dir(root).join(snapshot_file_name(artifact_id))
-}
-
 pub(crate) fn publish_context_from_event(
     actor: Option<&EventActor>,
     execution_context: Option<&EventExecutionContext>,
@@ -460,11 +452,8 @@ pub(crate) fn sync_coordination_snapshot_state(
     coordination_revision: Option<u64>,
 ) -> Result<()> {
     sync_plan_objects(root, snapshot, plan_graphs, execution_overlays)?;
-    sync_task_objects(root, &snapshot.tasks)?;
-    sync_artifact_objects(root, &snapshot.artifacts)?;
     rebuild_plan_indexes(root)?;
-    rebuild_task_index(root)?;
-    rebuild_artifact_index(root)?;
+    cleanup_shared_coordination_mirror_exports(root)?;
     if let Some(coordination_revision) = coordination_revision {
         sync_coordination_materialization_status(root, coordination_revision, publish)?;
     }
@@ -477,8 +466,7 @@ pub(crate) fn regenerate_tracked_snapshot_derived_artifacts(root: &Path) -> Resu
     rebuild_relation_index(root)?;
     rebuild_memory_index(root)?;
     rebuild_plan_indexes(root)?;
-    rebuild_task_index(root)?;
-    rebuild_artifact_index(root)?;
+    cleanup_shared_coordination_mirror_exports(root)?;
     refresh_manifest(root, None)
 }
 
@@ -541,28 +529,16 @@ pub(crate) fn load_tracked_coordination_snapshot_state(
         .into_iter()
         .map(|(_, record)| record)
         .collect::<Vec<_>>();
-    let tasks = load_json_records::<CoordinationTask>(&snapshot_coordination_tasks_dir(root))?
-        .into_iter()
-        .map(|(_, task)| task)
-        .collect::<Vec<_>>();
-    let artifacts = load_json_records::<Artifact>(&snapshot_coordination_artifacts_dir(root))?
-        .into_iter()
-        .map(|(_, artifact)| artifact)
-        .collect::<Vec<_>>();
 
-    if plan_records.is_empty() && tasks.is_empty() && artifacts.is_empty() {
+    if plan_records.is_empty() {
         return Ok(None);
     }
 
-    let mut plans = plan_records
-        .iter()
-        .map(|record| record.plan.clone())
-        .collect::<Vec<_>>();
     let mut plan_graphs = plan_records
         .iter()
         .map(|record| record.graph.clone())
         .collect::<Vec<_>>();
-    let mut execution_overlays = plan_records
+    let execution_overlays = plan_records
         .iter()
         .map(|record| {
             (
@@ -571,34 +547,24 @@ pub(crate) fn load_tracked_coordination_snapshot_state(
             )
         })
         .collect::<BTreeMap<_, _>>();
-    plans.sort_by(|left, right| left.id.0.cmp(&right.id.0));
     plan_graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
 
-    let mut snapshot = CoordinationSnapshot {
-        plans,
-        tasks,
-        claims: Vec::new(),
-        artifacts,
-        reviews: Vec::new(),
-        events: Vec::new(),
-        next_plan: 0,
-        next_task: 0,
-        next_claim: 0,
-        next_artifact: 0,
-        next_review: 0,
-    };
+    let stored_plans = plan_records
+        .iter()
+        .map(|record| (record.plan.id.0.to_string(), record.plan.clone()))
+        .collect::<BTreeMap<_, _>>();
+    let mut snapshot = coordination_snapshot_from_plan_graphs(&plan_graphs, &execution_overlays);
+    for plan in &mut snapshot.plans {
+        if let Some(stored) = stored_plans.get(plan.id.0.as_str()) {
+            *plan = stored.clone();
+        }
+    }
+    snapshot
+        .plans
+        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
     snapshot
         .tasks
         .sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    snapshot
-        .artifacts
-        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
-
-    for task in &snapshot.tasks {
-        execution_overlays
-            .entry(task.plan.0.to_string())
-            .or_default();
-    }
 
     Ok(Some(TrackedCoordinationSnapshotState {
         snapshot,
@@ -633,41 +599,6 @@ fn sync_plan_objects(
         )?;
     }
     cleanup_directory_json_files(&snapshot_plans_dir(root), &expected)
-}
-
-fn sync_task_objects(root: &Path, tasks: &[CoordinationTask]) -> Result<()> {
-    let mut expected = BTreeSet::new();
-    for task in tasks {
-        let path = task_snapshot_path(root, &task.id.0);
-        expected.insert(path.clone());
-        write_json_file(&path, &repo_published_task_snapshot(task))?;
-    }
-    cleanup_directory_json_files(&snapshot_coordination_tasks_dir(root), &expected)
-}
-
-fn repo_published_task_snapshot(task: &CoordinationTask) -> CoordinationTask {
-    let mut task = task.clone();
-    task.pending_handoff_to = None;
-    task.session = None;
-    task.lease_holder = None;
-    task.lease_started_at = None;
-    task.lease_refreshed_at = None;
-    task.lease_stale_at = None;
-    task.lease_expires_at = None;
-    task.worktree_id = None;
-    task.branch_ref = None;
-    task.git_execution = prism_coordination::TaskGitExecution::default();
-    task
-}
-
-fn sync_artifact_objects(root: &Path, artifacts: &[Artifact]) -> Result<()> {
-    let mut expected = BTreeSet::new();
-    for artifact in artifacts {
-        let path = artifact_snapshot_path(root, &artifact.id.0);
-        expected.insert(path.clone());
-        write_json_file(&path, artifact)?;
-    }
-    cleanup_directory_json_files(&snapshot_coordination_artifacts_dir(root), &expected)
 }
 
 fn rebuild_concept_index(root: &Path) -> Result<()> {
@@ -746,36 +677,15 @@ fn rebuild_plan_indexes(root: &Path) -> Result<()> {
     write_json_file(&snapshot_indexes_dir(root).join("plans.json"), &entries)
 }
 
-fn rebuild_task_index(root: &Path) -> Result<()> {
-    let entries = load_json_records::<CoordinationTask>(&snapshot_coordination_tasks_dir(root))?
-        .into_iter()
-        .map(|(path, task)| SnapshotIndexEntry {
-            id: task.id.0.to_string(),
-            title: task.title,
-            status: format!("{:?}", task.status),
-            path,
-        })
-        .collect::<Vec<_>>();
-    write_json_file(
-        &snapshot_indexes_dir(root).join("coordination_tasks.json"),
-        &entries,
-    )
-}
-
-fn rebuild_artifact_index(root: &Path) -> Result<()> {
-    let entries = load_json_records::<Artifact>(&snapshot_coordination_artifacts_dir(root))?
-        .into_iter()
-        .map(|(path, artifact)| SnapshotIndexEntry {
-            id: artifact.id.0.to_string(),
-            title: artifact.task.0.to_string(),
-            status: format!("{:?}", artifact.status),
-            path,
-        })
-        .collect::<Vec<_>>();
-    write_json_file(
-        &snapshot_indexes_dir(root).join("coordination_artifacts.json"),
-        &entries,
-    )
+fn cleanup_shared_coordination_mirror_exports(root: &Path) -> Result<()> {
+    cleanup_directory_json_files(&snapshot_coordination_tasks_dir(root), &BTreeSet::new())?;
+    cleanup_directory_json_files(&snapshot_coordination_artifacts_dir(root), &BTreeSet::new())?;
+    remove_file_if_exists(&snapshot_indexes_dir(root).join("coordination_tasks.json"))?;
+    remove_file_if_exists(&snapshot_indexes_dir(root).join("coordination_artifacts.json"))?;
+    remove_dir_if_empty(&snapshot_coordination_tasks_dir(root))?;
+    remove_dir_if_empty(&snapshot_coordination_artifacts_dir(root))?;
+    remove_dir_if_empty(&snapshot_root(root).join("coordination"))?;
+    Ok(())
 }
 
 fn sync_coordination_materialization_status(
@@ -1225,7 +1135,11 @@ where
         Err(_) => true,
     };
     if should_write {
-        fs::write(path, bytes).with_context(|| format!("failed to write {}", path.display()))?;
+        let tmp_path = path.with_extension(format!("tmp-{}", prism_ir::new_sortable_token()));
+        fs::write(&tmp_path, &bytes)
+            .with_context(|| format!("failed to write {}", tmp_path.display()))?;
+        fs::rename(&tmp_path, path)
+            .with_context(|| format!("failed to replace {}", path.display()))?;
     }
     Ok(())
 }

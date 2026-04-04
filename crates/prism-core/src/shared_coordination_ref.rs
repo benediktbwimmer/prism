@@ -1939,9 +1939,9 @@ mod tests {
         TaskGitExecution, WorkClaim,
     };
     use prism_ir::{
-        ClaimId, ClaimMode, ClaimStatus, CoordinationTaskId, CoordinationTaskStatus,
-        PlanExecutionOverlay, PlanGraph, PlanId, PlanKind, PlanScope, PlanStatus, SessionId,
-        WorkspaceRevision,
+        ClaimId, ClaimMode, ClaimStatus, CoordinationTaskId, CoordinationTaskStatus, EventActor,
+        EventId, EventMeta, PlanExecutionOverlay, PlanGraph, PlanId, PlanKind, PlanScope,
+        PlanStatus, SessionId, TaskId, WorkspaceRevision,
     };
     use prism_store::{CoordinationCheckpointStore, CoordinationStartupCheckpoint, MemoryStore};
 
@@ -2013,6 +2013,16 @@ mod tests {
         )
         .unwrap();
         (root, remote)
+    }
+
+    fn seed_workspace_project(root: &Path) {
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
     }
 
     fn temp_git_worktree(repo_root: &Path) -> PathBuf {
@@ -2179,12 +2189,18 @@ mod tests {
             tags: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution {
-                status: prism_ir::GitExecutionStatus::Published,
+                status: prism_ir::GitExecutionStatus::CoordinationPublished,
                 pending_task_status: Some(CoordinationTaskStatus::Completed),
                 source_ref: Some("refs/heads/task/shared".to_string()),
                 target_ref: Some("origin/main".to_string()),
                 publish_ref: Some("refs/heads/task/shared".to_string()),
                 target_branch: Some("main".to_string()),
+                integration_evidence: Some(prism_ir::GitIntegrationEvidence {
+                    kind: prism_ir::GitIntegrationEvidenceKind::TrustedRecord,
+                    target_commit: "deadbeef".to_string(),
+                    review_artifact_ref: Some("artifact:review".to_string()),
+                    record_ref: Some("coordination:landing".to_string()),
+                }),
                 last_preflight: None,
                 last_publish: None,
                 ..TaskGitExecution::default()
@@ -2303,7 +2319,7 @@ mod tests {
             tags: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution {
-                status: prism_ir::GitExecutionStatus::Published,
+                status: prism_ir::GitExecutionStatus::CoordinationPublished,
                 pending_task_status: Some(CoordinationTaskStatus::Completed),
                 source_ref: Some("refs/heads/task/shared".to_string()),
                 target_ref: Some("origin/main".to_string()),
@@ -2362,7 +2378,7 @@ mod tests {
             .expect("shared task should be present");
         assert_eq!(
             loaded_task.git_execution.status,
-            prism_ir::GitExecutionStatus::Published
+            prism_ir::GitExecutionStatus::CoordinationPublished
         );
         assert_eq!(
             loaded_task.branch_ref.as_deref(),
@@ -2455,7 +2471,7 @@ mod tests {
             tags: Vec::new(),
             metadata: serde_json::Value::Null,
             git_execution: TaskGitExecution {
-                status: prism_ir::GitExecutionStatus::Published,
+                status: prism_ir::GitExecutionStatus::CoordinationPublished,
                 pending_task_status: Some(CoordinationTaskStatus::Completed),
                 source_ref: Some("refs/heads/task/shared".to_string()),
                 target_ref: Some("origin/main".to_string()),
@@ -2876,13 +2892,7 @@ mod tests {
     #[test]
     fn shared_coordination_ref_live_sync_suppresses_self_write_and_imports_remote_change() {
         let (root_a, _remote) = temp_git_repo_with_origin();
-        fs::create_dir_all(root_a.join("src")).unwrap();
-        fs::write(
-            root_a.join("Cargo.toml"),
-            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-        )
-        .unwrap();
-        fs::write(root_a.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+        seed_workspace_project(&root_a);
         let root_b = temp_git_worktree(&root_a);
 
         let session = index_workspace_session(&root_a).unwrap();
@@ -3070,6 +3080,177 @@ mod tests {
             poll_shared_coordination_ref_live_sync(&root_a).unwrap(),
             SharedCoordinationRefLiveSync::Unchanged
         ));
+    }
+
+    #[test]
+    fn early_task_heartbeat_does_not_advance_shared_coordination_ref_head() {
+        let (root, _remote) = temp_git_repo_with_origin();
+        seed_workspace_project(&root);
+        let session = index_workspace_session(&root).unwrap();
+        let (plan_id, task_id) = session
+            .mutate_coordination(|prism| {
+                let plan_id = prism.create_native_plan(
+                    EventMeta {
+                        id: EventId::new("coordination:lease-noop-plan"),
+                        ts: 1,
+                        actor: EventActor::Agent,
+                        correlation: Some(TaskId::new("task:lease-noop")),
+                        causation: None,
+                        execution_context: None,
+                    },
+                    "Exercise early heartbeat suppression".into(),
+                    "Exercise early heartbeat suppression".into(),
+                    None,
+                    Some(Default::default()),
+                )?;
+                let task = prism.create_native_task(
+                    EventMeta {
+                        id: EventId::new("coordination:lease-noop-task"),
+                        ts: 2,
+                        actor: EventActor::Agent,
+                        correlation: Some(TaskId::new("task:lease-noop")),
+                        causation: None,
+                        execution_context: None,
+                    },
+                    prism_coordination::TaskCreateInput {
+                        plan_id: plan_id.clone(),
+                        title: "Keep early heartbeats local".into(),
+                        status: Some(CoordinationTaskStatus::Ready),
+                        assignee: None,
+                        session: Some(SessionId::new("session:lease-noop-owner")),
+                        worktree_id: None,
+                        branch_ref: None,
+                        anchors: Vec::new(),
+                        depends_on: Vec::new(),
+                        acceptance: Vec::new(),
+                        base_revision: prism.workspace_revision(),
+                    },
+                )?;
+                Ok::<_, anyhow::Error>((plan_id, task.id))
+            })
+            .unwrap();
+        let ref_name = super::shared_coordination_ref_name(&root);
+        let head_before = super::run_git(&root, &["rev-parse", &ref_name]).unwrap();
+
+        let task = session
+            .mutate_coordination(|prism| {
+                prism.heartbeat_native_task(
+                    EventMeta {
+                        id: EventId::new("coordination:lease-noop-heartbeat"),
+                        ts: 30,
+                        actor: EventActor::Agent,
+                        correlation: Some(TaskId::new("task:lease-noop")),
+                        causation: None,
+                        execution_context: None,
+                    },
+                    &task_id,
+                    "explicit",
+                )
+            })
+            .unwrap();
+
+        let head_after = super::run_git(&root, &["rev-parse", &ref_name]).unwrap();
+        assert_eq!(head_after, head_before);
+        assert_eq!(task.plan, plan_id);
+        assert_eq!(task.lease_started_at, Some(2));
+        assert_eq!(task.lease_refreshed_at, Some(2));
+        let loaded = load_shared_coordination_ref_state(&root)
+            .unwrap()
+            .expect("shared ref state should load");
+        let loaded_task = loaded
+            .snapshot
+            .tasks
+            .into_iter()
+            .find(|candidate| candidate.id == task_id)
+            .expect("shared ref should keep the task");
+        assert_eq!(loaded_task.lease_started_at, Some(2));
+        assert_eq!(loaded_task.lease_refreshed_at, Some(2));
+    }
+
+    #[test]
+    fn due_task_heartbeat_refreshes_shared_coordination_ref_lease_state() {
+        let (root, _remote) = temp_git_repo_with_origin();
+        seed_workspace_project(&root);
+        let session = index_workspace_session(&root).unwrap();
+        let task_id = session
+            .mutate_coordination(|prism| {
+                let plan_id = prism.create_native_plan(
+                    EventMeta {
+                        id: EventId::new("coordination:lease-refresh-plan"),
+                        ts: 1,
+                        actor: EventActor::Agent,
+                        correlation: Some(TaskId::new("task:lease-refresh")),
+                        causation: None,
+                        execution_context: None,
+                    },
+                    "Exercise due heartbeat publication".into(),
+                    "Exercise due heartbeat publication".into(),
+                    None,
+                    Some(Default::default()),
+                )?;
+                let task = prism.create_native_task(
+                    EventMeta {
+                        id: EventId::new("coordination:lease-refresh-task"),
+                        ts: 2,
+                        actor: EventActor::Agent,
+                        correlation: Some(TaskId::new("task:lease-refresh")),
+                        causation: None,
+                        execution_context: None,
+                    },
+                    prism_coordination::TaskCreateInput {
+                        plan_id,
+                        title: "Refresh the authoritative lease when due".into(),
+                        status: Some(CoordinationTaskStatus::Ready),
+                        assignee: None,
+                        session: Some(SessionId::new("session:lease-refresh-owner")),
+                        worktree_id: None,
+                        branch_ref: None,
+                        anchors: Vec::new(),
+                        depends_on: Vec::new(),
+                        acceptance: Vec::new(),
+                        base_revision: prism.workspace_revision(),
+                    },
+                )?;
+                Ok::<_, anyhow::Error>(task.id)
+            })
+            .unwrap();
+        let ref_name = super::shared_coordination_ref_name(&root);
+        let head_before = super::run_git(&root, &["rev-parse", &ref_name]).unwrap();
+
+        let task = session
+            .mutate_coordination(|prism| {
+                prism.heartbeat_native_task(
+                    EventMeta {
+                        id: EventId::new("coordination:lease-refresh-heartbeat"),
+                        ts: 1700,
+                        actor: EventActor::Agent,
+                        correlation: Some(TaskId::new("task:lease-refresh")),
+                        causation: None,
+                        execution_context: None,
+                    },
+                    &task_id,
+                    "explicit",
+                )
+            })
+            .unwrap();
+
+        let head_after = super::run_git(&root, &["rev-parse", &ref_name]).unwrap();
+        assert_ne!(head_after, head_before);
+        assert_eq!(task.lease_started_at, Some(2));
+        assert_eq!(task.lease_refreshed_at, Some(1700));
+        let loaded = load_shared_coordination_ref_state(&root)
+            .unwrap()
+            .expect("shared ref state should load");
+        let loaded_task = loaded
+            .snapshot
+            .tasks
+            .into_iter()
+            .find(|candidate| candidate.id == task_id)
+            .expect("shared ref should keep the task");
+        assert_eq!(loaded_task.lease_started_at, Some(2));
+        assert_eq!(loaded_task.lease_refreshed_at, Some(1700));
+        assert!(loaded_task.lease_stale_at.is_some_and(|value| value > 1700));
+        assert!(loaded_task.lease_expires_at.is_some_and(|value| value > 1700));
     }
 
     #[test]

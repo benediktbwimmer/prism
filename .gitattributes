@@ -10,6 +10,7 @@
 .prism/plans/archived/*.jsonl merge=prism-derived-prism
 .prism/state/manifest.json merge=prism-snapshot-derived
 .prism/state/indexes/*.json merge=prism-snapshot-derived
+.prism/state/plans/*.json merge=prism-snapshot-derived
 PRISM.md merge=prism-snapshot-derived
 docs/prism/** merge=prism-snapshot-derived
 # END PRISM MANAGED

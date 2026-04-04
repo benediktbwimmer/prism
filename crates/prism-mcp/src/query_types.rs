@@ -1077,9 +1077,25 @@ pub(crate) fn convert_plan_binding(
 pub(crate) fn convert_completion_context(
     payload: Option<TaskCompletionContextPayload>,
 ) -> Option<prism_coordination::TaskCompletionContext> {
-    payload.map(|payload| prism_coordination::TaskCompletionContext {
-        risk_score: payload.risk_score,
-        required_validations: payload.required_validations.unwrap_or_default(),
+    payload.map(|payload| {
+        let integration_evidence = payload.integration_evidence;
+        let review_artifact_ref = payload.review_artifact_ref.or_else(|| {
+            integration_evidence
+                .as_ref()
+                .and_then(|evidence| evidence.review_artifact_ref.clone())
+        });
+        let integration_commit = payload.integration_commit.or_else(|| {
+            integration_evidence
+                .as_ref()
+                .map(|evidence| evidence.target_commit.clone())
+        });
+        prism_coordination::TaskCompletionContext {
+            risk_score: payload.risk_score,
+            required_validations: payload.required_validations.unwrap_or_default(),
+            review_artifact_ref,
+            integration_commit,
+            integration_evidence,
+        }
     })
 }
 

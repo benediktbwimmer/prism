@@ -6,6 +6,12 @@ use std::time::UNIX_EPOCH;
 use anyhow::{anyhow, Context, Result};
 use prism_coordination::{GitExecutionPolicy, GitPreflightReport, GitPublishReport};
 
+#[derive(Debug, Clone)]
+pub(crate) struct GitDirectIntegrationReport {
+    pub(crate) target_commit: String,
+    pub(crate) record_ref: String,
+}
+
 fn run_git(root: &Path, args: &[&str]) -> Result<String> {
     let output = Command::new("git")
         .current_dir(root)
@@ -209,6 +215,31 @@ pub(crate) fn head_commit(root: &Path) -> Result<String> {
     run_git(root, &["rev-parse", "HEAD"])
 }
 
+pub(crate) fn refresh_origin(root: &Path) -> Result<()> {
+    run_git(root, &["fetch", "origin"]).map(|_| ())
+}
+
+pub(crate) fn ref_head_commit(root: &Path, git_ref: &str) -> Result<String> {
+    run_git(root, &["rev-parse", git_ref])
+}
+
+pub(crate) fn ref_contains_commit(root: &Path, git_ref: &str, commit: &str) -> Result<bool> {
+    let status = Command::new("git")
+        .current_dir(root)
+        .args(["merge-base", "--is-ancestor", commit, git_ref])
+        .status()
+        .with_context(|| {
+            format!("failed to run git merge-base --is-ancestor {commit} {git_ref}")
+        })?;
+    match status.code() {
+        Some(0) => Ok(true),
+        Some(1) => Ok(false),
+        _ => Err(anyhow!(
+            "git merge-base --is-ancestor {commit} {git_ref} failed with status {status}"
+        )),
+    }
+}
+
 pub(crate) fn push_current_branch(
     root: &Path,
     branch: &str,
@@ -217,6 +248,35 @@ pub(crate) fn push_current_branch(
     run_git(root, &["push", "origin", branch])?;
     report.pushed_ref = Some(format!("refs/heads/{branch}"));
     Ok(())
+}
+
+pub(crate) fn direct_integrate_published_branch(
+    root: &Path,
+    source_branch: &str,
+    policy: &GitExecutionPolicy,
+    expected_source_commit: &str,
+) -> Result<GitDirectIntegrationReport> {
+    let target_branch_ref = format!("refs/heads/{}", policy.target_branch);
+    run_git(
+        root,
+        &[
+            "push",
+            "origin",
+            &format!("{source_branch}:{target_branch_ref}"),
+        ],
+    )?;
+    run_git(root, &["fetch", "origin"])?;
+    let landed_commit = run_git(root, &["rev-parse", policy.effective_target_ref().as_str()])?;
+    if landed_commit != expected_source_commit {
+        return Err(anyhow!(
+            "direct integration expected `{}` to land at `{expected_source_commit}` but found `{landed_commit}`",
+            policy.effective_target_ref(),
+        ));
+    }
+    Ok(GitDirectIntegrationReport {
+        target_commit: landed_commit,
+        record_ref: format!("git:{target_branch_ref}"),
+    })
 }
 
 pub(crate) fn restore_prism_managed_paths(root: &Path, paths: &[String]) -> Result<()> {

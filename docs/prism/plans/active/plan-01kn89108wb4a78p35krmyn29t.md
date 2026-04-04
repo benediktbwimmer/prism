@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:6011bc5a0c5d36b1061de9865c32918e77613ff8c53e3336655fab09f82336c3`
+- Source head: `sha256:59288def8aad039ec0c3c5ba2d4748a4182a5e63ed907ebb3c9d55a16e04fb24`
 - Source logical timestamp: `unknown`
-- Source snapshot: `3 nodes, 0 edges, 0 overlays`
+- Source snapshot: `3 nodes, 0 edges, 3 overlays`
 
 ## Overview
 
@@ -34,11 +34,12 @@ Publish always-up-to-date human-readable markdown projections under docs/prism f
 - Require task branch: `false`
 - Max commits behind target: `0`
 
-## Source of Truth
+## Branch Snapshot Export
 
-- Snapshot manifest: `.prism/state/manifest.json`
-- Snapshot plan shard: `.prism/state/plans/plan:01kn89108wb4a78p35krmyn29t.json`
-- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
+- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority
+- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)
+- Snapshot plan shard: `.prism/state/plans/plan:01kn89108wb4a78p35krmyn29t.json` (derived branch export)
+- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority
 
 ## Root Nodes
 
@@ -85,4 +86,10 @@ Publish always-up-to-date human-readable markdown projections under docs/prism f
 ## Edges
 
 No published plan edges are currently recorded.
+
+## Execution Overlays
+
+- Node: `coord-task:01kn891asb951r6bdzws74dbtv`
+- Node: `coord-task:01kn891bw81xnx9tddb0vb99t7`
+- Node: `coord-task:01kn891d13gpz3snkn2k5qfww2`
 

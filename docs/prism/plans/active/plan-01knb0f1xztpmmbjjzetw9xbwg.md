@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:977818c27cb545efec9fbe12e0b1613ab35884a22abdf25cd0ceae63957a4238`
+- Source head: `sha256:5b0410b49e3b4a3dc7f966615f6877561fb379bd17eccbb24cbca6b11a9e6ae3`
 - Source logical timestamp: `unknown`
 - Source snapshot: `6 nodes, 6 edges, 6 overlays`
 
@@ -36,11 +36,12 @@ Separate shared coordination refs as the authority/replication source from daemo
 - Max commits behind target: `0`
 - Max fetch age seconds: `300`
 
-## Source of Truth
+## Branch Snapshot Export
 
-- Snapshot manifest: `.prism/state/manifest.json`
-- Snapshot plan shard: `.prism/state/plans/plan:01knb0f1xztpmmbjjzetw9xbwg.json`
-- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
+- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority
+- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)
+- Snapshot plan shard: `.prism/state/plans/plan:01knb0f1xztpmmbjjzetw9xbwg.json` (derived branch export)
+- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority
 
 ## Root Nodes
 
@@ -135,40 +136,40 @@ Separate shared coordination refs as the authority/replication source from daemo
 
 - `plan-edge:coord-task:01knb0hdvk3pmkwcjkq0zzjgmq:depends-on:coord-task:01knb0g511dtavrvd5ban1x6jq`: `coord-task:01knb0hdvk3pmkwcjkq0zzjgmq` depends on `coord-task:01knb0g511dtavrvd5ban1x6jq`
 - `plan-edge:coord-task:01knb0hxhtfxwqc1nm64dzjckx:depends-on:coord-task:01knb0hdvk3pmkwcjkq0zzjgmq`: `coord-task:01knb0hxhtfxwqc1nm64dzjckx` depends on `coord-task:01knb0hdvk3pmkwcjkq0zzjgmq`
-- `plan-edge:coord-task:01knb0nbyyzqs1bs768mxfmmvq:depends-on:coord-task:01knb0hdvk3pmkwcjkq0zzjgmq`: `coord-task:01knb0nbyyzqs1bs768mxfmmvq` depends on `coord-task:01knb0hdvk3pmkwcjkq0zzjgmq`
 - `plan-edge:coord-task:01knb0k8skvp53g3hswbh5tyf2:depends-on:coord-task:01knb0nbyyzqs1bs768mxfmmvq`: `coord-task:01knb0k8skvp53g3hswbh5tyf2` depends on `coord-task:01knb0nbyyzqs1bs768mxfmmvq`
+- `plan-edge:coord-task:01knb0nbyyzqs1bs768mxfmmvq:depends-on:coord-task:01knb0hdvk3pmkwcjkq0zzjgmq`: `coord-task:01knb0nbyyzqs1bs768mxfmmvq` depends on `coord-task:01knb0hdvk3pmkwcjkq0zzjgmq`
 - `plan-edge:coord-task:01knb0nvvkchbygemh7gxc9b6a:depends-on:coord-task:01knb0hxhtfxwqc1nm64dzjckx`: `coord-task:01knb0nvvkchbygemh7gxc9b6a` depends on `coord-task:01knb0hxhtfxwqc1nm64dzjckx`
 - `plan-edge:coord-task:01knb0nvvkchbygemh7gxc9b6a:depends-on:coord-task:01knb0nbyyzqs1bs768mxfmmvq`: `coord-task:01knb0nvvkchbygemh7gxc9b6a` depends on `coord-task:01knb0nbyyzqs1bs768mxfmmvq`
 
 ## Execution Overlays
 
 - Node: `coord-task:01knb0g511dtavrvd5ban1x6jq`
-  git execution status: `published`
+  git execution status: `coordination_published`
   source ref: `task/startup-materialized-snapshot`
   target ref: `origin/main`
   publish ref: `task/startup-materialized-snapshot`
 - Node: `coord-task:01knb0hdvk3pmkwcjkq0zzjgmq`
-  git execution status: `published`
+  git execution status: `coordination_published`
   source ref: `task/startup-materialized-snapshot`
   target ref: `origin/main`
   publish ref: `task/startup-materialized-snapshot`
 - Node: `coord-task:01knb0hxhtfxwqc1nm64dzjckx`
-  git execution status: `published`
+  git execution status: `coordination_published`
   source ref: `task/startup-materialized-snapshot`
   target ref: `origin/main`
   publish ref: `task/startup-materialized-snapshot`
 - Node: `coord-task:01knb0k8skvp53g3hswbh5tyf2`
-  git execution status: `published`
+  git execution status: `coordination_published`
   source ref: `task/startup-materialized-snapshot`
   target ref: `origin/main`
   publish ref: `task/startup-materialized-snapshot`
 - Node: `coord-task:01knb0nbyyzqs1bs768mxfmmvq`
-  git execution status: `published`
+  git execution status: `coordination_published`
   source ref: `task/startup-materialized-snapshot`
   target ref: `origin/main`
   publish ref: `task/startup-materialized-snapshot`
 - Node: `coord-task:01knb0nvvkchbygemh7gxc9b6a`
-  git execution status: `published`
+  git execution status: `coordination_published`
   source ref: `task/startup-materialized-snapshot`
   target ref: `origin/main`
   publish ref: `task/startup-materialized-snapshot`

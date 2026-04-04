@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:41843417122d330d9cc7b2757078be3f8b7bac817192478bd0119e2a5516ec16`
+- Source head: `sha256:d79b1a515e48cbce055b59b8af657f74518fe0a8aad2635be4a5ed1764d52abf`
 - Source logical timestamp: `unknown`
 - Source snapshot: `5 nodes, 6 edges, 5 overlays`
 
@@ -35,11 +35,12 @@ Make snapshot-era PRISM state survivable in arbitrary repos by auto-installing r
 - Require task branch: `true`
 - Max commits behind target: `0`
 
-## Source of Truth
+## Branch Snapshot Export
 
-- Snapshot manifest: `.prism/state/manifest.json`
-- Snapshot plan shard: `.prism/state/plans/plan:01knaqm4jgp5r12ee485ramvxe.json`
-- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
+- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority
+- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)
+- Snapshot plan shard: `.prism/state/plans/plan:01knaqm4jgp5r12ee485ramvxe.json` (derived branch export)
+- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority
 
 ## Root Nodes
 
@@ -101,8 +102,8 @@ Make snapshot-era PRISM state survivable in arbitrary repos by auto-installing r
 ## Edges
 
 - `plan-edge:coord-task:01knaqn4pzpx278wss25zqwqma:depends-on:coord-task:01knaqmkjbz69aka2dzh8yhyke`: `coord-task:01knaqn4pzpx278wss25zqwqma` depends on `coord-task:01knaqmkjbz69aka2dzh8yhyke`
-- `plan-edge:coord-task:01knaqn6kmcv0347syd3zxjvk2:depends-on:coord-task:01knaqmkjbz69aka2dzh8yhyke`: `coord-task:01knaqn6kmcv0347syd3zxjvk2` depends on `coord-task:01knaqmkjbz69aka2dzh8yhyke`
 - `plan-edge:coord-task:01knaqn5gdm1syjgwvjw2a0s72:depends-on:coord-task:01knaqmkjbz69aka2dzh8yhyke`: `coord-task:01knaqn5gdm1syjgwvjw2a0s72` depends on `coord-task:01knaqmkjbz69aka2dzh8yhyke`
+- `plan-edge:coord-task:01knaqn6kmcv0347syd3zxjvk2:depends-on:coord-task:01knaqmkjbz69aka2dzh8yhyke`: `coord-task:01knaqn6kmcv0347syd3zxjvk2` depends on `coord-task:01knaqmkjbz69aka2dzh8yhyke`
 - `plan-edge:coord-task:01knaqnk440qpjcssdta8anmv7:depends-on:coord-task:01knaqn4pzpx278wss25zqwqma`: `coord-task:01knaqnk440qpjcssdta8anmv7` depends on `coord-task:01knaqn4pzpx278wss25zqwqma`
 - `plan-edge:coord-task:01knaqnk440qpjcssdta8anmv7:depends-on:coord-task:01knaqn5gdm1syjgwvjw2a0s72`: `coord-task:01knaqnk440qpjcssdta8anmv7` depends on `coord-task:01knaqn5gdm1syjgwvjw2a0s72`
 - `plan-edge:coord-task:01knaqnk440qpjcssdta8anmv7:depends-on:coord-task:01knaqn6kmcv0347syd3zxjvk2`: `coord-task:01knaqnk440qpjcssdta8anmv7` depends on `coord-task:01knaqn6kmcv0347syd3zxjvk2`
@@ -110,27 +111,27 @@ Make snapshot-era PRISM state survivable in arbitrary repos by auto-installing r
 ## Execution Overlays
 
 - Node: `coord-task:01knaqmkjbz69aka2dzh8yhyke`
-  git execution status: `published`
+  git execution status: `coordination_published`
   source ref: `task/prism-merge-repair-support`
   target ref: `origin/main`
   publish ref: `task/prism-merge-repair-support`
 - Node: `coord-task:01knaqn4pzpx278wss25zqwqma`
-  git execution status: `published`
+  git execution status: `coordination_published`
   source ref: `task/prism-merge-repair-support`
   target ref: `origin/main`
   publish ref: `task/prism-merge-repair-support`
 - Node: `coord-task:01knaqn5gdm1syjgwvjw2a0s72`
-  git execution status: `published`
+  git execution status: `coordination_published`
   source ref: `task/prism-merge-repair-support`
   target ref: `origin/main`
   publish ref: `task/prism-merge-repair-support`
 - Node: `coord-task:01knaqn6kmcv0347syd3zxjvk2`
-  git execution status: `published`
+  git execution status: `coordination_published`
   source ref: `task/prism-merge-repair-support`
   target ref: `origin/main`
   publish ref: `task/prism-merge-repair-support`
 - Node: `coord-task:01knaqnk440qpjcssdta8anmv7`
-  git execution status: `published`
+  git execution status: `coordination_published`
   source ref: `task/prism-merge-repair-support`
   target ref: `origin/main`
   publish ref: `task/prism-merge-repair-support`

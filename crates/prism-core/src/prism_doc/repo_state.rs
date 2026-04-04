@@ -457,11 +457,15 @@ fn render_plan_doc(plan: &PublishedPlanDoc) -> String {
     }
     markdown.push('\n');
 
-    markdown.push_str("## Source of Truth\n\n");
-    markdown.push_str("- Snapshot manifest: `.prism/state/manifest.json`\n");
+    markdown.push_str("## Branch Snapshot Export\n\n");
+    markdown.push_str(
+        "- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority\n",
+    );
+    markdown
+        .push_str("- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)\n");
     markdown.push_str("- Snapshot plan shard: `.prism/state/plans/");
     markdown.push_str(&plan.graph.id.0);
-    markdown.push_str(".json`\n");
+    markdown.push_str(".json` (derived branch export)\n");
     if let Some(index) = plan
         .index
         .as_ref()
@@ -469,9 +473,11 @@ fn render_plan_doc(plan: &PublishedPlanDoc) -> String {
     {
         markdown.push_str("- Legacy migration log path: `");
         markdown.push_str(&index.log_path);
-        markdown.push_str("` (compatibility only, not current tracked authority)\n\n");
+        markdown.push_str("` (compatibility only, not current shared coordination authority)\n\n");
     } else {
-        markdown.push_str("- Legacy migration log path: none; tracked snapshot shards are the only current repo authority\n\n");
+        markdown.push_str(
+            "- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority\n\n",
+        );
     }
 
     if !plan.graph.root_nodes.is_empty() {
@@ -900,7 +906,7 @@ fn format_git_execution_status(status: GitExecutionStatus) -> &'static str {
         GitExecutionStatus::InProgress => "in_progress",
         GitExecutionStatus::PublishPending => "publish_pending",
         GitExecutionStatus::PublishFailed => "publish_failed",
-        GitExecutionStatus::Published => "published",
+        GitExecutionStatus::CoordinationPublished => "coordination_published",
     }
 }
 

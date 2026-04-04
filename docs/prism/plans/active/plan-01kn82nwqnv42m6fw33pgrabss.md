@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:c9d3949ec3daa26644a23b0895122d97f26712d61e4ce2697893e8f69fbaed0d`
+- Source head: `sha256:58de1c0cb29781ff8b638f7b8e961d3585d1d9abe8f80de10053a2268c2aaaf5`
 - Source logical timestamp: `unknown`
-- Source snapshot: `3 nodes, 2 edges, 0 overlays`
+- Source snapshot: `3 nodes, 2 edges, 3 overlays`
 
 ## Overview
 
@@ -34,11 +34,12 @@ Extend PRISM runtime and MCP log query views so agents can analyze daemon and MC
 - Require task branch: `false`
 - Max commits behind target: `0`
 
-## Source of Truth
+## Branch Snapshot Export
 
-- Snapshot manifest: `.prism/state/manifest.json`
-- Snapshot plan shard: `.prism/state/plans/plan:01kn82nwqnv42m6fw33pgrabss.json`
-- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
+- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority
+- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)
+- Snapshot plan shard: `.prism/state/plans/plan:01kn82nwqnv42m6fw33pgrabss.json` (derived branch export)
+- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority
 
 ## Root Nodes
 
@@ -87,4 +88,10 @@ Extend PRISM runtime and MCP log query views so agents can analyze daemon and MC
 
 - `plan-edge:coord-task:01kn82pbhvpkb21qpmpwjb046k:depends-on:coord-task:01kn82papt611bh6q661hx7b6e`: `coord-task:01kn82pbhvpkb21qpmpwjb046k` depends on `coord-task:01kn82papt611bh6q661hx7b6e`
 - `plan-edge:coord-task:01kn82pcbg8whg9ecy6wnkhxex:depends-on:coord-task:01kn82pbhvpkb21qpmpwjb046k`: `coord-task:01kn82pcbg8whg9ecy6wnkhxex` depends on `coord-task:01kn82pbhvpkb21qpmpwjb046k`
+
+## Execution Overlays
+
+- Node: `coord-task:01kn82papt611bh6q661hx7b6e`
+- Node: `coord-task:01kn82pbhvpkb21qpmpwjb046k`
+- Node: `coord-task:01kn82pcbg8whg9ecy6wnkhxex`
 

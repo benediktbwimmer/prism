@@ -648,6 +648,15 @@
     ],
     "edges": [
       {
+        "id": "plan-edge:coord-task:01knc6cswpwztpebeb7mmtmqtc:depends-on:coord-task:01knc6cfapwxtkfnvhcez2wszv",
+        "plan_id": "plan:01knc64s1zzzxq7x324fms1cyc",
+        "from": "coord-task:01knc6cswpwztpebeb7mmtmqtc",
+        "to": "coord-task:01knc6cfapwxtkfnvhcez2wszv",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
         "id": "plan-edge:coord-task:01knc6d53pww48ryg7se29dp3y:depends-on:coord-task:01knc6cswpwztpebeb7mmtmqtc",
         "plan_id": "plan:01knc64s1zzzxq7x324fms1cyc",
         "from": "coord-task:01knc6d53pww48ryg7se29dp3y",
@@ -693,19 +702,10 @@
         "metadata": null
       },
       {
-        "id": "plan-edge:coord-task:01knc6jcs2rn6sj8a60xwqkyxm:depends-on:coord-task:01knc6d53pww48ryg7se29dp3y",
-        "plan_id": "plan:01knc64s1zzzxq7x324fms1cyc",
-        "from": "coord-task:01knc6jcs2rn6sj8a60xwqkyxm",
-        "to": "coord-task:01knc6d53pww48ryg7se29dp3y",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knc6ffec2vfzbrw66hbmk559:depends-on:coord-task:01knc6jcs2rn6sj8a60xwqkyxm",
+        "id": "plan-edge:coord-task:01knc6ffec2vfzbrw66hbmk559:depends-on:coord-task:01knc6dqrewn2hah2p54xya9xw",
         "plan_id": "plan:01knc64s1zzzxq7x324fms1cyc",
         "from": "coord-task:01knc6ffec2vfzbrw66hbmk559",
-        "to": "coord-task:01knc6jcs2rn6sj8a60xwqkyxm",
+        "to": "coord-task:01knc6dqrewn2hah2p54xya9xw",
         "kind": "DependsOn",
         "summary": null,
         "metadata": null
@@ -720,10 +720,28 @@
         "metadata": null
       },
       {
+        "id": "plan-edge:coord-task:01knc6ffec2vfzbrw66hbmk559:depends-on:coord-task:01knc6e8tbctzsqh0ngt4963ak",
+        "plan_id": "plan:01knc64s1zzzxq7x324fms1cyc",
+        "from": "coord-task:01knc6ffec2vfzbrw66hbmk559",
+        "to": "coord-task:01knc6e8tbctzsqh0ngt4963ak",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
         "id": "plan-edge:coord-task:01knc6ffec2vfzbrw66hbmk559:depends-on:coord-task:01knc6egjk5ay9wm7amhm2p86c",
         "plan_id": "plan:01knc64s1zzzxq7x324fms1cyc",
         "from": "coord-task:01knc6ffec2vfzbrw66hbmk559",
         "to": "coord-task:01knc6egjk5ay9wm7amhm2p86c",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knc6ffec2vfzbrw66hbmk559:depends-on:coord-task:01knc6jcs2rn6sj8a60xwqkyxm",
+        "plan_id": "plan:01knc64s1zzzxq7x324fms1cyc",
+        "from": "coord-task:01knc6ffec2vfzbrw66hbmk559",
+        "to": "coord-task:01knc6jcs2rn6sj8a60xwqkyxm",
         "kind": "DependsOn",
         "summary": null,
         "metadata": null
@@ -747,19 +765,19 @@
         "metadata": null
       },
       {
-        "id": "plan-edge:coord-task:01knc6fr2anfaz4k96dzy0168q:depends-on:coord-task:01knc6egjk5ay9wm7amhm2p86c",
+        "id": "plan-edge:coord-task:01knc6fr2anfaz4k96dzy0168q:depends-on:coord-task:01knc6e8tbctzsqh0ngt4963ak",
         "plan_id": "plan:01knc64s1zzzxq7x324fms1cyc",
         "from": "coord-task:01knc6fr2anfaz4k96dzy0168q",
-        "to": "coord-task:01knc6egjk5ay9wm7amhm2p86c",
+        "to": "coord-task:01knc6e8tbctzsqh0ngt4963ak",
         "kind": "DependsOn",
         "summary": null,
         "metadata": null
       },
       {
-        "id": "plan-edge:coord-task:01knc6fr2anfaz4k96dzy0168q:depends-on:coord-task:01knc6e8tbctzsqh0ngt4963ak",
+        "id": "plan-edge:coord-task:01knc6fr2anfaz4k96dzy0168q:depends-on:coord-task:01knc6egjk5ay9wm7amhm2p86c",
         "plan_id": "plan:01knc64s1zzzxq7x324fms1cyc",
         "from": "coord-task:01knc6fr2anfaz4k96dzy0168q",
-        "to": "coord-task:01knc6e8tbctzsqh0ngt4963ak",
+        "to": "coord-task:01knc6egjk5ay9wm7amhm2p86c",
         "kind": "DependsOn",
         "summary": null,
         "metadata": null
@@ -792,82 +810,15 @@
         "metadata": null
       },
       {
-        "id": "plan-edge:coord-task:01knc6ffec2vfzbrw66hbmk559:depends-on:coord-task:01knc6dqrewn2hah2p54xya9xw",
+        "id": "plan-edge:coord-task:01knc6jcs2rn6sj8a60xwqkyxm:depends-on:coord-task:01knc6d53pww48ryg7se29dp3y",
         "plan_id": "plan:01knc64s1zzzxq7x324fms1cyc",
-        "from": "coord-task:01knc6ffec2vfzbrw66hbmk559",
-        "to": "coord-task:01knc6dqrewn2hah2p54xya9xw",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knc6ffec2vfzbrw66hbmk559:depends-on:coord-task:01knc6e8tbctzsqh0ngt4963ak",
-        "plan_id": "plan:01knc64s1zzzxq7x324fms1cyc",
-        "from": "coord-task:01knc6ffec2vfzbrw66hbmk559",
-        "to": "coord-task:01knc6e8tbctzsqh0ngt4963ak",
-        "kind": "DependsOn",
-        "summary": null,
-        "metadata": null
-      },
-      {
-        "id": "plan-edge:coord-task:01knc6cswpwztpebeb7mmtmqtc:depends-on:coord-task:01knc6cfapwxtkfnvhcez2wszv",
-        "plan_id": "plan:01knc64s1zzzxq7x324fms1cyc",
-        "from": "coord-task:01knc6cswpwztpebeb7mmtmqtc",
-        "to": "coord-task:01knc6cfapwxtkfnvhcez2wszv",
+        "from": "coord-task:01knc6jcs2rn6sj8a60xwqkyxm",
+        "to": "coord-task:01knc6d53pww48ryg7se29dp3y",
         "kind": "DependsOn",
         "summary": null,
         "metadata": null
       }
     ]
   },
-  "executionOverlays": [
-    {
-      "node_id": "coord-task:01knc6cfapwxtkfnvhcez2wszv",
-      "pending_handoff_to": null,
-      "session": null,
-      "worktree_id": null,
-      "branch_ref": null,
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "publish_pending",
-        "pendingTaskStatus": "Completed",
-        "sourceRef": "task/coordination-mutation-rewrite-plan",
-        "targetRef": "origin/main",
-        "publishRef": "task/coordination-mutation-rewrite-plan",
-        "targetBranch": "main",
-        "sourceCommit": "f9868a405c6c581cc4af9f509aada60d0d3efa36",
-        "publishCommit": "f9868a405c6c581cc4af9f509aada60d0d3efa36",
-        "targetCommitAtPublish": "57882a3163c88ae95c9146856cb539ab4bbcac24",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "not_started"
-      }
-    },
-    {
-      "node_id": "coord-task:01knc6cswpwztpebeb7mmtmqtc",
-      "pending_handoff_to": null,
-      "session": null,
-      "worktree_id": null,
-      "branch_ref": null,
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "in_progress",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/coordination-mutation-rewrite-plan",
-        "targetRef": "origin/main",
-        "publishRef": "task/coordination-mutation-rewrite-plan",
-        "targetBranch": "main",
-        "sourceCommit": "3e9930b866a19bed669be805877d665a2d30d4e0",
-        "publishCommit": null,
-        "targetCommitAtPublish": "57882a3163c88ae95c9146856cb539ab4bbcac24",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "not_started"
-      }
-    }
-  ]
+  "executionOverlays": []
 }

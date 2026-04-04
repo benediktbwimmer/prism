@@ -128,6 +128,39 @@ pub fn claim_heartbeat_due_state(
     }
 }
 
+pub(crate) fn task_heartbeat_should_refresh(
+    task: &CoordinationTask,
+    policy: &CoordinationPolicy,
+    now: Timestamp,
+) -> bool {
+    matches!(
+        task_heartbeat_due_state(task, policy, now),
+        LeaseHeartbeatDueState::DueSoon | LeaseHeartbeatDueState::DueNow
+    )
+}
+
+pub(crate) fn claim_renewal_should_refresh(
+    claim: &WorkClaim,
+    policy: Option<&CoordinationPolicy>,
+    now: Timestamp,
+    expires_after_seconds: Option<u64>,
+) -> bool {
+    let policy = policy.cloned().unwrap_or_default();
+    if !matches!(claim_lease_state(claim, now), LeaseState::Active) {
+        return true;
+    }
+    if matches!(
+        claim_heartbeat_due_state(claim, &policy, now),
+        LeaseHeartbeatDueState::DueSoon | LeaseHeartbeatDueState::DueNow
+    ) {
+        return true;
+    }
+    let Some(requested_expires_after_seconds) = expires_after_seconds else {
+        return false;
+    };
+    requested_expires_after_seconds > claim.expires_at.saturating_sub(now)
+}
+
 pub(crate) fn claim_is_live(claim: &WorkClaim, now: Timestamp) -> bool {
     matches!(
         claim.status,
@@ -218,6 +251,17 @@ pub(crate) fn same_holder(left: &LeaseHolder, right: &LeaseHolder) -> bool {
         return left_agent == right_agent;
     }
     false
+}
+
+pub(crate) fn authoritative_task_holder(task: &CoordinationTask) -> Option<LeaseHolder> {
+    task.lease_holder.clone().or_else(|| {
+        let holder = LeaseHolder {
+            principal: None,
+            session_id: task.session.clone(),
+            agent_id: task.assignee.clone(),
+        };
+        holder_has_identity(&holder).then_some(holder)
+    })
 }
 
 pub(crate) fn current_task_holder(meta: &EventMeta, task: &CoordinationTask) -> LeaseHolder {

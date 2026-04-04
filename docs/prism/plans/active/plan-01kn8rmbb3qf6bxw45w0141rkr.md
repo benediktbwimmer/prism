@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:8834893b461b22d5eb8ef573026eb76e508d1680cbb867c5d97f814243c53788`
+- Source head: `sha256:c1247469159c6fce53aec56765ac391cab5acccb8655353dffa83f31f0c7c2fa`
 - Source logical timestamp: `unknown`
-- Source snapshot: `9 nodes, 16 edges, 0 overlays`
+- Source snapshot: `9 nodes, 16 edges, 9 overlays`
 
 ## Overview
 
@@ -34,11 +34,12 @@ Implement a stable repo-published logical_repo_id in .prism, separate it cleanly
 - Require task branch: `false`
 - Max commits behind target: `0`
 
-## Source of Truth
+## Branch Snapshot Export
 
-- Snapshot manifest: `.prism/state/manifest.json`
-- Snapshot plan shard: `.prism/state/plans/plan:01kn8rmbb3qf6bxw45w0141rkr.json`
-- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
+- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority
+- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)
+- Snapshot plan shard: `.prism/state/plans/plan:01kn8rmbb3qf6bxw45w0141rkr.json` (derived branch export)
+- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority
 
 ## Root Nodes
 
@@ -150,4 +151,16 @@ Implement a stable repo-published logical_repo_id in .prism, separate it cleanly
 - `plan-edge:coord-task:01kn8s0kxdap9nc8376dvaap5q:depends-on:coord-task:01kn8rzyqxvzpnw7m4c0zzk9ex`: `coord-task:01kn8s0kxdap9nc8376dvaap5q` depends on `coord-task:01kn8rzyqxvzpnw7m4c0zzk9ex`
 - `plan-edge:coord-task:01kn8s0kxdap9nc8376dvaap5q:depends-on:coord-task:01kn8s096yzxzw3cwvyc4t3gg3`: `coord-task:01kn8s0kxdap9nc8376dvaap5q` depends on `coord-task:01kn8s096yzxzw3cwvyc4t3gg3`
 - `plan-edge:coord-task:01kn8s0zewczf185w547hbf46x:depends-on:coord-task:01kn8s0kxdap9nc8376dvaap5q`: `coord-task:01kn8s0zewczf185w547hbf46x` depends on `coord-task:01kn8s0kxdap9nc8376dvaap5q`
+
+## Execution Overlays
+
+- Node: `coord-task:01kn8rmqrchgcb1ym5btdszded`
+- Node: `coord-task:01kn8rn49cxj6cs4rdhxxg0j8c`
+- Node: `coord-task:01kn8rnk0ek3mjnmpbx4d3atz2`
+- Node: `coord-task:01kn8rz9qnzcwan5vd2cs7c99j`
+- Node: `coord-task:01kn8rzmv5sa7xj8xt557rtzrg`
+- Node: `coord-task:01kn8rzyqxvzpnw7m4c0zzk9ex`
+- Node: `coord-task:01kn8s096yzxzw3cwvyc4t3gg3`
+- Node: `coord-task:01kn8s0kxdap9nc8376dvaap5q`
+- Node: `coord-task:01kn8s0zewczf185w547hbf46x`
 

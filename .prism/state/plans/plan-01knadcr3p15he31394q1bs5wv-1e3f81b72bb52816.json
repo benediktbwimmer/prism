@@ -268,56 +268,5 @@
       }
     ]
   },
-  "executionOverlays": [
-    {
-      "node_id": "coord-task:01knadd8hh7hxr20jgcc46ywhe",
-      "pending_handoff_to": null,
-      "session": "session:01knacdqfzqz97qywe873qv2cm",
-      "worktree_id": "worktree:8719dd7db144e96f",
-      "branch_ref": "refs/heads/task/shared-coordination-refs",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": null
-    },
-    {
-      "node_id": "coord-task:01knaddam3fvr96xdqdxn2xdsj",
-      "pending_handoff_to": null,
-      "session": "session:01knacdqfzqz97qywe873qv2cm",
-      "worktree_id": "worktree:8719dd7db144e96f",
-      "branch_ref": "refs/heads/task/shared-coordination-refs",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": null
-    },
-    {
-      "node_id": "coord-task:01knaddcdxvdyh8akrc10b9npw",
-      "pending_handoff_to": null,
-      "session": "session:01knacdqfzqz97qywe873qv2cm",
-      "worktree_id": "worktree:8719dd7db144e96f",
-      "branch_ref": "refs/heads/task/shared-coordination-refs",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": null
-    },
-    {
-      "node_id": "coord-task:01knaddebyw5yp2vex9e8fgfm7",
-      "pending_handoff_to": null,
-      "session": "session:01knacdqfzqz97qywe873qv2cm",
-      "worktree_id": "worktree:8719dd7db144e96f",
-      "branch_ref": "refs/heads/task/shared-coordination-refs",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": null
-    },
-    {
-      "node_id": "coord-task:01knaddrkxtpmzwc9vsr1ykw1p",
-      "pending_handoff_to": null,
-      "session": "session:01knacdqfzqz97qywe873qv2cm",
-      "worktree_id": "worktree:8719dd7db144e96f",
-      "branch_ref": "refs/heads/task/shared-coordination-refs",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": null
-    }
-  ]
+  "executionOverlays": []
 }

@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:e36a58e75b8efa7117580fee20fa659eb818ce64230fb379294e056efdfc3919`
+- Source head: `sha256:327a389e55e3727918eecca97e1c9a57a462b8fb1151d99ac5bea2075cf8a374`
 - Source logical timestamp: `unknown`
 - Source snapshot: `1 nodes, 0 edges, 1 overlays`
 
@@ -34,11 +34,12 @@ Make tracked .prism/state the only repo-published authority by removing the rema
 - Require task branch: `true`
 - Max commits behind target: `0`
 
-## Source of Truth
+## Branch Snapshot Export
 
-- Snapshot manifest: `.prism/state/manifest.json`
-- Snapshot plan shard: `.prism/state/plans/plan:01kna4g4q0xn8znaa7bn7s6vq0.json`
-- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
+- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority
+- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)
+- Snapshot plan shard: `.prism/state/plans/plan:01kna4g4q0xn8znaa7bn7s6vq0.json` (derived branch export)
+- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority
 
 ## Root Nodes
 
@@ -60,8 +61,4 @@ No published plan edges are currently recorded.
 ## Execution Overlays
 
 - Node: `coord-task:01kna4g9fyxzpyykde9s9z1m1d`
-  git execution status: `published`
-  source ref: `task/remove-legacy-prism-logs`
-  target ref: `origin/main`
-  publish ref: `task/remove-legacy-prism-logs`
 

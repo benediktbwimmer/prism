@@ -1,0 +1,346 @@
+{
+  "plan": {
+    "id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+    "goal": "Restore shared-ref runtime descriptors, execute authenticated remote prism_query reads keyed by runtime_id, surface them through prism.from(\"runtime-id\"), and validate authority-aware two-runtime federation without relay or blob export.",
+    "title": "Implement first working federated runtime via runtime-targeted prism_query",
+    "status": "Active",
+    "policy": {
+      "default_claim_mode": "Advisory",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": false,
+      "stale_after_graph_change": true,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "require",
+        "completionMode": "require",
+        "targetRef": "origin/main",
+        "targetBranch": "main",
+        "requireTaskBranch": true,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": 300,
+        "integrationMode": "external"
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01kncfw8xh4mephwpkg8ky3mem"
+    ]
+  },
+  "graph": {
+    "id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Implement first working federated runtime via runtime-targeted prism_query",
+    "goal": "Restore shared-ref runtime descriptors, execute authenticated remote prism_query reads keyed by runtime_id, surface them through prism.from(\"runtime-id\"), and validate authority-aware two-runtime federation without relay or blob export.",
+    "status": "Active",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01kncfw8xh4mephwpkg8ky3mem"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01kncfw8xh4mephwpkg8ky3mem",
+        "plan_id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+        "kind": "Edit",
+        "title": "Restore shared-ref runtime descriptors and live descriptor publication",
+        "summary": "Reintroduce runtime descriptors into shared coordination ref state and publish compact per-runtime descriptor shards with runtime_id, capabilities, commit, branch, freshness, and endpoint metadata.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 1283,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kncfwa2f2xbactnjb5bwmqf6",
+        "plan_id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+        "kind": "Edit",
+        "title": "Add operator-configured public URL publication for runtime descriptors",
+        "summary": "Add the runtime configuration surface for an operator-managed public URL and publish that URL through runtime descriptors without introducing a PRISM-owned relay transport.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 1300,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kncfwbeab4tk0mq2wk147k9x",
+        "plan_id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+        "kind": "Edit",
+        "title": "Implement authenticated remote prism_query execution keyed by runtime_id",
+        "summary": "Reintroduce peer runtime query transport as a bounded authenticated read-only prism_query path that resolves a runtime_id through shared coordination descriptors and executes against the remote query runtime under explicit capability checks.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 1307,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kncfwc8fnzkp12z98axm2ept",
+        "plan_id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+        "kind": "Edit",
+        "title": "Expose runtime-targeted query chaining as prism.from(\"runtime-id\")",
+        "summary": "Add query-side runtime targeting so prism_query can chain through prism.from(\"runtime-id\") while default prism reads still execute against the local runtime.",
+        "status": "InProgress",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 1307,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kncfwdcddbj4xw025azyq6hc",
+        "plan_id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+        "kind": "Edit",
+        "title": "Preserve authority classes, limits, and failure semantics for federated queries",
+        "summary": "Ensure remote prism_query results remain explicitly peer-enriched, enforce bounded query limits remotely, and surface honest errors for missing runtime_id, capability denial, stale descriptors, and unreachable peers.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 1268,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kncfwe1x8a5qccafnj6wzamn",
+        "plan_id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+        "kind": "Edit",
+        "title": "Update tool schemas, capabilities, and runtime docs for federated prism_query",
+        "summary": "Publish the new runtime-targeted query contract across capabilities, schema docs, and runtime/instructions surfaces so agents know to use runtime_id and prism.from(\"runtime-id\") semantics.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 1268,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01kncfwfa5ngfp1z2kfcp6vfy0",
+        "plan_id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+        "kind": "Edit",
+        "title": "Validate two-runtime local federation and public URL descriptor flow end to end",
+        "summary": "Validate the first working federated runtime with two live worktrees by proving descriptor publication, remote prism_query success, capability denial, stale or missing runtime handling, and operator-managed public URL surfacing.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": "codex-runtime-storage-boundary-redesign-2026-04-01",
+        "base_revision": {
+          "graph_version": 1268,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "plan-edge:coord-task:01kncfwdcddbj4xw025azyq6hc:depends-on:coord-task:01kncfwbeab4tk0mq2wk147k9x",
+        "plan_id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+        "from": "coord-task:01kncfwdcddbj4xw025azyq6hc",
+        "to": "coord-task:01kncfwbeab4tk0mq2wk147k9x",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kncfwdcddbj4xw025azyq6hc:depends-on:coord-task:01kncfwc8fnzkp12z98axm2ept",
+        "plan_id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+        "from": "coord-task:01kncfwdcddbj4xw025azyq6hc",
+        "to": "coord-task:01kncfwc8fnzkp12z98axm2ept",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kncfwe1x8a5qccafnj6wzamn:depends-on:coord-task:01kncfwc8fnzkp12z98axm2ept",
+        "plan_id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+        "from": "coord-task:01kncfwe1x8a5qccafnj6wzamn",
+        "to": "coord-task:01kncfwc8fnzkp12z98axm2ept",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kncfwe1x8a5qccafnj6wzamn:depends-on:coord-task:01kncfwdcddbj4xw025azyq6hc",
+        "plan_id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+        "from": "coord-task:01kncfwe1x8a5qccafnj6wzamn",
+        "to": "coord-task:01kncfwdcddbj4xw025azyq6hc",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kncfwfa5ngfp1z2kfcp6vfy0:depends-on:coord-task:01kncfwa2f2xbactnjb5bwmqf6",
+        "plan_id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+        "from": "coord-task:01kncfwfa5ngfp1z2kfcp6vfy0",
+        "to": "coord-task:01kncfwa2f2xbactnjb5bwmqf6",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kncfwfa5ngfp1z2kfcp6vfy0:depends-on:coord-task:01kncfwc8fnzkp12z98axm2ept",
+        "plan_id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+        "from": "coord-task:01kncfwfa5ngfp1z2kfcp6vfy0",
+        "to": "coord-task:01kncfwc8fnzkp12z98axm2ept",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kncfwfa5ngfp1z2kfcp6vfy0:depends-on:coord-task:01kncfwdcddbj4xw025azyq6hc",
+        "plan_id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+        "from": "coord-task:01kncfwfa5ngfp1z2kfcp6vfy0",
+        "to": "coord-task:01kncfwdcddbj4xw025azyq6hc",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kncfwfa5ngfp1z2kfcp6vfy0:depends-on:coord-task:01kncfwe1x8a5qccafnj6wzamn",
+        "plan_id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+        "from": "coord-task:01kncfwfa5ngfp1z2kfcp6vfy0",
+        "to": "coord-task:01kncfwe1x8a5qccafnj6wzamn",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kncfwa2f2xbactnjb5bwmqf6:depends-on:coord-task:01kncfw8xh4mephwpkg8ky3mem",
+        "plan_id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+        "from": "coord-task:01kncfwa2f2xbactnjb5bwmqf6",
+        "to": "coord-task:01kncfw8xh4mephwpkg8ky3mem",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kncfwbeab4tk0mq2wk147k9x:depends-on:coord-task:01kncfw8xh4mephwpkg8ky3mem",
+        "plan_id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+        "from": "coord-task:01kncfwbeab4tk0mq2wk147k9x",
+        "to": "coord-task:01kncfw8xh4mephwpkg8ky3mem",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01kncfwc8fnzkp12z98axm2ept:depends-on:coord-task:01kncfwbeab4tk0mq2wk147k9x",
+        "plan_id": "plan:01kncfv6c7tzkc21aemhr0pns2",
+        "from": "coord-task:01kncfwc8fnzkp12z98axm2ept",
+        "to": "coord-task:01kncfwbeab4tk0mq2wk147k9x",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      }
+    ]
+  },
+  "executionOverlays": []
+}

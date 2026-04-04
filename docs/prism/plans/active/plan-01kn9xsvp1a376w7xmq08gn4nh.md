@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:be58db6665f5d2c80641f09a22037db7f4d2b9fafc473ecac26fc7681e6e585a`
+- Source head: `sha256:bd5f6db15cb2e15f1235503d7c5bab14f884952fb337036c5f9553d6791e0a7c`
 - Source logical timestamp: `unknown`
-- Source snapshot: `6 nodes, 11 edges, 6 overlays`
+- Source snapshot: `6 nodes, 11 edges, 0 overlays`
 
 ## Overview
 
@@ -34,11 +34,12 @@ Make shared runtime the sole owner of append-only change history, remove tracked
 - Require task branch: `true`
 - Max commits behind target: `0`
 
-## Source of Truth
+## Branch Snapshot Export
 
-- Snapshot manifest: `.prism/state/manifest.json`
-- Snapshot plan shard: `.prism/state/plans/plan:01kn9xsvp1a376w7xmq08gn4nh.json`
-- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
+- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority
+- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)
+- Snapshot plan shard: `.prism/state/plans/plan:01kn9xsvp1a376w7xmq08gn4nh.json` (derived branch export)
+- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority
 
 ## Root Nodes
 
@@ -144,37 +145,4 @@ Make shared runtime the sole owner of append-only change history, remove tracked
 - `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`
 - `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xv2a54t54pbzbbremqrc7`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xv2a54t54pbzbbremqrc7`
 - `plan-edge:coord-task:01kn9xvmrn86qb17qz7w97na8n:depends-on:coord-task:01kn9xv8x94h8gwja48wahgsnb`: `coord-task:01kn9xvmrn86qb17qz7w97na8n` depends on `coord-task:01kn9xv8x94h8gwja48wahgsnb`
-
-## Execution Overlays
-
-- Node: `coord-task:01kn9xt9h76645shp4jcmt0bsv`
-  git execution status: `published`
-  source ref: `task/prism-changes-state-rewrite`
-  target ref: `origin/main`
-  publish ref: `task/prism-changes-state-rewrite`
-- Node: `coord-task:01kn9xtjh9ac4zwwfx2mbn9k0j`
-  git execution status: `published`
-  source ref: `task/prism-changes-state-rewrite`
-  target ref: `origin/main`
-  publish ref: `task/prism-changes-state-rewrite`
-- Node: `coord-task:01kn9xtsf57cqfxa0a7hd2wsx8`
-  git execution status: `published`
-  source ref: `task/prism-changes-state-rewrite`
-  target ref: `origin/main`
-  publish ref: `task/prism-changes-state-rewrite`
-- Node: `coord-task:01kn9xv2a54t54pbzbbremqrc7`
-  git execution status: `published`
-  source ref: `task/prism-changes-state-rewrite`
-  target ref: `origin/main`
-  publish ref: `task/prism-changes-state-rewrite`
-- Node: `coord-task:01kn9xv8x94h8gwja48wahgsnb`
-  git execution status: `published`
-  source ref: `task/prism-changes-state-rewrite`
-  target ref: `origin/main`
-  publish ref: `task/prism-changes-state-rewrite`
-- Node: `coord-task:01kn9xvmrn86qb17qz7w97na8n`
-  git execution status: `published`
-  source ref: `task/prism-changes-state-rewrite`
-  target ref: `origin/main`
-  publish ref: `task/prism-changes-state-rewrite`
 

@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:4c2250fe5a21ba4691812e9a6bab5210d7e8ad624310c540affbcad158f1e483`
+- Source head: `sha256:8ee30d8c320bc2d33bc840d4c5f3ae56c89e6279a91da9ba3ab6c52511df50fc`
 - Source logical timestamp: `unknown`
-- Source snapshot: `6 nodes, 11 edges, 6 overlays`
+- Source snapshot: `6 nodes, 11 edges, 0 overlays`
 
 ## Overview
 
@@ -34,11 +34,12 @@ Define one correct path identity model for PRISM so tracked snapshots, shared/ru
 - Require task branch: `true`
 - Max commits behind target: `0`
 
-## Source of Truth
+## Branch Snapshot Export
 
-- Snapshot manifest: `.prism/state/manifest.json`
-- Snapshot plan shard: `.prism/state/plans/plan:01kn9vcavs4jft9eqw82ysmghq.json`
-- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
+- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority
+- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)
+- Snapshot plan shard: `.prism/state/plans/plan:01kn9vcavs4jft9eqw82ysmghq.json` (derived branch export)
+- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority
 
 ## Root Nodes
 
@@ -145,41 +146,4 @@ Define one correct path identity model for PRISM so tracked snapshots, shared/ru
 - `plan-edge:coord-task:01kn9ve8ants7rmt18m4rpf25b:depends-on:coord-task:01kn9vdfjsrbzwz5w5mff8yqck`: `coord-task:01kn9ve8ants7rmt18m4rpf25b` depends on `coord-task:01kn9vdfjsrbzwz5w5mff8yqck`
 - `plan-edge:coord-task:01kn9ve8ants7rmt18m4rpf25b:depends-on:coord-task:01kn9vdqfnnkkywq1bb0jk5fq8`: `coord-task:01kn9ve8ants7rmt18m4rpf25b` depends on `coord-task:01kn9vdqfnnkkywq1bb0jk5fq8`
 - `plan-edge:coord-task:01kn9ve8ants7rmt18m4rpf25b:depends-on:coord-task:01kn9vdznkm34knqjxgdqdqcxe`: `coord-task:01kn9ve8ants7rmt18m4rpf25b` depends on `coord-task:01kn9vdznkm34knqjxgdqdqcxe`
-
-## Execution Overlays
-
-- Node: `coord-task:01kn9vd1qxxaht9ap1ygbmd23g`
-  git execution status: `publish_pending`
-  pending task status: `completed`
-  source ref: `task/path-identity-repo-relative-sync`
-  target ref: `origin/main`
-  publish ref: `task/path-identity-repo-relative-sync`
-- Node: `coord-task:01kn9vd88apgdq35f4hr9tmsss`
-  git execution status: `publish_pending`
-  pending task status: `completed`
-  source ref: `task/path-identity-repo-relative-sync`
-  target ref: `origin/main`
-  publish ref: `task/path-identity-repo-relative-sync`
-- Node: `coord-task:01kn9vdfjsrbzwz5w5mff8yqck`
-  git execution status: `publish_pending`
-  pending task status: `completed`
-  source ref: `task/path-identity-repo-relative-sync`
-  target ref: `origin/main`
-  publish ref: `task/path-identity-repo-relative-sync`
-- Node: `coord-task:01kn9vdqfnnkkywq1bb0jk5fq8`
-  git execution status: `publish_pending`
-  pending task status: `completed`
-  source ref: `task/path-identity-repo-relative-sync`
-  target ref: `origin/main`
-  publish ref: `task/path-identity-repo-relative-sync`
-- Node: `coord-task:01kn9vdznkm34knqjxgdqdqcxe`
-  git execution status: `published`
-  source ref: `task/path-identity-repo-relative-sync`
-  target ref: `origin/main`
-  publish ref: `task/path-identity-repo-relative-sync`
-- Node: `coord-task:01kn9ve8ants7rmt18m4rpf25b`
-  git execution status: `published`
-  source ref: `task/path-identity-repo-relative-sync`
-  target ref: `origin/main`
-  publish ref: `task/path-identity-repo-relative-sync`
 

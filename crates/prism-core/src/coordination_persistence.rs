@@ -7,6 +7,7 @@ use prism_coordination::{
     coordination_queue_read_model_from_seed, coordination_read_model_from_seed,
     coordination_snapshot_from_events, snapshot_plan_graphs, CoordinationEvent,
     CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
+    TaskGitExecution,
 };
 use prism_ir::{PlanExecutionOverlay, PlanGraph, SessionId};
 use prism_store::{
@@ -120,6 +121,9 @@ where
     S: CoordinationJournal + CoordinationCheckpointStore + ?Sized,
     O: FnMut(&str, Duration, Value, bool, Option<String>),
 {
+    let repo_semantic_snapshot = repo_semantic_coordination_snapshot(snapshot.clone());
+    let repo_semantic_execution_overlays =
+        execution_overlays_by_plan(&repo_semantic_snapshot.tasks);
     observe_coordination_step(
         observe_phase,
         "mutation.coordination.publishedPlans.syncTrackedSnapshot",
@@ -127,9 +131,9 @@ where
         || {
             sync_coordination_snapshot_state(
                 root,
-                snapshot,
+                &repo_semantic_snapshot,
                 &derived.plan_graphs,
-                &derived.execution_overlays,
+                &repo_semantic_execution_overlays,
                 publish_context,
                 Some(authoritative_revision),
             )
@@ -143,9 +147,9 @@ where
             save_shared_coordination_startup_checkpoint(
                 root,
                 store,
-                snapshot,
+                &repo_semantic_snapshot,
                 &derived.plan_graphs,
-                &derived.execution_overlays,
+                &repo_semantic_execution_overlays,
             )
         },
     )?;
@@ -273,7 +277,8 @@ pub(crate) trait CoordinationPersistenceBackend:
     ) -> Result<Option<CoordinationSnapshot>> {
         let stream = self.load_coordination_event_stream()?;
         let snapshot =
-            coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot);
+            coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot)
+                .map(repo_semantic_coordination_snapshot);
         if let Some(snapshot) =
             load_materialized_coordination_snapshot(root, self, snapshot.clone())?
         {
@@ -288,7 +293,8 @@ pub(crate) trait CoordinationPersistenceBackend:
     ) -> Result<Option<HydratedCoordinationPlanState>> {
         let stream = self.load_coordination_event_stream()?;
         let snapshot =
-            coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot);
+            coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot)
+                .map(repo_semantic_coordination_snapshot);
         if let Some(plan_state) =
             load_materialized_coordination_plan_state(root, self, snapshot.clone())?
         {
@@ -568,6 +574,19 @@ pub(crate) trait CoordinationPersistenceBackend:
         )?;
         Ok(result)
     }
+}
+
+pub(crate) fn repo_semantic_coordination_snapshot(
+    mut snapshot: CoordinationSnapshot,
+) -> CoordinationSnapshot {
+    for task in &mut snapshot.tasks {
+        task.pending_handoff_to = None;
+        task.session = None;
+        task.worktree_id = None;
+        task.branch_ref = None;
+        task.git_execution = TaskGitExecution::default();
+    }
+    snapshot
 }
 
 impl<T: CoordinationJournal + CoordinationCheckpointStore + ?Sized> CoordinationPersistenceBackend

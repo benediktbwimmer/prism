@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:4101ce584636852cf8c56dd48ead36c5144e42f25dcba0e752844af26ede6188`
+- Source head: `sha256:e7644197baa5f417cc12f8bd3a03951e71df1712d9d93b2a5c756457db7e9a8e`
 - Source logical timestamp: `unknown`
 - Source snapshot: `4 nodes, 3 edges, 4 overlays`
 
@@ -36,11 +36,12 @@ Build the shared coordination ref authority plane, move core coordination truth 
 - Max commits behind target: `0`
 - Max fetch age seconds: `300`
 
-## Source of Truth
+## Branch Snapshot Export
 
-- Snapshot manifest: `.prism/state/manifest.json`
-- Snapshot plan shard: `.prism/state/plans/plan:01kna8nm4nfh9mnvpcqy3h9q6s.json`
-- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
+- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority
+- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)
+- Snapshot plan shard: `.prism/state/plans/plan:01kna8nm4nfh9mnvpcqy3h9q6s.json` (derived branch export)
+- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority
 
 ## Root Nodes
 
@@ -81,22 +82,18 @@ Build the shared coordination ref authority plane, move core coordination truth 
 ## Execution Overlays
 
 - Node: `coord-task:01kna8srw6ccvntg5qb23zprqr`
-  git execution status: `published`
-  source ref: `task/shared-coordination-refs`
-  target ref: `origin/main`
-  publish ref: `task/shared-coordination-refs`
 - Node: `coord-task:01kna8sy5barah56gz9x3fs2fx`
-  git execution status: `published`
+  git execution status: `coordination_published`
   source ref: `task/shared-coordination-refs`
   target ref: `origin/main`
   publish ref: `task/shared-coordination-refs`
 - Node: `coord-task:01kna8t3rvk3n07vafmpsdzvvn`
-  git execution status: `published`
+  git execution status: `coordination_published`
   source ref: `task/shared-coordination-refs`
   target ref: `origin/main`
   publish ref: `task/shared-coordination-refs`
 - Node: `coord-task:01kna8ta5hywfef8t87dn6bret`
-  git execution status: `published`
+  git execution status: `coordination_published`
   source ref: `task/shared-coordination-refs`
   target ref: `origin/main`
   publish ref: `task/shared-coordination-refs`

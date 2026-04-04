@@ -35,10 +35,10 @@ pub use parse::{
 };
 pub use plans::{
     AcceptanceEvidencePolicy, BlockerCause, BlockerCauseSource, GitExecutionOverlay,
-    GitExecutionStatus, GitIntegrationMode, GitIntegrationStatus, HydratedPlanBindingOverlay,
-    PlanAcceptanceCriterion, PlanBinding, PlanEdge, PlanEdgeKind, PlanExecutionOverlay, PlanGraph,
-    PlanKind, PlanNode, PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus,
-    PlanScope, ValidationRef,
+    GitExecutionStatus, GitIntegrationEvidence, GitIntegrationEvidenceKind, GitIntegrationMode,
+    GitIntegrationStatus, HydratedPlanBindingOverlay, PlanAcceptanceCriterion, PlanBinding,
+    PlanEdge, PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanKind, PlanNode, PlanNodeBlocker,
+    PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus, PlanScope, ValidationRef,
 };
 pub use primitives::{EdgeIndex, FileId, Language, Span, Timestamp};
 pub use principal::{

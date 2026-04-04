@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:36bf1fe89276fc79678764ef1ff000e4be32d54d2f02e616589c17fc98e91ac5`
+- Source head: `sha256:8cb2643f9dbe80cd8e697ff46cf28a5930cbe32ae1a3c220d986514a3179157b`
 - Source logical timestamp: `unknown`
-- Source snapshot: `12 nodes, 19 edges, 1 overlays`
+- Source snapshot: `12 nodes, 19 edges, 2 overlays`
 
 ## Overview
 
@@ -35,11 +35,12 @@ Make shared-coordination-backed PRISM mutations fast enough for normal developer
 - Require task branch: `true`
 - Max commits behind target: `0`
 
-## Source of Truth
+## Branch Snapshot Export
 
-- Snapshot manifest: `.prism/state/manifest.json`
-- Snapshot plan shard: `.prism/state/plans/plan:01knc64s1zzzxq7x324fms1cyc.json`
-- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
+- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority
+- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)
+- Snapshot plan shard: `.prism/state/plans/plan:01knc64s1zzzxq7x324fms1cyc.json` (derived branch export)
+- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority
 
 ## Root Nodes
 
@@ -71,7 +72,7 @@ Make shared-coordination-backed PRISM mutations fast enough for normal developer
 
 - Node id: `coord-task:01knc6cswpwztpebeb7mmtmqtc`
 - Kind: `decide`
-- Status: `ready`
+- Status: `in_progress`
 - Summary: Specify the exact request-path contract for a successful coordination mutation: which revision is checked, which authoritative state is written, which shared-ref CAS obligations are required before returning success, and which follow-on materializations are allowed to lag behind under explicit dirty revisions.
 - Priority: `99`
 
@@ -295,24 +296,30 @@ Make shared-coordination-backed PRISM mutations fast enough for normal developer
 - `plan-edge:coord-task:01knc6dzagp1zbg7ne0df1gyqh:depends-on:coord-task:01knc6d53pww48ryg7se29dp3y`: `coord-task:01knc6dzagp1zbg7ne0df1gyqh` depends on `coord-task:01knc6d53pww48ryg7se29dp3y`
 - `plan-edge:coord-task:01knc6e8tbctzsqh0ngt4963ak:depends-on:coord-task:01knc6d53pww48ryg7se29dp3y`: `coord-task:01knc6e8tbctzsqh0ngt4963ak` depends on `coord-task:01knc6d53pww48ryg7se29dp3y`
 - `plan-edge:coord-task:01knc6egjk5ay9wm7amhm2p86c:depends-on:coord-task:01knc6d53pww48ryg7se29dp3y`: `coord-task:01knc6egjk5ay9wm7amhm2p86c` depends on `coord-task:01knc6d53pww48ryg7se29dp3y`
-- `plan-edge:coord-task:01knc6jcs2rn6sj8a60xwqkyxm:depends-on:coord-task:01knc6d53pww48ryg7se29dp3y`: `coord-task:01knc6jcs2rn6sj8a60xwqkyxm` depends on `coord-task:01knc6d53pww48ryg7se29dp3y`
-- `plan-edge:coord-task:01knc6ffec2vfzbrw66hbmk559:depends-on:coord-task:01knc6jcs2rn6sj8a60xwqkyxm`: `coord-task:01knc6ffec2vfzbrw66hbmk559` depends on `coord-task:01knc6jcs2rn6sj8a60xwqkyxm`
+- `plan-edge:coord-task:01knc6ffec2vfzbrw66hbmk559:depends-on:coord-task:01knc6dqrewn2hah2p54xya9xw`: `coord-task:01knc6ffec2vfzbrw66hbmk559` depends on `coord-task:01knc6dqrewn2hah2p54xya9xw`
 - `plan-edge:coord-task:01knc6ffec2vfzbrw66hbmk559:depends-on:coord-task:01knc6dzagp1zbg7ne0df1gyqh`: `coord-task:01knc6ffec2vfzbrw66hbmk559` depends on `coord-task:01knc6dzagp1zbg7ne0df1gyqh`
+- `plan-edge:coord-task:01knc6ffec2vfzbrw66hbmk559:depends-on:coord-task:01knc6e8tbctzsqh0ngt4963ak`: `coord-task:01knc6ffec2vfzbrw66hbmk559` depends on `coord-task:01knc6e8tbctzsqh0ngt4963ak`
 - `plan-edge:coord-task:01knc6ffec2vfzbrw66hbmk559:depends-on:coord-task:01knc6egjk5ay9wm7amhm2p86c`: `coord-task:01knc6ffec2vfzbrw66hbmk559` depends on `coord-task:01knc6egjk5ay9wm7amhm2p86c`
+- `plan-edge:coord-task:01knc6ffec2vfzbrw66hbmk559:depends-on:coord-task:01knc6jcs2rn6sj8a60xwqkyxm`: `coord-task:01knc6ffec2vfzbrw66hbmk559` depends on `coord-task:01knc6jcs2rn6sj8a60xwqkyxm`
 - `plan-edge:coord-task:01knc6fr2anfaz4k96dzy0168q:depends-on:coord-task:01knc6dqrewn2hah2p54xya9xw`: `coord-task:01knc6fr2anfaz4k96dzy0168q` depends on `coord-task:01knc6dqrewn2hah2p54xya9xw`
 - `plan-edge:coord-task:01knc6fr2anfaz4k96dzy0168q:depends-on:coord-task:01knc6dzagp1zbg7ne0df1gyqh`: `coord-task:01knc6fr2anfaz4k96dzy0168q` depends on `coord-task:01knc6dzagp1zbg7ne0df1gyqh`
-- `plan-edge:coord-task:01knc6fr2anfaz4k96dzy0168q:depends-on:coord-task:01knc6egjk5ay9wm7amhm2p86c`: `coord-task:01knc6fr2anfaz4k96dzy0168q` depends on `coord-task:01knc6egjk5ay9wm7amhm2p86c`
 - `plan-edge:coord-task:01knc6fr2anfaz4k96dzy0168q:depends-on:coord-task:01knc6e8tbctzsqh0ngt4963ak`: `coord-task:01knc6fr2anfaz4k96dzy0168q` depends on `coord-task:01knc6e8tbctzsqh0ngt4963ak`
+- `plan-edge:coord-task:01knc6fr2anfaz4k96dzy0168q:depends-on:coord-task:01knc6egjk5ay9wm7amhm2p86c`: `coord-task:01knc6fr2anfaz4k96dzy0168q` depends on `coord-task:01knc6egjk5ay9wm7amhm2p86c`
 - `plan-edge:coord-task:01knc6fzv6fj09xzc6c5rpnkma:depends-on:coord-task:01knc6ffec2vfzbrw66hbmk559`: `coord-task:01knc6fzv6fj09xzc6c5rpnkma` depends on `coord-task:01knc6ffec2vfzbrw66hbmk559`
 - `plan-edge:coord-task:01knc6fzv6fj09xzc6c5rpnkma:depends-on:coord-task:01knc6fr2anfaz4k96dzy0168q`: `coord-task:01knc6fzv6fj09xzc6c5rpnkma` depends on `coord-task:01knc6fr2anfaz4k96dzy0168q`
 - `plan-edge:coord-task:01knc6gcwq6fbqvh9k3vrc3es7:depends-on:coord-task:01knc6fzv6fj09xzc6c5rpnkma`: `coord-task:01knc6gcwq6fbqvh9k3vrc3es7` depends on `coord-task:01knc6fzv6fj09xzc6c5rpnkma`
-- `plan-edge:coord-task:01knc6ffec2vfzbrw66hbmk559:depends-on:coord-task:01knc6dqrewn2hah2p54xya9xw`: `coord-task:01knc6ffec2vfzbrw66hbmk559` depends on `coord-task:01knc6dqrewn2hah2p54xya9xw`
-- `plan-edge:coord-task:01knc6ffec2vfzbrw66hbmk559:depends-on:coord-task:01knc6e8tbctzsqh0ngt4963ak`: `coord-task:01knc6ffec2vfzbrw66hbmk559` depends on `coord-task:01knc6e8tbctzsqh0ngt4963ak`
+- `plan-edge:coord-task:01knc6jcs2rn6sj8a60xwqkyxm:depends-on:coord-task:01knc6d53pww48ryg7se29dp3y`: `coord-task:01knc6jcs2rn6sj8a60xwqkyxm` depends on `coord-task:01knc6d53pww48ryg7se29dp3y`
 
 ## Execution Overlays
 
 - Node: `coord-task:01knc6cfapwxtkfnvhcez2wszv`
-  git execution status: `published`
+  git execution status: `publish_pending`
+  pending task status: `completed`
+  source ref: `task/coordination-mutation-rewrite-plan`
+  target ref: `origin/main`
+  publish ref: `task/coordination-mutation-rewrite-plan`
+- Node: `coord-task:01knc6cswpwztpebeb7mmtmqtc`
+  git execution status: `in_progress`
   source ref: `task/coordination-mutation-rewrite-plan`
   target ref: `origin/main`
   publish ref: `task/coordination-mutation-rewrite-plan`

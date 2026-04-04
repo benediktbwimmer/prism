@@ -234,18 +234,18 @@
         "metadata": null
       },
       {
-        "id": "plan-edge:coord-task:01knaqn6kmcv0347syd3zxjvk2:depends-on:coord-task:01knaqmkjbz69aka2dzh8yhyke",
+        "id": "plan-edge:coord-task:01knaqn5gdm1syjgwvjw2a0s72:depends-on:coord-task:01knaqmkjbz69aka2dzh8yhyke",
         "plan_id": "plan:01knaqm4jgp5r12ee485ramvxe",
-        "from": "coord-task:01knaqn6kmcv0347syd3zxjvk2",
+        "from": "coord-task:01knaqn5gdm1syjgwvjw2a0s72",
         "to": "coord-task:01knaqmkjbz69aka2dzh8yhyke",
         "kind": "DependsOn",
         "summary": null,
         "metadata": null
       },
       {
-        "id": "plan-edge:coord-task:01knaqn5gdm1syjgwvjw2a0s72:depends-on:coord-task:01knaqmkjbz69aka2dzh8yhyke",
+        "id": "plan-edge:coord-task:01knaqn6kmcv0347syd3zxjvk2:depends-on:coord-task:01knaqmkjbz69aka2dzh8yhyke",
         "plan_id": "plan:01knaqm4jgp5r12ee485ramvxe",
-        "from": "coord-task:01knaqn5gdm1syjgwvjw2a0s72",
+        "from": "coord-task:01knaqn6kmcv0347syd3zxjvk2",
         "to": "coord-task:01knaqmkjbz69aka2dzh8yhyke",
         "kind": "DependsOn",
         "summary": null,
@@ -280,126 +280,5 @@
       }
     ]
   },
-  "executionOverlays": [
-    {
-      "node_id": "coord-task:01knaqmkjbz69aka2dzh8yhyke",
-      "pending_handoff_to": null,
-      "session": "session:01knaqk02xb1x9g9dtvn05jef0",
-      "worktree_id": "worktree:5820c89d186523db",
-      "branch_ref": "refs/heads/task/prism-merge-repair-support",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/prism-merge-repair-support",
-        "targetRef": "origin/main",
-        "publishRef": "task/prism-merge-repair-support",
-        "targetBranch": "main",
-        "sourceCommit": "87610d2b553b74a2ba6c76a8cac609f85d9fe2d0",
-        "publishCommit": "0565568294a885798d6585ca174853cdb69957ed",
-        "targetCommitAtPublish": "fe83a17a87055d6e904807dc298426f416db5da8",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "published_to_branch"
-      }
-    },
-    {
-      "node_id": "coord-task:01knaqn4pzpx278wss25zqwqma",
-      "pending_handoff_to": null,
-      "session": "session:01knaqk02xb1x9g9dtvn05jef0",
-      "worktree_id": "worktree:5820c89d186523db",
-      "branch_ref": "refs/heads/task/prism-merge-repair-support",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/prism-merge-repair-support",
-        "targetRef": "origin/main",
-        "publishRef": "task/prism-merge-repair-support",
-        "targetBranch": "main",
-        "sourceCommit": "7badda81a9b8754f49151f154f2ed8e4a2549fa8",
-        "publishCommit": "6c6b248a6e37e936da9fc04937afdc3e35acfe29",
-        "targetCommitAtPublish": "fe83a17a87055d6e904807dc298426f416db5da8",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "published_to_branch"
-      }
-    },
-    {
-      "node_id": "coord-task:01knaqn5gdm1syjgwvjw2a0s72",
-      "pending_handoff_to": null,
-      "session": "session:01knaqk02xb1x9g9dtvn05jef0",
-      "worktree_id": "worktree:5820c89d186523db",
-      "branch_ref": "refs/heads/task/prism-merge-repair-support",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/prism-merge-repair-support",
-        "targetRef": "origin/main",
-        "publishRef": "task/prism-merge-repair-support",
-        "targetBranch": "main",
-        "sourceCommit": "4f218b152a5fa22d3f268da6c7175319eb2f1d30",
-        "publishCommit": "46a2baa1bf750c0f69cb87177ce61fb92b4c8f3a",
-        "targetCommitAtPublish": "fe83a17a87055d6e904807dc298426f416db5da8",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "published_to_branch"
-      }
-    },
-    {
-      "node_id": "coord-task:01knaqn6kmcv0347syd3zxjvk2",
-      "pending_handoff_to": null,
-      "session": "session:01knaqk02xb1x9g9dtvn05jef0",
-      "worktree_id": "worktree:5820c89d186523db",
-      "branch_ref": "refs/heads/task/prism-merge-repair-support",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/prism-merge-repair-support",
-        "targetRef": "origin/main",
-        "publishRef": "task/prism-merge-repair-support",
-        "targetBranch": "main",
-        "sourceCommit": "b653c2853bf4c1e3d259c50f170b8f8ef64b741c",
-        "publishCommit": "21b9ad8f14b7ac2dbcf47642fdc1af6d840d8ed5",
-        "targetCommitAtPublish": "fe83a17a87055d6e904807dc298426f416db5da8",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "published_to_branch"
-      }
-    },
-    {
-      "node_id": "coord-task:01knaqnk440qpjcssdta8anmv7",
-      "pending_handoff_to": null,
-      "session": "session:01knaqk02xb1x9g9dtvn05jef0",
-      "worktree_id": "worktree:5820c89d186523db",
-      "branch_ref": "refs/heads/task/prism-merge-repair-support",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/prism-merge-repair-support",
-        "targetRef": "origin/main",
-        "publishRef": "task/prism-merge-repair-support",
-        "targetBranch": "main",
-        "sourceCommit": "48f0cbf82b526dc4243d713d3334d93a3ed7bc6a",
-        "publishCommit": "05ec9399a5c0ef6e16b43645fd31ebdee6c911e6",
-        "targetCommitAtPublish": "fe83a17a87055d6e904807dc298426f416db5da8",
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "published_to_branch"
-      }
-    }
-  ]
+  "executionOverlays": []
 }

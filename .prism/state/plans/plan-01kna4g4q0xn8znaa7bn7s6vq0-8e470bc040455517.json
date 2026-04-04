@@ -86,30 +86,5 @@
     ],
     "edges": []
   },
-  "executionOverlays": [
-    {
-      "node_id": "coord-task:01kna4g9fyxzpyykde9s9z1m1d",
-      "pending_handoff_to": null,
-      "session": "session:01kna2hnr91jtbnkexks2me0rr",
-      "worktree_id": "worktree:8719dd7db144e96f",
-      "branch_ref": "refs/heads/task/prism-changes-state-rewrite",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": {
-        "status": "published",
-        "pendingTaskStatus": null,
-        "sourceRef": "task/remove-legacy-prism-logs",
-        "targetRef": "origin/main",
-        "publishRef": "task/remove-legacy-prism-logs",
-        "targetBranch": "main",
-        "sourceCommit": null,
-        "publishCommit": null,
-        "targetCommitAtPublish": null,
-        "reviewArtifactRef": null,
-        "integrationCommit": null,
-        "integrationMode": "external",
-        "integrationStatus": "not_started"
-      }
-    }
-  ]
+  "executionOverlays": []
 }

@@ -1027,6 +1027,7 @@ async fn mcp_server_executes_heartbeat_lease_mutation_round_trip() {
         .as_str()
         .expect("claim id should be present")
         .to_string();
+    let event_count_before_heartbeat = server_handle.host.current_prism().coordination_events().len();
 
     client
         .send(call_tool_request(
@@ -1054,16 +1055,14 @@ async fn mcp_server_executes_heartbeat_lease_mutation_round_trip() {
         claim["result"]["state"]["id"]
     );
     assert_eq!(heartbeat["result"]["rejected"], Value::Bool(false));
-
-    let event = server_handle
-        .host
-        .current_prism()
-        .coordination_events()
-        .last()
-        .expect("heartbeat event should be recorded")
-        .clone();
-    assert_eq!(event.kind, prism_ir::CoordinationEventKind::ClaimRenewed);
-    assert_eq!(event.metadata["renewalProvenance"], "explicit");
+    assert_eq!(
+        heartbeat["result"]["state"]["refreshedAt"],
+        claim["result"]["state"]["refreshedAt"]
+    );
+    assert_eq!(
+        server_handle.host.current_prism().coordination_events().len(),
+        event_count_before_heartbeat
+    );
 
     running.cancel().await.unwrap();
 }

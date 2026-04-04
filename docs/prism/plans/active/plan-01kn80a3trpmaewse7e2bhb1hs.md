@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:97385919ec8d22f316949187f35063c256964f8e006332b6a89c81c1088c58a0`
+- Source head: `sha256:87fa4c8283dbc38d7cf1fe61c9b5f90760c4044b259eba717974769a03946bed`
 - Source logical timestamp: `unknown`
 - Source snapshot: `7 nodes, 6 edges, 0 overlays`
 
@@ -34,11 +34,12 @@ Implement the Protected State Runtime Sync design from docs/PROTECTED_STATE_RUNT
 - Require task branch: `false`
 - Max commits behind target: `0`
 
-## Source of Truth
+## Branch Snapshot Export
 
-- Snapshot manifest: `.prism/state/manifest.json`
-- Snapshot plan shard: `.prism/state/plans/plan:01kn80a3trpmaewse7e2bhb1hs.json`
-- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
+- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority
+- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)
+- Snapshot plan shard: `.prism/state/plans/plan:01kn80a3trpmaewse7e2bhb1hs.json` (derived branch export)
+- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority
 
 ## Root Nodes
 
@@ -164,8 +165,8 @@ Implement the Protected State Runtime Sync design from docs/PROTECTED_STATE_RUNT
 
 #### Acceptance
 
-- Tests cover bootstrap hydration, live upstream merge, and uniform import behavior across all protected stream classes. [validation_only]
-- Tests prove read paths no longer special-case memory and that self-write suppression plus missed-event recovery behave correctly. [validation_only]
+- Tests cover bootstrap hydration, live upstream merge, and uniform import behavior across all protected stream classes. [any]
+- Tests prove read paths no longer special-case memory and that self-write suppression plus missed-event recovery behave correctly. [any]
 
 #### Tags
 

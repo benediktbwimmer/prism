@@ -2,8 +2,9 @@ use prism_coordination::BlockerKind;
 use prism_ir::{
     AnchorRef, ArtifactStatus, BlockerCauseSource, Capability, ClaimMode, ClaimStatus,
     ConflictOverlapKind, ConflictSeverity, CoordinationTaskStatus, EdgeKind, EdgeOrigin,
-    GitExecutionStatus, GitIntegrationMode, GitIntegrationStatus, Language, NodeKind, PlanEdgeKind,
-    PlanKind, PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus, Span,
+    GitExecutionStatus, GitIntegrationEvidence, GitIntegrationMode, GitIntegrationStatus, Language,
+    NodeKind, PlanEdgeKind, PlanKind, PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus, PlanScope,
+    PlanStatus, Span,
 };
 use prism_memory::OutcomeEvent;
 use schemars::JsonSchema;
@@ -1651,6 +1652,7 @@ pub struct GitExecutionOverlayView {
     pub target_commit_at_publish: Option<String>,
     pub review_artifact_ref: Option<String>,
     pub integration_commit: Option<String>,
+    pub integration_evidence: Option<GitIntegrationEvidence>,
     pub integration_mode: GitIntegrationMode,
     pub integration_status: GitIntegrationStatus,
 }
@@ -1703,6 +1705,7 @@ pub struct TaskGitExecutionView {
     pub target_commit_at_publish: Option<String>,
     pub review_artifact_ref: Option<String>,
     pub integration_commit: Option<String>,
+    pub integration_evidence: Option<GitIntegrationEvidence>,
     pub integration_mode: GitIntegrationMode,
     pub integration_status: GitIntegrationStatus,
     pub last_preflight: Option<GitPreflightReportView>,

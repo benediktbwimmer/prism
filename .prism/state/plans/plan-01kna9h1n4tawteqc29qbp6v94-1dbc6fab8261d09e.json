@@ -192,46 +192,5 @@
       }
     ]
   },
-  "executionOverlays": [
-    {
-      "node_id": "coord-task:01kna9hj9pk5nvg4max2248frc",
-      "pending_handoff_to": null,
-      "session": "session:01kna9gsy62na3a3sw2rmswqs4",
-      "worktree_id": "worktree:5820c89d186523db",
-      "branch_ref": "refs/heads/task/shared-refs-federated-runtime-planning",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": null
-    },
-    {
-      "node_id": "coord-task:01kna9hjbctvt9e3j32d6cgmte",
-      "pending_handoff_to": null,
-      "session": "session:01kna9gsy62na3a3sw2rmswqs4",
-      "worktree_id": "worktree:5820c89d186523db",
-      "branch_ref": "refs/heads/task/shared-refs-federated-runtime-planning",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": null
-    },
-    {
-      "node_id": "coord-task:01kna9hjd5a38ezszy5fqr6h0d",
-      "pending_handoff_to": null,
-      "session": "session:01kna9gsy62na3a3sw2rmswqs4",
-      "worktree_id": "worktree:5820c89d186523db",
-      "branch_ref": "refs/heads/task/shared-refs-federated-runtime-planning",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": null
-    },
-    {
-      "node_id": "coord-task:01kna9hjenyhw6ge6wb4eb8h7p",
-      "pending_handoff_to": null,
-      "session": "session:01kna9gsy62na3a3sw2rmswqs4",
-      "worktree_id": "worktree:5820c89d186523db",
-      "branch_ref": "refs/heads/task/shared-refs-federated-runtime-planning",
-      "effective_assignee": null,
-      "awaiting_handoff_from": null,
-      "git_execution": null
-    }
-  ]
+  "executionOverlays": []
 }

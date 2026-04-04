@@ -701,7 +701,10 @@ where
     let mut bytes =
         serde_json::to_vec_pretty(value).context("failed to serialize PRISM path metadata")?;
     bytes.push(b'\n');
-    fs::write(path, bytes).with_context(|| format!("failed to write {}", path.display()))
+    let tmp_path = path.with_extension(format!("tmp-{}", prism_ir::new_sortable_token()));
+    fs::write(&tmp_path, &bytes)
+        .with_context(|| format!("failed to write {}", tmp_path.display()))?;
+    fs::rename(&tmp_path, path).with_context(|| format!("failed to replace {}", path.display()))
 }
 
 fn migrate_legacy_file(target: &Path, legacy: &Path) -> Result<()> {

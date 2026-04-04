@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:557753436574137d5b2549f9ba850b44608c82ce43cb47e7fc4061268f58b5a0`
+- Source head: `sha256:e15aa0a29e04e73f385cff84409c7b23b575643ca7722da4908e4815c115ba5c`
 - Source logical timestamp: `unknown`
-- Source snapshot: `1 nodes, 0 edges, 0 overlays`
+- Source snapshot: `1 nodes, 0 edges, 1 overlays`
 
 ## Overview
 
@@ -34,11 +34,12 @@ Exercise live require-mode completion behavior on a temporary task.
 - Require task branch: `true`
 - Max commits behind target: `0`
 
-## Source of Truth
+## Branch Snapshot Export
 
-- Snapshot manifest: `.prism/state/manifest.json`
-- Snapshot plan shard: `.prism/state/plans/plan:01kn8rqy29rqhqc21kf87arqe1.json`
-- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
+- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority
+- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)
+- Snapshot plan shard: `.prism/state/plans/plan:01kn8rqy29rqhqc21kf87arqe1.json` (derived branch export)
+- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority
 
 ## Root Nodes
 
@@ -55,4 +56,8 @@ Exercise live require-mode completion behavior on a temporary task.
 ## Edges
 
 No published plan edges are currently recorded.
+
+## Execution Overlays
+
+- Node: `coord-task:01kn8rr5zr0md0jzevcfssaqvc`
 

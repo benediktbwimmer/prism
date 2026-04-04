@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:64300a6cf780bc21e19275dde1ee794a6df805e479554a7e01c780f4decbb1b9`
+- Source head: `sha256:67039a3ffd4abad7c315a1592b44116b3d1f14dca235c0be489df021158433ce`
 - Source logical timestamp: `unknown`
-- Source snapshot: `5 nodes, 5 edges, 0 overlays`
+- Source snapshot: `5 nodes, 5 edges, 5 overlays`
 
 ## Overview
 
@@ -34,11 +34,12 @@ Reduce full cargo test latency and improve test reliability by profiling the slo
 - Require task branch: `false`
 - Max commits behind target: `0`
 
-## Source of Truth
+## Branch Snapshot Export
 
-- Snapshot manifest: `.prism/state/manifest.json`
-- Snapshot plan shard: `.prism/state/plans/plan:01kn8dprbn5qf3fjpvj1zjxfb0.json`
-- Legacy migration log path: none; tracked snapshot shards are the only current repo authority
+- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority
+- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)
+- Snapshot plan shard: `.prism/state/plans/plan:01kn8dprbn5qf3fjpvj1zjxfb0.json` (derived branch export)
+- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority
 
 ## Root Nodes
 
@@ -108,4 +109,12 @@ Reduce full cargo test latency and improve test reliability by profiling the slo
 - `plan-edge:coord-task:01kn8dqyvrpbxe16xxwwfd29dy:depends-on:coord-task:01kn8dqgf7v523n7bbrp0p3bxm`: `coord-task:01kn8dqyvrpbxe16xxwwfd29dy` depends on `coord-task:01kn8dqgf7v523n7bbrp0p3bxm`
 - `plan-edge:coord-task:01kn8dr8dw1b6t5726j9sy76xe:depends-on:coord-task:01kn8dqwqxreh653af5apa1yv0`: `coord-task:01kn8dr8dw1b6t5726j9sy76xe` depends on `coord-task:01kn8dqwqxreh653af5apa1yv0`
 - `plan-edge:coord-task:01kn8dr8dw1b6t5726j9sy76xe:depends-on:coord-task:01kn8dqyvrpbxe16xxwwfd29dy`: `coord-task:01kn8dr8dw1b6t5726j9sy76xe` depends on `coord-task:01kn8dqyvrpbxe16xxwwfd29dy`
+
+## Execution Overlays
+
+- Node: `coord-task:01kn8dq98qhhd6m31kdcavrhvr`
+- Node: `coord-task:01kn8dqgf7v523n7bbrp0p3bxm`
+- Node: `coord-task:01kn8dqwqxreh653af5apa1yv0`
+- Node: `coord-task:01kn8dqyvrpbxe16xxwwfd29dy`
+- Node: `coord-task:01kn8dr8dw1b6t5726j9sy76xe`
 

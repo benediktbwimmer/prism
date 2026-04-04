@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock, TryLockError};
+use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
@@ -2620,6 +2621,7 @@ impl WorkspaceSession {
                     plan_graphs: Some(plan_graphs.clone()),
                     execution_overlays: Some(execution_overlays.clone()),
                     publish_context: None,
+                    sync_prism_doc: false,
                 })
             })
             .unwrap_or_else(|| {
@@ -2636,6 +2638,7 @@ impl WorkspaceSession {
                             plan_graphs: Some(plan_graphs.clone()),
                             execution_overlays: Some(execution_overlays.clone()),
                             publish_context: None,
+                            sync_prism_doc: false,
                         },
                     )?;
                 } else {
@@ -2649,6 +2652,7 @@ impl WorkspaceSession {
                             plan_graphs: Some(plan_graphs.clone()),
                             execution_overlays: Some(execution_overlays.clone()),
                             publish_context: None,
+                            sync_prism_doc: false,
                         },
                     )?;
                 }
@@ -2779,6 +2783,7 @@ impl WorkspaceSession {
         let plan_graphs = prism.authored_plan_graphs();
         let execution_overlays = prism.plan_execution_overlays_by_plan();
         let publish_context = publish_context_from_coordination_events(&appended_events);
+        let sync_prism_doc = coordination_delta_affects_repo_plan_projection(&appended_events);
         self.runtime_state
             .lock()
             .expect("workspace runtime state lock poisoned")
@@ -2833,6 +2838,7 @@ impl WorkspaceSession {
                                 plan_graphs: Some(plan_graphs.clone()),
                                 execution_overlays: Some(execution_overlays.clone()),
                                 publish_context: publish_context.clone(),
+                                sync_prism_doc,
                             },
                         )
                     } else {
@@ -2845,6 +2851,7 @@ impl WorkspaceSession {
                                 plan_graphs: Some(plan_graphs.clone()),
                                 execution_overlays: Some(execution_overlays.clone()),
                                 publish_context: publish_context.clone(),
+                                sync_prism_doc,
                             },
                         )?;
                         Ok(())
@@ -2914,6 +2921,7 @@ impl WorkspaceSession {
                                 plan_graphs: Some(plan_graphs.clone()),
                                 execution_overlays: Some(execution_overlays.clone()),
                                 publish_context: publish_context.clone(),
+                                sync_prism_doc,
                             },
                         )
                     } else {
@@ -2926,6 +2934,7 @@ impl WorkspaceSession {
                                 plan_graphs: Some(plan_graphs.clone()),
                                 execution_overlays: Some(execution_overlays.clone()),
                                 publish_context: publish_context.clone(),
+                                sync_prism_doc,
                             },
                         )?;
                         Ok(())
@@ -2952,9 +2961,23 @@ impl WorkspaceSession {
                 }
             }
         }
-        if coordination_delta_affects_repo_plan_projection(&appended_events) {
+        if sync_prism_doc && !schedule_materialization {
             self.schedule_prism_doc_sync(AutoPrismDocSyncTrigger::CoordinationPlanProjection);
         }
+        let coordination_context = Some(coordination_persist_context_for_root(&self.root, session_id));
+        let local_workspace_revision = prism.workspace_revision().graph_version;
+        let workspace_revision = self.loaded_workspace_revision.load(Ordering::Relaxed);
+        let runtime_state = self
+            .runtime_state
+            .lock()
+            .expect("workspace runtime state lock poisoned")
+            .clone();
+        self.publish_runtime_state(
+            runtime_state,
+            local_workspace_revision,
+            workspace_revision,
+            coordination_context,
+        );
         result
     }
 
@@ -3393,6 +3416,15 @@ impl WorkspaceSession {
         }
         if let Some(materializer) = &self.shared_runtime_materializer {
             materializer.flush()?;
+        }
+        let wait_started = Instant::now();
+        while self.repo_projection_sync_pending.load(Ordering::Acquire) {
+            if wait_started.elapsed() > Duration::from_secs(5) {
+                return Err(anyhow!(
+                    "timed out waiting for background PRISM doc sync to finish"
+                ));
+            }
+            thread::sleep(Duration::from_millis(10));
         }
         Ok(())
     }

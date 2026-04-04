@@ -195,6 +195,8 @@ pub struct TaskGitExecution {
     #[serde(default)]
     pub integration_commit: Option<String>,
     #[serde(default)]
+    pub integration_evidence: Option<prism_ir::GitIntegrationEvidence>,
+    #[serde(default)]
     pub integration_mode: GitIntegrationMode,
     #[serde(default)]
     pub integration_status: GitIntegrationStatus,
