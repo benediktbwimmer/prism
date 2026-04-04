@@ -342,6 +342,124 @@ fn git_execution_policy_start_rejects_main_branch_and_records_failure() {
 }
 
 #[test]
+fn git_execution_policy_start_combines_requested_mutation_and_git_execution_record() {
+    let branch = "task/git-execution-start-trace";
+    let root = init_git_workspace(branch);
+    let server = PrismMcpServer::with_session_and_features(
+        index_workspace_session_with_options(
+            &root,
+            WorkspaceSessionOptions {
+                coordination: true,
+                shared_runtime: default_workspace_shared_runtime(&root).unwrap(),
+                hydrate_persisted_projections: false,
+                hydrate_persisted_co_change: false,
+            },
+        )
+        .unwrap(),
+        PrismMcpFeatures::full().with_internal_developer(true),
+    );
+    let session_state = test_session(&server.host);
+
+    let plan = server
+        .host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Git execution",
+                    "goal": "Combine start-side coordination persistence",
+                    "policy": {
+                        "gitExecution": {
+                            "startMode": "require",
+                            "completionMode": "require",
+                            "targetBranch": "main",
+                            "requireTaskBranch": true
+                        }
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = server
+        .host
+        .store_coordination(
+            session_state.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    let result = server
+        .execute_logged_mutation_with_run(
+            "mutate.coordination",
+            MutationRefreshPolicy::None,
+            |run| {
+                server.host.store_coordination_traced(
+                    session_state.as_ref(),
+                    PrismCoordinationArgs {
+                        kind: CoordinationMutationKindInput::Update,
+                        payload: json!({
+                            "id": task_id,
+                            "status": "in_progress"
+                        }),
+                        task_id: None,
+                    },
+                    run,
+                )
+            },
+            |result| {
+                MutationDashboardMeta::coordination(
+                    result.event_ids.clone(),
+                    result.violations.len(),
+                )
+            },
+        )
+        .unwrap();
+
+    assert!(result.event_id.starts_with("coordination:"));
+
+    let detail = server
+        .host
+        .dashboard_operation_detail("mutation:1")
+        .expect("mutation detail should exist");
+    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+        panic!("expected mutation trace");
+    };
+    let operations = trace
+        .phases
+        .iter()
+        .map(|phase| phase.operation.as_str())
+        .collect::<Vec<_>>();
+    assert!(operations.contains(&"mutation.gitExecution.preflight"));
+    assert!(operations.contains(&"mutation.gitExecution.applyRequestedMutation"));
+    assert!(operations.contains(&"mutation.gitExecution.applyAndRecordStartState"));
+    assert!(operations.contains(&"mutation.gitExecution.applyRequestedMutationStep"));
+    assert!(operations.contains(&"mutation.gitExecution.recordTaskGitExecutionStep"));
+
+    let task = server
+        .host
+        .current_prism()
+        .coordination_task(&prism_ir::CoordinationTaskId::new(
+            result.state["id"].as_str().unwrap(),
+        ))
+        .unwrap();
+    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::InProgress);
+    assert_eq!(
+        task.git_execution.status,
+        prism_ir::GitExecutionStatus::InProgress
+    );
+}
+
+#[test]
 fn git_execution_policy_defaults_to_off_modes() {
     let root = init_git_workspace("task/git-execution-default-policy");
     let session = index_workspace_session_with_options(

@@ -2151,11 +2151,20 @@ impl QueryHost {
         match request.workflow {
             GitExecutionWorkflow::Start => {
                 let raw_started = std::time::Instant::now();
-                let raw_result = self.run_raw_coordination_args(
+                let raw_result = self.run_start_coordination_args_with_git_execution(
                     session,
                     authenticated,
                     &request.task_id,
                     args.clone(),
+                    task_git_execution_record(
+                        &task.git_execution,
+                        &policy,
+                        &preflight.report,
+                        prism_ir::GitExecutionStatus::InProgress,
+                        None,
+                        None,
+                        prism_ir::GitIntegrationStatus::NotStarted,
+                    ),
                     trace,
                 );
                 record_optional_trace_result(
@@ -2186,33 +2195,6 @@ impl QueryHost {
                     }
                     return Err(error);
                 }
-                let record_started = std::time::Instant::now();
-                let record_result = self.record_task_git_execution(
-                    session,
-                    authenticated,
-                    &request.task_id,
-                    task_git_execution_record(
-                        &task.git_execution,
-                        &policy,
-                        &preflight.report,
-                        prism_ir::GitExecutionStatus::InProgress,
-                        None,
-                        None,
-                        prism_ir::GitIntegrationStatus::NotStarted,
-                    ),
-                    trace,
-                );
-                record_optional_trace_result(
-                    trace,
-                    "mutation.gitExecution.recordTaskGitExecution",
-                    json!({
-                        "status": "in_progress",
-                        "taskId": request.task_id.0.as_str(),
-                    }),
-                    record_started,
-                    &record_result,
-                );
-                record_result?;
             }
             GitExecutionWorkflow::Complete(desired_status) => {
                 post_sync_publish_branch = Some(preflight.current_branch.clone());
@@ -2772,23 +2754,107 @@ impl QueryHost {
         }))
     }
 
-    fn run_raw_coordination_args(
+    fn run_start_coordination_args_with_git_execution(
         &self,
         session: &SessionState,
         authenticated: Option<&AuthenticatedPrincipal>,
         task_id: &CoordinationTaskId,
         args: PrismCoordinationArgs,
+        git_execution: TaskGitExecution,
         trace: Option<&MutationRun>,
     ) -> Result<Value> {
-        self.run_workspace_coordination_step(
-            session,
-            authenticated,
-            task_id,
+        let workspace = self
+            .workspace_session()
+            .ok_or_else(|| anyhow!("git execution workflow requires a workspace-backed session"))?;
+        let apply_meta = mutation_provenance(self, session, authenticated).event_meta(
+            session.next_event_id("coordination"),
+            Some(TaskId::new(task_id.0.clone())),
+            None,
+            current_timestamp(),
+        );
+        let record_meta = mutation_provenance(self, session, authenticated).event_meta(
+            session.next_event_id("coordination"),
+            Some(TaskId::new(task_id.0.clone())),
+            None,
+            current_timestamp(),
+        );
+        let task_id = task_id.clone();
+        let operation_started = std::time::Instant::now();
+        let result = workspace.mutate_coordination_with_session_wait_observed(
+            Some(&session.session_id()),
+            |prism| {
+                self.ensure_coordination_runtime_current(workspace)?;
+                let apply_started = std::time::Instant::now();
+                let apply_result =
+                    self.apply_coordination_mutation(session, prism, args, apply_meta.clone());
+                record_optional_trace_result(
+                    trace,
+                    "mutation.gitExecution.applyRequestedMutationStep",
+                    json!({ "taskId": task_id.0.as_str() }),
+                    apply_started,
+                    &apply_result,
+                );
+                let state = apply_result?;
+                let record_started = std::time::Instant::now();
+                let record_result = prism.update_native_task_authoritative_only(
+                    record_meta,
+                    TaskUpdateInput {
+                        task_id: task_id.clone(),
+                        kind: None,
+                        status: None,
+                        published_task_status: None,
+                        git_execution: Some(git_execution.clone()),
+                        assignee: None,
+                        session: None,
+                        worktree_id: None,
+                        branch_ref: None,
+                        title: None,
+                        summary: None,
+                        anchors: None,
+                        bindings: None,
+                        depends_on: None,
+                        acceptance: None,
+                        validation_refs: None,
+                        is_abstract: None,
+                        base_revision: Some(prism.workspace_revision()),
+                        priority: None,
+                        tags: None,
+                        completion_context: None,
+                    },
+                    prism.workspace_revision(),
+                    current_timestamp(),
+                );
+                record_optional_trace_result(
+                    trace,
+                    "mutation.gitExecution.recordTaskGitExecutionStep",
+                    json!({ "taskId": task_id.0.as_str() }),
+                    record_started,
+                    &record_result,
+                );
+                record_result?;
+                Ok(state)
+            },
+            |_operation, _duration, _args, _success, _error| {},
+        );
+        let final_result = match result {
+            Ok(Some(value)) => {
+                self.sync_coordination_revision(workspace)?;
+                Ok(value)
+            }
+            Ok(None) => Err(AdmissionBusyError::refresh_lock("mutateCoordination").into()),
+            Err(error) => {
+                let _ = self.sync_coordination_revision(workspace);
+                Err(error)
+            }
+        };
+        record_optional_trace_result(
             trace,
-            "mutation.gitExecution.applyRequestedMutationStep",
+            "mutation.gitExecution.applyAndRecordStartState",
             json!({ "taskId": task_id.0.as_str() }),
-            move |prism, meta| self.apply_coordination_mutation(session, prism, args, meta),
-        )
+            operation_started,
+            &final_result,
+        );
+        final_result
     }
 
     fn record_task_git_execution(
