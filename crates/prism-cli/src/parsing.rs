@@ -109,6 +109,9 @@ pub fn parse_credential_capability(value: &str) -> Result<CredentialCapability> 
         "mutate_repo_memory" | "repo_memory" | "memory" => {
             Ok(CredentialCapability::MutateRepoMemory)
         }
+        "read_peer_runtime" | "peer_runtime" | "peer" => {
+            Ok(CredentialCapability::ReadPeerRuntime)
+        }
         "mint_child_principal" | "mint_child" | "child" => {
             Ok(CredentialCapability::MintChildPrincipal)
         }
@@ -163,4 +166,22 @@ pub fn build_evidence(
         evidence.push(OutcomeEvidence::Commit { sha });
     }
     evidence
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_credential_capability;
+    use prism_ir::CredentialCapability;
+
+    #[test]
+    fn parse_legacy_read_peer_runtime_capability() {
+        assert_eq!(
+            parse_credential_capability("read_peer_runtime").unwrap(),
+            CredentialCapability::ReadPeerRuntime
+        );
+        assert_eq!(
+            parse_credential_capability("peer_runtime").unwrap(),
+            CredentialCapability::ReadPeerRuntime
+        );
+    }
 }
