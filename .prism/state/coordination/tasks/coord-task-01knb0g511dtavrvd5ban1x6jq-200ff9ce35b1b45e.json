@@ -1,0 +1,114 @@
+{
+  "id": "coord-task:01knb0g511dtavrvd5ban1x6jq",
+  "plan": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+  "kind": "Investigate",
+  "title": "Define the authority vs materialized-runtime contract",
+  "summary": "Map the current daemon bootstrap, shared-ref hydration, and runtime-host reload paths; define which state remains authoritative in the shared ref versus which state becomes a local materialized startup snapshot keyed by shared-ref identity.",
+  "status": "Completed",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [
+    {
+      "File": 177
+    },
+    {
+      "File": 188
+    },
+    {
+      "File": 329
+    },
+    {
+      "File": 330
+    },
+    {
+      "File": 39
+    },
+    {
+      "File": 421
+    },
+    {
+      "File": 424
+    },
+    {
+      "File": 487
+    }
+  ],
+  "bindings": {
+    "anchors": [
+      {
+        "File": 177
+      },
+      {
+        "File": 188
+      },
+      {
+        "File": 329
+      },
+      {
+        "File": 330
+      },
+      {
+        "File": 39
+      },
+      {
+        "File": 421
+      },
+      {
+        "File": 424
+      },
+      {
+        "File": 487
+      }
+    ],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [],
+  "acceptance": [
+    {
+      "label": "The current startup and reload path is reduced to one concrete contract boundary between shared-ref authority and local materialized startup state.",
+      "anchors": []
+    },
+    {
+      "label": "The contract identifies the shared-ref identity key needed to validate or invalidate the local materialized snapshot.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 180,
+    "git_commit": null
+  },
+  "priority": null,
+  "tags": [],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "sourceCommit": null,
+    "publishCommit": null,
+    "targetCommitAtPublish": null,
+    "reviewArtifactRef": null,
+    "integrationCommit": null,
+    "integrationMode": "external",
+    "integrationStatus": "not_started",
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

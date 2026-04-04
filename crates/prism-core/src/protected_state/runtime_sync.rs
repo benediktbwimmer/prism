@@ -8,6 +8,7 @@ use prism_store::{CoordinationCheckpointStore, CoordinationJournal};
 use crate::concept_events::load_repo_curated_concepts;
 use crate::concept_relation_events::load_repo_concept_relations;
 use crate::contract_events::load_repo_curated_contracts;
+use crate::coordination_startup_checkpoint::load_materialized_coordination_plan_state;
 use crate::memory_events::load_repo_memory_events;
 use crate::protected_state::streams::ProtectedRepoStream;
 use crate::published_plans::{
@@ -143,6 +144,11 @@ where
     let stream = store.load_coordination_event_stream()?;
     let snapshot =
         coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot);
+    if let Some(plan_state) =
+        load_materialized_coordination_plan_state(root, store, snapshot.clone())?
+    {
+        return Ok(Some(plan_state));
+    }
     load_hydrated_coordination_plan_state(root, snapshot)
 }
 

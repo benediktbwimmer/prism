@@ -8,14 +8,14 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:94dfd1829b7572d1fd3ba168f3f29352dd5f957563c7bb5f1c09e6cb218c7817`
+- Source head: `sha256:52959307c07a4edc0bf01c468277372ea2f768db8805b0c9c103f195dfb40f8a`
 - Source logical timestamp: `unknown`
-- Source snapshot: `69 plans, 45 active, 24 archived`
+- Source snapshot: `70 plans, 46 active, 24 archived`
 
 ## Overview
 
-- Published plans: 69
-- Active plans: 45
+- Published plans: 70
+- Active plans: 46
 - Archived plans: 24
 
 ## Active Plans
@@ -27,6 +27,7 @@
 - [Complete git execution policy rollout and harden publish semantics](active/plan-01kn8n8v0ns6jcj0xgge5f0adv.md): Finish the git execution policy feature by exposing policy surfaces clearly, separating task lifecycle from publish lifecycle, making publish-pending and publication acknowledgement semantics explicit, finalizing strict `require` so agents own source-code commit scope while PRISM only finalizes allowlisted PRISM-managed projection files, making freshness policy explicit, validating the flow through dogfooding, and removing `auto` once strict `require` is proven. (`plan:01kn8n8v0ns6jcj0xgge5f0adv`)
 - [Complete shared coordination refs follow-through](active/plan-01knadcr3p15he31394q1bs5wv.md): Finish the remaining shared coordination ref work by adding CAS retry/reconciliation, remote live-sync, target integration lifecycle/evidence, and shared-ref retention/compaction. (`plan:01knadcr3p15he31394q1bs5wv`)
 - [Curate PRISM concepts for the implemented principal identity and authenticated coordination system](active/plan-01kn6f9bhgq49zweypzysn03rj.md): Curate PRISM concepts for the implemented principal identity and authenticated coordination system (`plan:01kn6f9bhgq49zweypzysn03rj`)
+- [Decouple shared-ref authority from daemon startup](active/plan-01knb0f1xztpmmbjjzetw9xbwg.md): Separate shared coordination refs as the authority/replication source from daemon startup by introducing one local materialized coordination snapshot/checkpoint for bootstrap, moving shared-ref fetch/verify/import onto an explicit sync path, reusing one in-memory coordination load across bootstrap layers, and validating that hot restart falls back to low-single-digit seconds without regressing correctness. (`plan:01knb0f1xztpmmbjjzetw9xbwg`)
 - [Dogfood require-vs-auto git execution](active/plan-01kn8rqy29rqhqc21kf87arqe1.md): Exercise live require-mode completion behavior on a temporary task. (`plan:01kn8rqy29rqhqc21kf87arqe1`)
 - [Eliminate absolute path leakage and make path identity repo-relative across PRISM](active/plan-01kn9vcavs4jft9eqw82ysmghq.md): Define one correct path identity model for PRISM so tracked snapshots, shared/runtime state, APIs, docs, and projections never persist absolute filesystem paths; use file ids plus repo-relative paths as canonical identity and anchors as the primary semantic reference. (`plan:01kn9vcavs4jft9eqw82ysmghq`)
 - [Eliminate nondeterministic SQLite locking failures from the full parallel workspace test suite](active/plan-01kn5xz844mc22fb9g7g5czxw7.md): Eliminate nondeterministic SQLite locking failures from the full parallel workspace test suite (`plan:01kn5xz844mc22fb9g7g5czxw7`)

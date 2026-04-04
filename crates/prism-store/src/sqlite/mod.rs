@@ -955,6 +955,21 @@ impl Store for SqliteStore {
         self.with_immediate_tx(|tx| coordination_compaction::save_compaction_tx(tx, snapshot))
     }
 
+    fn load_coordination_startup_checkpoint(
+        &mut self,
+    ) -> Result<Option<crate::CoordinationStartupCheckpoint>> {
+        snapshots::load_snapshot_row(&self.conn, "coordination_startup_checkpoint")
+    }
+
+    fn save_coordination_startup_checkpoint(
+        &mut self,
+        checkpoint: &crate::CoordinationStartupCheckpoint,
+    ) -> Result<()> {
+        self.with_immediate_tx(|tx| {
+            snapshots::save_snapshot_row_tx(tx, "coordination_startup_checkpoint", checkpoint)
+        })
+    }
+
     fn load_coordination_read_model(
         &mut self,
     ) -> Result<Option<prism_coordination::CoordinationReadModel>> {

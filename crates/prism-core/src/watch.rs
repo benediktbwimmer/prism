@@ -29,6 +29,7 @@ use tracing::{error, info, warn};
 
 use crate::checkpoint_materializer::CheckpointMaterializerHandle;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
+use crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint;
 use crate::curator::{enqueue_curator_for_observed_async, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
 use crate::layout::discover_layout;
@@ -1381,7 +1382,8 @@ pub(crate) fn sync_shared_coordination_ref_watch_update(
             .expect("shared runtime store lock poisoned")
             .coordination_revision()?
     } else {
-        store.lock()
+        store
+            .lock()
             .expect("workspace store lock poisoned")
             .coordination_revision()?
     };
@@ -1400,6 +1402,25 @@ pub(crate) fn sync_shared_coordination_ref_watch_update(
         .lock()
         .expect("workspace runtime state lock poisoned")
         .clone();
+    if let Some(shared_store) = shared_runtime_store {
+        save_shared_coordination_startup_checkpoint(
+            root,
+            &mut *shared_store
+                .lock()
+                .expect("shared runtime store lock poisoned"),
+            &shared.snapshot,
+            &shared.plan_graphs,
+            &shared.execution_overlays,
+        )?;
+    } else {
+        save_shared_coordination_startup_checkpoint(
+            root,
+            &mut *store.lock().expect("workspace store lock poisoned"),
+            &shared.snapshot,
+            &shared.plan_graphs,
+            &shared.execution_overlays,
+        )?;
+    }
     next_state.replace_coordination_runtime(
         shared.snapshot.clone(),
         shared.plan_graphs.clone(),

@@ -549,6 +549,27 @@ impl CoordinationCheckpointStore for SharedRuntimeStore {
         }
     }
 
+    fn load_coordination_startup_checkpoint(
+        &mut self,
+    ) -> Result<Option<prism_store::CoordinationStartupCheckpoint>> {
+        match self {
+            Self::Sqlite(store) => {
+                <SqliteStore as Store>::load_coordination_startup_checkpoint(store)
+            }
+        }
+    }
+
+    fn save_coordination_startup_checkpoint(
+        &mut self,
+        checkpoint: &prism_store::CoordinationStartupCheckpoint,
+    ) -> Result<()> {
+        match self {
+            Self::Sqlite(store) => {
+                <SqliteStore as Store>::save_coordination_startup_checkpoint(store, checkpoint)
+            }
+        }
+    }
+
     fn load_coordination_read_model(
         &mut self,
     ) -> Result<Option<prism_coordination::CoordinationReadModel>> {

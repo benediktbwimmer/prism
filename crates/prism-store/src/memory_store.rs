@@ -13,6 +13,7 @@ use crate::store::{
     CoordinationPersistContext, CoordinationPersistResult, IndexPersistBatch, Store,
     WorkspaceTreeSnapshot,
 };
+use crate::CoordinationStartupCheckpoint;
 use prism_memory::{MemoryEvent, MemoryEventKind, OutcomeEvent};
 
 #[derive(Debug, Default)]
@@ -30,6 +31,7 @@ pub struct MemoryStore {
     principal_registry_snapshot: Option<prism_ir::PrincipalRegistrySnapshot>,
     coordination_events: Vec<CoordinationEvent>,
     coordination_compaction: Option<(usize, prism_coordination::CoordinationSnapshot)>,
+    coordination_startup_checkpoint: Option<CoordinationStartupCheckpoint>,
     coordination_read_model: Option<CoordinationReadModel>,
     coordination_queue_read_model: Option<CoordinationQueueReadModel>,
     coordination_revision: u64,
@@ -374,6 +376,20 @@ impl Store for MemoryStore {
             self.coordination_events.len(),
             compacted_snapshot(snapshot.clone()),
         ));
+        Ok(())
+    }
+
+    fn load_coordination_startup_checkpoint(
+        &mut self,
+    ) -> Result<Option<CoordinationStartupCheckpoint>> {
+        Ok(self.coordination_startup_checkpoint.clone())
+    }
+
+    fn save_coordination_startup_checkpoint(
+        &mut self,
+        checkpoint: &CoordinationStartupCheckpoint,
+    ) -> Result<()> {
+        self.coordination_startup_checkpoint = Some(checkpoint.clone());
         Ok(())
     }
 

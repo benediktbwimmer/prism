@@ -98,6 +98,39 @@ The sync path should:
 - update runtime freshness/materialization metadata for that domain
 - avoid full rebuild unless repair/admin logic explicitly requests it
 
+For shared coordination refs, this sync path must also own the expensive authority import work:
+
+- fetch or refresh the shared ref head when needed
+- verify the shared manifest and snapshot shard digests
+- rebuild one local materialized coordination snapshot or checkpoint keyed by shared-ref identity
+- update runtime freshness markers that tell startup whether the local materialized snapshot is still valid
+
+The shared ref remains the authority and replication source, but daemon startup should consume the
+local materialized coordination snapshot rather than rehydrating the shared ref directly on the
+critical path.
+
+#### Shared coordination startup artifact
+
+The shared-coordination sync path should write one local materialized startup artifact with:
+
+- the fully hydrated `CoordinationSnapshot`
+- authored `plan_graphs`
+- `execution_overlays`
+- authority metadata for the imported shared ref
+  - shared ref name
+  - source head commit when known
+  - canonical manifest digest when known
+  - schema version
+  - materialized timestamp
+
+The initial implementation should reuse the local checkpoint store and checkpoint materializer
+surface that already persists coordination read models and compaction state. This keeps the startup
+artifact local to the daemon's selected runtime/cache environment instead of treating the shared ref
+itself as the startup store.
+
+The explicit shared-coordination sync path is the only owner that should rewrite this startup
+artifact from shared-ref authority input.
+
 ### 3. Stream-Oriented Domain Imports
 
 Each protected stream class should map to one runtime import handler.
@@ -155,6 +188,25 @@ In addition:
 - a bounded periodic reconciliation sweep may exist as a safety net
 - it should verify whether observed stream heads still match runtime import markers
 - it must not be the primary freshness path
+
+For shared coordination specifically, startup should prefer a local materialized coordination
+snapshot or checkpoint that was produced by the explicit sync path. That startup artifact should be
+keyed by a verified shared-ref identity such as the current head commit, canonical manifest digest,
+or both. If the local artifact is missing or stale, the explicit shared-coordination sync path
+rebuilds it; startup should not treat the shared ref as a live startup database.
+
+On the startup critical path:
+
+- load the local shared-coordination startup artifact directly
+- build in-memory coordination state once from that artifact
+- mark freshness using the artifact's last imported authority key
+- let the dedicated sync path decide later whether the shared ref has advanced and whether a new
+  local artifact must be materialized
+
+If the local startup artifact is absent, startup may fall back to local runtime durability
+mechanisms such as the coordination journal or a previous local compaction snapshot, but that
+fallback is still local. The recovery path should schedule or trigger explicit shared-ref sync
+instead of fetching and rehydrating the shared ref inline.
 
 That keeps freshness event-driven while still covering missed watcher events.
 

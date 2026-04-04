@@ -14,6 +14,7 @@ use prism_coordination::{
     CoordinationSnapshot, CoordinationTask, Plan, WorkClaim,
 };
 use prism_ir::{PlanExecutionOverlay, PlanGraph, WorkContextKind, WorkContextSnapshot};
+use prism_store::CoordinationStartupCheckpointAuthority;
 use serde::{Deserialize, Serialize};
 
 use crate::protected_state::canonical::{canonical_json_bytes, sha256_prefixed};
@@ -189,7 +190,9 @@ fn record_observed_shared_coordination_head(root: &Path, head: Option<String>) {
         .expect("shared coordination live sync state lock poisoned")
         .insert(
             root.to_path_buf(),
-            SharedCoordinationLiveSyncState { observed_head: head },
+            SharedCoordinationLiveSyncState {
+                observed_head: head,
+            },
         );
 }
 
@@ -227,9 +230,11 @@ pub(crate) fn poll_shared_coordination_ref_live_sync(
     if current_head.is_none() {
         return Ok(SharedCoordinationRefLiveSync::Unchanged);
     }
-    Ok(load_shared_coordination_ref_state_from_current_ref(root, &ref_name)?
-        .map(SharedCoordinationRefLiveSync::Changed)
-        .unwrap_or(SharedCoordinationRefLiveSync::Unchanged))
+    Ok(
+        load_shared_coordination_ref_state_from_current_ref(root, &ref_name)?
+            .map(SharedCoordinationRefLiveSync::Changed)
+            .unwrap_or(SharedCoordinationRefLiveSync::Unchanged),
+    )
 }
 
 fn stage_root(paths: &PrismPaths) -> PathBuf {
@@ -464,6 +469,27 @@ pub(crate) fn load_shared_coordination_ref_state(
         return Ok(Some(cached.state));
     }
     load_shared_coordination_ref_state_from_current_ref(root, &ref_name)
+}
+
+pub(crate) fn shared_coordination_startup_authority(
+    root: &Path,
+) -> Result<Option<CoordinationStartupCheckpointAuthority>> {
+    if !git_repo_available(root) {
+        return Ok(None);
+    }
+    let ref_name = shared_coordination_ref_name(root);
+    let Some(head_commit) = resolve_ref_commit(root, &ref_name)? else {
+        return Ok(None);
+    };
+    let manifest_digest = load_shared_coordination_manifest_from_ref(root, &ref_name)?
+        .as_ref()
+        .map(canonical_manifest_digest)
+        .transpose()?;
+    Ok(Some(CoordinationStartupCheckpointAuthority {
+        ref_name,
+        head_commit: Some(head_commit),
+        manifest_digest,
+    }))
 }
 
 fn load_shared_coordination_ref_state_from_current_ref(
@@ -792,7 +818,9 @@ pub(crate) fn shared_coordination_ref_exists(root: &Path) -> Result<bool> {
     Ok(resolve_ref_commit(root, &shared_coordination_ref_name(root))?.is_some())
 }
 
-pub fn shared_coordination_ref_diagnostics(root: &Path) -> Result<Option<SharedCoordinationRefDiagnostics>> {
+pub fn shared_coordination_ref_diagnostics(
+    root: &Path,
+) -> Result<Option<SharedCoordinationRefDiagnostics>> {
     if !git_repo_available(root) {
         return Ok(None);
     }
@@ -1196,13 +1224,7 @@ fn push_shared_coordination_ref(
     ref_name: &str,
     expected_remote_head: Option<&str>,
 ) -> Result<()> {
-    push_commit_to_shared_coordination_ref(
-        root,
-        remote,
-        ref_name,
-        ref_name,
-        expected_remote_head,
-    )
+    push_commit_to_shared_coordination_ref(root, remote, ref_name, ref_name, expected_remote_head)
 }
 
 fn push_commit_to_shared_coordination_ref(
@@ -1315,7 +1337,14 @@ fn update_ref_to_commit(
         Some(old_commit) => {
             let _ = run_git(
                 root,
-                &["update-ref", "-m", message, ref_name, new_commit, old_commit],
+                &[
+                    "update-ref",
+                    "-m",
+                    message,
+                    ref_name,
+                    new_commit,
+                    old_commit,
+                ],
             )?;
         }
         None => {
@@ -1417,7 +1446,11 @@ fn list_ref_blob_entries(root: &Path, ref_name: &str) -> Result<Vec<RefBlobEntry
         ));
     }
     let mut entries = Vec::new();
-    for record in output.stdout.split(|byte| *byte == 0).filter(|record| !record.is_empty()) {
+    for record in output
+        .stdout
+        .split(|byte| *byte == 0)
+        .filter(|record| !record.is_empty())
+    {
         let Some(tab_index) = record.iter().position(|byte| *byte == b'\t') else {
             continue;
         };
@@ -1462,7 +1495,10 @@ fn git_cat_file_batch(root: &Path, object_ids: &[&str]) -> Result<HashMap<String
         .spawn()
         .context("failed to spawn git cat-file --batch")?;
     {
-        let mut stdin = child.stdin.take().context("git cat-file stdin unavailable")?;
+        let mut stdin = child
+            .stdin
+            .take()
+            .context("git cat-file stdin unavailable")?;
         for object_id in object_ids {
             writeln!(stdin, "{object_id}")?;
         }
@@ -1747,13 +1783,13 @@ mod tests {
         PlanExecutionOverlay, PlanGraph, PlanId, PlanKind, PlanScope, PlanStatus, SessionId,
         WorkspaceRevision,
     };
+    use prism_store::{CoordinationCheckpointStore, CoordinationStartupCheckpoint, MemoryStore};
 
     use super::{
         implicit_principal_identity, initialize_shared_coordination_ref_live_sync,
         load_shared_coordination_ref_state, poll_shared_coordination_ref_live_sync,
         shared_coordination_ref_diagnostics, shared_coordination_ref_exists,
-        sync_shared_coordination_ref_state,
-        SharedCoordinationRefLiveSync,
+        sync_shared_coordination_ref_state, SharedCoordinationRefLiveSync,
     };
     use crate::index_workspace_session;
     use crate::published_plans::load_hydrated_coordination_plan_state;
@@ -1852,7 +1888,14 @@ mod tests {
         }
     }
 
-    fn sample_snapshot_for(plan_id: &str, task_id: &str) -> (CoordinationSnapshot, PlanGraph, BTreeMap<String, Vec<PlanExecutionOverlay>>) {
+    fn sample_snapshot_for(
+        plan_id: &str,
+        task_id: &str,
+    ) -> (
+        CoordinationSnapshot,
+        PlanGraph,
+        BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    ) {
         let plan_id = PlanId::new(plan_id.to_string());
         let task_id = CoordinationTaskId::new(task_id.to_string());
         let plan = Plan {
@@ -2165,6 +2208,40 @@ mod tests {
             loaded_task.branch_ref.as_deref(),
             Some("refs/heads/task/shared")
         );
+    }
+
+    #[test]
+    fn startup_loader_prefers_materialized_checkpoint_over_inline_shared_ref_hydration() {
+        let root = temp_git_repo();
+        let ref_name = super::shared_coordination_ref_name(&root);
+        let head = super::run_git(&root, &["rev-parse", "HEAD"]).unwrap();
+        super::run_git(&root, &["update-ref", &ref_name, &head]).unwrap();
+
+        let (snapshot, graph, execution_overlays) =
+            sample_snapshot_for("plan:checkpoint", "coord-task:checkpoint");
+        let authority = super::shared_coordination_startup_authority(&root)
+            .unwrap()
+            .expect("shared coordination authority");
+        let mut store = MemoryStore::default();
+        store
+            .save_coordination_startup_checkpoint(&CoordinationStartupCheckpoint {
+                version: CoordinationStartupCheckpoint::VERSION,
+                materialized_at: current_timestamp(),
+                authority,
+                snapshot: snapshot.clone(),
+                plan_graphs: vec![graph.clone()],
+                execution_overlays: execution_overlays.clone(),
+            })
+            .unwrap();
+
+        let loaded =
+            crate::protected_state::runtime_sync::load_repo_protected_plan_state(&root, &mut store)
+                .unwrap()
+                .expect("startup checkpoint should hydrate plan state");
+
+        assert_eq!(loaded.snapshot, snapshot);
+        assert_eq!(loaded.plan_graphs, vec![graph]);
+        assert_eq!(loaded.execution_overlays, execution_overlays);
     }
 
     #[test]
@@ -2569,7 +2646,9 @@ mod tests {
             SharedCoordinationRefLiveSync::Unchanged
         ));
 
-        let before_revision = session.coordination_runtime_revision.load(Ordering::Relaxed);
+        let before_revision = session
+            .coordination_runtime_revision
+            .load(Ordering::Relaxed);
         crate::watch::sync_shared_coordination_ref_watch_update(
             &root_a,
             &session.published_generation,
@@ -2584,7 +2663,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            session.coordination_runtime_revision.load(Ordering::Relaxed),
+            session
+                .coordination_runtime_revision
+                .load(Ordering::Relaxed),
             before_revision
         );
 
@@ -2650,14 +2731,12 @@ mod tests {
             session.coordination_enabled,
         )
         .unwrap();
-        assert!(
-            session
-                .prism()
-                .coordination_snapshot()
-                .claims
-                .iter()
-                .any(|claim| claim.id.0 == "claim:shared-live-sync")
-        );
+        assert!(session
+            .prism()
+            .coordination_snapshot()
+            .claims
+            .iter()
+            .any(|claim| claim.id.0 == "claim:shared-live-sync"));
         assert_eq!(
             session.prism().coordination_snapshot().tasks[0].status,
             CoordinationTaskStatus::Completed

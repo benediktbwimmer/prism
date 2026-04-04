@@ -555,7 +555,7 @@ fn hydrated_plan_state_from_projection(
     }
 }
 
-fn merge_snapshot_bootstrap_into_plan_state(
+pub(crate) fn merge_snapshot_bootstrap_into_plan_state(
     snapshot: &CoordinationSnapshot,
     graphs: &mut Vec<PlanGraph>,
     execution_overlays: &mut BTreeMap<String, Vec<PlanExecutionOverlay>>,
@@ -652,7 +652,7 @@ fn merge_published_plans_into_snapshot(
     snapshot
 }
 
-fn merge_shared_coordination_into_snapshot(
+pub(crate) fn merge_shared_coordination_into_snapshot(
     mut snapshot: CoordinationSnapshot,
     shared_snapshot: CoordinationSnapshot,
 ) -> CoordinationSnapshot {
@@ -912,7 +912,7 @@ fn repo_published_execution_overlays(
     Vec::new()
 }
 
-fn execution_overlays_by_plan(
+pub(crate) fn execution_overlays_by_plan(
     tasks: &[CoordinationTask],
 ) -> BTreeMap<String, Vec<PlanExecutionOverlay>> {
     tasks

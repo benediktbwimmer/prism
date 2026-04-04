@@ -1,0 +1,79 @@
+{
+  "entry": {
+    "id": "memory:01knb0zp726c9zjw7fdhcq1mg3",
+    "anchors": [
+      {
+        "File": 177
+      },
+      {
+        "File": 180
+      },
+      {
+        "File": 330
+      },
+      {
+        "File": 421
+      },
+      {
+        "File": 424
+      },
+      {
+        "File": 487
+      }
+    ],
+    "kind": "Episodic",
+    "scope": "repo",
+    "content": "Shared coordination startup is currently structurally coupled to authority import: `load_repo_protected_plan_state(...)` builds a coordination snapshot from the journal and immediately calls `load_hydrated_coordination_plan_state(...)`, which prioritizes `load_shared_coordination_ref_state(...)`. That shared-ref loader refreshes the ref, verifies every manifest file digest, and hydrates records file-by-file, and the same path is reused in indexer bootstrap, session recovery, and `workspace_runtime::reload_coordination_snapshot_if_needed`. The correct boundary is shared ref as authority plus replication source, but one local materialized coordination snapshot/checkpoint as the daemon startup artifact keyed by verified shared-ref identity such as head commit or manifest digest.",
+    "metadata": {
+      "evidence": {
+        "coChangeLineages": [],
+        "eventIds": [],
+        "memoryIds": [],
+        "validationChecks": []
+      },
+      "provenance": {
+        "kind": "manual_memory",
+        "origin": "manual_store"
+      },
+      "publication": {
+        "lastReviewedAt": 1775265372,
+        "publishedAt": 1775265372,
+        "status": "active"
+      },
+      "task_id": "coord-task:01knb0g511dtavrvd5ban1x6jq"
+    },
+    "created_at": 1775265372,
+    "source": "Agent",
+    "trust": 0.93
+  },
+  "latestEventId": "memory-event:01knb0zp72wvnr7w2pw9j2h8k5",
+  "latestRecordedAt": 1775265372,
+  "eventCount": 1,
+  "actor": {
+    "Principal": {
+      "authority_id": "local-daemon",
+      "principal_id": "principal:codex-shared-coordination-refs-gaps-2026-04-04:01knaqj9pv4p1vc9tfw82zvp6y",
+      "kind": "agent",
+      "name": "codex-shared-coordination-refs-gaps-2026-04-04"
+    }
+  },
+  "executionContext": {
+    "repo_id": "repo:763c8d2ae95d5376",
+    "worktree_id": "worktree:38d65972b1359401",
+    "branch_ref": "refs/heads/task/startup-materialized-snapshot",
+    "session_id": "session:01knb0bxghh7p28hyenw1q6wb4",
+    "instance_id": "instance:25558:1775263826851",
+    "request_id": "83",
+    "credential_id": "credential:01knaqj9pv0vx0h59cvge430j7",
+    "work_context": {
+      "workId": "coord-task:01knb0g511dtavrvd5ban1x6jq",
+      "kind": "coordination",
+      "title": "Define the authority vs materialized-runtime contract",
+      "summary": "Map the current daemon bootstrap, shared-ref hydration, and runtime-host reload paths; define which state remains authoritative in the shared ref versus which state becomes a local materialized startup snapshot keyed by shared-ref identity.",
+      "coordinationTaskId": "coord-task:01knb0g511dtavrvd5ban1x6jq",
+      "planId": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+      "planTitle": "Decouple shared-ref authority from daemon startup"
+    }
+  },
+  "taskId": "coord-task:01knb0g511dtavrvd5ban1x6jq"
+}

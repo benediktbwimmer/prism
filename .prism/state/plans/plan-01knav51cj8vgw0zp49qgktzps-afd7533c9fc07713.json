@@ -29,9 +29,9 @@
     "kind": "TaskExecution",
     "revision": 0,
     "scheduling": {
-      "importance": 100,
-      "urgency": 95,
-      "manualBoost": 70,
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
       "dueAt": null
     },
     "tags": [],

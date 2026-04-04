@@ -5,7 +5,8 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 use prism_coordination::{
     coordination_queue_read_model_from_seed, coordination_read_model_from_seed,
-    coordination_snapshot_from_events, CoordinationEvent, CoordinationSnapshot,
+    coordination_snapshot_from_events, snapshot_plan_graphs, CoordinationEvent,
+    CoordinationSnapshot,
 };
 use prism_ir::{PlanExecutionOverlay, PlanGraph, SessionId};
 use prism_store::{
@@ -14,10 +15,15 @@ use prism_store::{
 };
 use serde_json::{json, Value};
 
+use crate::coordination_startup_checkpoint::{
+    load_materialized_coordination_plan_state, load_materialized_coordination_snapshot,
+    save_shared_coordination_startup_checkpoint,
+};
 use crate::published_plans::{
-    load_hydrated_coordination_plan_state, load_hydrated_coordination_snapshot,
-    sync_repo_published_plan_state, sync_repo_published_plan_state_observed,
-    sync_repo_published_plans, HydratedCoordinationPlanState,
+    execution_overlays_by_plan, load_hydrated_coordination_plan_state,
+    load_hydrated_coordination_snapshot, sync_repo_published_plan_state,
+    sync_repo_published_plan_state_observed, sync_repo_published_plans,
+    HydratedCoordinationPlanState,
 };
 use crate::tracked_snapshot::publish_context_from_coordination_events;
 use crate::workspace_identity::coordination_persist_context_for_root;
@@ -100,6 +106,11 @@ pub(crate) trait CoordinationPersistenceBackend:
         let stream = self.load_coordination_event_stream()?;
         let snapshot =
             coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot);
+        if let Some(snapshot) =
+            load_materialized_coordination_snapshot(root, self, snapshot.clone())?
+        {
+            return Ok(Some(snapshot));
+        }
         load_hydrated_coordination_snapshot(root, snapshot)
     }
 
@@ -110,6 +121,11 @@ pub(crate) trait CoordinationPersistenceBackend:
         let stream = self.load_coordination_event_stream()?;
         let snapshot =
             coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot);
+        if let Some(plan_state) =
+            load_materialized_coordination_plan_state(root, self, snapshot.clone())?
+        {
+            return Ok(Some(plan_state));
+        }
         load_hydrated_coordination_plan_state(root, snapshot)
     }
 
@@ -229,6 +245,21 @@ pub(crate) trait CoordinationPersistenceBackend:
             }
             _ => sync_repo_published_plans(root, snapshot, publish_context.as_ref()),
         };
+        let plan_graphs_for_checkpoint = plan_graphs
+            .map(|graphs| graphs.to_vec())
+            .unwrap_or_else(|| snapshot_plan_graphs(snapshot));
+        let execution_overlays_for_checkpoint = execution_overlays
+            .cloned()
+            .unwrap_or_else(|| execution_overlays_by_plan(&snapshot.tasks));
+        let sync_result = sync_result.and_then(|()| {
+            save_shared_coordination_startup_checkpoint(
+                root,
+                self,
+                snapshot,
+                &plan_graphs_for_checkpoint,
+                &execution_overlays_for_checkpoint,
+            )
+        });
         match sync_result {
             Ok(()) => observe_phase(
                 "mutation.coordination.syncPublishedPlans",

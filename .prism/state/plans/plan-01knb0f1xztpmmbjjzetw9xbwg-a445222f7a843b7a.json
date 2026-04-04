@@ -1,0 +1,523 @@
+{
+  "plan": {
+    "id": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+    "goal": "Separate shared coordination refs as the authority/replication source from daemon startup by introducing one local materialized coordination snapshot/checkpoint for bootstrap, moving shared-ref fetch/verify/import onto an explicit sync path, reusing one in-memory coordination load across bootstrap layers, and validating that hot restart falls back to low-single-digit seconds without regressing correctness.",
+    "title": "Decouple shared-ref authority from daemon startup",
+    "status": "Completed",
+    "policy": {
+      "default_claim_mode": "SoftExclusive",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": false,
+      "stale_after_graph_change": false,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "require",
+        "completionMode": "require",
+        "targetRef": "origin/main",
+        "targetBranch": "main",
+        "requireTaskBranch": true,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": 300,
+        "integrationMode": "external"
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01knb0g511dtavrvd5ban1x6jq"
+    ]
+  },
+  "graph": {
+    "id": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Decouple shared-ref authority from daemon startup",
+    "goal": "Separate shared coordination refs as the authority/replication source from daemon startup by introducing one local materialized coordination snapshot/checkpoint for bootstrap, moving shared-ref fetch/verify/import onto an explicit sync path, reusing one in-memory coordination load across bootstrap layers, and validating that hot restart falls back to low-single-digit seconds without regressing correctness.",
+    "status": "Completed",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01knb0g511dtavrvd5ban1x6jq"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01knb0g511dtavrvd5ban1x6jq",
+        "plan_id": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+        "kind": "Investigate",
+        "title": "Define the authority vs materialized-runtime contract",
+        "summary": "Map the current daemon bootstrap, shared-ref hydration, and runtime-host reload paths; define which state remains authoritative in the shared ref versus which state becomes a local materialized startup snapshot keyed by shared-ref identity.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [
+            {
+              "File": 177
+            },
+            {
+              "File": 188
+            },
+            {
+              "File": 329
+            },
+            {
+              "File": 330
+            },
+            {
+              "File": 39
+            },
+            {
+              "File": 421
+            },
+            {
+              "File": 424
+            },
+            {
+              "File": 487
+            }
+          ],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "The current startup and reload path is reduced to one concrete contract boundary between shared-ref authority and local materialized startup state.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The contract identifies the shared-ref identity key needed to validate or invalidate the local materialized snapshot.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 180,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01knb0hdvk3pmkwcjkq0zzjgmq",
+        "plan_id": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+        "kind": "Decide",
+        "title": "Design the local materialized coordination snapshot/checkpoint",
+        "summary": "Define the on-disk startup artifact, invalidation keying, freshness rules, and rebuild path so daemon bootstrap can consume one local materialized coordination snapshot instead of rehydrating the shared ref directly.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "The snapshot/checkpoint shape, storage owner, and invalidation key are explicit enough to implement without re-reading the shared ref during startup.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The design states when startup can trust local materialized state and when an explicit sync/import must rebuild it.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 182,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01knb0hxhtfxwqc1nm64dzjckx",
+        "plan_id": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+        "kind": "Edit",
+        "title": "Move shared-ref fetch, verification, and import into an explicit sync path",
+        "summary": "Refactor shared-ref refresh, manifest verification, and record import so the expensive authority sync runs outside the daemon startup critical path and materializes the local startup snapshot as its output.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Shared-ref authority ingestion is no longer required during daemon startup to serve a healthy runtime.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The sync path is the sole owner of shared-ref fetch, verification, and materialized snapshot rebuild work.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 197,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01knb0k8skvp53g3hswbh5tyf2",
+        "plan_id": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+        "kind": "Edit",
+        "title": "Remove repeated coordination reloads across bootstrap layers",
+        "summary": "Thread one already-loaded coordination runtime state through session bootstrap, workspace host, workspace runtime, and session construction so later layers reuse state instead of reloading coordination a second or third time.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Bootstrap, runtime host, and session layers reuse one startup-loaded coordination state instead of rehydrating it again.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "The extra post-build startup gap caused by repeated coordination reloads is removed or made directly observable if any residual work remains.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 197,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01knb0nbyyzqs1bs768mxfmmvq",
+        "plan_id": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+        "kind": "Edit",
+        "title": "Make daemon startup consume only the local materialized snapshot",
+        "summary": "Change session bootstrap and indexer startup so one local materialized coordination snapshot/checkpoint seeds the runtime, without direct shared-ref hydration on the critical path.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Startup can reach a healthy daemon state by loading one local materialized coordination snapshot and building in-memory state once.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Bootstrap code no longer treats the shared coordination ref as a startup database.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 197,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01knb0nvvkchbygemh7gxc9b6a",
+        "plan_id": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+        "kind": "Validate",
+        "title": "Add startup boundary observability and validate hot restart timing",
+        "summary": "Instrument the new sync/startup boundaries, then validate with release builds and daemon restarts that hot restart drops from ~27-32s to low-single-digit seconds while daemon health remains correct.",
+        "status": "Completed",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Startup logs expose separate timing for sync/import, local snapshot load, in-memory coordination build, and post-bootstrap runtime reuse.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Release restart validation shows hot restart returning to low-single-digit seconds or clearly isolates the remaining structural blocker.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 197,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      }
+    ],
+    "edges": [
+      {
+        "id": "plan-edge:coord-task:01knb0hdvk3pmkwcjkq0zzjgmq:depends-on:coord-task:01knb0g511dtavrvd5ban1x6jq",
+        "plan_id": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+        "from": "coord-task:01knb0hdvk3pmkwcjkq0zzjgmq",
+        "to": "coord-task:01knb0g511dtavrvd5ban1x6jq",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knb0hxhtfxwqc1nm64dzjckx:depends-on:coord-task:01knb0hdvk3pmkwcjkq0zzjgmq",
+        "plan_id": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+        "from": "coord-task:01knb0hxhtfxwqc1nm64dzjckx",
+        "to": "coord-task:01knb0hdvk3pmkwcjkq0zzjgmq",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knb0nbyyzqs1bs768mxfmmvq:depends-on:coord-task:01knb0hdvk3pmkwcjkq0zzjgmq",
+        "plan_id": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+        "from": "coord-task:01knb0nbyyzqs1bs768mxfmmvq",
+        "to": "coord-task:01knb0hdvk3pmkwcjkq0zzjgmq",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knb0k8skvp53g3hswbh5tyf2:depends-on:coord-task:01knb0nbyyzqs1bs768mxfmmvq",
+        "plan_id": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+        "from": "coord-task:01knb0k8skvp53g3hswbh5tyf2",
+        "to": "coord-task:01knb0nbyyzqs1bs768mxfmmvq",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knb0nvvkchbygemh7gxc9b6a:depends-on:coord-task:01knb0hxhtfxwqc1nm64dzjckx",
+        "plan_id": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+        "from": "coord-task:01knb0nvvkchbygemh7gxc9b6a",
+        "to": "coord-task:01knb0hxhtfxwqc1nm64dzjckx",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knb0nvvkchbygemh7gxc9b6a:depends-on:coord-task:01knb0nbyyzqs1bs768mxfmmvq",
+        "plan_id": "plan:01knb0f1xztpmmbjjzetw9xbwg",
+        "from": "coord-task:01knb0nvvkchbygemh7gxc9b6a",
+        "to": "coord-task:01knb0nbyyzqs1bs768mxfmmvq",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      }
+    ]
+  },
+  "executionOverlays": [
+    {
+      "node_id": "coord-task:01knb0g511dtavrvd5ban1x6jq",
+      "pending_handoff_to": null,
+      "session": null,
+      "worktree_id": null,
+      "branch_ref": null,
+      "effective_assignee": null,
+      "awaiting_handoff_from": null,
+      "git_execution": {
+        "status": "published",
+        "pendingTaskStatus": null,
+        "sourceRef": "task/startup-materialized-snapshot",
+        "targetRef": "origin/main",
+        "publishRef": "task/startup-materialized-snapshot",
+        "targetBranch": "main",
+        "sourceCommit": "3757e4d53f66780352bc216056ef47f6c11c6447",
+        "publishCommit": "9f3c6f2fe1b68dee87dd1baa10e114c6f3184f8f",
+        "targetCommitAtPublish": "7fd6c92ccce62c9003d39337f0f07ad77f7b21e9",
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "published_to_branch"
+      }
+    },
+    {
+      "node_id": "coord-task:01knb0hdvk3pmkwcjkq0zzjgmq",
+      "pending_handoff_to": null,
+      "session": null,
+      "worktree_id": null,
+      "branch_ref": null,
+      "effective_assignee": null,
+      "awaiting_handoff_from": null,
+      "git_execution": {
+        "status": "published",
+        "pendingTaskStatus": null,
+        "sourceRef": "task/startup-materialized-snapshot",
+        "targetRef": "origin/main",
+        "publishRef": "task/startup-materialized-snapshot",
+        "targetBranch": "main",
+        "sourceCommit": "a1a0a4909e4ff441feb54338360f86d24584172e",
+        "publishCommit": "99a99599f1b5c77fd98626c780c985a805fe002a",
+        "targetCommitAtPublish": "7fd6c92ccce62c9003d39337f0f07ad77f7b21e9",
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "published_to_branch"
+      }
+    },
+    {
+      "node_id": "coord-task:01knb0hxhtfxwqc1nm64dzjckx",
+      "pending_handoff_to": null,
+      "session": null,
+      "worktree_id": null,
+      "branch_ref": null,
+      "effective_assignee": null,
+      "awaiting_handoff_from": null,
+      "git_execution": {
+        "status": "published",
+        "pendingTaskStatus": null,
+        "sourceRef": "task/startup-materialized-snapshot",
+        "targetRef": "origin/main",
+        "publishRef": "task/startup-materialized-snapshot",
+        "targetBranch": "main",
+        "sourceCommit": "509129cd368c84bc08199254bf19bf796bcbb04c",
+        "publishCommit": "187db8ef22320b9a5c18b80811c6838081286be5",
+        "targetCommitAtPublish": "3eb71291101017833779e0e7e0e3450573efd5af",
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "published_to_branch"
+      }
+    },
+    {
+      "node_id": "coord-task:01knb0k8skvp53g3hswbh5tyf2",
+      "pending_handoff_to": null,
+      "session": null,
+      "worktree_id": null,
+      "branch_ref": null,
+      "effective_assignee": null,
+      "awaiting_handoff_from": null,
+      "git_execution": {
+        "status": "published",
+        "pendingTaskStatus": null,
+        "sourceRef": "task/startup-materialized-snapshot",
+        "targetRef": "origin/main",
+        "publishRef": "task/startup-materialized-snapshot",
+        "targetBranch": "main",
+        "sourceCommit": "aa56119202e6973d7ca0878d25ae05e5cc4910de",
+        "publishCommit": "3acbe9d01d4805d4ab8faf40e0ac57ecc5209892",
+        "targetCommitAtPublish": "3eb71291101017833779e0e7e0e3450573efd5af",
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "published_to_branch"
+      }
+    },
+    {
+      "node_id": "coord-task:01knb0nbyyzqs1bs768mxfmmvq",
+      "pending_handoff_to": null,
+      "session": null,
+      "worktree_id": null,
+      "branch_ref": null,
+      "effective_assignee": null,
+      "awaiting_handoff_from": null,
+      "git_execution": {
+        "status": "published",
+        "pendingTaskStatus": null,
+        "sourceRef": "task/startup-materialized-snapshot",
+        "targetRef": "origin/main",
+        "publishRef": "task/startup-materialized-snapshot",
+        "targetBranch": "main",
+        "sourceCommit": "5f6efd9779cc5af62983247137447254f76e0557",
+        "publishCommit": "b9f4bb020b344de448924ebca4fccce608b4139a",
+        "targetCommitAtPublish": "3eb71291101017833779e0e7e0e3450573efd5af",
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "published_to_branch"
+      }
+    },
+    {
+      "node_id": "coord-task:01knb0nvvkchbygemh7gxc9b6a",
+      "pending_handoff_to": null,
+      "session": null,
+      "worktree_id": null,
+      "branch_ref": null,
+      "effective_assignee": null,
+      "awaiting_handoff_from": null,
+      "git_execution": {
+        "status": "published",
+        "pendingTaskStatus": null,
+        "sourceRef": "task/startup-materialized-snapshot",
+        "targetRef": "origin/main",
+        "publishRef": "task/startup-materialized-snapshot",
+        "targetBranch": "main",
+        "sourceCommit": "e96d012d210d73d4b0b2d0c7c7a619ea00ec4f26",
+        "publishCommit": "5ed0e7871c366a52b53a50ab7b86c1a734613c94",
+        "targetCommitAtPublish": "3eb71291101017833779e0e7e0e3450573efd5af",
+        "reviewArtifactRef": null,
+        "integrationCommit": null,
+        "integrationMode": "external",
+        "integrationStatus": "published_to_branch"
+      }
+    }
+  ]
+}

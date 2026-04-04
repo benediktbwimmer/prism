@@ -17,6 +17,7 @@ use prism_memory::{
 use prism_projections::{CoChangeDelta, ProjectionSnapshot, ValidationDelta};
 use serde::{Deserialize, Serialize};
 
+use crate::coordination_checkpoint::CoordinationStartupCheckpoint;
 use crate::graph::Graph;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -265,6 +266,13 @@ pub trait Store {
     fn load_coordination_events(&mut self) -> Result<Vec<CoordinationEvent>>;
     fn load_coordination_event_stream(&mut self) -> Result<CoordinationEventStream>;
     fn save_coordination_compaction(&mut self, snapshot: &CoordinationSnapshot) -> Result<()>;
+    fn load_coordination_startup_checkpoint(
+        &mut self,
+    ) -> Result<Option<CoordinationStartupCheckpoint>>;
+    fn save_coordination_startup_checkpoint(
+        &mut self,
+        checkpoint: &CoordinationStartupCheckpoint,
+    ) -> Result<()>;
     fn load_coordination_read_model(&mut self) -> Result<Option<CoordinationReadModel>>;
     fn save_coordination_read_model(&mut self, read_model: &CoordinationReadModel) -> Result<()>;
     fn load_coordination_queue_read_model(&mut self) -> Result<Option<CoordinationQueueReadModel>>;
@@ -478,6 +486,19 @@ impl<T: Store + ?Sized> Store for MutexGuard<'_, T> {
 
     fn save_coordination_compaction(&mut self, snapshot: &CoordinationSnapshot) -> Result<()> {
         Store::save_coordination_compaction(&mut **self, snapshot)
+    }
+
+    fn load_coordination_startup_checkpoint(
+        &mut self,
+    ) -> Result<Option<CoordinationStartupCheckpoint>> {
+        Store::load_coordination_startup_checkpoint(&mut **self)
+    }
+
+    fn save_coordination_startup_checkpoint(
+        &mut self,
+        checkpoint: &CoordinationStartupCheckpoint,
+    ) -> Result<()> {
+        Store::save_coordination_startup_checkpoint(&mut **self, checkpoint)
     }
 
     fn load_coordination_read_model(&mut self) -> Result<Option<CoordinationReadModel>> {

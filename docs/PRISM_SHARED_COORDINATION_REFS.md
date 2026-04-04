@@ -372,11 +372,49 @@ coordination.
 
 On startup PRISM should:
 
-1. fetch the shared coordination ref head
-2. verify its manifest and snapshot shards
-3. hydrate shared coordination state into runtime
-4. then hydrate branch-local `.prism/state/**` for branch-scoped published intent
-5. layer runtime-only overlays and caches on top
+1. load one local materialized coordination snapshot or checkpoint that was previously produced from
+   a verified shared-ref import
+2. build in-memory shared coordination runtime state once from that local materialized artifact
+3. then hydrate branch-local `.prism/state/**` for branch-scoped published intent
+4. layer runtime-only overlays and caches on top
+
+The critical-path rule is:
+
+- the shared ref remains the authority and replication source
+- the local materialized coordination snapshot is the startup artifact
+- startup must not treat the shared ref as a live database by fetch-verifying and reloading hundreds
+  of shared snapshot files on every hot restart
+
+#### 9.1.1 Local materialized startup checkpoint
+
+The startup artifact should be one local materialized coordination checkpoint bundle, not a
+best-effort scatter of unrelated local rows.
+
+That bundle should contain:
+
+- the current shared-coordination `CoordinationSnapshot`
+- authored `PlanGraph` state
+- execution overlays
+- authority metadata for the imported shared ref
+  - ref name
+  - source head commit when known
+  - canonical manifest digest when known
+  - schema version
+  - materialized timestamp
+
+For the first implementation, PRISM should store that bundle in the local checkpoint store that the
+daemon already controls through the checkpoint materializer, rather than inventing another startup
+filesystem cache.
+
+That gives startup one bounded local read:
+
+1. load the local checkpoint bundle
+2. build in-memory coordination runtime state once
+3. reuse that loaded state across session bootstrap, workspace host, workspace runtime, and query
+   serving layers
+
+If the local checkpoint bundle is missing, startup may recover from other local runtime durability
+state, but it should still avoid inline shared-ref fetch and verification on the critical path.
 
 This order matters:
 
@@ -395,6 +433,22 @@ The runtime needs:
 - targeted import of changed snapshot shards
 - self-write suppression so PRISM does not churn on its own just-published coordination updates
 - bounded reconciliation as a safety net
+
+That explicit sync path should also own:
+
+- fetch and manifest verification for the shared ref
+- rebuild or refresh of the local materialized coordination snapshot or checkpoint
+- invalidation keyed by shared-ref identity such as the live head commit, canonical manifest digest,
+  or both
+
+The sync path should compare the remote/shared authority key against the last imported local key and
+rebuild the local startup checkpoint only when that authority input changed or the local checkpoint
+schema version changed.
+
+Longer term, the shared ref may also publish one compact canonical checkpoint artifact so sync no
+longer has to rehydrate from hundreds of tiny files as its primary ingestion format. But even in
+that future shape, daemon startup should still consume the local materialized checkpoint, not the
+shared ref directly.
 
 ### 9.3 Query semantics
 

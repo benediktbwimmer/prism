@@ -1,9 +1,9 @@
 {
-  "id": "coord-task:01kna8v52e247h2xymfv8ksdb0",
-  "plan": "plan:01kna8sczaf3vhy8q6erq4fdvr",
+  "id": "coord-task:01knb0k8skvp53g3hswbh5tyf2",
+  "plan": "plan:01knb0f1xztpmmbjjzetw9xbwg",
   "kind": "Edit",
-  "title": "Validate local-machine peer observability, capability denial, and graceful fallback with no peer",
-  "summary": null,
+  "title": "Remove repeated coordination reloads across bootstrap layers",
+  "summary": "Thread one already-loaded coordination runtime state through session bootstrap, workspace host, workspace runtime, and session construction so later layers reuse state instead of reloading coordination a second or third time.",
   "status": "Completed",
   "published_task_status": null,
   "assignee": null,
@@ -25,13 +25,22 @@
     "outcome_refs": []
   },
   "depends_on": [
-    "coord-task:01kna8v02c0p53pdfckcyq0vaw"
+    "coord-task:01knb0nbyyzqs1bs768mxfmmvq"
   ],
-  "acceptance": [],
+  "acceptance": [
+    {
+      "label": "Bootstrap, runtime host, and session layers reuse one startup-loaded coordination state instead of rehydrating it again.",
+      "anchors": []
+    },
+    {
+      "label": "The extra post-build startup gap caused by repeated coordination reloads is removed or made directly observable if any residual work remains.",
+      "anchors": []
+    }
+  ],
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1245,
+    "graph_version": 197,
     "git_commit": null
   },
   "priority": null,

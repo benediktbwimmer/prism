@@ -12,6 +12,7 @@ use prism_memory::{
 };
 use prism_projections::{CoChangeDelta, ProjectionSnapshot, ValidationDelta};
 
+use crate::coordination_checkpoint::CoordinationStartupCheckpoint;
 use crate::graph::Graph;
 use crate::store::{
     AuxiliaryPersistBatch, CoordinationEventStream, CoordinationPersistBatch,
@@ -40,6 +41,13 @@ pub trait CoordinationJournal {
 /// coordination source of truth.
 pub trait CoordinationCheckpointStore {
     fn save_coordination_compaction(&mut self, snapshot: &CoordinationSnapshot) -> Result<()>;
+    fn load_coordination_startup_checkpoint(
+        &mut self,
+    ) -> Result<Option<CoordinationStartupCheckpoint>>;
+    fn save_coordination_startup_checkpoint(
+        &mut self,
+        checkpoint: &CoordinationStartupCheckpoint,
+    ) -> Result<()>;
     fn load_coordination_read_model(&mut self) -> Result<Option<CoordinationReadModel>>;
     fn save_coordination_read_model(&mut self, read_model: &CoordinationReadModel) -> Result<()>;
     fn load_coordination_queue_read_model(&mut self) -> Result<Option<CoordinationQueueReadModel>>;
@@ -163,6 +171,19 @@ impl<T: Store + ?Sized> CoordinationJournal for T {
 impl<T: Store + ?Sized> CoordinationCheckpointStore for T {
     fn save_coordination_compaction(&mut self, snapshot: &CoordinationSnapshot) -> Result<()> {
         Store::save_coordination_compaction(self, snapshot)
+    }
+
+    fn load_coordination_startup_checkpoint(
+        &mut self,
+    ) -> Result<Option<CoordinationStartupCheckpoint>> {
+        Store::load_coordination_startup_checkpoint(self)
+    }
+
+    fn save_coordination_startup_checkpoint(
+        &mut self,
+        checkpoint: &CoordinationStartupCheckpoint,
+    ) -> Result<()> {
+        Store::save_coordination_startup_checkpoint(self, checkpoint)
     }
 
     fn load_coordination_read_model(&mut self) -> Result<Option<CoordinationReadModel>> {

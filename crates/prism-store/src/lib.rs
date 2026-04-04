@@ -1,3 +1,4 @@
+mod coordination_checkpoint;
 mod graph;
 mod memory_projection;
 mod memory_store;
@@ -7,6 +8,9 @@ mod persistence;
 mod sqlite;
 mod store;
 
+pub use coordination_checkpoint::{
+    CoordinationStartupCheckpoint, CoordinationStartupCheckpointAuthority,
+};
 pub use graph::{
     DependencyInvalidationKeys, FileRecord, FileState, FileUpdate, Graph, GraphSnapshot,
 };

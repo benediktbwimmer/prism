@@ -1,9 +1,9 @@
 {
-  "id": "coord-task:01kna8v52e247h2xymfv8ksdb0",
-  "plan": "plan:01kna8sczaf3vhy8q6erq4fdvr",
+  "id": "coord-task:01knb0nbyyzqs1bs768mxfmmvq",
+  "plan": "plan:01knb0f1xztpmmbjjzetw9xbwg",
   "kind": "Edit",
-  "title": "Validate local-machine peer observability, capability denial, and graceful fallback with no peer",
-  "summary": null,
+  "title": "Make daemon startup consume only the local materialized snapshot",
+  "summary": "Change session bootstrap and indexer startup so one local materialized coordination snapshot/checkpoint seeds the runtime, without direct shared-ref hydration on the critical path.",
   "status": "Completed",
   "published_task_status": null,
   "assignee": null,
@@ -25,13 +25,22 @@
     "outcome_refs": []
   },
   "depends_on": [
-    "coord-task:01kna8v02c0p53pdfckcyq0vaw"
+    "coord-task:01knb0hdvk3pmkwcjkq0zzjgmq"
   ],
-  "acceptance": [],
+  "acceptance": [
+    {
+      "label": "Startup can reach a healthy daemon state by loading one local materialized coordination snapshot and building in-memory state once.",
+      "anchors": []
+    },
+    {
+      "label": "Bootstrap code no longer treats the shared coordination ref as a startup database.",
+      "anchors": []
+    }
+  ],
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1245,
+    "graph_version": 197,
     "git_commit": null
   },
   "priority": null,

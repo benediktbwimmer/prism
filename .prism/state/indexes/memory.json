@@ -1,0 +1,8 @@
+[
+  {
+    "id": "memory:01knb0zp726c9zjw7fdhcq1mg3",
+    "title": "Shared coordination startup is currently structurally coupled to authority import: `load_repo_protected_plan_state(...)` builds a coordination snapshot from the journal and immediately calls `load_hydrated_coordination_plan_state(...)`, which prioritizes `load_shared_coordination_ref_state(...)`. That shared-ref loader refreshes the ref, verifies every manifest file digest, and hydrates records file-by-file, and the same path is reused in indexer bootstrap, session recovery, and `workspace_runtime::reload_coordination_snapshot_if_needed`. The correct boundary is shared ref as authority plus replication source, but one local materialized coordination snapshot/checkpoint as the daemon startup artifact keyed by verified shared-ref identity such as head commit or manifest digest.",
+    "status": "Episodic",
+    "path": "memory/memory-01knb0zp726c9zjw7fdhcq1mg3-560606ddf6d87074.json"
+  }
+]
