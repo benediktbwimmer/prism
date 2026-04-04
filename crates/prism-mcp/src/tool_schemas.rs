@@ -14,12 +14,12 @@ use crate::{
     tool_schema_resource_view_link, tool_schemas_resource_view_link, vocab_resource_view_link,
     ArtifactProposePayload, ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload,
     ClaimReleasePayload, ClaimRenewPayload, HandoffAcceptPayload, HandoffPayload,
-    MemoryRetirePayload, MemoryStorePayload, PlanArchivePayload, PlanCreatePayload,
-    PlanEdgeCreatePayload, PlanEdgeDeletePayload, PlanNodeCreatePayload, PlanUpdatePayload,
-    PrismConceptArgs, PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMutationArgs,
-    PrismOpenArgs, PrismQueryArgs, PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView,
-    TaskCreatePayload, TaskReclaimPayload, TaskResumePayload, WorkflowUpdatePayload,
-    TOOL_SCHEMAS_URI,
+    MemoryRetirePayload, MemoryStorePayload, PlanArchivePayload, PlanBootstrapPayload,
+    PlanCreatePayload, PlanEdgeCreatePayload, PlanEdgeDeletePayload, PlanNodeCreatePayload,
+    PlanUpdatePayload, PrismConceptArgs, PrismExpandArgs, PrismGatherArgs, PrismLocateArgs,
+    PrismMutationArgs, PrismOpenArgs, PrismQueryArgs, PrismTaskBriefArgs, PrismWorksetArgs,
+    ResourceLinkView, TaskCreatePayload, TaskReclaimPayload, TaskResumePayload,
+    WorkflowUpdatePayload, TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -599,6 +599,12 @@ fn action_payload_schema(tool_name: &str, action: &str) -> Option<Value> {
             "Payload for `prism_mutate` action `coordination`. Match this shape to `input.kind`.",
             "kind",
             vec![
+                (
+                    "plan_bootstrap",
+                    described_schema::<PlanBootstrapPayload>(
+                        "Payload when `input.kind` is `plan_bootstrap`.",
+                    ),
+                ),
                 (
                     "plan_create",
                     described_schema::<PlanCreatePayload>(

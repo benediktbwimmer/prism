@@ -4226,6 +4226,133 @@ fn mcp_plan_create_and_update_surface_scheduling_metadata() {
 }
 
 #[test]
+fn mcp_plan_bootstrap_creates_plan_graph_from_client_ids() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let created = retry_on_transient_sqlite_lock(|| {
+        host.store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanBootstrap,
+                payload: json!({
+                    "plan": {
+                        "title": "Bootstrap execution graph",
+                        "goal": "Bootstrap execution graph"
+                    },
+                    "tasks": [{
+                        "clientId": "t0",
+                        "title": "Capture the baseline"
+                    }, {
+                        "clientId": "t1",
+                        "title": "Implement the fix",
+                        "dependsOn": ["t0"]
+                    }],
+                    "nodes": [{
+                        "clientId": "n0",
+                        "kind": "validate",
+                        "title": "Verify the fix",
+                        "validationRefs": [{ "id": "bench:refresh-hot-path" }],
+                        "dependsOn": ["t0"]
+                    }],
+                    "edges": [{
+                        "fromClientId": "t1",
+                        "toClientId": "n0",
+                        "kind": "validates"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+    })
+    .unwrap();
+
+    let plan_id = created.state["planId"].as_str().unwrap().to_string();
+    let task_t0 = created.state["taskIdsByClientId"]["t0"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let task_t1 = created.state["taskIdsByClientId"]["t1"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let node_n0 = created.state["nodeIdsByClientId"]["n0"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert_eq!(created.state["plan"]["id"], plan_id);
+    assert_eq!(created.state["nodeIdsByClientId"]["t0"], task_t0);
+    assert_eq!(created.state["nodeIdsByClientId"]["t1"], task_t1);
+    assert_eq!(created.state["tasks"][0]["clientId"], "t0");
+    assert_eq!(created.state["tasks"][1]["clientId"], "t1");
+    assert_eq!(created.state["nodes"][0]["clientId"], "n0");
+    assert_eq!(created.state["edges"][0]["kind"], "Validates");
+
+    let graph = host
+        .current_prism()
+        .plan_graph(&PlanId::new(plan_id))
+        .expect("plan graph");
+    assert!(graph.edges.iter().any(|edge| edge.from.0 == task_t1
+        && edge.to.0 == task_t0
+        && edge.kind == PlanEdgeKind::DependsOn));
+    assert!(graph.edges.iter().any(|edge| edge.from.0 == node_n0
+        && edge.to.0 == task_t0
+        && edge.kind == PlanEdgeKind::DependsOn));
+    assert!(graph.edges.iter().any(|edge| edge.from.0 == task_t1
+        && edge.to.0 == node_n0
+        && edge.kind == PlanEdgeKind::Validates));
+    assert_eq!(
+        graph.root_nodes,
+        vec![prism_ir::PlanNodeId::new(task_t0)],
+        "dependency edges should collapse the bootstrap graph to the first task root"
+    );
+}
+
+#[test]
+fn mcp_plan_bootstrap_rejects_unknown_client_ids_without_partial_state() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let before = host.current_prism().coordination_snapshot();
+
+    let error = retry_on_transient_sqlite_lock(|| {
+        host.store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanBootstrap,
+                payload: json!({
+                    "plan": {
+                        "title": "Broken bootstrap graph",
+                        "goal": "Broken bootstrap graph"
+                    },
+                    "tasks": [{
+                        "clientId": "t0",
+                        "title": "Capture the baseline"
+                    }],
+                    "edges": [{
+                        "fromClientId": "t0",
+                        "toClientId": "n9",
+                        "kind": "validates"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+    })
+    .expect_err("unknown client ids should reject the bootstrap");
+    assert!(error
+        .to_string()
+        .contains("unknown client id `n9` in `toClientId`"));
+
+    let after = host.current_prism().coordination_snapshot();
+    assert_eq!(after.plans.len(), before.plans.len());
+    assert_eq!(after.tasks.len(), before.tasks.len());
+    assert!(after
+        .plans
+        .iter()
+        .all(|plan| plan.title != "Broken bootstrap graph"));
+}
+
+#[test]
 fn mcp_plan_update_rehydrates_stale_coordination_runtime_before_mutating() {
     let root = temp_workspace();
     let workspace = index_workspace_session(&root).unwrap();
@@ -7301,7 +7428,7 @@ return {
     let payload_variants = coordination["payloadVariants"]
         .as_array()
         .expect("payload variants");
-    assert_eq!(payload_variants.len(), 12);
+    assert_eq!(payload_variants.len(), 13);
     let task_create_variant = payload_variants
         .iter()
         .find(|variant| variant["tag"] == "task_create")
@@ -7686,7 +7813,7 @@ fn prism_mutate_schema_expands_payload_shapes_for_structured_actions() {
         coordination_payload.schema["oneOf"]
             .as_array()
             .map(|variants| variants.len()),
-        Some(12)
+        Some(13)
     );
     let coordination_nested = coordination_payload
         .nested_fields
