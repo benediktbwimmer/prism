@@ -1,23 +1,21 @@
 {
   "version": 1,
-  "publishedAt": 1775330522,
+  "publishedAt": 1775335860,
   "publisher": {
     "principalAuthorityId": "local-daemon",
-    "principalId": "principal:codex-shared-coordination-refs-gaps-2026-04-04:01knaqj9pv4p1vc9tfw82zvp6y",
-    "credentialId": "credential:01knaqj9pv0vx0h59cvge430j7"
+    "principalId": "principal:codex:01kn3xe812hzt1t0mxz2vsp4ds",
+    "credentialId": "credential:01kn3xe812gb7a5d5qgs1wwpez"
   },
   "workContext": {
-    "workId": "coord-task:01knavpwvj8r99x8yarrsam19g",
+    "workId": "coord-task:01knd3101gyc685tfd37gf9agb",
     "kind": "coordination",
-    "title": "Finish compaction, archive-boundary trust continuity, and operator diagnostics",
-    "summary": "Complete the operational side of shared coordination refs so compaction preserves trust semantics, archive boundaries stay intelligible, and operators can see enough history and health to debug live systems.",
-    "coordinationTaskId": "coord-task:01knavpwvj8r99x8yarrsam19g",
-    "planId": "plan:01knav51cj8vgw0zp49qgktzps",
-    "planTitle": "Finish PRISM shared coordination refs end to end"
+    "title": "Lock the operator console backend contract and API authority boundaries",
+    "coordinationTaskId": "coord-task:01knd3101gyc685tfd37gf9agb",
+    "planId": "plan:01knd2zj2hgp4qs7qzfc7rxdgg",
+    "planTitle": "Implement the operator console backend and bundled UI delivery"
   },
   "publishSummary": {
-    "title": "Finish compaction, archive-boundary trust continuity, and operator diagnostics",
-    "summary": "Complete the operational side of shared coordination refs so compaction preserves trust semantics, archive boundaries stay intelligible, and operators can see enough history and health to debug live systems."
+    "title": "Lock the operator console backend contract and API authority boundaries"
   },
   "files": {
     ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json": {
@@ -38,7 +36,7 @@
     },
     ".prism/state/indexes/coordination_materialization.json": {
       "path": ".prism/state/indexes/coordination_materialization.json",
-      "sha256": "sha256:91c4a915e1b460b1a5ebfcdc1f1a4f622078dcf9786de4d923966298ebb72237"
+      "sha256": "sha256:d42550089d80fd39bb7dda8859e1ceb27ddf207e54eb162b6397b5ad3c554a9f"
     },
     ".prism/state/indexes/memory.json": {
       "path": ".prism/state/indexes/memory.json",
@@ -53,12 +51,12 @@
       "sha256": "sha256:f77575ce54b660ea0c89621e1b65dc8e3f57f58533e2c5ddc0c7ad5ced01ef0d"
     }
   },
-  "previousManifestDigest": "sha256:f28dafa46b07d75402150c0341fa81e6382af4b6f6ebecec891e6afa9819b6a4",
+  "previousManifestDigest": "sha256:7552ee8cd410d38c332d382135860ca42fa323aee4ffd950e1834314beedd2ed",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:l6KuvO7f0s3+6lNxxoSWNFqj/0JwGnBnNnVEfe0IiU9Zkv0DioYPnOi/TuFnaiHnun34ZWv6tPompShJWDOBCQ=="
+    "value": "base64:qi99HCd4JGlOFa6uFKhlrj76pp5wqj5Qq2wPKuPwCoAT9Y7R16GceixUzciVAL83X0RwGAs1QzbC7FvxRrGlDw=="
   }
 }
