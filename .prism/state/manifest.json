@@ -1,21 +1,21 @@
 {
   "version": 1,
-  "publishedAt": 1775336934,
+  "publishedAt": 1775338015,
   "publisher": {
     "principalAuthorityId": "local-daemon",
     "principalId": "principal:codex:01kn3xe812hzt1t0mxz2vsp4ds",
     "credentialId": "credential:01kn3xe812gb7a5d5qgs1wwpez"
   },
   "workContext": {
-    "workId": "coord-task:01knd313gqpzvj596g83r9mhcm",
+    "workId": "coord-task:01knd316hmq70qkf7be1qwcnrp",
     "kind": "coordination",
-    "title": "Bundle the built React UI assets into the daemon binaries and embedded asset serving path",
-    "coordinationTaskId": "coord-task:01knd313gqpzvj596g83r9mhcm",
+    "title": "Implement the versioned REST router and polling-friendly operator console API foundation",
+    "coordinationTaskId": "coord-task:01knd316hmq70qkf7be1qwcnrp",
     "planId": "plan:01knd2zj2hgp4qs7qzfc7rxdgg",
     "planTitle": "Implement the operator console backend and bundled UI delivery"
   },
   "publishSummary": {
-    "title": "Bundle the built React UI assets into the daemon binaries and embedded asset serving path"
+    "title": "Implement the versioned REST router and polling-friendly operator console API foundation"
   },
   "files": {
     ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json": {
@@ -36,7 +36,7 @@
     },
     ".prism/state/indexes/coordination_materialization.json": {
       "path": ".prism/state/indexes/coordination_materialization.json",
-      "sha256": "sha256:5b3df7f23f5177ecfe5800d80313dd13ef9409337173d436743b569dfdf92dbd"
+      "sha256": "sha256:59fb0f1207f3ec03efe14c3918e6f881c19220708443efed5a2607e1a0586b7f"
     },
     ".prism/state/indexes/memory.json": {
       "path": ".prism/state/indexes/memory.json",
@@ -51,12 +51,12 @@
       "sha256": "sha256:f77575ce54b660ea0c89621e1b65dc8e3f57f58533e2c5ddc0c7ad5ced01ef0d"
     }
   },
-  "previousManifestDigest": "sha256:206a8276da991fcf2581ccc844cd37b3fc9fdff7d0dd1f15f9a8ed59106c54d8",
+  "previousManifestDigest": "sha256:f29f5d82381a7dc593f509d0ba741f2d11a42cb5b94692f48a27fd4bc5e9a4ab",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:Asw7jws4aNLkGz8hEuvM0MyW1BsKvhJ3RzCE/hJB0KpfR00nULyfcq8aIN3khqdkEd8i4jJ1GUioU+5M0xGkBA=="
+    "value": "base64:tGAinzi039OSFsrqKIsQBTfM5/PPoauBtvs5qK4g0HY+Pq93iN0tJ+ZN7SQAhztTHAk8pJB3tOCKrOIBfxGQCg=="
   }
 }
