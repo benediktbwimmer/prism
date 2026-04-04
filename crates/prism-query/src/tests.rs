@@ -142,6 +142,8 @@ fn coordination_snapshot_preserves_task_lease_fields() {
                 anchors: Vec::new(),
                 bindings: prism_ir::PlanBinding::default(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 validation_refs: Vec::new(),
                 is_abstract: false,
@@ -257,6 +259,8 @@ fn authoritative_only_task_publish_intent_does_not_auto_complete_plan() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -300,6 +304,8 @@ fn authoritative_only_task_publish_intent_does_not_auto_complete_plan() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -369,6 +375,8 @@ fn ad_hoc_plan_projection_replays_plan_state_at_timestamp() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -399,6 +407,8 @@ fn ad_hoc_plan_projection_replays_plan_state_at_timestamp() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -487,6 +497,8 @@ fn ad_hoc_plan_projection_diff_reports_added_and_changed_nodes() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -517,6 +529,8 @@ fn ad_hoc_plan_projection_diff_reports_added_and_changed_nodes() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -549,6 +563,8 @@ fn ad_hoc_plan_projection_diff_reports_added_and_changed_nodes() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: vec![task_a_id.clone()],
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -1580,6 +1596,8 @@ fn coordination_queries_expand_into_neighboring_symbols() {
                 branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha.clone())],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision {
                     graph_version: 1,
@@ -1698,6 +1716,8 @@ fn task_execution_plan_graph_prefers_published_authored_fields_for_task_backed_n
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -1723,6 +1743,8 @@ fn task_execution_plan_graph_prefers_published_authored_fields_for_task_backed_n
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -1932,6 +1954,8 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
                 branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha.clone())],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -2072,6 +2096,8 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -2097,6 +2123,8 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -2208,6 +2236,8 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -2259,6 +2289,8 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: vec![prism_ir::CoordinationTaskId::new(task_a.0.clone())],
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -2452,6 +2484,8 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
                 branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha.clone())],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -2565,6 +2599,8 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -2735,6 +2771,8 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -3411,6 +3449,8 @@ fn native_plan_updates_validate_completion_and_preserve_non_dependency_edges() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -3436,6 +3476,8 @@ fn native_plan_updates_validate_completion_and_preserve_non_dependency_edges() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -4676,6 +4718,8 @@ fn published_plan_unbound_tasks_stay_actionable_across_unrelated_graph_drift() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -4761,6 +4805,8 @@ fn plans_cache_invalidates_when_workspace_revision_changes() {
                 branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision {
                     graph_version: 0,
@@ -4905,6 +4951,8 @@ fn replace_coordination_snapshot_and_plan_graphs_preserves_stale_policy() {
                 branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -4989,6 +5037,8 @@ fn task_backed_plan_nodes_must_complete_through_coordination_tasks() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision {
                     graph_version: 1,
@@ -5119,6 +5169,8 @@ fn task_backed_plan_nodes_must_complete_through_coordination_tasks() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -5134,6 +5186,276 @@ fn task_backed_plan_nodes_must_complete_through_coordination_tasks() {
             5,
         )
         .expect("approved artifact should satisfy task completion gate");
+}
+
+#[test]
+fn task_backed_dependency_blockers_respect_coordination_and_integration_thresholds() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:integration-aware-blockers"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            PlanCreateInput {
+                title: "Integration-aware blockers".into(),
+                goal: "Respect coordination and integration thresholds".into(),
+                status: None,
+                policy: Some(CoordinationPolicy::default()),
+            },
+        )
+        .unwrap();
+    let (provider_task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:provider"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Provider".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let (coordination_dependent_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:coordination-dependent"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Coordination dependent".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                coordination_depends_on: vec![provider_task_id.clone()],
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let (integration_dependent_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:integration-dependent"),
+                ts: 4,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Integration dependent".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: vec![provider_task_id.clone()],
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        history,
+        outcomes,
+        coordination.snapshot(),
+        ProjectionIndex::default(),
+    );
+
+    let coordination_blockers = prism.plan_node_blockers(
+        &plan_id,
+        &PlanNodeId::new(coordination_dependent_id.0.clone()),
+    );
+    assert!(
+        coordination_blockers.iter().any(|blocker| {
+            blocker.kind == PlanNodeBlockerKind::Dependency
+                && blocker.causes.iter().any(|cause| {
+                    cause.code.as_deref() == Some("task_dependency_coordination_unpublished")
+                })
+        }),
+        "{coordination_blockers:?}"
+    );
+    let integration_blockers = prism.plan_node_blockers(
+        &plan_id,
+        &PlanNodeId::new(integration_dependent_id.0.clone()),
+    );
+    assert!(integration_blockers.iter().any(|blocker| {
+        blocker.kind == PlanNodeBlockerKind::Dependency
+            && blocker
+                .causes
+                .iter()
+                .any(|cause| cause.code.as_deref() == Some("task_dependency_not_integrated"))
+    }));
+
+    coordination
+        .update_task(
+            EventMeta {
+                id: EventId::new("coord:task:provider:coordination-published"),
+                ts: 5,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskUpdateInput {
+                task_id: provider_task_id.clone(),
+                kind: None,
+                status: None,
+                published_task_status: None,
+                git_execution: Some(TaskGitExecution {
+                    status: prism_ir::GitExecutionStatus::CoordinationPublished,
+                    integration_status: prism_ir::GitIntegrationStatus::PublishedToBranch,
+                    ..TaskGitExecution::default()
+                }),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                summary: None,
+                anchors: None,
+                bindings: None,
+                depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
+                acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
+                base_revision: None,
+                priority: None,
+                tags: None,
+                completion_context: None,
+            },
+            WorkspaceRevision::default(),
+            5,
+        )
+        .unwrap();
+    prism.replace_coordination_snapshot_and_plan_graphs(
+        coordination.snapshot(),
+        vec![coordination.plan_graph(&plan_id).unwrap()],
+        BTreeMap::new(),
+    );
+
+    let coordination_blockers = prism.plan_node_blockers(
+        &plan_id,
+        &PlanNodeId::new(coordination_dependent_id.0.clone()),
+    );
+    assert!(!coordination_blockers.iter().any(|blocker| {
+        blocker
+            .causes
+            .iter()
+            .any(|cause| cause.code.as_deref() == Some("task_dependency_coordination_unpublished"))
+    }));
+    let integration_blockers = prism.plan_node_blockers(
+        &plan_id,
+        &PlanNodeId::new(integration_dependent_id.0.clone()),
+    );
+    assert!(integration_blockers.iter().any(|blocker| {
+        blocker
+            .causes
+            .iter()
+            .any(|cause| cause.code.as_deref() == Some("task_dependency_not_integrated"))
+    }));
+
+    coordination
+        .update_task(
+            EventMeta {
+                id: EventId::new("coord:task:provider:integrated"),
+                ts: 6,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskUpdateInput {
+                task_id: provider_task_id.clone(),
+                kind: None,
+                status: None,
+                published_task_status: None,
+                git_execution: Some(TaskGitExecution {
+                    status: prism_ir::GitExecutionStatus::CoordinationPublished,
+                    integration_status: prism_ir::GitIntegrationStatus::IntegratedToTarget,
+                    ..TaskGitExecution::default()
+                }),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                summary: None,
+                anchors: None,
+                bindings: None,
+                depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
+                acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
+                base_revision: None,
+                priority: None,
+                tags: None,
+                completion_context: None,
+            },
+            WorkspaceRevision::default(),
+            6,
+        )
+        .unwrap();
+    prism.replace_coordination_snapshot_and_plan_graphs(
+        coordination.snapshot(),
+        vec![coordination.plan_graph(&plan_id).unwrap()],
+        BTreeMap::new(),
+    );
+
+    let integration_blockers = prism.plan_node_blockers(
+        &plan_id,
+        &PlanNodeId::new(integration_dependent_id.0.clone()),
+    );
+    assert!(!integration_blockers.iter().any(|blocker| {
+        blocker
+            .causes
+            .iter()
+            .any(|cause| cause.code.as_deref() == Some("task_dependency_not_integrated"))
+    }));
 }
 
 #[test]
@@ -5502,6 +5824,8 @@ fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -5527,6 +5851,8 @@ fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -5732,6 +6058,8 @@ fn native_plan_metadata_survives_compatibility_write_and_reload() {
                 branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha.clone())],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -6062,6 +6390,8 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
                 branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha.clone())],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision {
                     graph_version: 1,
@@ -6243,6 +6573,8 @@ fn task_backed_native_graph_blockers_follow_published_validation_fields() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -6273,6 +6605,8 @@ fn task_backed_native_graph_blockers_follow_published_validation_fields() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: Some(vec![prism_ir::ValidationRef {
                     id: "validation:task-owned".into(),
@@ -6446,6 +6780,8 @@ fn exposes_intent_links_and_task_intent() {
                 branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha.clone())],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision::default(),
             },
@@ -6557,6 +6893,8 @@ fn policy_violations_expose_rejected_coordination_mutations() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: WorkspaceRevision {
                     graph_version: 1,
@@ -6590,6 +6928,8 @@ fn policy_violations_expose_rejected_coordination_mutations() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,

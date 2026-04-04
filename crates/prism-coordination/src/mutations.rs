@@ -1430,59 +1430,71 @@ pub(crate) fn create_task_mutation(
             violations,
         ));
     }
-    for dependency in &input.depends_on {
-        let Some(task) = state.tasks.get(dependency) else {
-            let violations = vec![policy_violation(
-                PolicyViolationCode::MissingDependency,
-                format!("unknown dependency task `{}`", dependency.0),
-                Some(input.plan_id.clone()),
-                None,
-                None,
-                None,
-                json!({ "dependencyTaskId": dependency.0 }),
-            )];
-            return Err(rejection_error(
-                state,
-                &meta,
-                "coordination task creation rejected",
-                Some(input.plan_id.clone()),
-                None,
-                None,
-                None,
-                violations,
-            ));
-        };
-        if task.plan != input.plan_id {
-            let violations = vec![policy_violation(
-                PolicyViolationCode::CrossPlanDependency,
-                format!(
-                    "dependency task `{}` belongs to a different plan",
-                    dependency.0
-                ),
-                Some(input.plan_id.clone()),
-                None,
-                None,
-                None,
-                json!({
-                    "dependencyTaskId": dependency.0,
-                    "dependencyPlanId": task.plan.0,
-                }),
-            )];
-            return Err(rejection_error(
-                state,
-                &meta,
-                "coordination task creation rejected",
-                Some(input.plan_id.clone()),
-                None,
-                None,
-                None,
-                violations,
-            ));
+    for (field_name, dependencies) in [
+        ("dependsOn", &input.depends_on),
+        ("coordinationDependsOn", &input.coordination_depends_on),
+        ("integratedDependsOn", &input.integrated_depends_on),
+    ] {
+        for dependency in dependencies {
+            let Some(task) = state.tasks.get(dependency) else {
+                let violations = vec![policy_violation(
+                    PolicyViolationCode::MissingDependency,
+                    format!("unknown dependency task `{}`", dependency.0),
+                    Some(input.plan_id.clone()),
+                    None,
+                    None,
+                    None,
+                    json!({
+                        "dependencyField": field_name,
+                        "dependencyTaskId": dependency.0,
+                    }),
+                )];
+                return Err(rejection_error(
+                    state,
+                    &meta,
+                    "coordination task creation rejected",
+                    Some(input.plan_id.clone()),
+                    None,
+                    None,
+                    None,
+                    violations,
+                ));
+            };
+            if task.plan != input.plan_id {
+                let violations = vec![policy_violation(
+                    PolicyViolationCode::CrossPlanDependency,
+                    format!(
+                        "dependency task `{}` belongs to a different plan",
+                        dependency.0
+                    ),
+                    Some(input.plan_id.clone()),
+                    None,
+                    None,
+                    None,
+                    json!({
+                        "dependencyField": field_name,
+                        "dependencyTaskId": dependency.0,
+                        "dependencyPlanId": task.plan.0,
+                    }),
+                )];
+                return Err(rejection_error(
+                    state,
+                    &meta,
+                    "coordination task creation rejected",
+                    Some(input.plan_id.clone()),
+                    None,
+                    None,
+                    None,
+                    violations,
+                ));
+            }
         }
     }
     state.next_task += 1;
     let id = CoordinationTaskId::new(new_prefixed_id("coord-task"));
-    let is_root = input.depends_on.is_empty();
+    let is_root = input.depends_on.is_empty()
+        && input.coordination_depends_on.is_empty()
+        && input.integrated_depends_on.is_empty();
     let anchors = dedupe_anchors(input.anchors);
     let mut task = CoordinationTask {
         id: id.clone(),
@@ -1508,6 +1520,8 @@ pub(crate) fn create_task_mutation(
             ..PlanBinding::default()
         },
         depends_on: dedupe_ids(input.depends_on),
+        coordination_depends_on: dedupe_ids(input.coordination_depends_on),
+        integrated_depends_on: dedupe_ids(input.integrated_depends_on),
         acceptance: normalize_acceptance(input.acceptance),
         validation_refs: Vec::new(),
         is_abstract: false,
@@ -1574,6 +1588,8 @@ pub(crate) fn update_task_mutation_with_options(
     let update_anchors = input.anchors.is_some();
     let update_bindings = input.bindings.is_some();
     let update_depends_on = input.depends_on.is_some();
+    let update_coordination_depends_on = input.coordination_depends_on.is_some();
+    let update_integrated_depends_on = input.integrated_depends_on.is_some();
     let update_acceptance = input.acceptance.is_some();
     let update_validation_refs = input.validation_refs.is_some();
     let update_is_abstract = input.is_abstract.is_some();
@@ -1594,6 +1610,8 @@ pub(crate) fn update_task_mutation_with_options(
         && input.anchors.is_none()
         && input.bindings.is_none()
         && input.depends_on.is_none()
+        && input.coordination_depends_on.is_none()
+        && input.integrated_depends_on.is_none()
         && input.acceptance.is_none()
         && input.validation_refs.is_none()
         && input.is_abstract.is_none()
@@ -1672,6 +1690,12 @@ pub(crate) fn update_task_mutation_with_options(
     if input.depends_on.is_some() {
         push_patch_op(&mut patch, "dependsOn", "set");
     }
+    if input.coordination_depends_on.is_some() {
+        push_patch_op(&mut patch, "coordinationDependsOn", "set");
+    }
+    if input.integrated_depends_on.is_some() {
+        push_patch_op(&mut patch, "integratedDependsOn", "set");
+    }
     if input.acceptance.is_some() {
         push_patch_op(&mut patch, "acceptance", "set");
     }
@@ -1696,6 +1720,8 @@ pub(crate) fn update_task_mutation_with_options(
     }
     let completion_context = input.completion_context.clone();
     let next_dependencies = input.depends_on.clone().map(dedupe_ids);
+    let next_coordination_dependencies = input.coordination_depends_on.clone().map(dedupe_ids);
+    let next_integrated_dependencies = input.integrated_depends_on.clone().map(dedupe_ids);
     let next_acceptance = input.acceptance.clone().map(normalize_acceptance);
     let previous = state
         .tasks
@@ -1741,6 +1767,12 @@ pub(crate) fn update_task_mutation_with_options(
         .map(|plan| plan.policy.stale_after_graph_change)
         .unwrap_or(false);
     if let Some(dependencies) = next_dependencies.as_ref() {
+        validate_task_dependencies(state, &previous.plan, &previous.id, dependencies, &meta)?;
+    }
+    if let Some(dependencies) = next_coordination_dependencies.as_ref() {
+        validate_task_dependencies(state, &previous.plan, &previous.id, dependencies, &meta)?;
+    }
+    if let Some(dependencies) = next_integrated_dependencies.as_ref() {
         validate_task_dependencies(state, &previous.plan, &previous.id, dependencies, &meta)?;
     }
     let task_snapshot;
@@ -1852,6 +1884,8 @@ pub(crate) fn update_task_mutation_with_options(
             || input.anchors.is_some()
             || input.bindings.is_some()
             || input.depends_on.is_some()
+            || input.coordination_depends_on.is_some()
+            || input.integrated_depends_on.is_some()
             || input.acceptance.is_some()
             || input.validation_refs.is_some()
             || input.is_abstract.is_some()
@@ -1891,6 +1925,8 @@ pub(crate) fn update_task_mutation_with_options(
                 || input.anchors.is_some()
                 || input.bindings.is_some()
                 || input.depends_on.is_some()
+                || input.coordination_depends_on.is_some()
+                || input.integrated_depends_on.is_some()
                 || input.acceptance.is_some()
                 || input.validation_refs.is_some()
                 || input.is_abstract.is_some()
@@ -1963,9 +1999,25 @@ pub(crate) fn update_task_mutation_with_options(
             task.bindings = bindings;
         }
         if let Some(depends_on) = next_dependencies.clone() {
-            let previous_root = task.depends_on.is_empty();
-            let next_root = depends_on.is_empty();
+            let previous_root = task_is_root(task);
             task.depends_on = depends_on;
+            let next_root = task_is_root(task);
+            if previous_root != next_root {
+                root_membership_change = Some(next_root);
+            }
+        }
+        if let Some(depends_on) = next_coordination_dependencies.clone() {
+            let previous_root = task_is_root(task);
+            task.coordination_depends_on = depends_on;
+            let next_root = task_is_root(task);
+            if previous_root != next_root {
+                root_membership_change = Some(next_root);
+            }
+        }
+        if let Some(depends_on) = next_integrated_dependencies.clone() {
+            let previous_root = task_is_root(task);
+            task.integrated_depends_on = depends_on;
+            let next_root = task_is_root(task);
             if previous_root != next_root {
                 root_membership_change = Some(next_root);
             }
@@ -2204,6 +2256,20 @@ pub(crate) fn update_task_mutation_with_options(
     }
     if update_depends_on {
         insert_serialized(&mut patch_values, "dependsOn", task.depends_on.clone());
+    }
+    if update_coordination_depends_on {
+        insert_serialized(
+            &mut patch_values,
+            "coordinationDependsOn",
+            task.coordination_depends_on.clone(),
+        );
+    }
+    if update_integrated_depends_on {
+        insert_serialized(
+            &mut patch_values,
+            "integratedDependsOn",
+            task.integrated_depends_on.clone(),
+        );
     }
     if update_acceptance {
         insert_serialized(&mut patch_values, "acceptance", task.acceptance.clone());
@@ -3350,4 +3416,10 @@ fn validate_task_dependencies(
         }
     }
     Ok(())
+}
+
+fn task_is_root(task: &CoordinationTask) -> bool {
+    task.depends_on.is_empty()
+        && task.coordination_depends_on.is_empty()
+        && task.integrated_depends_on.is_empty()
 }

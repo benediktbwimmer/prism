@@ -8,7 +8,7 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:036b5e2ece9686784db81dbe2b71280df2728523421460d745b82632ffefc5d8`
+- Source head: `sha256:50de3a95f645ace62751e71c219f42034947e7281c9e466f2fcb4f52abf90fa7`
 - Source logical timestamp: `unknown`
 - Source snapshot: `1 nodes, 0 edges, 0 overlays`
 
@@ -37,10 +37,10 @@ Implement decentralized task-affinity execution with local fitness scoring, soft
 
 ## Branch Snapshot Export
 
-- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority
-- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)
-- Snapshot plan shard: `.prism/state/plans/plan:01kncq2qqf10y7rn78fyzma8qk.json` (derived branch export)
-- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority
+- Shared coordination authority: shared coordination ref when present
+- Local hot cache: shared-runtime SQLite startup checkpoint and hydrated in-memory runtime
+- Branch-local tracked `.prism/state/plans/**` export: disabled; plans no longer mirror into tracked repo snapshot state
+- Manual markdown export path: `docs/prism/plans/**` only when `sync_prism_doc` or `repair-snapshot-artifacts` is invoked explicitly
 
 ## Root Nodes
 

@@ -14,11 +14,11 @@ use prism_js::{
     ContractGuaranteeStrengthView, ContractGuaranteeView, ContractHealthSignalsView,
     ContractHealthStatusView, ContractHealthView, ContractKindView, ContractPacketView,
     ContractResolutionView, ContractStabilityView, ContractStatusView, ContractTargetView,
-    ContractValidationView, CoordinationTaskView, CuratorJobView, CuratorProposalRecordView,
-    CuratorProposalView, DriftCandidateView, EdgeView, GitExecutionOverlayView,
-    GitExecutionPolicyView, GitPreflightReportView, GitPublishReportView, MemoryEntryView,
-    MemoryEventView, NodeIdView, PlanAcceptanceCriterionView, PlanBindingView, PlanEdgeView,
-    PlanExecutionOverlayView, PlanGraphView, PlanListEntryView, PlanNodeBlockerView,
+    ContractValidationView, CoordinationTaskLifecycleView, CoordinationTaskView, CuratorJobView,
+    CuratorProposalRecordView, CuratorProposalView, DriftCandidateView, EdgeView,
+    GitExecutionOverlayView, GitExecutionPolicyView, GitPreflightReportView, GitPublishReportView,
+    MemoryEntryView, MemoryEventView, NodeIdView, PlanAcceptanceCriterionView, PlanBindingView,
+    PlanEdgeView, PlanExecutionOverlayView, PlanGraphView, PlanListEntryView, PlanNodeBlockerView,
     PlanNodeRecommendationView, PlanNodeView, PlanSchedulingView, PlanSummaryView, PlanView,
     PolicyViolationRecordView, PolicyViolationView, ProjectionAuthorityPlaneView,
     ProjectionClassView, QueryDiagnostic, ScoredMemoryView, TaskGitExecutionView, TaskIntentView,
@@ -1676,6 +1676,7 @@ pub(crate) fn coordination_task_view(
     value: prism_coordination::CoordinationTask,
 ) -> CoordinationTaskView {
     let effective_status = effective_coordination_task_status(&value);
+    let lifecycle = coordination_task_lifecycle_view(effective_status, &value.git_execution);
     CoordinationTaskView {
         id: value.id.0.to_string(),
         plan_id: value.plan.0.to_string(),
@@ -1693,6 +1694,17 @@ pub(crate) fn coordination_task_view(
             .into_iter()
             .map(|task_id| task_id.0.to_string())
             .collect(),
+        coordination_depends_on: value
+            .coordination_depends_on
+            .into_iter()
+            .map(|task_id| task_id.0.to_string())
+            .collect(),
+        integrated_depends_on: value
+            .integrated_depends_on
+            .into_iter()
+            .map(|task_id| task_id.0.to_string())
+            .collect(),
+        lifecycle,
         validation_refs: value
             .validation_refs
             .into_iter()
@@ -1729,6 +1741,27 @@ pub(crate) fn coordination_task_view(
     }
 }
 
+fn coordination_task_lifecycle_view(
+    status: prism_ir::CoordinationTaskStatus,
+    git_execution: &prism_coordination::TaskGitExecution,
+) -> CoordinationTaskLifecycleView {
+    let published_to_branch = matches!(
+        git_execution.integration_status,
+        prism_ir::GitIntegrationStatus::PublishedToBranch
+            | prism_ir::GitIntegrationStatus::IntegrationPending
+            | prism_ir::GitIntegrationStatus::IntegrationInProgress
+            | prism_ir::GitIntegrationStatus::IntegratedToTarget
+    );
+    CoordinationTaskLifecycleView {
+        completed: status == prism_ir::CoordinationTaskStatus::Completed,
+        published_to_branch,
+        coordination_published: git_execution.status
+            == prism_ir::GitExecutionStatus::CoordinationPublished,
+        integrated_to_target: git_execution.integration_status
+            == prism_ir::GitIntegrationStatus::IntegratedToTarget,
+    }
+}
+
 fn effective_coordination_task_status(
     task: &prism_coordination::CoordinationTask,
 ) -> prism_ir::CoordinationTaskStatus {
@@ -1736,6 +1769,71 @@ fn effective_coordination_task_status(
         prism_ir::CoordinationTaskStatus::Blocked
     } else {
         task.published_task_status.unwrap_or(task.status)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::coordination_task_view;
+
+    #[test]
+    fn coordination_task_view_exposes_integration_aware_dependencies_and_lifecycle() {
+        let view = coordination_task_view(prism_coordination::CoordinationTask {
+            id: prism_ir::CoordinationTaskId::new("coord-task:view".to_string()),
+            plan: prism_ir::PlanId::new("plan:view".to_string()),
+            kind: prism_ir::PlanNodeKind::Edit,
+            title: "Ship integration-aware dependency".to_string(),
+            summary: None,
+            status: prism_ir::CoordinationTaskStatus::Completed,
+            published_task_status: None,
+            assignee: None,
+            pending_handoff_to: None,
+            session: None,
+            lease_holder: None,
+            lease_started_at: None,
+            lease_refreshed_at: None,
+            lease_stale_at: None,
+            lease_expires_at: None,
+            worktree_id: None,
+            branch_ref: None,
+            anchors: Vec::new(),
+            bindings: prism_ir::PlanBinding::default(),
+            depends_on: vec![prism_ir::CoordinationTaskId::new(
+                "coord-task:completed".to_string(),
+            )],
+            coordination_depends_on: vec![prism_ir::CoordinationTaskId::new(
+                "coord-task:published".to_string(),
+            )],
+            integrated_depends_on: vec![prism_ir::CoordinationTaskId::new(
+                "coord-task:integrated".to_string(),
+            )],
+            acceptance: Vec::new(),
+            validation_refs: Vec::new(),
+            is_abstract: false,
+            base_revision: prism_ir::WorkspaceRevision::default(),
+            priority: None,
+            tags: Vec::new(),
+            metadata: serde_json::Value::Null,
+            git_execution: prism_coordination::TaskGitExecution {
+                status: prism_ir::GitExecutionStatus::CoordinationPublished,
+                integration_status: prism_ir::GitIntegrationStatus::IntegratedToTarget,
+                ..prism_coordination::TaskGitExecution::default()
+            },
+        });
+
+        assert_eq!(view.depends_on, vec!["coord-task:completed".to_string()]);
+        assert_eq!(
+            view.coordination_depends_on,
+            vec!["coord-task:published".to_string()]
+        );
+        assert_eq!(
+            view.integrated_depends_on,
+            vec!["coord-task:integrated".to_string()]
+        );
+        assert!(view.lifecycle.completed);
+        assert!(view.lifecycle.published_to_branch);
+        assert!(view.lifecycle.coordination_published);
+        assert!(view.lifecycle.integrated_to_target);
     }
 }
 

@@ -5,10 +5,14 @@ use std::time::Instant;
 use anyhow::{anyhow, Result};
 use prism_coordination::{CoordinationTask, TaskBlocker};
 use prism_ir::{
-    AnchorRef, CoordinationTaskId, EdgeKind, NodeId, PlanGraph, PlanNode, PlanNodeBlocker,
-    PlanNodeBlockerKind, PlanNodeId, PlanNodeStatus, TaskId, WorkspaceRevision,
+    AnchorRef, CoordinationTaskId, EdgeKind, GitExecutionStatus, GitIntegrationStatus, NodeId,
+    PlanExecutionOverlay, PlanGraph, PlanNode, PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId,
+    PlanNodeStatus, TaskId, WorkspaceRevision,
 };
-use prism_js::{AgentOutcomeSummaryView, AgentTaskBlockerView, AgentTaskBriefResultView};
+use prism_js::{
+    AgentOutcomeSummaryView, AgentTaskBlockerView, AgentTaskBriefResultView,
+    CoordinationTaskLifecycleView,
+};
 use prism_memory::OutcomeRecallQuery;
 use prism_query::Prism;
 use serde_json::json;
@@ -143,6 +147,7 @@ impl QueryHost {
                     task_id: subject.task_id.clone(),
                     title: clamp_string(&subject.title, TASK_BRIEF_TEXT_MAX_CHARS),
                     status: subject.status,
+                    lifecycle: task_brief_lifecycle_view(subject.status, task_execution),
                     assignee: subject.assignee.clone(),
                     pending_handoff_to: task_execution
                         .and_then(|overlay| overlay.pending_handoff_to.clone())
@@ -645,6 +650,37 @@ fn task_brief_status_is_terminal(status: prism_ir::CoordinationTaskStatus) -> bo
     )
 }
 
+fn task_brief_lifecycle_view(
+    status: prism_ir::CoordinationTaskStatus,
+    task_execution: Option<&PlanExecutionOverlay>,
+) -> CoordinationTaskLifecycleView {
+    let integration_status = task_execution
+        .map(|overlay| {
+            overlay
+                .git_execution
+                .as_ref()
+                .map(|git| git.integration_status)
+        })
+        .flatten()
+        .unwrap_or(GitIntegrationStatus::NotStarted);
+    let execution_status = task_execution
+        .map(|overlay| overlay.git_execution.as_ref().map(|git| git.status))
+        .flatten()
+        .unwrap_or(GitExecutionStatus::NotStarted);
+    CoordinationTaskLifecycleView {
+        completed: status == prism_ir::CoordinationTaskStatus::Completed,
+        published_to_branch: matches!(
+            integration_status,
+            GitIntegrationStatus::PublishedToBranch
+                | GitIntegrationStatus::IntegrationPending
+                | GitIntegrationStatus::IntegrationInProgress
+                | GitIntegrationStatus::IntegratedToTarget
+        ),
+        coordination_published: execution_status == GitExecutionStatus::CoordinationPublished,
+        integrated_to_target: integration_status == GitIntegrationStatus::IntegratedToTarget,
+    }
+}
+
 fn task_brief_should_follow_plan_neighbors(
     status: prism_ir::CoordinationTaskStatus,
     blockers: &[AgentTaskBlockerView],
@@ -749,6 +785,12 @@ mod tests {
             task_id: "coord-task:1".to_string(),
             title: "compact task brief".to_string(),
             status: CoordinationTaskStatus::Ready,
+            lifecycle: CoordinationTaskLifecycleView {
+                completed: false,
+                published_to_branch: false,
+                coordination_published: false,
+                integrated_to_target: false,
+            },
             assignee: Some("agent-a".to_string()),
             pending_handoff_to: Some("agent-b".to_string()),
             blockers: (0..4)

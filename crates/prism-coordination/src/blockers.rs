@@ -1,6 +1,7 @@
 use prism_ir::{
     ArtifactStatus, BlockerCause, BlockerCauseSource, Capability, ClaimMode, ConflictSeverity,
-    CoordinationTaskStatus, SessionId, Timestamp, WorkspaceRevision,
+    CoordinationTaskStatus, GitExecutionStatus, GitIntegrationStatus, SessionId, Timestamp,
+    WorkspaceRevision,
 };
 
 use crate::helpers::{dedupe_conflicts, dedupe_strings, simulate_conflicts};
@@ -166,46 +167,50 @@ pub(crate) fn dependency_and_revision_blockers(
     current_revision: WorkspaceRevision,
 ) -> Vec<TaskBlocker> {
     let mut blockers = Vec::new();
-    for dep in &task.depends_on {
-        match state.tasks.get(dep) {
-            Some(dependency) if dependency.status == CoordinationTaskStatus::Completed => {}
-            Some(dependency) => blockers.push(TaskBlocker {
-                kind: BlockerKind::Dependency,
-                summary: format!(
-                    "dependency `{}` is {:?}",
-                    dependency.id.0, dependency.status
-                ),
-                related_task_id: Some(dependency.id.clone()),
-                related_artifact_id: None,
-                risk_score: None,
-                validation_checks: Vec::new(),
-                causes: vec![BlockerCause {
-                    source: BlockerCauseSource::DependencyGraph,
-                    code: Some("task_dependency_incomplete".to_string()),
-                    acceptance_label: None,
-                    threshold_metric: None,
-                    threshold_value: None,
-                    observed_value: None,
-                }],
-            }),
-            None => blockers.push(TaskBlocker {
-                kind: BlockerKind::Dependency,
-                summary: format!("dependency `{}` is missing", dep.0),
-                related_task_id: Some(dep.clone()),
-                related_artifact_id: None,
-                risk_score: None,
-                validation_checks: Vec::new(),
-                causes: vec![BlockerCause {
-                    source: BlockerCauseSource::DependencyGraph,
-                    code: Some("task_dependency_missing".to_string()),
-                    acceptance_label: None,
-                    threshold_metric: None,
-                    threshold_value: None,
-                    observed_value: None,
-                }],
-            }),
-        }
-    }
+    blockers.extend(lifecycle_dependency_blockers(
+        state,
+        &task.depends_on,
+        "completed",
+        "task_dependency_incomplete",
+        |dependency| dependency.status == CoordinationTaskStatus::Completed,
+        |dependency| {
+            format!(
+                "dependency `{}` is {:?}",
+                dependency.id.0, dependency.status
+            )
+        },
+    ));
+    blockers.extend(lifecycle_dependency_blockers(
+        state,
+        &task.coordination_depends_on,
+        "coordination_published",
+        "task_dependency_coordination_unpublished",
+        |dependency| {
+            dependency.status == CoordinationTaskStatus::Completed
+                && dependency.git_execution.status == GitExecutionStatus::CoordinationPublished
+        },
+        |dependency| {
+            format!(
+                "dependency `{}` is not coordination-published (task={:?}, git={:?})",
+                dependency.id.0, dependency.status, dependency.git_execution.status
+            )
+        },
+    ));
+    blockers.extend(lifecycle_dependency_blockers(
+        state,
+        &task.integrated_depends_on,
+        "integrated_to_target",
+        "task_dependency_not_integrated",
+        |dependency| {
+            dependency.git_execution.integration_status == GitIntegrationStatus::IntegratedToTarget
+        },
+        |dependency| {
+            format!(
+                "dependency `{}` is not integrated to target (integration={:?})",
+                dependency.id.0, dependency.git_execution.integration_status
+            )
+        },
+    ));
 
     if let Some(plan) = state.plans.get(&task.plan) {
         if plan.policy.stale_after_graph_change
@@ -252,6 +257,59 @@ fn task_is_workspace_bound(task: &CoordinationTask) -> bool {
             .acceptance
             .iter()
             .any(|criterion| !criterion.anchors.is_empty())
+}
+
+fn lifecycle_dependency_blockers<F, G>(
+    state: &CoordinationState,
+    dependencies: &[prism_ir::CoordinationTaskId],
+    required_stage: &str,
+    incomplete_code: &str,
+    is_satisfied: F,
+    summary: G,
+) -> Vec<TaskBlocker>
+where
+    F: Fn(&CoordinationTask) -> bool,
+    G: Fn(&CoordinationTask) -> String,
+{
+    let mut blockers = Vec::new();
+    for dep in dependencies {
+        match state.tasks.get(dep) {
+            Some(dependency) if is_satisfied(dependency) => {}
+            Some(dependency) => blockers.push(TaskBlocker {
+                kind: BlockerKind::Dependency,
+                summary: summary(dependency),
+                related_task_id: Some(dependency.id.clone()),
+                related_artifact_id: None,
+                risk_score: None,
+                validation_checks: Vec::new(),
+                causes: vec![BlockerCause {
+                    source: BlockerCauseSource::DependencyGraph,
+                    code: Some(incomplete_code.to_string()),
+                    acceptance_label: Some(required_stage.to_string()),
+                    threshold_metric: Some("dependency_delivery_stage".to_string()),
+                    threshold_value: None,
+                    observed_value: None,
+                }],
+            }),
+            None => blockers.push(TaskBlocker {
+                kind: BlockerKind::Dependency,
+                summary: format!("dependency `{}` is missing", dep.0),
+                related_task_id: Some(dep.clone()),
+                related_artifact_id: None,
+                risk_score: None,
+                validation_checks: Vec::new(),
+                causes: vec![BlockerCause {
+                    source: BlockerCauseSource::DependencyGraph,
+                    code: Some("task_dependency_missing".to_string()),
+                    acceptance_label: Some(required_stage.to_string()),
+                    threshold_metric: Some("dependency_delivery_stage".to_string()),
+                    threshold_value: None,
+                    observed_value: None,
+                }],
+            }),
+        }
+    }
+    blockers
 }
 
 pub(crate) fn review_blockers(

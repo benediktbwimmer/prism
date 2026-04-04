@@ -111,6 +111,7 @@ pub use validation_feedback::{
     ValidationFeedbackCategory, ValidationFeedbackEntry, ValidationFeedbackRecord,
     ValidationFeedbackVerdict,
 };
+pub use watch::{assisted_lease_renewal_diagnostics, AssistedLeaseRenewalDiagnostics};
 pub use workspace_session_defaults::{
     default_workspace_session_options, default_workspace_shared_runtime,
 };

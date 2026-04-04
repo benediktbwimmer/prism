@@ -166,6 +166,10 @@ pub struct CoordinationTask {
     #[serde(default)]
     pub bindings: PlanBinding,
     pub depends_on: Vec<CoordinationTaskId>,
+    #[serde(default)]
+    pub coordination_depends_on: Vec<CoordinationTaskId>,
+    #[serde(default)]
+    pub integrated_depends_on: Vec<CoordinationTaskId>,
     pub acceptance: Vec<AcceptanceCriterion>,
     #[serde(default)]
     pub validation_refs: Vec<ValidationRef>,
@@ -425,6 +429,8 @@ pub struct TaskCreateInput {
     pub branch_ref: Option<String>,
     pub anchors: Vec<AnchorRef>,
     pub depends_on: Vec<CoordinationTaskId>,
+    pub coordination_depends_on: Vec<CoordinationTaskId>,
+    pub integrated_depends_on: Vec<CoordinationTaskId>,
     pub acceptance: Vec<AcceptanceCriterion>,
     pub base_revision: WorkspaceRevision,
 }
@@ -445,6 +451,8 @@ pub struct TaskUpdateInput {
     pub anchors: Option<Vec<AnchorRef>>,
     pub bindings: Option<PlanBinding>,
     pub depends_on: Option<Vec<CoordinationTaskId>>,
+    pub coordination_depends_on: Option<Vec<CoordinationTaskId>>,
+    pub integrated_depends_on: Option<Vec<CoordinationTaskId>>,
     pub acceptance: Option<Vec<AcceptanceCriterion>>,
     pub validation_refs: Option<Vec<ValidationRef>>,
     pub is_abstract: Option<bool>,

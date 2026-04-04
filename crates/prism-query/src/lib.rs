@@ -18,7 +18,7 @@ mod types;
 #[cfg(test)]
 mod tests;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
@@ -79,9 +79,22 @@ pub struct Prism {
     plan_runtime: RwLock<NativePlanRuntimeState>,
     plan_discovery_cache: RwLock<Option<PlanDiscoveryCache>>,
     continuity_runtime: RwLock<CoordinationRuntimeState>,
+    local_assisted_leases: RwLock<LocalAssistedLeaseRuntime>,
     coordination_context: RwLock<Option<CoordinationPersistContext>>,
     projections: RwLock<ProjectionIndex>,
     intent: RwLock<IntentIndex>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct LocalAssistedLeaseState {
+    observed_at: u64,
+    local_until: u64,
+}
+
+#[derive(Debug, Default)]
+struct LocalAssistedLeaseRuntime {
+    tasks: BTreeMap<String, LocalAssistedLeaseState>,
+    claims: BTreeMap<String, LocalAssistedLeaseState>,
 }
 
 pub trait OutcomeReadBackend: Send + Sync {
@@ -254,6 +267,7 @@ impl Prism {
             plan_runtime: RwLock::new(native_plans),
             plan_discovery_cache: RwLock::new(None),
             continuity_runtime: RwLock::new(continuity_runtime),
+            local_assisted_leases: RwLock::new(LocalAssistedLeaseRuntime::default()),
             coordination_context: RwLock::new(None),
             projections: RwLock::new(projections),
             intent: RwLock::new(intent),
@@ -400,6 +414,7 @@ impl Prism {
             .continuity_runtime
             .write()
             .expect("continuity runtime lock poisoned") = continuity_runtime;
+        self.prune_local_assisted_leases(&snapshot);
         self.invalidate_plan_discovery_cache();
     }
 
@@ -409,6 +424,7 @@ impl Prism {
         plan_graphs: Vec<PlanGraph>,
         execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     ) {
+        let prune_snapshot = snapshot.clone();
         let native_plans = NativePlanRuntimeState::from_snapshot_with_graphs_and_overlays(
             &snapshot,
             plan_graphs,
@@ -425,7 +441,88 @@ impl Prism {
             .continuity_runtime
             .write()
             .expect("continuity runtime lock poisoned") = continuity_runtime;
+        self.prune_local_assisted_leases(&prune_snapshot);
         self.invalidate_plan_discovery_cache();
+    }
+
+    pub fn record_local_assisted_task_lease(
+        &self,
+        task_id: &CoordinationTaskId,
+        observed_at: u64,
+        local_until: u64,
+    ) -> bool {
+        let mut assisted = self
+            .local_assisted_leases
+            .write()
+            .expect("local assisted lease lock poisoned");
+        let next = LocalAssistedLeaseState {
+            observed_at,
+            local_until,
+        };
+        let key = task_id.0.to_string();
+        let changed = assisted.tasks.get(&key) != Some(&next);
+        assisted.tasks.insert(key, next);
+        changed
+    }
+
+    pub fn record_local_assisted_claim_lease(
+        &self,
+        claim_id: &ClaimId,
+        observed_at: u64,
+        local_until: u64,
+    ) -> bool {
+        let mut assisted = self
+            .local_assisted_leases
+            .write()
+            .expect("local assisted lease lock poisoned");
+        let next = LocalAssistedLeaseState {
+            observed_at,
+            local_until,
+        };
+        let key = claim_id.0.to_string();
+        let changed = assisted.claims.get(&key) != Some(&next);
+        assisted.claims.insert(key, next);
+        changed
+    }
+
+    pub fn task_has_active_local_assisted_lease(&self, task: &CoordinationTask, now: u64) -> bool {
+        let key = task.id.0.to_string();
+        let mut assisted = self
+            .local_assisted_leases
+            .write()
+            .expect("local assisted lease lock poisoned");
+        let Some(state) = assisted.tasks.get(&key).copied() else {
+            return false;
+        };
+        if now > state.local_until
+            || task
+                .lease_refreshed_at
+                .is_some_and(|refreshed_at| refreshed_at >= state.observed_at)
+        {
+            assisted.tasks.remove(&key);
+            return false;
+        }
+        true
+    }
+
+    pub fn claim_has_active_local_assisted_lease(&self, claim: &WorkClaim, now: u64) -> bool {
+        let key = claim.id.0.to_string();
+        let mut assisted = self
+            .local_assisted_leases
+            .write()
+            .expect("local assisted lease lock poisoned");
+        let Some(state) = assisted.claims.get(&key).copied() else {
+            return false;
+        };
+        if now > state.local_until
+            || claim
+                .refreshed_at
+                .is_some_and(|refreshed_at| refreshed_at >= state.observed_at)
+        {
+            assisted.claims.remove(&key);
+            return false;
+        }
+        true
     }
 
     pub fn refresh_plan_runtime_from_coordination(&self) {
@@ -441,6 +538,51 @@ impl Prism {
             .expect("continuity runtime lock poisoned") =
             CoordinationRuntimeState::from_snapshot(snapshot);
         self.invalidate_plan_discovery_cache();
+    }
+
+    fn prune_local_assisted_leases(&self, snapshot: &CoordinationSnapshot) {
+        let task_ids = snapshot
+            .tasks
+            .iter()
+            .map(|task| task.id.0.to_string())
+            .collect::<BTreeSet<_>>();
+        let task_refreshed = snapshot
+            .tasks
+            .iter()
+            .map(|task| {
+                (
+                    task.id.0.to_string(),
+                    task.lease_refreshed_at.unwrap_or_default(),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+        let claim_ids = snapshot
+            .claims
+            .iter()
+            .map(|claim| claim.id.0.to_string())
+            .collect::<BTreeSet<_>>();
+        let claim_refreshed = snapshot
+            .claims
+            .iter()
+            .map(|claim| {
+                (
+                    claim.id.0.to_string(),
+                    claim.refreshed_at.unwrap_or_default(),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+        let mut assisted = self
+            .local_assisted_leases
+            .write()
+            .expect("local assisted lease lock poisoned");
+        assisted.tasks.retain(|task_id, state| {
+            task_ids.contains(task_id)
+                && task_refreshed.get(task_id).copied().unwrap_or_default() < state.observed_at
+        });
+        assisted.claims.retain(|claim_id, state| {
+            claim_ids.contains(claim_id)
+                && claim_refreshed.get(claim_id).copied().unwrap_or_default() < state.observed_at
+        });
     }
 
     fn mutate_native_plan_runtime<T, F>(&self, mutate: F) -> Result<T>

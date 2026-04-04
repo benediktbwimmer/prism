@@ -905,6 +905,15 @@ That can be done by:
 
 The trust story must stay explicit.
 
+The current implementation target for the live shared coordination ref is:
+
+- regular publication records the successful publish timestamp and CAS retry count in the signed
+  manifest
+- live-ref compaction rewrites the ref to a single-head baseline only after minting a fresh signed
+  manifest with `continuity_preserved` metadata and the previous manifest digest
+- separate archive/export flows may use an explicit `archive_boundary` compaction record when they
+  intentionally sever the live manifest chain
+
 ---
 
 ## 14. Failure and Recovery Model
@@ -1014,6 +1023,9 @@ The storage and CAS design decisions are locked for v1:
 - expose operator diagnostics through normal PRISM read surfaces, with explicit shared-ref health,
   current head, last verified manifest, last successful publish, CAS retry counts, and compaction
   status
+- keep the live ref bounded to the recent window (`SHARED_COORDINATION_HISTORY_MAX_COMMITS`) and
+  make any older-history archive boundary explicit in signed metadata rather than implicit in Git
+  parentage alone
 
 ---
 

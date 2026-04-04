@@ -14011,6 +14011,8 @@ fn compact_task_brief_prefers_refresh_for_stale_current_task() {
                 branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
             },
@@ -14111,6 +14113,8 @@ fn compact_task_brief_prioritizes_heartbeat_instruction_when_lease_is_due() {
                 branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
             },
@@ -14137,6 +14141,113 @@ fn compact_task_brief_prioritizes_heartbeat_instruction_when_lease_is_due() {
         .next_action
         .as_deref()
         .is_some_and(|value| value.contains(task_id.0.as_str())));
+    assert!(brief
+        .next_action
+        .as_deref()
+        .is_some_and(|value| value.contains("off by default")));
+    assert!(brief
+        .next_action
+        .as_deref()
+        .is_some_and(|value| value.contains("non-authoritative")));
+}
+
+#[test]
+fn compact_task_brief_suppresses_heartbeat_instruction_when_local_assistance_is_active() {
+    let now = crate::current_timestamp();
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha.clone()]);
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let meta = EventMeta {
+        id: EventId::new("coord:plan:task-brief-heartbeat-assisted"),
+        ts: now.saturating_sub(260),
+        actor: EventActor::Principal(prism_ir::PrincipalActor {
+            authority_id: prism_ir::PrincipalAuthorityId::new("local"),
+            principal_id: prism_ir::PrincipalId::new("agent:a"),
+            kind: Some(prism_ir::PrincipalKind::Agent),
+            name: Some("agent:a".to_string()),
+        }),
+        correlation: None,
+        causation: None,
+        execution_context: Some(prism_ir::EventExecutionContext {
+            repo_id: None,
+            worktree_id: None,
+            branch_ref: None,
+            session_id: Some("session:a".to_string()),
+            instance_id: None,
+            request_id: None,
+            credential_id: None,
+            work_context: None,
+        }),
+    };
+    let (plan_id, _) = coordination
+        .create_plan(
+            meta.clone(),
+            PlanCreateInput {
+                title: "Local assisted heartbeat task brief".into(),
+                goal: "Local assisted heartbeat task brief".into(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: Some(CoordinationPolicy {
+                    lease_stale_after_seconds: 300,
+                    lease_expires_after_seconds: 900,
+                    lease_renewal_mode: prism_ir::LeaseRenewalMode::Assisted,
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:task-brief-heartbeat-assisted"),
+                ts: now.saturating_sub(250),
+                ..meta
+            },
+            TaskCreateInput {
+                plan_id,
+                title: "Edit alpha".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![AnchorRef::Node(alpha)],
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
+    prism.replace_coordination_snapshot(coordination.snapshot());
+    assert!(prism.record_local_assisted_task_lease(&task_id, now, now.saturating_add(120),));
+    let host = host_with_prism(prism);
+
+    let brief = host
+        .compact_task_brief(
+            test_session(&host),
+            PrismTaskBriefArgs {
+                task_id: task_id.0.to_string(),
+            },
+        )
+        .expect("task brief should succeed");
+
+    assert!(!brief
+        .next_action
+        .as_deref()
+        .is_some_and(|value| value.contains("heartbeat_lease")));
 }
 
 #[test]
@@ -18008,7 +18119,11 @@ fn prism_runtime_views_surface_startup_recovery_work() {
         .and_then(|workspace| workspace.last_refresh())
         .expect("runtime query should preserve refresh metadata");
 
-    assert_eq!(result.result["lastRefreshPath"], last_refresh.path);
+    assert_eq!(result.result["lastRefreshPath"], "recovery");
+    assert!(matches!(
+        last_refresh.path.as_str(),
+        "deferred" | "recovery"
+    ));
     assert_eq!(
         result.result["lastRefreshLoadedBytes"],
         last_refresh.loaded_bytes
@@ -21788,6 +21903,31 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
     assert!(shared.head_commit.is_some());
     assert!(shared.history_depth >= 1);
     assert!(shared.snapshot_file_count > 0);
+    assert!(shared.current_manifest_digest.is_some());
+    assert_eq!(
+        shared.current_manifest_digest,
+        shared.last_verified_manifest_digest
+    );
+    assert!(shared.last_successful_publish_at.is_some());
+    assert_eq!(shared.last_successful_publish_retry_count, 0);
+    assert_eq!(shared.publish_retry_budget, 3);
+    assert!(!status.assisted_lease_renewal.enabled);
+    assert_eq!(
+        status.assisted_lease_renewal.env_var,
+        "PRISM_ASSISTED_LEASE_RENEWAL"
+    );
+    assert!(!status.assisted_lease_renewal.default_enabled);
+    assert!(!status.assisted_lease_renewal.authoritative);
+    assert_eq!(status.assisted_lease_renewal.scope, "local_worktree_only");
+    assert!(
+        status
+            .assisted_lease_renewal
+            .requires_authenticated_mutation
+    );
+    assert!(status
+        .assisted_lease_renewal
+        .bounded_by
+        .contains(&"plan_assisted_mode".to_string()));
     assert_eq!(shared.runtime_descriptor_count, 1);
     assert_eq!(shared.runtime_descriptors.len(), 1);
     assert!(shared.runtime_descriptors[0]
@@ -24935,6 +25075,8 @@ fn session_resource_surfaces_stale_current_task_context() {
                 branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
             },
@@ -25068,6 +25210,8 @@ fn session_resource_derives_coordination_binding_from_coord_task_id_for_stale_re
                 branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
             },
@@ -25170,6 +25314,8 @@ fn session_resource_prioritizes_heartbeat_instruction_when_lease_is_due() {
                 branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
             },
@@ -25198,6 +25344,8 @@ fn session_resource_prioritizes_heartbeat_instruction_when_lease_is_due() {
         .contains("lease is nearing staleness"));
     assert!(current_task.next_action.contains("heartbeat_lease"));
     assert!(current_task.next_action.contains(task_id.0.as_str()));
+    assert!(current_task.next_action.contains("off by default"));
+    assert!(current_task.next_action.contains("non-authoritative"));
     assert!(current_task.repair_action.is_none());
 }
 

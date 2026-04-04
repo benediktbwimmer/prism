@@ -230,10 +230,20 @@ pub struct AgentOutcomeSummaryView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct CoordinationTaskLifecycleView {
+    pub completed: bool,
+    pub published_to_branch: bool,
+    pub coordination_published: bool,
+    pub integrated_to_target: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentTaskBriefResultView {
     pub task_id: String,
     pub title: String,
     pub status: CoordinationTaskStatus,
+    pub lifecycle: CoordinationTaskLifecycleView,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub assignee: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -719,10 +729,19 @@ pub struct RuntimeSharedCoordinationRefView {
     pub max_history_commits: u64,
     pub snapshot_file_count: usize,
     pub current_manifest_digest: Option<String>,
+    pub last_verified_manifest_digest: Option<String>,
     pub previous_manifest_digest: Option<String>,
+    pub last_successful_publish_at: Option<u64>,
+    pub last_successful_publish_retry_count: u32,
+    pub publish_retry_budget: u32,
     pub compacted_head: bool,
     pub needs_compaction: bool,
     pub compaction_status: String,
+    pub compaction_mode: Option<String>,
+    pub last_compacted_at: Option<u64>,
+    pub compaction_previous_head_commit: Option<String>,
+    pub compaction_previous_history_depth: Option<u64>,
+    pub archive_boundary_manifest_digest: Option<String>,
     pub runtime_descriptor_count: usize,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub runtime_descriptors: Vec<RuntimeSharedCoordinationRuntimeDescriptorView>,
@@ -768,6 +787,18 @@ pub struct RuntimeSharedCoordinationRuntimeDescriptorView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct RuntimeAssistedLeaseRenewalView {
+    pub enabled: bool,
+    pub env_var: String,
+    pub default_enabled: bool,
+    pub authoritative: bool,
+    pub scope: String,
+    pub requires_authenticated_mutation: bool,
+    pub bounded_by: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct RuntimeDomainFreshnessView {
     pub domain: String,
     pub freshness: String,
@@ -803,6 +834,7 @@ pub struct RuntimeStatusView {
     pub orphan_bridge_count: usize,
     pub processes: Vec<RuntimeProcessView>,
     pub process_error: Option<String>,
+    pub assisted_lease_renewal: RuntimeAssistedLeaseRenewalView,
     pub shared_coordination_ref: Option<RuntimeSharedCoordinationRefView>,
     pub scopes: RuntimeScopesView,
     pub freshness: RuntimeFreshnessView,
@@ -1873,6 +1905,9 @@ pub struct CoordinationTaskView {
     pub anchors: Vec<AnchorRef>,
     pub bindings: PlanBindingView,
     pub depends_on: Vec<String>,
+    pub coordination_depends_on: Vec<String>,
+    pub integrated_depends_on: Vec<String>,
+    pub lifecycle: CoordinationTaskLifecycleView,
     pub validation_refs: Vec<ValidationRefView>,
     pub is_abstract: bool,
     pub base_revision: WorkspaceRevisionView,

@@ -8,11 +8,12 @@ use prism_coordination::{
 };
 use prism_ir::{
     new_prefixed_id, AgentId, AnchorRef, BlockerCause, BlockerCauseSource, CoordinationTaskId,
-    PlanAcceptanceCriterion, PlanBinding, PlanEdge, PlanEdgeId, PlanEdgeKind, PlanExecutionOverlay,
-    PlanGraph, PlanId, PlanKind, PlanNode, PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId,
-    PlanNodeKind, PlanNodeStatus, SessionId, Timestamp, ValidationRef, WorkspaceRevision,
+    GitExecutionStatus, GitIntegrationStatus, PlanAcceptanceCriterion, PlanBinding, PlanEdge,
+    PlanEdgeId, PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanKind, PlanNode,
+    PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId, PlanNodeKind, PlanNodeStatus, SessionId,
+    Timestamp, ValidationRef, WorkspaceRevision,
 };
-use serde_json::Value;
+use serde_json::{json, Value};
 
 #[derive(Debug, Clone, Default)]
 pub(crate) struct NativePlanRuntimeState {
@@ -553,7 +554,13 @@ impl NativePlanRuntimeState {
             return Err(anyhow!("plan node `{}` already exists", node_id.0));
         }
         graph.nodes.push(plan_node_from_coordination_task(task));
-        sync_dependency_edges(graph, &node_id, &task.depends_on);
+        sync_dependency_edges(
+            graph,
+            &node_id,
+            &task.depends_on,
+            &task.coordination_depends_on,
+            &task.integrated_depends_on,
+        );
         recompute_root_nodes(graph);
         self.sync_execution_overlay(task);
         Ok(node_id)
@@ -589,7 +596,13 @@ impl NativePlanRuntimeState {
                     .ok_or_else(|| anyhow!("unknown plan node `{}`", node_id.0))?;
                 populate_plan_node_from_coordination_task(node, task);
             }
-            sync_dependency_edges(graph, &node_id, &task.depends_on);
+            sync_dependency_edges(
+                graph,
+                &node_id,
+                &task.depends_on,
+                &task.coordination_depends_on,
+                &task.integrated_depends_on,
+            );
             recompute_root_nodes(graph);
             graph.id.clone()
         };
@@ -959,22 +972,28 @@ fn readiness_blockers_for_node(
         let Some(target) = graph_node_by_id(graph, &edge.to) else {
             continue;
         };
-        if is_completed_status(target.status) {
-            continue;
-        }
         match edge.kind {
-            PlanEdgeKind::DependsOn => blockers.push(PlanNodeBlocker {
-                kind: PlanNodeBlockerKind::Dependency,
-                summary: format!(
-                    "depends on `{}` completing before this node can proceed",
-                    target.title
-                ),
-                related_node_id: Some(target.id.clone()),
-                related_artifact_id: None,
-                risk_score: None,
-                validation_checks: Vec::new(),
-                causes: vec![dependency_blocker_cause("depends_on_edge")],
-            }),
+            PlanEdgeKind::DependsOn => {
+                let dependency_requirement = dependency_requirement_from_edge(edge);
+                if dependency_requirement_satisfied(
+                    target,
+                    overlay_for_node(overlays, &target.id),
+                    dependency_requirement,
+                ) {
+                    continue;
+                }
+                blockers.push(PlanNodeBlocker {
+                    kind: PlanNodeBlockerKind::Dependency,
+                    summary: dependency_requirement_blocker_summary(target, dependency_requirement),
+                    related_node_id: Some(target.id.clone()),
+                    related_artifact_id: None,
+                    risk_score: None,
+                    validation_checks: Vec::new(),
+                    causes: vec![dependency_blocker_cause(
+                        dependency_requirement.blocker_cause(),
+                    )],
+                });
+            }
             PlanEdgeKind::Blocks => blockers.push(PlanNodeBlocker {
                 kind: PlanNodeBlockerKind::BlockingNode,
                 summary: format!("authored blocking node `{}` is not completed", target.title),
@@ -1224,24 +1243,129 @@ fn task_has_authored_binding_metadata(task: &CoordinationTask) -> bool {
         || !task.bindings.outcome_refs.is_empty()
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DependencyRequirement {
+    Completed,
+    CoordinationPublished,
+    IntegratedToTarget,
+}
+
+impl DependencyRequirement {
+    fn metadata_value(self) -> &'static str {
+        match self {
+            Self::Completed => "completed",
+            Self::CoordinationPublished => "coordination_published",
+            Self::IntegratedToTarget => "integrated_to_target",
+        }
+    }
+
+    fn blocker_cause(self) -> &'static str {
+        match self {
+            Self::Completed => "depends_on_edge",
+            Self::CoordinationPublished => "coordination_published_dependency_edge",
+            Self::IntegratedToTarget => "integrated_to_target_dependency_edge",
+        }
+    }
+}
+
 fn sync_dependency_edges(
     graph: &mut PlanGraph,
     node_id: &PlanNodeId,
     depends_on: &[CoordinationTaskId],
+    coordination_depends_on: &[CoordinationTaskId],
+    integrated_depends_on: &[CoordinationTaskId],
 ) {
     graph
         .edges
         .retain(|edge| !(edge.kind == PlanEdgeKind::DependsOn && edge.from == *node_id));
-    for dependency in depends_on {
-        graph.edges.push(PlanEdge {
-            id: dependency_edge_id(node_id, dependency.0.as_str()),
-            plan_id: graph.id.clone(),
-            from: node_id.clone(),
-            to: plan_node_id_from_task_id(dependency.clone()),
-            kind: PlanEdgeKind::DependsOn,
-            summary: None,
-            metadata: Value::Null,
-        });
+    for (dependencies, requirement) in [
+        (depends_on, DependencyRequirement::Completed),
+        (
+            coordination_depends_on,
+            DependencyRequirement::CoordinationPublished,
+        ),
+        (
+            integrated_depends_on,
+            DependencyRequirement::IntegratedToTarget,
+        ),
+    ] {
+        for dependency in dependencies {
+            graph.edges.push(PlanEdge {
+                id: dependency_edge_id(node_id, dependency.0.as_str()),
+                plan_id: graph.id.clone(),
+                from: node_id.clone(),
+                to: plan_node_id_from_task_id(dependency.clone()),
+                kind: PlanEdgeKind::DependsOn,
+                summary: dependency_requirement_edge_summary(requirement),
+                metadata: json!({
+                    "dependencyLifecycle": requirement.metadata_value(),
+                }),
+            });
+        }
+    }
+}
+
+fn dependency_requirement_from_edge(edge: &PlanEdge) -> DependencyRequirement {
+    match edge
+        .metadata
+        .get("dependencyLifecycle")
+        .and_then(Value::as_str)
+    {
+        Some("coordination_published") => DependencyRequirement::CoordinationPublished,
+        Some("integrated_to_target") => DependencyRequirement::IntegratedToTarget,
+        _ => DependencyRequirement::Completed,
+    }
+}
+
+fn dependency_requirement_satisfied(
+    target: &PlanNode,
+    overlay: Option<&PlanExecutionOverlay>,
+    requirement: DependencyRequirement,
+) -> bool {
+    match requirement {
+        DependencyRequirement::Completed => is_completed_status(target.status),
+        DependencyRequirement::CoordinationPublished => overlay
+            .and_then(|overlay| overlay.git_execution.as_ref())
+            .map(|git_execution| git_execution.status == GitExecutionStatus::CoordinationPublished)
+            .unwrap_or(false),
+        DependencyRequirement::IntegratedToTarget => overlay
+            .and_then(|overlay| overlay.git_execution.as_ref())
+            .map(|git_execution| {
+                git_execution.integration_status == GitIntegrationStatus::IntegratedToTarget
+            })
+            .unwrap_or(false),
+    }
+}
+
+fn dependency_requirement_edge_summary(requirement: DependencyRequirement) -> Option<String> {
+    match requirement {
+        DependencyRequirement::Completed => None,
+        DependencyRequirement::CoordinationPublished => {
+            Some("Requires coordination publication".to_string())
+        }
+        DependencyRequirement::IntegratedToTarget => {
+            Some("Requires target integration".to_string())
+        }
+    }
+}
+
+fn dependency_requirement_blocker_summary(
+    target: &PlanNode,
+    requirement: DependencyRequirement,
+) -> String {
+    match requirement {
+        DependencyRequirement::Completed => format!(
+            "depends on `{}` completing before this node can proceed",
+            target.title
+        ),
+        DependencyRequirement::CoordinationPublished => format!(
+            "depends on `{}` publishing coordination state before this node can proceed",
+            target.title
+        ),
+        DependencyRequirement::IntegratedToTarget => format!(
+            "depends on `{}` integrating to the target branch before this node can proceed",
+            target.title
+        ),
     }
 }
 

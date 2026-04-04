@@ -78,6 +78,8 @@ fn claim_conflicts_block_hard_exclusive_overlap() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -142,6 +144,192 @@ fn claim_conflicts_block_hard_exclusive_overlap() {
 }
 
 #[test]
+fn blockers_distinguish_coordination_and_integration_dependency_thresholds() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:plan:dependency-thresholds", 1),
+            PlanCreateInput {
+                title: "Dependency thresholds".to_string(),
+                goal: "Track coordination and integration gating separately".to_string(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (provider_task_id, _) = store
+        .create_task(
+            meta("event:task:provider", 2),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Provider".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+    let (coordination_task_id, _) = store
+        .create_task(
+            meta("event:task:coordination", 3),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Coordination dependent".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                coordination_depends_on: vec![provider_task_id.clone()],
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+    let (integration_task_id, _) = store
+        .create_task(
+            meta("event:task:integration", 4),
+            TaskCreateInput {
+                plan_id,
+                title: "Integration dependent".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: vec![provider_task_id.clone()],
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+
+    let coordination_blockers = store.blockers(&coordination_task_id, revision(), 10);
+    assert!(coordination_blockers.iter().any(|blocker| {
+        blocker
+            .causes
+            .iter()
+            .any(|cause| cause.code.as_deref() == Some("task_dependency_coordination_unpublished"))
+    }));
+    let integration_blockers = store.blockers(&integration_task_id, revision(), 10);
+    assert!(integration_blockers.iter().any(|blocker| {
+        blocker
+            .causes
+            .iter()
+            .any(|cause| cause.code.as_deref() == Some("task_dependency_not_integrated"))
+    }));
+
+    store
+        .update_task(
+            meta("event:task:provider:published", 5),
+            TaskUpdateInput {
+                task_id: provider_task_id.clone(),
+                kind: None,
+                status: None,
+                published_task_status: None,
+                git_execution: Some(TaskGitExecution {
+                    status: prism_ir::GitExecutionStatus::CoordinationPublished,
+                    integration_status: prism_ir::GitIntegrationStatus::PublishedToBranch,
+                    ..TaskGitExecution::default()
+                }),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                summary: None,
+                anchors: None,
+                bindings: None,
+                depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
+                acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
+                base_revision: None,
+                priority: None,
+                tags: None,
+                completion_context: None,
+            },
+            revision(),
+            11,
+        )
+        .unwrap();
+    let coordination_blockers = store.blockers(&coordination_task_id, revision(), 12);
+    assert!(!coordination_blockers.iter().any(|blocker| {
+        blocker
+            .causes
+            .iter()
+            .any(|cause| cause.code.as_deref() == Some("task_dependency_coordination_unpublished"))
+    }));
+    let integration_blockers = store.blockers(&integration_task_id, revision(), 12);
+    assert!(integration_blockers.iter().any(|blocker| {
+        blocker
+            .causes
+            .iter()
+            .any(|cause| cause.code.as_deref() == Some("task_dependency_not_integrated"))
+    }));
+
+    store
+        .update_task(
+            meta("event:task:provider:integrated", 6),
+            TaskUpdateInput {
+                task_id: provider_task_id,
+                kind: None,
+                status: None,
+                published_task_status: None,
+                git_execution: Some(TaskGitExecution {
+                    status: prism_ir::GitExecutionStatus::CoordinationPublished,
+                    integration_status: prism_ir::GitIntegrationStatus::IntegratedToTarget,
+                    ..TaskGitExecution::default()
+                }),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                summary: None,
+                anchors: None,
+                bindings: None,
+                depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
+                acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
+                base_revision: None,
+                priority: None,
+                tags: None,
+                completion_context: None,
+            },
+            revision(),
+            13,
+        )
+        .unwrap();
+    let integration_blockers = store.blockers(&integration_task_id, revision(), 14);
+    assert!(!integration_blockers.iter().any(|blocker| {
+        blocker
+            .causes
+            .iter()
+            .any(|cause| cause.code.as_deref() == Some("task_dependency_not_integrated"))
+    }));
+}
+
+#[test]
 fn expired_task_requires_resume_for_same_principal() {
     let store = CoordinationStore::new();
     let (plan_id, _) = store
@@ -168,6 +356,8 @@ fn expired_task_requires_resume_for_same_principal() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: revision(),
             },
@@ -192,6 +382,8 @@ fn expired_task_requires_resume_for_same_principal() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -247,6 +439,8 @@ fn expired_task_requires_resume_for_same_principal() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -289,6 +483,8 @@ fn stale_task_requires_reclaim_for_different_principal() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: revision(),
             },
@@ -313,6 +509,8 @@ fn stale_task_requires_reclaim_for_different_principal() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -376,6 +574,8 @@ fn expired_claim_can_be_renewed_by_same_principal() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: revision(),
             },
@@ -440,6 +640,8 @@ fn claim_renewal_before_due_without_extension_is_noop() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: revision(),
             },
@@ -509,6 +711,8 @@ fn claim_renewal_with_meaningful_ttl_extension_still_persists() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: revision(),
             },
@@ -579,6 +783,8 @@ fn stale_claim_no_longer_blocks_new_acquire() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: revision(),
             },
@@ -654,6 +860,8 @@ fn review_policy_gates_completion_but_not_ready_work() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -694,6 +902,8 @@ fn review_policy_gates_completion_but_not_ready_work() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -770,6 +980,8 @@ fn review_policy_gates_completion_but_not_ready_work() {
                     anchors: None,
                     bindings: None,
                     depends_on: None,
+                    coordination_depends_on: None,
+                    integrated_depends_on: None,
                     acceptance: None,
                     validation_refs: None,
                     is_abstract: None,
@@ -820,6 +1032,8 @@ fn incremental_coordination_read_model_matches_snapshot_rebuild() {
                 branch_ref: Some("refs/heads/main".to_string()),
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: revision(),
             },
@@ -847,6 +1061,8 @@ fn incremental_coordination_read_model_matches_snapshot_rebuild() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -913,6 +1129,8 @@ fn incremental_coordination_read_model_matches_snapshot_rebuild() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -966,6 +1184,8 @@ fn incremental_coordination_queue_read_model_matches_snapshot_rebuild() {
                 branch_ref: Some("refs/heads/main".to_string()),
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: revision(),
             },
@@ -1078,6 +1298,8 @@ fn edit_capacity_limit_blocks_extra_claims() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -1174,6 +1396,8 @@ fn approving_stale_artifact_is_rejected() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -1256,6 +1480,8 @@ fn validation_policy_requires_approved_artifact_checks() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -1344,6 +1570,8 @@ fn validation_policy_requires_approved_artifact_checks() {
                     anchors: None,
                     bindings: None,
                     depends_on: None,
+                    coordination_depends_on: None,
+                    integrated_depends_on: None,
                     acceptance: None,
                     validation_refs: None,
                     is_abstract: None,
@@ -1398,6 +1626,8 @@ fn risk_threshold_requires_review_before_completion() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -1425,6 +1655,8 @@ fn risk_threshold_requires_review_before_completion() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -1473,6 +1705,8 @@ fn plan_graph_compat_preserves_task_ids_and_dependency_edges() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -1494,6 +1728,8 @@ fn plan_graph_compat_preserves_task_ids_and_dependency_edges() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: vec![dep_id.clone()],
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -1547,6 +1783,8 @@ fn plan_graph_execution_overlays_keep_runtime_state_outside_canonical_nodes() {
                 branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -1731,6 +1969,8 @@ fn invalid_task_transition_is_rejected() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -1758,6 +1998,8 @@ fn invalid_task_transition_is_rejected() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -1811,6 +2053,8 @@ fn stale_claim_and_artifact_mutations_are_rejected() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -1904,6 +2148,8 @@ fn plan_completion_requires_terminal_tasks_and_no_active_claims() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -1993,6 +2239,8 @@ fn plan_completion_requires_terminal_tasks_and_no_active_claims() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -2053,6 +2301,8 @@ fn completing_last_task_auto_completes_task_execution_plan() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: revision(),
             },
@@ -2077,6 +2327,8 @@ fn completing_last_task_auto_completes_task_execution_plan() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -2130,6 +2382,8 @@ fn completing_one_of_multiple_tasks_keeps_plan_active() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: revision(),
             },
@@ -2148,6 +2402,8 @@ fn completing_one_of_multiple_tasks_keeps_plan_active() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Method)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: revision(),
             },
@@ -2172,6 +2428,8 @@ fn completing_one_of_multiple_tasks_keeps_plan_active() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -2222,6 +2480,8 @@ fn releasing_last_active_claim_auto_completes_plan() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: revision(),
             },
@@ -2266,6 +2526,8 @@ fn releasing_last_active_claim_auto_completes_plan() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -2343,6 +2605,8 @@ fn closed_plan_rejects_new_task_and_records_violation() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -2435,6 +2699,8 @@ fn archived_plan_transition_requires_terminal_status_and_stays_closed() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: revision(),
             },
@@ -2525,6 +2791,8 @@ fn draft_plan_hides_ready_work_until_activation() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -2600,6 +2868,8 @@ fn task_update_events_record_sparse_patch_metadata() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -2627,6 +2897,8 @@ fn task_update_events_record_sparse_patch_metadata() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -2697,6 +2969,8 @@ fn snapshot_load_replays_plan_and_task_patch_events() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -2718,6 +2992,8 @@ fn snapshot_load_replays_plan_and_task_patch_events() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -2744,6 +3020,8 @@ fn snapshot_load_replays_plan_and_task_patch_events() {
                 anchors: None,
                 bindings: None,
                 depends_on: Some(vec![dependency_id.clone()]),
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -2834,6 +3112,8 @@ fn snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata() 
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -2860,6 +3140,8 @@ fn snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata() 
                 anchors: Some(vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Method)]),
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -2966,6 +3248,8 @@ fn snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata() 
             outcome_refs: vec!["outcome:alpha".to_string()],
         },
         depends_on: Vec::new(),
+        coordination_depends_on: Vec::new(),
+        integrated_depends_on: Vec::new(),
         acceptance: Vec::new(),
         validation_refs: vec![prism_ir::ValidationRef {
             id: "validation:alpha".to_string(),
@@ -3049,6 +3333,8 @@ fn snapshot_load_replays_handoff_events() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -3133,6 +3419,8 @@ fn snapshot_replay_reconstructs_continuity_state_from_events() {
                 branch_ref: Some("refs/heads/main".into()),
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision::default(),
             },
@@ -3241,6 +3529,8 @@ fn handoff_acceptance_blocks_updates_until_target_accepts() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -3293,6 +3583,8 @@ fn handoff_acceptance_blocks_updates_until_target_accepts() {
                 anchors: None,
                 bindings: None,
                 depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
                 acceptance: None,
                 validation_refs: None,
                 is_abstract: None,
@@ -3505,6 +3797,8 @@ fn claim_ownership_is_enforced_and_audited() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
@@ -3606,6 +3900,8 @@ fn heartbeat_task_refreshes_active_lease_for_same_principal() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: revision(),
             },
@@ -3655,6 +3951,8 @@ fn heartbeat_task_before_due_is_noop() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: revision(),
             },
@@ -3703,6 +4001,8 @@ fn stale_task_heartbeat_requires_resume() {
                 branch_ref: None,
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
                 depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
                 acceptance: Vec::new(),
                 base_revision: revision(),
             },

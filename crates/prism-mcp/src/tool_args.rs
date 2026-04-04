@@ -2886,6 +2886,8 @@ pub(crate) struct TaskCreatePayload {
     pub(crate) assignee: Option<String>,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
     pub(crate) depends_on: Option<Vec<String>>,
+    pub(crate) coordination_depends_on: Option<Vec<String>>,
+    pub(crate) integrated_depends_on: Option<Vec<String>>,
     pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
 }
 
@@ -2910,6 +2912,8 @@ pub(crate) struct WorkflowUpdatePayload {
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
     pub(crate) bindings: Option<PlanBindingPayload>,
     pub(crate) depends_on: Option<Vec<String>>,
+    pub(crate) coordination_depends_on: Option<Vec<String>>,
+    pub(crate) integrated_depends_on: Option<Vec<String>>,
     pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
     pub(crate) validation_refs: Option<Vec<ValidationRefPayload>>,
     pub(crate) priority: Option<SparsePatchInput<u8>>,

@@ -17,6 +17,11 @@ pub(crate) fn task_heartbeat_advice(
     let task = prism.coordination_task(task_id)?;
     let plan = prism.coordination_plan(&task.plan)?;
     let due_state = task_heartbeat_due_state(&task, &plan.policy, now);
+    if !matches!(due_state, LeaseHeartbeatDueState::NotDue)
+        && prism.task_has_active_local_assisted_lease(&task, now)
+    {
+        return None;
+    }
     (!matches!(due_state, LeaseHeartbeatDueState::NotDue)).then_some(TaskHeartbeatAdvice {
         task,
         due_state,
@@ -33,7 +38,7 @@ pub(crate) fn task_heartbeat_next_action(advice: &TaskHeartbeatAdvice) -> String
     let mode_suffix = match advice.renewal_mode {
         LeaseRenewalMode::Strict => String::new(),
         LeaseRenewalMode::Assisted => {
-            " This plan uses assisted lease renewal, but this prompt still requires an authenticated heartbeat mutation.".to_string()
+            " This plan allows local assisted lease renewal, but that path is off by default, non-authoritative, and does not replace this authenticated heartbeat mutation.".to_string()
         }
     };
     format!(

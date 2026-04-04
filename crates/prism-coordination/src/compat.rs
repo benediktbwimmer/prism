@@ -130,21 +130,32 @@ pub fn coordination_snapshot_from_plan_graphs(
             .into_iter()
             .map(|overlay| (overlay.node_id.0.to_string(), overlay))
             .collect::<BTreeMap<_, _>>();
-        let mut dependencies = BTreeMap::<String, Vec<prism_ir::CoordinationTaskId>>::new();
+        let mut dependencies = BTreeMap::<String, TaskDependencyBuckets>::new();
         for edge in &graph.edges {
             if edge.kind != PlanEdgeKind::DependsOn {
                 continue;
             }
-            dependencies
-                .entry(edge.from.0.to_string())
-                .or_default()
-                .push(coordination_task_id_from_plan_node_id(edge.to.clone()));
+            let buckets = dependencies.entry(edge.from.0.to_string()).or_default();
+            match dependency_lifecycle_from_edge(edge) {
+                DependencyLifecycle::Completed => buckets
+                    .depends_on
+                    .push(coordination_task_id_from_plan_node_id(edge.to.clone())),
+                DependencyLifecycle::CoordinationPublished => buckets
+                    .coordination_depends_on
+                    .push(coordination_task_id_from_plan_node_id(edge.to.clone())),
+                DependencyLifecycle::IntegratedToTarget => buckets
+                    .integrated_depends_on
+                    .push(coordination_task_id_from_plan_node_id(edge.to.clone())),
+            }
         }
         for node in &graph.nodes {
+            let buckets = dependencies.remove(node.id.0.as_str()).unwrap_or_default();
             snapshot.tasks.push(task_from_plan_node(
                 graph.id.clone(),
                 node.clone(),
-                dependencies.remove(node.id.0.as_str()).unwrap_or_default(),
+                buckets.depends_on,
+                buckets.coordination_depends_on,
+                buckets.integrated_depends_on,
                 overlays.get(node.id.0.as_str()).cloned(),
             ));
         }
@@ -242,6 +253,8 @@ fn task_from_plan_node(
     plan_id: prism_ir::PlanId,
     node: PlanNode,
     depends_on: Vec<prism_ir::CoordinationTaskId>,
+    coordination_depends_on: Vec<prism_ir::CoordinationTaskId>,
+    integrated_depends_on: Vec<prism_ir::CoordinationTaskId>,
     execution: Option<PlanExecutionOverlay>,
 ) -> CoordinationTask {
     let anchors = node.bindings.anchors.clone();
@@ -300,6 +313,8 @@ fn task_from_plan_node(
         anchors,
         bindings: node.bindings,
         depends_on,
+        coordination_depends_on,
+        integrated_depends_on,
         acceptance: node
             .acceptance
             .into_iter()
@@ -319,6 +334,50 @@ fn authored_plan_title(plan: &Plan) -> String {
     plan.title.clone()
 }
 
+#[derive(Default)]
+struct TaskDependencyBuckets {
+    depends_on: Vec<prism_ir::CoordinationTaskId>,
+    coordination_depends_on: Vec<prism_ir::CoordinationTaskId>,
+    integrated_depends_on: Vec<prism_ir::CoordinationTaskId>,
+}
+
+#[derive(Clone, Copy)]
+enum DependencyLifecycle {
+    Completed,
+    CoordinationPublished,
+    IntegratedToTarget,
+}
+
+impl DependencyLifecycle {
+    fn metadata_value(self) -> Option<&'static str> {
+        match self {
+            Self::Completed => None,
+            Self::CoordinationPublished => Some("coordination_published"),
+            Self::IntegratedToTarget => Some("integrated_to_target"),
+        }
+    }
+
+    fn summary(self) -> Option<String> {
+        match self {
+            Self::Completed => None,
+            Self::CoordinationPublished => Some("Requires coordination publication".to_string()),
+            Self::IntegratedToTarget => Some("Requires target integration".to_string()),
+        }
+    }
+}
+
+fn dependency_lifecycle_from_edge(edge: &PlanEdge) -> DependencyLifecycle {
+    match edge
+        .metadata
+        .get("dependencyLifecycle")
+        .and_then(Value::as_str)
+    {
+        Some("coordination_published") => DependencyLifecycle::CoordinationPublished,
+        Some("integrated_to_target") => DependencyLifecycle::IntegratedToTarget,
+        _ => DependencyLifecycle::Completed,
+    }
+}
+
 fn task_bindings(task: &CoordinationTask) -> PlanBinding {
     let mut bindings = task.bindings.clone();
     if bindings.anchors.is_empty() {
@@ -330,22 +389,42 @@ fn task_bindings(task: &CoordinationTask) -> PlanBinding {
 fn dependency_edges_for_task(task: &CoordinationTask) -> Vec<PlanEdge> {
     let mut seen = BTreeSet::new();
     let mut edges = Vec::new();
-    for dependency in &task.depends_on {
-        if !seen.insert(dependency.0.to_string()) {
-            continue;
+    for (dependencies, lifecycle) in [
+        (&task.depends_on, DependencyLifecycle::Completed),
+        (
+            &task.coordination_depends_on,
+            DependencyLifecycle::CoordinationPublished,
+        ),
+        (
+            &task.integrated_depends_on,
+            DependencyLifecycle::IntegratedToTarget,
+        ),
+    ] {
+        for dependency in dependencies {
+            if !seen.insert(format!(
+                "{}:{}",
+                dependency.0,
+                lifecycle.metadata_value().unwrap_or("completed")
+            )) {
+                continue;
+            }
+            let metadata = lifecycle
+                .metadata_value()
+                .map(|value| serde_json::json!({ "dependencyLifecycle": value }))
+                .unwrap_or(Value::Null);
+            edges.push(PlanEdge {
+                id: PlanEdgeId::new(format!(
+                    "plan-edge:{}:depends-on:{}",
+                    task.id.0, dependency.0
+                )),
+                plan_id: task.plan.clone(),
+                from: plan_node_id_from_task_id(task.id.clone()),
+                to: plan_node_id_from_task_id(dependency.clone()),
+                kind: PlanEdgeKind::DependsOn,
+                summary: lifecycle.summary(),
+                metadata,
+            });
         }
-        edges.push(PlanEdge {
-            id: PlanEdgeId::new(format!(
-                "plan-edge:{}:depends-on:{}",
-                task.id.0, dependency.0
-            )),
-            plan_id: task.plan.clone(),
-            from: plan_node_id_from_task_id(task.id.clone()),
-            to: plan_node_id_from_task_id(dependency.clone()),
-            kind: PlanEdgeKind::DependsOn,
-            summary: None,
-            metadata: Value::Null,
-        });
     }
     edges
 }

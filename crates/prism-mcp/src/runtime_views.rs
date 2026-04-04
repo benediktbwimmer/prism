@@ -11,17 +11,21 @@ use prism_core::runtime_engine::{
     RuntimeFreshnessState, RuntimeMaterializationDepth, WorkspacePublishedGeneration,
     WorkspaceRuntimeQueueSnapshot,
 };
-use prism_core::{shared_coordination_ref_diagnostics, PrismPaths, WorkspaceSession};
+use prism_core::{
+    assisted_lease_renewal_diagnostics, shared_coordination_ref_diagnostics, PrismPaths,
+    WorkspaceSession,
+};
 use prism_js::{
     ConnectionInfoView, ProjectionAuthorityPlaneView, ProjectionClassView,
     ProjectionFreshnessStateView, ProjectionMaterializationStateView, ProjectionReadModelView,
-    RuntimeBoundaryRegionView, RuntimeCoordinationLagView, RuntimeCoordinationSurfaceLagItemView,
-    RuntimeDescriptorCapabilityView, RuntimeDiscoveryModeView, RuntimeDomainFreshnessView,
-    RuntimeFreshnessView, RuntimeHealthView, RuntimeLogEventView,
-    RuntimeMaterializationCoverageView, RuntimeMaterializationItemView, RuntimeMaterializationView,
-    RuntimeOverlayScopeView, RuntimeProcessView, RuntimeProjectionScopeView, RuntimeQueueDepthView,
-    RuntimeScopesView, RuntimeSharedCoordinationRefView,
-    RuntimeSharedCoordinationRuntimeDescriptorView, RuntimeStatusView,
+    RuntimeAssistedLeaseRenewalView, RuntimeBoundaryRegionView, RuntimeCoordinationLagView,
+    RuntimeCoordinationSurfaceLagItemView, RuntimeDescriptorCapabilityView,
+    RuntimeDiscoveryModeView, RuntimeDomainFreshnessView, RuntimeFreshnessView, RuntimeHealthView,
+    RuntimeLogEventView, RuntimeMaterializationCoverageView, RuntimeMaterializationItemView,
+    RuntimeMaterializationView, RuntimeOverlayScopeView, RuntimeProcessView,
+    RuntimeProjectionScopeView, RuntimeQueueDepthView, RuntimeScopesView,
+    RuntimeSharedCoordinationRefView, RuntimeSharedCoordinationRuntimeDescriptorView,
+    RuntimeStatusView,
 };
 use prism_projections::{
     ProjectionAuthorityPlane, ProjectionClass, ProjectionFreshnessState,
@@ -352,6 +356,7 @@ fn runtime_status_from_inputs(
             .map(|process| runtime_process_view(process, &connected_bridge_pids))
             .collect(),
         process_error,
+        assisted_lease_renewal: runtime_assisted_lease_renewal_view(),
         shared_coordination_ref: shared_coordination_ref_diagnostics(inputs.root)?
             .map(runtime_shared_coordination_ref_view),
         scopes: runtime_scopes_from_prism(inputs.prism.as_ref(), &freshness),
@@ -369,10 +374,19 @@ fn runtime_shared_coordination_ref_view(
         max_history_commits: value.max_history_commits,
         snapshot_file_count: value.snapshot_file_count,
         current_manifest_digest: value.current_manifest_digest,
+        last_verified_manifest_digest: value.last_verified_manifest_digest,
         previous_manifest_digest: value.previous_manifest_digest,
+        last_successful_publish_at: value.last_successful_publish_at,
+        last_successful_publish_retry_count: value.last_successful_publish_retry_count,
+        publish_retry_budget: value.publish_retry_budget,
         compacted_head: value.compacted_head,
         needs_compaction: value.needs_compaction,
         compaction_status: value.compaction_status,
+        compaction_mode: value.compaction_mode,
+        last_compacted_at: value.last_compacted_at,
+        compaction_previous_head_commit: value.compaction_previous_head_commit,
+        compaction_previous_history_depth: value.compaction_previous_history_depth,
+        archive_boundary_manifest_digest: value.archive_boundary_manifest_digest,
         runtime_descriptor_count: value.runtime_descriptor_count,
         runtime_descriptors: value
             .runtime_descriptors
@@ -424,6 +438,23 @@ fn runtime_shared_coordination_runtime_descriptor_view(
         peer_transport_identity: value.peer_transport_identity,
         blob_snapshot_head: value.blob_snapshot_head,
         export_policy: value.export_policy,
+    }
+}
+
+fn runtime_assisted_lease_renewal_view() -> RuntimeAssistedLeaseRenewalView {
+    let diagnostics = assisted_lease_renewal_diagnostics();
+    RuntimeAssistedLeaseRenewalView {
+        enabled: diagnostics.enabled,
+        env_var: diagnostics.env_var.to_string(),
+        default_enabled: diagnostics.default_enabled,
+        authoritative: diagnostics.authoritative,
+        scope: diagnostics.scope.to_string(),
+        requires_authenticated_mutation: diagnostics.requires_authenticated_mutation,
+        bounded_by: diagnostics
+            .bounded_by
+            .into_iter()
+            .map(str::to_string)
+            .collect(),
     }
 }
 

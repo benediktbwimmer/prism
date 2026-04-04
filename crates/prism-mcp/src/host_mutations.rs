@@ -380,6 +380,8 @@ fn maybe_advance_auto_pr_integration_from_review(
             anchors: None,
             bindings: None,
             depends_on: None,
+            coordination_depends_on: None,
+            integrated_depends_on: None,
             acceptance: None,
             validation_refs: None,
             is_abstract: None,
@@ -695,6 +697,8 @@ fn maybe_observe_target_integration(
             anchors: None,
             bindings: None,
             depends_on: None,
+            coordination_depends_on: None,
+            integrated_depends_on: None,
             acceptance: None,
             validation_refs: None,
             is_abstract: None,
@@ -767,6 +771,8 @@ fn maybe_link_review_artifact_to_task_git_execution(
             anchors: None,
             bindings: None,
             depends_on: None,
+            coordination_depends_on: None,
+            integrated_depends_on: None,
             acceptance: None,
             validation_refs: None,
             is_abstract: None,
@@ -3235,6 +3241,13 @@ impl QueryHost {
                         &finalize_record_result,
                     );
                     finalize_record_result?;
+                    ensure_auto_pr_review_artifact(
+                        self,
+                        session,
+                        authenticated,
+                        &request.task_id,
+                        trace,
+                    )?;
                 }
             }
         }
@@ -3610,6 +3623,8 @@ impl QueryHost {
                         anchors: None,
                         bindings: None,
                         depends_on: None,
+                        coordination_depends_on: None,
+                        integrated_depends_on: None,
                         acceptance: None,
                         validation_refs: None,
                         is_abstract: None,
@@ -3739,6 +3754,8 @@ impl QueryHost {
                         anchors: None,
                         bindings: None,
                         depends_on: None,
+                        coordination_depends_on: None,
+                        integrated_depends_on: None,
                         acceptance: None,
                         validation_refs: None,
                         is_abstract: None,
@@ -3792,6 +3809,8 @@ impl QueryHost {
                         anchors: None,
                         bindings: None,
                         depends_on: None,
+                        coordination_depends_on: None,
+                        integrated_depends_on: None,
                         acceptance: None,
                         validation_refs: None,
                         is_abstract: None,
@@ -3847,6 +3866,8 @@ impl QueryHost {
                         anchors: None,
                         bindings: None,
                         depends_on: None,
+                        coordination_depends_on: None,
+                        integrated_depends_on: None,
                         acceptance: None,
                         validation_refs: None,
                         is_abstract: None,
@@ -4347,6 +4368,18 @@ impl QueryHost {
                             .into_iter()
                             .map(CoordinationTaskId::new)
                             .collect(),
+                        coordination_depends_on: payload
+                            .coordination_depends_on
+                            .unwrap_or_default()
+                            .into_iter()
+                            .map(CoordinationTaskId::new)
+                            .collect(),
+                        integrated_depends_on: payload
+                            .integrated_depends_on
+                            .unwrap_or_default()
+                            .into_iter()
+                            .map(CoordinationTaskId::new)
+                            .collect(),
                         acceptance: convert_acceptance(
                             prism,
                             self.workspace_session_ref(),
@@ -4371,6 +4404,8 @@ impl QueryHost {
                     anchors,
                     bindings,
                     depends_on,
+                    coordination_depends_on,
+                    integrated_depends_on,
                     acceptance,
                     validation_refs,
                     priority,
@@ -4462,6 +4497,20 @@ impl QueryHost {
                                 anchors: task_anchors,
                                 bindings: task_bindings,
                                 depends_on: depends_on.map(|depends_on| {
+                                    depends_on
+                                        .into_iter()
+                                        .map(CoordinationTaskId::new)
+                                        .collect::<Vec<_>>()
+                                }),
+                                coordination_depends_on: coordination_depends_on.map(
+                                    |depends_on| {
+                                        depends_on
+                                            .into_iter()
+                                            .map(CoordinationTaskId::new)
+                                            .collect::<Vec<_>>()
+                                    },
+                                ),
+                                integrated_depends_on: integrated_depends_on.map(|depends_on| {
                                     depends_on
                                         .into_iter()
                                         .map(CoordinationTaskId::new)
