@@ -446,6 +446,120 @@ fn authoritative_only_final_publication_auto_completes_plan() {
 }
 
 #[test]
+fn authoritative_only_final_publication_bypasses_expired_same_holder_lease() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:create"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            PlanCreateInput {
+                title: "Ship it".into(),
+                goal: "Ship it".into(),
+                status: Some(PlanStatus::Active),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:create"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Finish publish".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                assignee: None,
+                session: Some(SessionId::new("session:test")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                coordination_depends_on: Vec::new(),
+                integrated_depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        Graph::new(),
+        HistoryStore::default(),
+        OutcomeMemory::default(),
+        store.snapshot(),
+        ProjectionIndex::default(),
+    );
+
+    let task = prism
+        .update_native_task_authoritative_only(
+            EventMeta {
+                id: EventId::new("coord:task:published-expired"),
+                ts: 10_000,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskUpdateInput {
+                task_id: task_id.clone(),
+                kind: None,
+                status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                published_task_status: Some(None),
+                git_execution: Some(TaskGitExecution {
+                    status: prism_ir::GitExecutionStatus::CoordinationPublished,
+                    integration_mode: prism_ir::GitIntegrationMode::External,
+                    integration_status: prism_ir::GitIntegrationStatus::PublishedToBranch,
+                    pending_task_status: None,
+                    ..TaskGitExecution::default()
+                }),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                summary: None,
+                anchors: None,
+                bindings: None,
+                depends_on: None,
+                coordination_depends_on: None,
+                integrated_depends_on: None,
+                acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
+                base_revision: Some(WorkspaceRevision::default()),
+                priority: None,
+                tags: None,
+                completion_context: Some(TaskCompletionContext::default()),
+            },
+            WorkspaceRevision::default(),
+            10_000,
+        )
+        .unwrap();
+
+    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::Completed);
+    assert_eq!(
+        task.git_execution.status,
+        prism_ir::GitExecutionStatus::CoordinationPublished
+    );
+    assert_eq!(
+        prism.coordination_plan(&plan_id).unwrap().status,
+        PlanStatus::Completed
+    );
+}
+
+#[test]
 fn authoritative_only_target_integration_auto_completes_plan() {
     let store = CoordinationStore::new();
     let (plan_id, _) = store

@@ -1774,12 +1774,15 @@ pub(crate) fn update_task_mutation_with_options(
             violations,
         ));
     }
-    enforce_task_lease_for_standard_mutation(
-        state,
-        &meta,
-        &previous,
-        "coordination task update rejected",
-    )?;
+    let authoritative_git_execution_update = authoritative_only && input.git_execution.is_some();
+    if !authoritative_git_execution_update {
+        enforce_task_lease_for_standard_mutation(
+            state,
+            &meta,
+            &previous,
+            "coordination task update rejected",
+        )?;
+    }
     let stale_writes_enforced = state
         .plans
         .get(&previous.plan)

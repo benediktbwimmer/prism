@@ -25602,6 +25602,10 @@ fn session_resource_surfaces_publish_failed_repair_action() {
     assert_eq!(repair.input["action"], "coordination");
     assert_eq!(repair.input["input"]["kind"], "update");
     assert_eq!(
+        repair.input["input"]["taskId"],
+        task_id.0.to_string()
+    );
+    assert_eq!(
         repair.input["input"]["payload"]["id"],
         task_id.0.to_string()
     );

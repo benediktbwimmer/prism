@@ -1309,6 +1309,7 @@ fn session_task_context_summary(
                     "action": "coordination",
                     "input": {
                         "kind": "update",
+                        "taskId": task_id,
                         "payload": {
                             "id": task_id,
                             "status": "completed",
