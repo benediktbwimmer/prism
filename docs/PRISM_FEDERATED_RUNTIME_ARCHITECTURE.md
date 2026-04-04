@@ -18,9 +18,6 @@ The design uses four primary layers:
 - optional peer-targeted reads over the existing PRISM read surface
 - optional blob-backed session exports for cold retrieval, replay, and historical continuity
 
-An optional thin API service may sit on top of blob exports and runtime descriptors, but it should
-not be the primary live authority.
-
 The core principle is:
 
 - Git refs carry the shared facts that must converge across runtimes
@@ -77,7 +74,7 @@ Required goals:
 Required non-goals:
 
 - no peer-to-peer topology should be required for correctness
-- PRISM does not need to solve arbitrary public-internet service discovery without an explicit relay
+- PRISM does not need to provide its own public transport or relay layer
 - the design does not require every local SQLite file to be globally replicated
 - a blob store does not become the live mutable source of truth
 - Git refs do not become a transport for large journals or high-frequency presence chatter
@@ -176,13 +173,21 @@ The important boundary is:
 
 - public tool contract: `runtime_id`
 - resolution source: shared-ref runtime descriptor registry
-- transport details such as direct endpoint, relay route, or archive handle remain descriptor
+- transport details such as direct endpoint, configured public URL, or archive handle remain descriptor
   internals and are not exposed as first-class tool arguments
 
-For public-internet reachability, PRISM should support a `relay_only` transport mode in which the
-runtime opens an outbound long-lived connection to a dumb relay. The relay is transport only: it
-does not interpret PRISM semantics, does not become an authority plane, and must be treated as
-fully untrusted.
+For public-internet reachability, PRISM should use a bring-your-own-transport model.
+
+In practice:
+
+- operators expose a runtime through their own transport choice, such as an ngrok-style tunnel,
+  reverse proxy, VPN, or other operator-managed ingress
+- the PRISM binary should provide a command or setting to record the runtime's public URL
+- that configured public URL is then published in the runtime descriptor in shared coordination
+  state
+
+PRISM therefore consumes a published public endpoint when one exists, but does not own or operate a
+relay layer itself.
 
 ### 4.4 Optional blob-backed archive/export
 
@@ -257,11 +262,11 @@ Illustrative descriptor fields:
 - `discovery_mode`
   - `none`
   - `lan_direct`
-  - `relay_only`
+  - `public_url`
 - optional `peer_endpoint`
   - direct IP or hostname plus port for trusted local-network reachability
-- optional `relay_endpoint`
-  - relay route such as `wss://relay.example/route/<runtime_id>`
+- optional `public_endpoint`
+  - operator-provided public URL such as an ngrok URL or reverse-proxied HTTPS endpoint
 - optional `peer_transport_identity`
 - optional `blob_snapshot_head`
 - optional `export_policy`
@@ -291,11 +296,10 @@ Recommended modes:
   - do not disclose a network endpoint
 - `lan_direct`
   - disclose a peer endpoint expected to be reachable on the trusted local network
-- `relay_only`
-  - disclose only a relay handle and route identity; the runtime is reachable through an outbound
-    relay connection, not by exposing a direct inbound socket
+- `public_url`
+  - disclose only an operator-managed public URL that the runtime owner explicitly configured
 - `full`
-  - disclose both direct local-network endpoint and supported relay capabilities
+  - disclose both direct local-network endpoint and an operator-managed public URL when available
 
 This avoids turning peer presence into an accidental privacy leak.
 
@@ -337,7 +341,6 @@ A runtime must continue to work correctly when:
 
 - no peer is reachable
 - no blob store is configured
-- no thin API service exists
 
 In that case, PRISM still has:
 
@@ -540,9 +543,9 @@ The peer runtime should be able to verify:
 
 Direct peer transport should never bypass PRISM's principal and capability model.
 
-For public-internet or relay-mediated transport, peer traffic should be end-to-end encrypted and
-mutually authenticated using key material bound to PRISM principal identity. The relay must only see
-opaque encrypted payloads and routing metadata.
+For public-internet transport through an operator-managed public URL, peer traffic should be
+end-to-end encrypted and mutually authenticated using key material bound to PRISM principal
+identity.
 
 Authorization should be explicit and repo-scoped, not inferred from generic participation.
 Illustrative peer-read capabilities:
@@ -612,19 +615,6 @@ Exports may happen:
 
 The export policy should be configurable per repo or per runtime.
 
-### 9.4 Thin API service
-
-An optional API service may serve:
-
-- runtime descriptor discovery
-- blob metadata lookup
-- authenticated download of exported bundles
-- dumb relay access to live peers
-
-This service is useful, but it should remain thin.
-
-It should not become the sole live state authority.
-
 ---
 
 ## 10. Identity and Secrets
@@ -672,7 +662,7 @@ Trust still comes from:
 
 Peer trust over the public internet should therefore be understood as:
 
-- relay for reachability
+- operator-managed transport for reachability
 - end-to-end encryption for confidentiality
 - principal-bound authentication for identity
 - explicit repo-scoped capabilities for authorization
@@ -862,7 +852,7 @@ A hosted service may still exist on top of the federated model.
 
 But it should act as:
 
-- relay
+- optional operator-managed ingress or discovery aid
 - cache
 - archive index
 - bundle fetch service
@@ -898,15 +888,7 @@ rich-state exchange.
 
 Add signed exported runtime bundles and shared-ref pointers to them.
 
-### Phase 5: optional relay/API service
-
-Add a thin service for:
-
-- bundle metadata
-- authenticated retrieval
-- dumb peer relaying over outbound runtime connections
-
-### Phase 6: central shared DB becomes optional
+### Phase 5: central shared DB becomes optional
 
 At this point Postgres or another centralized shared backend becomes a deployment option, not a
 required architecture assumption.
@@ -921,7 +903,7 @@ Implementation should add coverage for:
 - local runtime rich state surviving independently per worktree
 - peer discovery through shared refs
 - authenticated peer read success and denial
-- relay-mediated peer exchange with end-to-end encryption
+- public-URL peer exchange with end-to-end encryption
 - explicit capability enforcement for peer diagnostics and journal reads
 - graceful degradation when peers disappear
 - signed export bundle generation and retrieval
@@ -941,7 +923,7 @@ The recommended stack is:
 - local SQLite for rich runtime authority
 - optional runtime-targeted peer reads for live enrichment
 - optional blob export for cold continuity
-- optional thin API service for retrieval and relaying
+- optional operator-managed public transport for internet reachability
 
 That architecture keeps PRISM:
 

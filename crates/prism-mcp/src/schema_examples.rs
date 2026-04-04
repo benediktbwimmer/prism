@@ -92,7 +92,7 @@ pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
             "verbosity": "summary",
         })),
         "prism_query" => Some(json!({
-            "code": "return prism.search(\"read context\", { limit: 5, strategy: \"behavioral\", ownerKind: \"read\" });",
+            "code": "const peer = prism.from(\"runtime-demo\"); return { status: peer.runtime.status(), excerpt: peer.file(\"README.md\").read({ maxChars: 160 }) };",
             "language": "ts",
         })),
         "prism_mutate" => prism_mutate_action_example("validation_feedback"),

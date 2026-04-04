@@ -115,6 +115,13 @@ fn decode_marshaled_query_error(body: &str) -> Option<QueryExecutionError> {
     let summary = match data.get("code")?.as_str()? {
         "query_invalid_argument" => "prism_query arguments invalid",
         "query_feature_disabled" => "prism_query feature disabled",
+        "remote_runtime_id_required" => "prism_query remote runtime target invalid",
+        "remote_runtime_target_incomplete" => {
+            "prism_query remote runtime target incomplete"
+        }
+        code if code.starts_with("remote_runtime_") || code.starts_with("peer_runtime_") => {
+            "prism_query remote runtime failed"
+        }
         _ => return None,
     };
     Some(QueryExecutionError {
@@ -122,6 +129,29 @@ fn decode_marshaled_query_error(body: &str) -> Option<QueryExecutionError> {
         message: payload.get("message")?.as_str()?.to_string(),
         data,
     })
+}
+
+pub(crate) fn remote_runtime_query_error(
+    code: &'static str,
+    runtime_id: Option<&str>,
+    detail: impl Into<String>,
+    next_action: impl Into<String>,
+) -> anyhow::Error {
+    let detail = detail.into();
+    let next_action = next_action.into();
+    QueryExecutionError {
+        summary: "prism_query remote runtime failed",
+        message: format!("{detail}\nHint: {next_action}"),
+        data: json!({
+            "code": code,
+            "category": "remote_runtime",
+            "runtimeId": runtime_id,
+            "error": detail,
+            "nextAction": next_action,
+            "examples": valid_query_examples(),
+        }),
+    }
+    .into()
 }
 
 pub(crate) fn parse_typescript_error(

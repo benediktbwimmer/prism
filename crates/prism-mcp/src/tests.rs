@@ -16759,7 +16759,10 @@ fn coordination_mutation_skips_rehydrate_when_only_loaded_revision_marker_lags()
         .host
         .loaded_coordination_revision_handle()
         .expect("coordination revision handle")
-        .store(current_revision.saturating_sub(1), std::sync::atomic::Ordering::Relaxed);
+        .store(
+            current_revision.saturating_sub(1),
+            std::sync::atomic::Ordering::Relaxed,
+        );
 
     let result = server
         .execute_logged_mutation_with_run(
@@ -21785,6 +21788,11 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
     assert!(shared.head_commit.is_some());
     assert!(shared.history_depth >= 1);
     assert!(shared.snapshot_file_count > 0);
+    assert_eq!(shared.runtime_descriptor_count, 1);
+    assert_eq!(shared.runtime_descriptors.len(), 1);
+    assert!(shared.runtime_descriptors[0]
+        .capabilities
+        .contains(&prism_js::RuntimeDescriptorCapabilityView::CoordinationRefPublisher));
 }
 
 #[test]

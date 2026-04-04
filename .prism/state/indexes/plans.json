@@ -386,8 +386,14 @@
   {
     "id": "plan:01kncfv6c7tzkc21aemhr0pns2",
     "title": "Implement first working federated runtime via runtime-targeted prism_query",
-    "status": "Active",
+    "status": "Completed",
     "path": "plans/plan-01kncfv6c7tzkc21aemhr0pns2-a8c993bd0b9c2b82.json"
+  },
+  {
+    "id": "plan:01kncq2qqf10y7rn78fyzma8qk",
+    "title": "Implement agent task affinity execution",
+    "status": "Active",
+    "path": "plans/plan-01kncq2qqf10y7rn78fyzma8qk-4984daaa3b9c5491.json"
   },
   {
     "id": "plan:1",

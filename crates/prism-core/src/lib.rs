@@ -23,6 +23,7 @@ mod parse_pipeline;
 mod patch_outcomes;
 mod path_identity;
 mod path_identity_repair;
+mod peer_runtime;
 mod principal_registry;
 mod prism_doc;
 mod prism_paths;
@@ -100,8 +101,10 @@ pub use session::{
     WorkspaceSnapshotRevisions,
 };
 pub use shared_coordination_ref::{
-    shared_coordination_ref_diagnostics, SharedCoordinationRefDiagnostics,
+    shared_coordination_ref_diagnostics, sync_live_runtime_descriptor,
+    SharedCoordinationRefDiagnostics,
 };
+pub use peer_runtime::{local_runtime_id, runtime_query_endpoint, PEER_RUNTIME_QUERY_PATH};
 pub use shared_runtime_backend::SharedRuntimeBackend;
 pub use snapshot_artifact_repair::regenerate_repo_snapshot_derived_artifacts;
 pub use validation_feedback::{

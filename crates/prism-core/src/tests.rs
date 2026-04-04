@@ -550,6 +550,7 @@ fn workspace_identity_primary_and_linked_worktrees_share_repo_id() {
     assert_eq!(linked.repo_locator_path, canonical_git_dir);
     assert_eq!(primary.repo_id, linked.repo_id);
     assert_ne!(primary.worktree_id, linked.worktree_id);
+    assert_ne!(primary.instance_id, linked.instance_id);
 
     let _ = fs::remove_dir_all(primary_root);
     let _ = fs::remove_dir_all(linked_root);

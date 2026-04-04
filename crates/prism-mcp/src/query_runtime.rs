@@ -23,6 +23,7 @@ use prism_query::{
 };
 use serde_json::{json, Value};
 
+use crate::peer_runtime_router::execute_remote_prism_query;
 use crate::file_queries::{
     file_around, file_read, DEFAULT_FILE_AROUND_CONTEXT_LINES, DEFAULT_FILE_AROUND_MAX_CHARS,
     DEFAULT_FILE_READ_MAX_CHARS,
@@ -106,6 +107,42 @@ struct TypescriptAttempt {
     execution: QueryExecution,
     result: Value,
     output_cap_hit: bool,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RemoteQueryDispatchArgs {
+    runtime_id: String,
+    path: Vec<String>,
+    #[serde(default)]
+    args: Vec<Value>,
+}
+
+fn is_identifier_segment(segment: &str) -> bool {
+    let mut chars = segment.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    if !(first == '_' || first == '$' || first.is_ascii_alphabetic()) {
+        return false;
+    }
+    chars.all(|ch| ch == '_' || ch == '$' || ch.is_ascii_alphanumeric())
+}
+
+fn remote_method_chain(path: &[String]) -> String {
+    path.iter().fold(String::from("prism"), |mut acc, segment| {
+        if is_identifier_segment(segment) {
+            acc.push('.');
+            acc.push_str(segment);
+        } else {
+            let encoded = serde_json::to_string(segment)
+                .expect("query path segment should serialize as JSON string");
+            acc.push('[');
+            acc.push_str(&encoded);
+            acc.push(']');
+        }
+        acc
+    })
 }
 
 fn contract_resolution_is_ambiguous(resolutions: &[prism_query::ContractResolution]) -> bool {
@@ -1043,6 +1080,9 @@ impl QueryExecution {
             Ok(serde_json::to_value(
                 self.host.enabled_query_view_capabilities(),
             )?)
+        } else if operation == "__peerQuery" {
+            let args: RemoteQueryDispatchArgs = serde_json::from_value(args)?;
+            Ok(self.dispatch_remote_query(args)?)
         } else if let Some(name) = operation.strip_prefix("__queryView:") {
             self.dispatch_query_view(name, args)
         } else {
@@ -2028,6 +2068,49 @@ impl QueryExecution {
             result.as_ref().err().map(ToString::to_string),
         );
         result
+    }
+
+    fn dispatch_remote_query(&self, args: RemoteQueryDispatchArgs) -> Result<Value> {
+        let root = self
+            .workspace_root()
+            .ok_or_else(|| anyhow!("runtime-targeted queries require a workspace-backed session"))?;
+        if args.path.is_empty() {
+            return Err(anyhow!("remote query path cannot be empty"));
+        }
+        let serialized_args =
+            serde_json::to_string(&args.args).context("failed to encode remote query arguments")?;
+        let code = match args.path.as_slice() {
+            [operation] if operation == "fileRead" => r#"
+const [__prismFileReadArgs = {}] = __prismRemoteArgs;
+return prism.file(__prismFileReadArgs.path).read({
+  startLine: __prismFileReadArgs.startLine,
+  endLine: __prismFileReadArgs.endLine,
+  maxChars: __prismFileReadArgs.maxChars,
+});
+"#
+            .to_string(),
+            [operation] if operation == "fileAround" => r#"
+const [__prismFileAroundArgs = {}] = __prismRemoteArgs;
+return prism.file(__prismFileAroundArgs.path).around({
+  line: __prismFileAroundArgs.line,
+  before: __prismFileAroundArgs.before,
+  after: __prismFileAroundArgs.after,
+  maxChars: __prismFileAroundArgs.maxChars,
+});
+"#
+            .to_string(),
+            _ => {
+                let chain = remote_method_chain(&args.path);
+                format!("return {chain}(...__prismRemoteArgs);")
+            }
+        };
+        let code = format!("const __prismRemoteArgs = {serialized_args}; {code}");
+        let remote = execute_remote_prism_query(root, &args.runtime_id, &code, QueryLanguage::Ts)?;
+        self.diagnostics
+            .lock()
+            .expect("diagnostics lock poisoned")
+            .extend(remote.response.result.diagnostics.clone());
+        Ok(remote.response.result.result)
     }
 
     fn ensure_operation_enabled(&self, operation: &str) -> Result<()> {

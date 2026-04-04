@@ -1,0 +1,103 @@
+{
+  "plan": {
+    "id": "plan:01kncq2qqf10y7rn78fyzma8qk",
+    "goal": "Implement decentralized task-affinity execution with local fitness scoring, soft continuation reservations, explainable selection, and shared coordination/query surfaces for warm execution chains.",
+    "title": "Implement agent task affinity execution",
+    "status": "Active",
+    "policy": {
+      "default_claim_mode": "SoftExclusive",
+      "max_parallel_editors_per_anchor": 2,
+      "require_review_for_completion": false,
+      "require_validation_for_completion": false,
+      "stale_after_graph_change": true,
+      "review_required_above_risk_score": null,
+      "lease_stale_after_seconds": 1800,
+      "lease_expires_after_seconds": 7200,
+      "lease_renewal_mode": "strict",
+      "git_execution": {
+        "startMode": "require",
+        "completionMode": "require",
+        "targetRef": "origin/main",
+        "targetBranch": "main",
+        "requireTaskBranch": true,
+        "maxCommitsBehindTarget": 0,
+        "maxFetchAgeSeconds": null,
+        "integrationMode": "external"
+      }
+    },
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "revision": 0,
+    "scheduling": {
+      "importance": 0,
+      "urgency": 0,
+      "manualBoost": 0,
+      "dueAt": null
+    },
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "authored_edges": [],
+    "root_tasks": [
+      "coord-task:01kncq3sm4dazb6xfqsfz8vgex"
+    ]
+  },
+  "graph": {
+    "id": "plan:01kncq2qqf10y7rn78fyzma8qk",
+    "scope": "Repo",
+    "kind": "TaskExecution",
+    "title": "Implement agent task affinity execution",
+    "goal": "Implement decentralized task-affinity execution with local fitness scoring, soft continuation reservations, explainable selection, and shared coordination/query surfaces for warm execution chains.",
+    "status": "Active",
+    "revision": 0,
+    "root_nodes": [
+      "coord-task:01kncq3sm4dazb6xfqsfz8vgex"
+    ],
+    "tags": [],
+    "created_from": null,
+    "metadata": null,
+    "nodes": [
+      {
+        "id": "coord-task:01kncq3sm4dazb6xfqsfz8vgex",
+        "plan_id": "plan:01kncq2qqf10y7rn78fyzma8qk",
+        "kind": "Validate",
+        "title": "Validate starvation guards, reservation decay, and warm-chain behavior end to end",
+        "summary": "Dogfood the new execution model across multiple worktrees and prove that short useful continuity improves pull selection without causing hoarding or starvation.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Tests and dogfooding cover TTL expiry, stale reservation takeover, bounded reservation depth, and urgent-work preemption.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Observed pull-selection behavior is explainable through the exposed coordination and query surfaces.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 283,
+          "git_commit": null
+        },
+        "priority": null,
+        "tags": [],
+        "metadata": null
+      }
+    ],
+    "edges": []
+  },
+  "executionOverlays": []
+}

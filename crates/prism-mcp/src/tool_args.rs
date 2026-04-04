@@ -3,7 +3,7 @@ use prism_js::{
     ToolValidationIssueView,
 };
 use rmcp::schemars::{JsonSchema, Schema, SchemaGenerator};
-use serde::{de, Deserialize, Deserializer};
+use serde::{de, Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 use std::borrow::Cow;
 
@@ -787,7 +787,7 @@ macro_rules! impl_vocab_deserialize {
     };
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum QueryLanguage {
     Ts,

@@ -266,6 +266,12 @@ impl PrismApiTypechecker<'_> {
             }
             return PrismSurfaceType::Unknown;
         };
+        if method_path == "prism.from" || method_path.starts_with("prism.from.") {
+            for arg in &call.args {
+                self.infer_expr(&arg.expr);
+            }
+            return PrismSurfaceType::Unknown;
+        }
         let Some(method) = prism_method_spec(&method_path) else {
             if self.is_dynamic_query_view_method(&method_path) {
                 for arg in &call.args {
@@ -305,6 +311,12 @@ impl PrismApiTypechecker<'_> {
             }
             return PrismSurfaceType::Unknown;
         };
+        if method_path == "prism.from" || method_path.starts_with("prism.from.") {
+            for arg in &call.args {
+                self.infer_expr(&arg.expr);
+            }
+            return PrismSurfaceType::Unknown;
+        }
         let Some(method) = prism_method_spec(&method_path) else {
             if self.is_dynamic_query_view_method(&method_path) {
                 for arg in &call.args {

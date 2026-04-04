@@ -22,6 +22,7 @@ prism-memory = { path = "../prism-memory" }
 prism-projections = { path = "../prism-projections" }
 prism-query = { path = "../prism-query" }
 prism-store = { path = "../prism-store" }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 deno_ast = { version = "0.53.1", features = ["transpiling", "visit"] }
 libc = "0.2"
 regex.workspace = true

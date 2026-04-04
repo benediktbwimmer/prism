@@ -21,7 +21,8 @@ pub use crate::types::{
     ArtifactSupersedeInput, BlockerKind, ClaimAcquireInput, CoordinationConflict,
     CoordinationEvent, CoordinationPolicy, CoordinationSnapshot, CoordinationTask,
     HandoffAcceptInput, HandoffInput, LeaseHolder, Plan, PlanCreateInput, PlanScheduling,
-    PlanUpdateInput, PolicyViolation, PolicyViolationCode, PolicyViolationRecord, TaskBlocker,
+    PlanUpdateInput, PolicyViolation, PolicyViolationCode, PolicyViolationRecord,
+    RuntimeDescriptor, RuntimeDescriptorCapability, RuntimeDiscoveryMode, TaskBlocker,
     TaskCompletionContext, TaskCreateInput, TaskReclaimInput, TaskResumeInput, TaskUpdateInput,
     WorkClaim,
 };

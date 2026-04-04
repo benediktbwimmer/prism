@@ -122,6 +122,12 @@ pub(crate) fn query_method_specs() -> Vec<(
 )> {
     vec![
         (
+            "from",
+            "core",
+            None,
+            "Target a peer runtime by `runtime_id` for the next chained query call, for example `prism.from(\"runtime-abc\").runtime.status()`.",
+        ),
+        (
             "symbol",
             "core",
             None,
@@ -191,13 +197,13 @@ pub(crate) fn query_method_specs() -> Vec<(
             "fileRead",
             "core",
             None,
-            "Read an exact workspace file slice by path and line range.",
+            "Read an exact workspace file slice by path and line range, locally or through `prism.from(\"runtime-id\")` when you need a peer runtime view.",
         ),
         (
             "fileAround",
             "core",
             None,
-            "Read a bounded workspace file slice around one line.",
+            "Read a bounded workspace file slice around one line, locally or through `prism.from(\"runtime-id\")` for peer-enriched context.",
         ),
         (
             "lineage",
@@ -535,7 +541,7 @@ pub(crate) fn query_method_specs() -> Vec<(
             "runtimeStatus",
             "internal",
             Some("internal_developer"),
-            "Inspect the MCP daemon status, health, process counts, and runtime file paths for this workspace.",
+            "Inspect the MCP daemon status, health, process counts, and runtime file paths for this workspace. In `prism_query`, `prism.from(\"runtime-id\").runtime.status()` returns the peer-enriched equivalent for another runtime.",
         ),
         (
             "runtimeLogs",

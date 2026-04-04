@@ -1,8 +1,9 @@
 use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 use prism_ir::SessionId;
 use prism_store::CoordinationPersistContext;
@@ -47,7 +48,7 @@ pub(crate) fn workspace_identity_for_root(root: &Path) -> WorkspaceIdentity {
         repo_locator_path,
         worktree_id: scoped_id("worktree", &canonical_root.to_string_lossy()),
         branch_ref: git_identity.head_ref,
-        instance_id: instance_id().clone(),
+        instance_id: instance_id_for_root(&canonical_root),
     }
 }
 
@@ -70,15 +71,20 @@ pub(crate) fn coordination_persist_context_for_root(
     }
 }
 
-fn instance_id() -> &'static String {
-    static INSTANCE_ID: OnceLock<String> = OnceLock::new();
-    INSTANCE_ID.get_or_init(|| {
-        format!(
-            "instance:{}:{}",
-            std::process::id(),
-            current_timestamp_millis()
-        )
-    })
+fn instance_id_for_root(canonical_root: &Path) -> String {
+    static INSTANCE_IDS: OnceLock<Mutex<HashMap<PathBuf, String>>> = OnceLock::new();
+    let ids = INSTANCE_IDS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut ids = ids.lock().expect("workspace instance id cache lock poisoned");
+    ids.entry(canonical_root.to_path_buf())
+        .or_insert_with(|| {
+            format!(
+                "instance:{}:{}:{}",
+                std::process::id(),
+                scoped_id("worktree", &canonical_root.to_string_lossy()),
+                current_timestamp_millis()
+            )
+        })
+        .clone()
 }
 
 fn scoped_id(prefix: &str, value: &str) -> String {

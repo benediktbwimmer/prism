@@ -124,6 +124,11 @@ pub enum AuthCommand {
 pub enum McpCommand {
     Status,
     Endpoint,
+    PublicUrl {
+        url: Option<String>,
+        #[arg(long, default_value_t = false)]
+        clear: bool,
+    },
     Cleanup,
     Bridge {
         #[arg(long, default_value_t = false)]
@@ -424,6 +429,34 @@ mod tests {
             Command::Mcp {
                 command: McpCommand::Stop { kill_bridges },
             } => assert!(!kill_bridges),
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn mcp_public_url_parses_value() {
+        let cli = Cli::parse_from(["prism", "mcp", "public-url", "https://runtime.example"]);
+        match cli.command {
+            Command::Mcp {
+                command: McpCommand::PublicUrl { url, clear },
+            } => {
+                assert_eq!(url.as_deref(), Some("https://runtime.example"));
+                assert!(!clear);
+            }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn mcp_public_url_parses_clear() {
+        let cli = Cli::parse_from(["prism", "mcp", "public-url", "--clear"]);
+        match cli.command {
+            Command::Mcp {
+                command: McpCommand::PublicUrl { url, clear },
+            } => {
+                assert!(url.is_none());
+                assert!(clear);
+            }
             _ => panic!("unexpected command"),
         }
     }

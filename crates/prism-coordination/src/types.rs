@@ -23,6 +23,10 @@ fn default_plan_node_kind() -> PlanNodeKind {
     PlanNodeKind::Edit
 }
 
+fn default_runtime_discovery_mode() -> RuntimeDiscoveryMode {
+    RuntimeDiscoveryMode::None
+}
+
 fn default_lease_stale_after_seconds() -> u64 {
     30 * 60
 }
@@ -330,6 +334,52 @@ pub enum BlockerKind {
     ValidationRequired,
     StaleRevision,
     ArtifactStale,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RuntimeDiscoveryMode {
+    None,
+    LanDirect,
+    PublicUrl,
+    Full,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RuntimeDescriptorCapability {
+    CoordinationRefPublisher,
+    BoundedPeerReads,
+    BundleExports,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeDescriptor {
+    pub runtime_id: String,
+    pub repo_id: String,
+    pub worktree_id: String,
+    pub principal_id: String,
+    pub instance_started_at: u64,
+    pub last_seen_at: u64,
+    #[serde(default)]
+    pub branch_ref: Option<String>,
+    #[serde(default)]
+    pub checked_out_commit: Option<String>,
+    #[serde(default)]
+    pub capabilities: Vec<RuntimeDescriptorCapability>,
+    #[serde(default = "default_runtime_discovery_mode")]
+    pub discovery_mode: RuntimeDiscoveryMode,
+    #[serde(default)]
+    pub peer_endpoint: Option<String>,
+    #[serde(default)]
+    pub public_endpoint: Option<String>,
+    #[serde(default)]
+    pub peer_transport_identity: Option<String>,
+    #[serde(default)]
+    pub blob_snapshot_head: Option<String>,
+    #[serde(default)]
+    pub export_policy: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]

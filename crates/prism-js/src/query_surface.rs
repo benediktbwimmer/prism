@@ -307,6 +307,7 @@ const WHERE_USED_KEYS: &[&str] = &["mode", "limit"];
 
 pub fn prism_api_method_specs() -> &'static [PrismApiMethodSpec] {
     static SPECS: &[PrismApiMethodSpec] = &[
+        method!("prism.from", "from(runtimeId: string): PrismApi;", PrismSurfaceTypeRef::Unknown),
         method!("prism.symbol", "symbol(query: string): SymbolView | null;", PrismSurfaceTypeRef::NullableNamed("SymbolView")),
         method!("prism.symbolBundle", "symbolBundle(query: string, options?: SymbolBundleOptions): SymbolBundleView;", PrismSurfaceTypeRef::Named("SymbolBundleView")),
         method!("prism.symbols", "symbols(query: string): SymbolView[];", PrismSurfaceTypeRef::ArrayOfNamed("SymbolView")),

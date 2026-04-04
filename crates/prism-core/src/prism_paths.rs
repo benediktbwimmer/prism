@@ -277,6 +277,16 @@ impl PrismPaths {
         Ok(path)
     }
 
+    pub fn mcp_public_url_path(&self) -> Result<PathBuf> {
+        self.ensure_home_metadata()?;
+        fs::create_dir_all(&self.worktree_mcp_state_dir).with_context(|| {
+            format!("failed to create {}", self.worktree_mcp_state_dir.display())
+        })?;
+        let path = self.worktree_mcp_state_dir.join("prism-mcp-public-url");
+        migrate_legacy_file(&path, &self.repo_prism_dir.join("prism-mcp-public-url"))?;
+        Ok(path)
+    }
+
     pub fn mcp_session_seed_path(&self) -> Result<PathBuf> {
         self.ensure_home_metadata()?;
         fs::create_dir_all(&self.worktree_mcp_state_dir).with_context(|| {

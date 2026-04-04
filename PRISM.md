@@ -18,7 +18,7 @@
 - Active repo relations: 0
 - Active repo contracts: 1
 - Active repo memories: 1
-- Published plans: 72
+- Published plans: 73
 - Full concept catalog: `docs/prism/concepts.md`
 - Full relation catalog: `docs/prism/relations.md`
 - Full contract catalog: `docs/prism/contracts.md`

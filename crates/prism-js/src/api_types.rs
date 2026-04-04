@@ -723,6 +723,47 @@ pub struct RuntimeSharedCoordinationRefView {
     pub compacted_head: bool,
     pub needs_compaction: bool,
     pub compaction_status: String,
+    pub runtime_descriptor_count: usize,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub runtime_descriptors: Vec<RuntimeSharedCoordinationRuntimeDescriptorView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RuntimeDiscoveryModeView {
+    None,
+    LanDirect,
+    PublicUrl,
+    Full,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RuntimeDescriptorCapabilityView {
+    CoordinationRefPublisher,
+    BoundedPeerReads,
+    BundleExports,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeSharedCoordinationRuntimeDescriptorView {
+    pub runtime_id: String,
+    pub repo_id: String,
+    pub worktree_id: String,
+    pub principal_id: String,
+    pub instance_started_at: u64,
+    pub last_seen_at: u64,
+    pub branch_ref: Option<String>,
+    pub checked_out_commit: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<RuntimeDescriptorCapabilityView>,
+    pub discovery_mode: RuntimeDiscoveryModeView,
+    pub peer_endpoint: Option<String>,
+    pub public_endpoint: Option<String>,
+    pub peer_transport_identity: Option<String>,
+    pub blob_snapshot_head: Option<String>,
+    pub export_policy: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

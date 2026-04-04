@@ -2043,6 +2043,20 @@ return prism.validateToolInput("prism_mutate", {
 });
 ```
 
+### 5d. Target another runtime explicitly with `prism.from("runtime-id")`
+
+```ts
+const peer = prism.from("runtime-abc");
+return {
+  status: peer.runtime.status(),
+  readme: peer.file("README.md").read({ maxChars: 200 }),
+};
+```
+
+Remote results stay peer-enriched rather than shared-authoritative. If the `runtimeId` is missing,
+stale, unreachable, or denied, PRISM returns a structured remote-runtime query error instead of
+silently falling back to local state.
+
 ### 6. Pull source plus relations in one round-trip
 
 ```ts

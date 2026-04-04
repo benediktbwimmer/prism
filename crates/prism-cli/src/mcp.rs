@@ -13,7 +13,7 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, bail, Context, Result};
-use prism_core::{shared_coordination_ref_diagnostics, PrismPaths};
+use prism_core::{shared_coordination_ref_diagnostics, sync_live_runtime_descriptor, PrismPaths};
 
 use crate::cli::McpCommand;
 use crate::daemon_log;
@@ -63,6 +63,7 @@ struct BridgeCounts {
 #[derive(Debug, Clone)]
 struct McpPaths {
     uri_file: PathBuf,
+    public_url_file: PathBuf,
     log_path: PathBuf,
     cache_path: PathBuf,
     runtime_state_path: PathBuf,
@@ -156,6 +157,7 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
     match command {
         McpCommand::Status => status(&root),
         McpCommand::Endpoint => endpoint(&root),
+        McpCommand::PublicUrl { url, clear } => public_url(&root, url.as_deref(), clear),
         McpCommand::Cleanup => cleanup(&root),
         McpCommand::Bridge {
             no_coordination,
@@ -286,6 +288,10 @@ fn status(root: &Path) -> Result<()> {
     println!("uri_file: {}", paths.uri_file.display());
     println!("uri: {}", uri.as_deref().unwrap_or("<missing>"));
     println!(
+        "public_url: {}",
+        read_public_url(&paths)?.as_deref().unwrap_or("<unset>")
+    );
+    println!(
         "health_uri: {}",
         connection.health_uri.as_deref().unwrap_or("<missing>")
     );
@@ -349,6 +355,31 @@ fn status(root: &Path) -> Result<()> {
     if daemons.is_empty() && !bridges.is_empty() {
         println!("warning: bridge processes exist without a daemon");
     }
+    Ok(())
+}
+
+fn public_url(root: &Path, url: Option<&str>, clear: bool) -> Result<()> {
+    let paths = McpPaths::for_root(root)?;
+    if clear && url.is_some() {
+        bail!("provide either a public URL or --clear, not both");
+    }
+    if clear {
+        clear_public_url(&paths)?;
+        sync_live_runtime_descriptor(root)?;
+        println!("cleared public_url");
+        return Ok(());
+    }
+    if let Some(url) = url {
+        let url = normalize_public_url(url)?;
+        write_public_url(&paths, &url)?;
+        sync_live_runtime_descriptor(root)?;
+        println!("public_url: {url}");
+        return Ok(());
+    }
+    println!(
+        "{}",
+        read_public_url(&paths)?.as_deref().unwrap_or("<unset>")
+    );
     Ok(())
 }
 
@@ -1519,12 +1550,52 @@ impl McpPaths {
         let prism_paths = PrismPaths::for_workspace_root(root)?;
         Ok(Self {
             uri_file: prism_paths.mcp_http_uri_path()?,
+            public_url_file: prism_paths.mcp_public_url_path()?,
             log_path: prism_paths.mcp_daemon_log_path()?,
             cache_path: prism_paths.worktree_cache_db_path()?,
             runtime_state_path: prism_paths.mcp_runtime_state_path()?,
             startup_marker: prism_paths.mcp_startup_marker_path()?,
         })
     }
+}
+
+fn read_public_url(paths: &McpPaths) -> Result<Option<String>> {
+    let Ok(value) = fs::read_to_string(&paths.public_url_file) else {
+        return Ok(None);
+    };
+    let value = value.trim();
+    if value.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(value.to_string()))
+}
+
+fn write_public_url(paths: &McpPaths, url: &str) -> Result<()> {
+    if let Some(parent) = paths.public_url_file.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(&paths.public_url_file, format!("{url}\n"))
+        .with_context(|| format!("failed to write {}", paths.public_url_file.display()))
+}
+
+fn clear_public_url(paths: &McpPaths) -> Result<()> {
+    match fs::remove_file(&paths.public_url_file) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error)
+            .with_context(|| format!("failed to remove {}", paths.public_url_file.display())),
+    }
+}
+
+fn normalize_public_url(value: &str) -> Result<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        bail!("public URL must not be empty");
+    }
+    if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
+        bail!("public URL must start with http:// or https://");
+    }
+    Ok(trimmed.trim_end_matches('/').to_string())
 }
 
 #[cfg(test)]
@@ -1620,6 +1691,35 @@ mod tests {
         );
 
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn normalize_public_url_trims_and_strips_trailing_slash() {
+        assert_eq!(
+            normalize_public_url(" https://runtime.example/peer/query/ ").unwrap(),
+            "https://runtime.example/peer/query"
+        );
+    }
+
+    #[test]
+    fn normalize_public_url_rejects_non_http_values() {
+        assert!(normalize_public_url("runtime.example").is_err());
+    }
+
+    #[test]
+    fn public_url_round_trips_through_state_file() {
+        let root = temp_root("public-url");
+        fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
+        let paths = McpPaths::for_root(&root).unwrap();
+
+        write_public_url(&paths, "https://runtime.example/peer/query").unwrap();
+        assert_eq!(
+            read_public_url(&paths).unwrap().as_deref(),
+            Some("https://runtime.example/peer/query")
+        );
+
+        clear_public_url(&paths).unwrap();
+        assert!(read_public_url(&paths).unwrap().is_none());
     }
 
     #[test]

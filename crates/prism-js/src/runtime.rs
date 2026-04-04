@@ -301,7 +301,37 @@ function __prismNormalizePath(path) {
   return path;
 }
 
-function __prismEnrichSymbol(raw) {
+function __prismNormalizeRuntimeId(runtimeId) {
+  if (typeof runtimeId !== "string" || runtimeId.trim() === "") {
+    __prismThrowQueryUserError(
+      "prism_query remote runtime target invalid",
+      "runtimeId must be a non-empty string.\nHint: Pass a runtime id published in shared coordination, for example `prism.from(\"runtime-abc\")`.",
+      {
+        code: "remote_runtime_id_required",
+        category: "remote_runtime",
+        error: "runtimeId must be a non-empty string.",
+        nextAction:
+          "Pass a non-empty runtime id that exists in shared coordination, or remove `prism.from(...)` to query the local runtime.",
+      }
+    );
+  }
+  return runtimeId.trim();
+}
+
+function __prismRemoteCall(runtimeId, path, args = []) {
+  const normalizedRuntimeId = __prismNormalizeRuntimeId(runtimeId);
+  const pathSegments = Array.isArray(path) ? path : [path];
+  if (pathSegments.length === 0) {
+    throw new Error("remote query path must contain at least one segment");
+  }
+  return __prismHost("__peerQuery", {
+    runtimeId: normalizedRuntimeId,
+    path: pathSegments,
+    args,
+  });
+}
+
+function __prismEnrichSymbolWithHost(raw, hostCall) {
   if (raw == null) {
     return null;
   }
@@ -309,10 +339,10 @@ function __prismEnrichSymbol(raw) {
   return {
     ...raw,
     full() {
-      return __prismHost("full", __prismNormalizeTargetPayload(this));
+      return hostCall("full", __prismNormalizeTargetPayload(this));
     },
     excerpt(options = {}) {
-      return __prismHost("excerpt", {
+      return hostCall("excerpt", {
         ...__prismNormalizeTargetPayload(this),
         contextLines: options?.contextLines,
         maxLines: options?.maxLines,
@@ -320,7 +350,7 @@ function __prismEnrichSymbol(raw) {
       });
     },
     editSlice(options = {}) {
-      return __prismHost("editSlice", {
+      return hostCall("editSlice", {
         ...__prismNormalizeTargetPayload(this),
         beforeLines: options?.beforeLines,
         afterLines: options?.afterLines,
@@ -329,212 +359,293 @@ function __prismEnrichSymbol(raw) {
       });
     },
     relations() {
-      return __prismEnrichRelations(__prismHost("relations", __prismNormalizeTargetPayload(this)));
+      return __prismEnrichRelationsWithHost(
+        hostCall("relations", __prismNormalizeTargetPayload(this)),
+        hostCall
+      );
     },
     callGraph(depth = 3) {
-      return __prismEnrichSubgraph(
-        __prismHost("callGraph", { ...__prismNormalizeTargetPayload(this), depth })
+      return __prismEnrichSubgraphWithHost(
+        hostCall("callGraph", { ...__prismNormalizeTargetPayload(this), depth }),
+        hostCall
       );
     },
     lineage() {
-      return __prismEnrichLineage(__prismHost("lineage", __prismNormalizeTargetPayload(this)));
+      return __prismEnrichLineageWithHost(
+        hostCall("lineage", __prismNormalizeTargetPayload(this)),
+        hostCall
+      );
     },
   };
 }
 
+function __prismEnrichSymbolsWithHost(values, hostCall) {
+  return Array.isArray(values)
+    ? values.map((value) => __prismEnrichSymbolWithHost(value, hostCall))
+    : [];
+}
+
+function __prismEnrichRelationsWithHost(raw, hostCall) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    contains: __prismEnrichSymbolsWithHost(raw.contains, hostCall),
+    callers: __prismEnrichSymbolsWithHost(raw.callers, hostCall),
+    callees: __prismEnrichSymbolsWithHost(raw.callees, hostCall),
+    references: __prismEnrichSymbolsWithHost(raw.references, hostCall),
+    imports: __prismEnrichSymbolsWithHost(raw.imports, hostCall),
+    implements: __prismEnrichSymbolsWithHost(raw.implements, hostCall),
+    specifies: __prismEnrichSymbolsWithHost(raw.specifies, hostCall),
+    specifiedBy: __prismEnrichSymbolsWithHost(raw.specifiedBy, hostCall),
+    validates: __prismEnrichSymbolsWithHost(raw.validates, hostCall),
+    validatedBy: __prismEnrichSymbolsWithHost(raw.validatedBy, hostCall),
+    related: __prismEnrichSymbolsWithHost(raw.related, hostCall),
+    relatedBy: __prismEnrichSymbolsWithHost(raw.relatedBy, hostCall),
+  };
+}
+
+function __prismEnrichSubgraphWithHost(raw, hostCall) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    nodes: __prismEnrichSymbolsWithHost(raw.nodes, hostCall),
+  };
+}
+
+function __prismEnrichLineageWithHost(raw, hostCall) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    current: __prismEnrichSymbolWithHost(raw.current, hostCall),
+  };
+}
+
+function __prismEnrichInsightCandidateWithHost(raw, hostCall) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    symbol: __prismEnrichSymbolWithHost(raw.symbol, hostCall),
+  };
+}
+
+function __prismEnrichInsightCandidatesWithHost(values, hostCall) {
+  return Array.isArray(values)
+    ? values.map((value) => __prismEnrichInsightCandidateWithHost(value, hostCall))
+    : [];
+}
+
+function __prismEnrichSpecClusterWithHost(raw, hostCall) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    spec: __prismEnrichSymbolWithHost(raw.spec, hostCall),
+    implementations: __prismEnrichSymbolsWithHost(raw.implementations, hostCall),
+    validations: __prismEnrichSymbolsWithHost(raw.validations, hostCall),
+    related: __prismEnrichSymbolsWithHost(raw.related, hostCall),
+    readPath: __prismEnrichInsightCandidatesWithHost(raw.readPath, hostCall),
+    writePath: __prismEnrichInsightCandidatesWithHost(raw.writePath, hostCall),
+    persistencePath: __prismEnrichInsightCandidatesWithHost(raw.persistencePath, hostCall),
+    tests: __prismEnrichInsightCandidatesWithHost(raw.tests, hostCall),
+  };
+}
+
+function __prismEnrichConceptDecodeWithHost(raw, hostCall) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    primary: __prismEnrichSymbolWithHost(raw.primary, hostCall),
+    members: __prismEnrichSymbolsWithHost(raw.members, hostCall),
+    supportingReads: __prismEnrichSymbolsWithHost(raw.supportingReads, hostCall),
+    likelyTests: __prismEnrichSymbolsWithHost(raw.likelyTests, hostCall),
+  };
+}
+
+function __prismEnrichSpecDriftWithHost(raw, hostCall) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    spec: __prismEnrichSymbolWithHost(raw.spec, hostCall),
+    nextReads: __prismEnrichInsightCandidatesWithHost(raw.nextReads, hostCall),
+    cluster: __prismEnrichSpecClusterWithHost(raw.cluster, hostCall),
+  };
+}
+
+function __prismEnrichFocusedBlockWithHost(raw, hostCall) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    symbol: __prismEnrichSymbolWithHost(raw.symbol, hostCall),
+  };
+}
+
+function __prismEnrichFocusedBlocksWithHost(values, hostCall) {
+  return Array.isArray(values)
+    ? values.map((value) => __prismEnrichFocusedBlockWithHost(value, hostCall))
+    : [];
+}
+
+function __prismEnrichReadContextWithHost(raw, hostCall) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    target: __prismEnrichSymbolWithHost(raw.target, hostCall),
+    targetBlock: __prismEnrichFocusedBlockWithHost(raw.targetBlock, hostCall),
+    directLinks: __prismEnrichSymbolsWithHost(raw.directLinks, hostCall),
+    directLinkBlocks: __prismEnrichFocusedBlocksWithHost(raw.directLinkBlocks, hostCall),
+    suggestedReads: __prismEnrichInsightCandidatesWithHost(raw.suggestedReads, hostCall),
+    tests: __prismEnrichInsightCandidatesWithHost(raw.tests, hostCall),
+    testBlocks: __prismEnrichFocusedBlocksWithHost(raw.testBlocks, hostCall),
+  };
+}
+
+function __prismEnrichEditContextWithHost(raw, hostCall) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    target: __prismEnrichSymbolWithHost(raw.target, hostCall),
+    targetBlock: __prismEnrichFocusedBlockWithHost(raw.targetBlock, hostCall),
+    directLinks: __prismEnrichSymbolsWithHost(raw.directLinks, hostCall),
+    directLinkBlocks: __prismEnrichFocusedBlocksWithHost(raw.directLinkBlocks, hostCall),
+    suggestedReads: __prismEnrichInsightCandidatesWithHost(raw.suggestedReads, hostCall),
+    writePaths: __prismEnrichInsightCandidatesWithHost(raw.writePaths, hostCall),
+    writePathBlocks: __prismEnrichFocusedBlocksWithHost(raw.writePathBlocks, hostCall),
+    tests: __prismEnrichInsightCandidatesWithHost(raw.tests, hostCall),
+    testBlocks: __prismEnrichFocusedBlocksWithHost(raw.testBlocks, hostCall),
+  };
+}
+
+function __prismEnrichValidationContextWithHost(raw, hostCall) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    target: __prismEnrichSymbolWithHost(raw.target, hostCall),
+    tests: __prismEnrichInsightCandidatesWithHost(raw.tests, hostCall),
+    targetBlock: __prismEnrichFocusedBlockWithHost(raw.targetBlock, hostCall),
+    testBlocks: __prismEnrichFocusedBlocksWithHost(raw.testBlocks, hostCall),
+  };
+}
+
+function __prismEnrichRecentChangeContextWithHost(raw, hostCall) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    target: __prismEnrichSymbolWithHost(raw.target, hostCall),
+    lineage: __prismEnrichLineageWithHost(raw.lineage, hostCall),
+  };
+}
+
+function __prismEnrichDiscoveryBundleWithHost(raw, hostCall) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    target: __prismEnrichSymbolWithHost(raw.target, hostCall),
+    suggestedReads: __prismEnrichInsightCandidatesWithHost(raw.suggestedReads, hostCall),
+    readContext: __prismEnrichReadContextWithHost(raw.readContext, hostCall),
+    editContext: __prismEnrichEditContextWithHost(raw.editContext, hostCall),
+    validationContext: __prismEnrichValidationContextWithHost(raw.validationContext, hostCall),
+    recentChangeContext: __prismEnrichRecentChangeContextWithHost(raw.recentChangeContext, hostCall),
+    entrypoints: __prismEnrichSymbolsWithHost(raw.entrypoints, hostCall),
+    whereUsedDirect: __prismEnrichSymbolsWithHost(raw.whereUsedDirect, hostCall),
+    whereUsedBehavioral: __prismEnrichSymbolsWithHost(raw.whereUsedBehavioral, hostCall),
+    relations: __prismEnrichRelationsWithHost(raw.relations, hostCall),
+    specCluster: __prismEnrichSpecClusterWithHost(raw.specCluster, hostCall),
+    specDrift: __prismEnrichSpecDriftWithHost(raw.specDrift, hostCall),
+    lineage: __prismEnrichLineageWithHost(raw.lineage, hostCall),
+  };
+}
+
+function __prismEnrichSymbol(raw) {
+  return __prismEnrichSymbolWithHost(raw, __prismHost);
+}
+
 function __prismEnrichSymbols(values) {
-  return Array.isArray(values) ? values.map(__prismEnrichSymbol) : [];
+  return __prismEnrichSymbolsWithHost(values, __prismHost);
 }
 
 function __prismEnrichRelations(raw) {
-  if (raw == null) {
-    return raw;
-  }
-  return {
-    ...raw,
-    contains: __prismEnrichSymbols(raw.contains),
-    callers: __prismEnrichSymbols(raw.callers),
-    callees: __prismEnrichSymbols(raw.callees),
-    references: __prismEnrichSymbols(raw.references),
-    imports: __prismEnrichSymbols(raw.imports),
-    implements: __prismEnrichSymbols(raw.implements),
-    specifies: __prismEnrichSymbols(raw.specifies),
-    specifiedBy: __prismEnrichSymbols(raw.specifiedBy),
-    validates: __prismEnrichSymbols(raw.validates),
-    validatedBy: __prismEnrichSymbols(raw.validatedBy),
-    related: __prismEnrichSymbols(raw.related),
-    relatedBy: __prismEnrichSymbols(raw.relatedBy),
-  };
+  return __prismEnrichRelationsWithHost(raw, __prismHost);
 }
 
 function __prismEnrichSubgraph(raw) {
-  if (raw == null) {
-    return raw;
-  }
-  return {
-    ...raw,
-    nodes: __prismEnrichSymbols(raw.nodes),
-  };
+  return __prismEnrichSubgraphWithHost(raw, __prismHost);
 }
 
 function __prismEnrichLineage(raw) {
-  if (raw == null) {
-    return raw;
-  }
-  return {
-    ...raw,
-    current: __prismEnrichSymbol(raw.current),
-  };
+  return __prismEnrichLineageWithHost(raw, __prismHost);
 }
 
 function __prismEnrichInsightCandidate(raw) {
-  if (raw == null) {
-    return raw;
-  }
-  return {
-    ...raw,
-    symbol: __prismEnrichSymbol(raw.symbol),
-  };
+  return __prismEnrichInsightCandidateWithHost(raw, __prismHost);
 }
 
 function __prismEnrichInsightCandidates(values) {
-  return Array.isArray(values) ? values.map(__prismEnrichInsightCandidate) : [];
+  return __prismEnrichInsightCandidatesWithHost(values, __prismHost);
 }
 
 function __prismEnrichSpecCluster(raw) {
-  if (raw == null) {
-    return raw;
-  }
-  return {
-    ...raw,
-    spec: __prismEnrichSymbol(raw.spec),
-    implementations: __prismEnrichSymbols(raw.implementations),
-    validations: __prismEnrichSymbols(raw.validations),
-    related: __prismEnrichSymbols(raw.related),
-    readPath: __prismEnrichInsightCandidates(raw.readPath),
-    writePath: __prismEnrichInsightCandidates(raw.writePath),
-    persistencePath: __prismEnrichInsightCandidates(raw.persistencePath),
-    tests: __prismEnrichInsightCandidates(raw.tests),
-  };
+  return __prismEnrichSpecClusterWithHost(raw, __prismHost);
 }
 
 function __prismEnrichConceptDecode(raw) {
-  if (raw == null) {
-    return raw;
-  }
-  return {
-    ...raw,
-    primary: __prismEnrichSymbol(raw.primary),
-    members: __prismEnrichSymbols(raw.members),
-    supportingReads: __prismEnrichSymbols(raw.supportingReads),
-    likelyTests: __prismEnrichSymbols(raw.likelyTests),
-  };
+  return __prismEnrichConceptDecodeWithHost(raw, __prismHost);
 }
 
 function __prismEnrichSpecDrift(raw) {
-  if (raw == null) {
-    return raw;
-  }
-  return {
-    ...raw,
-    spec: __prismEnrichSymbol(raw.spec),
-    nextReads: __prismEnrichInsightCandidates(raw.nextReads),
-    cluster: __prismEnrichSpecCluster(raw.cluster),
-  };
+  return __prismEnrichSpecDriftWithHost(raw, __prismHost);
 }
 
 function __prismEnrichFocusedBlock(raw) {
-  if (raw == null) {
-    return raw;
-  }
-  return {
-    ...raw,
-    symbol: __prismEnrichSymbol(raw.symbol),
-  };
+  return __prismEnrichFocusedBlockWithHost(raw, __prismHost);
 }
 
 function __prismEnrichFocusedBlocks(values) {
-  return Array.isArray(values) ? values.map(__prismEnrichFocusedBlock) : [];
+  return __prismEnrichFocusedBlocksWithHost(values, __prismHost);
 }
 
 function __prismEnrichReadContext(raw) {
-  if (raw == null) {
-    return raw;
-  }
-  return {
-    ...raw,
-    target: __prismEnrichSymbol(raw.target),
-    targetBlock: __prismEnrichFocusedBlock(raw.targetBlock),
-    directLinks: __prismEnrichSymbols(raw.directLinks),
-    directLinkBlocks: __prismEnrichFocusedBlocks(raw.directLinkBlocks),
-    suggestedReads: __prismEnrichInsightCandidates(raw.suggestedReads),
-    tests: __prismEnrichInsightCandidates(raw.tests),
-    testBlocks: __prismEnrichFocusedBlocks(raw.testBlocks),
-  };
+  return __prismEnrichReadContextWithHost(raw, __prismHost);
 }
 
 function __prismEnrichEditContext(raw) {
-  if (raw == null) {
-    return raw;
-  }
-  return {
-    ...raw,
-    target: __prismEnrichSymbol(raw.target),
-    targetBlock: __prismEnrichFocusedBlock(raw.targetBlock),
-    directLinks: __prismEnrichSymbols(raw.directLinks),
-    directLinkBlocks: __prismEnrichFocusedBlocks(raw.directLinkBlocks),
-    suggestedReads: __prismEnrichInsightCandidates(raw.suggestedReads),
-    writePaths: __prismEnrichInsightCandidates(raw.writePaths),
-    writePathBlocks: __prismEnrichFocusedBlocks(raw.writePathBlocks),
-    tests: __prismEnrichInsightCandidates(raw.tests),
-    testBlocks: __prismEnrichFocusedBlocks(raw.testBlocks),
-  };
+  return __prismEnrichEditContextWithHost(raw, __prismHost);
 }
 
 function __prismEnrichValidationContext(raw) {
-  if (raw == null) {
-    return raw;
-  }
-  return {
-    ...raw,
-    target: __prismEnrichSymbol(raw.target),
-    tests: __prismEnrichInsightCandidates(raw.tests),
-    targetBlock: __prismEnrichFocusedBlock(raw.targetBlock),
-    testBlocks: __prismEnrichFocusedBlocks(raw.testBlocks),
-  };
+  return __prismEnrichValidationContextWithHost(raw, __prismHost);
 }
 
 function __prismEnrichRecentChangeContext(raw) {
-  if (raw == null) {
-    return raw;
-  }
-  return {
-    ...raw,
-    target: __prismEnrichSymbol(raw.target),
-    lineage: __prismEnrichLineage(raw.lineage),
-  };
+  return __prismEnrichRecentChangeContextWithHost(raw, __prismHost);
 }
 
 function __prismEnrichDiscoveryBundle(raw) {
-  if (raw == null) {
-    return raw;
-  }
-  return {
-    ...raw,
-    target: __prismEnrichSymbol(raw.target),
-    suggestedReads: __prismEnrichInsightCandidates(raw.suggestedReads),
-    readContext: __prismEnrichReadContext(raw.readContext),
-    editContext: __prismEnrichEditContext(raw.editContext),
-    validationContext: __prismEnrichValidationContext(raw.validationContext),
-    recentChangeContext: __prismEnrichRecentChangeContext(raw.recentChangeContext),
-    entrypoints: __prismEnrichSymbols(raw.entrypoints),
-    whereUsedDirect: __prismEnrichSymbols(raw.whereUsedDirect),
-    whereUsedBehavioral: __prismEnrichSymbols(raw.whereUsedBehavioral),
-    relations: __prismEnrichRelations(raw.relations),
-    specCluster: __prismEnrichSpecCluster(raw.specCluster),
-    specDrift: __prismEnrichSpecDrift(raw.specDrift),
-    lineage: __prismEnrichLineage(raw.lineage),
-  };
+  return __prismEnrichDiscoveryBundleWithHost(raw, __prismHost);
 }
 
 function __prismNormalizeFocus(values) {
@@ -621,13 +732,13 @@ function __prismCleanupGlobals() {
   }
 }
 
-function __prismFile(path) {
+function __prismFileWithHost(path, hostCall) {
   const filePath = __prismNormalizePath(path);
   return Object.freeze({
     path: filePath,
     read(options = {}) {
       options = __prismValidateOptions("prism.file(path).read", options, __prismOptionKeys.fileRead);
-      return __prismHost("fileRead", {
+      return hostCall("fileRead", {
         path: filePath,
         startLine: options?.startLine,
         endLine: options?.endLine,
@@ -640,13 +751,106 @@ function __prismFile(path) {
         options,
         __prismOptionKeys.fileAround
       );
-      return __prismHost("fileAround", {
+      return hostCall("fileAround", {
         path: filePath,
         line: options?.line,
         before: options?.before ?? options?.beforeLines,
         after: options?.after ?? options?.afterLines,
         maxChars: options?.maxChars,
       });
+    },
+  });
+}
+
+function __prismFile(path) {
+  return __prismFileWithHost(path, __prismHost);
+}
+
+function __prismEnrichRemoteResult(runtimeId, path, raw) {
+  const hostCall = (operation, args = {}) => __prismRemoteCall(runtimeId, operation, [args]);
+  const signature = Array.isArray(path) ? path.join(".") : String(path ?? "");
+  switch (signature) {
+    case "symbol":
+      return __prismEnrichSymbolWithHost(raw, hostCall);
+    case "symbols":
+    case "search":
+    case "entrypoints":
+    case "whereUsed":
+    case "entrypointsFor":
+    case "specFor":
+    case "implementationFor":
+      return __prismEnrichSymbolsWithHost(raw, hostCall);
+    case "relations":
+      return __prismEnrichRelationsWithHost(raw, hostCall);
+    case "callGraph":
+      return __prismEnrichSubgraphWithHost(raw, hostCall);
+    case "lineage":
+      return __prismEnrichLineageWithHost(raw, hostCall);
+    case "focusedBlock":
+      return __prismEnrichFocusedBlockWithHost(raw, hostCall);
+    case "readContext":
+      return __prismEnrichReadContextWithHost(raw, hostCall);
+    case "editContext":
+      return __prismEnrichEditContextWithHost(raw, hostCall);
+    case "validationContext":
+      return __prismEnrichValidationContextWithHost(raw, hostCall);
+    case "recentChangeContext":
+      return __prismEnrichRecentChangeContextWithHost(raw, hostCall);
+    case "discovery":
+      return __prismEnrichDiscoveryBundleWithHost(raw, hostCall);
+    case "decodeConcept":
+      return __prismEnrichConceptDecodeWithHost(raw, hostCall);
+    case "specCluster":
+      return __prismEnrichSpecClusterWithHost(raw, hostCall);
+    case "explainDrift":
+      return __prismEnrichSpecDriftWithHost(raw, hostCall);
+    default:
+      return raw;
+  }
+}
+
+function __prismRemoteApi(runtimeId, path = []) {
+  const normalizedRuntimeId = __prismNormalizeRuntimeId(runtimeId);
+  const callable = (...args) => {
+    if (path.length === 0) {
+      __prismThrowQueryUserError(
+        "remote runtime target incomplete",
+        "Call a PRISM method after `prism.from(\"runtime-id\")`.",
+        {
+          code: "remote_runtime_target_incomplete",
+          runtimeId: normalizedRuntimeId,
+        }
+      );
+    }
+    const raw = __prismRemoteCall(normalizedRuntimeId, path, args);
+    return __prismEnrichRemoteResult(normalizedRuntimeId, path, raw);
+  };
+  return new Proxy(callable, {
+    get(_target, prop) {
+      if (prop === "then") {
+        return undefined;
+      }
+      if (prop === "runtimeId") {
+        return normalizedRuntimeId;
+      }
+      if (path.length === 0 && prop === "file") {
+        return (filePath) =>
+          __prismFileWithHost(filePath, (operation, args = {}) =>
+            __prismRemoteCall(normalizedRuntimeId, operation, [
+              {
+                path: filePath,
+                ...args,
+              },
+            ])
+          );
+      }
+      if (typeof prop !== "string") {
+        return undefined;
+      }
+      return __prismRemoteApi(normalizedRuntimeId, [...path, prop]);
+    },
+    apply(_target, _thisArg, args) {
+      return callable(...args);
     },
   });
 }
@@ -743,6 +947,9 @@ function __prismLoadDynamicViews() {
 }
 
 const __prismBase = Object.freeze({
+  from(runtimeId) {
+    return __prismRemoteApi(runtimeId);
+  },
   symbol(query) {
     return __prismEnrichSymbol(__prismHost("symbol", { query }));
   },

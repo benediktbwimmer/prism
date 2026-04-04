@@ -8,14 +8,14 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:1ea15bdd82f18c0a1d0896d237e18206175a554a72f0fee9532e3ab3ecb0ba54`
+- Source head: `sha256:d9fd115a4238b22789b4e97f6dd8ff09916dac3ee1bea9d530590851958ef7be`
 - Source logical timestamp: `unknown`
-- Source snapshot: `72 plans, 48 active, 24 archived`
+- Source snapshot: `73 plans, 49 active, 24 archived`
 
 ## Overview
 
-- Published plans: 72
-- Active plans: 48
+- Published plans: 73
+- Active plans: 49
 - Archived plans: 24
 
 ## Active Plans
@@ -40,6 +40,7 @@
 - [first-class-plans-spec-alignment](active/plan-01kn2nhn3trvbxej8av70jrvx2.md): first-class-plans-spec-alignment (`plan:01kn2nhn3trvbxej8av70jrvx2`)
 - [Follow up on remaining PRISM usability gaps by improving compact-tool ranking transparency, strengthening concept-to-doc-to-code continuity, hardening workspace/path edge cases, and tightening stale-context repair loops.](active/plan-01kn3cceq1sh4s78yj4m34rww2.md): Follow up on remaining PRISM usability gaps by improving compact-tool ranking transparency, strengthening concept-to-doc-to-code continuity, hardening workspace/path edge cases, and tightening stale-context repair loops. (`plan:01kn3cceq1sh4s78yj4m34rww2`)
 - [Hit the refresh latency targets in docs/RUNTIME_REWRITE_ARCHITECTURE.md by replacing reconstructive workspace refresh with a true parallel-prepare / tiny-commit / parallel-settle runtime path, reducing hot-path persistence and lock contention, and validating the resulting daemon behavior against explicit p50/p95 budgets.](active/plan-01kn55dg8tfv1ybq9nga9md1ye.md): Hit the refresh latency targets in docs/RUNTIME_REWRITE_ARCHITECTURE.md by replacing reconstructive workspace refresh with a true parallel-prepare / tiny-commit / parallel-settle runtime path, reducing hot-path persistence and lock contention, and validating the resulting daemon behavior against explicit p50/p95 budgets. (`plan:01kn55dg8tfv1ybq9nga9md1ye`)
+- [Implement agent task affinity execution](active/plan-01kncq2qqf10y7rn78fyzma8qk.md): Implement decentralized task-affinity execution with local fitness scoring, soft continuation reservations, explainable selection, and shared coordination/query surfaces for warm execution chains. (`plan:01kncq2qqf10y7rn78fyzma8qk`)
 - [Implement external bootstrap attestation auth](active/plan-01knannez4esfee0qx0yskagbe.md): Replace weak local-empty-registry bootstrap with externally attested human-root bootstrap, portable human principals, delegated server enrollment, assurance-labeled provenance, and recovery that cannot be bypassed by wiping local runtime state. (`plan:01knannez4esfee0qx0yskagbe`)
 - [Implement first working federated runtime via runtime-targeted prism_query](active/plan-01kncfv6c7tzkc21aemhr0pns2.md): Restore shared-ref runtime descriptors, execute authenticated remote prism_query reads keyed by runtime_id, surface them through prism.from("runtime-id"), and validate authority-aware two-runtime federation without relay or blob export. (`plan:01kncfv6c7tzkc21aemhr0pns2`)
 - [Implement principal identity, authenticated mutation provenance, task and claim lease lifecycle, heartbeat advisories, and CLI/bootstrap auth so PRISM coordination becomes principal-authenticated instead of session-authenticated.](active/plan-01kn3p2nf687bn24v4seqzbey0.md): Implement principal identity, authenticated mutation provenance, task and claim lease lifecycle, heartbeat advisories, and CLI/bootstrap auth so PRISM coordination becomes principal-authenticated instead of session-authenticated. (`plan:01kn3p2nf687bn24v4seqzbey0`)
