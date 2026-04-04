@@ -1,7 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::{Mutex, OnceLock};
 
 use anyhow::{anyhow, Context, Result};
@@ -32,10 +33,19 @@ const SHARED_COORDINATION_HISTORY_MAX_COMMITS: u64 = 32;
 static SHARED_COORDINATION_LIVE_SYNC_STATE: OnceLock<
     Mutex<HashMap<PathBuf, SharedCoordinationLiveSyncState>>,
 > = OnceLock::new();
+static SHARED_COORDINATION_STATE_CACHE: OnceLock<
+    Mutex<HashMap<PathBuf, SharedCoordinationStateCacheEntry>>,
+> = OnceLock::new();
 
 #[derive(Debug, Clone, Default)]
 struct SharedCoordinationLiveSyncState {
     observed_head: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct SharedCoordinationStateCacheEntry {
+    head: String,
+    state: SharedCoordinationRefState,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -168,6 +178,11 @@ fn shared_coordination_live_sync_states(
     SHARED_COORDINATION_LIVE_SYNC_STATE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+fn shared_coordination_state_cache(
+) -> &'static Mutex<HashMap<PathBuf, SharedCoordinationStateCacheEntry>> {
+    SHARED_COORDINATION_STATE_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
 fn record_observed_shared_coordination_head(root: &Path, head: Option<String>) {
     shared_coordination_live_sync_states()
         .lock()
@@ -195,6 +210,7 @@ pub(crate) fn poll_shared_coordination_ref_live_sync(
         return Ok(SharedCoordinationRefLiveSync::Unchanged);
     }
     let ref_name = shared_coordination_ref_name(root);
+    let local_head_before = resolve_ref_commit(root, &ref_name)?;
     let remote_head =
         refresh_local_shared_coordination_ref(root, shared_coordination_remote_name(), &ref_name)?;
     let current_head = remote_head.or_else(|| resolve_ref_commit(root, &ref_name).ok().flatten());
@@ -203,7 +219,7 @@ pub(crate) fn poll_shared_coordination_ref_live_sync(
             .lock()
             .expect("shared coordination live sync state lock poisoned");
         let state = states.entry(root.to_path_buf()).or_default();
-        if state.observed_head == current_head {
+        if state.observed_head == current_head && local_head_before == current_head {
             return Ok(SharedCoordinationRefLiveSync::Unchanged);
         }
         state.observed_head = current_head.clone();
@@ -435,8 +451,18 @@ pub(crate) fn load_shared_coordination_ref_state(
         return Ok(None);
     }
     let ref_name = shared_coordination_ref_name(root);
-    let _ =
-        refresh_local_shared_coordination_ref(root, shared_coordination_remote_name(), &ref_name)?;
+    let Some(current_head) = resolve_ref_commit(root, &ref_name)? else {
+        return Ok(None);
+    };
+    if let Some(cached) = shared_coordination_state_cache()
+        .lock()
+        .expect("shared coordination state cache lock poisoned")
+        .get(root)
+        .filter(|entry| entry.head == current_head)
+        .cloned()
+    {
+        return Ok(Some(cached.state));
+    }
     load_shared_coordination_ref_state_from_current_ref(root, &ref_name)
 }
 
@@ -444,41 +470,48 @@ fn load_shared_coordination_ref_state_from_current_ref(
     root: &Path,
     ref_name: &str,
 ) -> Result<Option<SharedCoordinationRefState>> {
-    let Some(manifest) = load_shared_coordination_manifest_from_ref(root, &ref_name)? else {
+    let Some(current_head) = resolve_ref_commit(root, ref_name)? else {
         return Ok(None);
     };
-    verify_shared_coordination_manifest(root, &manifest)?;
-    let plan_records =
-        load_records_from_ref::<SharedCoordinationPlanRecord, _>(root, &ref_name, |path| {
-            path.starts_with("plans/")
-        })?
+    if let Some(cached) = shared_coordination_state_cache()
+        .lock()
+        .expect("shared coordination state cache lock poisoned")
+        .get(root)
+        .filter(|entry| entry.head == current_head)
+        .cloned()
+    {
+        return Ok(Some(cached.state));
+    }
+    let Some(contents) = load_shared_coordination_ref_contents(root, ref_name)? else {
+        return Ok(None);
+    };
+    let manifest = contents.parse_manifest()?;
+    verify_shared_coordination_manifest(root, &manifest, &contents)?;
+    let plan_records = contents
+        .parse_records::<SharedCoordinationPlanRecord, _>(|path| path.starts_with("plans/"))?
         .into_iter()
         .map(|(_, record)| record)
         .collect::<Vec<_>>();
-    let tasks = load_records_from_ref::<CoordinationTask, _>(root, &ref_name, |path| {
-        path.starts_with("coordination/tasks/")
-    })?
-    .into_iter()
-    .map(|(_, task)| task)
-    .collect::<Vec<_>>();
-    let artifacts = load_records_from_ref::<Artifact, _>(root, &ref_name, |path| {
-        path.starts_with("coordination/artifacts/")
-    })?
-    .into_iter()
-    .map(|(_, artifact)| artifact)
-    .collect::<Vec<_>>();
-    let claims = load_records_from_ref::<WorkClaim, _>(root, &ref_name, |path| {
-        path.starts_with("coordination/claims/")
-    })?
-    .into_iter()
-    .map(|(_, claim)| claim)
-    .collect::<Vec<_>>();
-    let reviews = load_records_from_ref::<ArtifactReview, _>(root, &ref_name, |path| {
-        path.starts_with("coordination/reviews/")
-    })?
-    .into_iter()
-    .map(|(_, review)| review)
-    .collect::<Vec<_>>();
+    let tasks = contents
+        .parse_records::<CoordinationTask, _>(|path| path.starts_with("coordination/tasks/"))?
+        .into_iter()
+        .map(|(_, task)| task)
+        .collect::<Vec<_>>();
+    let artifacts = contents
+        .parse_records::<Artifact, _>(|path| path.starts_with("coordination/artifacts/"))?
+        .into_iter()
+        .map(|(_, artifact)| artifact)
+        .collect::<Vec<_>>();
+    let claims = contents
+        .parse_records::<WorkClaim, _>(|path| path.starts_with("coordination/claims/"))?
+        .into_iter()
+        .map(|(_, claim)| claim)
+        .collect::<Vec<_>>();
+    let reviews = contents
+        .parse_records::<ArtifactReview, _>(|path| path.starts_with("coordination/reviews/"))?
+        .into_iter()
+        .map(|(_, review)| review)
+        .collect::<Vec<_>>();
 
     if plan_records.is_empty()
         && tasks.is_empty()
@@ -539,11 +572,22 @@ fn load_shared_coordination_ref_state_from_current_ref(
             .entry(task.plan.0.to_string())
             .or_default();
     }
-    Ok(Some(SharedCoordinationRefState {
+    let state = SharedCoordinationRefState {
         snapshot,
         plan_graphs,
         execution_overlays,
-    }))
+    };
+    shared_coordination_state_cache()
+        .lock()
+        .expect("shared coordination state cache lock poisoned")
+        .insert(
+            root.to_path_buf(),
+            SharedCoordinationStateCacheEntry {
+                head: current_head,
+                state: state.clone(),
+            },
+        );
+    Ok(Some(state))
 }
 
 fn empty_shared_coordination_ref_state() -> SharedCoordinationRefState {
@@ -997,22 +1041,16 @@ fn load_shared_coordination_manifest_from_ref(
     root: &Path,
     ref_name: &str,
 ) -> Result<Option<SharedCoordinationManifest>> {
-    let Some(_) = resolve_ref_commit(root, ref_name)? else {
+    let Some(contents) = load_shared_coordination_ref_contents(root, ref_name)? else {
         return Ok(None);
     };
-    let bytes = match git_show_file(root, ref_name, "coordination/manifest.json") {
-        Ok(bytes) => bytes,
-        Err(error) if error.to_string().contains("does not exist") => return Ok(None),
-        Err(error) => return Err(error),
-    };
-    Ok(Some(
-        serde_json::from_slice(&bytes).context("failed to parse shared coordination manifest")?,
-    ))
+    contents.parse_manifest().map(Some)
 }
 
 fn verify_shared_coordination_manifest(
     root: &Path,
     manifest: &SharedCoordinationManifest,
+    contents: &SharedCoordinationRefContents,
 ) -> Result<()> {
     let paths = PrismPaths::for_workspace_root(root)?;
     let trusted = resolve_trusted_runtime_key(
@@ -1045,9 +1083,10 @@ fn verify_shared_coordination_manifest(
         .map_err(|error| {
             anyhow!("shared coordination manifest signature verification failed: {error}")
         })?;
-    let ref_name = shared_coordination_ref_name(root);
     for file in manifest.files.values() {
-        let bytes = git_show_file(root, &ref_name, &format!("coordination/{}", file.path))?;
+        let bytes = contents
+            .coordination_bytes(&file.path)
+            .ok_or_else(|| anyhow!("shared coordination manifest is missing `{}`", file.path))?;
         let digest = sha256_prefixed(&bytes);
         if digest != file.sha256 {
             return Err(anyhow!(
@@ -1286,62 +1325,204 @@ fn update_ref_to_commit(
     Ok(())
 }
 
-fn load_records_from_ref<T, F>(root: &Path, ref_name: &str, filter: F) -> Result<Vec<(String, T)>>
-where
-    T: for<'de> Deserialize<'de>,
-    F: Fn(&str) -> bool,
-{
-    let paths = list_ref_json_paths(root, ref_name)?
-        .into_iter()
-        .filter(|path| filter(path.as_str()))
-        .collect::<Vec<_>>();
-    let mut records = Vec::new();
-    for path in paths {
-        let bytes = git_show_file(root, ref_name, &format!("coordination/{path}"))?;
-        let value = serde_json::from_slice::<T>(&bytes)
-            .with_context(|| format!("failed to parse shared coordination ref file `{path}`"))?;
-        records.push((path, value));
-    }
-    records.sort_by(|left, right| left.0.cmp(&right.0));
-    Ok(records)
-}
-
 fn list_ref_json_paths(root: &Path, ref_name: &str) -> Result<Vec<String>> {
-    let output = run_git(
-        root,
-        &["ls-tree", "-r", "--name-only", ref_name, "coordination"],
-    )?;
-    Ok(output
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .filter_map(|line| {
-            let relative = line.strip_prefix("coordination/")?;
-            (relative.ends_with(".json") && relative != "manifest.json")
-                .then(|| relative.to_string())
-        })
+    Ok(list_ref_blob_entries(root, ref_name)?
+        .into_iter()
+        .map(|entry| entry.relative_path)
+        .filter(|relative| relative.ends_with(".json") && relative != "manifest.json")
         .collect())
 }
 
-fn git_show_file(root: &Path, ref_name: &str, path: &str) -> Result<Vec<u8>> {
+#[derive(Debug, Clone)]
+struct RefBlobEntry {
+    relative_path: String,
+    object_id: String,
+}
+
+#[derive(Debug, Clone)]
+struct SharedCoordinationRefContents {
+    files: BTreeMap<String, Vec<u8>>,
+}
+
+impl SharedCoordinationRefContents {
+    fn parse_manifest(&self) -> Result<SharedCoordinationManifest> {
+        let bytes = self
+            .files
+            .get("manifest.json")
+            .ok_or_else(|| anyhow!("shared coordination manifest is missing"))?;
+        serde_json::from_slice(bytes).context("failed to parse shared coordination manifest")
+    }
+
+    fn coordination_bytes(&self, relative_path: &str) -> Option<Vec<u8>> {
+        self.files.get(relative_path).cloned()
+    }
+
+    fn parse_records<T, F>(&self, filter: F) -> Result<Vec<(String, T)>>
+    where
+        T: for<'de> Deserialize<'de>,
+        F: Fn(&str) -> bool,
+    {
+        let mut records = self
+            .files
+            .iter()
+            .filter(|(path, _)| filter(path.as_str()))
+            .map(|(path, bytes)| {
+                let value = serde_json::from_slice::<T>(bytes).with_context(|| {
+                    format!("failed to parse shared coordination ref file `{path}`")
+                })?;
+                Ok((path.clone(), value))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        records.sort_by(|left, right| left.0.cmp(&right.0));
+        Ok(records)
+    }
+}
+
+fn load_shared_coordination_ref_contents(
+    root: &Path,
+    ref_name: &str,
+) -> Result<Option<SharedCoordinationRefContents>> {
+    let Some(_) = resolve_ref_commit(root, ref_name)? else {
+        return Ok(None);
+    };
+    let entries = list_ref_blob_entries(root, ref_name)?;
+    if entries.is_empty() {
+        return Ok(None);
+    }
+    let blob_ids = entries
+        .iter()
+        .map(|entry| entry.object_id.as_str())
+        .collect::<Vec<_>>();
+    let blobs = git_cat_file_batch(root, &blob_ids)?;
+    let mut files = BTreeMap::new();
+    for entry in entries {
+        if let Some(bytes) = blobs.get(&entry.object_id) {
+            files.insert(entry.relative_path, bytes.clone());
+        }
+    }
+    Ok(Some(SharedCoordinationRefContents { files }))
+}
+
+fn list_ref_blob_entries(root: &Path, ref_name: &str) -> Result<Vec<RefBlobEntry>> {
     let output = Command::new("git")
         .current_dir(root)
-        .env("GIT_AUTHOR_NAME", "PRISM")
-        .env("GIT_AUTHOR_EMAIL", "prism@local")
-        .env("GIT_COMMITTER_NAME", "PRISM")
-        .env("GIT_COMMITTER_EMAIL", "prism@local")
-        .args(["show", &format!("{ref_name}:{path}")])
+        .args(["ls-tree", "-r", "-z", ref_name, "coordination"])
         .output()
-        .with_context(|| format!("failed to run git show for `{ref_name}:{path}`"))?;
+        .with_context(|| format!("failed to list shared coordination ref tree for `{ref_name}`"))?;
     if !output.status.success() {
         return Err(anyhow!(
-            "git show {}:{} failed: {}",
+            "git ls-tree -r -z {} coordination failed: {}",
             ref_name,
-            path,
-            String::from_utf8_lossy(&output.stderr).trim()
+            String::from_utf8_lossy(&output.stderr)
         ));
     }
-    Ok(output.stdout)
+    let mut entries = Vec::new();
+    for record in output.stdout.split(|byte| *byte == 0).filter(|record| !record.is_empty()) {
+        let Some(tab_index) = record.iter().position(|byte| *byte == b'\t') else {
+            continue;
+        };
+        let header = std::str::from_utf8(&record[..tab_index])
+            .context("shared coordination ls-tree header is not utf-8")?;
+        let path = std::str::from_utf8(&record[tab_index + 1..])
+            .context("shared coordination ls-tree path is not utf-8")?;
+        let mut parts = header.split_whitespace();
+        let _mode = parts.next();
+        let kind = parts.next();
+        let object_id = parts.next();
+        if kind != Some("blob") {
+            continue;
+        }
+        let Some(relative) = path.strip_prefix("coordination/") else {
+            continue;
+        };
+        if !relative.ends_with(".json") {
+            continue;
+        }
+        let Some(object_id) = object_id else {
+            continue;
+        };
+        entries.push(RefBlobEntry {
+            relative_path: relative.to_string(),
+            object_id: object_id.to_string(),
+        });
+    }
+    Ok(entries)
+}
+
+fn git_cat_file_batch(root: &Path, object_ids: &[&str]) -> Result<HashMap<String, Vec<u8>>> {
+    if object_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+    let mut child = Command::new("git")
+        .current_dir(root)
+        .args(["cat-file", "--batch"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .context("failed to spawn git cat-file --batch")?;
+    {
+        let mut stdin = child.stdin.take().context("git cat-file stdin unavailable")?;
+        for object_id in object_ids {
+            writeln!(stdin, "{object_id}")?;
+        }
+    }
+    let output = child
+        .wait_with_output()
+        .context("failed to wait for git cat-file --batch")?;
+    if !output.status.success() {
+        return Err(anyhow!(
+            "git cat-file --batch failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    parse_git_cat_file_batch_output(&output.stdout)
+}
+
+fn parse_git_cat_file_batch_output(stdout: &[u8]) -> Result<HashMap<String, Vec<u8>>> {
+    let mut blobs = HashMap::new();
+    let mut cursor = 0usize;
+    while cursor < stdout.len() {
+        let Some(header_end_rel) = stdout[cursor..].iter().position(|byte| *byte == b'\n') else {
+            break;
+        };
+        let header_end = cursor + header_end_rel;
+        let header = std::str::from_utf8(&stdout[cursor..header_end])
+            .context("git cat-file batch header is not utf-8")?;
+        cursor = header_end + 1;
+        if header.ends_with(" missing") {
+            continue;
+        }
+        let mut parts = header.split_whitespace();
+        let object_id = parts
+            .next()
+            .ok_or_else(|| anyhow!("git cat-file batch header missing object id"))?;
+        let object_type = parts
+            .next()
+            .ok_or_else(|| anyhow!("git cat-file batch header missing object type"))?;
+        let size = parts
+            .next()
+            .ok_or_else(|| anyhow!("git cat-file batch header missing size"))?
+            .parse::<usize>()
+            .context("failed to parse git cat-file batch object size")?;
+        if object_type != "blob" {
+            return Err(anyhow!(
+                "git cat-file batch returned non-blob object `{object_type}` for `{object_id}`"
+            ));
+        }
+        let end = cursor.saturating_add(size);
+        if end > stdout.len() {
+            return Err(anyhow!(
+                "git cat-file batch output truncated while reading `{object_id}`"
+            ));
+        }
+        blobs.insert(object_id.to_string(), stdout[cursor..end].to_vec());
+        cursor = end;
+        if cursor < stdout.len() && stdout[cursor] == b'\n' {
+            cursor += 1;
+        }
+    }
+    Ok(blobs)
 }
 
 fn run_git(root: &Path, args: &[&str]) -> Result<String> {
@@ -2081,9 +2262,15 @@ mod tests {
         assert!(!remote_head.trim().is_empty());
 
         super::run_git(&root, &["update-ref", "-d", ref_name.as_str()]).unwrap();
-        let loaded = load_shared_coordination_ref_state(&root)
-            .unwrap()
-            .expect("shared ref state should reload from remote");
+        assert!(
+            load_shared_coordination_ref_state(&root).unwrap().is_none(),
+            "request-path shared ref loads should stay local-only until live sync refreshes the ref"
+        );
+        let SharedCoordinationRefLiveSync::Changed(loaded) =
+            poll_shared_coordination_ref_live_sync(&root).unwrap()
+        else {
+            panic!("shared ref live sync should reload state from remote");
+        };
         assert_eq!(loaded.snapshot.tasks, vec![task]);
         assert_eq!(loaded.snapshot.plans, vec![plan]);
     }
