@@ -15,11 +15,12 @@ use prism_core::{shared_coordination_ref_diagnostics, PrismPaths, WorkspaceSessi
 use prism_js::{
     ConnectionInfoView, ProjectionAuthorityPlaneView, ProjectionClassView,
     ProjectionFreshnessStateView, ProjectionMaterializationStateView, ProjectionReadModelView,
-    RuntimeBoundaryRegionView, RuntimeDomainFreshnessView, RuntimeFreshnessView, RuntimeHealthView,
-    RuntimeLogEventView, RuntimeMaterializationCoverageView, RuntimeMaterializationItemView,
-    RuntimeMaterializationView, RuntimeOverlayScopeView, RuntimeProcessView,
-    RuntimeProjectionScopeView, RuntimeQueueDepthView, RuntimeScopesView,
-    RuntimeSharedCoordinationRefView, RuntimeStatusView,
+    RuntimeBoundaryRegionView, RuntimeDescriptorCapabilityView, RuntimeDiscoveryModeView,
+    RuntimeDomainFreshnessView, RuntimeFreshnessView, RuntimeHealthView, RuntimeLogEventView,
+    RuntimeMaterializationCoverageView, RuntimeMaterializationItemView, RuntimeMaterializationView,
+    RuntimeOverlayScopeView, RuntimeProcessView, RuntimeProjectionScopeView, RuntimeQueueDepthView,
+    RuntimeScopesView, RuntimeSharedCoordinationRefView,
+    RuntimeSharedCoordinationRuntimeDescriptorView, RuntimeStatusView,
 };
 use prism_projections::{
     ProjectionAuthorityPlane, ProjectionClass, ProjectionFreshnessState,
@@ -371,6 +372,57 @@ fn runtime_shared_coordination_ref_view(
         compacted_head: value.compacted_head,
         needs_compaction: value.needs_compaction,
         compaction_status: value.compaction_status,
+        runtime_descriptor_count: value.runtime_descriptor_count,
+        runtime_descriptors: value
+            .runtime_descriptors
+            .into_iter()
+            .map(runtime_shared_coordination_runtime_descriptor_view)
+            .collect(),
+    }
+}
+
+fn runtime_shared_coordination_runtime_descriptor_view(
+    value: prism_coordination::RuntimeDescriptor,
+) -> RuntimeSharedCoordinationRuntimeDescriptorView {
+    RuntimeSharedCoordinationRuntimeDescriptorView {
+        runtime_id: value.runtime_id,
+        repo_id: value.repo_id,
+        worktree_id: value.worktree_id,
+        principal_id: value.principal_id,
+        instance_started_at: value.instance_started_at,
+        last_seen_at: value.last_seen_at,
+        branch_ref: value.branch_ref,
+        checked_out_commit: value.checked_out_commit,
+        capabilities: value
+            .capabilities
+            .into_iter()
+            .map(|capability| match capability {
+                prism_coordination::RuntimeDescriptorCapability::CoordinationRefPublisher => {
+                    RuntimeDescriptorCapabilityView::CoordinationRefPublisher
+                }
+                prism_coordination::RuntimeDescriptorCapability::BoundedPeerReads => {
+                    RuntimeDescriptorCapabilityView::BoundedPeerReads
+                }
+                prism_coordination::RuntimeDescriptorCapability::BundleExports => {
+                    RuntimeDescriptorCapabilityView::BundleExports
+                }
+            })
+            .collect(),
+        discovery_mode: match value.discovery_mode {
+            prism_coordination::RuntimeDiscoveryMode::None => RuntimeDiscoveryModeView::None,
+            prism_coordination::RuntimeDiscoveryMode::LanDirect => {
+                RuntimeDiscoveryModeView::LanDirect
+            }
+            prism_coordination::RuntimeDiscoveryMode::RelayOnly => {
+                RuntimeDiscoveryModeView::RelayOnly
+            }
+            prism_coordination::RuntimeDiscoveryMode::Full => RuntimeDiscoveryModeView::Full,
+        },
+        peer_endpoint: value.peer_endpoint,
+        relay_endpoint: value.relay_endpoint,
+        peer_transport_identity: value.peer_transport_identity,
+        blob_snapshot_head: value.blob_snapshot_head,
+        export_policy: value.export_policy,
     }
 }
 

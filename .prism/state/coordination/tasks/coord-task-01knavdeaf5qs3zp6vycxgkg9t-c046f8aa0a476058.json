@@ -1,0 +1,74 @@
+{
+  "id": "coord-task:01knavdeaf5qs3zp6vycxgkg9t",
+  "plan": "plan:01knav51cj8vgw0zp49qgktzps",
+  "kind": "Edit",
+  "title": "Add trusted landing records for squash and rebase integration evidence",
+  "summary": "Make target-integration verification work for non-merge landings by recording trusted landing evidence that binds rebased or squashed target commits back to the originating task and review artifacts.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01knavcv05nn8t2gc1z31gg0fy"
+  ],
+  "acceptance": [
+    {
+      "label": "Squash and rebase landings can be verified through trusted PRISM records rather than raw branch reachability alone.",
+      "anchors": []
+    },
+    {
+      "label": "Landing evidence can bind review artifacts, target commits, and task ids without relying on ambiguous commit ancestry.",
+      "anchors": []
+    },
+    {
+      "label": "Ambiguous or unverifiable target commits remain rejected until explicit trusted landing evidence exists.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 173,
+    "git_commit": null
+  },
+  "priority": 96,
+  "tags": [
+    "evidence",
+    "integration",
+    "shared-ref"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "sourceCommit": null,
+    "publishCommit": null,
+    "targetCommitAtPublish": null,
+    "reviewArtifactRef": null,
+    "integrationCommit": null,
+    "integrationMode": "external",
+    "integrationStatus": "not_started",
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

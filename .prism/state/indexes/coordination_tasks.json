@@ -1802,7 +1802,7 @@
   {
     "id": "coord-task:01kna8v52e247h2xymfv8ksdb0",
     "title": "Validate local-machine peer observability, capability denial, and graceful fallback with no peer",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01kna8v52e247h2xymfv8ksdb0-49ee0589d9feadf0.json"
   },
   {
@@ -1918,6 +1918,72 @@
     "title": "Implement durable target integration lifecycle and verification",
     "status": "Completed",
     "path": "tasks/coord-task-01knaqpp6mxkybk88n72frrq4p-ffadc2cc3dbd3d30.json"
+  },
+  {
+    "id": "coord-task:01knav6qm2h72t0pc3xqmv92zt",
+    "title": "Freeze the final section-by-section shared-ref gap matrix and acceptance contract",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knav6qm2h72t0pc3xqmv92zt-f23b1727f3c0eae6.json"
+  },
+  {
+    "id": "coord-task:01knavc6b8qhznt2e1yrn7mmwh",
+    "title": "Demote branch-local shared coordination mirrors to minimal derived exports",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knavc6b8qhznt2e1yrn7mmwh-e818733c2ee8095f.json"
+  },
+  {
+    "id": "coord-task:01knavcv05nn8t2gc1z31gg0fy",
+    "title": "Represent branch publication, coordination publication, and target integration as distinct durable states",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knavcv05nn8t2gc1z31gg0fy-696bb9119806f104.json"
+  },
+  {
+    "id": "coord-task:01knavdeaf5qs3zp6vycxgkg9t",
+    "title": "Add trusted landing records for squash and rebase integration evidence",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knavdeaf5qs3zp6vycxgkg9t-c046f8aa0a476058.json"
+  },
+  {
+    "id": "coord-task:01knave01nvcrq91vnt8np1mkg",
+    "title": "Complete manual_pr integration mode with review-backed observation and landing verification",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knave01nvcrq91vnt8np1mkg-8243c5ba734653e9.json"
+  },
+  {
+    "id": "coord-task:01knavehyd4a49fk7b4rnjxz67",
+    "title": "Complete auto_pr mode with review artifact creation, update flow, and post-land verification",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knavehyd4a49fk7b4rnjxz67-1b7d4ec5bf54ee99.json"
+  },
+  {
+    "id": "coord-task:01knavf33fkvpsc79jd5k9tkdj",
+    "title": "Complete direct_integrate mode with trusted direct landing execution and immediate verification",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knavf33fkvpsc79jd5k9tkdj-e1d9955073e5b3c1.json"
+  },
+  {
+    "id": "coord-task:01knavfm5fk9gsvb56pbsb58hh",
+    "title": "Make scheduling, dependency gating, and query views integration-aware",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knavfm5fk9gsvb56pbsb58hh-18fc2119d9377c59.json"
+  },
+  {
+    "id": "coord-task:01knavg5dce3ytrw4pbsfrbz1g",
+    "title": "Finish durable lease publication and low-frequency authoritative renewal on the shared ref",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knavg5dce3ytrw4pbsfrbz1g-d16f0f98f829679a.json"
+  },
+  {
+    "id": "coord-task:01knavgtmdhbdm9hr190t7n7c7",
+    "title": "Keep assisted heartbeat renewal local, off by default, bounded, and non-authoritative",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knavgtmdhbdm9hr190t7n7c7-7506d3c5b58e07dc.json"
+  },
+  {
+    "id": "coord-task:01knavpwvj8r99x8yarrsam19g",
+    "title": "Finish compaction, archive-boundary trust continuity, and operator diagnostics",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knavpwvj8r99x8yarrsam19g-21e7f6bd45c08f6b.json"
   },
   {
     "id": "coord-task:1",

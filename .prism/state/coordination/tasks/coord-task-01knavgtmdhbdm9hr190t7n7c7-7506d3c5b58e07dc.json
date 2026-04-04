@@ -1,10 +1,10 @@
 {
-  "id": "coord-task:01kna8v52e247h2xymfv8ksdb0",
-  "plan": "plan:01kna8sczaf3vhy8q6erq4fdvr",
+  "id": "coord-task:01knavgtmdhbdm9hr190t7n7c7",
+  "plan": "plan:01knav51cj8vgw0zp49qgktzps",
   "kind": "Edit",
-  "title": "Validate local-machine peer observability, capability denial, and graceful fallback with no peer",
-  "summary": null,
-  "status": "Completed",
+  "title": "Keep assisted heartbeat renewal local, off by default, bounded, and non-authoritative",
+  "summary": "Constrain assisted renewal so it helps local liveness only when explicitly enabled and never becomes a substitute for authoritative lease extension on the shared ref.",
+  "status": "Ready",
   "published_task_status": null,
   "assignee": null,
   "pending_handoff_to": null,
@@ -25,17 +25,34 @@
     "outcome_refs": []
   },
   "depends_on": [
-    "coord-task:01kna8v02c0p53pdfckcyq0vaw"
+    "coord-task:01knavg5dce3ytrw4pbsfrbz1g"
   ],
-  "acceptance": [],
+  "acceptance": [
+    {
+      "label": "Assisted renewal remains off by default and is never treated as authoritative identity or claim proof.",
+      "anchors": []
+    },
+    {
+      "label": "Only authoritative lease extensions publish to the shared ref; local heartbeat assistance stays local and bounded.",
+      "anchors": []
+    },
+    {
+      "label": "Diagnostics clearly distinguish local liveness assistance from durable shared-ref lease state.",
+      "anchors": []
+    }
+  ],
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1249,
+    "graph_version": 173,
     "git_commit": null
   },
-  "priority": null,
-  "tags": [],
+  "priority": 90,
+  "tags": [
+    "heartbeat",
+    "lease",
+    "shared-ref"
+  ],
   "metadata": null,
   "git_execution": {
     "status": "not_started",
