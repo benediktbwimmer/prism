@@ -11,7 +11,10 @@ use serde::Deserialize;
 
 use crate::ui_assets::{prism_ui_asset, prism_ui_index_html, prism_ui_unbuilt_html};
 use crate::ui_read_models::QueryHostUiReadModelsExt;
-use crate::ui_types::{PrismGraphView, PrismOverviewView, PrismPlansView};
+use crate::ui_types::{
+    PrismGraphView, PrismOverviewView, PrismPlansView, PrismUiApiPlaceholderView,
+    PrismUiSessionBootstrapView,
+};
 use crate::QueryHost;
 
 #[derive(Clone)]
@@ -25,6 +28,11 @@ pub(crate) fn routes(state: PrismUiState) -> Router {
         .route("/api/overview", get(prism_ui_overview))
         .route("/api/plans", get(prism_ui_plans))
         .route("/api/graph", get(prism_ui_graph))
+        .route("/api/v1/session", get(prism_ui_session))
+        .route("/api/v1/plans", get(prism_ui_plans))
+        .route("/api/v1/plans/{plan_id}/graph", get(prism_ui_plan_graph))
+        .route("/api/v1/tasks/{task_id}", get(prism_ui_task_placeholder))
+        .route("/api/v1/fleet", get(prism_ui_fleet_placeholder))
         .route("/dashboard", get(prism_ui_index))
         .route("/dashboard/", get(prism_ui_index))
         .route("/dashboard/favicon.svg", get(prism_ui_favicon))
@@ -32,6 +40,8 @@ pub(crate) fn routes(state: PrismUiState) -> Router {
         .route("/favicon.svg", get(prism_ui_favicon))
         .route("/assets/{*path}", get(prism_ui_root_asset))
         .route("/", get(prism_ui_index))
+        .route("/fleet", get(prism_ui_index))
+        .route("/fleet/", get(prism_ui_index))
         .route("/plans", get(prism_ui_index))
         .route("/plans/", get(prism_ui_index))
         .route("/graph", get(prism_ui_index))
@@ -71,6 +81,16 @@ async fn prism_ui_overview(
         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
 }
 
+async fn prism_ui_session(
+    State(state): State<PrismUiState>,
+) -> std::result::Result<Json<PrismUiSessionBootstrapView>, (StatusCode, String)> {
+    state
+        .host
+        .ui_session_bootstrap_view()
+        .map(Json)
+        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
+}
+
 async fn prism_ui_plans(
     State(state): State<PrismUiState>,
     Query(query): Query<PlansQuery>,
@@ -82,6 +102,20 @@ async fn prism_ui_plans(
         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
 }
 
+async fn prism_ui_plan_graph(
+    State(state): State<PrismUiState>,
+    Path(plan_id): Path<String>,
+) -> std::result::Result<Json<prism_js::PlanGraphView>, (StatusCode, String)> {
+    let graph = state
+        .host
+        .ui_plan_graph_view(&plan_id)
+        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    match graph {
+        Some(graph) => Ok(Json(graph)),
+        None => Err((StatusCode::NOT_FOUND, format!("plan graph not found: {plan_id}"))),
+    }
+}
+
 async fn prism_ui_graph(
     State(state): State<PrismUiState>,
     Query(query): Query<GraphQuery>,
@@ -91,6 +125,25 @@ async fn prism_ui_graph(
         .ui_graph_view(query.concept_handle.as_deref())
         .map(Json)
         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
+}
+
+async fn prism_ui_task_placeholder(
+    State(state): State<PrismUiState>,
+    Path(task_id): Path<String>,
+) -> Json<PrismUiApiPlaceholderView> {
+    Json(state.host.ui_placeholder_view(
+        &format!("/api/v1/tasks/{task_id}"),
+        "Task detail read models land in the next operator-console backend task.",
+    ))
+}
+
+async fn prism_ui_fleet_placeholder(
+    State(state): State<PrismUiState>,
+) -> Json<PrismUiApiPlaceholderView> {
+    Json(state.host.ui_placeholder_view(
+        "/api/v1/fleet",
+        "Fleet timeline and runtime utilization read models land in a later operator-console backend task.",
+    ))
 }
 
 async fn prism_ui_favicon(
@@ -134,6 +187,7 @@ mod tests {
     use super::*;
     use axum::body::{to_bytes, Body};
     use axum::http::{Request, StatusCode};
+    use serde_json::Value;
     use tower::util::ServiceExt;
 
     use crate::tests_support::{host_with_session, temp_workspace};
@@ -146,7 +200,7 @@ mod tests {
         let host = Arc::new(host_with_session(index_workspace_session(&root).unwrap()));
         let router = routes(PrismUiState { host, root });
 
-        for path in ["/", "/plans", "/graph", "/dashboard"] {
+        for path in ["/", "/plans", "/graph", "/fleet", "/dashboard"] {
             let response = router
                 .clone()
                 .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
@@ -194,5 +248,47 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(asset.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn ui_v1_session_bootstrap_is_available() {
+        let root = temp_workspace();
+        let host = Arc::new(host_with_session(index_workspace_session(&root).unwrap()));
+        let router = routes(PrismUiState { host, root });
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/session")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let value: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(value["pollingIntervalMs"], Value::from(2000));
+        assert!(value.get("runtime").is_some());
+        assert!(value.get("session").is_some());
+    }
+
+    #[tokio::test]
+    async fn ui_v1_task_and_fleet_placeholders_are_stable_json() {
+        let root = temp_workspace();
+        let host = Arc::new(host_with_session(index_workspace_session(&root).unwrap()));
+        let router = routes(PrismUiState { host, root });
+
+        for path in ["/api/v1/tasks/demo-task", "/api/v1/fleet"] {
+            let response = router
+                .clone()
+                .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+            let value: Value = serde_json::from_slice(&body).unwrap();
+            assert_eq!(value["status"], Value::from("not_implemented"));
+        }
     }
 }

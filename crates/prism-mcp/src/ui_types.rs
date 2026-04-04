@@ -66,6 +66,22 @@ pub(crate) struct PrismOverviewView {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiSessionBootstrapView {
+    pub(crate) session: SessionView,
+    pub(crate) runtime: RuntimeStatusView,
+    pub(crate) polling_interval_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiApiPlaceholderView {
+    pub(crate) endpoint: String,
+    pub(crate) status: String,
+    pub(crate) message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct OverviewPlanSignalsView {
     pub(crate) blocked_nodes: usize,
     pub(crate) review_gated_nodes: usize,

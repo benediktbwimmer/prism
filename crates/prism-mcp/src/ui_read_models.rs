@@ -12,6 +12,7 @@ use prism_memory::OutcomeRecallQuery;
 use crate::ui_types::{
     GraphPlanTouchpointView, GraphTouchedNodeView, OverviewConceptSpotlightView,
     OverviewPlanSignalsView, OverviewPlanSpotlightView, PrismGraphView,
+    PrismUiApiPlaceholderView, PrismUiSessionBootstrapView,
     PrismOverviewCoordinationQueuesView, PrismOverviewCoordinationView, PrismOverviewSummaryView,
     PrismOverviewTaskView, PrismOverviewView, PrismPlanDetailView, PrismPlansView,
 };
@@ -46,14 +47,26 @@ const OVERVIEW_COORDINATION_REVIEW_LIMIT: usize = 6;
 const OVERVIEW_COORDINATION_VIOLATION_LIMIT: usize = 6;
 const OVERVIEW_COORDINATION_HANDOFF_LIMIT: usize = 6;
 const OVERVIEW_COORDINATION_CLAIM_LIMIT: usize = 6;
+pub(crate) const UI_POLLING_INTERVAL_MS: u64 = 2_000;
 
 pub(crate) trait QueryHostUiReadModelsExt {
+    fn ui_session_bootstrap_view(&self) -> Result<PrismUiSessionBootstrapView>;
     fn ui_overview_view(&self) -> Result<PrismOverviewView>;
     fn ui_plans_view(&self, selected_plan_id: Option<&str>) -> Result<PrismPlansView>;
     fn ui_graph_view(&self, selected_concept_handle: Option<&str>) -> Result<PrismGraphView>;
+    fn ui_plan_graph_view(&self, plan_id: &str) -> Result<Option<prism_js::PlanGraphView>>;
+    fn ui_placeholder_view(&self, endpoint: &str, message: &str) -> PrismUiApiPlaceholderView;
 }
 
 impl QueryHostUiReadModelsExt for QueryHost {
+    fn ui_session_bootstrap_view(&self) -> Result<PrismUiSessionBootstrapView> {
+        Ok(PrismUiSessionBootstrapView {
+            session: ui_session_view(self, None),
+            runtime: runtime_status(self)?,
+            polling_interval_ms: UI_POLLING_INTERVAL_MS,
+        })
+    }
+
     fn ui_overview_view(&self) -> Result<PrismOverviewView> {
         let summary = ui_overview_summary_view(self)?;
         let task = ui_overview_task_view(self, None)?;
@@ -239,6 +252,20 @@ impl QueryHostUiReadModelsExt for QueryHost {
             entry_concepts,
             related_plans,
         })
+    }
+
+    fn ui_plan_graph_view(&self, plan_id: &str) -> Result<Option<prism_js::PlanGraphView>> {
+        let prism = self.current_prism();
+        let plan_id = PlanId::new(plan_id.to_string());
+        Ok(prism.plan_graph(&plan_id).map(plan_graph_view))
+    }
+
+    fn ui_placeholder_view(&self, endpoint: &str, message: &str) -> PrismUiApiPlaceholderView {
+        PrismUiApiPlaceholderView {
+            endpoint: endpoint.to_string(),
+            status: "not_implemented".to_string(),
+            message: message.to_string(),
+        }
     }
 }
 
