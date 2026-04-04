@@ -11,10 +11,11 @@ Scope: replacing a centralized shared runtime database with a federated repo-nat
 PRISM should support a federated runtime architecture that removes the need for a mandatory shared
 Postgres runtime for most repositories.
 
-The design uses three primary layers:
+The design uses four primary layers:
 
 - shared Git refs for compact authoritative coordination and runtime discovery
 - worktree-local SQLite for rich append-only runtime state and hot local serving
+- optional peer-targeted reads over the existing PRISM read surface
 - optional blob-backed session exports for cold retrieval, replay, and historical continuity
 
 An optional thin API service may sit on top of blob exports and runtime descriptors, but it should
@@ -24,8 +25,8 @@ The core principle is:
 
 - Git refs carry the shared facts that must converge across runtimes
 - local SQLite carries the rich facts that are too large, too chatty, or too local for Git refs
-- direct runtime-to-runtime queries and blob exports provide opportunistic enrichment, not required
-  correctness
+- the normal read tools stay primary, but may optionally target another runtime for enrichment
+- peer reads and blob exports provide opportunistic enrichment, not required correctness
 
 This makes PRISM a distributed system, but in a repo-native way rather than a database-first way.
 
@@ -70,6 +71,8 @@ Required goals:
 - preserve local-first and offline operation
 - keep correctness independent of peer liveness
 - keep authority boundaries explicit and inspectable
+- keep the MCP and query surface simple by reusing existing read tools with an optional runtime
+  selector instead of introducing a parallel "peer tool" family
 
 Required non-goals:
 
@@ -141,6 +144,40 @@ Examples:
 - not-yet-exported runtime bundles
 
 Peer exchange is optional and opportunistic.
+
+The important API consequence is that this should not feel like a second read system.
+
+In the target model, normal PRISM read tools such as:
+
+- `prism_locate`
+- `prism_gather`
+- `prism_open`
+- `prism_workset`
+- `prism_expand`
+- `prism_query`
+- typed query views
+
+should accept an optional `runtime_id` target argument.
+
+That argument lets the same read surface execute against:
+
+- the local runtime by default
+- a live peer runtime when explicitly requested by `runtime_id`
+- eventually an archive/export target when the read class allows it
+
+This keeps the user-facing model simple:
+
+- same read tool surface
+- different runtime target when needed
+
+instead of forcing callers to learn a second peer-only tool family.
+
+The important boundary is:
+
+- public tool contract: `runtime_id`
+- resolution source: shared-ref runtime descriptor registry
+- transport details such as direct endpoint, relay route, or archive handle remain descriptor
+  internals and are not exposed as first-class tool arguments
 
 For public-internet reachability, PRISM should support a `relay_only` transport mode in which the
 runtime opens an outbound long-lived connection to a dumb relay. The relay is transport only: it
@@ -231,6 +268,11 @@ Illustrative descriptor fields:
 
 The descriptor must stay compact.
 
+The descriptor is not the primary user-facing query handle.
+
+The primary query handle should be `runtime_id`, with descriptor resolution happening internally
+through shared coordination state.
+
 It exists to answer:
 
 - which runtimes are alive for this repo?
@@ -308,11 +350,65 @@ That is enough for correct operation.
 
 ---
 
-## 8. Peer-to-Peer Query Model
+## 8. Federated Read Model
 
 Peer querying should be an enrichment path, not a correctness dependency.
 
-### 8.1 What peers may serve
+The main product rule is:
+
+- PRISM should not introduce a separate primary read surface just because runtime targeting exists
+
+Instead, the existing read tools should grow an optional runtime target parameter and continue to
+respect the same authority rules they already have.
+
+### 8.1 Runtime-targeted reads on the existing tool surface
+
+Any read-oriented PRISM tool may take an optional `runtime_id` argument.
+
+Illustrative shape:
+
+- omitted runtime target
+  - read against the local runtime, as today
+- explicit runtime target
+  - read against the named remote runtime when policy allows
+
+Illustrative candidates:
+
+- `prism_locate`
+- `prism_gather`
+- `prism_open`
+- `prism_workset`
+- `prism_expand`
+- `prism_query`
+- typed query views such as `impact(...)`, `afterEdit(...)`, or `validationPlan(...)`
+
+The goal is simplicity and power:
+
+- one read surface
+- one optional `runtime_id`
+- no split between "normal reads" and "peer reads"
+
+For `prism_query`, the preferred query surface should be chainable runtime targeting instead of an
+extra top-level peer API.
+
+Illustrative shape:
+
+```ts
+const local = prism.concepts({ anchor: "auth" });
+const peerA = prism.from("runtime-abc").memories({ topic: "auth" });
+const peerB = prism.from("runtime-xyz").drafts({ path: "src/auth/" });
+
+return { local, peerA, peerB };
+```
+
+This should be read as:
+
+- `prism` without `.from(...)` targets the local runtime
+- `prism.from("<runtime_id>")` targets another runtime by `runtime_id`
+- the returned read results must still preserve their authority classification, such as
+  local/default, peer-enriched, shared-authoritative, or archive-enriched as appropriate
+
+### 8.2 What peers may serve
 
 Peers may expose authenticated read APIs for:
 
@@ -323,7 +419,7 @@ Peers may expose authenticated read APIs for:
 - local serving projections
 - runtime diagnostics
 
-### 8.2 What peers should not be required to serve
+### 8.3 What peers should not be required to serve
 
 Peers should not be mandatory for:
 
@@ -335,7 +431,29 @@ Peers should not be mandatory for:
 
 Those must already be recoverable from shared refs plus repo-published state.
 
-### 8.3 Motivating workflows
+### 8.4 Authority-aware behavior still applies
+
+Runtime targeting must not flatten the authority model.
+
+The read layer should stay honest about which authority plane is primary for the requested data.
+
+In practice:
+
+- coordination truth should stay shared-ref-first
+- repo semantic truth should stay repo-published-state-first
+- rich replay, diagnostics, hot overlays, and local execution detail are the best candidates for
+  runtime-targeted reads
+
+So the design is not:
+
+- "all reads are just remote database lookups now"
+
+It is:
+
+- "the same read tools may optionally target a runtime, while still respecting the authority rules
+  of the data they are reading"
+
+### 8.5 Motivating workflows
 
 The federated peer layer matters because it lets agents collaborate before state is reduced to Git.
 
@@ -395,7 +513,7 @@ These scenarios are the reason the peer layer exists. It is not just a transport
 is the mechanism that lets PRISM share rich operational context without turning that context into
 repo-published authority.
 
-### 8.4 Query preference order
+### 8.6 Query preference order
 
 For a rich historical or local-diagnostic query, PRISM should prefer:
 
@@ -410,7 +528,7 @@ For authoritative shared coordination queries, PRISM should prefer:
 2. repo-published `.prism` if relevant
 3. local/peer enrichment only as additional context
 
-### 8.5 Authentication and trust
+### 8.7 Authentication and trust
 
 Peer queries must be authenticated and policy-controlled.
 
@@ -773,7 +891,8 @@ Add compact runtime discovery descriptors to shared coordination state.
 
 ### Phase 3: peer read protocol
 
-Add authenticated peer read APIs for bounded rich-state exchange.
+Add authenticated runtime-targeted read support behind the existing PRISM read tools for bounded
+rich-state exchange.
 
 ### Phase 4: export bundles
 
@@ -820,7 +939,7 @@ The recommended stack is:
 
 - shared coordination refs for compact shared truth
 - local SQLite for rich runtime authority
-- optional peer exchange for live enrichment
+- optional runtime-targeted peer reads for live enrichment
 - optional blob export for cold continuity
 - optional thin API service for retrieval and relaying
 
