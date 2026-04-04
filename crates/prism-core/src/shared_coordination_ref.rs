@@ -49,6 +49,51 @@ struct SharedCoordinationStateCacheEntry {
     state: SharedCoordinationRefState,
 }
 
+#[derive(Debug, Default)]
+struct SharedCoordinationPublishPatch {
+    upserts: BTreeSet<String>,
+    deletes: BTreeSet<String>,
+    manifest_files: BTreeMap<String, SharedCoordinationManifestFile>,
+}
+
+impl SharedCoordinationPublishPatch {
+    fn from_previous_manifest(previous_manifest: Option<&SharedCoordinationManifest>) -> Self {
+        Self {
+            upserts: BTreeSet::new(),
+            deletes: BTreeSet::new(),
+            manifest_files: previous_manifest
+                .map(|manifest| manifest.files.clone())
+                .unwrap_or_default(),
+        }
+    }
+
+    fn stage_json<T>(&mut self, stage_dir: &Path, relative_path: &str, value: &T) -> Result<()>
+    where
+        T: Serialize,
+    {
+        let path = stage_snapshot_root(stage_dir).join(relative_path);
+        let bytes = write_json_file(&path, value)?;
+        self.upserts.insert(format!("coordination/{relative_path}"));
+        self.deletes
+            .remove(&format!("coordination/{relative_path}"));
+        self.manifest_files.insert(
+            relative_path.to_string(),
+            SharedCoordinationManifestFile {
+                path: relative_path.to_string(),
+                sha256: sha256_prefixed(&bytes),
+            },
+        );
+        Ok(())
+    }
+
+    fn delete_path(&mut self, relative_path: &str) {
+        self.upserts
+            .remove(&format!("coordination/{relative_path}"));
+        self.deletes.insert(format!("coordination/{relative_path}"));
+        self.manifest_files.remove(relative_path);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SharedCoordinationManifestPublisher {
@@ -274,38 +319,6 @@ fn stage_manifest_path(stage_root: &Path) -> PathBuf {
     stage_snapshot_root(stage_root).join("manifest.json")
 }
 
-fn stage_plans_dir(stage_root: &Path) -> PathBuf {
-    stage_snapshot_root(stage_root).join("plans")
-}
-
-fn stage_tasks_dir(stage_root: &Path) -> PathBuf {
-    stage_snapshot_root(stage_root)
-        .join("coordination")
-        .join("tasks")
-}
-
-fn stage_artifacts_dir(stage_root: &Path) -> PathBuf {
-    stage_snapshot_root(stage_root)
-        .join("coordination")
-        .join("artifacts")
-}
-
-fn stage_claims_dir(stage_root: &Path) -> PathBuf {
-    stage_snapshot_root(stage_root)
-        .join("coordination")
-        .join("claims")
-}
-
-fn stage_reviews_dir(stage_root: &Path) -> PathBuf {
-    stage_snapshot_root(stage_root)
-        .join("coordination")
-        .join("reviews")
-}
-
-fn stage_indexes_dir(stage_root: &Path) -> PathBuf {
-    stage_snapshot_root(stage_root).join("indexes")
-}
-
 fn snapshot_file_name(identity: &str) -> String {
     let mut stem = identity
         .chars()
@@ -324,26 +337,6 @@ fn snapshot_file_name(identity: &str) -> String {
     let stem = if stem.is_empty() { "snapshot" } else { stem };
     let digest = stable_hash_bytes(identity.as_bytes());
     format!("{stem}-{digest:016x}.json")
-}
-
-fn plan_snapshot_path(stage_root: &Path, plan_id: &str) -> PathBuf {
-    stage_plans_dir(stage_root).join(snapshot_file_name(plan_id))
-}
-
-fn task_snapshot_path(stage_root: &Path, task_id: &str) -> PathBuf {
-    stage_tasks_dir(stage_root).join(snapshot_file_name(task_id))
-}
-
-fn artifact_snapshot_path(stage_root: &Path, artifact_id: &str) -> PathBuf {
-    stage_artifacts_dir(stage_root).join(snapshot_file_name(artifact_id))
-}
-
-fn claim_snapshot_path(stage_root: &Path, claim_id: &str) -> PathBuf {
-    stage_claims_dir(stage_root).join(snapshot_file_name(claim_id))
-}
-
-fn review_snapshot_path(stage_root: &Path, review_id: &str) -> PathBuf {
-    stage_reviews_dir(stage_root).join(snapshot_file_name(review_id))
 }
 
 pub(crate) fn sync_shared_coordination_ref_state(
@@ -404,31 +397,34 @@ fn sync_shared_coordination_ref_state_inner(
     let mut current_plan_graphs = desired_plan_graphs.clone();
     let mut current_execution_overlays = desired_execution_overlays.clone();
     let mut current_expected_head = expected_remote_head.map(str::to_string);
+    let mut current_baseline_state = baseline_state.cloned();
     let mut current_previous_manifest = load_shared_coordination_manifest_from_ref(root, ref_name)?;
 
     for attempt in 0..=SHARED_COORDINATION_PUSH_MAX_RETRIES {
-        sync_plan_objects(
+        let _ = fs::remove_dir_all(stage_dir);
+        fs::create_dir_all(stage_dir)?;
+        let current_state = SharedCoordinationRefState {
+            snapshot: current_snapshot.clone(),
+            plan_graphs: current_plan_graphs.clone(),
+            execution_overlays: current_execution_overlays.clone(),
+        };
+        let mut patch = build_shared_coordination_publish_patch(
             stage_dir,
-            &current_snapshot,
-            &current_plan_graphs,
-            &current_execution_overlays,
+            current_previous_manifest.as_ref(),
+            current_baseline_state.as_ref(),
+            &current_state,
         )?;
-        sync_task_objects(stage_dir, &current_snapshot.tasks)?;
-        sync_artifact_objects(stage_dir, &current_snapshot.artifacts)?;
-        sync_claim_objects(stage_dir, &current_snapshot.claims)?;
-        sync_review_objects(stage_dir, &current_snapshot.reviews)?;
-        rebuild_plan_index(stage_dir, &current_snapshot.plans)?;
-        rebuild_task_index(stage_dir, &current_snapshot.tasks)?;
-        rebuild_artifact_index(stage_dir, &current_snapshot.artifacts)?;
-        rebuild_claim_index(stage_dir, &current_snapshot.claims)?;
-        rebuild_review_index(stage_dir, &current_snapshot.reviews)?;
         write_manifest(
             stage_dir,
             paths,
             publish,
             current_previous_manifest.as_ref(),
+            patch.manifest_files.clone(),
         )?;
-        publish_stage_to_ref(root, stage_dir, ref_name)?;
+        patch
+            .upserts
+            .insert("coordination/manifest.json".to_string());
+        publish_stage_patch_to_ref(root, stage_dir, ref_name, &patch.upserts, &patch.deletes)?;
         match push_shared_coordination_ref(
             root,
             shared_coordination_remote_name(),
@@ -475,6 +471,7 @@ fn sync_shared_coordination_ref_state_inner(
                     &desired_snapshot,
                     latest_state.as_ref(),
                 )?;
+                current_baseline_state = latest_state;
                 current_snapshot = reconciled.snapshot;
                 current_plan_graphs = reconciled.plan_graphs;
                 current_execution_overlays = reconciled.execution_overlays;
@@ -529,6 +526,59 @@ pub(crate) fn shared_coordination_startup_authority(
         head_commit: Some(head_commit),
         manifest_digest,
     }))
+}
+
+fn build_shared_coordination_publish_patch(
+    stage_dir: &Path,
+    previous_manifest: Option<&SharedCoordinationManifest>,
+    baseline_state: Option<&SharedCoordinationRefState>,
+    next_state: &SharedCoordinationRefState,
+) -> Result<SharedCoordinationPublishPatch> {
+    let mut patch = SharedCoordinationPublishPatch::from_previous_manifest(previous_manifest);
+    let empty = empty_shared_coordination_ref_state();
+    let baseline = baseline_state.unwrap_or(&empty);
+
+    sync_plan_record_patch(stage_dir, &mut patch, baseline, next_state)?;
+    sync_task_record_patch(stage_dir, &mut patch, baseline, next_state)?;
+    sync_artifact_record_patch(stage_dir, &mut patch, baseline, next_state)?;
+    sync_claim_record_patch(stage_dir, &mut patch, baseline, next_state)?;
+    sync_review_record_patch(stage_dir, &mut patch, baseline, next_state)?;
+    sync_index_patch(
+        stage_dir,
+        &mut patch,
+        "indexes/plans.json",
+        &plan_index_entries(&baseline.snapshot.plans),
+        &plan_index_entries(&next_state.snapshot.plans),
+    )?;
+    sync_index_patch(
+        stage_dir,
+        &mut patch,
+        "indexes/tasks.json",
+        &task_index_entries(&baseline.snapshot.tasks),
+        &task_index_entries(&next_state.snapshot.tasks),
+    )?;
+    sync_index_patch(
+        stage_dir,
+        &mut patch,
+        "indexes/artifacts.json",
+        &artifact_index_entries(&baseline.snapshot.artifacts),
+        &artifact_index_entries(&next_state.snapshot.artifacts),
+    )?;
+    sync_index_patch(
+        stage_dir,
+        &mut patch,
+        "indexes/claims.json",
+        &claim_index_entries(&baseline.snapshot.claims),
+        &claim_index_entries(&next_state.snapshot.claims),
+    )?;
+    sync_index_patch(
+        stage_dir,
+        &mut patch,
+        "indexes/reviews.json",
+        &review_index_entries(&baseline.snapshot.reviews),
+        &review_index_entries(&next_state.snapshot.reviews),
+    )?;
+    Ok(patch)
 }
 
 fn load_shared_coordination_ref_state_from_current_ref(
@@ -898,175 +948,280 @@ pub fn shared_coordination_ref_diagnostics(
     }))
 }
 
-fn sync_plan_objects(
-    stage_dir: &Path,
-    snapshot: &CoordinationSnapshot,
-    plan_graphs: &[PlanGraph],
-    execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
-) -> Result<()> {
-    let mut expected = BTreeSet::new();
-    for plan in &snapshot.plans {
-        let Some(graph) = plan_graphs.iter().find(|graph| graph.id == plan.id) else {
-            continue;
-        };
-        let path = plan_snapshot_path(stage_dir, &plan.id.0);
-        expected.insert(path.clone());
-        write_json_file(
-            &path,
-            &SharedCoordinationPlanRecord {
-                plan: plan.clone(),
-                graph: graph.clone(),
-                execution_overlays: execution_overlays
-                    .get(plan.id.0.as_str())
-                    .cloned()
-                    .unwrap_or_default(),
-            },
-        )?;
-    }
-    cleanup_directory_json_files(&stage_plans_dir(stage_dir), &expected)
+fn relative_index_path(category_prefix: &str, identity: &str) -> String {
+    format!("{category_prefix}/{}", snapshot_file_name(identity))
 }
 
-fn sync_task_objects(stage_dir: &Path, tasks: &[CoordinationTask]) -> Result<()> {
-    let mut expected = BTreeSet::new();
-    for task in tasks {
-        let path = task_snapshot_path(stage_dir, &task.id.0);
-        expected.insert(path.clone());
-        write_json_file(&path, task)?;
-    }
-    cleanup_directory_json_files(&stage_tasks_dir(stage_dir), &expected)
-}
-
-fn sync_artifact_objects(stage_dir: &Path, artifacts: &[Artifact]) -> Result<()> {
-    let mut expected = BTreeSet::new();
-    for artifact in artifacts {
-        let path = artifact_snapshot_path(stage_dir, &artifact.id.0);
-        expected.insert(path.clone());
-        write_json_file(&path, artifact)?;
-    }
-    cleanup_directory_json_files(&stage_artifacts_dir(stage_dir), &expected)
-}
-
-fn sync_claim_objects(stage_dir: &Path, claims: &[WorkClaim]) -> Result<()> {
-    let mut expected = BTreeSet::new();
-    for claim in claims {
-        let path = claim_snapshot_path(stage_dir, &claim.id.0);
-        expected.insert(path.clone());
-        write_json_file(&path, claim)?;
-    }
-    cleanup_directory_json_files(&stage_claims_dir(stage_dir), &expected)
-}
-
-fn sync_review_objects(stage_dir: &Path, reviews: &[ArtifactReview]) -> Result<()> {
-    let mut expected = BTreeSet::new();
-    for review in reviews {
-        let path = review_snapshot_path(stage_dir, &review.id.0);
-        expected.insert(path.clone());
-        write_json_file(&path, review)?;
-    }
-    cleanup_directory_json_files(&stage_reviews_dir(stage_dir), &expected)
-}
-
-fn relative_index_path(dir: &Path, path: &Path) -> String {
-    path.strip_prefix(dir.parent().unwrap_or(dir))
-        .unwrap_or(path)
-        .to_string_lossy()
-        .replace('\\', "/")
-}
-
-fn rebuild_plan_index(stage_dir: &Path, plans: &[Plan]) -> Result<()> {
+fn plan_index_entries(plans: &[Plan]) -> Vec<SharedCoordinationIndexEntry> {
     let mut entries = plans
         .iter()
-        .map(|plan| {
-            let path = plan_snapshot_path(stage_dir, &plan.id.0);
-            SharedCoordinationIndexEntry {
-                id: plan.id.0.to_string(),
-                title: if plan.title.trim().is_empty() {
-                    plan.goal.clone()
-                } else {
-                    plan.title.clone()
-                },
-                status: format!("{:?}", plan.status),
-                path: relative_index_path(&stage_plans_dir(stage_dir), &path),
-            }
+        .map(|plan| SharedCoordinationIndexEntry {
+            id: plan.id.0.to_string(),
+            title: if plan.title.trim().is_empty() {
+                plan.goal.clone()
+            } else {
+                plan.title.clone()
+            },
+            status: format!("{:?}", plan.status),
+            path: relative_index_path("plans", &plan.id.0),
         })
         .collect::<Vec<_>>();
     entries.sort_by(|left, right| left.path.cmp(&right.path));
-    write_json_file(&stage_indexes_dir(stage_dir).join("plans.json"), &entries)
+    entries
 }
 
-fn rebuild_task_index(stage_dir: &Path, tasks: &[CoordinationTask]) -> Result<()> {
+fn task_index_entries(tasks: &[CoordinationTask]) -> Vec<SharedCoordinationIndexEntry> {
     let mut entries = tasks
         .iter()
-        .map(|task| {
-            let path = task_snapshot_path(stage_dir, &task.id.0);
-            SharedCoordinationIndexEntry {
-                id: task.id.0.to_string(),
-                title: task.title.clone(),
-                status: format!("{:?}", task.status),
-                path: relative_index_path(&stage_tasks_dir(stage_dir), &path),
-            }
+        .map(|task| SharedCoordinationIndexEntry {
+            id: task.id.0.to_string(),
+            title: task.title.clone(),
+            status: format!("{:?}", task.status),
+            path: relative_index_path("coordination/tasks", &task.id.0),
         })
         .collect::<Vec<_>>();
     entries.sort_by(|left, right| left.path.cmp(&right.path));
-    write_json_file(&stage_indexes_dir(stage_dir).join("tasks.json"), &entries)
+    entries
 }
 
-fn rebuild_artifact_index(stage_dir: &Path, artifacts: &[Artifact]) -> Result<()> {
+fn artifact_index_entries(artifacts: &[Artifact]) -> Vec<SharedCoordinationIndexEntry> {
     let mut entries = artifacts
         .iter()
-        .map(|artifact| {
-            let path = artifact_snapshot_path(stage_dir, &artifact.id.0);
-            SharedCoordinationIndexEntry {
-                id: artifact.id.0.to_string(),
-                title: artifact.task.0.to_string(),
-                status: format!("{:?}", artifact.status),
-                path: relative_index_path(&stage_artifacts_dir(stage_dir), &path),
-            }
+        .map(|artifact| SharedCoordinationIndexEntry {
+            id: artifact.id.0.to_string(),
+            title: artifact.task.0.to_string(),
+            status: format!("{:?}", artifact.status),
+            path: relative_index_path("coordination/artifacts", &artifact.id.0),
         })
         .collect::<Vec<_>>();
     entries.sort_by(|left, right| left.path.cmp(&right.path));
-    write_json_file(
-        &stage_indexes_dir(stage_dir).join("artifacts.json"),
-        &entries,
+    entries
+}
+
+fn claim_index_entries(claims: &[WorkClaim]) -> Vec<SharedCoordinationIndexEntry> {
+    let mut entries = claims
+        .iter()
+        .map(|claim| SharedCoordinationIndexEntry {
+            id: claim.id.0.to_string(),
+            title: claim
+                .task
+                .as_ref()
+                .map(|task| task.0.to_string())
+                .unwrap_or_else(|| claim.id.0.to_string()),
+            status: format!("{:?}", claim.status),
+            path: relative_index_path("coordination/claims", &claim.id.0),
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by(|left, right| left.path.cmp(&right.path));
+    entries
+}
+
+fn review_index_entries(reviews: &[ArtifactReview]) -> Vec<SharedCoordinationIndexEntry> {
+    let mut entries = reviews
+        .iter()
+        .map(|review| SharedCoordinationIndexEntry {
+            id: review.id.0.to_string(),
+            title: review.summary.clone(),
+            status: format!("{:?}", review.verdict),
+            path: relative_index_path("coordination/reviews", &review.id.0),
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by(|left, right| left.path.cmp(&right.path));
+    entries
+}
+
+fn plan_snapshot_relative_path(plan_id: &str) -> String {
+    format!("plans/{}", snapshot_file_name(plan_id))
+}
+
+fn task_snapshot_relative_path(task_id: &str) -> String {
+    format!("coordination/tasks/{}", snapshot_file_name(task_id))
+}
+
+fn artifact_snapshot_relative_path(artifact_id: &str) -> String {
+    format!("coordination/artifacts/{}", snapshot_file_name(artifact_id))
+}
+
+fn claim_snapshot_relative_path(claim_id: &str) -> String {
+    format!("coordination/claims/{}", snapshot_file_name(claim_id))
+}
+
+fn review_snapshot_relative_path(review_id: &str) -> String {
+    format!("coordination/reviews/{}", snapshot_file_name(review_id))
+}
+
+fn plan_record_map(
+    state: &SharedCoordinationRefState,
+) -> BTreeMap<String, SharedCoordinationPlanRecord> {
+    let graphs = state
+        .plan_graphs
+        .iter()
+        .cloned()
+        .map(|graph| (graph.id.0.to_string(), graph))
+        .collect::<BTreeMap<_, _>>();
+    state
+        .snapshot
+        .plans
+        .iter()
+        .filter_map(|plan| {
+            graphs.get(plan.id.0.as_str()).cloned().map(|graph| {
+                (
+                    plan.id.0.to_string(),
+                    SharedCoordinationPlanRecord {
+                        plan: plan.clone(),
+                        graph,
+                        execution_overlays: state
+                            .execution_overlays
+                            .get(plan.id.0.as_str())
+                            .cloned()
+                            .unwrap_or_default(),
+                    },
+                )
+            })
+        })
+        .collect()
+}
+
+fn sync_plan_record_patch(
+    stage_dir: &Path,
+    patch: &mut SharedCoordinationPublishPatch,
+    baseline: &SharedCoordinationRefState,
+    next_state: &SharedCoordinationRefState,
+) -> Result<()> {
+    let baseline_records = plan_record_map(baseline);
+    let next_records = plan_record_map(next_state);
+    let ids = baseline_records
+        .keys()
+        .chain(next_records.keys())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    for id in ids {
+        let relative_path = plan_snapshot_relative_path(&id);
+        match (baseline_records.get(&id), next_records.get(&id)) {
+            (Some(left), Some(right)) if left == right => {}
+            (_, Some(record)) => patch.stage_json(stage_dir, &relative_path, record)?,
+            (Some(_), None) => patch.delete_path(&relative_path),
+            (None, None) => {}
+        }
+    }
+    Ok(())
+}
+
+fn sync_task_record_patch(
+    stage_dir: &Path,
+    patch: &mut SharedCoordinationPublishPatch,
+    baseline: &SharedCoordinationRefState,
+    next_state: &SharedCoordinationRefState,
+) -> Result<()> {
+    sync_record_patch(
+        stage_dir,
+        patch,
+        &baseline.snapshot.tasks,
+        &next_state.snapshot.tasks,
+        |task| task.id.0.to_string(),
+        |id| task_snapshot_relative_path(id),
     )
 }
 
-fn rebuild_claim_index(stage_dir: &Path, claims: &[WorkClaim]) -> Result<()> {
-    let mut entries = claims
-        .iter()
-        .map(|claim| {
-            let path = claim_snapshot_path(stage_dir, &claim.id.0);
-            SharedCoordinationIndexEntry {
-                id: claim.id.0.to_string(),
-                title: claim
-                    .task
-                    .as_ref()
-                    .map(|task| task.0.to_string())
-                    .unwrap_or_else(|| claim.id.0.to_string()),
-                status: format!("{:?}", claim.status),
-                path: relative_index_path(&stage_claims_dir(stage_dir), &path),
-            }
-        })
-        .collect::<Vec<_>>();
-    entries.sort_by(|left, right| left.path.cmp(&right.path));
-    write_json_file(&stage_indexes_dir(stage_dir).join("claims.json"), &entries)
+fn sync_artifact_record_patch(
+    stage_dir: &Path,
+    patch: &mut SharedCoordinationPublishPatch,
+    baseline: &SharedCoordinationRefState,
+    next_state: &SharedCoordinationRefState,
+) -> Result<()> {
+    sync_record_patch(
+        stage_dir,
+        patch,
+        &baseline.snapshot.artifacts,
+        &next_state.snapshot.artifacts,
+        |artifact| artifact.id.0.to_string(),
+        |id| artifact_snapshot_relative_path(id),
+    )
 }
 
-fn rebuild_review_index(stage_dir: &Path, reviews: &[ArtifactReview]) -> Result<()> {
-    let mut entries = reviews
+fn sync_claim_record_patch(
+    stage_dir: &Path,
+    patch: &mut SharedCoordinationPublishPatch,
+    baseline: &SharedCoordinationRefState,
+    next_state: &SharedCoordinationRefState,
+) -> Result<()> {
+    sync_record_patch(
+        stage_dir,
+        patch,
+        &baseline.snapshot.claims,
+        &next_state.snapshot.claims,
+        |claim| claim.id.0.to_string(),
+        |id| claim_snapshot_relative_path(id),
+    )
+}
+
+fn sync_review_record_patch(
+    stage_dir: &Path,
+    patch: &mut SharedCoordinationPublishPatch,
+    baseline: &SharedCoordinationRefState,
+    next_state: &SharedCoordinationRefState,
+) -> Result<()> {
+    sync_record_patch(
+        stage_dir,
+        patch,
+        &baseline.snapshot.reviews,
+        &next_state.snapshot.reviews,
+        |review| review.id.0.to_string(),
+        |id| review_snapshot_relative_path(id),
+    )
+}
+
+fn sync_record_patch<T, K, P>(
+    stage_dir: &Path,
+    patch: &mut SharedCoordinationPublishPatch,
+    baseline: &[T],
+    next: &[T],
+    key_for: K,
+    relative_path_for: P,
+) -> Result<()>
+where
+    T: Clone + PartialEq + Serialize,
+    K: Fn(&T) -> String,
+    P: Fn(&str) -> String,
+{
+    let baseline_map = baseline
         .iter()
-        .map(|review| {
-            let path = review_snapshot_path(stage_dir, &review.id.0);
-            SharedCoordinationIndexEntry {
-                id: review.id.0.to_string(),
-                title: review.summary.clone(),
-                status: format!("{:?}", review.verdict),
-                path: relative_index_path(&stage_reviews_dir(stage_dir), &path),
-            }
-        })
-        .collect::<Vec<_>>();
-    entries.sort_by(|left, right| left.path.cmp(&right.path));
-    write_json_file(&stage_indexes_dir(stage_dir).join("reviews.json"), &entries)
+        .cloned()
+        .map(|value| (key_for(&value), value))
+        .collect::<BTreeMap<_, _>>();
+    let next_map = next
+        .iter()
+        .cloned()
+        .map(|value| (key_for(&value), value))
+        .collect::<BTreeMap<_, _>>();
+    let ids = baseline_map
+        .keys()
+        .chain(next_map.keys())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    for id in ids {
+        let relative_path = relative_path_for(&id);
+        match (baseline_map.get(&id), next_map.get(&id)) {
+            (Some(left), Some(right)) if left == right => {}
+            (_, Some(value)) => patch.stage_json(stage_dir, &relative_path, value)?,
+            (Some(_), None) => patch.delete_path(&relative_path),
+            (None, None) => {}
+        }
+    }
+    Ok(())
+}
+
+fn sync_index_patch(
+    stage_dir: &Path,
+    patch: &mut SharedCoordinationPublishPatch,
+    relative_path: &str,
+    baseline: &[SharedCoordinationIndexEntry],
+    next: &[SharedCoordinationIndexEntry],
+) -> Result<()> {
+    if baseline != next {
+        patch.stage_json(stage_dir, relative_path, &next)?;
+    }
+    Ok(())
 }
 
 fn write_manifest(
@@ -1074,11 +1229,11 @@ fn write_manifest(
     paths: &PrismPaths,
     publish: Option<&TrackedSnapshotPublishContext>,
     previous_manifest: Option<&SharedCoordinationManifest>,
+    files: BTreeMap<String, SharedCoordinationManifestFile>,
 ) -> Result<()> {
     let previous_manifest_digest = previous_manifest
         .map(canonical_manifest_digest)
         .transpose()?;
-    let files = collect_snapshot_file_map(stage_dir)?;
     let publish = publish
         .cloned()
         .or_else(|| previous_manifest.map(publish_context_from_manifest))
@@ -1128,7 +1283,7 @@ fn write_manifest(
         },
     )?);
     manifest.signature.value = format!("base64:{}", BASE64_STANDARD.encode(signature.to_bytes()));
-    write_json_file(&stage_manifest_path(stage_dir), &manifest)
+    write_json_file(&stage_manifest_path(stage_dir), &manifest).map(|_| ())
 }
 
 fn load_shared_coordination_manifest_from_ref(
@@ -1212,23 +1367,44 @@ fn verify_shared_coordination_manifest(
     Ok(())
 }
 
-fn publish_stage_to_ref(root: &Path, stage_dir: &Path, ref_name: &str) -> Result<()> {
+fn publish_stage_patch_to_ref(
+    root: &Path,
+    stage_dir: &Path,
+    ref_name: &str,
+    upserts: &BTreeSet<String>,
+    deletes: &BTreeSet<String>,
+) -> Result<()> {
     let index_path = stage_dir.join(".shared-coordination.index");
     let index_path_str = index_path.to_string_lossy().to_string();
     let envs = [("GIT_INDEX_FILE", index_path_str.as_str())];
-    let _ = run_git_with_env(root, &envs, &["read-tree", "--empty"])?;
-    let _ = run_git_with_env(
-        root,
-        &envs,
-        &[
-            "--work-tree",
-            stage_dir.to_string_lossy().as_ref(),
-            "add",
-            "-A",
-            "--",
-            "coordination",
-        ],
-    )?;
+    if resolve_ref_commit(root, ref_name)?.is_some() {
+        let _ = run_git_with_env(root, &envs, &["read-tree", ref_name])?;
+    } else {
+        let _ = run_git_with_env(root, &envs, &["read-tree", "--empty"])?;
+    }
+    if !upserts.is_empty() {
+        let mut args = vec![
+            "--work-tree".to_string(),
+            stage_dir.to_string_lossy().to_string(),
+            "add".to_string(),
+            "--".to_string(),
+        ];
+        args.extend(upserts.iter().cloned());
+        let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
+        let _ = run_git_with_env(root, &envs, &arg_refs)?;
+    }
+    if !deletes.is_empty() {
+        let mut args = vec![
+            "rm".to_string(),
+            "--cached".to_string(),
+            "-r".to_string(),
+            "--ignore-unmatch".to_string(),
+            "--".to_string(),
+        ];
+        args.extend(deletes.iter().cloned());
+        let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
+        let _ = run_git_with_env(root, &envs, &arg_refs)?;
+    }
     let tree = run_git_with_env(root, &envs, &["write-tree"])?;
     let parent = resolve_ref_commit(root, ref_name)?;
     let commit = if let Some(parent) = parent.as_deref() {
@@ -1717,74 +1893,7 @@ fn implicit_work_context() -> WorkContextSnapshot {
     }
 }
 
-fn collect_snapshot_file_map(
-    stage_dir: &Path,
-) -> Result<BTreeMap<String, SharedCoordinationManifestFile>> {
-    let root = stage_snapshot_root(stage_dir);
-    let mut files = BTreeMap::new();
-    collect_snapshot_files_recursive(&root, &root, &mut files)?;
-    Ok(files)
-}
-
-fn collect_snapshot_files_recursive(
-    snapshot_root: &Path,
-    current: &Path,
-    files: &mut BTreeMap<String, SharedCoordinationManifestFile>,
-) -> Result<()> {
-    for entry in
-        fs::read_dir(current).with_context(|| format!("failed to read {}", current.display()))?
-    {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_dir() {
-            collect_snapshot_files_recursive(snapshot_root, &path, files)?;
-            continue;
-        }
-        if path == snapshot_root.join("manifest.json")
-            || path.extension().and_then(|ext| ext.to_str()) != Some("json")
-        {
-            continue;
-        }
-        let bytes =
-            fs::read(&path).with_context(|| format!("failed to read {}", path.display()))?;
-        let relative = path
-            .strip_prefix(snapshot_root)
-            .unwrap_or(path.as_path())
-            .to_string_lossy()
-            .replace('\\', "/");
-        files.insert(
-            relative.clone(),
-            SharedCoordinationManifestFile {
-                path: relative,
-                sha256: sha256_prefixed(&bytes),
-            },
-        );
-    }
-    Ok(())
-}
-
-fn cleanup_directory_json_files(dir: &Path, expected: &BTreeSet<PathBuf>) -> Result<()> {
-    if !dir.exists() {
-        if expected.is_empty() {
-            return Ok(());
-        }
-        fs::create_dir_all(dir)?;
-        return Ok(());
-    }
-    for entry in fs::read_dir(dir).with_context(|| format!("failed to read {}", dir.display()))? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.extension().and_then(|ext| ext.to_str()) == Some("json")
-            && !expected.contains(&path)
-        {
-            fs::remove_file(&path)
-                .with_context(|| format!("failed to remove stale snapshot {}", path.display()))?;
-        }
-    }
-    Ok(())
-}
-
-fn write_json_file<T>(path: &Path, value: &T) -> Result<()>
+fn write_json_file<T>(path: &Path, value: &T) -> Result<Vec<u8>>
 where
     T: Serialize,
 {
@@ -1799,9 +1908,9 @@ where
         Err(_) => true,
     };
     if should_write {
-        fs::write(path, bytes).with_context(|| format!("failed to write {}", path.display()))?;
+        fs::write(path, &bytes).with_context(|| format!("failed to write {}", path.display()))?;
     }
-    Ok(())
+    Ok(bytes)
 }
 
 fn decode_signature(value: &str) -> Result<ed25519_dalek::Signature> {
@@ -2598,6 +2707,170 @@ mod tests {
             .collect::<BTreeSet<_>>();
         assert!(claim_ids.contains("claim:a"), "claim ids: {claim_ids:?}");
         assert!(claim_ids.contains("claim:b"), "claim ids: {claim_ids:?}");
+    }
+
+    #[test]
+    fn shared_coordination_publish_patch_only_stages_changed_task_payload() {
+        let root = temp_git_repo();
+        let plan_id = PlanId::new("plan:patch".to_string());
+        let task_a_id = CoordinationTaskId::new("coord-task:alpha".to_string());
+        let task_b_id = CoordinationTaskId::new("coord-task:beta".to_string());
+        let plan = Plan {
+            id: plan_id.clone(),
+            goal: "ship".to_string(),
+            title: "ship".to_string(),
+            status: PlanStatus::Active,
+            policy: CoordinationPolicy::default(),
+            scope: PlanScope::Repo,
+            kind: PlanKind::TaskExecution,
+            revision: 1,
+            scheduling: PlanScheduling::default(),
+            tags: Vec::new(),
+            created_from: None,
+            metadata: serde_json::Value::Null,
+            authored_edges: Vec::new(),
+            root_tasks: vec![task_a_id.clone(), task_b_id.clone()],
+        };
+        let task_a = CoordinationTask {
+            id: task_a_id.clone(),
+            plan: plan_id.clone(),
+            kind: prism_ir::PlanNodeKind::Edit,
+            title: "alpha".to_string(),
+            summary: None,
+            status: CoordinationTaskStatus::Ready,
+            published_task_status: None,
+            assignee: None,
+            pending_handoff_to: None,
+            session: None,
+            lease_holder: None,
+            lease_started_at: None,
+            lease_refreshed_at: None,
+            lease_stale_at: None,
+            lease_expires_at: None,
+            worktree_id: None,
+            branch_ref: None,
+            anchors: Vec::new(),
+            bindings: prism_ir::PlanBinding::default(),
+            depends_on: Vec::new(),
+            acceptance: Vec::new(),
+            validation_refs: Vec::new(),
+            is_abstract: false,
+            base_revision: WorkspaceRevision::default(),
+            priority: Some(1),
+            tags: Vec::new(),
+            metadata: serde_json::Value::Null,
+            git_execution: TaskGitExecution::default(),
+        };
+        let task_b = CoordinationTask {
+            id: task_b_id.clone(),
+            title: "beta".to_string(),
+            ..task_a.clone()
+        };
+        let snapshot = CoordinationSnapshot {
+            plans: vec![plan.clone()],
+            tasks: vec![task_a.clone(), task_b.clone()],
+            claims: Vec::new(),
+            artifacts: Vec::new(),
+            reviews: Vec::new(),
+            events: Vec::new(),
+            next_plan: 1,
+            next_task: 2,
+            next_claim: 0,
+            next_artifact: 0,
+            next_review: 0,
+        };
+        let graph = prism_coordination::snapshot_plan_graphs(&snapshot)
+            .into_iter()
+            .next()
+            .unwrap();
+        let execution_map = BTreeMap::from([(
+            plan.id.0.to_string(),
+            prism_coordination::execution_overlays_from_tasks(&snapshot.tasks),
+        )]);
+        sync_shared_coordination_ref_state(
+            &root,
+            &snapshot,
+            &[graph],
+            &execution_map,
+            Some(&sample_publish_context()),
+        )
+        .unwrap();
+
+        let ref_name = super::shared_coordination_ref_name(&root);
+        let baseline_state =
+            super::load_shared_coordination_ref_state_from_current_ref(&root, &ref_name)
+                .unwrap()
+                .unwrap();
+        let previous_manifest =
+            super::load_shared_coordination_manifest_from_ref(&root, &ref_name).unwrap();
+
+        let mut changed_task_b = task_b.clone();
+        changed_task_b.summary = Some("narrow diff".to_string());
+        let changed_snapshot = CoordinationSnapshot {
+            tasks: vec![task_a.clone(), changed_task_b.clone()],
+            ..snapshot.clone()
+        };
+        let changed_graph = prism_coordination::snapshot_plan_graphs(&changed_snapshot)
+            .into_iter()
+            .next()
+            .unwrap();
+        let changed_execution_map = BTreeMap::from([(
+            plan.id.0.to_string(),
+            prism_coordination::execution_overlays_from_tasks(&changed_snapshot.tasks),
+        )]);
+        let changed_state = super::SharedCoordinationRefState {
+            snapshot: changed_snapshot.clone(),
+            plan_graphs: vec![changed_graph.clone()],
+            execution_overlays: changed_execution_map.clone(),
+        };
+        let stage_dir = root.join(".prism").join("publish-patch-test");
+        let _ = fs::remove_dir_all(&stage_dir);
+        fs::create_dir_all(&stage_dir).unwrap();
+        let patch = super::build_shared_coordination_publish_patch(
+            &stage_dir,
+            previous_manifest.as_ref(),
+            Some(&baseline_state),
+            &changed_state,
+        )
+        .unwrap();
+
+        let expected_task_path = format!(
+            "coordination/{}",
+            super::task_snapshot_relative_path(&changed_task_b.id.0)
+        );
+        let expected_plan_path = format!(
+            "coordination/{}",
+            super::plan_snapshot_relative_path(&plan.id.0)
+        );
+        assert_eq!(
+            patch.upserts,
+            BTreeSet::from([expected_plan_path, expected_task_path]),
+            "summary-only task edits should touch the task payload and its containing plan record, but not unrelated indexes"
+        );
+        assert!(patch.deletes.is_empty());
+
+        sync_shared_coordination_ref_state(
+            &root,
+            &changed_snapshot,
+            &[changed_graph],
+            &changed_execution_map,
+            Some(&sample_publish_context()),
+        )
+        .unwrap();
+
+        let loaded = load_shared_coordination_ref_state(&root)
+            .unwrap()
+            .expect("shared ref state should load");
+        assert_eq!(loaded.snapshot.tasks.len(), 2);
+        assert_eq!(
+            loaded
+                .snapshot
+                .tasks
+                .iter()
+                .find(|task| task.id == changed_task_b.id)
+                .and_then(|task| task.summary.as_deref()),
+            Some("narrow diff")
+        );
     }
 
     #[test]

@@ -372,6 +372,64 @@ pub(crate) trait CoordinationPersistenceBackend:
                 })
             },
         )?;
+        if !result.applied {
+            observe_phase(
+                "mutation.coordination.publishedPlans.syncSharedCoordinationRef",
+                Duration::ZERO,
+                json!({ "skipped": true, "applied": false }),
+                true,
+                None,
+            );
+            if matches!(
+                derived_persistence_mode,
+                CoordinationDerivedPersistenceMode::Inline
+            ) {
+                observe_phase(
+                    "mutation.coordination.publishedPlans.syncTrackedSnapshot",
+                    Duration::ZERO,
+                    json!({ "skipped": true, "applied": false }),
+                    true,
+                    None,
+                );
+                observe_phase(
+                    "mutation.coordination.publishedPlans.saveStartupCheckpoint",
+                    Duration::ZERO,
+                    json!({ "skipped": true, "applied": false }),
+                    true,
+                    None,
+                );
+                observe_phase(
+                    "mutation.coordination.syncPublishedPlans",
+                    Duration::ZERO,
+                    json!({ "mode": "noop" }),
+                    true,
+                    None,
+                );
+            } else {
+                observe_phase(
+                    "mutation.coordination.publishedPlans.syncTrackedSnapshot",
+                    Duration::ZERO,
+                    json!({ "deferred": true, "applied": false }),
+                    true,
+                    None,
+                );
+                observe_phase(
+                    "mutation.coordination.publishedPlans.saveStartupCheckpoint",
+                    Duration::ZERO,
+                    json!({ "deferred": true, "applied": false }),
+                    true,
+                    None,
+                );
+                observe_phase(
+                    "mutation.coordination.syncPublishedPlans",
+                    Duration::ZERO,
+                    json!({ "mode": "noop" }),
+                    true,
+                    None,
+                );
+            }
+            return Ok(result);
+        }
         let publish_context = publish_context_from_coordination_events(appended_events);
         let derived = CoordinationDerivedSyncInputs {
             plan_graphs: plan_graphs
