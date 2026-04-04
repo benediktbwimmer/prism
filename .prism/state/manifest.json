@@ -48,6 +48,10 @@
       "path": ".prism/state/indexes/plans.json",
       "sha256": "sha256:9013000b3fda94dbcbff64cb9b86b067d059beef258779f3d34c31a3d178ce87"
     },
+    ".prism/state/indexes/relations.json": {
+      "path": ".prism/state/indexes/relations.json",
+      "sha256": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
     ".prism/state/memory/memory-01knb0zp726c9zjw7fdhcq1mg3-560606ddf6d87074.json": {
       "path": ".prism/state/memory/memory-01knb0zp726c9zjw7fdhcq1mg3-560606ddf6d87074.json",
       "sha256": "sha256:f77575ce54b660ea0c89621e1b65dc8e3f57f58533e2c5ddc0c7ad5ced01ef0d"
@@ -345,12 +349,12 @@
       "sha256": "sha256:2b6eb488f1812c7d5b3812771fd8c9db2912f75d7a785d449c6f5c427cf93081"
     }
   },
-  "previousManifestDigest": "sha256:6ef0802d828e4c70fd45189c63a6ad4d144af85401cb313afd31552096a4bc8f",
+  "previousManifestDigest": "sha256:89e49d55238d288346391cb76d96bbac2734573abc9fe47cab347961c3325cd8",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:DUP+XyBnpDPIZz65ARWUxXU0a+4OdUUbHvhiruPFV/fGlB2mvoFIBw/WOTeXlbH2FTb67rE/kmf+L0kHTDYCDw=="
+    "value": "base64:rYiHUr44caMKJ1/gZyza3OeGJ6J6hhSjlFsBm89ee3dPWclnSN0jguFoWHBrWF0HEk1r9avsG7/fAGnCSzJUAg=="
   }
 }

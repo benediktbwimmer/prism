@@ -1027,7 +1027,11 @@ async fn mcp_server_executes_heartbeat_lease_mutation_round_trip() {
         .as_str()
         .expect("claim id should be present")
         .to_string();
-    let event_count_before_heartbeat = server_handle.host.current_prism().coordination_events().len();
+    let event_count_before_heartbeat = server_handle
+        .host
+        .current_prism()
+        .coordination_events()
+        .len();
 
     client
         .send(call_tool_request(
@@ -1060,7 +1064,11 @@ async fn mcp_server_executes_heartbeat_lease_mutation_round_trip() {
         claim["result"]["state"]["refreshedAt"]
     );
     assert_eq!(
-        server_handle.host.current_prism().coordination_events().len(),
+        server_handle
+            .host
+            .current_prism()
+            .coordination_events()
+            .len(),
         event_count_before_heartbeat
     );
 

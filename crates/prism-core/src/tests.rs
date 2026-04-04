@@ -112,6 +112,26 @@ fn flush_coordination_materializations(session: &crate::session::WorkspaceSessio
     session.flush_materializations().unwrap();
 }
 
+fn load_hydrated_plan_state_from_runtime_store(
+    session: &crate::session::WorkspaceSession,
+) -> crate::published_plans::HydratedCoordinationPlanState {
+    if let Some(shared_runtime_store) = session.shared_runtime_store.as_ref() {
+        let mut store = shared_runtime_store
+            .lock()
+            .expect("shared runtime store lock poisoned");
+        store
+            .load_hydrated_coordination_plan_state_for_root(&session.root)
+            .unwrap()
+            .expect("authoritative runtime store should hydrate coordination plan state")
+    } else {
+        let mut store = session.store.lock().expect("workspace store lock poisoned");
+        store
+            .load_hydrated_coordination_plan_state_for_root(&session.root)
+            .unwrap()
+            .expect("workspace store should hydrate coordination plan state")
+    }
+}
+
 fn track_temp_dir(path: &std::path::Path) {
     TEMP_TEST_DIRS.with(|state| state.borrow_mut().paths.push(path.to_path_buf()));
 }
@@ -4371,7 +4391,7 @@ fn repo_concept_snapshot_keeps_current_concept_after_patch_update() {
 }
 
 #[test]
-fn repo_concept_events_auto_sync_prism_doc() {
+fn repo_concept_events_require_explicit_prism_doc_sync() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -4453,6 +4473,16 @@ fn repo_concept_events_auto_sync_prism_doc() {
         })
         .unwrap();
 
+    assert!(!root.join("PRISM.md").exists());
+    assert!(!root.join("docs/prism/concepts.md").exists());
+    assert!(!root.join("docs/prism/relations.md").exists());
+    assert!(!root.join("docs/prism/contracts.md").exists());
+    assert!(!root.join("docs/prism/memory.md").exists());
+    assert!(!root.join("docs/prism/plans/index.md").exists());
+
+    let sync = session.sync_prism_doc().unwrap();
+    assert_eq!(sync.status, PrismDocSyncStatus::Updated);
+
     let prism_doc = fs::read_to_string(root.join("PRISM.md")).unwrap();
     let concepts_doc = fs::read_to_string(root.join("docs/prism/concepts.md")).unwrap();
     let relations_doc = fs::read_to_string(root.join("docs/prism/relations.md")).unwrap();
@@ -4499,7 +4529,7 @@ fn repo_concept_events_auto_sync_prism_doc() {
 }
 
 #[test]
-fn repo_concept_relations_auto_sync_prism_doc() {
+fn repo_concept_relations_require_explicit_prism_doc_sync() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -4614,6 +4644,12 @@ fn repo_concept_relations_auto_sync_prism_doc() {
         })
         .unwrap();
 
+    assert!(!root.join("PRISM.md").exists());
+    assert!(!root.join("docs/prism/relations.md").exists());
+
+    let sync = session.sync_prism_doc().unwrap();
+    assert_eq!(sync.status, PrismDocSyncStatus::Updated);
+
     let prism_doc = fs::read_to_string(root.join("PRISM.md")).unwrap();
     let relations_doc = fs::read_to_string(root.join("docs/prism/relations.md")).unwrap();
     assert!(prism_doc.contains("- Active repo concepts: 2"));
@@ -4632,7 +4668,7 @@ fn repo_concept_relations_auto_sync_prism_doc() {
 }
 
 #[test]
-fn repo_contract_events_auto_sync_prism_doc() {
+fn repo_contract_events_require_explicit_prism_doc_sync() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -4714,6 +4750,12 @@ fn repo_contract_events_auto_sync_prism_doc() {
         })
         .unwrap();
 
+    assert!(!root.join("PRISM.md").exists());
+    assert!(!root.join("docs/prism/contracts.md").exists());
+
+    let sync = session.sync_prism_doc().unwrap();
+    assert_eq!(sync.status, PrismDocSyncStatus::Updated);
+
     let prism_doc = fs::read_to_string(root.join("PRISM.md")).unwrap();
     let contracts_doc = fs::read_to_string(root.join("docs/prism/contracts.md")).unwrap();
     assert!(prism_doc.contains("- Active repo contracts: 1"));
@@ -4748,7 +4790,7 @@ fn repo_contract_events_auto_sync_prism_doc() {
 }
 
 #[test]
-fn repo_memory_events_auto_sync_prism_doc() {
+fn repo_memory_events_require_explicit_prism_doc_sync() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -4798,6 +4840,12 @@ fn repo_memory_events_auto_sync_prism_doc() {
         ))
         .unwrap();
 
+    assert!(!root.join("PRISM.md").exists());
+    assert!(!root.join("docs/prism/memory.md").exists());
+
+    let sync = session.sync_prism_doc().unwrap();
+    assert_eq!(sync.status, PrismDocSyncStatus::Updated);
+
     let prism_doc = fs::read_to_string(root.join("PRISM.md")).unwrap();
     let memory_doc = fs::read_to_string(root.join("docs/prism/memory.md")).unwrap();
     assert!(prism_doc.contains("- Active repo memories: 1"));
@@ -4814,7 +4862,7 @@ fn repo_memory_events_auto_sync_prism_doc() {
 }
 
 #[test]
-fn repo_plan_events_auto_sync_prism_doc() {
+fn repo_plan_events_require_explicit_prism_doc_sync() {
     let root = temp_workspace();
     let _guard = background_worker_test_guard();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -4860,10 +4908,12 @@ fn repo_plan_events_auto_sync_prism_doc() {
 
     assert!(!root.join(".prism/plans/index.jsonl").exists());
     assert!(!root.join(".prism/plans/active").exists());
-    assert!(root.join(".prism/state/plans").exists());
+    assert!(!root.join(".prism/state/plans").exists());
+    assert!(!root.join("PRISM.md").exists());
+    assert!(!root.join("docs/prism/plans/index.md").exists());
 
     let sync = session.sync_prism_doc().unwrap();
-    assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
+    assert_eq!(sync.status, PrismDocSyncStatus::Updated);
 
     let prism_doc_path = root.join("PRISM.md");
     let plans_doc_path = root.join("docs/prism/plans/index.md");
@@ -4893,10 +4943,10 @@ fn repo_plan_events_auto_sync_prism_doc() {
     assert!(plan_doc.contains("- Max fetch age seconds: `300`"));
     assert!(plan_doc.contains("## Branch Snapshot Export"));
     assert!(plan_doc.contains(
-        "- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority"
+        "- Shared coordination authority: shared coordination ref when present"
     ));
     assert!(plan_doc.contains(
-        "- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority"
+        "- Branch-local tracked `.prism/state/plans/**` export: disabled; plans no longer mirror into tracked repo snapshot state"
     ));
 
     let sync = session.sync_prism_doc().unwrap();
@@ -5527,7 +5577,7 @@ fn reloaded_native_plan_bindings_hydrate_through_lineage_without_republishing_ru
 }
 
 #[test]
-fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
+fn repo_plan_state_requires_sqlite_or_shared_ref_authority() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -5538,7 +5588,7 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
 
     let session = index_workspace_session(&root).unwrap();
-    let (plan_id, task_id) = session
+    let (plan_id, _task_id) = session
         .mutate_coordination(|prism| {
             let base_revision = prism.workspace_revision();
             let plan_id = prism.create_native_plan(
@@ -5624,21 +5674,10 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
     .unwrap();
 
     let reloaded = index_workspace_session(&root).unwrap();
-    let snapshot = reloaded
-        .load_coordination_snapshot()
-        .unwrap()
-        .expect("published plans should hydrate a coordination snapshot");
-    assert!(snapshot
-        .plans
-        .iter()
-        .any(|plan| plan.id == plan_id && plan.goal == "Ship published plan hydration"));
-    assert!(snapshot.tasks.iter().any(|task| {
-        task.id == task_id
-            && task.plan == plan_id
-            && task.title == "Hydrate plans from repo state"
-            && task.status == prism_ir::CoordinationTaskStatus::Ready
-            && task.session.is_none()
-    }));
+    assert!(
+        reloaded.load_coordination_snapshot().unwrap().is_none(),
+        "without shared refs or the local SQLite authority, plan state should not hydrate from repo projections anymore"
+    );
 
     let _ = fs::remove_dir_all(root);
 }
@@ -5725,12 +5764,7 @@ fn repo_published_plans_write_tracked_snapshot_manifest() {
         .unwrap();
     flush_coordination_materializations(&session);
 
-    let plan_files = fs::read_dir(root.join(".prism/state/plans"))
-        .unwrap()
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .collect::<Vec<_>>();
-    assert_eq!(plan_files.len(), 1);
+    assert!(!root.join(".prism/state/plans").exists());
     assert!(!root.join(".prism/state/coordination/tasks").exists());
 
     let manifest: serde_json::Value =
@@ -5750,15 +5784,12 @@ fn repo_published_plans_write_tracked_snapshot_manifest() {
         "Persist published plan state into tracked snapshot shards."
     );
     assert!(manifest["migrationSourceDigest"].is_null());
-    let relative_plan_path = plan_files[0]
-        .strip_prefix(&root)
-        .unwrap()
-        .to_string_lossy()
-        .replace('\\', "/");
-    assert!(manifest["files"].get(&relative_plan_path).is_some());
     let manifest_files = manifest["files"]
         .as_object()
         .expect("snapshot manifest files should be an object");
+    assert!(!manifest_files
+        .keys()
+        .any(|path| path.starts_with(".prism/state/plans/")));
     assert!(!manifest_files
         .keys()
         .any(|path| path.starts_with(".prism/state/coordination/")));
@@ -5825,9 +5856,7 @@ fn repo_published_plans_hydrate_from_tracked_snapshots_without_plan_logs() {
 
     let _ = fs::remove_dir_all(root.join(".prism/plans"));
 
-    let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
-        .unwrap()
-        .expect("tracked snapshots should hydrate plan state");
+    let hydrated = load_hydrated_plan_state_from_runtime_store(&session);
     assert!(hydrated
         .snapshot
         .plans
@@ -5904,9 +5933,7 @@ fn repo_published_plans_ignore_tampered_legacy_streams_once_snapshot_authority_e
     fs::create_dir_all(stream_path.parent().unwrap()).unwrap();
     fs::write(&stream_path, "tampered legacy plan stream\n").unwrap();
 
-    let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
-        .unwrap()
-        .expect("tracked snapshots should remain authoritative");
+    let hydrated = load_hydrated_plan_state_from_runtime_store(&session);
     assert!(hydrated
         .snapshot
         .plans
@@ -6031,14 +6058,14 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
     let loaded = crate::published_plans::load_hydrated_coordination_snapshot(&root, Some(snapshot))
         .unwrap()
         .expect("merged coordination snapshot");
-    assert!(loaded.plans.iter().any(|plan| {
-        plan.id == published_plan_id && plan.goal == "Published plan should stay mutable"
-    }));
-    assert!(loaded.tasks.iter().any(|task| {
-        task.id == published_task_id
-            && task.plan == published_plan_id
-            && task.title == "Published task should be available to mutations"
-    }));
+    assert!(!loaded
+        .plans
+        .iter()
+        .any(|plan| plan.id == published_plan_id));
+    assert!(!loaded
+        .tasks
+        .iter()
+        .any(|task| task.id == published_task_id));
     assert!(loaded.plans.iter().any(|plan| {
         plan.id == snapshot_plan_id && plan.goal == "Persisted snapshot should remain authoritative"
     }));
@@ -6090,13 +6117,12 @@ fn repo_published_plan_state_merges_snapshot_and_published_views() {
         crate::published_plans::load_hydrated_coordination_plan_state(&root, Some(snapshot))
             .unwrap()
             .expect("hydrated coordination plan state");
-    assert!(state
+    assert!(!state
         .snapshot
         .plans
         .iter()
-        .any(|plan| plan.id == published_plan_id
-            && plan.goal == "Published plan must exist in both runtimes"));
-    assert!(state
+        .any(|plan| plan.id == published_plan_id));
+    assert!(!state
         .plan_graphs
         .iter()
         .any(|graph| graph.id == published_plan_id));
@@ -6360,7 +6386,7 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
     assert!(queue_model.active_claims.is_empty());
     assert!(queue_model.pending_review_artifacts.is_empty());
 
-    assert!(root.join(".prism/state/plans").exists());
+    assert!(!root.join(".prism/state/plans").exists());
     assert!(!root
         .join(".prism")
         .join("plans")
@@ -7108,7 +7134,9 @@ fn load_hydrated_coordination_snapshot_preserves_authoritative_task_lease_fields
     assert_eq!(loaded_task.lease_started_at, Some(2));
     assert_eq!(loaded_task.lease_refreshed_at, Some(1700));
     assert!(loaded_task.lease_stale_at.is_some_and(|value| value > 1700));
-    assert!(loaded_task.lease_expires_at.is_some_and(|value| value > 1700));
+    assert!(loaded_task
+        .lease_expires_at
+        .is_some_and(|value| value > 1700));
     assert_eq!(
         loaded_task
             .lease_holder
@@ -7222,7 +7250,9 @@ fn checkpoint_materialization_preserves_authoritative_task_lease_fields() {
     assert_eq!(loaded_task.lease_started_at, Some(2));
     assert_eq!(loaded_task.lease_refreshed_at, Some(1700));
     assert!(loaded_task.lease_stale_at.is_some_and(|value| value > 1700));
-    assert!(loaded_task.lease_expires_at.is_some_and(|value| value > 1700));
+    assert!(loaded_task
+        .lease_expires_at
+        .is_some_and(|value| value > 1700));
     assert_eq!(
         loaded_task
             .lease_holder
@@ -7382,9 +7412,7 @@ fn repo_published_plan_snapshot_persists_task_status_updates_after_cutover() {
         .unwrap();
     flush_coordination_materializations(&session);
 
-    let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
-        .unwrap()
-        .expect("tracked snapshots should hydrate plan state");
+    let hydrated = load_hydrated_plan_state_from_runtime_store(&session);
     assert_eq!(
         hydrated
             .snapshot
@@ -7394,7 +7422,7 @@ fn repo_published_plan_snapshot_persists_task_status_updates_after_cutover() {
             .expect("published task")
             .status,
         prism_ir::CoordinationTaskStatus::InProgress,
-        "task status change should persist in tracked snapshots after cutover"
+        "task status change should persist in the authoritative runtime store after cutover"
     );
 
     let _ = fs::remove_dir_all(root);
@@ -7529,9 +7557,7 @@ fn repo_published_plan_logs_do_not_reemit_existing_child_of_edges() {
     flush_coordination_materializations(&session);
 
     let edge_id = format!("plan-edge:{}:child-of:{}", child_id.0, parent_id.0);
-    let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
-        .unwrap()
-        .expect("tracked snapshots should hydrate plan state");
+    let hydrated = load_hydrated_plan_state_from_runtime_store(&session);
     let graph = hydrated
         .plan_graphs
         .iter()
@@ -7544,7 +7570,7 @@ fn repo_published_plan_logs_do_not_reemit_existing_child_of_edges() {
         .count();
     assert_eq!(
         edge_count, 1,
-        "tracked snapshot plan state should retain exactly one child-of edge after unrelated mutations"
+        "authoritative runtime plan state should retain exactly one child-of edge after unrelated mutations"
     );
 
     let _ = fs::remove_dir_all(root);
@@ -7703,9 +7729,7 @@ fn repair_repo_published_plan_artifacts_is_empty_under_snapshot_authority() {
     assert_eq!(repair_report.repaired_plan_count, 0);
     assert!(repair_report.entries.is_empty());
 
-    let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
-        .unwrap()
-        .expect("published plans should still hydrate after repair");
+    let hydrated = load_hydrated_plan_state_from_runtime_store(&session);
     let repaired_graph = hydrated
         .plan_graphs
         .iter()
@@ -7836,23 +7860,21 @@ fn completing_last_task_persists_plan_completion_in_tracked_snapshot() {
         .unwrap();
     flush_coordination_materializations(&session);
 
-    let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
-        .unwrap()
-        .expect("tracked snapshots should hydrate plan state");
+    let hydrated = load_hydrated_plan_state_from_runtime_store(&session);
     assert!(
         hydrated
             .snapshot
             .plans
             .iter()
             .any(|plan| plan.id == plan_id && plan.status == prism_ir::PlanStatus::Completed),
-        "completing the last task should persist a completed plan status in tracked snapshots"
+        "completing the last task should persist a completed plan status in the startup checkpoint"
     );
     assert!(
         hydrated
             .plan_graphs
             .iter()
             .any(|graph| graph.id == plan_id && graph.status == prism_ir::PlanStatus::Completed),
-        "tracked snapshot plan graph should persist the derived completed plan status"
+        "startup checkpoint plan graph should persist the derived completed plan status"
     );
 
     let _ = fs::remove_dir_all(root);
@@ -8016,23 +8038,21 @@ fn releasing_last_claim_persists_plan_completion_in_tracked_snapshot() {
         prism_ir::PlanStatus::Completed
     );
 
-    let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
-        .unwrap()
-        .expect("tracked snapshots should hydrate plan state");
+    let hydrated = load_hydrated_plan_state_from_runtime_store(&session);
     assert!(
         hydrated
             .snapshot
             .plans
             .iter()
             .any(|plan| plan.id == plan_id && plan.status == prism_ir::PlanStatus::Completed),
-        "releasing the last claim should persist a completed plan status in tracked snapshots"
+        "releasing the last claim should persist a completed plan status in the startup checkpoint"
     );
     assert!(
         hydrated
             .plan_graphs
             .iter()
             .any(|graph| graph.id == plan_id && graph.status == prism_ir::PlanStatus::Completed),
-        "tracked snapshot plan graph should persist the derived completed plan status after claim release"
+        "startup checkpoint plan graph should persist the derived completed plan status after claim release"
     );
 
     let _ = fs::remove_dir_all(root);
@@ -8129,9 +8149,7 @@ fn repo_published_plan_snapshot_skips_runtime_handoff_deltas() {
         .unwrap();
     flush_coordination_materializations(&session);
 
-    let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
-        .unwrap()
-        .expect("tracked snapshots should hydrate plan state");
+    let hydrated = load_hydrated_plan_state_from_runtime_store(&session);
     let published_task = hydrated
         .snapshot
         .tasks
@@ -8140,7 +8158,7 @@ fn repo_published_plan_snapshot_skips_runtime_handoff_deltas() {
         .expect("published task");
     assert!(
         published_task.pending_handoff_to.is_none(),
-        "tracked snapshots should not persist runtime handoff overlay fields"
+        "authoritative runtime plan state should not persist runtime handoff overlay fields"
     );
     let _ = fs::remove_dir_all(root);
 }
@@ -8196,16 +8214,14 @@ fn repo_published_plan_snapshot_persists_archive_transition() {
         })
         .unwrap();
     flush_coordination_materializations(&session);
-    let abandoned = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
-        .unwrap()
-        .expect("tracked snapshots should hydrate plan state");
+    let abandoned = load_hydrated_plan_state_from_runtime_store(&session);
     assert!(
         abandoned
             .snapshot
             .plans
             .iter()
             .any(|plan| plan.id == plan_id && plan.status == prism_ir::PlanStatus::Abandoned),
-        "abandoning the plan should persist in tracked snapshots"
+        "abandoning the plan should persist in the authoritative runtime store"
     );
 
     session
@@ -8230,19 +8246,11 @@ fn repo_published_plan_snapshot_persists_archive_transition() {
     flush_coordination_materializations(&session);
 
     drop(session);
-    fs::remove_file(
-        PrismPaths::for_workspace_root(&root)
-            .unwrap()
-            .shared_runtime_db_path()
-            .unwrap(),
-    )
-    .unwrap();
-
     let reloaded = index_workspace_session(&root).unwrap();
     let snapshot = reloaded
         .load_coordination_snapshot()
         .unwrap()
-        .expect("archived published plans should hydrate a coordination snapshot");
+        .expect("archived plans should hydrate from the local SQLite authority");
     assert!(snapshot
         .plans
         .iter()

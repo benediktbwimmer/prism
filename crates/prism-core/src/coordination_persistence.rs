@@ -6,8 +6,7 @@ use anyhow::Result;
 use prism_coordination::{
     coordination_queue_read_model_from_seed, coordination_read_model_from_seed,
     coordination_snapshot_from_events, snapshot_plan_graphs, CoordinationEvent,
-    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
-    TaskGitExecution,
+    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot, TaskGitExecution,
 };
 use prism_ir::{PlanExecutionOverlay, PlanGraph, SessionId};
 use prism_store::{

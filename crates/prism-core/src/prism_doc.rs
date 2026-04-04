@@ -13,6 +13,7 @@ use prism_projections::{
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
+use crate::published_plans::HydratedCoordinationPlanState;
 use crate::util::prism_doc_path;
 
 mod repo_state;
@@ -46,7 +47,17 @@ pub(crate) fn sync_repo_prism_doc(
     relations: &[ConceptRelation],
     contracts: &[ContractPacket],
 ) -> Result<PrismDocSyncResult> {
-    let state_catalog = repo_state::RepoStateCatalog::load(root)?;
+    sync_repo_prism_doc_with_plan_state(root, concepts, relations, contracts, None)
+}
+
+pub(crate) fn sync_repo_prism_doc_with_plan_state(
+    root: &Path,
+    concepts: &[ConceptPacket],
+    relations: &[ConceptRelation],
+    contracts: &[ContractPacket],
+    plan_state: Option<HydratedCoordinationPlanState>,
+) -> Result<PrismDocSyncResult> {
+    let state_catalog = repo_state::RepoStateCatalog::load(root, plan_state)?;
     let catalog = PrismDocCatalog::new(concepts, relations, contracts, state_catalog.summary());
     let prism_docs_dir = root.join("docs").join("prism");
     fs::create_dir_all(&prism_docs_dir)?;

@@ -587,42 +587,44 @@ fn observed_integration_git_execution(
     let Some(target_ref) = task_target_ref(&task.git_execution) else {
         return Ok(None);
     };
-    let review_artifact_ref = match task.git_execution.integration_mode {
-        prism_ir::GitIntegrationMode::ManualPr | prism_ir::GitIntegrationMode::AutoPr => {
-            let linked_artifact = task
-                .git_execution
-                .review_artifact_ref
-                .as_ref()
-                .and_then(|review_artifact_ref| {
-                    let artifact_id = ArtifactId::new(review_artifact_ref.clone());
-                    prism.coordination_artifact(&artifact_id).and_then(|artifact| {
-                        (artifact.task == task.id && artifact_ready_for_integration(&artifact))
-                            .then_some((review_artifact_ref.clone(), artifact))
-                    })
-                });
-            if let Some((review_artifact_ref, _artifact)) = linked_artifact {
-                Some(review_artifact_ref)
-            } else {
-                let mut approved_artifacts = prism
-                    .coordination_snapshot()
-                    .artifacts
-                    .iter()
-                    .filter(|artifact| {
-                        artifact.task == task.id && artifact_ready_for_integration(artifact)
-                    })
-                    .map(|artifact| artifact.id.0.to_string())
-                    .collect::<Vec<_>>();
-                approved_artifacts.sort();
-                approved_artifacts.dedup();
-                if approved_artifacts.len() == 1 {
-                    approved_artifacts.into_iter().next()
+    let review_artifact_ref =
+        match task.git_execution.integration_mode {
+            prism_ir::GitIntegrationMode::ManualPr | prism_ir::GitIntegrationMode::AutoPr => {
+                let linked_artifact = task.git_execution.review_artifact_ref.as_ref().and_then(
+                    |review_artifact_ref| {
+                        let artifact_id = ArtifactId::new(review_artifact_ref.clone());
+                        prism
+                            .coordination_artifact(&artifact_id)
+                            .and_then(|artifact| {
+                                (artifact.task == task.id
+                                    && artifact_ready_for_integration(&artifact))
+                                .then_some((review_artifact_ref.clone(), artifact))
+                            })
+                    },
+                );
+                if let Some((review_artifact_ref, _artifact)) = linked_artifact {
+                    Some(review_artifact_ref)
                 } else {
-                    return Ok(None);
+                    let mut approved_artifacts = prism
+                        .coordination_snapshot()
+                        .artifacts
+                        .iter()
+                        .filter(|artifact| {
+                            artifact.task == task.id && artifact_ready_for_integration(artifact)
+                        })
+                        .map(|artifact| artifact.id.0.to_string())
+                        .collect::<Vec<_>>();
+                    approved_artifacts.sort();
+                    approved_artifacts.dedup();
+                    if approved_artifacts.len() == 1 {
+                        approved_artifacts.into_iter().next()
+                    } else {
+                        return Ok(None);
+                    }
                 }
             }
-        }
-        _ => task.git_execution.review_artifact_ref.clone(),
-    };
+            _ => task.git_execution.review_artifact_ref.clone(),
+        };
     refresh_origin(root)?;
     if let Some(evidence) = task.git_execution.integration_evidence.as_ref() {
         if !ref_contains_commit(root, &target_ref, &evidence.target_commit)? {
@@ -3197,11 +3199,11 @@ impl QueryHost {
                         .current_prism()
                         .coordination_task(&request.task_id)
                         .ok_or_else(|| {
-                            anyhow!(
-                                "missing coordination task `{}` after review artifact refresh",
-                                request.task_id.0
-                            )
-                        })?;
+                        anyhow!(
+                            "missing coordination task `{}` after review artifact refresh",
+                            request.task_id.0
+                        )
+                    })?;
                     let finalize_record_result = self
                         .record_task_git_execution_with_materialization(
                             session,

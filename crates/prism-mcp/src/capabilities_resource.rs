@@ -2,9 +2,8 @@ use rmcp::model::ProtocolVersion;
 
 use crate::{
     capabilities_resource_uri, capabilities_resource_view_link, instructions_resource_view_link,
-    resource_example_uri, resource_link_view, resource_schema_catalog_entries,
-    schema_resource_uri, schema_resource_view_link,
-    search_resource_view_link_with_options, session_resource_view_link,
+    resource_example_uri, resource_link_view, resource_schema_catalog_entries, schema_resource_uri,
+    schema_resource_view_link, search_resource_view_link_with_options, session_resource_view_link,
     tool_action_schema_resource_uri, tool_schema_catalog_entries, tool_schema_resource_uri,
     tool_schemas_resource_view_link, workspace_revision_view, CapabilitiesBuildInfoView,
     CapabilitiesResourcePayload, FeatureFlagsView, PrismMcpFeatures, QueryHost,

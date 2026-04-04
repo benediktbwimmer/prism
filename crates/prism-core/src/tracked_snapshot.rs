@@ -309,10 +309,6 @@ fn memory_snapshot_path(root: &Path, memory_id: &str) -> PathBuf {
     snapshot_memory_dir(root).join(snapshot_file_name(memory_id))
 }
 
-fn plan_snapshot_path(root: &Path, plan_id: &str) -> PathBuf {
-    snapshot_plans_dir(root).join(snapshot_file_name(plan_id))
-}
-
 pub(crate) fn publish_context_from_event(
     actor: Option<&EventActor>,
     execution_context: Option<&EventExecutionContext>,
@@ -445,14 +441,13 @@ pub(crate) fn apply_memory_snapshot(
 
 pub(crate) fn sync_coordination_snapshot_state(
     root: &Path,
-    snapshot: &CoordinationSnapshot,
-    plan_graphs: &[PlanGraph],
-    execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    _snapshot: &CoordinationSnapshot,
+    _plan_graphs: &[PlanGraph],
+    _execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
     publish: Option<&TrackedSnapshotPublishContext>,
     coordination_revision: Option<u64>,
 ) -> Result<()> {
-    sync_plan_objects(root, snapshot, plan_graphs, execution_overlays)?;
-    rebuild_plan_indexes(root)?;
+    cleanup_tracked_plan_snapshot_exports(root)?;
     cleanup_shared_coordination_mirror_exports(root)?;
     if let Some(coordination_revision) = coordination_revision {
         sync_coordination_materialization_status(root, coordination_revision, publish)?;
@@ -465,7 +460,7 @@ pub(crate) fn regenerate_tracked_snapshot_derived_artifacts(root: &Path) -> Resu
     rebuild_contract_index(root)?;
     rebuild_relation_index(root)?;
     rebuild_memory_index(root)?;
-    rebuild_plan_indexes(root)?;
+    cleanup_tracked_plan_snapshot_exports(root)?;
     cleanup_shared_coordination_mirror_exports(root)?;
     refresh_manifest(root, None)
 }
@@ -573,32 +568,11 @@ pub(crate) fn load_tracked_coordination_snapshot_state(
     }))
 }
 
-fn sync_plan_objects(
-    root: &Path,
-    snapshot: &CoordinationSnapshot,
-    plan_graphs: &[PlanGraph],
-    execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
-) -> Result<()> {
-    let mut expected = BTreeSet::new();
-    for plan in &snapshot.plans {
-        let Some(graph) = plan_graphs.iter().find(|graph| graph.id == plan.id) else {
-            continue;
-        };
-        let path = plan_snapshot_path(root, &plan.id.0);
-        expected.insert(path.clone());
-        write_json_file(
-            &path,
-            &SnapshotPlanRecord {
-                plan: plan.clone(),
-                graph: graph.clone(),
-                execution_overlays: execution_overlays
-                    .get(plan.id.0.as_str())
-                    .cloned()
-                    .unwrap_or_default(),
-            },
-        )?;
-    }
-    cleanup_directory_json_files(&snapshot_plans_dir(root), &expected)
+fn cleanup_tracked_plan_snapshot_exports(root: &Path) -> Result<()> {
+    cleanup_directory_json_files(&snapshot_plans_dir(root), &BTreeSet::new())?;
+    remove_file_if_exists(&snapshot_indexes_dir(root).join("plans.json"))?;
+    remove_dir_if_empty(&snapshot_plans_dir(root))?;
+    Ok(())
 }
 
 fn rebuild_concept_index(root: &Path) -> Result<()> {
@@ -658,23 +632,6 @@ fn rebuild_memory_index(root: &Path) -> Result<()> {
         })
         .collect::<Vec<_>>();
     write_json_file(&snapshot_indexes_dir(root).join("memory.json"), &entries)
-}
-
-fn rebuild_plan_indexes(root: &Path) -> Result<()> {
-    let entries = load_json_records::<SnapshotPlanRecord>(&snapshot_plans_dir(root))?
-        .into_iter()
-        .map(|(path, record)| SnapshotIndexEntry {
-            id: record.plan.id.0.to_string(),
-            title: if record.plan.title.trim().is_empty() {
-                record.plan.goal.clone()
-            } else {
-                record.plan.title.clone()
-            },
-            status: format!("{:?}", record.plan.status),
-            path,
-        })
-        .collect::<Vec<_>>();
-    write_json_file(&snapshot_indexes_dir(root).join("plans.json"), &entries)
 }
 
 fn cleanup_shared_coordination_mirror_exports(root: &Path) -> Result<()> {

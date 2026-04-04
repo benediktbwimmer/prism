@@ -1,7 +1,8 @@
 use rmcp::model::RawResource;
 
 use crate::{
-    resource_link_view, resource_schemas::ResourceCapabilityView, ResourceLinkView, INSTRUCTIONS_URI,
+    resource_link_view, resource_schemas::ResourceCapabilityView, ResourceLinkView,
+    INSTRUCTIONS_URI,
 };
 
 const INDEX_PLACEHOLDER: &str = "{{INSTRUCTION_SET_INDEX}}";
@@ -13,8 +14,7 @@ const PLANNING_MARKDOWN: &str = include_str!("../../../docs/prism/instructions/p
 const REVIEW_MARKDOWN: &str = include_str!("../../../docs/prism/instructions/review.md");
 const COORDINATION_MARKDOWN: &str =
     include_str!("../../../docs/prism/instructions/coordination.md");
-const EXPLORATION_MARKDOWN: &str =
-    include_str!("../../../docs/prism/instructions/exploration.md");
+const EXPLORATION_MARKDOWN: &str = include_str!("../../../docs/prism/instructions/exploration.md");
 
 const FAMILIARIZATION_BLOCK: &str =
     include_str!("../../../docs/prism/instructions/blocks/familiarization.md");
@@ -27,8 +27,7 @@ const READ_STRATEGY_BLOCK: &str =
 const COMPRESSION_BLOCK: &str =
     include_str!("../../../docs/prism/instructions/blocks/compression.md");
 const PLANS_BLOCK: &str = include_str!("../../../docs/prism/instructions/blocks/plans.md");
-const MUTATIONS_BLOCK: &str =
-    include_str!("../../../docs/prism/instructions/blocks/mutations.md");
+const MUTATIONS_BLOCK: &str = include_str!("../../../docs/prism/instructions/blocks/mutations.md");
 const MEMORY_GUIDANCE_BLOCK: &str =
     include_str!("../../../docs/prism/instructions/blocks/memory-guidance.md");
 const CONCEPT_PACKS_BLOCK: &str =
@@ -197,18 +196,16 @@ pub(crate) fn instruction_resource_capabilities() -> Vec<ResourceCapabilityView>
         schema_uri: None,
         example_uri: Some(instructions_resource_uri()),
     }];
-    resources.extend(
-        instruction_set_definitions()
-            .iter()
-            .map(|definition| ResourceCapabilityView {
-                name: definition.name.to_string(),
-                uri: instruction_set_resource_uri(definition.id),
-                mime_type: "text/markdown".to_string(),
-                description: definition.description.to_string(),
-                schema_uri: None,
-                example_uri: Some(instruction_set_resource_uri(definition.id)),
-            }),
-    );
+    resources.extend(instruction_set_definitions().iter().map(|definition| {
+        ResourceCapabilityView {
+            name: definition.name.to_string(),
+            uri: instruction_set_resource_uri(definition.id),
+            mime_type: "text/markdown".to_string(),
+            description: definition.description.to_string(),
+            schema_uri: None,
+            example_uri: Some(instruction_set_resource_uri(definition.id)),
+        }
+    }));
     resources
 }
 

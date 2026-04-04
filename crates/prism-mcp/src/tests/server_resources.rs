@@ -979,8 +979,10 @@ async fn schema_catalog_and_capabilities_surface_stable_examples() {
         .as_array()
         .unwrap()
         .iter()
-        .any(|resource| resource["name"] == "PRISM Instructions: Execution"
-            && resource["exampleUri"] == "prism://instructions/execution"));
+        .any(
+            |resource| resource["name"] == "PRISM Instructions: Execution"
+                && resource["exampleUri"] == "prism://instructions/execution"
+        ));
     assert!(capabilities_payload["resources"]
         .as_array()
         .unwrap()

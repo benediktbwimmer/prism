@@ -15,9 +15,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::memory_events::load_repo_memory_events;
-use crate::published_plans::{
-    load_hydrated_coordination_plan_state, load_repo_published_plan_index, PublishedPlanIndexEntry,
-};
+use crate::published_plans::{load_hydrated_coordination_plan_state, HydratedCoordinationPlanState};
 
 use super::{anchor_label, write_generated_file, PrismDocFileSync};
 
@@ -37,13 +35,15 @@ pub(super) struct RepoStateCatalog {
 }
 
 impl RepoStateCatalog {
-    pub(super) fn load(root: &Path) -> Result<Self> {
+    pub(super) fn load(
+        root: &Path,
+        plan_state_override: Option<HydratedCoordinationPlanState>,
+    ) -> Result<Self> {
         let memory_events = load_repo_memory_events(root)?;
-        let plan_state = load_hydrated_coordination_plan_state(root, None)?;
-        let plan_index = load_repo_published_plan_index(root)?
-            .into_iter()
-            .map(|entry| (entry.plan_id.0.clone(), entry))
-            .collect::<HashMap<_, _>>();
+        let plan_state = match plan_state_override {
+            Some(state) => Some(state),
+            None => load_hydrated_coordination_plan_state(root, None)?,
+        };
         let plan_policies = plan_state
             .as_ref()
             .map(|state| {
@@ -65,8 +65,7 @@ impl RepoStateCatalog {
             .into_iter()
             .map(|graph| {
                 let key = graph.id.0.clone();
-                let index = plan_index.get(&key).cloned();
-                let bucket = plan_bucket(index.as_ref(), graph.status);
+                let bucket = plan_bucket(graph.status);
                 let overlays = execution_overlays
                     .get(key.as_str())
                     .cloned()
@@ -74,7 +73,6 @@ impl RepoStateCatalog {
                 PublishedPlanDoc {
                     graph,
                     policy: plan_policies.get(&key).cloned().unwrap_or_default(),
-                    index,
                     overlays,
                     bucket,
                     doc_path: plan_doc_path(bucket, &key),
@@ -143,7 +141,6 @@ struct PublishedMemoryRecord {
 struct PublishedPlanDoc {
     graph: PlanGraph,
     policy: CoordinationPolicy,
-    index: Option<PublishedPlanIndexEntry>,
     overlays: Vec<PlanExecutionOverlay>,
     bucket: PlanDocBucket,
     doc_path: PathBuf,
@@ -398,11 +395,7 @@ fn render_plan_index_doc(catalog: &RepoStateCatalog) -> String {
 
 fn render_plan_doc(plan: &PublishedPlanDoc) -> String {
     let metadata = ProjectionMetadata::from_sources(
-        &(
-            plan.graph.clone(),
-            plan.index.clone(),
-            plan.overlays.clone(),
-        ),
+        &(plan.graph.clone(), plan.overlays.clone()),
         None,
         format!(
             "{} nodes, {} edges, {} overlays",
@@ -459,26 +452,17 @@ fn render_plan_doc(plan: &PublishedPlanDoc) -> String {
 
     markdown.push_str("## Branch Snapshot Export\n\n");
     markdown.push_str(
-        "- Shared coordination authority: shared coordination ref when present; branch-local `.prism/state/**` is not cross-branch authority\n",
+        "- Shared coordination authority: shared coordination ref when present\n",
     );
-    markdown
-        .push_str("- Snapshot manifest: `.prism/state/manifest.json` (derived branch export)\n");
-    markdown.push_str("- Snapshot plan shard: `.prism/state/plans/");
-    markdown.push_str(&plan.graph.id.0);
-    markdown.push_str(".json` (derived branch export)\n");
-    if let Some(index) = plan
-        .index
-        .as_ref()
-        .filter(|index| !index.log_path.is_empty())
-    {
-        markdown.push_str("- Legacy migration log path: `");
-        markdown.push_str(&index.log_path);
-        markdown.push_str("` (compatibility only, not current shared coordination authority)\n\n");
-    } else {
-        markdown.push_str(
-            "- Legacy migration log path: none; tracked snapshot plan shards are derived exports, not current shared coordination authority\n\n",
-        );
-    }
+    markdown.push_str(
+        "- Local hot cache: shared-runtime SQLite startup checkpoint and hydrated in-memory runtime\n",
+    );
+    markdown.push_str(
+        "- Branch-local tracked `.prism/state/plans/**` export: disabled; plans no longer mirror into tracked repo snapshot state\n",
+    );
+    markdown.push_str(
+        "- Manual markdown export path: `docs/prism/plans/**` only when `sync_prism_doc` or `repair-snapshot-artifacts` is invoked explicitly\n\n",
+    );
 
     if !plan.graph.root_nodes.is_empty() {
         markdown.push_str("## Root Nodes\n\n");
@@ -721,12 +705,8 @@ fn remove_stale_plan_docs(root: &Path, expected_paths: &BTreeSet<PathBuf>) -> Re
     Ok(())
 }
 
-fn plan_bucket(index: Option<&PublishedPlanIndexEntry>, status: PlanStatus) -> PlanDocBucket {
-    if index
-        .as_ref()
-        .is_some_and(|entry| !entry.log_path.is_empty() && entry.log_path.contains("/archived/"))
-        || status == PlanStatus::Archived
-    {
+fn plan_bucket(status: PlanStatus) -> PlanDocBucket {
+    if status == PlanStatus::Archived {
         PlanDocBucket::Archived
     } else {
         PlanDocBucket::Active

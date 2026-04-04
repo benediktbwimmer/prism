@@ -17,10 +17,9 @@ use crate::helpers::{
     simulate_conflicts, validate_plan_transition, validate_task_transition,
 };
 use crate::lease::{
-    authoritative_task_holder, claim_lease_state, claim_renewal_should_refresh,
-    clear_task_lease, current_claim_holder, current_task_holder, refresh_claim_lease,
-    refresh_task_lease, same_holder,
-    task_heartbeat_should_refresh, task_lease_state, LeaseState,
+    authoritative_task_holder, claim_lease_state, claim_renewal_should_refresh, clear_task_lease,
+    current_claim_holder, current_task_holder, refresh_claim_lease, refresh_task_lease,
+    same_holder, task_heartbeat_should_refresh, task_lease_state, LeaseState,
 };
 use crate::state::CoordinationState;
 use crate::state::CoordinationStore;
@@ -104,13 +103,13 @@ fn enforce_task_lease_for_standard_mutation(
         None,
         None,
         json!({
-                "leaseState": format!("{lease_state:?}").to_ascii_lowercase(),
-                "leaseHolder": lease_holder_details(Some(&lease_holder)),
-                "currentHolder": lease_holder_details(Some(&current_holder)),
-                "leaseStaleAt": task.lease_stale_at,
-                "leaseExpiresAt": task.lease_expires_at,
-            }),
-        )];
+            "leaseState": format!("{lease_state:?}").to_ascii_lowercase(),
+            "leaseHolder": lease_holder_details(Some(&lease_holder)),
+            "currentHolder": lease_holder_details(Some(&current_holder)),
+            "leaseStaleAt": task.lease_stale_at,
+            "leaseExpiresAt": task.lease_expires_at,
+        }),
+    )];
     Err(rejection_error(
         state,
         meta,

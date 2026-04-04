@@ -23,12 +23,11 @@ use prism_store::{
 };
 use tracing::warn;
 
-use crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint;
 use crate::coordination_persistence::repo_semantic_coordination_snapshot;
+use crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint;
 use crate::memory_refresh::reanchor_episodic_snapshot;
 use crate::published_plans::execution_overlays_by_plan;
 use crate::tracked_snapshot::{sync_coordination_snapshot_state, TrackedSnapshotPublishContext};
-use crate::util::current_git_branch;
 
 const VALIDATION_COALESCE_WINDOW: Duration = Duration::from_millis(25);
 const COORDINATION_COMPACTION_SUFFIX_THRESHOLD: usize = 128;
@@ -40,7 +39,6 @@ pub(crate) struct CoordinationMaterialization {
     pub(crate) plan_graphs: Option<Vec<PlanGraph>>,
     pub(crate) execution_overlays: Option<BTreeMap<String, Vec<PlanExecutionOverlay>>>,
     pub(crate) publish_context: Option<TrackedSnapshotPublishContext>,
-    pub(crate) sync_prism_doc: bool,
 }
 
 pub(crate) struct CheckpointMaterializerHandle {
@@ -505,18 +503,6 @@ where
             plan_graphs,
             &repo_semantic_execution_overlays,
         )?;
-        if materialization.sync_prism_doc
-            && !matches!(current_git_branch(root).as_deref(), Some("main"))
-        {
-            crate::published_plans::regenerate_repo_published_plan_artifacts(root)?;
-            let prism = crate::protected_state::runtime_sync::load_repo_protected_knowledge(root)?;
-            crate::prism_doc::sync_repo_prism_doc(
-                root,
-                &prism.curated_concepts,
-                &prism.concept_relations,
-                &prism.curated_contracts,
-            )?;
-        }
     }
     Ok(())
 }

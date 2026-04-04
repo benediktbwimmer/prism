@@ -9,10 +9,10 @@ use prism_coordination::{
 use prism_history::HistoryStore;
 use prism_ir::{
     AgentId, AnchorRef, ChangeTrigger, CoordinationTaskId, Edge, EdgeKind, EventActor, EventId,
-    EventMeta, FileId, Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode,
-    PlanEdge, PlanEdgeId, PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanKind,
-    PlanNode, PlanNodeBlockerKind, PlanNodeId, PlanNodeKind, PlanNodeStatus, PlanScope,
-    PlanStatus, SessionId, Span, TaskId, WorkspaceRevision,
+    EventMeta, FileId, Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, PlanEdge,
+    PlanEdgeId, PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanKind, PlanNode,
+    PlanNodeBlockerKind, PlanNodeId, PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus,
+    SessionId, Span, TaskId, WorkspaceRevision,
 };
 use prism_memory::{
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeRecallQuery, OutcomeResult,

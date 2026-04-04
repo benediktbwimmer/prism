@@ -25,8 +25,7 @@ use crate::shared_coordination_ref::{
 };
 use crate::tracked_snapshot::{
     load_tracked_coordination_snapshot_state, remove_obsolete_legacy_tracked_authority_artifacts,
-    sync_coordination_snapshot_state, tracked_snapshot_authority_active,
-    TrackedSnapshotPublishContext,
+    tracked_snapshot_authority_active, TrackedSnapshotPublishContext,
 };
 use crate::util::{
     repo_active_plans_dir, repo_archived_plans_dir, repo_plan_index_path, repo_plans_dir,
@@ -248,19 +247,6 @@ pub(crate) fn sync_repo_published_plans(
     )
 }
 
-pub(crate) fn load_repo_published_plan_index(root: &Path) -> Result<Vec<PublishedPlanIndexEntry>> {
-    if tracked_snapshot_authority_active(root)? {
-        return load_snapshot_published_plan_index(root);
-    }
-    let index_path = repo_plan_index_path(root);
-    if !index_path.exists() {
-        return Ok(Vec::new());
-    }
-    let mut entries = load_jsonl_file::<PublishedPlanIndexEntry>(&index_path)?;
-    entries.sort_by(|left, right| left.plan_id.0.cmp(&right.plan_id.0));
-    Ok(entries)
-}
-
 pub fn regenerate_repo_published_plan_artifacts(root: &Path) -> Result<()> {
     if tracked_snapshot_authority_active(root)? {
         remove_obsolete_legacy_tracked_authority_artifacts(root)?;
@@ -299,26 +285,6 @@ pub fn regenerate_repo_published_plan_artifacts(root: &Path) -> Result<()> {
     write_jsonl_file(&repo_plan_index_path(root), &index_entries)?;
     cleanup_stale_derived_plan_logs(&plans_dir, &expected_derived_logs)?;
     Ok(())
-}
-
-fn load_snapshot_published_plan_index(root: &Path) -> Result<Vec<PublishedPlanIndexEntry>> {
-    let Some(state) = load_tracked_coordination_snapshot_state(root)? else {
-        return Ok(Vec::new());
-    };
-    let mut entries = state
-        .plan_graphs
-        .into_iter()
-        .map(|graph| PublishedPlanIndexEntry {
-            plan_id: graph.id,
-            title: graph.title,
-            status: graph.status,
-            scope: format!("{:?}", graph.scope),
-            kind: format!("{:?}", graph.kind),
-            log_path: String::new(),
-        })
-        .collect::<Vec<_>>();
-    entries.sort_by(|left, right| left.plan_id.0.cmp(&right.plan_id.0));
-    Ok(entries)
 }
 
 pub fn inspect_repo_published_plan_artifacts(
@@ -410,17 +376,13 @@ where
     observe_published_plan_step(
         &mut observe_phase,
         "mutation.coordination.publishedPlans.syncTrackedSnapshot",
-        |_| json!({}),
-        || {
-            sync_coordination_snapshot_state(
-                root,
-                snapshot,
-                &graphs,
-                &repo_published_overlays_by_plan(&overlays_by_plan),
-                publish,
-                None,
-            )
+        |_| {
+            json!({
+                "skipped": true,
+                "reason": "shared_ref_authority_only",
+            })
         },
+        || Ok::<(), anyhow::Error>(()),
     )
 }
 
@@ -651,8 +613,7 @@ fn merge_published_plans_into_snapshot(
                     lease_expires_at,
                     worktree_id,
                     branch_ref,
-                )) =
-                    runtime_scope_by_task.get(&task.id)
+                )) = runtime_scope_by_task.get(&task.id)
                 {
                     task.pending_handoff_to = pending_handoff_to.clone();
                     task.session = session.clone();
@@ -939,20 +900,6 @@ fn repo_published_execution_overlays(
     // git preflight/publish state stays authoritative-only so task publication can be finalized
     // without creating a follow-up `.prism` commit loop.
     Vec::new()
-}
-
-fn repo_published_overlays_by_plan(
-    overlays_by_plan: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
-) -> BTreeMap<String, Vec<PlanExecutionOverlay>> {
-    overlays_by_plan
-        .iter()
-        .map(|(plan_id, overlays)| {
-            (
-                plan_id.clone(),
-                repo_published_execution_overlays(overlays.clone()),
-            )
-        })
-        .collect()
 }
 
 pub(crate) fn execution_overlays_by_plan(

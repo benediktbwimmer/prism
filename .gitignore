@@ -2,6 +2,15 @@
 /.prism/*
 !/.prism/state/
 !/.prism/state/**
+/.prism/state/plans/
+/.prism/state/indexes/plans.json
+PRISM.md
+docs/prism/concepts.md
+docs/prism/contracts.md
+docs/prism/relations.md
+docs/prism/memory.md
+docs/prism/changes.md
+docs/prism/plans/
 .DS_Store
 /.venv-sb-cli
 /.venv-swebench

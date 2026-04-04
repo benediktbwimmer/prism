@@ -3154,7 +3154,9 @@ mod tests {
         assert_eq!(loaded_task.lease_started_at, Some(2));
         assert_eq!(loaded_task.lease_refreshed_at, Some(1700));
         assert!(loaded_task.lease_stale_at.is_some_and(|value| value > 1700));
-        assert!(loaded_task.lease_expires_at.is_some_and(|value| value > 1700));
+        assert!(loaded_task
+            .lease_expires_at
+            .is_some_and(|value| value > 1700));
     }
 
     #[test]

@@ -205,29 +205,6 @@ pub(crate) fn prism_doc_path(root: &Path) -> PathBuf {
     root.join("PRISM.md")
 }
 
-fn resolve_git_dir(root: &Path) -> Option<PathBuf> {
-    let dot_git = root.join(".git");
-    if dot_git.is_dir() {
-        return Some(dot_git);
-    }
-    let pointer = fs::read_to_string(dot_git).ok()?;
-    let git_dir = pointer.trim().strip_prefix("gitdir: ")?;
-    let path = PathBuf::from(git_dir);
-    Some(if path.is_absolute() {
-        path
-    } else {
-        root.join(path)
-    })
-}
-
-pub(crate) fn current_git_branch(root: &Path) -> Option<String> {
-    let git_dir = resolve_git_dir(root)?;
-    let head = fs::read_to_string(git_dir.join("HEAD")).ok()?;
-    head.trim()
-        .strip_prefix("ref: refs/heads/")
-        .map(str::to_string)
-}
-
 pub(crate) fn repo_concept_events_path(root: &Path) -> PathBuf {
     root.join(".prism").join("concepts").join("events.jsonl")
 }

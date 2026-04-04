@@ -6,6 +6,7 @@ use prism_coordination::CoordinationSnapshot;
 use prism_ir::{PlanExecutionOverlay, PlanGraph};
 use prism_store::{
     CoordinationCheckpointStore, CoordinationJournal, CoordinationStartupCheckpoint,
+    CoordinationStartupCheckpointAuthority,
 };
 
 use crate::published_plans::{
@@ -79,9 +80,7 @@ pub(crate) fn save_shared_coordination_startup_checkpoint<S>(
 where
     S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
 {
-    let Some(authority) = shared_coordination_startup_authority(root)? else {
-        return Ok(());
-    };
+    let authority = coordination_startup_authority(root)?;
     store.save_coordination_startup_checkpoint(&CoordinationStartupCheckpoint {
         version: CoordinationStartupCheckpoint::VERSION,
         materialized_at: current_timestamp(),
@@ -106,9 +105,7 @@ where
     if store.coordination_revision()? > checkpoint.coordination_revision {
         return Ok(None);
     }
-    let Some(authority) = shared_coordination_startup_authority(root)? else {
-        return Ok(None);
-    };
+    let authority = coordination_startup_authority(root)?;
     if checkpoint.authority.ref_name != authority.ref_name {
         return Ok(None);
     }
@@ -124,4 +121,14 @@ where
         return Ok(None);
     }
     Ok(Some(checkpoint))
+}
+
+fn coordination_startup_authority(root: &Path) -> Result<CoordinationStartupCheckpointAuthority> {
+    Ok(shared_coordination_startup_authority(root)?.unwrap_or_else(|| {
+        CoordinationStartupCheckpointAuthority {
+            ref_name: "local-worktree".to_string(),
+            head_commit: None,
+            manifest_digest: None,
+        }
+    }))
 }
