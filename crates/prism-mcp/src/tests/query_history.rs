@@ -85,6 +85,7 @@ fn sibling_mcp_record(id: &str, workspace_root: &str) -> PersistedMcpCallRecord 
         response_preview: None,
         metadata: json!({ "tool": "prism_query", "queryText": "return 'sibling';" }),
         query_compat: None,
+        mutation_compat: None,
     }
 }
 

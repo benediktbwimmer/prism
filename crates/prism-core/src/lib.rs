@@ -74,6 +74,7 @@ pub use path_identity_repair::{
     inspect_legacy_path_identity_state, repair_legacy_path_identity_state,
     LegacyPathIdentityRepairReport, LegacyPathIdentityRepairTargetReport,
 };
+pub use peer_runtime::{local_runtime_id, runtime_query_endpoint, PEER_RUNTIME_QUERY_PATH};
 pub use principal_registry::{
     AuthenticatedPrincipal, BootstrapOwnerInput, MintPrincipalRequest, MintedPrincipalCredential,
 };
@@ -104,7 +105,6 @@ pub use shared_coordination_ref::{
     shared_coordination_ref_diagnostics, sync_live_runtime_descriptor,
     SharedCoordinationRefDiagnostics,
 };
-pub use peer_runtime::{local_runtime_id, runtime_query_endpoint, PEER_RUNTIME_QUERY_PATH};
 pub use shared_runtime_backend::SharedRuntimeBackend;
 pub use snapshot_artifact_repair::regenerate_repo_snapshot_derived_artifacts;
 pub use validation_feedback::{

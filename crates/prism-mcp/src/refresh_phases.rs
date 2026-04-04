@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use serde_json::{json, Value};
 
-use crate::dashboard_events::MutationRun;
+use crate::mutation_trace::MutationRun;
 use crate::query_log::QueryRun;
 use crate::{WorkspaceRefreshMetrics, WorkspaceRefreshReport};
 

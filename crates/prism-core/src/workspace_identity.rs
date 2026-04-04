@@ -74,7 +74,9 @@ pub(crate) fn coordination_persist_context_for_root(
 fn instance_id_for_root(canonical_root: &Path) -> String {
     static INSTANCE_IDS: OnceLock<Mutex<HashMap<PathBuf, String>>> = OnceLock::new();
     let ids = INSTANCE_IDS.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut ids = ids.lock().expect("workspace instance id cache lock poisoned");
+    let mut ids = ids
+        .lock()
+        .expect("workspace instance id cache lock poisoned");
     ids.entry(canonical_root.to_path_buf())
         .or_insert_with(|| {
             format!(

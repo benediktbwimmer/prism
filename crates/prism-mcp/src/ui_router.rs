@@ -25,8 +25,6 @@ pub(crate) fn routes(state: PrismUiState) -> Router {
         .route("/api/plans", get(prism_ui_plans))
         .route("/api/graph", get(prism_ui_graph))
         .route("/", get(prism_ui_index))
-        .route("/dashboard", get(prism_ui_index))
-        .route("/dashboard/", get(prism_ui_index))
         .route("/plans", get(prism_ui_index))
         .route("/plans/", get(prism_ui_index))
         .route("/graph", get(prism_ui_index))
@@ -112,7 +110,7 @@ mod tests {
         let host = Arc::new(host_with_session(index_workspace_session(&root).unwrap()));
         let router = routes(PrismUiState { host, root });
 
-        for path in ["/", "/dashboard", "/plans", "/graph"] {
+        for path in ["/", "/plans", "/graph"] {
             let response = router
                 .clone()
                 .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())

@@ -15,7 +15,9 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::memory_events::load_repo_memory_events;
-use crate::published_plans::{load_hydrated_coordination_plan_state, HydratedCoordinationPlanState};
+use crate::published_plans::{
+    load_hydrated_coordination_plan_state, HydratedCoordinationPlanState,
+};
 
 use super::{anchor_label, write_generated_file, PrismDocFileSync};
 
@@ -451,9 +453,7 @@ fn render_plan_doc(plan: &PublishedPlanDoc) -> String {
     markdown.push('\n');
 
     markdown.push_str("## Branch Snapshot Export\n\n");
-    markdown.push_str(
-        "- Shared coordination authority: shared coordination ref when present\n",
-    );
+    markdown.push_str("- Shared coordination authority: shared coordination ref when present\n");
     markdown.push_str(
         "- Local hot cache: shared-runtime SQLite startup checkpoint and hydrated in-memory runtime\n",
     );

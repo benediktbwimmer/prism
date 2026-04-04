@@ -124,11 +124,13 @@ where
 }
 
 fn coordination_startup_authority(root: &Path) -> Result<CoordinationStartupCheckpointAuthority> {
-    Ok(shared_coordination_startup_authority(root)?.unwrap_or_else(|| {
-        CoordinationStartupCheckpointAuthority {
-            ref_name: "local-worktree".to_string(),
-            head_commit: None,
-            manifest_digest: None,
-        }
-    }))
+    Ok(
+        shared_coordination_startup_authority(root)?.unwrap_or_else(|| {
+            CoordinationStartupCheckpointAuthority {
+                ref_name: "local-worktree".to_string(),
+                head_commit: None,
+                manifest_digest: None,
+            }
+        }),
+    )
 }

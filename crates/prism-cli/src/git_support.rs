@@ -480,8 +480,7 @@ fn is_derived_prism_path(path: &Path) -> bool {
 
 fn is_snapshot_derived_prism_path(path: &Path) -> bool {
     let normalized = path.to_string_lossy().replace('\\', "/");
-    normalized == ".prism/state/manifest.json"
-        || normalized.starts_with(".prism/state/indexes/")
+    normalized == ".prism/state/manifest.json" || normalized.starts_with(".prism/state/indexes/")
 }
 
 #[cfg(test)]

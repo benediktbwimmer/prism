@@ -17,11 +17,13 @@ use prism_coordination::{
 use prism_ir::{PlanExecutionOverlay, PlanGraph, WorkContextKind, WorkContextSnapshot};
 use prism_store::CoordinationStartupCheckpointAuthority;
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use crate::peer_runtime::{
     configured_public_runtime_endpoint, local_peer_runtime_discovery_mode,
     local_peer_runtime_endpoint,
 };
+use crate::published_plans::load_hydrated_coordination_plan_state;
 use crate::protected_state::canonical::{canonical_json_bytes, sha256_prefixed};
 use crate::protected_state::envelope::ProtectedSignatureAlgorithm;
 use crate::protected_state::repo_streams::{
@@ -429,7 +431,8 @@ pub(crate) fn sync_shared_coordination_ref_state(
     let ref_name = shared_coordination_ref_name(root);
     let expected_remote_head = observed_shared_coordination_head(root)
         .or_else(|| resolve_ref_commit(root, &ref_name).ok().flatten());
-    let baseline_state = load_shared_coordination_ref_state_from_current_ref(root, &ref_name)?;
+    let baseline_state =
+        load_shared_coordination_ref_state_from_current_ref_lenient(root, &ref_name)?;
     let paths = PrismPaths::for_workspace_root(root)?;
     let stage_parent = stage_root(&paths);
     fs::create_dir_all(&stage_parent)?;
@@ -459,8 +462,33 @@ pub fn sync_live_runtime_descriptor(root: &Path) -> Result<()> {
     if !git_repo_available(root) {
         return Ok(());
     }
-    let state = load_shared_coordination_ref_state(root)?
-        .unwrap_or_else(empty_shared_coordination_ref_state);
+    let ref_name = shared_coordination_ref_name(root);
+    let ref_exists = resolve_ref_commit(root, &ref_name)?.is_some();
+    let current_shared_state = load_shared_coordination_ref_state(root)?;
+    let runtime_descriptors = current_shared_state
+        .as_ref()
+        .map(|state| state.runtime_descriptors.clone())
+        .unwrap_or_default();
+    let hydrated = load_hydrated_coordination_plan_state(root, None)?;
+    if hydrated.is_none() && ref_exists && current_shared_state.is_none() {
+        warn!(
+            root = %root.display(),
+            ref_name,
+            "skipping shared coordination runtime descriptor publish because the current ref is invalid and no local coordination baseline is available"
+        );
+        return Ok(());
+    }
+    let state = hydrated
+        .map(|state| SharedCoordinationRefState {
+            snapshot: state.snapshot,
+            plan_graphs: state.plan_graphs,
+            execution_overlays: state.execution_overlays,
+            runtime_descriptors: runtime_descriptors.clone(),
+        })
+        .unwrap_or_else(|| SharedCoordinationRefState {
+            runtime_descriptors,
+            ..empty_shared_coordination_ref_state()
+        });
     sync_shared_coordination_ref_state(
         root,
         &state.snapshot,
@@ -494,7 +522,8 @@ fn sync_shared_coordination_ref_state_inner(
         baseline_state.map(|state| state.runtime_descriptors.as_slice()),
     )?;
     let mut current_expected_head = expected_remote_head.map(str::to_string);
-    let mut current_previous_manifest = load_shared_coordination_manifest_from_ref(root, ref_name)?;
+    let mut current_previous_manifest =
+        load_shared_coordination_manifest_from_ref_lenient(root, ref_name)?;
 
     for attempt in 0..=SHARED_COORDINATION_PUSH_MAX_RETRIES {
         sync_plan_objects(
@@ -563,9 +592,9 @@ fn sync_shared_coordination_ref_state_inner(
                     ref_name,
                 )?;
                 current_previous_manifest =
-                    load_shared_coordination_manifest_from_ref(root, ref_name)?;
+                    load_shared_coordination_manifest_from_ref_lenient(root, ref_name)?;
                 let latest_state =
-                    load_shared_coordination_ref_state_from_current_ref(root, ref_name)?;
+                    load_shared_coordination_ref_state_from_current_ref_lenient(root, ref_name)?;
                 let reconciled = reconcile_shared_coordination_ref_state(
                     baseline_state,
                     &desired_snapshot,
@@ -610,7 +639,7 @@ pub(crate) fn load_shared_coordination_ref_state(
     {
         return Ok(Some(cached.state));
     }
-    load_shared_coordination_ref_state_from_current_ref(root, &ref_name)
+    load_shared_coordination_ref_state_from_current_ref_lenient(root, &ref_name)
 }
 
 pub(crate) fn shared_coordination_startup_authority(
@@ -623,7 +652,7 @@ pub(crate) fn shared_coordination_startup_authority(
     let Some(head_commit) = resolve_ref_commit(root, &ref_name)? else {
         return Ok(None);
     };
-    let manifest_digest = load_shared_coordination_manifest_from_ref(root, &ref_name)?
+    let manifest_digest = load_shared_coordination_manifest_from_ref_lenient(root, &ref_name)?
         .as_ref()
         .map(canonical_manifest_digest)
         .transpose()?;
@@ -768,6 +797,25 @@ fn load_shared_coordination_ref_state_from_current_ref(
             },
         );
     Ok(Some(state))
+}
+
+fn load_shared_coordination_ref_state_from_current_ref_lenient(
+    root: &Path,
+    ref_name: &str,
+) -> Result<Option<SharedCoordinationRefState>> {
+    match load_shared_coordination_ref_state_from_current_ref(root, ref_name) {
+        Ok(state) => Ok(state),
+        Err(error) if is_shared_coordination_ref_integrity_error(&error) => {
+            warn!(
+                root = %root.display(),
+                ref_name,
+                error = %error,
+                "ignoring invalid shared coordination ref state and falling back to local materialized state"
+            );
+            Ok(None)
+        }
+        Err(error) => Err(error),
+    }
 }
 
 fn empty_shared_coordination_ref_state() -> SharedCoordinationRefState {
@@ -1453,6 +1501,25 @@ fn load_shared_coordination_manifest_from_ref(
                 Err(error)
             }
         }
+    }
+}
+
+fn load_shared_coordination_manifest_from_ref_lenient(
+    root: &Path,
+    ref_name: &str,
+) -> Result<Option<SharedCoordinationManifest>> {
+    match load_shared_coordination_manifest_from_ref(root, ref_name) {
+        Ok(manifest) => Ok(manifest),
+        Err(error) if is_shared_coordination_ref_integrity_error(&error) => {
+            warn!(
+                root = %root.display(),
+                ref_name,
+                error = %error,
+                "ignoring invalid shared coordination manifest and falling back to local materialized state"
+            );
+            Ok(None)
+        }
+        Err(error) => Err(error),
     }
 }
 
@@ -2207,6 +2274,15 @@ fn decode_signature(value: &str) -> Result<ed25519_dalek::Signature> {
     })
 }
 
+fn is_shared_coordination_ref_integrity_error(error: &anyhow::Error) -> bool {
+    let message = error.to_string();
+    message.contains("failed to parse shared coordination manifest from git ref")
+        || message.contains("shared coordination manifest signature")
+        || message.contains("shared coordination manifest digest mismatch")
+        || message.contains("shared coordination manifest is missing `")
+        || message.contains("failed to parse shared coordination manifest")
+}
+
 #[cfg(test)]
 mod tests {
     use std::cell::RefCell;
@@ -2339,6 +2415,38 @@ mod tests {
             work_context: Some(super::implicit_work_context()),
             publish_summary: None,
         }
+    }
+
+    fn tamper_shared_coordination_manifest_signature(root: &Path) {
+        let ref_name = super::shared_coordination_ref_name(root);
+        let contents = super::load_shared_coordination_ref_contents(root, &ref_name)
+            .unwrap()
+            .expect("shared coordination ref contents");
+        let stage_dir = root.join(".prism").join("shared-coordination-tamper-stage");
+        let _ = fs::remove_dir_all(&stage_dir);
+        fs::create_dir_all(&stage_dir).unwrap();
+        for (relative_path, bytes) in &contents.files {
+            let path = stage_dir.join("coordination").join(relative_path);
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).unwrap();
+            }
+            fs::write(&path, bytes).unwrap();
+        }
+        let manifest_path = stage_dir.join("coordination").join("manifest.json");
+        let mut manifest: serde_json::Value =
+            serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+        let signature = manifest["signature"]["value"]
+            .as_str()
+            .expect("manifest signature value")
+            .to_string();
+        manifest["signature"]["value"] = serde_json::Value::String(format!("{signature}tampered"));
+        fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+        super::publish_stage_to_ref(root, &stage_dir, &ref_name).unwrap();
+        let _ = fs::remove_dir_all(&stage_dir);
     }
 
     fn sample_snapshot_for(
@@ -2818,6 +2926,44 @@ mod tests {
         };
         assert_eq!(loaded.snapshot.tasks, vec![task]);
         assert_eq!(loaded.snapshot.plans, vec![plan]);
+    }
+
+    #[test]
+    fn invalid_shared_coordination_manifest_is_ignored_and_repaired_on_next_publish() {
+        let (root, _remote) = temp_git_repo_with_origin();
+        let (snapshot, graph, execution_map) = sample_snapshot_for(
+            "plan:shared-invalid-manifest",
+            "coord-task:shared-invalid-manifest",
+        );
+        sync_shared_coordination_ref_state(
+            &root,
+            &snapshot,
+            std::slice::from_ref(&graph),
+            &execution_map,
+            Some(&sample_publish_context()),
+        )
+        .unwrap();
+
+        tamper_shared_coordination_manifest_signature(&root);
+        assert!(
+            load_shared_coordination_ref_state(&root).unwrap().is_none(),
+            "invalid manifests should be ignored instead of aborting shared-ref hydration"
+        );
+
+        sync_shared_coordination_ref_state(
+            &root,
+            &snapshot,
+            std::slice::from_ref(&graph),
+            &execution_map,
+            Some(&sample_publish_context()),
+        )
+        .unwrap();
+
+        let repaired = load_shared_coordination_ref_state(&root)
+            .unwrap()
+            .expect("shared ref state should be repaired by the next publish");
+        assert_eq!(repaired.snapshot.plans, snapshot.plans);
+        assert_eq!(repaired.snapshot.tasks, snapshot.tasks);
     }
 
     #[test]

@@ -11,7 +11,7 @@ use crate::mcp_call_log::{
     new_log_entry, payload_summary, preview_value, query_result_summary, sanitize_query_text,
     summarize_query, unique_operations, unique_touches, McpCallLogStore, PersistedMcpCallRecord,
 };
-use crate::{current_timestamp, DashboardState, QueryHost, QueryLogArgs, SessionState};
+use crate::{current_timestamp, QueryHost, QueryLogArgs, SessionState};
 
 const DEFAULT_QUERY_LOG_LIMIT: usize = 20;
 const DEFAULT_SLOW_QUERY_LIMIT: usize = 20;
@@ -39,7 +39,6 @@ pub(crate) struct QueryRun {
     mcp_call_log_store: Arc<McpCallLogStore>,
     workspace: Option<Arc<prism_core::WorkspaceSession>>,
     view_name: Arc<std::sync::Mutex<Option<String>>>,
-    dashboard: Arc<DashboardState>,
     diagnostics: Arc<DiagnosticsState>,
     phases: Arc<std::sync::Mutex<Vec<QueryPhaseView>>>,
     finalized: Arc<AtomicBool>,
@@ -80,13 +79,11 @@ impl QueryHost {
             mcp_call_log_store: Arc::clone(&self.mcp_call_log_store),
             workspace: self.workspace_session_arc(),
             view_name: Arc::new(std::sync::Mutex::new(None)),
-            dashboard: Arc::clone(&self.dashboard_state),
             diagnostics: Arc::clone(&self.diagnostics_state),
             phases: Arc::new(std::sync::Mutex::new(Vec::new())),
             finalized: Arc::new(AtomicBool::new(false)),
             request_payload: None,
         };
-        run.dashboard_start(self.dashboard_state.as_ref());
         run
     }
 
@@ -185,7 +182,6 @@ impl QueryRun {
             .lock()
             .expect("query log phases lock poisoned")
             .push(phase.clone());
-        self.dashboard_phase(self.dashboard.as_ref(), &phase);
     }
 
     fn exact_request_payload(&self) -> Value {
@@ -249,7 +245,6 @@ impl QueryRun {
         crate::slow_call_snapshot::attach_slow_call_snapshot(
             &mut metadata,
             duration_ms,
-            self.dashboard.as_ref(),
             self.workspace.as_deref(),
         );
         let query_entry = QueryLogEntryView {
@@ -299,10 +294,10 @@ impl QueryRun {
                 entry: query_entry.clone(),
                 phases: phases.clone(),
             }),
+            mutation_compat: None,
         };
         let _ = store.push(record);
         emit_compact_query_timing(&query_entry, &phases);
-        self.dashboard_finish(self.dashboard.as_ref(), &query_entry);
         self.diagnostics.push_recent_query(query_entry);
         self.diagnostics.invalidate_runtime_status();
     }
@@ -342,7 +337,6 @@ impl QueryRun {
         crate::slow_call_snapshot::attach_slow_call_snapshot(
             &mut metadata,
             duration_ms,
-            self.dashboard.as_ref(),
             self.workspace.as_deref(),
         );
         let query_entry = QueryLogEntryView {
@@ -392,10 +386,10 @@ impl QueryRun {
                 entry: query_entry.clone(),
                 phases: phases.clone(),
             }),
+            mutation_compat: None,
         };
         let _ = store.push(record);
         emit_compact_query_timing(&query_entry, &phases);
-        self.dashboard_finish(self.dashboard.as_ref(), &query_entry);
         self.diagnostics.push_recent_query(query_entry);
         self.diagnostics.invalidate_runtime_status();
     }
@@ -440,7 +434,6 @@ impl Drop for QueryRun {
         crate::slow_call_snapshot::attach_slow_call_snapshot(
             &mut metadata,
             duration_ms,
-            self.dashboard.as_ref(),
             self.workspace.as_deref(),
         );
         let query_entry = QueryLogEntryView {
@@ -490,10 +483,10 @@ impl Drop for QueryRun {
                 entry: query_entry.clone(),
                 phases: phases.clone(),
             }),
+            mutation_compat: None,
         };
         let _ = self.mcp_call_log_store.push(record);
         emit_compact_query_timing(&query_entry, &phases);
-        self.dashboard_finish(self.dashboard.as_ref(), &query_entry);
         self.diagnostics.push_recent_query(query_entry);
         self.diagnostics.invalidate_runtime_status();
     }

@@ -971,17 +971,15 @@ impl WorkspaceSession {
         let concepts = prism.curated_concepts_snapshot();
         let relations = prism.concept_relations_snapshot();
         let contracts = prism.curated_contracts();
-        let plan_state = self.coordination_enabled.then(|| HydratedCoordinationPlanState {
-            snapshot: prism.coordination_snapshot(),
-            plan_graphs: prism.authored_plan_graphs(),
-            execution_overlays: prism.plan_execution_overlays_by_plan(),
-        });
+        let plan_state = self
+            .coordination_enabled
+            .then(|| HydratedCoordinationPlanState {
+                snapshot: prism.coordination_snapshot(),
+                plan_graphs: prism.authored_plan_graphs(),
+                execution_overlays: prism.plan_execution_overlays_by_plan(),
+            });
         sync_repo_prism_doc_with_plan_state(
-            &self.root,
-            &concepts,
-            &relations,
-            &contracts,
-            plan_state,
+            &self.root, &concepts, &relations, &contracts, plan_state,
         )
     }
 

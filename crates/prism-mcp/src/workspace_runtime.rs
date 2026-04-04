@@ -22,7 +22,6 @@ use prism_core::{
 use prism_ir::ObservedChangeSet;
 use prism_memory::{EpisodicMemorySnapshot, SessionMemory};
 use serde::Serialize;
-use serde_json::json;
 use tracing::{debug, error};
 
 use crate::{
@@ -33,7 +32,7 @@ use crate::{
     workspace_host::{
         SharedWorkspaceReadSync, SharedWorkspaceReadSyncDecision, SharedWorkspaceRuntimeRevisions,
     },
-    DashboardState, QueryHost, WorkspaceRefreshMetrics, WorkspaceRefreshReport,
+    QueryHost, WorkspaceRefreshMetrics, WorkspaceRefreshReport,
 };
 
 const BACKGROUND_REFRESH_INTERVAL: Duration = Duration::from_millis(250);
@@ -47,7 +46,6 @@ pub(crate) struct WorkspaceRuntimeConfig {
     pub(crate) workspace: Arc<WorkspaceSession>,
     pub(crate) notes: Arc<SessionMemory>,
     pub(crate) inferred_edges: Arc<InferenceStore>,
-    pub(crate) dashboard_state: Arc<DashboardState>,
     pub(crate) diagnostics_state: Arc<DiagnosticsState>,
     pub(crate) mcp_call_log_store: Arc<McpCallLogStore>,
     pub(crate) sync_lock: Arc<RwLock<()>>,
@@ -190,10 +188,6 @@ fn dirty_workspace_deferred_report(
     runtime_sync_used: bool,
     metrics: WorkspaceRefreshMetrics,
 ) -> WorkspaceRefreshReport {
-    let loaded_workspace_revision = config.loaded_workspace_revision.load(Ordering::Relaxed);
-    let loaded_episodic_revision = config.loaded_episodic_revision.load(Ordering::Relaxed);
-    let loaded_inference_revision = config.loaded_inference_revision.load(Ordering::Relaxed);
-    let loaded_coordination_revision = config.loaded_coordination_revision.load(Ordering::Relaxed);
     config
         .workspace
         .record_runtime_refresh_observation_with_work(
@@ -201,57 +195,6 @@ fn dirty_workspace_deferred_report(
             metrics.lock_hold_ms,
             refresh_work(metrics),
         );
-    config.dashboard_state.publish_value(
-        "runtime.refreshed",
-        json!({
-            "refreshPath": "deferred",
-            "durationMs": 0,
-            "coordinationReloaded": false,
-            "deferred": true,
-            "episodicReloaded": false,
-            "fsAppliedRevision": config.workspace.applied_fs_revision(),
-            "fsDirty": config.workspace.observed_fs_revision() != config.workspace.applied_fs_revision(),
-            "fsObservedRevision": config.workspace.observed_fs_revision(),
-            "lockWaitMs": metrics.lock_wait_ms,
-            "lockHoldMs": metrics.lock_hold_ms,
-            "fsRefreshMs": metrics.fs_refresh_ms,
-            "snapshotRevisionsMs": metrics.snapshot_revisions_ms,
-            "loadEpisodicMs": metrics.load_episodic_ms,
-            "loadInferenceMs": metrics.load_inference_ms,
-            "loadCoordinationMs": metrics.load_coordination_ms,
-            "loadedBytes": metrics.loaded_bytes,
-            "replayVolume": metrics.replay_volume,
-            "fullRebuildCount": metrics.full_rebuild_count,
-            "inferenceReloaded": false,
-            "loadedCoordinationRevision": loaded_coordination_revision,
-            "loadedEpisodicRevision": loaded_episodic_revision,
-            "loadedInferenceRevision": loaded_inference_revision,
-            "loadedWorkspaceRevision": loaded_workspace_revision,
-            "materialization": {
-                "workspace": {
-                    "currentRevision": loaded_workspace_revision,
-                    "loadedRevision": loaded_workspace_revision,
-                    "status": revision_status(loaded_workspace_revision, loaded_workspace_revision),
-                },
-                "episodic": {
-                    "currentRevision": loaded_episodic_revision,
-                    "loadedRevision": loaded_episodic_revision,
-                    "status": revision_status(loaded_episodic_revision, loaded_episodic_revision),
-                },
-                "inference": {
-                    "currentRevision": loaded_inference_revision,
-                    "loadedRevision": loaded_inference_revision,
-                    "status": revision_status(loaded_inference_revision, loaded_inference_revision),
-                },
-                "coordination": {
-                    "currentRevision": loaded_coordination_revision,
-                    "loadedRevision": loaded_coordination_revision,
-                    "status": revision_status(loaded_coordination_revision, loaded_coordination_revision),
-                }
-            },
-            "workspaceReloaded": false,
-        }),
-    );
     let _ = refresh_cached_runtime_status_for_config(
         &crate::workspace_diagnostics::WorkspaceDiagnosticsConfig {
             workspace: Arc::clone(&config.workspace),
@@ -908,56 +851,6 @@ fn sync_workspace_runtime_with_guard(
         duration_ms,
         metrics,
     );
-    config.dashboard_state.publish_value(
-        "runtime.refreshed",
-        json!({
-            "refreshPath": refresh_path,
-            "durationMs": duration_ms,
-            "coordinationReloaded": coordination_reloaded,
-            "deferred": deferred,
-            "episodicReloaded": episodic_reloaded,
-            "fsAppliedRevision": config.workspace.applied_fs_revision(),
-            "fsDirty": config.workspace.observed_fs_revision() != config.workspace.applied_fs_revision(),
-            "fsObservedRevision": config.workspace.observed_fs_revision(),
-            "lockWaitMs": metrics.lock_wait_ms,
-            "lockHoldMs": metrics.lock_hold_ms,
-            "fsRefreshMs": metrics.fs_refresh_ms,
-            "snapshotRevisionsMs": metrics.snapshot_revisions_ms,
-            "loadEpisodicMs": metrics.load_episodic_ms,
-            "loadInferenceMs": metrics.load_inference_ms,
-            "loadCoordinationMs": metrics.load_coordination_ms,
-            "loadedBytes": metrics.loaded_bytes,
-            "replayVolume": metrics.replay_volume,
-            "fullRebuildCount": metrics.full_rebuild_count,
-            "inferenceReloaded": inference_reloaded,
-            "loadedCoordinationRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
-            "loadedEpisodicRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
-            "loadedInferenceRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
-            "loadedWorkspaceRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
-            "materialization": {
-                "workspace": {
-                    "currentRevision": revisions.workspace,
-                    "loadedRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_workspace_revision.load(Ordering::Relaxed), revisions.workspace),
-                },
-                "episodic": {
-                    "currentRevision": revisions.episodic,
-                    "loadedRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_episodic_revision.load(Ordering::Relaxed), revisions.episodic),
-                },
-                "inference": {
-                    "currentRevision": revisions.inference,
-                    "loadedRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_inference_revision.load(Ordering::Relaxed), revisions.inference),
-                },
-                "coordination": {
-                    "currentRevision": revisions.coordination,
-                    "loadedRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_coordination_revision.load(Ordering::Relaxed), revisions.coordination),
-                }
-            },
-        }),
-    );
     Ok(WorkspaceRefreshReport {
         refresh_path,
         runtime_sync_used: true,
@@ -1057,57 +950,6 @@ fn sync_workspace_runtime_for_read_with_guard(
         coordination_reloaded,
         duration_ms,
         metrics,
-    );
-    config.dashboard_state.publish_value(
-        "runtime.refreshed",
-        json!({
-            "refreshPath": refresh_path,
-            "durationMs": duration_ms,
-            "coordinationReloaded": coordination_reloaded,
-            "deferred": deferred,
-            "episodicReloaded": episodic_reloaded,
-            "fsAppliedRevision": config.workspace.applied_fs_revision(),
-            "fsDirty": config.workspace.observed_fs_revision() != config.workspace.applied_fs_revision(),
-            "fsObservedRevision": config.workspace.observed_fs_revision(),
-            "lockWaitMs": metrics.lock_wait_ms,
-            "lockHoldMs": metrics.lock_hold_ms,
-            "fsRefreshMs": metrics.fs_refresh_ms,
-            "snapshotRevisionsMs": metrics.snapshot_revisions_ms,
-            "loadEpisodicMs": metrics.load_episodic_ms,
-            "loadInferenceMs": metrics.load_inference_ms,
-            "loadCoordinationMs": metrics.load_coordination_ms,
-            "loadedBytes": metrics.loaded_bytes,
-            "replayVolume": metrics.replay_volume,
-            "fullRebuildCount": metrics.full_rebuild_count,
-            "inferenceReloaded": inference_reloaded,
-            "loadedCoordinationRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
-            "loadedEpisodicRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
-            "loadedInferenceRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
-            "loadedWorkspaceRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
-            "materialization": {
-                "workspace": {
-                    "currentRevision": revisions.workspace,
-                    "loadedRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_workspace_revision.load(Ordering::Relaxed), revisions.workspace),
-                },
-                "episodic": {
-                    "currentRevision": revisions.episodic,
-                    "loadedRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_episodic_revision.load(Ordering::Relaxed), revisions.episodic),
-                },
-                "inference": {
-                    "currentRevision": revisions.inference,
-                    "loadedRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_inference_revision.load(Ordering::Relaxed), revisions.inference),
-                },
-                "coordination": {
-                    "currentRevision": revisions.coordination,
-                    "loadedRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_coordination_revision.load(Ordering::Relaxed), revisions.coordination),
-                }
-            },
-            "workspaceReloaded": false,
-        }),
     );
     Ok(WorkspaceRefreshReport {
         refresh_path,
@@ -1296,57 +1138,6 @@ pub(crate) fn sync_persisted_workspace_state(
         duration_ms,
         metrics,
     );
-    config.dashboard_state.publish_value(
-        "runtime.refreshed",
-        json!({
-            "refreshPath": refresh_path,
-            "durationMs": duration_ms,
-            "coordinationReloaded": coordination_reloaded,
-            "deferred": deferred,
-            "episodicReloaded": episodic_reloaded,
-            "fsAppliedRevision": config.workspace.applied_fs_revision(),
-            "fsDirty": config.workspace.observed_fs_revision() != config.workspace.applied_fs_revision(),
-            "fsObservedRevision": config.workspace.observed_fs_revision(),
-            "lockWaitMs": metrics.lock_wait_ms,
-            "lockHoldMs": metrics.lock_hold_ms,
-            "fsRefreshMs": metrics.fs_refresh_ms,
-            "snapshotRevisionsMs": metrics.snapshot_revisions_ms,
-            "loadEpisodicMs": metrics.load_episodic_ms,
-            "loadInferenceMs": metrics.load_inference_ms,
-            "loadCoordinationMs": metrics.load_coordination_ms,
-            "loadedBytes": metrics.loaded_bytes,
-            "replayVolume": metrics.replay_volume,
-            "fullRebuildCount": metrics.full_rebuild_count,
-            "inferenceReloaded": inference_reloaded,
-            "loadedCoordinationRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
-            "loadedEpisodicRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
-            "loadedInferenceRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
-            "loadedWorkspaceRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
-            "materialization": {
-                "workspace": {
-                    "currentRevision": revisions.workspace,
-                    "loadedRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_workspace_revision.load(Ordering::Relaxed), revisions.workspace),
-                },
-                "episodic": {
-                    "currentRevision": revisions.episodic,
-                    "loadedRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_episodic_revision.load(Ordering::Relaxed), revisions.episodic),
-                },
-                "inference": {
-                    "currentRevision": revisions.inference,
-                    "loadedRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_inference_revision.load(Ordering::Relaxed), revisions.inference),
-                },
-                "coordination": {
-                    "currentRevision": revisions.coordination,
-                    "loadedRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_coordination_revision.load(Ordering::Relaxed), revisions.coordination),
-                }
-            },
-            "workspaceReloaded": workspace_reloaded,
-        }),
-    );
     Ok(WorkspaceRefreshReport {
         refresh_path,
         runtime_sync_used: true,
@@ -1530,57 +1321,6 @@ fn apply_prepared_workspace_delta_command(
         duration_ms,
         prepared.report.metrics,
     );
-    config.dashboard_state.publish_value(
-        "runtime.refreshed",
-        json!({
-            "refreshPath": prepared.report.refresh_path,
-            "durationMs": duration_ms,
-            "coordinationReloaded": prepared.report.coordination_reloaded,
-            "deferred": prepared.report.deferred,
-            "episodicReloaded": prepared.report.episodic_reloaded,
-            "fsAppliedRevision": config.workspace.applied_fs_revision(),
-            "fsDirty": config.workspace.observed_fs_revision() != config.workspace.applied_fs_revision(),
-            "fsObservedRevision": config.workspace.observed_fs_revision(),
-            "lockWaitMs": prepared.report.metrics.lock_wait_ms,
-            "lockHoldMs": prepared.report.metrics.lock_hold_ms,
-            "fsRefreshMs": prepared.report.metrics.fs_refresh_ms,
-            "snapshotRevisionsMs": prepared.report.metrics.snapshot_revisions_ms,
-            "loadEpisodicMs": prepared.report.metrics.load_episodic_ms,
-            "loadInferenceMs": prepared.report.metrics.load_inference_ms,
-            "loadCoordinationMs": prepared.report.metrics.load_coordination_ms,
-            "loadedBytes": prepared.report.metrics.loaded_bytes,
-            "replayVolume": prepared.report.metrics.replay_volume,
-            "fullRebuildCount": prepared.report.metrics.full_rebuild_count,
-            "inferenceReloaded": prepared.report.inference_reloaded,
-            "loadedCoordinationRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
-            "loadedEpisodicRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
-            "loadedInferenceRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
-            "loadedWorkspaceRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
-            "materialization": {
-                "workspace": {
-                    "currentRevision": prepared.revisions.workspace,
-                    "loadedRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_workspace_revision.load(Ordering::Relaxed), prepared.revisions.workspace),
-                },
-                "episodic": {
-                    "currentRevision": prepared.revisions.episodic,
-                    "loadedRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_episodic_revision.load(Ordering::Relaxed), prepared.revisions.episodic),
-                },
-                "inference": {
-                    "currentRevision": prepared.revisions.inference,
-                    "loadedRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_inference_revision.load(Ordering::Relaxed), prepared.revisions.inference),
-                },
-                "coordination": {
-                    "currentRevision": prepared.revisions.coordination,
-                    "loadedRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_coordination_revision.load(Ordering::Relaxed), prepared.revisions.coordination),
-                }
-            },
-            "workspaceReloaded": prepared.report.metrics.workspace_reloaded,
-        }),
-    );
     Ok(WorkspaceRuntimeCommandOutcome::with_follow_up_commands(
         prepared.report,
         follow_up_commands,
@@ -1733,57 +1473,6 @@ fn sync_workspace_settle_domain(
         duration_ms,
         metrics,
     );
-    config.dashboard_state.publish_value(
-        "runtime.refreshed",
-        json!({
-            "refreshPath": refresh_path,
-            "durationMs": duration_ms,
-            "coordinationReloaded": coordination_reloaded,
-            "deferred": false,
-            "episodicReloaded": episodic_reloaded,
-            "fsAppliedRevision": config.workspace.applied_fs_revision(),
-            "fsDirty": config.workspace.observed_fs_revision() != config.workspace.applied_fs_revision(),
-            "fsObservedRevision": config.workspace.observed_fs_revision(),
-            "lockWaitMs": metrics.lock_wait_ms,
-            "lockHoldMs": metrics.lock_hold_ms,
-            "fsRefreshMs": 0,
-            "snapshotRevisionsMs": metrics.snapshot_revisions_ms,
-            "loadEpisodicMs": metrics.load_episodic_ms,
-            "loadInferenceMs": metrics.load_inference_ms,
-            "loadCoordinationMs": metrics.load_coordination_ms,
-            "loadedBytes": metrics.loaded_bytes,
-            "replayVolume": metrics.replay_volume,
-            "fullRebuildCount": 0,
-            "inferenceReloaded": inference_reloaded,
-            "loadedCoordinationRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
-            "loadedEpisodicRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
-            "loadedInferenceRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
-            "loadedWorkspaceRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
-            "materialization": {
-                "workspace": {
-                    "currentRevision": revisions.workspace,
-                    "loadedRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_workspace_revision.load(Ordering::Relaxed), revisions.workspace),
-                },
-                "episodic": {
-                    "currentRevision": revisions.episodic,
-                    "loadedRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_episodic_revision.load(Ordering::Relaxed), revisions.episodic),
-                },
-                "inference": {
-                    "currentRevision": revisions.inference,
-                    "loadedRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_inference_revision.load(Ordering::Relaxed), revisions.inference),
-                },
-                "coordination": {
-                    "currentRevision": revisions.coordination,
-                    "loadedRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_coordination_revision.load(Ordering::Relaxed), revisions.coordination),
-                }
-            },
-            "workspaceReloaded": false,
-        }),
-    );
     Ok(WorkspaceRefreshReport {
         refresh_path,
         runtime_sync_used: true,
@@ -1906,14 +1595,6 @@ fn coordination_reload_materialization(
         )
         .unwrap_or(u64::MAX),
     })
-}
-
-fn revision_status(loaded_revision: u64, current_revision: u64) -> &'static str {
-    if loaded_revision == current_revision {
-        "current"
-    } else {
-        "stale"
-    }
 }
 
 fn materialization_depth_for_coverage(
@@ -2194,57 +1875,6 @@ fn sync_workspace_runtime_checkpoint_with_guard(
         duration_ms,
         metrics,
     );
-    config.dashboard_state.publish_value(
-        "runtime.refreshed",
-        json!({
-            "refreshPath": "checkpoint",
-            "durationMs": duration_ms,
-            "coordinationReloaded": false,
-            "deferred": false,
-            "episodicReloaded": false,
-            "fsAppliedRevision": config.workspace.applied_fs_revision(),
-            "fsDirty": config.workspace.observed_fs_revision() != config.workspace.applied_fs_revision(),
-            "fsObservedRevision": config.workspace.observed_fs_revision(),
-            "lockWaitMs": metrics.lock_wait_ms,
-            "lockHoldMs": metrics.lock_hold_ms,
-            "fsRefreshMs": 0,
-            "snapshotRevisionsMs": metrics.snapshot_revisions_ms,
-            "loadEpisodicMs": 0,
-            "loadInferenceMs": 0,
-            "loadCoordinationMs": 0,
-            "loadedBytes": 0,
-            "replayVolume": 0,
-            "fullRebuildCount": 0,
-            "inferenceReloaded": false,
-            "loadedCoordinationRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
-            "loadedEpisodicRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
-            "loadedInferenceRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
-            "loadedWorkspaceRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
-            "materialization": {
-                "workspace": {
-                    "currentRevision": revisions.workspace,
-                    "loadedRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_workspace_revision.load(Ordering::Relaxed), revisions.workspace),
-                },
-                "episodic": {
-                    "currentRevision": revisions.episodic,
-                    "loadedRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_episodic_revision.load(Ordering::Relaxed), revisions.episodic),
-                },
-                "inference": {
-                    "currentRevision": revisions.inference,
-                    "loadedRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_inference_revision.load(Ordering::Relaxed), revisions.inference),
-                },
-                "coordination": {
-                    "currentRevision": revisions.coordination,
-                    "loadedRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
-                    "status": revision_status(config.loaded_coordination_revision.load(Ordering::Relaxed), revisions.coordination),
-                }
-            },
-            "workspaceReloaded": false,
-        }),
-    );
     Ok(WorkspaceRefreshReport {
         refresh_path: "checkpoint",
         runtime_sync_used: true,
@@ -2265,10 +1895,7 @@ impl QueryHost {
         let runtime = binding.runtime();
         let diagnostics = binding.diagnostics();
         let config = binding.runtime_config();
-        let report = sync_persisted_workspace_state(&config)?;
-        if report.coordination_reloaded {
-            let _ = self.publish_dashboard_coordination_update();
-        }
+        let _report = sync_persisted_workspace_state(&config)?;
         runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
         diagnostics.request_refresh();
         Ok(())
@@ -2333,9 +1960,6 @@ impl QueryHost {
                 metrics: WorkspaceRefreshMetrics::default(),
             });
         };
-        if report.coordination_reloaded {
-            let _ = self.publish_dashboard_coordination_update();
-        }
         if report.deferred || (!workspace.needs_refresh() && workspace.is_fallback_check_due_now())
         {
             runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
@@ -2361,9 +1985,6 @@ impl QueryHost {
                 WorkspaceRefreshMetrics::default(),
             ));
         };
-        if report.coordination_reloaded {
-            let _ = self.publish_dashboard_coordination_update();
-        }
         if report.deferred {
             runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
         }
@@ -2422,7 +2043,6 @@ mod tests {
             workspace: Arc::clone(&workspace),
             notes: Arc::new(SessionMemory::new()),
             inferred_edges: Arc::new(InferenceStore::new()),
-            dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
             sync_lock: Arc::new(RwLock::new(())),
@@ -2492,7 +2112,6 @@ mod tests {
             workspace: Arc::clone(&workspace),
             notes: Arc::new(SessionMemory::new()),
             inferred_edges: Arc::new(InferenceStore::new()),
-            dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
             sync_lock: Arc::new(RwLock::new(())),
@@ -2557,7 +2176,6 @@ mod tests {
             workspace: Arc::clone(&workspace),
             notes: Arc::new(SessionMemory::new()),
             inferred_edges: Arc::new(InferenceStore::new()),
-            dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
             sync_lock: Arc::new(RwLock::new(())),
@@ -2635,7 +2253,6 @@ mod tests {
             workspace: Arc::clone(&workspace),
             notes: Arc::new(SessionMemory::new()),
             inferred_edges: Arc::new(InferenceStore::new()),
-            dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
             sync_lock: Arc::new(RwLock::new(())),
@@ -2764,7 +2381,6 @@ mod tests {
             workspace: Arc::clone(&workspace),
             notes: Arc::new(SessionMemory::new()),
             inferred_edges: Arc::new(InferenceStore::new()),
-            dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
             sync_lock: Arc::new(RwLock::new(())),
@@ -2839,7 +2455,6 @@ mod tests {
             workspace: Arc::clone(&workspace),
             notes: Arc::new(SessionMemory::new()),
             inferred_edges: Arc::new(InferenceStore::new()),
-            dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
             sync_lock: Arc::clone(&sync_lock),
@@ -2924,7 +2539,6 @@ mod tests {
             workspace: Arc::clone(&workspace),
             notes: Arc::new(SessionMemory::new()),
             inferred_edges: Arc::new(InferenceStore::new()),
-            dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
             sync_lock: Arc::new(RwLock::new(())),
@@ -2987,7 +2601,6 @@ mod tests {
             workspace: Arc::clone(&workspace),
             notes: Arc::new(SessionMemory::new()),
             inferred_edges: Arc::new(InferenceStore::new()),
-            dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
             sync_lock: Arc::clone(&sync_lock),
@@ -3100,7 +2713,6 @@ mod tests {
             workspace: Arc::clone(&workspace),
             notes: Arc::new(SessionMemory::new()),
             inferred_edges: Arc::new(InferenceStore::new()),
-            dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
             sync_lock: Arc::new(RwLock::new(())),
@@ -3219,7 +2831,6 @@ mod tests {
             workspace: Arc::clone(&workspace),
             notes: Arc::new(SessionMemory::new()),
             inferred_edges: Arc::new(InferenceStore::new()),
-            dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
             sync_lock: Arc::new(RwLock::new(())),
@@ -3318,7 +2929,6 @@ mod tests {
             workspace: Arc::clone(&workspace),
             notes: Arc::new(SessionMemory::new()),
             inferred_edges: Arc::new(InferenceStore::new()),
-            dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
             sync_lock: Arc::new(RwLock::new(())),

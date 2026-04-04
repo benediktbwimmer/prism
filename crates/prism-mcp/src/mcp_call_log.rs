@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::log_scope::{select_log_sources, LogScope, RepoLogSource};
+use crate::mutation_trace::MutationTraceView;
 use crate::{McpLogArgs, QueryHost};
 
 const DEFAULT_MCP_LOG_LIMIT: usize = 20;
@@ -56,6 +57,7 @@ pub(crate) struct PersistedMcpCallRecord {
     pub(crate) response_preview: Option<Value>,
     pub(crate) metadata: Value,
     pub(crate) query_compat: Option<QueryTraceView>,
+    pub(crate) mutation_compat: Option<MutationTraceView>,
 }
 
 #[derive(Debug, Clone)]
@@ -1166,6 +1168,7 @@ mod tests {
                 "index": index,
             }),
             query_compat: None,
+            mutation_compat: None,
         }
     }
 
@@ -1204,6 +1207,7 @@ mod tests {
             response_preview: None,
             metadata: request_preview,
             query_compat: None,
+            mutation_compat: None,
         }
     }
 
@@ -1362,6 +1366,7 @@ mod tests {
 
     #[test]
     fn default_mcp_call_log_path_is_stable_across_restarts() {
+        let _ = crate::tests_support::ensure_process_test_prism_home();
         let root = Path::new("/tmp/prism-mcp-log-tests");
         assert_eq!(
             default_mcp_call_log_path(root),

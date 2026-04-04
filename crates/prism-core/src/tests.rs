@@ -4942,9 +4942,9 @@ fn repo_plan_events_require_explicit_prism_doc_sync() {
     assert!(plan_doc.contains("- Max commits behind target: `2`"));
     assert!(plan_doc.contains("- Max fetch age seconds: `300`"));
     assert!(plan_doc.contains("## Branch Snapshot Export"));
-    assert!(plan_doc.contains(
-        "- Shared coordination authority: shared coordination ref when present"
-    ));
+    assert!(
+        plan_doc.contains("- Shared coordination authority: shared coordination ref when present")
+    );
     assert!(plan_doc.contains(
         "- Branch-local tracked `.prism/state/plans/**` export: disabled; plans no longer mirror into tracked repo snapshot state"
     ));
@@ -6072,14 +6072,8 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
     let loaded = crate::published_plans::load_hydrated_coordination_snapshot(&root, Some(snapshot))
         .unwrap()
         .expect("merged coordination snapshot");
-    assert!(!loaded
-        .plans
-        .iter()
-        .any(|plan| plan.id == published_plan_id));
-    assert!(!loaded
-        .tasks
-        .iter()
-        .any(|task| task.id == published_task_id));
+    assert!(!loaded.plans.iter().any(|plan| plan.id == published_plan_id));
+    assert!(!loaded.tasks.iter().any(|task| task.id == published_task_id));
     assert!(loaded.plans.iter().any(|plan| {
         plan.id == snapshot_plan_id && plan.goal == "Persisted snapshot should remain authoritative"
     }));

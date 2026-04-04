@@ -23,11 +23,11 @@ use prism_query::{
 };
 use serde_json::{json, Value};
 
-use crate::peer_runtime_router::execute_remote_prism_query;
 use crate::file_queries::{
     file_around, file_read, DEFAULT_FILE_AROUND_CONTEXT_LINES, DEFAULT_FILE_AROUND_MAX_CHARS,
     DEFAULT_FILE_READ_MAX_CHARS,
 };
+use crate::peer_runtime_router::execute_remote_prism_query;
 use crate::query_typecheck::StaticCheckMode;
 use crate::runtime_views::{connection_info, runtime_logs, runtime_status, runtime_timeline};
 use crate::text_search::search_text;
@@ -2071,9 +2071,9 @@ impl QueryExecution {
     }
 
     fn dispatch_remote_query(&self, args: RemoteQueryDispatchArgs) -> Result<Value> {
-        let root = self
-            .workspace_root()
-            .ok_or_else(|| anyhow!("runtime-targeted queries require a workspace-backed session"))?;
+        let root = self.workspace_root().ok_or_else(|| {
+            anyhow!("runtime-targeted queries require a workspace-backed session")
+        })?;
         if args.path.is_empty() {
             return Err(anyhow!("remote query path cannot be empty"));
         }

@@ -4,8 +4,8 @@ use std::path::Path;
 use anyhow::Result;
 use prism_coordination::{RuntimeDescriptor, RuntimeDiscoveryMode};
 
-use crate::PrismPaths;
 use crate::workspace_identity::workspace_identity_for_root;
+use crate::PrismPaths;
 
 pub const PEER_RUNTIME_QUERY_PATH: &str = "/peer/query";
 

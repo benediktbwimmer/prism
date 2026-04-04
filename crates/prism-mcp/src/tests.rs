@@ -10,8 +10,9 @@ use std::time::{Duration, Instant};
 use super::query_replay_cases::{replay_cases, ReplayExpectation, ReplayHostProfile};
 use super::*;
 use crate::git_execution::{user_dirty_paths, worktree_dirty_paths};
-use crate::server_surface::{MutationDashboardMeta, MutationRefreshPolicy};
+use crate::server_surface::{MutationOutcomeMeta, MutationRefreshPolicy};
 use crate::tests_support::*;
+use crate::ui_read_models::QueryHostUiReadModelsExt;
 use prism_agent::{InferenceSnapshot, InferredEdgeScope};
 use prism_coordination::{CoordinationPolicy, CoordinationStore, PlanCreateInput, TaskCreateInput};
 use prism_core::{
@@ -436,10 +437,7 @@ fn git_execution_policy_start_combines_requested_mutation_and_git_execution_reco
                 )
             },
             |result| {
-                MutationDashboardMeta::coordination(
-                    result.event_ids.clone(),
-                    result.violations.len(),
-                )
+                MutationOutcomeMeta::coordination(result.event_ids.clone(), result.violations.len())
             },
         )
         .unwrap();
@@ -448,9 +446,9 @@ fn git_execution_policy_start_combines_requested_mutation_and_git_execution_reco
 
     let detail = server
         .host
-        .dashboard_operation_detail("mutation:1")
+        .mutation_trace_view("mutation:1")
         .expect("mutation detail should exist");
-    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+    let trace = detail else {
         panic!("expected mutation trace");
     };
     let operations = trace
@@ -1099,10 +1097,7 @@ fn git_execution_completion_trace_records_subphases_without_ui_publish() {
                 )
             },
             |result| {
-                MutationDashboardMeta::coordination(
-                    result.event_ids.clone(),
-                    result.violations.len(),
-                )
+                MutationOutcomeMeta::coordination(result.event_ids.clone(), result.violations.len())
             },
         )
         .unwrap();
@@ -1111,9 +1106,9 @@ fn git_execution_completion_trace_records_subphases_without_ui_publish() {
 
     let detail = server
         .host
-        .dashboard_operation_detail("mutation:1")
+        .mutation_trace_view("mutation:1")
         .expect("mutation detail should exist");
-    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+    let trace = detail else {
         panic!("expected mutation trace");
     };
     let operations = trace
@@ -15782,7 +15777,7 @@ return sym?.id.path ?? null;
                 )
             },
             |result| {
-                MutationDashboardMeta::task(
+                MutationOutcomeMeta::task(
                     Some(result.task_id.clone()),
                     vec![result.task_id.clone(), result.event_id.clone()],
                     0,
@@ -15956,7 +15951,7 @@ fn explicit_checkpoint_mutation_publishes_checkpoint_without_pending_changes() {
             |result| {
                 let mut ids = result.event_ids.clone();
                 ids.push(result.task_id.clone());
-                MutationDashboardMeta::task(Some(result.task_id.clone()), ids, 0)
+                MutationOutcomeMeta::task(Some(result.task_id.clone()), ids, 0)
             },
         )
         .expect("explicit checkpoint should succeed");
@@ -16485,7 +16480,7 @@ fn mutation_trace_records_internal_phases_for_persisted_only_mutations() {
                 )
             },
             |result| {
-                MutationDashboardMeta::task(
+                MutationOutcomeMeta::task(
                     Some(result.task_id.clone()),
                     vec![result.task_id.clone(), result.event_id.clone()],
                     0,
@@ -16498,9 +16493,9 @@ fn mutation_trace_records_internal_phases_for_persisted_only_mutations() {
 
     let detail = server
         .host
-        .dashboard_operation_detail("mutation:1")
+        .mutation_trace_view("mutation:1")
         .expect("mutation detail should exist");
-    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+    let trace = detail else {
         panic!("expected mutation trace");
     };
     let operations = trace
@@ -16518,10 +16513,6 @@ fn mutation_trace_records_internal_phases_for_persisted_only_mutations() {
     assert!(operations.contains(&"mutation.persistObservedChangeCheckpoints"));
     assert!(operations.contains(&"mutation.operation"));
     assert!(operations.contains(&"mutation.encodeResult"));
-    assert!(operations.contains(&"mutation.publishTaskUpdate"));
-    assert!(operations.contains(&"mutation.publishTaskUpdate.buildSnapshot"));
-    assert!(operations.contains(&"mutation.publishTaskUpdate.encode"));
-    assert!(operations.contains(&"mutation.publishTaskUpdate.publishEvent"));
     assert!(trace
         .phases
         .iter()
@@ -16602,9 +16593,9 @@ fn dropped_mutation_run_persists_aborted_call_record() {
         Some("request dropped before mutation completed")
     );
     let detail = host
-        .dashboard_operation_detail("mutation:1")
+        .mutation_trace_view("mutation:1")
         .expect("mutation detail should exist");
-    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+    let trace = detail else {
         panic!("expected mutation trace");
     };
     assert_eq!(
@@ -16650,7 +16641,7 @@ fn mutation_trace_surfaces_lock_waits_for_finish_task() {
                 )
             },
             |result| {
-                MutationDashboardMeta::task(
+                MutationOutcomeMeta::task(
                     Some(result.task_id.clone()),
                     vec![
                         result.task_id.clone(),
@@ -16667,9 +16658,9 @@ fn mutation_trace_surfaces_lock_waits_for_finish_task() {
 
     let detail = server
         .host
-        .dashboard_operation_detail("mutation:1")
+        .mutation_trace_view("mutation:1")
         .expect("mutation detail should exist");
-    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+    let trace = detail else {
         panic!("expected mutation trace");
     };
     let operations = trace
@@ -16715,7 +16706,7 @@ fn mutation_trace_surfaces_lock_waits_for_memory_store() {
                 )
             },
             |result| {
-                MutationDashboardMeta::task(
+                MutationOutcomeMeta::task(
                     Some(result.task_id.clone()),
                     vec![result.task_id.clone(), result.memory_id.clone()],
                     0,
@@ -16728,9 +16719,9 @@ fn mutation_trace_surfaces_lock_waits_for_memory_store() {
 
     let detail = server
         .host
-        .dashboard_operation_detail("mutation:1")
+        .mutation_trace_view("mutation:1")
         .expect("mutation detail should exist");
-    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+    let trace = detail else {
         panic!("expected mutation trace");
     };
     let operations = trace
@@ -16768,7 +16759,7 @@ fn coordination_mutation_trace_records_persistence_subphases() {
                 )
             },
             |result| {
-                MutationDashboardMeta::coordination(
+                MutationOutcomeMeta::coordination(
                     result.event_ids.clone(),
                     result.violations.len(),
                 )
@@ -16780,9 +16771,9 @@ fn coordination_mutation_trace_records_persistence_subphases() {
 
     let detail = server
         .host
-        .dashboard_operation_detail("mutation:1")
+        .mutation_trace_view("mutation:1")
         .expect("mutation detail should exist");
-    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+    let trace = detail else {
         panic!("expected mutation trace");
     };
     let operations = trace
@@ -16899,10 +16890,7 @@ fn coordination_mutation_skips_rehydrate_when_only_loaded_revision_marker_lags()
                 )
             },
             |result| {
-                MutationDashboardMeta::coordination(
-                    result.event_ids.clone(),
-                    result.violations.len(),
-                )
+                MutationOutcomeMeta::coordination(result.event_ids.clone(), result.violations.len())
             },
         )
         .expect("plan update should succeed");
@@ -16911,9 +16899,9 @@ fn coordination_mutation_skips_rehydrate_when_only_loaded_revision_marker_lags()
 
     let detail = server
         .host
-        .dashboard_operation_detail("mutation:1")
+        .mutation_trace_view("mutation:1")
         .expect("mutation detail should exist");
-    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+    let trace = detail else {
         panic!("expected mutation trace");
     };
     let sync_phase = trace
@@ -17000,9 +16988,9 @@ async fn validation_feedback_tool_mutation_skips_request_path_refresh() {
 
     let detail = server_handle
         .host
-        .dashboard_operation_detail("mutation:1")
+        .mutation_trace_view("mutation:1")
         .expect("mutation detail should exist");
-    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+    let trace = detail else {
         panic!("expected mutation trace");
     };
     let refresh_phase = trace
@@ -17178,7 +17166,7 @@ fn first_mutation_after_workspace_refresh_skips_persisted_reload() {
                 )
             },
             |result| {
-                MutationDashboardMeta::task(
+                MutationOutcomeMeta::task(
                     Some(result.task_id.clone()),
                     vec![result.task_id.clone(), result.event_id.clone()],
                     0,
@@ -17191,9 +17179,9 @@ fn first_mutation_after_workspace_refresh_skips_persisted_reload() {
 
     let detail = server
         .host
-        .dashboard_operation_detail("mutation:1")
+        .mutation_trace_view("mutation:1")
         .expect("mutation detail should exist");
-    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+    let trace = detail else {
         panic!("expected mutation trace");
     };
     let refresh_phase = trace
@@ -17250,7 +17238,7 @@ fn mutation_on_dirty_workspace_defers_refresh_instead_of_reloading_runtime() {
                 )
             },
             |result| {
-                MutationDashboardMeta::task(
+                MutationOutcomeMeta::task(
                     Some(result.task_id.clone()),
                     vec![result.task_id.clone(), result.event_id.clone()],
                     0,
@@ -17263,9 +17251,9 @@ fn mutation_on_dirty_workspace_defers_refresh_instead_of_reloading_runtime() {
 
     let detail = server
         .host
-        .dashboard_operation_detail("mutation:1")
+        .mutation_trace_view("mutation:1")
         .expect("mutation detail should exist");
-    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+    let trace = detail else {
         panic!("expected mutation trace");
     };
     let refresh_phase = trace
@@ -21632,7 +21620,7 @@ fn persisted_only_mutations_wait_for_runtime_sync_and_then_succeed() {
                 )
             },
             |result| {
-                MutationDashboardMeta::task(
+                MutationOutcomeMeta::task(
                     Some(result.task_id.clone()),
                     vec![result.task_id.clone(), result.event_id.clone()],
                     0,
@@ -21654,9 +21642,9 @@ fn persisted_only_mutations_wait_for_runtime_sync_and_then_succeed() {
 
     let detail = server
         .host
-        .dashboard_operation_detail("mutation:1")
+        .mutation_trace_view("mutation:1")
         .expect("mutation detail should exist");
-    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+    let trace = detail else {
         panic!("expected mutation trace");
     };
     let refresh_phase = trace
@@ -21714,7 +21702,7 @@ fn coordination_mutations_wait_for_runtime_sync_and_then_succeed() {
                     run,
                 )
             },
-            |result| MutationDashboardMeta::coordination(result.event_ids.clone(), 0),
+            |result| MutationOutcomeMeta::coordination(result.event_ids.clone(), 0),
         )
         .expect("coordination mutation should wait for runtime sync and succeed");
     release.join().expect("lock holder thread should finish");
@@ -21731,9 +21719,9 @@ fn coordination_mutations_wait_for_runtime_sync_and_then_succeed() {
 
     let detail = server
         .host
-        .dashboard_operation_detail("mutation:1")
+        .mutation_trace_view("mutation:1")
         .expect("mutation detail should exist");
-    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+    let trace = detail else {
         panic!("expected mutation trace");
     };
     let refresh_phase = trace
@@ -21941,7 +21929,7 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
 }
 
 #[test]
-fn runtime_status_and_dashboard_summary_prefer_cached_diagnostics_snapshot() {
+fn runtime_status_and_ui_overview_summary_prefer_cached_diagnostics_snapshot() {
     let root = temp_workspace();
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
@@ -21972,8 +21960,9 @@ fn runtime_status_and_dashboard_summary_prefer_cached_diagnostics_snapshot() {
     assert_eq!(status.uri.as_deref(), Some("cached://runtime"));
 
     let summary = host
-        .dashboard_summary_view()
-        .expect("dashboard summary should use cached diagnostics snapshot");
+        .ui_overview_view()
+        .expect("overview should use cached diagnostics snapshot")
+        .summary;
     assert_eq!(summary.runtime.uri.as_deref(), Some("cached://runtime"));
     assert_eq!(
         summary
@@ -22093,7 +22082,7 @@ fn runtime_status_surfaces_published_generation_and_domain_freshness() {
 }
 
 #[test]
-fn dashboard_operations_view_reads_recent_queries_from_diagnostics_state() {
+fn query_log_entries_read_recent_queries_from_diagnostics_state() {
     let host = host_with_node(demo_node());
     let session = test_session(&host);
     let query_run = host.begin_query_run(
@@ -22110,10 +22099,17 @@ fn dashboard_operations_view_reads_recent_queries_from_diagnostics_state() {
         false,
     );
 
-    let operations = host.dashboard_operations_view(Some(5));
-    assert_eq!(operations.recent_queries.len(), 1);
-    assert_eq!(operations.recent_queries[0].kind, "typescript");
-    assert!(operations.recent_queries[0].success);
+    let operations = host.query_log_entries(crate::QueryLogArgs {
+        limit: Some(5),
+        since: None,
+        target: None,
+        operation: None,
+        task_id: None,
+        min_duration_ms: None,
+    });
+    assert_eq!(operations.len(), 1);
+    assert_eq!(operations[0].kind, "typescript");
+    assert!(operations[0].success);
 }
 
 #[test]

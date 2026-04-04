@@ -1,20 +1,62 @@
 use prism_js::{
-    AgentOutcomeSummaryView, ArtifactView, ConceptPacketView, CoordinationTaskView,
+    AgentOutcomeSummaryView, ArtifactView, ClaimView, ConceptPacketView, CoordinationTaskView,
     PlanExecutionOverlayView, PlanGraphView, PlanListEntryView, PlanNodeRecommendationView,
-    PlanSummaryView, PolicyViolationRecordView,
+    PlanSummaryView, PolicyViolationRecordView, RuntimeLogEventView, RuntimeStatusView,
+    TaskJournalView,
 };
 use serde::Serialize;
 
-use crate::dashboard_types::{
-    DashboardCoordinationSummaryView, DashboardSummaryView, DashboardTaskSnapshotView,
-};
+use crate::SessionView;
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismOverviewSummaryView {
+    pub(crate) session: SessionView,
+    pub(crate) runtime: RuntimeStatusView,
+    pub(crate) active_query_count: usize,
+    pub(crate) active_mutation_count: usize,
+    pub(crate) recent_query_error_count: usize,
+    pub(crate) last_runtime_event: Option<RuntimeLogEventView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismOverviewTaskView {
+    pub(crate) session: SessionView,
+    pub(crate) journal: Option<TaskJournalView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismOverviewCoordinationView {
+    pub(crate) enabled: bool,
+    pub(crate) active_plan_count: usize,
+    pub(crate) task_count: usize,
+    pub(crate) ready_task_count: usize,
+    pub(crate) in_review_task_count: usize,
+    pub(crate) active_claim_count: usize,
+    pub(crate) pending_handoff_count: usize,
+    pub(crate) pending_review_count: usize,
+    pub(crate) proposed_artifact_count: usize,
+    pub(crate) recent_pending_reviews: Vec<ArtifactView>,
+    pub(crate) recent_violations: Vec<PolicyViolationRecordView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismOverviewCoordinationQueuesView {
+    pub(crate) enabled: bool,
+    pub(crate) pending_handoffs: Vec<CoordinationTaskView>,
+    pub(crate) active_claims: Vec<ClaimView>,
+    pub(crate) pending_reviews: Vec<ArtifactView>,
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismOverviewView {
-    pub(crate) summary: DashboardSummaryView,
-    pub(crate) task: DashboardTaskSnapshotView,
-    pub(crate) coordination: DashboardCoordinationSummaryView,
+    pub(crate) summary: PrismOverviewSummaryView,
+    pub(crate) task: PrismOverviewTaskView,
+    pub(crate) coordination: PrismOverviewCoordinationView,
     pub(crate) plan_signals: OverviewPlanSignalsView,
     pub(crate) spotlight_plans: Vec<OverviewPlanSpotlightView>,
     pub(crate) hot_concepts: Vec<OverviewConceptSpotlightView>,

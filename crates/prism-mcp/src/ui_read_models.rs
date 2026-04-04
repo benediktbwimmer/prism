@@ -1,21 +1,27 @@
 use std::collections::{BTreeSet, HashSet};
 
 use anyhow::{anyhow, Result};
-use prism_coordination::coordination_read_model_from_snapshot;
+use prism_coordination::{
+    coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
+    ready_task_count_for_active_plans, CoordinationQueueReadModel, CoordinationReadModel,
+};
+use prism_ir::ClaimStatus;
 use prism_ir::{PlanId, PlanStatus, TaskId};
 use prism_memory::OutcomeRecallQuery;
 
 use crate::ui_types::{
     GraphPlanTouchpointView, GraphTouchedNodeView, OverviewConceptSpotlightView,
-    OverviewPlanSignalsView, OverviewPlanSpotlightView, PrismGraphView, PrismOverviewView,
-    PrismPlanDetailView, PrismPlansView,
+    OverviewPlanSignalsView, OverviewPlanSpotlightView, PrismGraphView,
+    PrismOverviewCoordinationQueuesView, PrismOverviewCoordinationView, PrismOverviewSummaryView,
+    PrismOverviewTaskView, PrismOverviewView, PrismPlanDetailView, PrismPlansView,
 };
 use crate::views::{
     artifact_view, concept_packet_view, plan_execution_overlay_view, plan_graph_view,
     plan_list_entry_view, plan_node_recommendation_view, plan_summary_view,
     policy_violation_record_view, ConceptVerbosity,
 };
-use crate::QueryHost;
+use crate::{claim_view, coordination_task_view, current_timestamp, QueryHost, SessionState};
+use crate::{host_resources::session_task_view, runtime_views::runtime_status};
 
 const OVERVIEW_PLAN_LIMIT: usize = 3;
 const OVERVIEW_PLAN_NEXT_LIMIT: usize = 2;
@@ -34,6 +40,12 @@ const GRAPH_ENTRY_LIMIT: usize = 8;
 const GRAPH_PLAN_LIMIT: usize = 6;
 const GRAPH_TOUCHED_NODE_LIMIT: usize = 4;
 const GRAPH_DEFAULT_CONCEPT_HANDLE: &str = "concept://prism_architecture";
+const OVERVIEW_TASK_EVENT_LIMIT: usize = 12;
+const OVERVIEW_TASK_MEMORY_LIMIT: usize = 6;
+const OVERVIEW_COORDINATION_REVIEW_LIMIT: usize = 6;
+const OVERVIEW_COORDINATION_VIOLATION_LIMIT: usize = 6;
+const OVERVIEW_COORDINATION_HANDOFF_LIMIT: usize = 6;
+const OVERVIEW_COORDINATION_CLAIM_LIMIT: usize = 6;
 
 pub(crate) trait QueryHostUiReadModelsExt {
     fn ui_overview_view(&self) -> Result<PrismOverviewView>;
@@ -43,10 +55,10 @@ pub(crate) trait QueryHostUiReadModelsExt {
 
 impl QueryHostUiReadModelsExt for QueryHost {
     fn ui_overview_view(&self) -> Result<PrismOverviewView> {
-        let summary = self.dashboard_summary_view()?;
-        let task = self.dashboard_task_snapshot(None)?;
-        let coordination = self.dashboard_coordination_summary()?;
-        let coordination_queues = self.dashboard_coordination_queues()?;
+        let summary = ui_overview_summary_view(self)?;
+        let task = ui_overview_task_view(self, None)?;
+        let coordination = ui_overview_coordination_summary(self)?;
+        let coordination_queues = ui_overview_coordination_queues(self)?;
         let prism = self.current_prism();
 
         let read_model = self
@@ -286,7 +298,7 @@ fn build_plan_detail_view(
         .map(artifact_view)
         .collect::<Vec<_>>();
     let pending_handoffs = host
-        .dashboard_coordination_queues()?
+        .ui_coordination_queues()?
         .pending_handoffs
         .into_iter()
         .filter(|task| task.plan_id == plan.plan_id)
@@ -312,6 +324,230 @@ fn build_plan_detail_view(
         recent_violations,
         recent_outcomes,
     }))
+}
+
+impl QueryHost {
+    pub(crate) fn ui_coordination_queues(&self) -> Result<PrismOverviewCoordinationQueuesView> {
+        ui_overview_coordination_queues(self)
+    }
+}
+
+fn ui_overview_summary_view(host: &QueryHost) -> Result<PrismOverviewSummaryView> {
+    let diagnostics = host.diagnostics_state();
+    Ok(PrismOverviewSummaryView {
+        session: ui_session_view(host, None),
+        runtime: runtime_status(host)?,
+        active_query_count: 0,
+        active_mutation_count: 0,
+        recent_query_error_count: diagnostics.recent_query_error_count(Some(10)),
+        last_runtime_event: diagnostics.last_runtime_event(),
+    })
+}
+
+fn ui_overview_task_view(
+    host: &QueryHost,
+    active_session: Option<&SessionState>,
+) -> Result<PrismOverviewTaskView> {
+    let session = ui_session_view(host, active_session);
+    let journal = session
+        .current_task
+        .as_ref()
+        .and_then(|task| {
+            active_session
+                .map(|active_session| current_task_journal(host, active_session, &task.task_id))
+        })
+        .transpose()?;
+    Ok(PrismOverviewTaskView { session, journal })
+}
+
+fn ui_overview_coordination_summary(host: &QueryHost) -> Result<PrismOverviewCoordinationView> {
+    if !host.features.coordination_layer_enabled() {
+        return Ok(PrismOverviewCoordinationView {
+            enabled: false,
+            active_plan_count: 0,
+            task_count: 0,
+            ready_task_count: 0,
+            in_review_task_count: 0,
+            active_claim_count: 0,
+            pending_handoff_count: 0,
+            pending_review_count: 0,
+            proposed_artifact_count: 0,
+            recent_pending_reviews: Vec::new(),
+            recent_violations: Vec::new(),
+        });
+    }
+
+    let prism = host.current_prism();
+    let now = current_timestamp();
+    let fallback_snapshot = prism.coordination_snapshot();
+    let read_model = host
+        .workspace_session()
+        .and_then(|workspace| workspace.load_coordination_read_model().ok().flatten())
+        .unwrap_or_else(|| fallback_coordination_read_model(&fallback_snapshot));
+    let queue_model = host
+        .workspace_session()
+        .and_then(|workspace| {
+            workspace
+                .load_coordination_queue_read_model()
+                .ok()
+                .flatten()
+        })
+        .unwrap_or_else(|| fallback_coordination_queue_read_model(&fallback_snapshot));
+    let ready_task_count = ready_task_count_for_active_plans(&read_model.active_plans, |plan_id| {
+        prism.ready_tasks(plan_id, now).len()
+    });
+    let recent_pending_reviews = read_model
+        .pending_review_artifacts
+        .iter()
+        .take(OVERVIEW_COORDINATION_REVIEW_LIMIT)
+        .cloned()
+        .map(artifact_view)
+        .collect();
+    let recent_violations = read_model
+        .recent_violations
+        .iter()
+        .take(OVERVIEW_COORDINATION_VIOLATION_LIMIT)
+        .cloned()
+        .map(policy_violation_record_view)
+        .collect::<Vec<_>>();
+    let active_claim_count = read_model
+        .active_claims
+        .iter()
+        .filter(|claim| claim.status == ClaimStatus::Active && claim.expires_at > now)
+        .count();
+
+    Ok(PrismOverviewCoordinationView {
+        enabled: true,
+        active_plan_count: read_model.active_plans.len(),
+        task_count: read_model.task_count,
+        ready_task_count,
+        in_review_task_count: read_model.in_review_task_ids.len(),
+        active_claim_count,
+        pending_handoff_count: queue_model.pending_handoff_tasks.len(),
+        pending_review_count: read_model.pending_review_artifacts.len(),
+        proposed_artifact_count: read_model.proposed_artifact_count,
+        recent_pending_reviews,
+        recent_violations,
+    })
+}
+
+fn ui_overview_coordination_queues(
+    host: &QueryHost,
+) -> Result<PrismOverviewCoordinationQueuesView> {
+    if !host.features.coordination_layer_enabled() {
+        return Ok(PrismOverviewCoordinationQueuesView {
+            enabled: false,
+            pending_handoffs: Vec::new(),
+            active_claims: Vec::new(),
+            pending_reviews: Vec::new(),
+        });
+    }
+
+    let prism = host.current_prism();
+    let fallback_snapshot = prism.coordination_snapshot();
+    let queue_model = host
+        .workspace_session()
+        .and_then(|workspace| {
+            workspace
+                .load_coordination_queue_read_model()
+                .ok()
+                .flatten()
+        })
+        .unwrap_or_else(|| fallback_coordination_queue_read_model(&fallback_snapshot));
+
+    Ok(PrismOverviewCoordinationQueuesView {
+        enabled: true,
+        pending_handoffs: queue_model
+            .pending_handoff_tasks
+            .iter()
+            .take(OVERVIEW_COORDINATION_HANDOFF_LIMIT)
+            .cloned()
+            .map(coordination_task_view)
+            .collect(),
+        active_claims: queue_model
+            .active_claims
+            .iter()
+            .take(OVERVIEW_COORDINATION_CLAIM_LIMIT)
+            .cloned()
+            .map(claim_view)
+            .collect(),
+        pending_reviews: queue_model
+            .pending_review_artifacts
+            .iter()
+            .take(OVERVIEW_COORDINATION_REVIEW_LIMIT)
+            .cloned()
+            .map(artifact_view)
+            .collect(),
+    })
+}
+
+fn fallback_coordination_read_model(
+    snapshot: &prism_coordination::CoordinationSnapshot,
+) -> CoordinationReadModel {
+    prism_coordination::coordination_read_model_from_snapshot(snapshot)
+}
+
+fn fallback_coordination_queue_read_model(
+    snapshot: &prism_coordination::CoordinationSnapshot,
+) -> CoordinationQueueReadModel {
+    coordination_queue_read_model_from_snapshot(snapshot)
+}
+
+fn ui_session_view(host: &QueryHost, session: Option<&SessionState>) -> crate::SessionView {
+    let limits = session
+        .map(SessionState::limits)
+        .unwrap_or(host.default_limits);
+    crate::SessionView {
+        workspace_root: host
+            .workspace_session()
+            .map(|workspace| workspace.root().display().to_string()),
+        current_task: session.and_then(|session| {
+            session
+                .effective_current_task_state()
+                .map(|task| session_task_view(host, session, &task))
+        }),
+        current_work: session.and_then(|session| {
+            session
+                .current_work_state()
+                .map(crate::host_resources::session_work_view)
+        }),
+        current_agent: session
+            .and_then(|session| session.current_agent().map(|agent| agent.0.to_string())),
+        bridge_identity: None,
+        limits: crate::SessionLimitsView {
+            max_result_nodes: limits.max_result_nodes,
+            max_call_graph_depth: limits.max_call_graph_depth,
+            max_output_json_bytes: limits.max_output_json_bytes,
+        },
+        features: crate::FeatureFlagsView {
+            mode: host.features.mode_label().to_string(),
+            coordination: crate::CoordinationFeaturesView {
+                workflow: host.features.coordination.workflow,
+                claims: host.features.coordination.claims,
+                artifacts: host.features.coordination.artifacts,
+            },
+            ui: host.features.ui,
+            internal_developer: host.features.internal_developer,
+        },
+    }
+}
+
+fn current_task_journal(
+    host: &QueryHost,
+    session: &SessionState,
+    task_id: &str,
+) -> Result<prism_js::TaskJournalView> {
+    let prism = host.current_prism();
+    let task_id = TaskId::new(task_id.to_string());
+    let replay = crate::load_task_replay(host.workspace_session_ref(), prism.as_ref(), &task_id)?;
+    crate::task_journal_view_from_replay(
+        session,
+        prism.as_ref(),
+        replay,
+        None,
+        OVERVIEW_TASK_EVENT_LIMIT,
+        OVERVIEW_TASK_MEMORY_LIMIT,
+    )
 }
 
 fn plan_recent_outcomes(
