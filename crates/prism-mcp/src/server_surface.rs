@@ -98,7 +98,8 @@ impl PrismMcpServer {
             return true;
         }
         match args.kind {
-            CoordinationMutationKindInput::PlanCreate => false,
+            CoordinationMutationKindInput::PlanBootstrap
+            | CoordinationMutationKindInput::PlanCreate => false,
             CoordinationMutationKindInput::PlanUpdate
             | CoordinationMutationKindInput::PlanArchive => {
                 Self::payload_has_nonempty_string(&args.payload, &["planId", "plan_id"])

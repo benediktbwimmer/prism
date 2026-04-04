@@ -448,6 +448,14 @@ fn validate_coordination_payload(
     let tag = coordination_kind_tag(&args.kind);
     let required_fields = payload_required_fields("prism_mutate", "coordination", tag);
     match args.kind {
+        CoordinationMutationKindInput::PlanBootstrap => {
+            deserialize_or_issue::<PlanBootstrapPayload>(
+                args.payload,
+                Some("input.payload"),
+                &required_fields,
+            )
+            .map(|_| ())
+        }
         CoordinationMutationKindInput::PlanCreate => deserialize_or_issue::<PlanCreatePayload>(
             args.payload,
             Some("input.payload"),
@@ -680,6 +688,7 @@ fn payload_required_fields(tool_name: &str, action: &str, tag: &str) -> Vec<Stri
 
 fn coordination_kind_tag(kind: &CoordinationMutationKindInput) -> &'static str {
     match kind {
+        CoordinationMutationKindInput::PlanBootstrap => "plan_bootstrap",
         CoordinationMutationKindInput::PlanCreate => "plan_create",
         CoordinationMutationKindInput::PlanUpdate => "plan_update",
         CoordinationMutationKindInput::PlanArchive => "plan_archive",
@@ -2052,6 +2061,7 @@ pub(crate) struct PrismFixValidatedArgs {
 #[derive(Debug, Clone, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum CoordinationMutationKindInput {
+    PlanBootstrap,
     PlanCreate,
     PlanUpdate,
     PlanArchive,
@@ -2072,6 +2082,7 @@ impl_vocab_deserialize!(
     "coordination mutation kind",
     r#"{"kind":"task_create"}"#,
     {
+        "planbootstrap" => PlanBootstrap,
         "plancreate" => PlanCreate,
         "planupdate" => PlanUpdate,
         "planarchive" => PlanArchive,
@@ -2131,6 +2142,7 @@ impl_vocab_deserialize!(
 #[serde(rename_all = "snake_case", tag = "kind", content = "payload")]
 #[allow(dead_code)]
 enum PrismCoordinationArgsWirePayload {
+    PlanBootstrap(PlanBootstrapPayload),
     PlanCreate(PlanCreatePayload),
     PlanUpdate(PlanUpdatePayload),
     PlanArchive(PlanArchivePayload),
@@ -2180,6 +2192,9 @@ impl<'de> Deserialize<'de> for PrismCoordinationArgs {
             .cloned()
             .ok_or_else(|| de::Error::custom("missing field `payload`"))?;
         let kind = match wire.mutation {
+            PrismCoordinationArgsWirePayload::PlanBootstrap(_) => {
+                CoordinationMutationKindInput::PlanBootstrap
+            }
             PrismCoordinationArgsWirePayload::PlanCreate(_) => {
                 CoordinationMutationKindInput::PlanCreate
             }
@@ -2788,6 +2803,66 @@ pub(crate) struct PlanCreatePayload {
     pub(crate) status: Option<PlanStatusInput>,
     pub(crate) policy: Option<CoordinationPolicyPayload>,
     pub(crate) scheduling: Option<PlanSchedulingPayload>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PlanBootstrapPayload {
+    pub(crate) plan: PlanCreatePayload,
+    #[serde(default)]
+    pub(crate) tasks: Vec<PlanBootstrapTaskPayload>,
+    #[serde(default)]
+    pub(crate) nodes: Vec<PlanBootstrapNodePayload>,
+    #[serde(default)]
+    pub(crate) edges: Vec<PlanBootstrapEdgePayload>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PlanBootstrapTaskPayload {
+    pub(crate) client_id: String,
+    pub(crate) title: String,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
+    pub(crate) status: Option<CoordinationTaskStatusInput>,
+    pub(crate) assignee: Option<String>,
+    pub(crate) anchors: Option<Vec<AnchorRefInput>>,
+    #[serde(default)]
+    pub(crate) depends_on: Vec<String>,
+    #[serde(default)]
+    pub(crate) coordination_depends_on: Vec<String>,
+    #[serde(default)]
+    pub(crate) integrated_depends_on: Vec<String>,
+    pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PlanBootstrapNodePayload {
+    pub(crate) client_id: String,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
+    pub(crate) kind: Option<PlanNodeKindInput>,
+    pub(crate) title: String,
+    pub(crate) summary: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
+    pub(crate) status: Option<PlanNodeStatusInput>,
+    pub(crate) assignee: Option<String>,
+    pub(crate) is_abstract: Option<bool>,
+    pub(crate) anchors: Option<Vec<AnchorRefInput>>,
+    pub(crate) bindings: Option<PlanBindingPayload>,
+    #[serde(default)]
+    pub(crate) depends_on: Vec<String>,
+    pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
+    pub(crate) validation_refs: Option<Vec<ValidationRefPayload>>,
+    pub(crate) priority: Option<u8>,
+    pub(crate) tags: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PlanBootstrapEdgePayload {
+    pub(crate) from_client_id: String,
+    pub(crate) to_client_id: String,
+    pub(crate) kind: PlanEdgeKindInput,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]

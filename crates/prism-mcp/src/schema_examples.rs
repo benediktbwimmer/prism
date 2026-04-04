@@ -441,6 +441,39 @@ fn extra_prism_mutate_examples() -> Vec<Value> {
         json!({
             "action": "coordination",
             "input": {
+                "kind": "plan_bootstrap",
+                "payload": {
+                    "plan": {
+                        "title": "Investigate refresh path latency",
+                        "goal": "Investigate refresh path latency"
+                    },
+                    "tasks": [{
+                        "clientId": "t0",
+                        "title": "Capture baseline timings"
+                    }, {
+                        "clientId": "t1",
+                        "title": "Compare the slow phases",
+                        "dependsOn": ["t0"]
+                    }],
+                    "nodes": [{
+                        "clientId": "n0",
+                        "kind": "validate",
+                        "title": "Verify the fix",
+                        "validationRefs": [{ "id": "bench:refresh-hot-path" }],
+                        "dependsOn": ["t1"]
+                    }],
+                    "edges": [{
+                        "fromClientId": "t1",
+                        "toClientId": "n0",
+                        "kind": "validates"
+                    }]
+                },
+                "taskId": "task:demo-main"
+            }
+        }),
+        json!({
+            "action": "coordination",
+            "input": {
                 "kind": "plan_create",
                 "payload": {
                     "goal": "Investigate refresh path latency",
@@ -679,6 +712,10 @@ fn vocab_payload_example() -> Value {
             "title": "Coordination Mutation Kinds",
             "description": "Nested kind values accepted by prism_mutate action coordination.",
             "values": [{
+                "value": "plan_bootstrap",
+                "aliases": [],
+                "description": "Create a plan and its initial graph in one authoritative write."
+            }, {
                 "value": "task_create",
                 "aliases": [],
                 "description": "Create a coordination task."
