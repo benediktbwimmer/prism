@@ -1,23 +1,23 @@
 {
   "version": 1,
-  "publishedAt": 1775332567,
+  "publishedAt": 1775332961,
   "publisher": {
     "principalAuthorityId": "local-daemon",
     "principalId": "principal:codex-shared-coordination-refs-gaps-2026-04-04:01knaqj9pv4p1vc9tfw82zvp6y",
     "credentialId": "credential:01knaqj9pv0vx0h59cvge430j7"
   },
   "workContext": {
-    "workId": "coord-task:01knax3zr6tyxkcev2vzd2ptyg",
+    "workId": "coord-task:01knax49ge8qvv6yabya0k2xrc",
     "kind": "coordination",
-    "title": "Harden degraded verification behavior, silent-fallback prevention, and partial publication recovery",
-    "summary": "Close the recovery-path gaps so verification failures and split publication outcomes are surfaced explicitly, block authoritative hydration when necessary, and remain recoverable without hidden fallback behavior.",
-    "coordinationTaskId": "coord-task:01knax3zr6tyxkcev2vzd2ptyg",
+    "title": "Validate the full shared-ref model end to end against the design doc",
+    "summary": "Run the completed implementation against the PRISM_SHARED_COORDINATION_REFS.md contract with targeted and release-binary validation so every remaining section is either proven implemented or explicitly deferred.",
+    "coordinationTaskId": "coord-task:01knax49ge8qvv6yabya0k2xrc",
     "planId": "plan:01knav51cj8vgw0zp49qgktzps",
     "planTitle": "Finish PRISM shared coordination refs end to end"
   },
   "publishSummary": {
-    "title": "Harden degraded verification behavior, silent-fallback prevention, and partial publication recovery",
-    "summary": "Close the recovery-path gaps so verification failures and split publication outcomes are surfaced explicitly, block authoritative hydration when necessary, and remain recoverable without hidden fallback behavior."
+    "title": "Validate the full shared-ref model end to end against the design doc",
+    "summary": "Run the completed implementation against the PRISM_SHARED_COORDINATION_REFS.md contract with targeted and release-binary validation so every remaining section is either proven implemented or explicitly deferred."
   },
   "files": {
     ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json": {
@@ -38,7 +38,7 @@
     },
     ".prism/state/indexes/coordination_materialization.json": {
       "path": ".prism/state/indexes/coordination_materialization.json",
-      "sha256": "sha256:83e3c7fa4ea3b04c6efba21839f45949e953dfb30afd9c1879880273618ca2ac"
+      "sha256": "sha256:3d442c84a8e26bc51ab7092d901622675d94d859440b786450807b22e79cc72a"
     },
     ".prism/state/indexes/memory.json": {
       "path": ".prism/state/indexes/memory.json",
@@ -53,12 +53,12 @@
       "sha256": "sha256:f77575ce54b660ea0c89621e1b65dc8e3f57f58533e2c5ddc0c7ad5ced01ef0d"
     }
   },
-  "previousManifestDigest": "sha256:81b70acf0284b3d1c86034dbb4098919d0aeca113e81ab0728e3446180a53ed9",
+  "previousManifestDigest": "sha256:88955185ac3ad3aa527341bc3123053e5d0388a022af3fbe58f55c5bb322687c",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:zupvjgjLyUQRAiDaHh8sMKg5jfSlJ/39+bSBXmihdp8kHG1GH7RreYKvKx4hA+qxVvU8iC6oqwkGEKSYg5RWAA=="
+    "value": "base64:KNdBcDFhNS7MDojiQ4UkSCg/p0L9rPI6Ox1xnqpl9Im07t+RgzIeICMBtvPimFOEd3Fndd7yj2EjnuH98NOgCA=="
   }
 }
