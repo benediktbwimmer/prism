@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Demote branch-local shared coordination mirrors to minimal derived exports",
   "summary": "Stop mirroring full shared coordination authority into branch-local `.prism/state/**` by default and leave only bounded, explicitly derived exports so the shared ref becomes the real source of truth.",
-  "status": "Ready",
+  "status": "Completed",
   "published_task_status": null,
   "assignee": null,
   "pending_handoff_to": null,
@@ -44,7 +44,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 173,
+    "graph_version": 214,
     "git_commit": null
   },
   "priority": 98,

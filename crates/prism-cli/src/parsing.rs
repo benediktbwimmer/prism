@@ -109,9 +109,7 @@ pub fn parse_credential_capability(value: &str) -> Result<CredentialCapability> 
         "mutate_repo_memory" | "repo_memory" | "memory" => {
             Ok(CredentialCapability::MutateRepoMemory)
         }
-        "read_peer_runtime" | "peer_runtime" | "peer" => {
-            Ok(CredentialCapability::ReadPeerRuntime)
-        }
+        "read_peer_runtime" | "peer_runtime" | "peer" => Ok(CredentialCapability::ReadPeerRuntime),
         "mint_child_principal" | "mint_child" | "child" => {
             Ok(CredentialCapability::MintChildPrincipal)
         }

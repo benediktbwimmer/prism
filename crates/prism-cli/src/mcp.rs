@@ -306,7 +306,10 @@ fn status(root: &Path) -> Result<()> {
         println!("cache_path: {} (missing)", paths.cache_path.display());
     }
     if let Some(shared_coordination_ref) = shared_coordination_ref_diagnostics(root)? {
-        println!("shared_coordination_ref: {}", shared_coordination_ref.ref_name);
+        println!(
+            "shared_coordination_ref: {}",
+            shared_coordination_ref.ref_name
+        );
         println!(
             "shared_coordination_head: {}",
             shared_coordination_ref

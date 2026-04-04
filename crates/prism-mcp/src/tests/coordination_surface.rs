@@ -325,11 +325,13 @@ fn coordination_workflow_helpers_summarize_inbox_context_and_claim_preview() {
     })
     .unwrap();
 
-    let result = host
-        .execute(
-            test_session(&host),
-            &format!(
-                r#"
+    let result = (0..40)
+        .find_map(|attempt| {
+            let state = host
+                .execute(
+                    test_session(&host),
+                    &format!(
+                        r#"
 const alpha = prism.symbol("alpha");
 return {{
   inbox: prism.coordinationInbox("{plan_id}"),
@@ -341,10 +343,23 @@ return {{
   }}),
 }};
 "#
-            ),
-            QueryLanguage::Ts,
-        )
-        .unwrap();
+                    ),
+                    QueryLanguage::Ts,
+                )
+                .unwrap();
+            if state.result["inbox"]["pendingReviews"]
+                .as_array()
+                .is_some_and(|reviews| reviews.len() == 1)
+            {
+                Some(state)
+            } else if attempt == 39 {
+                Some(state)
+            } else {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                None
+            }
+        })
+        .expect("coordination inbox result");
 
     let ready_tasks = result.result["inbox"]["readyTasks"]
         .as_array()
@@ -541,13 +556,25 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
     })
     .unwrap();
 
-    let handed_off = host_b
-        .execute(
-            test_session(&host_b),
-            &format!(r#"return prism.task("{task_id}");"#),
-            QueryLanguage::Ts,
-        )
-        .unwrap();
+    let handed_off = (0..10)
+        .find_map(|attempt| {
+            let state = host_b
+                .execute(
+                    test_session(&host_b),
+                    &format!(r#"return prism.task("{task_id}");"#),
+                    QueryLanguage::Ts,
+                )
+                .unwrap();
+            if state.result["status"] == "Blocked" {
+                Some(state)
+            } else if attempt == 9 {
+                Some(state)
+            } else {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                None
+            }
+        })
+        .expect("handoff state");
     assert_eq!(handed_off.result["assignee"], Value::Null);
     assert_eq!(handed_off.result["pendingHandoffTo"], "agent-b");
     assert_eq!(handed_off.result["status"], "Blocked");
@@ -723,6 +750,25 @@ return {{
         reviewed_state.result["artifacts"][0]["status"], "Approved",
         "reviewed artifact did not reload into host_b: {reviewed_state:#?}"
     );
+    let resumed = retry_on_runtime_sync_busy(|| {
+        host_b.store_coordination(
+            test_session(&host_b).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Update,
+                payload: json!({
+                    "id": task_id.clone(),
+                    "status": "ready"
+                }),
+                task_id: None,
+            },
+        )
+    })
+    .unwrap();
+    assert!(
+        !resumed.rejected,
+        "resume unexpectedly rejected after approval: {resumed:#?}"
+    );
+    assert_eq!(resumed.state["status"], "Ready");
 
     let completed = retry_on_runtime_sync_busy(|| {
         host_b.store_coordination(
@@ -744,20 +790,42 @@ return {{
     );
     assert_eq!(completed.state["status"], "Completed");
 
-    let final_state = host_a
-        .execute(
-            test_session(&host_a),
-            &format!(
-                r#"
+    let final_state = (0..120)
+        .find_map(|attempt| {
+            if attempt > 0 {
+                host_a
+                    .refresh_workspace()
+                    .expect("host A refresh should succeed while waiting for completion");
+                host_a
+                    .workspace_session()
+                    .expect("host A workspace session should exist")
+                    .hydrate_coordination_runtime()
+                    .expect("host A coordination runtime should hydrate while waiting");
+            }
+            let state = host_a
+                .execute(
+                    test_session(&host_a),
+                    &format!(
+                        r#"
 return {{
   task: prism.task("{task_id}"),
   inbox: prism.coordinationInbox("{plan_id}"),
 }};
 "#
-            ),
-            QueryLanguage::Ts,
-        )
-        .unwrap();
+                    ),
+                    QueryLanguage::Ts,
+                )
+                .unwrap();
+            if state.result["task"]["status"] == "Completed" {
+                Some(state)
+            } else if attempt == 119 {
+                Some(state)
+            } else {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                None
+            }
+        })
+        .expect("final coordination state");
     assert_eq!(final_state.result["task"]["status"], "Completed");
     assert_eq!(
         final_state.result["inbox"]["pendingReviews"]

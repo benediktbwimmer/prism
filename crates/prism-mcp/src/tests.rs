@@ -966,6 +966,9 @@ fn git_execution_policy_completion_require_publishes_after_manual_code_commit() 
                 || path.starts_with("docs/prism/"))
         )
         .unwrap_or(false));
+    if let Some(workspace) = host.workspace_session() {
+        workspace.flush_materializations().unwrap();
+    }
     assert_eq!(test_git(&root, &["status", "--short"]), "");
     assert_eq!(
         test_git(&root, &["rev-parse", "HEAD"]),
@@ -1097,6 +1100,12 @@ fn git_execution_completion_trace_records_subphases_without_ui_publish() {
     assert!(operations.contains(&"mutation.gitExecution.preflight"));
     assert!(operations.contains(&"mutation.gitExecution.recordPublishIntent"));
     assert!(operations.contains(&"mutation.gitExecution.recordPublishIntentStep"));
+    assert!(
+        operations.contains(&"mutation.gitExecution.recordPublishIntentStep.commitPersistBatch")
+    );
+    assert!(operations.contains(
+        &"mutation.gitExecution.recordPublishIntentStep.publishedPlans.syncSharedCoordinationRef"
+    ));
     assert!(operations.contains(&"mutation.gitExecution.pushBranch"));
     assert!(operations.contains(&"mutation.gitExecution.recordAuthoritativeState"));
     assert!(operations.contains(&"mutation.gitExecution.recordAuthoritativeStateStep"));
@@ -15201,12 +15210,135 @@ fn coordination_mutation_trace_records_persistence_subphases() {
     assert!(operations.contains(&"mutation.coordination.captureDelta"));
     assert!(operations.contains(&"mutation.coordination.commitPersistBatch"));
     assert!(operations.contains(&"mutation.coordination.syncPublishedPlans"));
-    assert!(operations.contains(&"mutation.coordination.publishedPlans.writeLogs"));
-    assert!(operations.contains(&"mutation.coordination.publishedPlans.writeIndex"));
+    assert!(operations.contains(&"mutation.coordination.publishedPlans.syncSharedCoordinationRef"));
+    assert!(operations.contains(&"mutation.coordination.publishedPlans.syncTrackedSnapshot"));
+    assert!(operations.contains(&"mutation.coordination.publishedPlans.saveStartupCheckpoint"));
+    assert!(!operations.contains(&"mutation.coordination.publishedPlans.writeLogs"));
+    assert!(!operations.contains(&"mutation.coordination.publishedPlans.writeIndex"));
+    assert!(!operations.contains(&"mutation.coordination.publishedPlans.cleanupLogs"));
     assert!(!operations.contains(&"mutation.coordination.publishedPlans.loadProjection"));
     assert!(operations.contains(&"mutation.coordination.syncLoadedRevisionAfter"));
     assert!(operations.contains(&"mutation.flushObservedChanges"));
     assert!(operations.contains(&"mutation.persistObservedChangeCheckpoints"));
+    let tracked_snapshot_phase = trace
+        .phases
+        .iter()
+        .find(|phase| phase.operation == "mutation.coordination.publishedPlans.syncTrackedSnapshot")
+        .expect("tracked snapshot phase");
+    let tracked_args = tracked_snapshot_phase
+        .args_summary
+        .as_ref()
+        .and_then(Value::as_object)
+        .expect("tracked snapshot args");
+    assert_eq!(
+        tracked_args.get("deferred").and_then(Value::as_bool),
+        Some(true)
+    );
+    let startup_phase = trace
+        .phases
+        .iter()
+        .find(|phase| {
+            phase.operation == "mutation.coordination.publishedPlans.saveStartupCheckpoint"
+        })
+        .expect("startup checkpoint phase");
+    let startup_args = startup_phase
+        .args_summary
+        .as_ref()
+        .and_then(Value::as_object)
+        .expect("startup checkpoint args");
+    assert_eq!(
+        startup_args.get("deferred").and_then(Value::as_bool),
+        Some(true)
+    );
+}
+
+#[test]
+fn coordination_mutation_skips_rehydrate_when_only_loaded_revision_marker_lags() {
+    let root = temp_workspace();
+    let server = PrismMcpServer::with_session_and_features(
+        index_workspace_session(&root).unwrap(),
+        PrismMcpFeatures::full().with_internal_developer(true),
+    );
+
+    let created = server
+        .host
+        .store_coordination(
+            test_session(&server.host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Marker lag plan",
+                    "goal": "Marker lag plan",
+                }),
+                task_id: None,
+            },
+        )
+        .expect("plan create should succeed");
+    let plan_id = created
+        .state
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("created plan id")
+        .to_string();
+
+    let workspace = server.host.workspace_session().expect("workspace host");
+    let current_revision = workspace.coordination_runtime_revision().unwrap();
+    server
+        .host
+        .loaded_coordination_revision_handle()
+        .expect("coordination revision handle")
+        .store(current_revision.saturating_sub(1), std::sync::atomic::Ordering::Relaxed);
+
+    let result = server
+        .execute_logged_mutation_with_run(
+            "mutate.coordination",
+            MutationRefreshPolicy::None,
+            |run| {
+                server.host.store_coordination_traced(
+                    test_session(&server.host).as_ref(),
+                    PrismCoordinationArgs {
+                        kind: CoordinationMutationKindInput::PlanUpdate,
+                        payload: json!({
+                            "planId": plan_id,
+                            "status": "active",
+                        }),
+                        task_id: None,
+                    },
+                    run,
+                )
+            },
+            |result| {
+                MutationDashboardMeta::coordination(
+                    result.event_ids.clone(),
+                    result.violations.len(),
+                )
+            },
+        )
+        .expect("plan update should succeed");
+
+    assert!(result.event_id.starts_with("coordination:"));
+
+    let detail = server
+        .host
+        .dashboard_operation_detail("mutation:1")
+        .expect("mutation detail should exist");
+    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+        panic!("expected mutation trace");
+    };
+    let sync_phase = trace
+        .phases
+        .iter()
+        .find(|phase| phase.operation == "mutation.coordination.syncLoadedRevisionBefore")
+        .expect("syncLoadedRevisionBefore phase");
+    let sync_args = sync_phase
+        .args_summary
+        .as_ref()
+        .and_then(Value::as_object)
+        .expect("sync args");
+    assert_eq!(
+        sync_args.get("hydrated").and_then(Value::as_bool),
+        Some(false)
+    );
 }
 
 #[tokio::test]
@@ -20169,7 +20301,8 @@ fn runtime_status_surfaces_shared_coordination_ref_diagnostics() {
     )
     .expect("task create should succeed");
 
-    let status = crate::runtime_views::runtime_status(&host).expect("runtime status should succeed");
+    let status =
+        crate::runtime_views::runtime_status(&host).expect("runtime status should succeed");
     let shared = status
         .shared_coordination_ref
         .expect("shared coordination diagnostics should be present");

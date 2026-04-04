@@ -15,11 +15,11 @@ use prism_core::{shared_coordination_ref_diagnostics, PrismPaths, WorkspaceSessi
 use prism_js::{
     ConnectionInfoView, ProjectionAuthorityPlaneView, ProjectionClassView,
     ProjectionFreshnessStateView, ProjectionMaterializationStateView, ProjectionReadModelView,
-    RuntimeBoundaryRegionView, RuntimeDomainFreshnessView, RuntimeFreshnessView, RuntimeHealthView,
-    RuntimeLogEventView, RuntimeMaterializationCoverageView, RuntimeMaterializationItemView,
-    RuntimeMaterializationView, RuntimeOverlayScopeView, RuntimeProcessView,
-    RuntimeProjectionScopeView, RuntimeQueueDepthView, RuntimeScopesView,
-    RuntimeSharedCoordinationRefView, RuntimeStatusView,
+    RuntimeBoundaryRegionView, RuntimeCoordinationLagView, RuntimeCoordinationSurfaceLagItemView,
+    RuntimeDomainFreshnessView, RuntimeFreshnessView, RuntimeHealthView, RuntimeLogEventView,
+    RuntimeMaterializationCoverageView, RuntimeMaterializationItemView, RuntimeMaterializationView,
+    RuntimeOverlayScopeView, RuntimeProcessView, RuntimeProjectionScopeView, RuntimeQueueDepthView,
+    RuntimeScopesView, RuntimeSharedCoordinationRefView, RuntimeStatusView,
 };
 use prism_projections::{
     ProjectionAuthorityPlane, ProjectionClass, ProjectionFreshnessState,
@@ -412,6 +412,40 @@ fn runtime_freshness_from_inputs(
             Some(snapshot_revisions.coordination),
         ),
     };
+    let authoritative_coordination_revision = inputs.workspace.coordination_revision()?;
+    let coordination_lag = Some(RuntimeCoordinationLagView {
+        authoritative_revision: authoritative_coordination_revision,
+        tracked_snapshot: coordination_surface_lag_item(
+            "tracked_snapshot",
+            inputs
+                .workspace
+                .load_tracked_coordination_snapshot_revision()?,
+            authoritative_coordination_revision,
+        ),
+        startup_checkpoint: coordination_surface_lag_item(
+            "startup_checkpoint",
+            inputs
+                .workspace
+                .load_coordination_startup_checkpoint_revision()?,
+            authoritative_coordination_revision,
+        ),
+        read_model: coordination_surface_lag_item(
+            "read_model",
+            inputs
+                .workspace
+                .load_coordination_read_model()?
+                .map(|model| model.revision),
+            authoritative_coordination_revision,
+        ),
+        queue_read_model: coordination_surface_lag_item(
+            "queue_read_model",
+            inputs
+                .workspace
+                .load_coordination_queue_read_model()?
+                .map(|model| model.revision),
+            authoritative_coordination_revision,
+        ),
+    });
     let last_build = latest_runtime_event(runtime_state, "built prism-mcp workspace server");
     let last_ready = latest_runtime_event(runtime_state, "prism-mcp daemon ready");
 
@@ -444,6 +478,7 @@ fn runtime_freshness_from_inputs(
         last_workspace_build_ms: event_field_u64(last_build, "buildMs"),
         last_daemon_ready_ms: event_field_u64(last_ready, "startupMs"),
         materialization: materialization.clone(),
+        coordination_lag,
         domains: published_generation
             .as_ref()
             .map(|generation| runtime_domain_views(generation))
@@ -723,6 +758,19 @@ fn materialization_item(
     }
 }
 
+fn coordination_surface_lag_item(
+    name: &str,
+    revision: Option<u64>,
+    authoritative_revision: u64,
+) -> RuntimeCoordinationSurfaceLagItemView {
+    RuntimeCoordinationSurfaceLagItemView {
+        name: name.to_string(),
+        status: coordination_surface_lag_status(revision, authoritative_revision).to_string(),
+        revision,
+        authoritative_revision,
+    }
+}
+
 fn workspace_materialization_item(
     loaded_revision: u64,
     current_revision: Option<u64>,
@@ -773,6 +821,17 @@ fn materialization_depth(loaded_revision: u64, current_revision: Option<u64>) ->
         "shallow"
     } else {
         "medium"
+    }
+}
+
+fn coordination_surface_lag_status(
+    revision: Option<u64>,
+    authoritative_revision: u64,
+) -> &'static str {
+    match revision {
+        Some(revision) if revision == authoritative_revision => "current",
+        Some(_) => "stale",
+        None => "missing",
     }
 }
 
@@ -1664,5 +1723,12 @@ mod tests {
         assert_eq!(snapshot.rss_kb, 1_006_400);
         assert_eq!(snapshot.elapsed, "05:04");
         assert!(snapshot.command.contains("--mode daemon"));
+    }
+
+    #[test]
+    fn coordination_surface_lag_status_distinguishes_current_stale_and_missing() {
+        assert_eq!(coordination_surface_lag_status(Some(7), 7), "current");
+        assert_eq!(coordination_surface_lag_status(Some(6), 7), "stale");
+        assert_eq!(coordination_surface_lag_status(None, 7), "missing");
     }
 }

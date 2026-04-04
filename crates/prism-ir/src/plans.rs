@@ -206,9 +206,9 @@ mod tests {
 
     #[test]
     fn git_execution_status_accepts_legacy_coordination_published_alias() {
-        let status: GitExecutionStatus = serde_json::from_str("\"coordination_published\"")
-            .expect("legacy shared-ref status should deserialize");
-        assert_eq!(status, GitExecutionStatus::Published);
+        let parsed: GitExecutionStatus =
+            serde_json::from_str("\"coordination_published\"").expect("legacy alias should parse");
+        assert_eq!(parsed, GitExecutionStatus::Published);
     }
 }
 

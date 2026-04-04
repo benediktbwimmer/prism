@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
@@ -35,6 +36,13 @@ pub(crate) struct TrackedSnapshotPublishContext {
     pub(crate) principal: ProtectedPrincipalIdentity,
     pub(crate) work_context: Option<WorkContextSnapshot>,
     pub(crate) publish_summary: Option<SnapshotManifestPublishSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TrackedCoordinationMaterializationStatus {
+    pub(crate) coordination_revision: u64,
+    pub(crate) materialized_at: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -161,6 +169,13 @@ pub(crate) struct TrackedCoordinationSnapshotState {
 
 fn snapshot_root(root: &Path) -> PathBuf {
     root.join(".prism").join("state")
+}
+
+fn now_epoch_seconds() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
 }
 
 fn snapshot_manifest_path(root: &Path) -> PathBuf {
@@ -442,6 +457,7 @@ pub(crate) fn sync_coordination_snapshot_state(
     plan_graphs: &[PlanGraph],
     execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
     publish: Option<&TrackedSnapshotPublishContext>,
+    coordination_revision: Option<u64>,
 ) -> Result<()> {
     sync_plan_objects(root, snapshot, plan_graphs, execution_overlays)?;
     sync_task_objects(root, &snapshot.tasks)?;
@@ -449,6 +465,9 @@ pub(crate) fn sync_coordination_snapshot_state(
     rebuild_plan_indexes(root)?;
     rebuild_task_index(root)?;
     rebuild_artifact_index(root)?;
+    if let Some(coordination_revision) = coordination_revision {
+        sync_coordination_materialization_status(root, coordination_revision, publish)?;
+    }
     refresh_manifest(root, publish)
 }
 
@@ -461,6 +480,18 @@ pub(crate) fn regenerate_tracked_snapshot_derived_artifacts(root: &Path) -> Resu
     rebuild_task_index(root)?;
     rebuild_artifact_index(root)?;
     refresh_manifest(root, None)
+}
+
+pub(crate) fn load_tracked_coordination_materialization_status(
+    root: &Path,
+) -> Result<Option<TrackedCoordinationMaterializationStatus>> {
+    let path = snapshot_indexes_dir(root).join("coordination_materialization.json");
+    if !path.exists() {
+        return Ok(None);
+    }
+    Ok(Some(read_json_file::<
+        TrackedCoordinationMaterializationStatus,
+    >(&path)?))
 }
 
 pub(crate) fn load_concept_snapshots(root: &Path) -> Result<Vec<ConceptPacket>> {
@@ -744,6 +775,23 @@ fn rebuild_artifact_index(root: &Path) -> Result<()> {
     write_json_file(
         &snapshot_indexes_dir(root).join("coordination_artifacts.json"),
         &entries,
+    )
+}
+
+fn sync_coordination_materialization_status(
+    root: &Path,
+    coordination_revision: u64,
+    publish: Option<&TrackedSnapshotPublishContext>,
+) -> Result<()> {
+    let materialized_at = publish
+        .map(|ctx| ctx.published_at)
+        .unwrap_or_else(now_epoch_seconds);
+    write_json_file(
+        &snapshot_indexes_dir(root).join("coordination_materialization.json"),
+        &TrackedCoordinationMaterializationStatus {
+            coordination_revision,
+            materialized_at,
+        },
     )
 }
 

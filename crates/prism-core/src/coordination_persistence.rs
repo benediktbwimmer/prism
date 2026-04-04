@@ -6,7 +6,7 @@ use anyhow::Result;
 use prism_coordination::{
     coordination_queue_read_model_from_seed, coordination_read_model_from_seed,
     coordination_snapshot_from_events, snapshot_plan_graphs, CoordinationEvent,
-    CoordinationSnapshot,
+    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
 };
 use prism_ir::{PlanExecutionOverlay, PlanGraph, SessionId};
 use prism_store::{
@@ -21,14 +21,28 @@ use crate::coordination_startup_checkpoint::{
 };
 use crate::published_plans::{
     execution_overlays_by_plan, load_hydrated_coordination_plan_state,
-    load_hydrated_coordination_snapshot, sync_repo_published_plan_state,
-    sync_repo_published_plan_state_observed, sync_repo_published_plans,
+    load_hydrated_coordination_snapshot, sync_repo_published_plan_state, sync_repo_published_plans,
     HydratedCoordinationPlanState,
 };
-use crate::tracked_snapshot::publish_context_from_coordination_events;
+use crate::shared_coordination_ref::sync_shared_coordination_ref_state;
+use crate::tracked_snapshot::{
+    publish_context_from_coordination_events, sync_coordination_snapshot_state,
+};
 use crate::workspace_identity::coordination_persist_context_for_root;
 
 const COORDINATION_COMPACTION_SUFFIX_THRESHOLD: usize = 128;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CoordinationDerivedPersistenceMode {
+    Inline,
+    Deferred,
+}
+
+#[derive(Clone)]
+struct CoordinationDerivedSyncInputs {
+    plan_graphs: Vec<PlanGraph>,
+    execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+}
 
 fn observe_coordination_step<T, E, O, F, A>(
     observe_phase: &mut O,
@@ -65,6 +79,160 @@ where
             Err(error)
         }
     }
+}
+
+fn sync_authoritative_shared_coordination_ref_observed<O>(
+    root: &Path,
+    snapshot: &CoordinationSnapshot,
+    derived: &CoordinationDerivedSyncInputs,
+    publish_context: Option<&crate::tracked_snapshot::TrackedSnapshotPublishContext>,
+    observe_phase: &mut O,
+) -> Result<()>
+where
+    O: FnMut(&str, Duration, Value, bool, Option<String>),
+{
+    observe_coordination_step(
+        observe_phase,
+        "mutation.coordination.publishedPlans.syncSharedCoordinationRef",
+        |_| json!({}),
+        || {
+            sync_shared_coordination_ref_state(
+                root,
+                snapshot,
+                &derived.plan_graphs,
+                &derived.execution_overlays,
+                publish_context,
+            )
+        },
+    )
+}
+
+fn sync_inline_coordination_projections_observed<S, O>(
+    store: &mut S,
+    root: &Path,
+    authoritative_revision: u64,
+    snapshot: &CoordinationSnapshot,
+    derived: &CoordinationDerivedSyncInputs,
+    publish_context: Option<&crate::tracked_snapshot::TrackedSnapshotPublishContext>,
+    observe_phase: &mut O,
+) -> Result<()>
+where
+    S: CoordinationJournal + CoordinationCheckpointStore + ?Sized,
+    O: FnMut(&str, Duration, Value, bool, Option<String>),
+{
+    observe_coordination_step(
+        observe_phase,
+        "mutation.coordination.publishedPlans.syncTrackedSnapshot",
+        |_| json!({}),
+        || {
+            sync_coordination_snapshot_state(
+                root,
+                snapshot,
+                &derived.plan_graphs,
+                &derived.execution_overlays,
+                publish_context,
+                Some(authoritative_revision),
+            )
+        },
+    )?;
+    observe_coordination_step(
+        observe_phase,
+        "mutation.coordination.publishedPlans.saveStartupCheckpoint",
+        |_| json!({}),
+        || {
+            save_shared_coordination_startup_checkpoint(
+                root,
+                store,
+                snapshot,
+                &derived.plan_graphs,
+                &derived.execution_overlays,
+            )
+        },
+    )?;
+    observe_phase(
+        "mutation.coordination.syncPublishedPlans",
+        Duration::ZERO,
+        json!({ "mode": "state" }),
+        true,
+        None,
+    );
+    Ok(())
+}
+
+fn persist_coordination_read_models_and_compaction_observed<S, O>(
+    store: &mut S,
+    authoritative_revision: u64,
+    snapshot: &CoordinationSnapshot,
+    appended_events: &[CoordinationEvent],
+    existing_read_model: Option<CoordinationReadModel>,
+    existing_queue_read_model: Option<CoordinationQueueReadModel>,
+    observe_phase: &mut O,
+    applied: bool,
+) -> Result<()>
+where
+    S: CoordinationJournal + CoordinationCheckpointStore + ?Sized,
+    O: FnMut(&str, Duration, Value, bool, Option<String>),
+{
+    let read_model_started = Instant::now();
+    let mut read_model =
+        coordination_read_model_from_seed(snapshot, existing_read_model.as_ref(), appended_events);
+    read_model.revision = authoritative_revision;
+    observe_phase(
+        "mutation.coordination.buildReadModel",
+        read_model_started.elapsed(),
+        json!({
+            "appendedEventCount": appended_events.len(),
+            "eventCount": snapshot.events.len(),
+        }),
+        true,
+        None,
+    );
+    let queue_read_model_started = Instant::now();
+    let mut queue_read_model = coordination_queue_read_model_from_seed(
+        snapshot,
+        existing_queue_read_model.as_ref(),
+        appended_events,
+    );
+    queue_read_model.revision = authoritative_revision;
+    observe_phase(
+        "mutation.coordination.buildQueueReadModel",
+        queue_read_model_started.elapsed(),
+        json!({
+            "appendedEventCount": appended_events.len(),
+            "taskCount": snapshot.tasks.len(),
+        }),
+        true,
+        None,
+    );
+    observe_coordination_step(
+        observe_phase,
+        "mutation.coordination.saveReadModel",
+        |_| json!({ "eventCount": snapshot.events.len() }),
+        || store.save_coordination_read_model(&read_model),
+    )?;
+    observe_coordination_step(
+        observe_phase,
+        "mutation.coordination.saveQueueReadModel",
+        |_| json!({ "taskCount": snapshot.tasks.len() }),
+        || store.save_coordination_queue_read_model(&queue_read_model),
+    )?;
+    if applied {
+        observe_coordination_step(
+            observe_phase,
+            "mutation.coordination.compactEvents",
+            |_| json!({ "applied": true }),
+            || store.maybe_compact_coordination_events(snapshot),
+        )?;
+    } else {
+        observe_phase(
+            "mutation.coordination.compactEvents",
+            Duration::default(),
+            json!({ "applied": false, "compaction": "skipped" }),
+            true,
+            None,
+        );
+    }
+    Ok(())
 }
 
 pub(crate) trait CoordinationPersistenceBackend:
@@ -177,10 +345,11 @@ pub(crate) trait CoordinationPersistenceBackend:
         snapshot: &CoordinationSnapshot,
         appended_events: &[CoordinationEvent],
         session_id: Option<&SessionId>,
-        previous_snapshot: Option<&CoordinationSnapshot>,
-        previous_plan_graphs: Option<&[PlanGraph]>,
+        _previous_snapshot: Option<&CoordinationSnapshot>,
+        _previous_plan_graphs: Option<&[PlanGraph]>,
         plan_graphs: Option<&[PlanGraph]>,
         execution_overlays: Option<&BTreeMap<String, Vec<PlanExecutionOverlay>>>,
+        derived_persistence_mode: CoordinationDerivedPersistenceMode,
         mut observe_phase: O,
     ) -> Result<CoordinationPersistResult>
     where
@@ -203,81 +372,57 @@ pub(crate) trait CoordinationPersistenceBackend:
                 })
             },
         )?;
-        let sync_started = Instant::now();
-        let sync_mode = if plan_graphs.is_some() && execution_overlays.is_some() {
-            "state"
-        } else {
-            "snapshot"
-        };
         let publish_context = publish_context_from_coordination_events(appended_events);
-        let sync_result = match (
-            previous_snapshot,
-            previous_plan_graphs,
-            plan_graphs,
-            execution_overlays,
+        let derived = CoordinationDerivedSyncInputs {
+            plan_graphs: plan_graphs
+                .map(|graphs| graphs.to_vec())
+                .unwrap_or_else(|| snapshot_plan_graphs(snapshot)),
+            execution_overlays: execution_overlays
+                .cloned()
+                .unwrap_or_else(|| execution_overlays_by_plan(&snapshot.tasks)),
+        };
+        sync_authoritative_shared_coordination_ref_observed(
+            root,
+            snapshot,
+            &derived,
+            publish_context.as_ref(),
+            &mut observe_phase,
+        )?;
+        if matches!(
+            derived_persistence_mode,
+            CoordinationDerivedPersistenceMode::Inline
         ) {
-            (
-                Some(previous_snapshot),
-                Some(previous_plan_graphs),
-                Some(plan_graphs),
-                Some(execution_overlays),
-            ) => sync_repo_published_plan_state_observed(
+            sync_inline_coordination_projections_observed(
+                self,
                 root,
+                result.revision,
                 snapshot,
-                Some(previous_snapshot),
-                Some(previous_plan_graphs),
-                plan_graphs.to_vec(),
-                execution_overlays.clone(),
+                &derived,
                 publish_context.as_ref(),
                 &mut observe_phase,
-            ),
-            (_, _, Some(plan_graphs), Some(execution_overlays)) => {
-                sync_repo_published_plan_state_observed(
-                    root,
-                    snapshot,
-                    None,
-                    None,
-                    plan_graphs.to_vec(),
-                    execution_overlays.clone(),
-                    publish_context.as_ref(),
-                    &mut observe_phase,
-                )
-            }
-            _ => sync_repo_published_plans(root, snapshot, publish_context.as_ref()),
-        };
-        let plan_graphs_for_checkpoint = plan_graphs
-            .map(|graphs| graphs.to_vec())
-            .unwrap_or_else(|| snapshot_plan_graphs(snapshot));
-        let execution_overlays_for_checkpoint = execution_overlays
-            .cloned()
-            .unwrap_or_else(|| execution_overlays_by_plan(&snapshot.tasks));
-        let sync_result = sync_result.and_then(|()| {
-            save_shared_coordination_startup_checkpoint(
-                root,
-                self,
-                snapshot,
-                &plan_graphs_for_checkpoint,
-                &execution_overlays_for_checkpoint,
-            )
-        });
-        match sync_result {
-            Ok(()) => observe_phase(
-                "mutation.coordination.syncPublishedPlans",
-                sync_started.elapsed(),
-                json!({ "mode": sync_mode }),
+            )?;
+        } else {
+            observe_phase(
+                "mutation.coordination.publishedPlans.syncTrackedSnapshot",
+                Duration::ZERO,
+                json!({ "deferred": true }),
                 true,
                 None,
-            ),
-            Err(error) => {
-                observe_phase(
-                    "mutation.coordination.syncPublishedPlans",
-                    sync_started.elapsed(),
-                    json!({ "mode": sync_mode }),
-                    false,
-                    Some(error.to_string()),
-                );
-                return Err(error);
-            }
+            );
+            observe_phase(
+                "mutation.coordination.publishedPlans.saveStartupCheckpoint",
+                Duration::ZERO,
+                json!({ "deferred": true }),
+                true,
+                None,
+            );
+            observe_phase(
+                "mutation.coordination.syncPublishedPlans",
+                Duration::ZERO,
+                json!({ "mode": "shared_ref_only" }),
+                true,
+                None,
+            );
         }
         Ok(result)
     }
@@ -305,6 +450,7 @@ pub(crate) trait CoordinationPersistenceBackend:
             previous_plan_graphs,
             plan_graphs,
             execution_overlays,
+            CoordinationDerivedPersistenceMode::Inline,
             |_operation, _duration, _args, _success, _error| {},
         )
     }
@@ -320,6 +466,7 @@ pub(crate) trait CoordinationPersistenceBackend:
         previous_plan_graphs: Option<&[PlanGraph]>,
         plan_graphs: Option<&[PlanGraph]>,
         execution_overlays: Option<&BTreeMap<String, Vec<PlanExecutionOverlay>>>,
+        derived_persistence_mode: CoordinationDerivedPersistenceMode,
         mut observe_phase: O,
     ) -> Result<CoordinationPersistResult>
     where
@@ -348,68 +495,19 @@ pub(crate) trait CoordinationPersistenceBackend:
                 previous_plan_graphs,
                 plan_graphs,
                 execution_overlays,
+                derived_persistence_mode,
                 &mut observe_phase,
             )?;
-        let read_model_started = Instant::now();
-        let read_model = coordination_read_model_from_seed(
+        persist_coordination_read_models_and_compaction_observed(
+            self,
+            result.revision,
             snapshot,
-            existing_read_model.as_ref(),
             appended_events,
-        );
-        observe_phase(
-            "mutation.coordination.buildReadModel",
-            read_model_started.elapsed(),
-            json!({
-                "appendedEventCount": appended_events.len(),
-                "eventCount": snapshot.events.len(),
-            }),
-            true,
-            None,
-        );
-        let queue_read_model_started = Instant::now();
-        let queue_read_model = coordination_queue_read_model_from_seed(
-            snapshot,
-            existing_queue_read_model.as_ref(),
-            appended_events,
-        );
-        observe_phase(
-            "mutation.coordination.buildQueueReadModel",
-            queue_read_model_started.elapsed(),
-            json!({
-                "appendedEventCount": appended_events.len(),
-                "taskCount": snapshot.tasks.len(),
-            }),
-            true,
-            None,
-        );
-        observe_coordination_step(
+            existing_read_model,
+            existing_queue_read_model,
             &mut observe_phase,
-            "mutation.coordination.saveReadModel",
-            |_| json!({ "eventCount": snapshot.events.len() }),
-            || self.save_coordination_read_model(&read_model),
+            result.applied,
         )?;
-        observe_coordination_step(
-            &mut observe_phase,
-            "mutation.coordination.saveQueueReadModel",
-            |_| json!({ "taskCount": snapshot.tasks.len() }),
-            || self.save_coordination_queue_read_model(&queue_read_model),
-        )?;
-        if result.applied {
-            observe_coordination_step(
-                &mut observe_phase,
-                "mutation.coordination.compactEvents",
-                |_| json!({ "applied": true }),
-                || self.maybe_compact_coordination_events(snapshot),
-            )?;
-        } else {
-            observe_phase(
-                "mutation.coordination.compactEvents",
-                Duration::default(),
-                json!({ "applied": false, "compaction": "skipped" }),
-                true,
-                None,
-            );
-        }
         Ok(result)
     }
 }

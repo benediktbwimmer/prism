@@ -4,7 +4,9 @@ use std::path::Path;
 use anyhow::Result;
 use prism_coordination::CoordinationSnapshot;
 use prism_ir::{PlanExecutionOverlay, PlanGraph};
-use prism_store::{CoordinationCheckpointStore, CoordinationStartupCheckpoint};
+use prism_store::{
+    CoordinationCheckpointStore, CoordinationJournal, CoordinationStartupCheckpoint,
+};
 
 use crate::published_plans::{
     merge_shared_coordination_into_snapshot, merge_snapshot_bootstrap_into_plan_state,
@@ -19,7 +21,7 @@ pub(crate) fn load_materialized_coordination_plan_state<S>(
     snapshot: Option<CoordinationSnapshot>,
 ) -> Result<Option<HydratedCoordinationPlanState>>
 where
-    S: CoordinationCheckpointStore + ?Sized,
+    S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
 {
     let Some(checkpoint) = load_matching_coordination_startup_checkpoint(root, store)? else {
         return Ok(None);
@@ -53,7 +55,7 @@ pub(crate) fn load_materialized_coordination_snapshot<S>(
     snapshot: Option<CoordinationSnapshot>,
 ) -> Result<Option<CoordinationSnapshot>>
 where
-    S: CoordinationCheckpointStore + ?Sized,
+    S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
 {
     let Some(checkpoint) = load_matching_coordination_startup_checkpoint(root, store)? else {
         return Ok(None);
@@ -75,7 +77,7 @@ pub(crate) fn save_shared_coordination_startup_checkpoint<S>(
     execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
 ) -> Result<()>
 where
-    S: CoordinationCheckpointStore + ?Sized,
+    S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
 {
     let Some(authority) = shared_coordination_startup_authority(root)? else {
         return Ok(());
@@ -83,6 +85,7 @@ where
     store.save_coordination_startup_checkpoint(&CoordinationStartupCheckpoint {
         version: CoordinationStartupCheckpoint::VERSION,
         materialized_at: current_timestamp(),
+        coordination_revision: store.coordination_revision()?,
         authority,
         snapshot: snapshot.clone(),
         plan_graphs: plan_graphs.to_vec(),
@@ -95,11 +98,14 @@ fn load_matching_coordination_startup_checkpoint<S>(
     store: &mut S,
 ) -> Result<Option<CoordinationStartupCheckpoint>>
 where
-    S: CoordinationCheckpointStore + ?Sized,
+    S: CoordinationCheckpointStore + CoordinationJournal + ?Sized,
 {
     let Some(checkpoint) = store.load_coordination_startup_checkpoint()? else {
         return Ok(None);
     };
+    if store.coordination_revision()? > checkpoint.coordination_revision {
+        return Ok(None);
+    }
     let Some(authority) = shared_coordination_startup_authority(root)? else {
         return Ok(None);
     };

@@ -1922,25 +1922,25 @@
   {
     "id": "coord-task:01knav6qm2h72t0pc3xqmv92zt",
     "title": "Freeze the final section-by-section shared-ref gap matrix and acceptance contract",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01knav6qm2h72t0pc3xqmv92zt-f23b1727f3c0eae6.json"
   },
   {
     "id": "coord-task:01knavc6b8qhznt2e1yrn7mmwh",
     "title": "Demote branch-local shared coordination mirrors to minimal derived exports",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01knavc6b8qhznt2e1yrn7mmwh-e818733c2ee8095f.json"
   },
   {
     "id": "coord-task:01knavcv05nn8t2gc1z31gg0fy",
     "title": "Represent branch publication, coordination publication, and target integration as distinct durable states",
-    "status": "Ready",
+    "status": "Completed",
     "path": "tasks/coord-task-01knavcv05nn8t2gc1z31gg0fy-696bb9119806f104.json"
   },
   {
     "id": "coord-task:01knavdeaf5qs3zp6vycxgkg9t",
     "title": "Add trusted landing records for squash and rebase integration evidence",
-    "status": "Ready",
+    "status": "InProgress",
     "path": "tasks/coord-task-01knavdeaf5qs3zp6vycxgkg9t-c046f8aa0a476058.json"
   },
   {
@@ -2038,6 +2038,78 @@
     "title": "Add startup boundary observability and validate hot restart timing",
     "status": "Completed",
     "path": "tasks/coord-task-01knb0nvvkchbygemh7gxc9b6a-484a7bf3dc8a9f5e.json"
+  },
+  {
+    "id": "coord-task:01knc6cfapwxtkfnvhcez2wszv",
+    "title": "Freeze latency budgets and classify every synchronous coordination side effect",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01knc6cfapwxtkfnvhcez2wszv-1c33b6491597f990.json"
+  },
+  {
+    "id": "coord-task:01knc6cswpwztpebeb7mmtmqtc",
+    "title": "Define the minimal authoritative coordination persist contract and revision model",
+    "status": "InProgress",
+    "path": "tasks/coord-task-01knc6cswpwztpebeb7mmtmqtc-e1595e35f5761c42.json"
+  },
+  {
+    "id": "coord-task:01knc6d53pww48ryg7se29dp3y",
+    "title": "Extract a minimal authoritative mutation commit path from the generic persistence pipeline",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knc6d53pww48ryg7se29dp3y-7e8177152febdc4e.json"
+  },
+  {
+    "id": "coord-task:01knc6dqrewn2hah2p54xya9xw",
+    "title": "Move tracked snapshot publication off the request path behind revisioned background reconciliation",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knc6dqrewn2hah2p54xya9xw-3b52cd22435b1662.json"
+  },
+  {
+    "id": "coord-task:01knc6dzagp1zbg7ne0df1gyqh",
+    "title": "Move startup checkpoint persistence off the request path and make it a revision-keyed cache",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knc6dzagp1zbg7ne0df1gyqh-194c2934ed6ac59a.json"
+  },
+  {
+    "id": "coord-task:01knc6e8tbctzsqh0ngt4963ak",
+    "title": "Treat coordination read models and queue models as lagging caches instead of blocking writes",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knc6e8tbctzsqh0ngt4963ak-182ed4fab2e00199.json"
+  },
+  {
+    "id": "coord-task:01knc6egjk5ay9wm7amhm2p86c",
+    "title": "Make shared coordination ref publication incremental over touched objects and indexes",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knc6egjk5ay9wm7amhm2p86c-6ec344e4251ce069.json"
+  },
+  {
+    "id": "coord-task:01knc6ffec2vfzbrw66hbmk559",
+    "title": "Rebind git-execution start and completion flows onto the minimal authoritative patch path",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knc6ffec2vfzbrw66hbmk559-88a68ecbeacab1ec.json"
+  },
+  {
+    "id": "coord-task:01knc6fr2anfaz4k96dzy0168q",
+    "title": "Expose deferred-surface lag, dirty revisions, and hot-path diagnostics explicitly",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knc6fr2anfaz4k96dzy0168q-4e9dc6117ff19456.json"
+  },
+  {
+    "id": "coord-task:01knc6fzv6fj09xzc6c5rpnkma",
+    "title": "Validate CAS races, crash recovery, and multi-worktree convergence under the split pipeline",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knc6fzv6fj09xzc6c5rpnkma-a799c882f93c25fd.json"
+  },
+  {
+    "id": "coord-task:01knc6gcwq6fbqvh9k3vrc3es7",
+    "title": "Dogfood the rewrite against real mutation traces until warm operations are boring again",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knc6gcwq6fbqvh9k3vrc3es7-3fd42dbe34bb9324.json"
+  },
+  {
+    "id": "coord-task:01knc6jcs2rn6sj8a60xwqkyxm",
+    "title": "Add a task-scoped fast-path patch API for git-execution and status micro-updates",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knc6jcs2rn6sj8a60xwqkyxm-b72cdad8913eb069.json"
   },
   {
     "id": "coord-task:1",

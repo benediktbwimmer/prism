@@ -7,6 +7,8 @@ use crate::types::{
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CoordinationQueueReadModel {
+    #[serde(default)]
+    pub revision: u64,
     pub pending_handoff_tasks: Vec<CoordinationTask>,
     pub active_claims: Vec<WorkClaim>,
     pub pending_review_artifacts: Vec<Artifact>,
@@ -45,6 +47,7 @@ pub fn coordination_queue_read_model_from_snapshot(
     pending_review_artifacts.sort_by(|left, right| left.id.0.cmp(&right.id.0));
 
     CoordinationQueueReadModel {
+        revision: 0,
         pending_handoff_tasks,
         active_claims,
         pending_review_artifacts,

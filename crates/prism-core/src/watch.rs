@@ -28,7 +28,9 @@ use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::{error, info, warn};
 
 use crate::checkpoint_materializer::CheckpointMaterializerHandle;
-use crate::coordination_persistence::CoordinationPersistenceBackend;
+use crate::coordination_persistence::{
+    CoordinationDerivedPersistenceMode, CoordinationPersistenceBackend,
+};
 use crate::coordination_startup_checkpoint::save_shared_coordination_startup_checkpoint;
 use crate::curator::{enqueue_curator_for_observed_async, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
@@ -928,6 +930,7 @@ where
             Some(&before_plan_graphs),
             Some(&plan_graphs),
             Some(&execution_overlays),
+            CoordinationDerivedPersistenceMode::Inline,
             |_operation, _duration, _args, _success, _error| {},
         )
     {

@@ -2,9 +2,8 @@ use prism_coordination::BlockerKind;
 use prism_ir::{
     AnchorRef, ArtifactStatus, BlockerCauseSource, Capability, ClaimMode, ClaimStatus,
     ConflictOverlapKind, ConflictSeverity, CoordinationTaskStatus, EdgeKind, EdgeOrigin,
-    GitExecutionStatus, GitIntegrationMode, GitIntegrationStatus, Language, NodeKind,
-    PlanEdgeKind, PlanKind, PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus, PlanScope,
-    PlanStatus, Span,
+    GitExecutionStatus, GitIntegrationMode, GitIntegrationStatus, Language, NodeKind, PlanEdgeKind,
+    PlanKind, PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus, Span,
 };
 use prism_memory::OutcomeEvent;
 use schemars::JsonSchema;
@@ -583,6 +582,25 @@ pub struct RuntimeMaterializationView {
     pub coordination: RuntimeMaterializationItemView,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeCoordinationSurfaceLagItemView {
+    pub name: String,
+    pub status: String,
+    pub revision: Option<u64>,
+    pub authoritative_revision: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeCoordinationLagView {
+    pub authoritative_revision: u64,
+    pub tracked_snapshot: RuntimeCoordinationSurfaceLagItemView,
+    pub startup_checkpoint: RuntimeCoordinationSurfaceLagItemView,
+    pub read_model: RuntimeCoordinationSurfaceLagItemView,
+    pub queue_read_model: RuntimeCoordinationSurfaceLagItemView,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ProjectionClassView {
@@ -681,6 +699,7 @@ pub struct RuntimeFreshnessView {
     pub last_workspace_build_ms: Option<u64>,
     pub last_daemon_ready_ms: Option<u64>,
     pub materialization: RuntimeMaterializationView,
+    pub coordination_lag: Option<RuntimeCoordinationLagView>,
     pub domains: Vec<RuntimeDomainFreshnessView>,
     pub active_command: Option<String>,
     pub active_queue_class: Option<String>,

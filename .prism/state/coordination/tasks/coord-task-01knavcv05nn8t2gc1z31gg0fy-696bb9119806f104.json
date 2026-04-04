@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Represent branch publication, coordination publication, and target integration as distinct durable states",
   "summary": "Separate branch publication, shared coordination publication, and verified target integration in the task state machine so require-mode workflows can recover cleanly and query surfaces stop collapsing materially different states.",
-  "status": "Ready",
+  "status": "Completed",
   "published_task_status": null,
   "assignee": null,
   "pending_handoff_to": null,
@@ -44,7 +44,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 173,
+    "graph_version": 220,
     "git_commit": null
   },
   "priority": 97,

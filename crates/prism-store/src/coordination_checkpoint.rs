@@ -17,6 +17,8 @@ pub struct CoordinationStartupCheckpointAuthority {
 pub struct CoordinationStartupCheckpoint {
     pub version: u32,
     pub materialized_at: u64,
+    #[serde(default)]
+    pub coordination_revision: u64,
     pub authority: CoordinationStartupCheckpointAuthority,
     pub snapshot: CoordinationSnapshot,
     pub plan_graphs: Vec<PlanGraph>,
@@ -24,5 +26,5 @@ pub struct CoordinationStartupCheckpoint {
 }
 
 impl CoordinationStartupCheckpoint {
-    pub const VERSION: u32 = 1;
+    pub const VERSION: u32 = 2;
 }

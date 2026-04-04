@@ -1,9 +1,9 @@
 {
-  "id": "coord-task:01knavdeaf5qs3zp6vycxgkg9t",
-  "plan": "plan:01knav51cj8vgw0zp49qgktzps",
-  "kind": "Edit",
-  "title": "Add trusted landing records for squash and rebase integration evidence",
-  "summary": "Make target-integration verification work for non-merge landings by recording trusted landing evidence that binds rebased or squashed target commits back to the originating task and review artifacts.",
+  "id": "coord-task:01knc6cswpwztpebeb7mmtmqtc",
+  "plan": "plan:01knc64s1zzzxq7x324fms1cyc",
+  "kind": "Decide",
+  "title": "Define the minimal authoritative coordination persist contract and revision model",
+  "summary": "Specify the exact request-path contract for a successful coordination mutation: which revision is checked, which authoritative state is written, which shared-ref CAS obligations are required before returning success, and which follow-on materializations are allowed to lag behind under explicit dirty revisions.",
   "status": "InProgress",
   "published_task_status": null,
   "assignee": null,
@@ -25,33 +25,33 @@
     "outcome_refs": []
   },
   "depends_on": [
-    "coord-task:01knavcv05nn8t2gc1z31gg0fy"
+    "coord-task:01knc6cfapwxtkfnvhcez2wszv"
   ],
   "acceptance": [
     {
-      "label": "Squash and rebase landings can be verified through trusted PRISM records rather than raw branch reachability alone.",
+      "label": "The authoritative commit contract distinguishes blocking shared truth from lagging caches and derived projections",
       "anchors": []
     },
     {
-      "label": "Landing evidence can bind review artifacts, target commits, and task ids without relying on ambiguous commit ancestry.",
+      "label": "Dirty revision markers or equivalent lag-tracking metadata are specified for tracked snapshot, startup checkpoint, read models, and repo projections",
       "anchors": []
     },
     {
-      "label": "Ambiguous or unverifiable target commits remain rejected until explicit trusted landing evidence exists.",
+      "label": "The contract covers start, complete, publish-failed, and CAS-conflict mutation outcomes without ambiguity",
       "anchors": []
     }
   ],
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 220,
+    "graph_version": 190,
     "git_commit": null
   },
-  "priority": 96,
+  "priority": 99,
   "tags": [
-    "evidence",
-    "integration",
-    "shared-ref"
+    "coordination",
+    "performance",
+    "storage-design"
   ],
   "metadata": null,
   "git_execution": {

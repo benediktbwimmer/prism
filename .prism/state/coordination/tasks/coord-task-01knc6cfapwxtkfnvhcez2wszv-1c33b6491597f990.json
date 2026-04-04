@@ -1,11 +1,11 @@
 {
-  "id": "coord-task:01knav6qm2h72t0pc3xqmv92zt",
-  "plan": "plan:01knav51cj8vgw0zp49qgktzps",
-  "kind": "Edit",
-  "title": "Freeze the final section-by-section shared-ref gap matrix and acceptance contract",
-  "summary": "Turn the current doc audit into an explicit tracked contract so every remaining partial section in PRISM_SHARED_COORDINATION_REFS.md has an owner, boundary, and definition of done before more code lands.",
-  "status": "Completed",
-  "published_task_status": null,
+  "id": "coord-task:01knc6cfapwxtkfnvhcez2wszv",
+  "plan": "plan:01knc64s1zzzxq7x324fms1cyc",
+  "kind": "Investigate",
+  "title": "Freeze latency budgets and classify every synchronous coordination side effect",
+  "summary": "Capture the current trace-backed latency budget, enumerate every synchronous phase in coordination mutations, and classify each one as authoritative, cache, projection, or deferred background work so the rewrite has a hard contract instead of ad hoc optimization.",
+  "status": "InProgress",
+  "published_task_status": "Completed",
   "assignee": null,
   "pending_handoff_to": null,
   "session": null,
@@ -27,29 +27,29 @@
   "depends_on": [],
   "acceptance": [
     {
-      "label": "Every partial or not-implemented section in PRISM_SHARED_COORDINATION_REFS.md is mapped to concrete owning code paths and an implementation task.",
+      "label": "Warm unchanged reads, warm small mutations, and first-load-after-head-change all have explicit target latency envelopes",
       "anchors": []
     },
     {
-      "label": "The repo records which shared-ref design points are done, partial, or intentionally deferred with no ambiguous remaining gaps.",
+      "label": "Every current request-path phase is classified as authoritative, cache, projection, or background work with a stated correctness reason",
       "anchors": []
     },
     {
-      "label": "Follow-on tasks can use this matrix as the authoritative checklist for closing the doc end to end.",
+      "label": "The rewrite contract explicitly states which mutation phases must remain blocking to preserve CAS correctness and user-visible semantics",
       "anchors": []
     }
   ],
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 200,
+    "graph_version": 190,
     "git_commit": null
   },
   "priority": 100,
   "tags": [
-    "acceptance",
-    "audit",
-    "shared-ref"
+    "authoritative-path",
+    "coordination",
+    "performance"
   ],
   "metadata": null,
   "git_execution": {

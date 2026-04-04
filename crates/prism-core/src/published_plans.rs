@@ -411,7 +411,16 @@ where
         &mut observe_phase,
         "mutation.coordination.publishedPlans.syncTrackedSnapshot",
         |_| json!({}),
-        || sync_coordination_snapshot_state(root, snapshot, &graphs, &overlays_by_plan, publish),
+        || {
+            sync_coordination_snapshot_state(
+                root,
+                snapshot,
+                &graphs,
+                &overlays_by_plan,
+                publish,
+                None,
+            )
+        },
     )
 }
 

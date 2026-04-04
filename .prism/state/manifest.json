@@ -1,23 +1,23 @@
 {
   "version": 1,
-  "publishedAt": 1775281266,
+  "publishedAt": 1775305093,
   "publisher": {
     "principalAuthorityId": "local-daemon",
-    "principalId": "principal:codex-shared-coordination-refs-gaps-2026-04-04:01knaqj9pv4p1vc9tfw82zvp6y",
-    "credentialId": "credential:01knaqj9pv0vx0h59cvge430j7"
+    "principalId": "principal:codex-d:01kn8a1xw96k97a89pptkdm0rz",
+    "credentialId": "credential:01kn8a1xw97j7fe67vsj2hmsnr"
   },
   "workContext": {
-    "workId": "coord-task:01knb0nvvkchbygemh7gxc9b6a",
+    "workId": "coord-task:01knc6cswpwztpebeb7mmtmqtc",
     "kind": "coordination",
-    "title": "Add startup boundary observability and validate hot restart timing",
-    "summary": "Instrument the new sync/startup boundaries, then validate with release builds and daemon restarts that hot restart drops from ~27-32s to low-single-digit seconds while daemon health remains correct.",
-    "coordinationTaskId": "coord-task:01knb0nvvkchbygemh7gxc9b6a",
-    "planId": "plan:01knb0f1xztpmmbjjzetw9xbwg",
-    "planTitle": "Decouple shared-ref authority from daemon startup"
+    "title": "Define the minimal authoritative coordination persist contract and revision model",
+    "summary": "Specify the exact request-path contract for a successful coordination mutation: which revision is checked, which authoritative state is written, which shared-ref CAS obligations are required before returning success, and which follow-on materializations are allowed to lag behind under explicit dirty revisions.",
+    "coordinationTaskId": "coord-task:01knc6cswpwztpebeb7mmtmqtc",
+    "planId": "plan:01knc64s1zzzxq7x324fms1cyc",
+    "planTitle": "Rewrite coordination mutation persistence for sub-second latency"
   },
   "publishSummary": {
-    "title": "Add startup boundary observability and validate hot restart timing",
-    "summary": "Instrument the new sync/startup boundaries, then validate with release builds and daemon restarts that hot restart drops from ~27-32s to low-single-digit seconds while daemon health remains correct."
+    "title": "Define the minimal authoritative coordination persist contract and revision model",
+    "summary": "Specify the exact request-path contract for a successful coordination mutation: which revision is checked, which authoritative state is written, which shared-ref CAS obligations are required before returning success, and which follow-on materializations are allowed to lag behind under explicit dirty revisions."
   },
   "files": {
     ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json": {
@@ -1310,19 +1310,19 @@
     },
     ".prism/state/coordination/tasks/coord-task-01knav6qm2h72t0pc3xqmv92zt-f23b1727f3c0eae6.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01knav6qm2h72t0pc3xqmv92zt-f23b1727f3c0eae6.json",
-      "sha256": "sha256:b50275a45636ef9edaa18b7973684a18ee47f5754ee3698459dd968b23bde0f1"
+      "sha256": "sha256:c0c6caca6a78d6fa561ebeec4d1afb890cdacb521077870fbbf5d89ca3a99a19"
     },
     ".prism/state/coordination/tasks/coord-task-01knavc6b8qhznt2e1yrn7mmwh-e818733c2ee8095f.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01knavc6b8qhznt2e1yrn7mmwh-e818733c2ee8095f.json",
-      "sha256": "sha256:bc81ec3faf0a55fca5dffcbf90965eff2c9428cbfc63f4c62eb1852f66294e9d"
+      "sha256": "sha256:53a0e3d454277b84658cdd87a5adfb0683ae626c592aa1d4ed6bfc1f526de4a5"
     },
     ".prism/state/coordination/tasks/coord-task-01knavcv05nn8t2gc1z31gg0fy-696bb9119806f104.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01knavcv05nn8t2gc1z31gg0fy-696bb9119806f104.json",
-      "sha256": "sha256:7fde8653fa3a9f8b7d860ce1a9de65655d55f8734f09629cb35ad96d6ba94084"
+      "sha256": "sha256:8d9184fe17718e9ba06ee5c9bfd82bad3c815ce7e19729eaf9a0842667301daf"
     },
     ".prism/state/coordination/tasks/coord-task-01knavdeaf5qs3zp6vycxgkg9t-c046f8aa0a476058.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01knavdeaf5qs3zp6vycxgkg9t-c046f8aa0a476058.json",
-      "sha256": "sha256:ea5193f4937133c4ac3d26e6d6d9efa857b27315f2c0585ab764df4e70826e3a"
+      "sha256": "sha256:ce206d0b8d4f499c52b51867f4e4f926efb9fc98d57e47325d65658ccf4aa9a6"
     },
     ".prism/state/coordination/tasks/coord-task-01knave01nvcrq91vnt8np1mkg-8243c5ba734653e9.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01knave01nvcrq91vnt8np1mkg-8243c5ba734653e9.json",
@@ -1387,6 +1387,54 @@
     ".prism/state/coordination/tasks/coord-task-01knb0nvvkchbygemh7gxc9b6a-484a7bf3dc8a9f5e.json": {
       "path": ".prism/state/coordination/tasks/coord-task-01knb0nvvkchbygemh7gxc9b6a-484a7bf3dc8a9f5e.json",
       "sha256": "sha256:c1162abdc0adc49a22c8befdec8664222865f3e3601ccdd3e8d0fe4cc4153906"
+    },
+    ".prism/state/coordination/tasks/coord-task-01knc6cfapwxtkfnvhcez2wszv-1c33b6491597f990.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01knc6cfapwxtkfnvhcez2wszv-1c33b6491597f990.json",
+      "sha256": "sha256:fbfc6dcbb4a1f9b0ee9c2adc6e52cf010080730c9bfa18ab8bdc28e7486f0365"
+    },
+    ".prism/state/coordination/tasks/coord-task-01knc6cswpwztpebeb7mmtmqtc-e1595e35f5761c42.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01knc6cswpwztpebeb7mmtmqtc-e1595e35f5761c42.json",
+      "sha256": "sha256:4649497bc937343d8f372cd9a5e1e913009a76b8db46e008a9d13e215196305b"
+    },
+    ".prism/state/coordination/tasks/coord-task-01knc6d53pww48ryg7se29dp3y-7e8177152febdc4e.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01knc6d53pww48ryg7se29dp3y-7e8177152febdc4e.json",
+      "sha256": "sha256:70858ca47dade89880d90a57942b4fe0faf2785e522e10972c0178f76f51d1a0"
+    },
+    ".prism/state/coordination/tasks/coord-task-01knc6dqrewn2hah2p54xya9xw-3b52cd22435b1662.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01knc6dqrewn2hah2p54xya9xw-3b52cd22435b1662.json",
+      "sha256": "sha256:30021acf6f625b4ae1ef20c1c188a111725a0218563a958e9f945d5294439f4c"
+    },
+    ".prism/state/coordination/tasks/coord-task-01knc6dzagp1zbg7ne0df1gyqh-194c2934ed6ac59a.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01knc6dzagp1zbg7ne0df1gyqh-194c2934ed6ac59a.json",
+      "sha256": "sha256:b82bd136e41c0e83ecf9794fc60608370d174d036c0149b802f8c69864245385"
+    },
+    ".prism/state/coordination/tasks/coord-task-01knc6e8tbctzsqh0ngt4963ak-182ed4fab2e00199.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01knc6e8tbctzsqh0ngt4963ak-182ed4fab2e00199.json",
+      "sha256": "sha256:1c76693376a6a78c0929b269214ec3f8b73868a2dea3882fdaf5dd475a73f368"
+    },
+    ".prism/state/coordination/tasks/coord-task-01knc6egjk5ay9wm7amhm2p86c-6ec344e4251ce069.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01knc6egjk5ay9wm7amhm2p86c-6ec344e4251ce069.json",
+      "sha256": "sha256:9a48fde13994b120d23278f2b03852994d20a677cc47bc041adb5e180cadc308"
+    },
+    ".prism/state/coordination/tasks/coord-task-01knc6ffec2vfzbrw66hbmk559-88a68ecbeacab1ec.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01knc6ffec2vfzbrw66hbmk559-88a68ecbeacab1ec.json",
+      "sha256": "sha256:e43eb7d83f9b5b42842b85dc052c68f2c650048927a9015b9804d256462e4314"
+    },
+    ".prism/state/coordination/tasks/coord-task-01knc6fr2anfaz4k96dzy0168q-4e9dc6117ff19456.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01knc6fr2anfaz4k96dzy0168q-4e9dc6117ff19456.json",
+      "sha256": "sha256:a4ba559462d7cc75a5d2a889ad91a0423186a23b55adf459cefd93d2e918c9c9"
+    },
+    ".prism/state/coordination/tasks/coord-task-01knc6fzv6fj09xzc6c5rpnkma-a799c882f93c25fd.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01knc6fzv6fj09xzc6c5rpnkma-a799c882f93c25fd.json",
+      "sha256": "sha256:e318b1e9d17350da436c700c14948d2ce8f832bb60d532bde3320f69ccd00d70"
+    },
+    ".prism/state/coordination/tasks/coord-task-01knc6gcwq6fbqvh9k3vrc3es7-3fd42dbe34bb9324.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01knc6gcwq6fbqvh9k3vrc3es7-3fd42dbe34bb9324.json",
+      "sha256": "sha256:46c27fca92e2af985d40847f346b859d04832a673d8bcc5bf836e4878fddae94"
+    },
+    ".prism/state/coordination/tasks/coord-task-01knc6jcs2rn6sj8a60xwqkyxm-b72cdad8913eb069.json": {
+      "path": ".prism/state/coordination/tasks/coord-task-01knc6jcs2rn6sj8a60xwqkyxm-b72cdad8913eb069.json",
+      "sha256": "sha256:03dd1d37f817f48fd60201144a4ed9132066f7468edd3dcce8f4d4b110395d1b"
     },
     ".prism/state/coordination/tasks/coord-task-1-12761fa8e93c5cba.json": {
       "path": ".prism/state/coordination/tasks/coord-task-1-12761fa8e93c5cba.json",
@@ -1482,7 +1530,7 @@
     },
     ".prism/state/indexes/coordination_tasks.json": {
       "path": ".prism/state/indexes/coordination_tasks.json",
-      "sha256": "sha256:65cbcc70fdbffa9a99517c32f6ab470e9242269d1e229c06fa3c73d0fc8d900f"
+      "sha256": "sha256:a079c24dca4276360da3d072aaf94517a424285795f626f66444f1de84b896cc"
     },
     ".prism/state/indexes/memory.json": {
       "path": ".prism/state/indexes/memory.json",
@@ -1490,7 +1538,7 @@
     },
     ".prism/state/indexes/plans.json": {
       "path": ".prism/state/indexes/plans.json",
-      "sha256": "sha256:21ab13fe689b8ab38c8025971d9d68b65c607e145b8f81f78941ee8bb0d380bf"
+      "sha256": "sha256:fef7cb5a919d997cf4515b8246ef90ad7b9b5c9a3a4ba41fa6ad1d0ca763ea5f"
     },
     ".prism/state/memory/memory-01knb0zp726c9zjw7fdhcq1mg3-560606ddf6d87074.json": {
       "path": ".prism/state/memory/memory-01knb0zp726c9zjw7fdhcq1mg3-560606ddf6d87074.json",
@@ -1742,11 +1790,15 @@
     },
     ".prism/state/plans/plan-01knav51cj8vgw0zp49qgktzps-afd7533c9fc07713.json": {
       "path": ".prism/state/plans/plan-01knav51cj8vgw0zp49qgktzps-afd7533c9fc07713.json",
-      "sha256": "sha256:53377d07299912d99979e251b362a9e931baa6ccac58d3b604b5a5ecad28c087"
+      "sha256": "sha256:5e538e6deb21f4887fec1e0b952c219a614fadfed46950b9e1910892bf8a4711"
     },
     ".prism/state/plans/plan-01knb0f1xztpmmbjjzetw9xbwg-a445222f7a843b7a.json": {
       "path": ".prism/state/plans/plan-01knb0f1xztpmmbjjzetw9xbwg-a445222f7a843b7a.json",
       "sha256": "sha256:4c11fa9a5df0a8ee5e7efefd5c29c6ba37fc06ea086492aa918c3ac52c047832"
+    },
+    ".prism/state/plans/plan-01knc64s1zzzxq7x324fms1cyc-8f3551628e8bace3.json": {
+      "path": ".prism/state/plans/plan-01knc64s1zzzxq7x324fms1cyc-8f3551628e8bace3.json",
+      "sha256": "sha256:55e4b2148af7411960e2aa6e3830ef1e8edb52f788d7c9960ca4dff7aa964ea7"
     },
     ".prism/state/plans/plan-1-8fd52ae04f462646.json": {
       "path": ".prism/state/plans/plan-1-8fd52ae04f462646.json",
@@ -1777,12 +1829,12 @@
       "sha256": "sha256:2b6eb488f1812c7d5b3812771fd8c9db2912f75d7a785d449c6f5c427cf93081"
     }
   },
-  "previousManifestDigest": "sha256:e44318d9c4d8e3909b6f25703aefdc4b1f6f45d200c04f4f5e25938db87b5284",
+  "previousManifestDigest": "sha256:ba44f7523262071884bd2c8183ab0a2fffc1a10c41c64ba30b03531d5bf071c6",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:FQ+FisCM/k/n29kxoVXJYjVUqs8Hhju7UnZgaTQ74esAXQY48L+TSNWh8XfKuRCVIWrHUZkOmX9PoPBK/7wiDQ=="
+    "value": "base64:fE16cdRs2aE3bA8EO4XHYXVJPoMBzQkzoOUUs/WlulLA6UXVh8Hy98CPq+9xGJhrimYEs1sj/gQnRkmAqzWnBQ=="
   }
 }

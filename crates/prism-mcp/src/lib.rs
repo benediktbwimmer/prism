@@ -19,6 +19,8 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::thread;
+use std::time::{Duration, Instant};
 #[cfg(test)]
 use std::sync::OnceLock;
 use tracing::{debug, info, Level};
@@ -102,6 +104,9 @@ mod vocabulary;
 mod workspace_diagnostics;
 mod workspace_host;
 mod workspace_runtime;
+
+const COORDINATION_SETTLE_WAIT_TIMEOUT: Duration = Duration::from_millis(250);
+const COORDINATION_SETTLE_WAIT_POLL: Duration = Duration::from_millis(10);
 
 use ambiguity::*;
 use capabilities_resource::*;
@@ -1105,15 +1110,37 @@ impl QueryHost {
     pub(crate) fn ensure_coordination_runtime_current(
         &self,
         workspace: &WorkspaceSession,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         let revision = workspace.coordination_runtime_revision()?;
-        if revision != self.loaded_coordination_revision_value()
-            || self.coordination_runtime_needs_reload(revision)
-        {
+        let loaded_revision = self.loaded_coordination_revision_value();
+        if revision != loaded_revision {
+            if let Some(binding) = self.workspace_runtime_binding() {
+                binding
+                    .current_revisions()
+                    .current_coordination_revision()
+                    .store(revision, Ordering::Relaxed);
+                binding
+                    .runtime()
+                    .request_settle_domain(prism_core::runtime_engine::RuntimeDomain::Coordination);
+                binding.diagnostics().request_refresh();
+                let wait_started = Instant::now();
+                while wait_started.elapsed() < COORDINATION_SETTLE_WAIT_TIMEOUT {
+                    if self.loaded_coordination_revision_value() == revision {
+                        self.sync_coordination_revision_value(revision);
+                        return Ok(false);
+                    }
+                    thread::sleep(COORDINATION_SETTLE_WAIT_POLL);
+                }
+            }
+        }
+        let needs_reload =
+            revision != self.loaded_coordination_revision_value()
+                || self.coordination_runtime_needs_reload(revision);
+        if needs_reload {
             let _ = workspace.hydrate_coordination_runtime()?;
         }
         self.sync_coordination_revision_value(revision);
-        Ok(())
+        Ok(needs_reload)
     }
 
     pub(crate) fn sync_coordination_revision(&self, workspace: &WorkspaceSession) -> Result<()> {

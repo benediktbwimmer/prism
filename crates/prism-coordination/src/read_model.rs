@@ -11,6 +11,8 @@ use crate::types::{
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CoordinationReadModel {
+    #[serde(default)]
+    pub revision: u64,
     pub active_plans: Vec<Plan>,
     pub task_count: usize,
     pub in_review_task_ids: Vec<CoordinationTaskId>,
@@ -106,6 +108,7 @@ pub fn coordination_read_model_from_snapshot(
     });
 
     CoordinationReadModel {
+        revision: 0,
         active_plans,
         task_count: snapshot.tasks.len(),
         in_review_task_ids,

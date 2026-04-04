@@ -1,10 +1,10 @@
 {
-  "id": "coord-task:01knav6qm2h72t0pc3xqmv92zt",
-  "plan": "plan:01knav51cj8vgw0zp49qgktzps",
-  "kind": "Edit",
-  "title": "Freeze the final section-by-section shared-ref gap matrix and acceptance contract",
-  "summary": "Turn the current doc audit into an explicit tracked contract so every remaining partial section in PRISM_SHARED_COORDINATION_REFS.md has an owner, boundary, and definition of done before more code lands.",
-  "status": "Completed",
+  "id": "coord-task:01knc6fzv6fj09xzc6c5rpnkma",
+  "plan": "plan:01knc64s1zzzxq7x324fms1cyc",
+  "kind": "Validate",
+  "title": "Validate CAS races, crash recovery, and multi-worktree convergence under the split pipeline",
+  "summary": "Prove that the thinner authoritative mutation path still converges correctly under compare-and-swap conflicts, writer races, daemon restarts, background lag, and competing worktrees that observe different shared-ref heads at different times.",
+  "status": "Ready",
   "published_task_status": null,
   "assignee": null,
   "pending_handoff_to": null,
@@ -24,32 +24,35 @@
     "memory_refs": [],
     "outcome_refs": []
   },
-  "depends_on": [],
+  "depends_on": [
+    "coord-task:01knc6ffec2vfzbrw66hbmk559",
+    "coord-task:01knc6fr2anfaz4k96dzy0168q"
+  ],
   "acceptance": [
     {
-      "label": "Every partial or not-implemented section in PRISM_SHARED_COORDINATION_REFS.md is mapped to concrete owning code paths and an implementation task.",
+      "label": "Concurrent disjoint and overlapping writers converge without losing authoritative task state",
       "anchors": []
     },
     {
-      "label": "The repo records which shared-ref design points are done, partial, or intentionally deferred with no ambiguous remaining gaps.",
+      "label": "Crash and restart recovery rebuilds lagging caches and projections from authoritative shared state without manual repair",
       "anchors": []
     },
     {
-      "label": "Follow-on tasks can use this matrix as the authoritative checklist for closing the doc end to end.",
+      "label": "Multi-worktree dogfooding shows no false completion, stale publish acknowledgement, or shared-ref divergence under normal use",
       "anchors": []
     }
   ],
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 200,
+    "graph_version": 189,
     "git_commit": null
   },
-  "priority": 100,
+  "priority": 90,
   "tags": [
-    "acceptance",
-    "audit",
-    "shared-ref"
+    "cas",
+    "multi-worktree",
+    "recovery"
   ],
   "metadata": null,
   "git_execution": {

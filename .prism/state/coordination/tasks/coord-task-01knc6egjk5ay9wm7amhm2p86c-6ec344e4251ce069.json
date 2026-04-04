@@ -1,10 +1,10 @@
 {
-  "id": "coord-task:01knav6qm2h72t0pc3xqmv92zt",
-  "plan": "plan:01knav51cj8vgw0zp49qgktzps",
+  "id": "coord-task:01knc6egjk5ay9wm7amhm2p86c",
+  "plan": "plan:01knc64s1zzzxq7x324fms1cyc",
   "kind": "Edit",
-  "title": "Freeze the final section-by-section shared-ref gap matrix and acceptance contract",
-  "summary": "Turn the current doc audit into an explicit tracked contract so every remaining partial section in PRISM_SHARED_COORDINATION_REFS.md has an owner, boundary, and definition of done before more code lands.",
-  "status": "Completed",
+  "title": "Make shared coordination ref publication incremental over touched objects and indexes",
+  "summary": "Replace full shared-coordination restaging on each publish with incremental object and index updates keyed by the touched plans, tasks, claims, artifacts, and reviews so the authoritative CAS publish itself becomes much cheaper under normal small mutations.",
+  "status": "Ready",
   "published_task_status": null,
   "assignee": null,
   "pending_handoff_to": null,
@@ -24,31 +24,33 @@
     "memory_refs": [],
     "outcome_refs": []
   },
-  "depends_on": [],
+  "depends_on": [
+    "coord-task:01knc6d53pww48ryg7se29dp3y"
+  ],
   "acceptance": [
     {
-      "label": "Every partial or not-implemented section in PRISM_SHARED_COORDINATION_REFS.md is mapped to concrete owning code paths and an implementation task.",
+      "label": "Small authoritative mutations no longer rewrite the full shared coordination staging tree",
       "anchors": []
     },
     {
-      "label": "The repo records which shared-ref design points are done, partial, or intentionally deferred with no ambiguous remaining gaps.",
+      "label": "Manifest generation and object publication reuse prior state for untouched files wherever correctness allows",
       "anchors": []
     },
     {
-      "label": "Follow-on tasks can use this matrix as the authoritative checklist for closing the doc end to end.",
+      "label": "CAS retry and reconciliation still converge correctly when concurrent writers touch disjoint or overlapping coordination objects",
       "anchors": []
     }
   ],
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 200,
+    "graph_version": 189,
     "git_commit": null
   },
-  "priority": 100,
+  "priority": 93,
   "tags": [
-    "acceptance",
-    "audit",
+    "cas",
+    "incremental",
     "shared-ref"
   ],
   "metadata": null,

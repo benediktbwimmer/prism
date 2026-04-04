@@ -256,6 +256,7 @@ mod tests {
                     boundaries: Vec::new(),
                 },
             },
+            coordination_lag: None,
             domains: Vec::new(),
             active_command: None,
             active_queue_class: None,

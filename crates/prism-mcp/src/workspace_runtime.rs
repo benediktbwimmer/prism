@@ -133,6 +133,7 @@ pub(crate) struct WorkspaceRuntime {
     wake: SyncSender<()>,
     stop: mpsc::Sender<()>,
     handle: Mutex<Option<JoinHandle<()>>>,
+    lane_senders: HashMap<BackgroundRuntimeLane, SyncSender<WorkspaceRuntimeCommand>>,
     background_workers: Vec<BackgroundRuntimeLaneWorker>,
 }
 
@@ -341,6 +342,7 @@ impl WorkspaceRuntime {
         let (stop_tx, stop_rx) = mpsc::channel::<()>();
         let (background_senders, background_workers) =
             spawn_background_runtime_lanes(config.clone(), wake_tx.clone());
+        let loop_background_senders = background_senders.clone();
         let handle = thread::spawn(move || loop {
             if stop_rx.try_recv().is_ok() {
                 break;
@@ -380,7 +382,7 @@ impl WorkspaceRuntime {
                 continue;
             };
             if let Some(lane) = background_lane_for_command(&command) {
-                let sender = background_senders
+                let sender = loop_background_senders
                     .get(&lane)
                     .expect("background runtime lane should exist");
                 match sender.try_send(command.clone()) {
@@ -496,6 +498,7 @@ impl WorkspaceRuntime {
             wake: wake_tx,
             stop: stop_tx,
             handle: Mutex::new(Some(handle)),
+            lane_senders: background_senders,
             background_workers,
         }
     }
@@ -527,6 +530,32 @@ impl WorkspaceRuntime {
             .lock()
             .expect("workspace runtime engine lock poisoned")
             .queue_snapshot()
+    }
+
+    pub(crate) fn request_settle_domain(&self, domain: RuntimeDomain) {
+        let Some(sender) = self
+            .lane_senders
+            .get(&BackgroundRuntimeLane::Settle(domain))
+        else {
+            return;
+        };
+        let command = WorkspaceRuntimeCommand::new(
+            WorkspaceRuntimeCommandKind::SettleDomain(domain),
+            WorkspaceRuntimeQueueClass::Settle,
+            WorkspaceRuntimeCoalescingKey::Domain(domain),
+        );
+        match sender.try_send(command) {
+            Ok(()) | Err(TrySendError::Full(_)) => {}
+            Err(TrySendError::Disconnected(_)) => {
+                debug!("workspace runtime settle lane disconnected");
+            }
+        }
+        match self.wake.try_send(()) {
+            Ok(()) | Err(TrySendError::Full(())) => {}
+            Err(TrySendError::Disconnected(())) => {
+                debug!("workspace runtime wake channel disconnected");
+            }
+        }
     }
 }
 

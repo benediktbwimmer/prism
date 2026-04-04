@@ -550,6 +550,13 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
         .unwrap()
         .to_string();
 
+    server_handle
+        .host
+        .workspace_session()
+        .expect("workspace session should exist")
+        .flush_materializations()
+        .expect("queued coordination materializations should flush before prism_query");
+
     let events = server_handle.host.current_prism().coordination_events();
     for (response, expected_request_id) in
         [(&plan, "3"), (&task, "4"), (&claim, "5"), (&artifact, "6")]

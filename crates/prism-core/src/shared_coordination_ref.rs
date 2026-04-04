@@ -196,6 +196,27 @@ fn record_observed_shared_coordination_head(root: &Path, head: Option<String>) {
         );
 }
 
+fn observed_shared_coordination_head(root: &Path) -> Option<String> {
+    shared_coordination_live_sync_states()
+        .lock()
+        .expect("shared coordination live sync state lock poisoned")
+        .get(root)
+        .and_then(|state| state.observed_head.clone())
+}
+
+fn cache_shared_coordination_state(root: &Path, head: String, state: &SharedCoordinationRefState) {
+    shared_coordination_state_cache()
+        .lock()
+        .expect("shared coordination state cache lock poisoned")
+        .insert(
+            root.to_path_buf(),
+            SharedCoordinationStateCacheEntry {
+                head,
+                state: state.clone(),
+            },
+        );
+}
+
 pub(crate) fn initialize_shared_coordination_ref_live_sync(root: &Path) -> Result<()> {
     if !git_repo_available(root) {
         return Ok(());
@@ -336,8 +357,8 @@ pub(crate) fn sync_shared_coordination_ref_state(
         return Ok(());
     }
     let ref_name = shared_coordination_ref_name(root);
-    let expected_remote_head =
-        refresh_local_shared_coordination_ref(root, shared_coordination_remote_name(), &ref_name)?;
+    let expected_remote_head = observed_shared_coordination_head(root)
+        .or_else(|| resolve_ref_commit(root, &ref_name).ok().flatten());
     let baseline_state = load_shared_coordination_ref_state_from_current_ref(root, &ref_name)?;
     let paths = PrismPaths::for_workspace_root(root)?;
     let stage_parent = stage_root(&paths);
@@ -383,6 +404,7 @@ fn sync_shared_coordination_ref_state_inner(
     let mut current_plan_graphs = desired_plan_graphs.clone();
     let mut current_execution_overlays = desired_execution_overlays.clone();
     let mut current_expected_head = expected_remote_head.map(str::to_string);
+    let mut current_previous_manifest = load_shared_coordination_manifest_from_ref(root, ref_name)?;
 
     for attempt in 0..=SHARED_COORDINATION_PUSH_MAX_RETRIES {
         sync_plan_objects(
@@ -395,13 +417,17 @@ fn sync_shared_coordination_ref_state_inner(
         sync_artifact_objects(stage_dir, &current_snapshot.artifacts)?;
         sync_claim_objects(stage_dir, &current_snapshot.claims)?;
         sync_review_objects(stage_dir, &current_snapshot.reviews)?;
-        rebuild_plan_index(stage_dir)?;
-        rebuild_task_index(stage_dir)?;
-        rebuild_artifact_index(stage_dir)?;
-        rebuild_claim_index(stage_dir)?;
-        rebuild_review_index(stage_dir)?;
-        let previous_manifest = load_shared_coordination_manifest_from_ref(root, ref_name)?;
-        write_manifest(stage_dir, paths, publish, previous_manifest.as_ref())?;
+        rebuild_plan_index(stage_dir, &current_snapshot.plans)?;
+        rebuild_task_index(stage_dir, &current_snapshot.tasks)?;
+        rebuild_artifact_index(stage_dir, &current_snapshot.artifacts)?;
+        rebuild_claim_index(stage_dir, &current_snapshot.claims)?;
+        rebuild_review_index(stage_dir, &current_snapshot.reviews)?;
+        write_manifest(
+            stage_dir,
+            paths,
+            publish,
+            current_previous_manifest.as_ref(),
+        )?;
         publish_stage_to_ref(root, stage_dir, ref_name)?;
         match push_shared_coordination_ref(
             root,
@@ -417,6 +443,17 @@ fn sync_shared_coordination_ref_state_inner(
                     ref_name,
                     published_head.as_deref(),
                 )?;
+                if let Some(final_head) = final_head.clone() {
+                    cache_shared_coordination_state(
+                        root,
+                        final_head,
+                        &SharedCoordinationRefState {
+                            snapshot: current_snapshot.clone(),
+                            plan_graphs: current_plan_graphs.clone(),
+                            execution_overlays: current_execution_overlays.clone(),
+                        },
+                    );
+                }
                 record_observed_shared_coordination_head(root, final_head);
                 return Ok(());
             }
@@ -429,6 +466,8 @@ fn sync_shared_coordination_ref_state_inner(
                     shared_coordination_remote_name(),
                     ref_name,
                 )?;
+                current_previous_manifest =
+                    load_shared_coordination_manifest_from_ref(root, ref_name)?;
                 let latest_state =
                     load_shared_coordination_ref_state_from_current_ref(root, ref_name)?;
                 let reconciled = reconcile_shared_coordination_ref_state(
@@ -927,79 +966,106 @@ fn sync_review_objects(stage_dir: &Path, reviews: &[ArtifactReview]) -> Result<(
     cleanup_directory_json_files(&stage_reviews_dir(stage_dir), &expected)
 }
 
-fn rebuild_plan_index(stage_dir: &Path) -> Result<()> {
-    let entries = load_json_records::<SharedCoordinationPlanRecord>(&stage_plans_dir(stage_dir))?
-        .into_iter()
-        .map(|(path, record)| SharedCoordinationIndexEntry {
-            id: record.plan.id.0.to_string(),
-            title: if record.plan.title.trim().is_empty() {
-                record.plan.goal.clone()
-            } else {
-                record.plan.title.clone()
-            },
-            status: format!("{:?}", record.plan.status),
-            path,
+fn relative_index_path(dir: &Path, path: &Path) -> String {
+    path.strip_prefix(dir.parent().unwrap_or(dir))
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
+}
+
+fn rebuild_plan_index(stage_dir: &Path, plans: &[Plan]) -> Result<()> {
+    let mut entries = plans
+        .iter()
+        .map(|plan| {
+            let path = plan_snapshot_path(stage_dir, &plan.id.0);
+            SharedCoordinationIndexEntry {
+                id: plan.id.0.to_string(),
+                title: if plan.title.trim().is_empty() {
+                    plan.goal.clone()
+                } else {
+                    plan.title.clone()
+                },
+                status: format!("{:?}", plan.status),
+                path: relative_index_path(&stage_plans_dir(stage_dir), &path),
+            }
         })
         .collect::<Vec<_>>();
+    entries.sort_by(|left, right| left.path.cmp(&right.path));
     write_json_file(&stage_indexes_dir(stage_dir).join("plans.json"), &entries)
 }
 
-fn rebuild_task_index(stage_dir: &Path) -> Result<()> {
-    let entries = load_json_records::<CoordinationTask>(&stage_tasks_dir(stage_dir))?
-        .into_iter()
-        .map(|(path, task)| SharedCoordinationIndexEntry {
-            id: task.id.0.to_string(),
-            title: task.title,
-            status: format!("{:?}", task.status),
-            path,
+fn rebuild_task_index(stage_dir: &Path, tasks: &[CoordinationTask]) -> Result<()> {
+    let mut entries = tasks
+        .iter()
+        .map(|task| {
+            let path = task_snapshot_path(stage_dir, &task.id.0);
+            SharedCoordinationIndexEntry {
+                id: task.id.0.to_string(),
+                title: task.title.clone(),
+                status: format!("{:?}", task.status),
+                path: relative_index_path(&stage_tasks_dir(stage_dir), &path),
+            }
         })
         .collect::<Vec<_>>();
+    entries.sort_by(|left, right| left.path.cmp(&right.path));
     write_json_file(&stage_indexes_dir(stage_dir).join("tasks.json"), &entries)
 }
 
-fn rebuild_artifact_index(stage_dir: &Path) -> Result<()> {
-    let entries = load_json_records::<Artifact>(&stage_artifacts_dir(stage_dir))?
-        .into_iter()
-        .map(|(path, artifact)| SharedCoordinationIndexEntry {
-            id: artifact.id.0.to_string(),
-            title: artifact.task.0.to_string(),
-            status: format!("{:?}", artifact.status),
-            path,
+fn rebuild_artifact_index(stage_dir: &Path, artifacts: &[Artifact]) -> Result<()> {
+    let mut entries = artifacts
+        .iter()
+        .map(|artifact| {
+            let path = artifact_snapshot_path(stage_dir, &artifact.id.0);
+            SharedCoordinationIndexEntry {
+                id: artifact.id.0.to_string(),
+                title: artifact.task.0.to_string(),
+                status: format!("{:?}", artifact.status),
+                path: relative_index_path(&stage_artifacts_dir(stage_dir), &path),
+            }
         })
         .collect::<Vec<_>>();
+    entries.sort_by(|left, right| left.path.cmp(&right.path));
     write_json_file(
         &stage_indexes_dir(stage_dir).join("artifacts.json"),
         &entries,
     )
 }
 
-fn rebuild_claim_index(stage_dir: &Path) -> Result<()> {
-    let entries = load_json_records::<WorkClaim>(&stage_claims_dir(stage_dir))?
-        .into_iter()
-        .map(|(path, claim)| SharedCoordinationIndexEntry {
-            id: claim.id.0.to_string(),
-            title: claim
-                .task
-                .as_ref()
-                .map(|task| task.0.to_string())
-                .unwrap_or_else(|| claim.id.0.to_string()),
-            status: format!("{:?}", claim.status),
-            path,
+fn rebuild_claim_index(stage_dir: &Path, claims: &[WorkClaim]) -> Result<()> {
+    let mut entries = claims
+        .iter()
+        .map(|claim| {
+            let path = claim_snapshot_path(stage_dir, &claim.id.0);
+            SharedCoordinationIndexEntry {
+                id: claim.id.0.to_string(),
+                title: claim
+                    .task
+                    .as_ref()
+                    .map(|task| task.0.to_string())
+                    .unwrap_or_else(|| claim.id.0.to_string()),
+                status: format!("{:?}", claim.status),
+                path: relative_index_path(&stage_claims_dir(stage_dir), &path),
+            }
         })
         .collect::<Vec<_>>();
+    entries.sort_by(|left, right| left.path.cmp(&right.path));
     write_json_file(&stage_indexes_dir(stage_dir).join("claims.json"), &entries)
 }
 
-fn rebuild_review_index(stage_dir: &Path) -> Result<()> {
-    let entries = load_json_records::<ArtifactReview>(&stage_reviews_dir(stage_dir))?
-        .into_iter()
-        .map(|(path, review)| SharedCoordinationIndexEntry {
-            id: review.id.0.to_string(),
-            title: review.summary,
-            status: format!("{:?}", review.verdict),
-            path,
+fn rebuild_review_index(stage_dir: &Path, reviews: &[ArtifactReview]) -> Result<()> {
+    let mut entries = reviews
+        .iter()
+        .map(|review| {
+            let path = review_snapshot_path(stage_dir, &review.id.0);
+            SharedCoordinationIndexEntry {
+                id: review.id.0.to_string(),
+                title: review.summary.clone(),
+                status: format!("{:?}", review.verdict),
+                path: relative_index_path(&stage_reviews_dir(stage_dir), &path),
+            }
         })
         .collect::<Vec<_>>();
+    entries.sort_by(|left, right| left.path.cmp(&right.path));
     write_json_file(&stage_indexes_dir(stage_dir).join("reviews.json"), &entries)
 }
 
@@ -1069,10 +1135,30 @@ fn load_shared_coordination_manifest_from_ref(
     root: &Path,
     ref_name: &str,
 ) -> Result<Option<SharedCoordinationManifest>> {
-    let Some(contents) = load_shared_coordination_ref_contents(root, ref_name)? else {
+    if resolve_ref_commit(root, ref_name)?.is_none() {
         return Ok(None);
-    };
-    contents.parse_manifest().map(Some)
+    }
+    let blob = run_git(
+        root,
+        &["show", &format!("{ref_name}:coordination/manifest.json")],
+    );
+    match blob {
+        Ok(contents) => Ok(Some(
+            serde_json::from_str(contents.trim())
+                .context("failed to parse shared coordination manifest from git ref")?,
+        )),
+        Err(error) => {
+            let message = error.to_string();
+            if message.contains("does not exist")
+                || message.contains("exists on disk, but not in")
+                || message.contains("path 'coordination/manifest.json' does not exist")
+            {
+                Ok(None)
+            } else {
+                Err(error)
+            }
+        }
+    }
 }
 
 fn verify_shared_coordination_manifest(
@@ -1698,41 +1784,6 @@ fn cleanup_directory_json_files(dir: &Path, expected: &BTreeSet<PathBuf>) -> Res
     Ok(())
 }
 
-fn load_json_records<T>(dir: &Path) -> Result<Vec<(String, T)>>
-where
-    T: for<'de> Deserialize<'de>,
-{
-    if !dir.exists() {
-        return Ok(Vec::new());
-    }
-    let mut records = Vec::new();
-    for entry in fs::read_dir(dir).with_context(|| format!("failed to read {}", dir.display()))? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
-            continue;
-        }
-        let value = read_json_file::<T>(&path)?;
-        records.push((
-            path.strip_prefix(dir.parent().unwrap_or(dir))
-                .unwrap_or(path.as_path())
-                .to_string_lossy()
-                .replace('\\', "/"),
-            value,
-        ));
-    }
-    records.sort_by(|left, right| left.0.cmp(&right.0));
-    Ok(records)
-}
-
-fn read_json_file<T>(path: &Path) -> Result<T>
-where
-    T: for<'de> Deserialize<'de>,
-{
-    let bytes = fs::read(path).with_context(|| format!("failed to read {}", path.display()))?;
-    serde_json::from_slice(&bytes).with_context(|| format!("failed to parse {}", path.display()))
-}
-
 fn write_json_file<T>(path: &Path, value: &T) -> Result<()>
 where
     T: Serialize,
@@ -2227,6 +2278,7 @@ mod tests {
             .save_coordination_startup_checkpoint(&CoordinationStartupCheckpoint {
                 version: CoordinationStartupCheckpoint::VERSION,
                 materialized_at: current_timestamp(),
+                coordination_revision: 0,
                 authority,
                 snapshot: snapshot.clone(),
                 plan_graphs: vec![graph.clone()],

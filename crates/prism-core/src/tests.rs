@@ -108,6 +108,10 @@ fn background_worker_test_guard() -> MutexGuard<'static, ()> {
         .expect("background worker test lock poisoned")
 }
 
+fn flush_coordination_materializations(session: &crate::session::WorkspaceSession) {
+    session.flush_materializations().unwrap();
+}
+
 fn track_temp_dir(path: &std::path::Path) {
     TEMP_TEST_DIRS.with(|state| state.borrow_mut().paths.push(path.to_path_buf()));
 }
@@ -1063,7 +1067,10 @@ fn coordination_mutation_updates_published_plans_without_reloading_full_projecti
         .expect("coordination mutation should acquire the refresh lock");
 
     assert!(operations.contains(&"mutation.coordination.syncPublishedPlans".to_string()));
-    assert!(operations.contains(&"mutation.coordination.publishedPlans.writeLogs".to_string()));
+    assert!(operations
+        .contains(&"mutation.coordination.publishedPlans.syncSharedCoordinationRef".to_string()));
+    assert!(operations
+        .contains(&"mutation.coordination.publishedPlans.syncTrackedSnapshot".to_string()));
     assert!(
         !operations.contains(&"mutation.coordination.publishedPlans.loadProjection".to_string()),
         "incremental coordination mutation should reuse in-memory plan state instead of replaying all published plan logs"
@@ -4848,13 +4855,14 @@ fn repo_plan_events_auto_sync_prism_doc() {
             )
         })
         .unwrap();
+    flush_coordination_materializations(&session);
 
     assert!(!root.join(".prism/plans/index.jsonl").exists());
     assert!(!root.join(".prism/plans/active").exists());
     assert!(root.join(".prism/state/plans").exists());
 
     let sync = session.sync_prism_doc().unwrap();
-    assert_eq!(sync.status, PrismDocSyncStatus::Updated);
+    assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
 
     let prism_doc_path = root.join("PRISM.md");
     let plans_doc_path = root.join("docs/prism/plans/index.md");
@@ -4905,7 +4913,11 @@ fn source_refresh_does_not_auto_sync_prism_doc() {
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
 
     let session = index_workspace_session(&root).unwrap();
-    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\npub fn beta() {}\n").unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() {}\npub fn beta() {}\n",
+    )
+    .unwrap();
 
     let outcome = session.refresh_fs_with_status().unwrap();
     assert_ne!(outcome.status, crate::session::FsRefreshStatus::Clean);
@@ -5564,6 +5576,7 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
             Ok((plan_id, task.id))
         })
         .unwrap();
+    flush_coordination_materializations(&session);
 
     assert!(
         !root
@@ -5705,6 +5718,7 @@ fn repo_published_plans_write_tracked_snapshot_manifest() {
             anyhow::Ok(())
         })
         .unwrap();
+    flush_coordination_materializations(&session);
 
     let plan_files = fs::read_dir(root.join(".prism/state/plans"))
         .unwrap()
@@ -5807,6 +5821,7 @@ fn repo_published_plans_hydrate_from_tracked_snapshots_without_plan_logs() {
             Ok((plan_id, task.id))
         })
         .unwrap();
+    flush_coordination_materializations(&session);
 
     let _ = fs::remove_dir_all(root.join(".prism/plans"));
 
@@ -5883,6 +5898,7 @@ fn repo_published_plans_ignore_tampered_legacy_streams_once_snapshot_authority_e
             Ok((plan_id, task.id))
         })
         .unwrap();
+    flush_coordination_materializations(&session);
 
     let stream_path = root.join(".prism/plans/streams/managed.jsonl");
     fs::create_dir_all(stream_path.parent().unwrap()).unwrap();
@@ -6589,19 +6605,19 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
         .load_coordination_read_model()
         .unwrap()
         .expect("incremental coordination read model should be persisted");
-    assert_eq!(
-        read_model,
-        prism_coordination::coordination_read_model_from_snapshot(&updated_snapshot)
-    );
+    let mut expected_read_model =
+        prism_coordination::coordination_read_model_from_snapshot(&updated_snapshot);
+    expected_read_model.revision = 2;
+    assert_eq!(read_model, expected_read_model);
 
     let queue_model = store
         .load_coordination_queue_read_model()
         .unwrap()
         .expect("incremental coordination queue model should be persisted");
-    assert_eq!(
-        queue_model,
-        prism_coordination::coordination_queue_read_model_from_snapshot(&updated_snapshot)
-    );
+    let mut expected_queue_model =
+        prism_coordination::coordination_queue_read_model_from_snapshot(&updated_snapshot);
+    expected_queue_model.revision = 2;
+    assert_eq!(queue_model, expected_queue_model);
 
     let _ = fs::remove_dir_all(root);
 }
@@ -6677,14 +6693,17 @@ fn coordination_session_materializes_read_models_off_request_path() {
         .load_coordination_read_model()
         .unwrap()
         .expect("session should derive a live coordination read model");
+    let authoritative_revision = session.coordination_revision().unwrap();
     assert_eq!(live_read_model.active_plans.len(), 1);
     assert_eq!(live_read_model.task_count, 1);
+    assert_eq!(live_read_model.revision, authoritative_revision);
 
     let live_queue_model = session
         .load_coordination_queue_read_model()
         .unwrap()
         .expect("session should derive a live coordination queue model");
     assert!(live_queue_model.pending_handoff_tasks.is_empty());
+    assert_eq!(live_queue_model.revision, authoritative_revision);
 
     session.flush_materializations().unwrap();
 
@@ -6701,11 +6720,21 @@ fn coordination_session_materializes_read_models_off_request_path() {
         .expect("persisted coordination read model should materialize after flush");
     assert_eq!(persisted_read_model.active_plans.len(), 1);
     assert_eq!(persisted_read_model.task_count, 1);
+    assert_eq!(persisted_read_model.revision, authoritative_revision);
     let persisted_queue_model = shared_runtime_store
         .load_coordination_queue_read_model()
         .unwrap()
         .expect("persisted coordination queue model should materialize after flush");
     assert!(persisted_queue_model.pending_handoff_tasks.is_empty());
+    assert_eq!(persisted_queue_model.revision, authoritative_revision);
+    let tracked_snapshot_status =
+        crate::tracked_snapshot::load_tracked_coordination_materialization_status(&root)
+            .unwrap()
+            .expect("tracked snapshot materialization status should materialize after flush");
+    assert_eq!(
+        tracked_snapshot_status.coordination_revision,
+        authoritative_revision
+    );
 
     let _ = fs::remove_dir_all(root);
 }
@@ -7136,6 +7165,7 @@ fn repo_published_plan_snapshot_persists_task_status_updates_after_cutover() {
             Ok(())
         })
         .unwrap();
+    flush_coordination_materializations(&session);
 
     let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
         .unwrap()
@@ -7281,6 +7311,7 @@ fn repo_published_plan_logs_do_not_reemit_existing_child_of_edges() {
             Ok(())
         })
         .unwrap();
+    flush_coordination_materializations(&session);
 
     let edge_id = format!("plan-edge:{}:child-of:{}", child_id.0, parent_id.0);
     let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
@@ -7335,6 +7366,7 @@ fn regenerate_repo_published_plan_artifacts_removes_legacy_plan_artifacts_when_s
             )
         })
         .unwrap();
+    flush_coordination_materializations(&session);
     drop(session);
 
     let stream_path = root.join(".prism/plans/streams/managed.jsonl");
@@ -7444,6 +7476,7 @@ fn repair_repo_published_plan_artifacts_is_empty_under_snapshot_authority() {
             anyhow::Ok((plan_id, parent.id, child.id))
         })
         .unwrap();
+    flush_coordination_materializations(&session);
 
     let report = inspect_repo_published_plan_artifacts(&root).unwrap();
     assert_eq!(report.scanned_plan_count, 0);
@@ -7544,6 +7577,7 @@ fn completing_last_task_persists_plan_completion_in_tracked_snapshot() {
             Ok((plan_id, task.id))
         })
         .unwrap();
+    flush_coordination_materializations(&session);
 
     session
         .mutate_coordination(|prism| {
@@ -7585,6 +7619,7 @@ fn completing_last_task_persists_plan_completion_in_tracked_snapshot() {
             Ok(())
         })
         .unwrap();
+    flush_coordination_materializations(&session);
 
     let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
         .unwrap()
@@ -7686,6 +7721,7 @@ fn releasing_last_claim_persists_plan_completion_in_tracked_snapshot() {
             Ok((plan_id, task.id, claim_id.expect("claim id")))
         })
         .unwrap();
+    flush_coordination_materializations(&session);
 
     session
         .mutate_coordination(|prism| {
@@ -7727,6 +7763,7 @@ fn releasing_last_claim_persists_plan_completion_in_tracked_snapshot() {
             Ok(())
         })
         .unwrap();
+    flush_coordination_materializations(&session);
 
     session
         .mutate_coordination(|prism| {
@@ -7745,6 +7782,7 @@ fn releasing_last_claim_persists_plan_completion_in_tracked_snapshot() {
             Ok(())
         })
         .unwrap();
+    flush_coordination_materializations(&session);
 
     assert_eq!(
         session
@@ -7840,6 +7878,7 @@ fn repo_published_plan_snapshot_skips_runtime_handoff_deltas() {
             Ok((plan_id, task.id))
         })
         .unwrap();
+    flush_coordination_materializations(&session);
 
     assert!(
         !root
@@ -7873,6 +7912,7 @@ fn repo_published_plan_snapshot_skips_runtime_handoff_deltas() {
             Ok(())
         })
         .unwrap();
+    flush_coordination_materializations(&session);
 
     let hydrated = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
         .unwrap()
@@ -7940,6 +7980,7 @@ fn repo_published_plan_snapshot_persists_archive_transition() {
             )
         })
         .unwrap();
+    flush_coordination_materializations(&session);
     let abandoned = crate::published_plans::load_hydrated_coordination_plan_state(&root, None)
         .unwrap()
         .expect("tracked snapshots should hydrate plan state");
@@ -7971,6 +8012,7 @@ fn repo_published_plan_snapshot_persists_archive_transition() {
             )
         })
         .unwrap();
+    flush_coordination_materializations(&session);
 
     drop(session);
     fs::remove_file(

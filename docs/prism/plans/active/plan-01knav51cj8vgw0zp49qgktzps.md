@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:c6b180ee791f4a25f637b943748b264cbca6f10b6af5d78f31ce616c4f5a67cb`
+- Source head: `sha256:5d3294d10a583ae7997808fafb425b622aa724fe644e6eeb2ca2dd384f13941f`
 - Source logical timestamp: `unknown`
-- Source snapshot: `14 nodes, 23 edges, 0 overlays`
+- Source snapshot: `14 nodes, 23 edges, 4 overlays`
 
 ## Overview
 
@@ -52,7 +52,7 @@ Close every remaining implementation gap in docs/PRISM_SHARED_COORDINATION_REFS.
 
 - Node id: `coord-task:01knav6qm2h72t0pc3xqmv92zt`
 - Kind: `edit`
-- Status: `ready`
+- Status: `completed`
 - Summary: Turn the current doc audit into an explicit tracked contract so every remaining partial section in PRISM_SHARED_COORDINATION_REFS.md has an owner, boundary, and definition of done before more code lands.
 - Priority: `100`
 
@@ -72,7 +72,7 @@ Close every remaining implementation gap in docs/PRISM_SHARED_COORDINATION_REFS.
 
 - Node id: `coord-task:01knavc6b8qhznt2e1yrn7mmwh`
 - Kind: `edit`
-- Status: `ready`
+- Status: `completed`
 - Summary: Stop mirroring full shared coordination authority into branch-local `.prism/state/**` by default and leave only bounded, explicitly derived exports so the shared ref becomes the real source of truth.
 - Priority: `98`
 
@@ -92,7 +92,7 @@ Close every remaining implementation gap in docs/PRISM_SHARED_COORDINATION_REFS.
 
 - Node id: `coord-task:01knavcv05nn8t2gc1z31gg0fy`
 - Kind: `edit`
-- Status: `ready`
+- Status: `completed`
 - Summary: Separate branch publication, shared coordination publication, and verified target integration in the task state machine so require-mode workflows can recover cleanly and query surfaces stop collapsing materially different states.
 - Priority: `97`
 
@@ -112,7 +112,7 @@ Close every remaining implementation gap in docs/PRISM_SHARED_COORDINATION_REFS.
 
 - Node id: `coord-task:01knavdeaf5qs3zp6vycxgkg9t`
 - Kind: `edit`
-- Status: `ready`
+- Status: `in_progress`
 - Summary: Make target-integration verification work for non-merge landings by recording trusted landing evidence that binds rebased or squashed target commits back to the originating task and review artifacts.
 - Priority: `96`
 
@@ -330,9 +330,6 @@ Close every remaining implementation gap in docs/PRISM_SHARED_COORDINATION_REFS.
 
 ## Edges
 
-- `plan-edge:coord-task:01knavc6b8qhznt2e1yrn7mmwh:depends-on:coord-task:01knav6qm2h72t0pc3xqmv92zt`: `coord-task:01knavc6b8qhznt2e1yrn7mmwh` depends on `coord-task:01knav6qm2h72t0pc3xqmv92zt`
-- `plan-edge:coord-task:01knavcv05nn8t2gc1z31gg0fy:depends-on:coord-task:01knav6qm2h72t0pc3xqmv92zt`: `coord-task:01knavcv05nn8t2gc1z31gg0fy` depends on `coord-task:01knav6qm2h72t0pc3xqmv92zt`
-- `plan-edge:coord-task:01knavdeaf5qs3zp6vycxgkg9t:depends-on:coord-task:01knavcv05nn8t2gc1z31gg0fy`: `coord-task:01knavdeaf5qs3zp6vycxgkg9t` depends on `coord-task:01knavcv05nn8t2gc1z31gg0fy`
 - `plan-edge:coord-task:01knave01nvcrq91vnt8np1mkg:depends-on:coord-task:01knavdeaf5qs3zp6vycxgkg9t`: `coord-task:01knave01nvcrq91vnt8np1mkg` depends on `coord-task:01knavdeaf5qs3zp6vycxgkg9t`
 - `plan-edge:coord-task:01knavehyd4a49fk7b4rnjxz67:depends-on:coord-task:01knavdeaf5qs3zp6vycxgkg9t`: `coord-task:01knavehyd4a49fk7b4rnjxz67` depends on `coord-task:01knavdeaf5qs3zp6vycxgkg9t`
 - `plan-edge:coord-task:01knavf33fkvpsc79jd5k9tkdj:depends-on:coord-task:01knavdeaf5qs3zp6vycxgkg9t`: `coord-task:01knavf33fkvpsc79jd5k9tkdj` depends on `coord-task:01knavdeaf5qs3zp6vycxgkg9t`
@@ -353,4 +350,30 @@ Close every remaining implementation gap in docs/PRISM_SHARED_COORDINATION_REFS.
 - `plan-edge:coord-task:01knax49ge8qvv6yabya0k2xrc:depends-on:coord-task:01knavpwvj8r99x8yarrsam19g`: `coord-task:01knax49ge8qvv6yabya0k2xrc` depends on `coord-task:01knavpwvj8r99x8yarrsam19g`
 - `plan-edge:coord-task:01knax49ge8qvv6yabya0k2xrc:depends-on:coord-task:01knax3zr6tyxkcev2vzd2ptyg`: `coord-task:01knax49ge8qvv6yabya0k2xrc` depends on `coord-task:01knax3zr6tyxkcev2vzd2ptyg`
 - `plan-edge:coord-task:01knax5mvp5x40c6wnae7s3r9d:depends-on:coord-task:01knax49ge8qvv6yabya0k2xrc`: `coord-task:01knax5mvp5x40c6wnae7s3r9d` depends on `coord-task:01knax49ge8qvv6yabya0k2xrc`
+- `plan-edge:coord-task:01knavc6b8qhznt2e1yrn7mmwh:depends-on:coord-task:01knav6qm2h72t0pc3xqmv92zt`: `coord-task:01knavc6b8qhznt2e1yrn7mmwh` depends on `coord-task:01knav6qm2h72t0pc3xqmv92zt`
+- `plan-edge:coord-task:01knavcv05nn8t2gc1z31gg0fy:depends-on:coord-task:01knav6qm2h72t0pc3xqmv92zt`: `coord-task:01knavcv05nn8t2gc1z31gg0fy` depends on `coord-task:01knav6qm2h72t0pc3xqmv92zt`
+- `plan-edge:coord-task:01knavdeaf5qs3zp6vycxgkg9t:depends-on:coord-task:01knavcv05nn8t2gc1z31gg0fy`: `coord-task:01knavdeaf5qs3zp6vycxgkg9t` depends on `coord-task:01knavcv05nn8t2gc1z31gg0fy`
+
+## Execution Overlays
+
+- Node: `coord-task:01knav6qm2h72t0pc3xqmv92zt`
+  git execution status: `published`
+  source ref: `task/shared-coordination-refs-gaps`
+  target ref: `origin/main`
+  publish ref: `task/shared-coordination-refs-gaps`
+- Node: `coord-task:01knavc6b8qhznt2e1yrn7mmwh`
+  git execution status: `published`
+  source ref: `task/shared-coordination-refs-gaps`
+  target ref: `origin/main`
+  publish ref: `task/shared-coordination-refs-gaps`
+- Node: `coord-task:01knavcv05nn8t2gc1z31gg0fy`
+  git execution status: `published`
+  source ref: `task/shared-coordination-refs-gaps`
+  target ref: `origin/main`
+  publish ref: `task/shared-coordination-refs-gaps`
+- Node: `coord-task:01knavdeaf5qs3zp6vycxgkg9t`
+  git execution status: `in_progress`
+  source ref: `task/shared-coordination-refs-gaps`
+  target ref: `origin/main`
+  publish ref: `task/shared-coordination-refs-gaps`
 
