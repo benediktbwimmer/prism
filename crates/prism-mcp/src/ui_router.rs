@@ -5,20 +5,25 @@ use axum::body::Body;
 use axum::extract::{Path, Query, State};
 use axum::http::{header::CONTENT_TYPE, Response, StatusCode};
 use axum::response::Html;
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Deserialize;
+use serde_json::Value;
 
 use crate::ui_assets::{prism_ui_asset, prism_ui_index_html, prism_ui_unbuilt_html};
+use crate::ui_mutations::{
+    map_ui_mutation_error, resolve_ui_mutation_args, PrismUiMutateRequest,
+};
 use crate::ui_read_models::{QueryHostUiReadModelsExt, UiPlansQueryOptions};
 use crate::ui_types::{
     PrismGraphView, PrismOverviewView, PrismPlanDetailView, PrismPlansView,
     PrismUiFleetView, PrismUiSessionBootstrapView, PrismUiTaskDetailView,
 };
-use crate::QueryHost;
+use crate::{PrismMcpServer, PrismMutationResult, QueryHost};
 
 #[derive(Clone)]
 pub(crate) struct PrismUiState {
+    pub(crate) server: Arc<PrismMcpServer>,
     pub(crate) host: Arc<QueryHost>,
     pub(crate) root: PathBuf,
 }
@@ -33,6 +38,7 @@ pub(crate) fn routes(state: PrismUiState) -> Router {
         .route("/api/v1/plans/{plan_id}/graph", get(prism_ui_plan_graph))
         .route("/api/v1/tasks/{task_id}", get(prism_ui_task_detail))
         .route("/api/v1/fleet", get(prism_ui_fleet))
+        .route("/api/v1/mutate", post(prism_ui_mutate))
         .route("/dashboard", get(prism_ui_index))
         .route("/dashboard/", get(prism_ui_index))
         .route("/dashboard/favicon.svg", get(prism_ui_favicon))
@@ -164,6 +170,18 @@ async fn prism_ui_fleet(
         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
 }
 
+async fn prism_ui_mutate(
+    State(state): State<PrismUiState>,
+    Json(request): Json<PrismUiMutateRequest>,
+) -> std::result::Result<Json<PrismMutationResult>, (StatusCode, Json<Value>)> {
+    let args = resolve_ui_mutation_args(&state.root, request)?;
+    state
+        .server
+        .execute_prism_mutation_via_tool(args)
+        .map(Json)
+        .map_err(map_ui_mutation_error)
+}
+
 async fn prism_ui_favicon(
     State(state): State<PrismUiState>,
 ) -> std::result::Result<Response<Body>, (StatusCode, String)> {
@@ -210,19 +228,31 @@ mod tests {
     use tower::util::ServiceExt;
 
     use crate::tests_support::{
-        demo_node, host_with_node, host_with_session, temp_workspace, test_session,
+        demo_node, host_with_node, temp_workspace, test_session,
+        workspace_session_with_owner_credential,
     };
     use crate::ui_assets::prism_ui_index_html;
     use crate::{
         ClaimActionInput, CoordinationMutationKindInput, PrismClaimArgs, PrismCoordinationArgs,
     };
-    use prism_core::index_workspace_session;
+    use prism_core::{index_workspace_session, CredentialProfile, CredentialsFile, PrismPaths};
+
+    fn ui_state_from_root(root: &std::path::Path) -> PrismUiState {
+        let server = Arc::new(PrismMcpServer::with_session(
+            index_workspace_session(root).unwrap(),
+        ));
+        let host = Arc::clone(&server.host);
+        PrismUiState {
+            server,
+            host,
+            root: root.to_path_buf(),
+        }
+    }
 
     #[tokio::test]
     async fn ui_routes_share_the_same_shell_document() {
         let root = temp_workspace();
-        let host = Arc::new(host_with_session(index_workspace_session(&root).unwrap()));
-        let router = routes(PrismUiState { host, root });
+        let router = routes(ui_state_from_root(&root));
 
         for path in ["/", "/plans", "/graph", "/fleet", "/dashboard"] {
             let response = router
@@ -245,8 +275,7 @@ mod tests {
             .find(|segment| segment.starts_with("/dashboard/assets/"))
             .expect("embedded dashboard asset path")
             .to_string();
-        let host = Arc::new(host_with_session(index_workspace_session(&root).unwrap()));
-        let router = routes(PrismUiState { host, root });
+        let router = routes(ui_state_from_root(&root));
 
         let favicon = router
             .clone()
@@ -275,8 +304,7 @@ mod tests {
     #[tokio::test]
     async fn ui_v1_session_bootstrap_is_available() {
         let root = temp_workspace();
-        let host = Arc::new(host_with_session(index_workspace_session(&root).unwrap()));
-        let router = routes(PrismUiState { host, root });
+        let router = routes(ui_state_from_root(&root));
 
         let response = router
             .oneshot(
@@ -364,7 +392,14 @@ mod tests {
             },
         )
         .unwrap();
-        let router = routes(PrismUiState { host, root });
+        let server = Arc::new(PrismMcpServer::with_session(
+            index_workspace_session(&root).unwrap(),
+        ));
+        let router = routes(PrismUiState {
+            server,
+            host,
+            root,
+        });
 
         let task_response = router
             .clone()
@@ -503,7 +538,14 @@ mod tests {
         )
         .unwrap();
 
-        let router = routes(PrismUiState { host, root });
+        let server = Arc::new(PrismMcpServer::with_session(
+            index_workspace_session(&root).unwrap(),
+        ));
+        let router = routes(PrismUiState {
+            server,
+            host,
+            root,
+        });
 
         let response = router
             .clone()
@@ -545,5 +587,99 @@ mod tests {
             .as_array()
             .is_some_and(|nodes| !nodes.is_empty()));
         assert!(graph_value["execution"].as_array().is_some());
+    }
+
+    #[tokio::test]
+    async fn ui_v1_mutate_uses_local_profile_and_logs_like_prism_mutate() {
+        let root = temp_workspace();
+        let (session, credential) = workspace_session_with_owner_credential(&root);
+        let credentials_path = PrismPaths::for_workspace_root(&root)
+            .unwrap()
+            .credentials_path()
+            .unwrap();
+        let mut credentials = CredentialsFile::load(&credentials_path).unwrap();
+        credentials.upsert_profile(
+            CredentialProfile {
+                profile: "ui-owner".to_string(),
+                authority_id: "local-daemon".to_string(),
+                principal_id: credential.principal_id.clone(),
+                credential_id: credential.credential_id.clone(),
+                principal_token: credential.principal_token.clone(),
+            },
+            true,
+        );
+        credentials.save(&credentials_path).unwrap();
+        let server = Arc::new(PrismMcpServer::with_session(session));
+        let host = Arc::clone(&server.host);
+        let router = routes(PrismUiState {
+            server: Arc::clone(&server),
+            host,
+            root: root.clone(),
+        });
+
+        let declare = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/mutate")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({
+                            "action": "declare_work",
+                            "input": {
+                                "title": "Operator console mutate"
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(declare.status(), StatusCode::OK);
+        let declare_body = to_bytes(declare.into_body(), usize::MAX).await.unwrap();
+        let declare_json: Value = serde_json::from_slice(&declare_body).unwrap();
+        assert_eq!(declare_json["action"], json!("declare_work"));
+
+        let mutate = router
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/mutate")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({
+                            "action": "coordination",
+                            "input": {
+                                "kind": "plan_create",
+                                "payload": {
+                                    "title": "UI plan",
+                                    "goal": "Mutate via the operator console backend"
+                                }
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let mutate_status = mutate.status();
+        let mutate_body = to_bytes(mutate.into_body(), usize::MAX).await.unwrap();
+        assert_eq!(mutate_status, StatusCode::OK);
+        let mutate_json: Value = serde_json::from_slice(&mutate_body).unwrap();
+        assert_eq!(mutate_json["action"], json!("coordination"));
+        assert_eq!(mutate_json["result"]["rejected"], json!(false));
+
+        let records = server.mcp_call_log_store().records();
+        assert!(records.iter().any(|record| {
+            record.entry.call_type == "tool"
+                && record.entry.name == "prism_mutate"
+                && record
+                    .mutation_compat
+                    .as_ref()
+                    .is_some_and(|trace| trace.entry.action == "mutate.coordination")
+        }));
     }
 }

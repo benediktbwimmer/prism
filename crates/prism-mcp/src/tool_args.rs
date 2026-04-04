@@ -1948,7 +1948,7 @@ impl<'de> Deserialize<'de> for PrismMutationArgs {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[derive(Debug, Clone, serde::Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum PrismMutationActionSchema {
     DeclareWork,
@@ -1975,7 +1975,7 @@ pub(crate) enum PrismMutationActionSchema {
     CuratorRejectProposal,
 }
 
-#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[derive(Debug, Clone, serde::Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismMutationResult {
     pub(crate) action: PrismMutationActionSchema,
