@@ -647,6 +647,16 @@ pub(crate) fn load_shared_coordination_ref_state(
     load_shared_coordination_ref_state_from_current_ref_lenient(root, &ref_name)
 }
 
+pub(crate) fn load_shared_coordination_ref_state_authoritative(
+    root: &Path,
+) -> Result<Option<SharedCoordinationRefState>> {
+    if !git_repo_available(root) {
+        return Ok(None);
+    }
+    let ref_name = shared_coordination_ref_name(root);
+    load_shared_coordination_ref_state_from_current_ref(root, &ref_name)
+}
+
 pub(crate) fn shared_coordination_startup_authority(
     root: &Path,
 ) -> Result<Option<CoordinationStartupCheckpointAuthority>> {

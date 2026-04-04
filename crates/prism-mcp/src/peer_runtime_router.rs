@@ -258,33 +258,87 @@ pub(crate) fn execute_remote_prism_query(
         .timeout(PEER_QUERY_TIMEOUT)
         .build()
         .context("failed to build peer runtime HTTP client")?;
+    let request = PeerRuntimeQueryRequest {
+        credential_id: credential.credential_id,
+        principal_token: credential.principal_token,
+        runtime_id: runtime_id.to_string(),
+        code: code.to_string(),
+        language,
+    };
+    let secondary_endpoint = descriptor
+        .public_endpoint
+        .as_deref()
+        .zip(descriptor.peer_endpoint.as_deref())
+        .and_then(|(public, peer)| (endpoint == public && public != peer).then_some(peer));
+    let payload = match query_peer_runtime_endpoint(&client, endpoint, runtime_id, &request) {
+        Ok(payload) => payload,
+        Err(primary_error) if primary_error.retryable => {
+            if let Some(fallback_endpoint) = secondary_endpoint {
+                query_peer_runtime_endpoint(&client, fallback_endpoint, runtime_id, &request)
+                    .map_err(|fallback_error| fallback_error.error)?
+            } else {
+                return Err(primary_error.error);
+            }
+        }
+        Err(primary_error) => return Err(primary_error.error),
+    };
+    if payload.runtime_id != descriptor.runtime_id {
+        return Err(remote_runtime_query_error(
+            "remote_runtime_descriptor_stale",
+            Some(runtime_id),
+            format!(
+                "shared coordination resolved runtime `{runtime_id}`, but the peer responded as `{}`",
+                payload.runtime_id
+            ),
+            "Refresh shared coordination so the runtime descriptor matches the live peer, or target the newer runtime id.",
+        ));
+    }
+    Ok(RemotePrismQueryResult {
+        runtime_descriptor: descriptor,
+        response: payload,
+    })
+}
+
+struct PeerRuntimeQueryFailure {
+    error: anyhow::Error,
+    retryable: bool,
+}
+
+fn query_peer_runtime_endpoint(
+    client: &reqwest::blocking::Client,
+    endpoint: &str,
+    runtime_id: &str,
+    request: &PeerRuntimeQueryRequest,
+) -> std::result::Result<PeerRuntimeQueryResponse, PeerRuntimeQueryFailure> {
     let response = client
         .post(endpoint)
-        .json(&PeerRuntimeQueryRequest {
-            credential_id: credential.credential_id,
-            principal_token: credential.principal_token,
-            runtime_id: runtime_id.to_string(),
-            code: code.to_string(),
-            language,
-        })
+        .json(request)
         .send()
-        .map_err(|error| {
-            remote_runtime_query_error(
+        .map_err(|error| PeerRuntimeQueryFailure {
+            error: remote_runtime_query_error(
                 "remote_runtime_unreachable",
                 Some(runtime_id),
                 format!("failed to contact peer runtime `{runtime_id}` at {endpoint}: {error}"),
                 "Check the peer endpoint or public URL in shared coordination, then retry. If the peer is offline, fall back to local reads.",
-            )
+            ),
+            retryable: true,
         })?;
     let status = response.status();
     if !status.is_success() {
-        let body: serde_json::Value = response
-            .json()
+        let body_text = response.text().unwrap_or_default();
+        let body = serde_json::from_str::<serde_json::Value>(&body_text)
             .unwrap_or_else(|_| serde_json::json!({ "code": "peer_runtime_request_failed" }));
         let message = body
             .get("message")
             .and_then(|value| value.as_str())
-            .unwrap_or("peer runtime request failed");
+            .unwrap_or_else(|| {
+                let trimmed = body_text.trim();
+                if trimmed.is_empty() {
+                    "peer runtime request failed"
+                } else {
+                    trimmed
+                }
+            });
         let code = body
             .get("code")
             .and_then(|value| value.as_str())
@@ -315,38 +369,33 @@ pub(crate) fn execute_remote_prism_query(
             }
             _ => "Inspect the peer runtime error and retry with a smaller or simpler query.",
         };
-        return Err(remote_runtime_query_error(
+        let retryable = !matches!(
             mapped_code,
-            Some(runtime_id),
-            format!("peer runtime `{runtime_id}` query failed ({status} {code}): {message}"),
-            next_action,
-        ));
+            "remote_runtime_capability_denied"
+                | "peer_runtime_query_too_large"
+                | "remote_runtime_auth_failed"
+        );
+        return Err(PeerRuntimeQueryFailure {
+            error: remote_runtime_query_error(
+                mapped_code,
+                Some(runtime_id),
+                format!("peer runtime `{runtime_id}` query failed ({status} {code}): {message}"),
+                next_action,
+            ),
+            retryable,
+        });
     }
-    let payload = response
+    response
         .json::<PeerRuntimeQueryResponse>()
-        .map_err(|error| {
-            remote_runtime_query_error(
+        .map_err(|error| PeerRuntimeQueryFailure {
+            error: remote_runtime_query_error(
                 "remote_runtime_response_invalid",
                 Some(runtime_id),
                 format!("failed to decode peer runtime query response from {endpoint}: {error}"),
                 "Retry the query. If it keeps failing, inspect the peer runtime version and response format.",
-            )
-        })?;
-    if payload.runtime_id != descriptor.runtime_id {
-        return Err(remote_runtime_query_error(
-            "remote_runtime_descriptor_stale",
-            Some(runtime_id),
-            format!(
-                "shared coordination resolved runtime `{runtime_id}`, but the peer responded as `{}`",
-                payload.runtime_id
             ),
-            "Refresh shared coordination so the runtime descriptor matches the live peer, or target the newer runtime id.",
-        ));
-    }
-    Ok(RemotePrismQueryResult {
-        runtime_descriptor: descriptor,
-        response: payload,
-    })
+            retryable: true,
+        })
 }
 
 fn resolve_local_peer_read_credential(root: &Path) -> Result<LocalPeerReadCredential> {
@@ -781,6 +830,85 @@ mod tests {
             .runtime_descriptor
             .capabilities
             .contains(&prism_coordination::RuntimeDescriptorCapability::BoundedPeerReads));
+
+        let _ = shutdown.send(());
+    }
+
+    #[tokio::test]
+    async fn execute_remote_prism_query_falls_back_to_peer_endpoint_when_public_url_is_offline() {
+        let _guard = PEER_RUNTIME_TEST_LOCK.lock().unwrap();
+        let root = init_git_workspace("task/peer-runtime-public-fallback");
+        let session = peer_runtime_session(&root);
+        let owner = session
+            .bootstrap_owner_principal(BootstrapOwnerInput {
+                authority_id: None,
+                name: "Owner".to_string(),
+                role: Some("owner".to_string()),
+            })
+            .unwrap();
+        let owner_auth = session
+            .authenticate_principal_credential(
+                &owner.credential.credential_id,
+                &owner.principal_token,
+            )
+            .unwrap();
+        let child = session
+            .mint_principal_credential(
+                &owner_auth,
+                MintPrincipalRequest {
+                    authority_id: None,
+                    kind: PrincipalKind::Agent,
+                    name: "Peer Reader".to_string(),
+                    role: Some("peer_reader".to_string()),
+                    parent_principal_id: None,
+                    capabilities: vec![CredentialCapability::ReadPeerRuntime],
+                    profile: serde_json::json!({}),
+                },
+            )
+            .unwrap();
+        persist_active_credential(
+            &root,
+            "peer-reader",
+            &child.principal.principal_id.0,
+            &child.credential.credential_id.0,
+            &child.principal_token,
+        );
+        let host = Arc::new(QueryHost::with_session_and_limits_and_features(
+            session,
+            prism_query::QueryLimits::default(),
+            peer_runtime_features(),
+        ));
+
+        let (addr, shutdown) = serve_peer_router(root.clone(), host).await;
+        let paths = PrismPaths::for_workspace_root(&root).unwrap();
+        let uri_path = paths.mcp_http_uri_path().unwrap();
+        let public_url_path = paths.mcp_public_url_path().unwrap();
+        std::fs::create_dir_all(uri_path.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(public_url_path.parent().unwrap()).unwrap();
+        std::fs::write(&uri_path, format!("http://{addr}/mcp")).unwrap();
+        std::fs::write(
+            &public_url_path,
+            "http://127.0.0.1:9/peer/query\n",
+        )
+        .unwrap();
+        sync_live_runtime_descriptor(&root).unwrap();
+
+        let runtime_id = local_runtime_id(&root);
+        let root_for_query = root.clone();
+        let runtime_id_for_query = runtime_id.clone();
+        let result = tokio::task::spawn_blocking(move || {
+            execute_remote_prism_query(
+                &root_for_query,
+                &runtime_id_for_query,
+                "return { peerFallback: true };",
+                crate::QueryLanguage::Ts,
+            )
+        })
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(result.response.runtime_id, runtime_id);
+        assert_eq!(result.response.result.result["peerFallback"], Value::Bool(true));
 
         let _ = shutdown.send(());
     }

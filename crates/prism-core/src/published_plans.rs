@@ -21,7 +21,8 @@ use crate::protected_state::repo_streams::{
 };
 use crate::protected_state::streams::classify_protected_repo_relative_path;
 use crate::shared_coordination_ref::{
-    load_shared_coordination_ref_state, sync_shared_coordination_ref_state,
+    load_shared_coordination_ref_state, load_shared_coordination_ref_state_authoritative,
+    sync_shared_coordination_ref_state,
 };
 use crate::tracked_snapshot::{
     load_tracked_coordination_snapshot_state, remove_obsolete_legacy_tracked_authority_artifacts,
@@ -390,7 +391,12 @@ pub(crate) fn load_hydrated_coordination_snapshot(
     root: &Path,
     snapshot: Option<CoordinationSnapshot>,
 ) -> Result<Option<CoordinationSnapshot>> {
-    if let Some(shared) = load_shared_coordination_ref_state(root)? {
+    let shared_state = if snapshot.is_some() {
+        load_shared_coordination_ref_state_authoritative(root)?
+    } else {
+        load_shared_coordination_ref_state(root)?
+    };
+    if let Some(shared) = shared_state {
         return Ok(match snapshot {
             Some(snapshot) => Some(merge_shared_coordination_into_snapshot(
                 snapshot,
@@ -426,7 +432,12 @@ pub(crate) fn load_hydrated_coordination_plan_state(
     root: &Path,
     snapshot: Option<CoordinationSnapshot>,
 ) -> Result<Option<HydratedCoordinationPlanState>> {
-    if let Some(mut shared) = load_shared_coordination_ref_state(root)? {
+    let shared_state = if snapshot.is_some() {
+        load_shared_coordination_ref_state_authoritative(root)?
+    } else {
+        load_shared_coordination_ref_state(root)?
+    };
+    if let Some(mut shared) = shared_state {
         return Ok(match snapshot {
             Some(snapshot) => {
                 merge_snapshot_bootstrap_into_plan_state(

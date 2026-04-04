@@ -84,6 +84,43 @@ impl MutationOutcomeMeta {
 }
 
 impl PrismMcpServer {
+    fn payload_has_nonempty_string(payload: &Value, keys: &[&str]) -> bool {
+        keys.iter().any(|key| {
+            payload
+                .get(*key)
+                .and_then(Value::as_str)
+                .is_some_and(|value| !value.trim().is_empty())
+        })
+    }
+
+    fn coordination_has_explicit_work_subject(args: &PrismCoordinationArgs) -> bool {
+        if args.task_id.is_some() {
+            return true;
+        }
+        match args.kind {
+            CoordinationMutationKindInput::PlanCreate => false,
+            CoordinationMutationKindInput::PlanUpdate
+            | CoordinationMutationKindInput::PlanArchive => {
+                Self::payload_has_nonempty_string(&args.payload, &["planId", "plan_id"])
+            }
+            CoordinationMutationKindInput::TaskCreate
+            | CoordinationMutationKindInput::PlanNodeCreate
+            | CoordinationMutationKindInput::PlanEdgeCreate
+            | CoordinationMutationKindInput::PlanEdgeDelete => {
+                Self::payload_has_nonempty_string(&args.payload, &["planId", "plan_id"])
+            }
+            CoordinationMutationKindInput::Update => {
+                Self::payload_has_nonempty_string(&args.payload, &["id", "taskId", "task_id"])
+            }
+            CoordinationMutationKindInput::Handoff
+            | CoordinationMutationKindInput::Resume
+            | CoordinationMutationKindInput::Reclaim
+            | CoordinationMutationKindInput::HandoffAccept => {
+                Self::payload_has_nonempty_string(&args.payload, &["taskId", "task_id"])
+            }
+        }
+    }
+
     fn resource_content_uri(content: &ResourceContents) -> &str {
         match content {
             ResourceContents::TextResourceContents { uri, .. }
@@ -1447,7 +1484,7 @@ impl PrismMcpServer {
                 if let Err(error) = self.require_declared_work_context_with_run(
                     &run,
                     "coordination",
-                    args.task_id.is_some(),
+                    Self::coordination_has_explicit_work_subject(&args),
                 ) {
                     run.finish_error(error.to_string());
                     return Err(error);

@@ -3,7 +3,7 @@
 Validated on `2026-04-04` against [`docs/PRISM_SHARED_COORDINATION_REFS.md`](/Users/bene/code/prism-protected-state-runtime-sync/docs/PRISM_SHARED_COORDINATION_REFS.md).
 
 This file records the concrete evidence used to validate the shared-ref implementation before the
-final documentation-closure pass updates the design doc itself to implemented reality.
+documentation-closure pass updated the design doc itself to implemented reality.
 
 ## Coverage Matrix
 

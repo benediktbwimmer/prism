@@ -1,6 +1,6 @@
 # PRISM Shared Coordination Refs
 
-Status: proposed target design with frozen implementation gap matrix
+Status: implemented architecture with validated coverage
 Audience: PRISM core, coordination, storage, git execution, and MCP maintainers
 Scope: shared multi-agent coordination without an external database
 
@@ -8,7 +8,7 @@ Scope: shared multi-agent coordination without an external database
 
 ## 1. Summary
 
-PRISM should use a dedicated shared Git ref namespace as its authoritative cross-branch
+PRISM uses a dedicated shared Git ref namespace as its authoritative cross-branch
 coordination plane.
 
 This replaces the need for a separate shared remote database for durable coordination state such as:
@@ -32,7 +32,7 @@ The core idea is:
 This gives PRISM one repo-native shared control plane, keeps history auditable in Git, and avoids
 splitting truth across Git plus an external coordination service.
 
-### 1.1 Implemented baseline vs remaining gaps
+### 1.1 Implemented coverage and closure status
 
 As of April 4, 2026, the repo has already implemented the baseline needed to stop treating the
 shared coordination ref as a startup database:
@@ -45,36 +45,44 @@ shared coordination ref as a startup database:
 - explicit sync-path checkpoint refresh lives in
   `crates/prism-core/src/coordination_persistence.rs` and
   `crates/prism-core/src/watch.rs`
+- branch publication, shared-coordination publication, and verified target integration are tracked
+  as distinct durable lifecycle states across coordination, query, and MCP surfaces
+- `manual_pr`, `auto_pr`, `direct_integrate`, and `external` integration modes all record trusted
+  integration evidence and verified landing state instead of collapsing target integration into
+  plain task completion
+- authoritative lease publication, bounded local assisted renewal, compaction continuity metadata,
+  retry counters, and degraded verification diagnostics are implemented on the live shared ref
 - daemon startup timing boundaries live in `crates/prism-core/src/indexer.rs`,
   `crates/prism-core/src/session_bootstrap.rs`, `crates/prism-mcp/src/lib.rs`, and
   `crates/prism-mcp/src/daemon_mode.rs`
 - the startup-decoupling execution plan is already closed in
   `docs/prism/plans/active/plan-01knb0f1xztpmmbjjzetw9xbwg.md`
+- the full validation matrix and release-daemon dogfooding evidence live in
+  `docs/SHARED_COORDINATION_REFS_VALIDATION.md`
 
-No items in the matrix below are intentionally deferred. Anything not listed as implemented above
-should be treated as an active shared-ref gap that must close before this document can stop calling
-itself a target design.
+No items in the matrix below remain intentionally deferred. The matrix is now a closure record for
+the work that brought this document from target design to implemented reality.
 
-### 1.2 Frozen remaining-gap matrix
+### 1.2 Closed implementation matrix
 
-This matrix is the authoritative checklist for the remaining shared-ref work tracked by
+This matrix is the authoritative closure record for the shared-ref work tracked by
 `plan:01knav51cj8vgw0zp49qgktzps`.
 
-| Doc sections | Current status | Gap that remains explicit | Owning code paths | Implementation task |
+| Doc sections | Current status | Implemented result | Owning code paths | Implementation task |
 | --- | --- | --- | --- | --- |
-| `4.3`, `5.2`, `6.1`, `15 Phase 3`, `16` mirror-derivedness coverage | Partial | Branch-local `.prism/state/**` still carries more shared-coordination mirror state than the target design allows; remaining exports must be minimal, derived, and explicitly non-authoritative. | `crates/prism-core/src/shared_coordination_ref.rs`, `crates/prism-core/src/published_plans.rs`, `crates/prism-core/src/prism_doc/repo_state.rs`, `crates/prism-mcp/src/runtime_views.rs` | `coord-task:01knavc6b8qhznt2e1yrn7mmwh` |
-| `10.1` to `10.4`, `10.6`, `10.9`, `11.3`, `11.4`, `14.3`, `14.4` | Partial | Branch publication, shared coordination publication, and verified target integration are still collapsed in parts of the task lifecycle and query surface; they must become three distinct durable states. | `crates/prism-core/src/session.rs`, `crates/prism-core/src/prism_doc/repo_state.rs`, `crates/prism-mcp/src/host_mutations.rs`, `crates/prism-mcp/src/views.rs`, `crates/prism-ir/src/plans.rs` | `coord-task:01knavcv05nn8t2gc1z31gg0fy` |
-| `10.5`, `10.7.2`, `10.7.3` | Partial | Squash and rebase landings still need trusted landing records that bind target commits back to task and review evidence without relying on raw ancestry alone. | `crates/prism-core/src/session.rs`, `crates/prism-mcp/src/host_mutations.rs`, `crates/prism-mcp/src/views.rs`, `crates/prism-ir/src/plans.rs` | `coord-task:01knavdeaf5qs3zp6vycxgkg9t` |
-| `10.8.1`, `10.7`, `14.3` | Partial | `manual_pr` needs review-backed integration evidence, external landing observation, and retryable partial-publication recovery. | `crates/prism-mcp/src/host_mutations.rs`, `crates/prism-mcp/src/git_execution.rs`, `crates/prism-mcp/src/views.rs`, `crates/prism-core/src/session.rs` | `coord-task:01knave01nvcrq91vnt8np1mkg` |
-| `10.8.2`, `10.7`, `14.3` | Partial | `auto_pr` still needs first-class review artifact creation and update flow, merge-enablement state, and verified post-land integration recording. | `crates/prism-mcp/src/host_mutations.rs`, `crates/prism-mcp/src/git_execution.rs`, `crates/prism-mcp/src/views.rs`, `crates/prism-core/src/session.rs` | `coord-task:01knavehyd4a49fk7b4rnjxz67` |
-| `10.8.3`, `10.7`, `14.4` | Partial | `direct_integrate` still needs trusted direct-landing metadata, strict policy checks, and immediate post-land verification and error reporting. | `crates/prism-mcp/src/host_mutations.rs`, `crates/prism-mcp/src/git_execution.rs`, `crates/prism-mcp/src/views.rs`, `crates/prism-core/src/session.rs` | `coord-task:01knavf33fkvpsc79jd5k9tkdj` |
-| `9.3`, `10.9`, `11.2` to `11.4` | Partial | Scheduling, dependency gating, and read/query views still need to distinguish completed, coordination-published, and integrated-to-target states explicitly. | `crates/prism-core/src/session.rs`, `crates/prism-mcp/src/compact_tools/task_brief.rs`, `crates/prism-mcp/src/host_resources.rs`, `crates/prism-mcp/src/views.rs` | `coord-task:01knavfm5fk9gsvb56pbsb58hh` |
-| `12.1`, `12.2`, `16` lease-renewal coverage | Partial | Durable lease acquisition, renewal, expiry, reclaim, and handoff facts need to be fully authoritative on the shared ref with low-frequency renewal writes. | `crates/prism-core/src/shared_coordination_ref.rs`, `crates/prism-core/src/session.rs`, `crates/prism-mcp/src/host_mutations.rs`, `crates/prism-ir/src/coordination.rs` | `coord-task:01knavg5dce3ytrw4pbsfrbz1g` |
-| `12.3` | Partial | Assisted renewal remains implemented as a local watcher convenience, but it still needs to be constrained and documented as strictly non-authoritative and off by default. | `crates/prism-core/src/watch.rs`, `crates/prism-mcp/src/lease_advice.rs`, `crates/prism-mcp/src/host_resources.rs`, `crates/prism-mcp/src/runtime_views.rs` | `coord-task:01knavgtmdhbdm9hr190t7n7c7` |
-| `13.2` to `13.4`, `14.1`, operator health surfaces in `17` | Partial | Compaction, archive-boundary trust continuity, retry counters, and operator diagnostics exist in baseline form but still need explicit retention semantics and complete health reporting. | `crates/prism-core/src/shared_coordination_ref.rs`, `crates/prism-core/src/session.rs`, `crates/prism-mcp/src/runtime_views.rs`, `crates/prism-mcp/src/runtime_state.rs` | `coord-task:01knavpwvj8r99x8yarrsam19g` |
-| `14.2` to `14.4` | Partial | Verification failure, degraded-mode behavior, and split publication recovery still need to block silent fallback and stay explicitly diagnosable and retryable. | `crates/prism-core/src/shared_coordination_ref.rs`, `crates/prism-core/src/protected_state/operators.rs`, `crates/prism-mcp/src/runtime_views.rs`, `crates/prism-mcp/src/host_resources.rs` | `coord-task:01knax3zr6tyxkcev2vzd2ptyg` |
-| `16` | Partial | The final test matrix still needs targeted coverage for every lifecycle and integration mode described here, plus release-binary dogfooding against the live daemon. | `crates/prism-core/src/shared_coordination_ref.rs`, `crates/prism-core/src/tests.rs`, `crates/prism-mcp/src/tests.rs`, `crates/prism-mcp/src/tests/server_tool_calls.rs` | `coord-task:01knax49ge8qvv6yabya0k2xrc` |
-| status and closure text across `1`, `15`, `17`, and the published repo projections | Partial | Once the implementation and validation tasks above close, this doc and the generated PRISM plan projections must be rewritten from target-design wording to implemented reality with any true exceptions named explicitly. | `docs/PRISM_SHARED_COORDINATION_REFS.md`, `docs/prism/plans/active/plan-01knav51cj8vgw0zp49qgktzps.md`, `docs/prism/plans/index.md`, `PRISM.md` | `coord-task:01knax5mvp5x40c6wnae7s3r9d` |
+| `4.3`, `5.2`, `6.1`, `15 Phase 3`, `16` mirror-derivedness coverage | Completed | Branch-local `.prism/state/**` no longer mirrors full shared-coordination authority by default; remaining tracked exports are minimal, derived, and explicitly non-authoritative. | `crates/prism-core/src/shared_coordination_ref.rs`, `crates/prism-core/src/published_plans.rs`, `crates/prism-core/src/prism_doc/repo_state.rs`, `crates/prism-mcp/src/runtime_views.rs` | `coord-task:01knavc6b8qhznt2e1yrn7mmwh` |
+| `10.1` to `10.4`, `10.6`, `10.9`, `11.3`, `11.4`, `14.3`, `14.4` | Completed | Branch publication, shared coordination publication, and verified target integration are distinct durable states in lifecycle storage, recovery logic, and query surfaces. | `crates/prism-core/src/session.rs`, `crates/prism-core/src/prism_doc/repo_state.rs`, `crates/prism-mcp/src/host_mutations.rs`, `crates/prism-mcp/src/views.rs`, `crates/prism-ir/src/plans.rs` | `coord-task:01knavcv05nn8t2gc1z31gg0fy` |
+| `10.5`, `10.7.2`, `10.7.3` | Completed | Squash and rebase landings record trusted integration evidence that binds review artifacts, target commits, and tasks without relying on ancestry alone. | `crates/prism-core/src/session.rs`, `crates/prism-mcp/src/host_mutations.rs`, `crates/prism-mcp/src/views.rs`, `crates/prism-ir/src/plans.rs` | `coord-task:01knavdeaf5qs3zp6vycxgkg9t` |
+| `10.8.1`, `10.7`, `14.3` | Completed | `manual_pr` requires review-backed evidence, observes external landing, and keeps partial publication recovery explicit and retryable. | `crates/prism-mcp/src/host_mutations.rs`, `crates/prism-mcp/src/git_execution.rs`, `crates/prism-mcp/src/views.rs`, `crates/prism-core/src/session.rs` | `coord-task:01knave01nvcrq91vnt8np1mkg` |
+| `10.8.2`, `10.7`, `14.3` | Completed | `auto_pr` creates or refreshes review artifacts, tracks merge enablement, and records verified target landing with durable evidence. | `crates/prism-mcp/src/host_mutations.rs`, `crates/prism-mcp/src/git_execution.rs`, `crates/prism-mcp/src/views.rs`, `crates/prism-core/src/session.rs` | `coord-task:01knavehyd4a49fk7b4rnjxz67` |
+| `10.8.3`, `10.7`, `14.4` | Completed | `direct_integrate` enforces preflight policy, emits trusted direct-landing metadata, and verifies the target update immediately. | `crates/prism-mcp/src/host_mutations.rs`, `crates/prism-mcp/src/git_execution.rs`, `crates/prism-mcp/src/views.rs`, `crates/prism-core/src/session.rs` | `coord-task:01knavf33fkvpsc79jd5k9tkdj` |
+| `9.3`, `10.9`, `11.2` to `11.4` | Completed | Scheduling, dependency gating, and read/query views distinguish completion, coordination publication, and target integration explicitly. | `crates/prism-core/src/session.rs`, `crates/prism-mcp/src/compact_tools/task_brief.rs`, `crates/prism-mcp/src/host_resources.rs`, `crates/prism-mcp/src/views.rs` | `coord-task:01knavfm5fk9gsvb56pbsb58hh` |
+| `12.1`, `12.2`, `16` lease-renewal coverage | Completed | Durable lease acquisition, renewal, expiry, reclaim, and handoff facts are authoritative on the shared ref with low-frequency renewal writes. | `crates/prism-core/src/shared_coordination_ref.rs`, `crates/prism-core/src/session.rs`, `crates/prism-mcp/src/host_mutations.rs`, `crates/prism-ir/src/coordination.rs` | `coord-task:01knavg5dce3ytrw4pbsfrbz1g` |
+| `12.3` | Completed | Assisted renewal is constrained to local watcher state, off by default, bounded, and explicitly non-authoritative. | `crates/prism-core/src/watch.rs`, `crates/prism-mcp/src/lease_advice.rs`, `crates/prism-mcp/src/host_resources.rs`, `crates/prism-mcp/src/runtime_views.rs` | `coord-task:01knavgtmdhbdm9hr190t7n7c7` |
+| `13.2` to `13.4`, `14.1`, operator health surfaces in `17` | Completed | Compaction rewrites the live ref with continuity metadata, retry counters are durable, and operator diagnostics expose health, retention, and publish history explicitly. | `crates/prism-core/src/shared_coordination_ref.rs`, `crates/prism-core/src/session.rs`, `crates/prism-mcp/src/runtime_views.rs`, `crates/prism-mcp/src/runtime_state.rs` | `coord-task:01knavpwvj8r99x8yarrsam19g` |
+| `14.2` to `14.4` | Completed | Verification failure, degraded-mode behavior, and split publication recovery block silent fallback and remain explicitly diagnosable and retryable. | `crates/prism-core/src/shared_coordination_ref.rs`, `crates/prism-core/src/protected_state/operators.rs`, `crates/prism-mcp/src/runtime_views.rs`, `crates/prism-mcp/src/host_resources.rs` | `coord-task:01knax3zr6tyxkcev2vzd2ptyg` |
+| `16` | Completed | Targeted coverage for every lifecycle and integration mode, plus release-binary dogfooding against the live daemon, is recorded in the validation matrix. | `crates/prism-core/src/shared_coordination_ref.rs`, `crates/prism-core/src/tests.rs`, `crates/prism-mcp/src/tests.rs`, `crates/prism-mcp/src/tests/server_tool_calls.rs` | `coord-task:01knax49ge8qvv6yabya0k2xrc` |
+| status and closure text across `1`, `15`, `17`, and the published repo projections | Completed | This document now describes implemented reality, and PRISM-managed plan projections can close with no remaining shared-ref gap list. | `docs/PRISM_SHARED_COORDINATION_REFS.md`, `docs/prism/plans/active/plan-01knav51cj8vgw0zp49qgktzps.md`, `docs/prism/plans/index.md`, `PRISM.md` | `coord-task:01knax5mvp5x40c6wnae7s3r9d` |
 
 ---
 
@@ -905,7 +913,7 @@ That can be done by:
 
 The trust story must stay explicit.
 
-The current implementation target for the live shared coordination ref is:
+The implemented live shared coordination ref now uses:
 
 - regular publication records the successful publish timestamp and CAS retry count in the signed
   manifest
@@ -961,43 +969,42 @@ coordination should not advertise success before the branch publication has actu
 
 ---
 
-## 15. Migration Plan
+## 15. Migration Outcome
 
 ### Phase 1: shared-ref read path
 
-- define the shared coordination ref layout
-- add verification and hydration support
-- teach runtime to fetch and read the shared ref
-- keep existing branch-local `.prism` behavior in place
+- the shared coordination ref layout is defined and verified through a signed manifest
+- runtime can fetch, verify, and hydrate the shared ref
+- branch-local `.prism` remained in place during the initial read-path migration
 
 ### Phase 2: shared-ref write path
 
-- publish claims, leases, and task status updates to the shared ref
-- add compare-and-swap push and retry handling
-- surface shared-ref diagnostics
+- claims, leases, task status, and publish metadata are written to the shared ref
+- compare-and-swap push and retry handling is implemented
+- shared-ref diagnostics are surfaced through normal PRISM runtime views
 
 ### Phase 3: branch-local `.prism` demotion
 
-- stop treating branch-local `.prism` as the primary live cross-branch authority
-- keep it as branch-published intent and optional mirror/export
+- branch-local `.prism` is no longer treated as primary live cross-branch authority
+- remaining tracked exports are derived branch publication artifacts rather than hidden authority
 
 ### Phase 4: strict integration with git execution policy
 
-- publish task execution and completion state through the shared ref
-- distinguish branch publication from shared coordination publication
-- ensure final completion only after shared coordination publish succeeds
+- task execution and completion state publish through the shared ref
+- branch publication, shared coordination publication, and verified target integration are distinct
+- strict completion requires shared coordination publication to succeed before global completion
 
 ### Phase 5: retention and compaction
 
-- add live-ref compaction policy
-- add archive/export handling for older coordination detail
-- add operator diagnostics for history size and compaction health
+- live-ref compaction keeps the recent history window bounded
+- archive/export flows can mark explicit archive boundaries when they intentionally sever continuity
+- operator diagnostics expose history size, publish status, retry counts, and compaction health
 
 ---
 
-## 16. Testing Requirements
+## 16. Testing Coverage
 
-Implementation should add explicit coverage for:
+The implementation now includes explicit coverage for:
 
 - cold hydration from the shared coordination ref alone
 - compare-and-swap push races between two writers
@@ -1009,12 +1016,17 @@ Implementation should add explicit coverage for:
 - task completion where branch push fails before shared coordination publish
 - compaction preserving manifest trust continuity
 - branch-local `.prism` mirrors staying derived rather than becoming a second hidden authority
+- `manual_pr`, `auto_pr`, `direct_integrate`, and `external` integration flows with trusted landing
+  evidence and post-land verification
+- degraded verification behavior, publish recovery, and operator repair surfaces
+
+Concrete test and dogfooding evidence is recorded in `docs/SHARED_COORDINATION_REFS_VALIDATION.md`.
 
 ---
 
-## 17. Open Questions
+## 17. Resolved Decisions
 
-The storage and CAS design decisions are locked for v1:
+The storage and CAS design decisions are now implemented for v1:
 
 - use one live shared coordination head per logical repository, not separate heads per domain
 - keep branch-local `.prism/state/**` mirrors minimal, derived, and explicitly non-authoritative
@@ -1029,9 +1041,9 @@ The storage and CAS design decisions are locked for v1:
 
 ---
 
-## 18. Recommendation
+## 18. Conclusion
 
-PRISM should adopt shared coordination refs as the durable cross-branch control plane.
+PRISM now uses shared coordination refs as the durable cross-branch control plane.
 
 This is the cleanest way to:
 
@@ -1041,7 +1053,9 @@ This is the cleanest way to:
 - stay compatible with the snapshot plus signed manifest direction
 - keep the strict `require` git execution model honest
 
-The main constraint is growth control.
+The main operational constraint remains bounded-history growth, which is why compaction continuity,
+archive-boundary metadata, and operator diagnostics are part of the implemented design rather than a
+later follow-up.
 
 That is manageable if PRISM treats the shared ref as:
 
