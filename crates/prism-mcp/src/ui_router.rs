@@ -1,14 +1,15 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use axum::extract::{Query, State};
-use axum::http::StatusCode;
+use axum::body::Body;
+use axum::extract::{Path, Query, State};
+use axum::http::{header::CONTENT_TYPE, Response, StatusCode};
 use axum::response::Html;
 use axum::routing::get;
 use axum::{Json, Router};
 use serde::Deserialize;
 
-use crate::ui_assets::{prism_ui_index_html, prism_ui_unbuilt_html};
+use crate::ui_assets::{prism_ui_asset, prism_ui_index_html, prism_ui_unbuilt_html};
 use crate::ui_read_models::QueryHostUiReadModelsExt;
 use crate::ui_types::{PrismGraphView, PrismOverviewView, PrismPlansView};
 use crate::QueryHost;
@@ -24,6 +25,12 @@ pub(crate) fn routes(state: PrismUiState) -> Router {
         .route("/api/overview", get(prism_ui_overview))
         .route("/api/plans", get(prism_ui_plans))
         .route("/api/graph", get(prism_ui_graph))
+        .route("/dashboard", get(prism_ui_index))
+        .route("/dashboard/", get(prism_ui_index))
+        .route("/dashboard/favicon.svg", get(prism_ui_favicon))
+        .route("/dashboard/assets/{*path}", get(prism_ui_dashboard_asset))
+        .route("/favicon.svg", get(prism_ui_favicon))
+        .route("/assets/{*path}", get(prism_ui_root_asset))
         .route("/", get(prism_ui_index))
         .route("/plans", get(prism_ui_index))
         .route("/plans/", get(prism_ui_index))
@@ -86,6 +93,42 @@ async fn prism_ui_graph(
         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
 }
 
+async fn prism_ui_favicon(
+    State(state): State<PrismUiState>,
+) -> std::result::Result<Response<Body>, (StatusCode, String)> {
+    prism_ui_asset_response(&state, "favicon.svg")
+}
+
+async fn prism_ui_dashboard_asset(
+    State(state): State<PrismUiState>,
+    Path(path): Path<String>,
+) -> std::result::Result<Response<Body>, (StatusCode, String)> {
+    prism_ui_asset_response(&state, &format!("assets/{path}"))
+}
+
+async fn prism_ui_root_asset(
+    State(state): State<PrismUiState>,
+    Path(path): Path<String>,
+) -> std::result::Result<Response<Body>, (StatusCode, String)> {
+    prism_ui_asset_response(&state, &format!("assets/{path}"))
+}
+
+fn prism_ui_asset_response(
+    state: &PrismUiState,
+    path: &str,
+) -> std::result::Result<Response<Body>, (StatusCode, String)> {
+    let Some((bytes, mime)) = prism_ui_asset(&state.root, path)
+        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
+    else {
+        return Err((StatusCode::NOT_FOUND, format!("ui asset not found: {path}")));
+    };
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(CONTENT_TYPE, mime)
+        .body(Body::from(bytes))
+        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -94,23 +137,16 @@ mod tests {
     use tower::util::ServiceExt;
 
     use crate::tests_support::{host_with_session, temp_workspace};
+    use crate::ui_assets::prism_ui_index_html;
     use prism_core::index_workspace_session;
 
     #[tokio::test]
     async fn ui_routes_share_the_same_shell_document() {
         let root = temp_workspace();
-        let dist = root.join("www").join("dashboard").join("dist");
-        std::fs::create_dir_all(&dist).unwrap();
-        std::fs::write(
-            dist.join("index.html"),
-            "<!doctype html><title>PRISM</title>",
-        )
-        .unwrap();
-
         let host = Arc::new(host_with_session(index_workspace_session(&root).unwrap()));
         let router = routes(PrismUiState { host, root });
 
-        for path in ["/", "/plans", "/graph"] {
+        for path in ["/", "/plans", "/graph", "/dashboard"] {
             let response = router
                 .clone()
                 .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
@@ -120,7 +156,43 @@ mod tests {
             let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
             assert!(std::str::from_utf8(&body)
                 .unwrap()
-                .contains("<title>PRISM</title>"));
+                .contains("<title>"));
         }
+    }
+
+    #[tokio::test]
+    async fn ui_routes_serve_bundled_assets() {
+        let root = temp_workspace();
+        let index = prism_ui_index_html(&root).unwrap().unwrap();
+        let asset_path = index
+            .split('"')
+            .find(|segment| segment.starts_with("/dashboard/assets/"))
+            .expect("embedded dashboard asset path")
+            .to_string();
+        let host = Arc::new(host_with_session(index_workspace_session(&root).unwrap()));
+        let router = routes(PrismUiState { host, root });
+
+        let favicon = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/dashboard/favicon.svg")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(favicon.status(), StatusCode::OK);
+
+        let asset = router
+            .oneshot(
+                Request::builder()
+                    .uri(asset_path)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(asset.status(), StatusCode::OK);
     }
 }
