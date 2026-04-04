@@ -9,5 +9,6 @@ Use this instruction set when the prompt is about creating a new plan, refining 
 - Prefer plans that preserve warm-context execution chains when that reduces repeated orientation cost.
 - Use repo concepts, contracts, and current coordination state to shape the plan instead of inventing abstractions in isolation.
 - Publish planning intent explicitly so execution agents can rely on the shared coordination surface.
+- When creating a brand-new plan from scratch, prefer the plan bootstrap mutation instead of assembling the plan incrementally from separate coordination mutations.
 
 {{SHARED_BLOCKS}}
