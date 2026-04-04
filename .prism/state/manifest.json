@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "publishedAt": 1775339189,
+  "publishedAt": 1775339242,
   "publisher": {
     "principalAuthorityId": "local-daemon",
     "principalId": "principal:codex:01kn3xe812hzt1t0mxz2vsp4ds",
@@ -36,7 +36,7 @@
     },
     ".prism/state/indexes/coordination_materialization.json": {
       "path": ".prism/state/indexes/coordination_materialization.json",
-      "sha256": "sha256:b9a1e204802aae748ad0ab2175631e2a1fbe4e51584d8dde29482a668fb04690"
+      "sha256": "sha256:763016d03ad8e18e86b41db237e5ff5d61fe110fa48b53c13c508f7a18704879"
     },
     ".prism/state/indexes/memory.json": {
       "path": ".prism/state/indexes/memory.json",
@@ -51,12 +51,12 @@
       "sha256": "sha256:f77575ce54b660ea0c89621e1b65dc8e3f57f58533e2c5ddc0c7ad5ced01ef0d"
     }
   },
-  "previousManifestDigest": "sha256:6845a027521e9c9f6f2c78e245e494764142f318fd910098613c2777af268559",
+  "previousManifestDigest": "sha256:12809ccb8d323df49b088652539679afb966f0257cbe68434ff7fd4bac1b46b2",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:s39tQjOOvZXXB7lOTCXBy5TClETSeJpN3ZNeW10ELltFg+07hqEyk8xdU5OSltq6NnbB+Lv8cuMAZkzjkZD4CQ=="
+    "value": "base64:0o1B0S/1L1semlD94S02LNVyvcVRNlWcg7KQY73YJn5KAFTGFnQ/kpjfpjVZ4V+e+mtfpQtefzOhHt6bvVquBA=="
   }
 }
