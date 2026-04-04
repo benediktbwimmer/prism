@@ -222,6 +222,55 @@ pub(crate) struct PrismUiTaskCommitView {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiFleetView {
+    pub(crate) generated_at: u64,
+    pub(crate) window_start: u64,
+    pub(crate) window_end: u64,
+    pub(crate) lanes: Vec<PrismUiFleetLaneView>,
+    pub(crate) bars: Vec<PrismUiFleetBarView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiFleetLaneView {
+    pub(crate) id: String,
+    pub(crate) runtime_id: Option<String>,
+    pub(crate) label: String,
+    pub(crate) principal_id: Option<String>,
+    pub(crate) worktree_id: Option<String>,
+    pub(crate) branch_ref: Option<String>,
+    pub(crate) discovery_mode: Option<String>,
+    pub(crate) last_seen_at: Option<u64>,
+    pub(crate) active_bar_count: usize,
+    pub(crate) stale_bar_count: usize,
+    pub(crate) idle: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiFleetBarView {
+    pub(crate) id: String,
+    pub(crate) lane_id: String,
+    pub(crate) runtime_id: Option<String>,
+    pub(crate) task_id: Option<String>,
+    pub(crate) task_title: String,
+    pub(crate) task_status: String,
+    pub(crate) claim_id: Option<String>,
+    pub(crate) claim_status: Option<String>,
+    pub(crate) holder: Option<String>,
+    pub(crate) agent: Option<String>,
+    pub(crate) capability: Option<String>,
+    pub(crate) mode: Option<String>,
+    pub(crate) branch_ref: Option<String>,
+    pub(crate) started_at: u64,
+    pub(crate) ended_at: Option<u64>,
+    pub(crate) duration_seconds: Option<u64>,
+    pub(crate) active: bool,
+    pub(crate) stale: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct GraphPlanTouchpointView {
     pub(crate) plan: PlanListEntryView,
     pub(crate) touched_nodes: Vec<GraphTouchedNodeView>,

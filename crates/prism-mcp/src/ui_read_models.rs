@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use anyhow::{anyhow, Result};
 use prism_coordination::{
@@ -6,7 +6,7 @@ use prism_coordination::{
     ready_task_count_for_active_plans, CoordinationQueueReadModel, CoordinationReadModel,
     WorkClaim,
 };
-use prism_ir::ClaimStatus;
+use prism_ir::{ClaimStatus, CoordinationEventKind, CoordinationTaskStatus};
 use prism_ir::{PlanId, PlanStatus, TaskId};
 use prism_memory::OutcomeRecallQuery;
 
@@ -15,9 +15,10 @@ use crate::ui_types::{
     OverviewPlanSignalsView, OverviewPlanSpotlightView, PrismGraphView,
     PrismOverviewCoordinationQueuesView, PrismOverviewCoordinationView, PrismOverviewSummaryView,
     PrismOverviewTaskView, PrismOverviewView, PrismPlanDetailView, PrismPlansView,
-    PrismUiApiPlaceholderView, PrismUiPlansFiltersView, PrismUiPlansStatsView,
-    PrismUiSessionBootstrapView, PrismUiTaskBlockerEntryView, PrismUiTaskClaimHistoryEntryView,
-    PrismUiTaskCommitView, PrismUiTaskDetailView, PrismUiTaskEditableMetadataView,
+    PrismUiApiPlaceholderView, PrismUiFleetBarView, PrismUiFleetLaneView, PrismUiFleetView,
+    PrismUiPlansFiltersView, PrismUiPlansStatsView, PrismUiSessionBootstrapView,
+    PrismUiTaskBlockerEntryView, PrismUiTaskClaimHistoryEntryView, PrismUiTaskCommitView,
+    PrismUiTaskDetailView, PrismUiTaskEditableMetadataView,
 };
 use crate::views::{
     artifact_view, blocker_view, concept_packet_view, plan_execution_overlay_view,
@@ -51,6 +52,8 @@ const OVERVIEW_COORDINATION_REVIEW_LIMIT: usize = 6;
 const OVERVIEW_COORDINATION_VIOLATION_LIMIT: usize = 6;
 const OVERVIEW_COORDINATION_HANDOFF_LIMIT: usize = 6;
 const OVERVIEW_COORDINATION_CLAIM_LIMIT: usize = 6;
+const UI_FLEET_LOOKBACK_SECONDS: u64 = 7 * 24 * 60 * 60;
+const UI_FLEET_BAR_LIMIT: usize = 256;
 pub(crate) const UI_POLLING_INTERVAL_MS: u64 = 2_000;
 
 #[derive(Debug, Clone, Default)]
@@ -167,6 +170,7 @@ pub(crate) trait QueryHostUiReadModelsExt {
     fn ui_graph_view(&self, selected_concept_handle: Option<&str>) -> Result<PrismGraphView>;
     fn ui_plan_graph_view(&self, plan_id: &str) -> Result<Option<PrismPlanDetailView>>;
     fn ui_task_detail_view(&self, task_id: &str) -> Result<Option<PrismUiTaskDetailView>>;
+    fn ui_fleet_view(&self) -> Result<PrismUiFleetView>;
     fn ui_placeholder_view(&self, endpoint: &str, message: &str) -> PrismUiApiPlaceholderView;
 }
 
@@ -516,6 +520,107 @@ impl QueryHostUiReadModelsExt for QueryHost {
         }))
     }
 
+    fn ui_fleet_view(&self) -> Result<PrismUiFleetView> {
+        let prism = self.current_prism();
+        let snapshot = prism.coordination_snapshot();
+        let now = current_timestamp();
+        let window_start = now.saturating_sub(UI_FLEET_LOOKBACK_SECONDS);
+        let shared_runtime_descriptors = runtime_status(self)
+            .ok()
+            .and_then(|runtime| runtime.shared_coordination_ref)
+            .map(|shared| shared.runtime_descriptors)
+            .unwrap_or_default();
+
+        let task_by_id = snapshot
+            .tasks
+            .iter()
+            .map(|task| (task.id.0.clone(), task.clone()))
+            .collect::<BTreeMap<_, _>>();
+        let claim_release_ts = snapshot
+            .events
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event.kind,
+                    CoordinationEventKind::ClaimReleased | CoordinationEventKind::ClaimContended
+                )
+            })
+            .filter_map(|event| {
+                event.claim
+                    .as_ref()
+                    .map(|claim| (claim.0.to_string(), event.meta.ts))
+            })
+            .fold(BTreeMap::<String, u64>::new(), |mut acc, (claim_id, ts)| {
+                acc.entry(claim_id)
+                    .and_modify(|existing| *existing = (*existing).max(ts))
+                    .or_insert(ts);
+                acc
+            });
+
+        let mut lanes = BTreeMap::<String, FleetLaneAccumulator>::new();
+        for descriptor in shared_runtime_descriptors {
+            let lane = fleet_lane_from_descriptor(&descriptor);
+            lanes.insert(lane.id.clone(), lane);
+        }
+
+        let mut bars = snapshot
+            .claims
+            .iter()
+            .filter_map(|claim| {
+                fleet_bar_from_claim(
+                    claim,
+                    task_by_id.get(claim.task.as_ref()?.0.as_str()),
+                    &claim_release_ts,
+                    now,
+                    window_start,
+                    &mut lanes,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let claim_task_ids = snapshot
+            .claims
+            .iter()
+            .filter_map(|claim| claim.task.as_ref().map(|task| task.0.clone()))
+            .collect::<HashSet<_>>();
+        bars.extend(
+            snapshot
+                .tasks
+                .iter()
+                .filter(|task| task.lease_started_at.is_some())
+                .filter(|task| !claim_task_ids.contains(task.id.0.as_str()))
+                .filter_map(|task| fleet_bar_from_task_lease(task, now, window_start, &mut lanes)),
+        );
+
+        bars.sort_by(|left, right| {
+            right
+                .started_at
+                .cmp(&left.started_at)
+                .then_with(|| left.id.cmp(&right.id))
+        });
+        bars.truncate(UI_FLEET_BAR_LIMIT);
+
+        let mut lanes = lanes
+            .into_values()
+            .map(|lane| lane.finish())
+            .collect::<Vec<_>>();
+        lanes.sort_by(|left, right| {
+            right
+                .active_bar_count
+                .cmp(&left.active_bar_count)
+                .then_with(|| right.last_seen_at.cmp(&left.last_seen_at))
+                .then_with(|| left.label.cmp(&right.label))
+        });
+
+        Ok(PrismUiFleetView {
+            generated_at: now,
+            window_start,
+            window_end: now,
+            lanes,
+            bars,
+        })
+    }
+
     fn ui_placeholder_view(&self, endpoint: &str, message: &str) -> PrismUiApiPlaceholderView {
         PrismUiApiPlaceholderView {
             endpoint: endpoint.to_string(),
@@ -523,6 +628,260 @@ impl QueryHostUiReadModelsExt for QueryHost {
             message: message.to_string(),
         }
     }
+}
+
+#[derive(Debug, Clone)]
+struct FleetLaneAccumulator {
+    id: String,
+    runtime_id: Option<String>,
+    label: String,
+    principal_id: Option<String>,
+    worktree_id: Option<String>,
+    branch_ref: Option<String>,
+    discovery_mode: Option<String>,
+    last_seen_at: Option<u64>,
+    active_bar_count: usize,
+    stale_bar_count: usize,
+}
+
+impl FleetLaneAccumulator {
+    fn finish(self) -> PrismUiFleetLaneView {
+        PrismUiFleetLaneView {
+            id: self.id,
+            runtime_id: self.runtime_id,
+            label: self.label,
+            principal_id: self.principal_id,
+            worktree_id: self.worktree_id,
+            branch_ref: self.branch_ref,
+            discovery_mode: self.discovery_mode,
+            last_seen_at: self.last_seen_at,
+            active_bar_count: self.active_bar_count,
+            stale_bar_count: self.stale_bar_count,
+            idle: self.active_bar_count == 0,
+        }
+    }
+}
+
+fn fleet_lane_from_descriptor(
+    descriptor: &prism_js::RuntimeSharedCoordinationRuntimeDescriptorView,
+) -> FleetLaneAccumulator {
+    FleetLaneAccumulator {
+        id: descriptor.runtime_id.clone(),
+        runtime_id: Some(descriptor.runtime_id.clone()),
+        label: fleet_lane_label(
+            Some(descriptor.runtime_id.as_str()),
+            descriptor.branch_ref.as_deref(),
+            Some(descriptor.principal_id.as_str()),
+            descriptor.worktree_id.as_str(),
+        ),
+        principal_id: Some(descriptor.principal_id.clone()),
+        worktree_id: Some(descriptor.worktree_id.clone()),
+        branch_ref: descriptor.branch_ref.clone(),
+        discovery_mode: Some(format!("{:?}", descriptor.discovery_mode).to_ascii_lowercase()),
+        last_seen_at: Some(descriptor.last_seen_at),
+        active_bar_count: 0,
+        stale_bar_count: 0,
+    }
+}
+
+fn fleet_bar_from_claim(
+    claim: &WorkClaim,
+    task: Option<&prism_coordination::CoordinationTask>,
+    claim_release_ts: &BTreeMap<String, u64>,
+    now: u64,
+    window_start: u64,
+    lanes: &mut BTreeMap<String, FleetLaneAccumulator>,
+) -> Option<PrismUiFleetBarView> {
+    let active = claim.status == ClaimStatus::Active;
+    let ended_at = if active {
+        None
+    } else {
+        Some(
+            claim_release_ts
+                .get(claim.id.0.as_str())
+                .copied()
+                .or(claim.refreshed_at)
+                .or(claim.stale_at)
+                .or(Some(claim.expires_at))
+                .unwrap_or(claim.since),
+        )
+    };
+    if !active && ended_at.is_some_and(|ended| ended < window_start) {
+        return None;
+    }
+
+    let lane_id = ensure_fleet_lane(
+        lanes,
+        claim.worktree_id.as_deref().or(task.and_then(|task| task.worktree_id.as_deref())),
+        claim.branch_ref.as_deref().or(task.and_then(|task| task.branch_ref.as_deref())),
+        Some(claim.holder.0.as_str()),
+        claim.agent.as_ref().map(|agent| agent.0.as_str()),
+    );
+    let duration_end = ended_at.unwrap_or(now);
+    let duration_seconds = duration_end.checked_sub(claim.since);
+    let stale = !active && claim.stale_at.is_some_and(|stale_at| stale_at <= duration_end);
+    if let Some(lane) = lanes.get_mut(lane_id.as_str()) {
+        if active {
+            lane.active_bar_count += 1;
+        }
+        if stale {
+            lane.stale_bar_count += 1;
+        }
+    }
+    let runtime_id = lanes
+        .get(lane_id.as_str())
+        .and_then(|lane| lane.runtime_id.clone());
+
+    Some(PrismUiFleetBarView {
+        id: claim.id.0.to_string(),
+        lane_id,
+        runtime_id,
+        task_id: claim.task.as_ref().map(|task_id| task_id.0.to_string()),
+        task_title: task
+            .map(|task| task.title.clone())
+            .unwrap_or_else(|| "Unscoped claim".to_string()),
+        task_status: task
+            .map(|task| format!("{:?}", task.status).to_ascii_lowercase())
+            .unwrap_or_else(|| "unknown".to_string()),
+        claim_id: Some(claim.id.0.to_string()),
+        claim_status: Some(format!("{:?}", claim.status).to_ascii_lowercase()),
+        holder: Some(claim.holder.0.to_string()),
+        agent: claim.agent.as_ref().map(|agent| agent.0.to_string()),
+        capability: Some(format!("{:?}", claim.capability).to_ascii_lowercase()),
+        mode: Some(format!("{:?}", claim.mode).to_ascii_lowercase()),
+        branch_ref: claim
+            .branch_ref
+            .clone()
+            .or_else(|| task.and_then(|task| task.branch_ref.clone())),
+        started_at: claim.since,
+        ended_at,
+        duration_seconds,
+        active,
+        stale,
+    })
+}
+
+fn fleet_bar_from_task_lease(
+    task: &prism_coordination::CoordinationTask,
+    now: u64,
+    window_start: u64,
+    lanes: &mut BTreeMap<String, FleetLaneAccumulator>,
+) -> Option<PrismUiFleetBarView> {
+    let started_at = task.lease_started_at?;
+    let active = matches!(task.status, CoordinationTaskStatus::InProgress);
+    let ended_at = if active {
+        None
+    } else {
+        task.lease_refreshed_at
+            .or(task.lease_stale_at)
+            .or(task.lease_expires_at)
+    };
+    if !active && ended_at.is_some_and(|ended| ended < window_start) {
+        return None;
+    }
+
+    let lane_id = ensure_fleet_lane(
+        lanes,
+        task.worktree_id.as_deref(),
+        task.branch_ref.as_deref(),
+        task.session.as_ref().map(|session| session.0.as_str()),
+        task.assignee.as_ref().map(|agent| agent.0.as_str()),
+    );
+    let duration_end = ended_at.unwrap_or(now);
+    let stale = !active && task.lease_stale_at.is_some_and(|stale_at| stale_at <= duration_end);
+    if let Some(lane) = lanes.get_mut(lane_id.as_str()) {
+        if active {
+            lane.active_bar_count += 1;
+        }
+        if stale {
+            lane.stale_bar_count += 1;
+        }
+    }
+    let runtime_id = lanes
+        .get(lane_id.as_str())
+        .and_then(|lane| lane.runtime_id.clone());
+
+    Some(PrismUiFleetBarView {
+        id: format!("lease:{}", task.id.0),
+        lane_id,
+        runtime_id,
+        task_id: Some(task.id.0.to_string()),
+        task_title: task.title.clone(),
+        task_status: format!("{:?}", task.status).to_ascii_lowercase(),
+        claim_id: None,
+        claim_status: None,
+        holder: task.session.as_ref().map(|session| session.0.to_string()),
+        agent: task.assignee.as_ref().map(|agent| agent.0.to_string()),
+        capability: None,
+        mode: None,
+        branch_ref: task.branch_ref.clone(),
+        started_at,
+        ended_at,
+        duration_seconds: duration_end.checked_sub(started_at),
+        active,
+        stale,
+    })
+}
+
+fn ensure_fleet_lane(
+    lanes: &mut BTreeMap<String, FleetLaneAccumulator>,
+    worktree_id: Option<&str>,
+    branch_ref: Option<&str>,
+    holder: Option<&str>,
+    agent: Option<&str>,
+) -> String {
+    if let Some(worktree_id) = worktree_id {
+        if let Some(existing) = lanes
+            .values()
+            .find(|lane| lane.worktree_id.as_deref() == Some(worktree_id))
+            .map(|lane| lane.id.clone())
+        {
+            if let Some(lane) = lanes.get_mut(existing.as_str()) {
+                if lane.branch_ref.is_none() {
+                    lane.branch_ref = branch_ref.map(str::to_string);
+                }
+            }
+            return existing;
+        }
+    }
+
+    let id = worktree_id
+        .map(|worktree_id| format!("worktree:{worktree_id}"))
+        .or_else(|| branch_ref.map(|branch_ref| format!("branch:{branch_ref}")))
+        .or_else(|| agent.map(|agent| format!("agent:{agent}")))
+        .unwrap_or_else(|| "runtime:unknown".to_string());
+    lanes.entry(id.clone()).or_insert_with(|| FleetLaneAccumulator {
+        id: id.clone(),
+        runtime_id: None,
+        label: fleet_lane_label(None, branch_ref, agent, worktree_id.unwrap_or("unknown")),
+        principal_id: holder.map(str::to_string),
+        worktree_id: worktree_id.map(str::to_string),
+        branch_ref: branch_ref.map(str::to_string),
+        discovery_mode: None,
+        last_seen_at: None,
+        active_bar_count: 0,
+        stale_bar_count: 0,
+    });
+    id
+}
+
+fn fleet_lane_label(
+    runtime_id: Option<&str>,
+    branch_ref: Option<&str>,
+    principal_id: Option<&str>,
+    worktree_id: &str,
+) -> String {
+    if let Some(branch_ref) = branch_ref {
+        return runtime_id
+            .map(|runtime_id| format!("{runtime_id} · {branch_ref}"))
+            .unwrap_or_else(|| branch_ref.to_string());
+    }
+    if let Some(runtime_id) = runtime_id {
+        return runtime_id.to_string();
+    }
+    principal_id
+        .map(|principal| format!("{principal} · {worktree_id}"))
+        .unwrap_or_else(|| worktree_id.to_string())
 }
 
 fn plan_matches_search(plan: &prism_js::PlanListEntryView, query: &str) -> bool {

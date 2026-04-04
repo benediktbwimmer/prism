@@ -13,7 +13,7 @@ use crate::ui_assets::{prism_ui_asset, prism_ui_index_html, prism_ui_unbuilt_htm
 use crate::ui_read_models::{QueryHostUiReadModelsExt, UiPlansQueryOptions};
 use crate::ui_types::{
     PrismGraphView, PrismOverviewView, PrismPlanDetailView, PrismPlansView,
-    PrismUiApiPlaceholderView, PrismUiSessionBootstrapView, PrismUiTaskDetailView,
+    PrismUiFleetView, PrismUiSessionBootstrapView, PrismUiTaskDetailView,
 };
 use crate::QueryHost;
 
@@ -32,7 +32,7 @@ pub(crate) fn routes(state: PrismUiState) -> Router {
         .route("/api/v1/plans", get(prism_ui_plans))
         .route("/api/v1/plans/{plan_id}/graph", get(prism_ui_plan_graph))
         .route("/api/v1/tasks/{task_id}", get(prism_ui_task_detail))
-        .route("/api/v1/fleet", get(prism_ui_fleet_placeholder))
+        .route("/api/v1/fleet", get(prism_ui_fleet))
         .route("/dashboard", get(prism_ui_index))
         .route("/dashboard/", get(prism_ui_index))
         .route("/dashboard/favicon.svg", get(prism_ui_favicon))
@@ -154,13 +154,14 @@ async fn prism_ui_task_detail(
     }
 }
 
-async fn prism_ui_fleet_placeholder(
+async fn prism_ui_fleet(
     State(state): State<PrismUiState>,
-) -> Json<PrismUiApiPlaceholderView> {
-    Json(state.host.ui_placeholder_view(
-        "/api/v1/fleet",
-        "Fleet timeline and runtime utilization read models land in a later operator-console backend task.",
-    ))
+) -> std::result::Result<Json<PrismUiFleetView>, (StatusCode, String)> {
+    state
+        .host
+        .ui_fleet_view()
+        .map(Json)
+        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
 }
 
 async fn prism_ui_favicon(
@@ -295,7 +296,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ui_v1_task_detail_and_fleet_placeholder_are_stable_json() {
+    async fn ui_v1_task_detail_and_fleet_view_are_stable_json() {
         let root = temp_workspace();
         let host = Arc::new(host_with_node(demo_node()));
         let session = test_session(host.as_ref());
@@ -378,7 +379,7 @@ mod tests {
         assert_eq!(task_response.status(), StatusCode::OK);
         let task_body = to_bytes(task_response.into_body(), usize::MAX).await.unwrap();
         let task_value: Value = serde_json::from_slice(&task_body).unwrap();
-        assert_eq!(task_value["task"]["id"], Value::from(task_id));
+        assert_eq!(task_value["task"]["id"], Value::from(task_id.clone()));
         assert_eq!(
             task_value["editable"]["title"],
             Value::from("Primary task")
@@ -406,7 +407,16 @@ mod tests {
             .await
             .unwrap();
         let fleet_value: Value = serde_json::from_slice(&fleet_body).unwrap();
-        assert_eq!(fleet_value["status"], Value::from("not_implemented"));
+        assert!(fleet_value["generatedAt"].is_number());
+        assert!(fleet_value["windowStart"].is_number());
+        assert!(fleet_value["windowEnd"].is_number());
+        assert!(fleet_value["lanes"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()));
+        assert!(fleet_value["bars"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()));
+        assert_eq!(fleet_value["bars"][0]["taskId"], Value::from(task_id));
     }
 
     #[tokio::test]
