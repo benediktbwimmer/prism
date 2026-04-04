@@ -1,21 +1,21 @@
 {
   "version": 1,
-  "publishedAt": 1775343348,
+  "publishedAt": 1775345727,
   "publisher": {
     "principalAuthorityId": "local-daemon",
     "principalId": "principal:codex:01kn3xe812hzt1t0mxz2vsp4ds",
     "credentialId": "credential:01kn3xe812gb7a5d5qgs1wwpez"
   },
   "workContext": {
-    "workId": "coord-task:01knd31g9ssme5k8j2yx3hhvrr",
+    "workId": "coord-task:01knd31v4ya6jc36dc34m9r0mq",
     "kind": "coordination",
-    "title": "Implement the fleet timeline and runtime utilization read model across runtimes claims and leases",
-    "coordinationTaskId": "coord-task:01knd31g9ssme5k8j2yx3hhvrr",
+    "title": "Implement POST /api/v1/mutate through the exact MCP mutation authentication and audit path",
+    "coordinationTaskId": "coord-task:01knd31v4ya6jc36dc34m9r0mq",
     "planId": "plan:01knd2zj2hgp4qs7qzfc7rxdgg",
     "planTitle": "Implement the operator console backend and bundled UI delivery"
   },
   "publishSummary": {
-    "title": "Implement the fleet timeline and runtime utilization read model across runtimes claims and leases"
+    "title": "Implement POST /api/v1/mutate through the exact MCP mutation authentication and audit path"
   },
   "files": {
     ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json": {
@@ -36,7 +36,7 @@
     },
     ".prism/state/indexes/coordination_materialization.json": {
       "path": ".prism/state/indexes/coordination_materialization.json",
-      "sha256": "sha256:c4549411e17ead60445d238b47b0201493b83d6ef9b754464eff0622b6071418"
+      "sha256": "sha256:6ac07b3754eb3f338b9f204927a03431ed133b9d553a69e83b8484f3d67955c7"
     },
     ".prism/state/indexes/memory.json": {
       "path": ".prism/state/indexes/memory.json",
@@ -51,12 +51,12 @@
       "sha256": "sha256:f77575ce54b660ea0c89621e1b65dc8e3f57f58533e2c5ddc0c7ad5ced01ef0d"
     }
   },
-  "previousManifestDigest": "sha256:50a6e58d2262576d0c7ecbb26c02aaa19ed6c5bc4ef50ef5a6507c962c66c758",
+  "previousManifestDigest": "sha256:d835d9bde516e77ec37ad8cd4d4a7cad351a74dce7db98774e25518d7ceee95e",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:S0XsZwzKTbyhdP/Sio/PRY4ze/4acTwQv8Y3cx2+sBL87RDFym8PvGxFLk4GF8608m4e3KBQ56VvGpW/XoBRDA=="
+    "value": "base64:qSY64bUZiKEgE8kSGMoO0Z15E5Dj/7ZKh/uGlxtSzCi/WYTqgoWBsT0o3Hhw74kbHLz/GB01DDIDbKdM7pm0CA=="
   }
 }
