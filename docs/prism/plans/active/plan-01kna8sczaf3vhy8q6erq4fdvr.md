@@ -8,9 +8,9 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:ebb9f85c22f52f854fc6a3d6ab4d927bddb9afd5dd4ecf41f3f5f600cd8d56ea`
+- Source head: `sha256:1d50fa9c1f87d329f588294bc0ff4fbe0d3d15d0268f99641bc165798387780a`
 - Source logical timestamp: `unknown`
-- Source snapshot: `4 nodes, 3 edges, 3 overlays`
+- Source snapshot: `4 nodes, 3 edges, 4 overlays`
 
 ## Overview
 
@@ -70,13 +70,13 @@ Add shared-ref runtime descriptors and authenticated peer runtime reads, while s
 
 - Node id: `coord-task:01kna8v52e247h2xymfv8ksdb0`
 - Kind: `edit`
-- Status: `ready`
+- Status: `in_progress`
 
 ## Edges
 
-- `plan-edge:coord-task:01kna8v52e247h2xymfv8ksdb0:depends-on:coord-task:01kna8v02c0p53pdfckcyq0vaw`: `coord-task:01kna8v52e247h2xymfv8ksdb0` depends on `coord-task:01kna8v02c0p53pdfckcyq0vaw`
 - `plan-edge:coord-task:01kna8tv5khkd6ypdg9q6dfs87:depends-on:coord-task:01kna8tgf7s523e5edfv0gc0v9`: `coord-task:01kna8tv5khkd6ypdg9q6dfs87` depends on `coord-task:01kna8tgf7s523e5edfv0gc0v9`
 - `plan-edge:coord-task:01kna8v02c0p53pdfckcyq0vaw:depends-on:coord-task:01kna8tv5khkd6ypdg9q6dfs87`: `coord-task:01kna8v02c0p53pdfckcyq0vaw` depends on `coord-task:01kna8tv5khkd6ypdg9q6dfs87`
+- `plan-edge:coord-task:01kna8v52e247h2xymfv8ksdb0:depends-on:coord-task:01kna8v02c0p53pdfckcyq0vaw`: `coord-task:01kna8v52e247h2xymfv8ksdb0` depends on `coord-task:01kna8v02c0p53pdfckcyq0vaw`
 
 ## Execution Overlays
 
@@ -92,6 +92,11 @@ Add shared-ref runtime descriptors and authenticated peer runtime reads, while s
   publish ref: `task/federated-runtime-implementation`
 - Node: `coord-task:01kna8v02c0p53pdfckcyq0vaw`
   git execution status: `published`
+  source ref: `task/federated-runtime-implementation`
+  target ref: `origin/main`
+  publish ref: `task/federated-runtime-implementation`
+- Node: `coord-task:01kna8v52e247h2xymfv8ksdb0`
+  git execution status: `in_progress`
   source ref: `task/federated-runtime-implementation`
   target ref: `origin/main`
   publish ref: `task/federated-runtime-implementation`

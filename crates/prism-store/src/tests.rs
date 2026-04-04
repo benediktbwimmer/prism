@@ -842,6 +842,7 @@ fn sqlite_store_round_trips_principal_registry_snapshot() {
             token_verifier: "verifier:test".to_string(),
             capabilities: vec![
                 CredentialCapability::MutateCoordination,
+                CredentialCapability::ReadPeerRuntime,
                 CredentialCapability::MintChildPrincipal,
             ],
             status: CredentialStatus::Active,
@@ -856,6 +857,63 @@ fn sqlite_store_round_trips_principal_registry_snapshot() {
     assert_eq!(
         store.load_principal_registry_snapshot().unwrap(),
         Some(snapshot)
+    );
+
+    drop(store);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
+}
+
+#[test]
+fn sqlite_store_loads_principal_registry_snapshot_with_read_peer_runtime_capability() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-principal-registry-peer-runtime-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let mut store = SqliteStore::open(&path).unwrap();
+    let snapshot_json = serde_json::json!({
+        "principals": [{
+            "authority_id": "authority:test",
+            "principal_id": "principal:test",
+            "kind": "agent",
+            "name": "Peer Runtime Agent",
+            "role": "probe",
+            "status": "active",
+            "created_at": 11,
+            "updated_at": 12,
+            "parent_principal_id": serde_json::Value::Null,
+            "profile": serde_json::Value::Null
+        }],
+        "credentials": [{
+            "credential_id": "credential:test",
+            "authority_id": "authority:test",
+            "principal_id": "principal:test",
+            "token_verifier": "verifier:test",
+            "capabilities": ["read_peer_runtime"],
+            "status": "active",
+            "created_at": 13,
+            "last_used_at": serde_json::Value::Null,
+            "revoked_at": serde_json::Value::Null
+        }]
+    });
+    store
+        .conn
+        .execute(
+            "INSERT INTO snapshots(key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            rusqlite::params!["principal_registry", snapshot_json.to_string()],
+        )
+        .unwrap();
+
+    let loaded = store.load_principal_registry_snapshot().unwrap().unwrap();
+    assert_eq!(loaded.credentials.len(), 1);
+    assert_eq!(
+        loaded.credentials[0].capabilities,
+        vec![CredentialCapability::ReadPeerRuntime]
     );
 
     drop(store);

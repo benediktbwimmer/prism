@@ -1,0 +1,84 @@
+{
+  "id": "coord-task:01knax49ge8qvv6yabya0k2xrc",
+  "plan": "plan:01knav51cj8vgw0zp49qgktzps",
+  "kind": "Validate",
+  "title": "Validate the full shared-ref model end to end against the design doc",
+  "summary": "Run the completed implementation against the PRISM_SHARED_COORDINATION_REFS.md contract with targeted and release-binary validation so every remaining section is either proven implemented or explicitly deferred.",
+  "status": "Ready",
+  "published_task_status": null,
+  "assignee": null,
+  "pending_handoff_to": null,
+  "session": null,
+  "lease_holder": null,
+  "lease_started_at": null,
+  "lease_refreshed_at": null,
+  "lease_stale_at": null,
+  "lease_expires_at": null,
+  "worktree_id": null,
+  "branch_ref": null,
+  "anchors": [],
+  "bindings": {
+    "anchors": [],
+    "concept_handles": [],
+    "artifact_refs": [],
+    "memory_refs": [],
+    "outcome_refs": []
+  },
+  "depends_on": [
+    "coord-task:01knavc6b8qhznt2e1yrn7mmwh",
+    "coord-task:01knavcv05nn8t2gc1z31gg0fy",
+    "coord-task:01knavdeaf5qs3zp6vycxgkg9t",
+    "coord-task:01knave01nvcrq91vnt8np1mkg",
+    "coord-task:01knavehyd4a49fk7b4rnjxz67",
+    "coord-task:01knavf33fkvpsc79jd5k9tkdj",
+    "coord-task:01knavfm5fk9gsvb56pbsb58hh",
+    "coord-task:01knavg5dce3ytrw4pbsfrbz1g",
+    "coord-task:01knavgtmdhbdm9hr190t7n7c7",
+    "coord-task:01knavpwvj8r99x8yarrsam19g",
+    "coord-task:01knax3zr6tyxkcev2vzd2ptyg"
+  ],
+  "acceptance": [
+    {
+      "label": "Tests cover cold hydration, CAS races, claim visibility, authoritative lease renewal and expiry, self-write suppression, mirror-derivedness, publication orderings, and all integration modes.",
+      "anchors": []
+    },
+    {
+      "label": "Live release-binary dogfooding validates the MCP, bridge, and shared-ref runtime behavior rather than only in-process test hosts.",
+      "anchors": []
+    },
+    {
+      "label": "Any intentionally deferred behavior is named explicitly instead of being left as an ambiguous gap.",
+      "anchors": []
+    }
+  ],
+  "validation_refs": [],
+  "is_abstract": false,
+  "base_revision": {
+    "graph_version": 174,
+    "git_commit": null
+  },
+  "priority": 87,
+  "tags": [
+    "dogfooding",
+    "shared-ref",
+    "validation"
+  ],
+  "metadata": null,
+  "git_execution": {
+    "status": "not_started",
+    "pendingTaskStatus": null,
+    "sourceRef": null,
+    "targetRef": null,
+    "publishRef": null,
+    "targetBranch": null,
+    "sourceCommit": null,
+    "publishCommit": null,
+    "targetCommitAtPublish": null,
+    "reviewArtifactRef": null,
+    "integrationCommit": null,
+    "integrationMode": "external",
+    "integrationStatus": "not_started",
+    "lastPreflight": null,
+    "lastPublish": null
+  }
+}

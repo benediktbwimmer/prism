@@ -595,6 +595,153 @@
           "shared-ref"
         ],
         "metadata": null
+      },
+      {
+        "id": "coord-task:01knax3zr6tyxkcev2vzd2ptyg",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "kind": "Edit",
+        "title": "Harden degraded verification behavior, silent-fallback prevention, and partial publication recovery",
+        "summary": "Close the recovery-path gaps so verification failures and split publication outcomes are surfaced explicitly, block authoritative hydration when necessary, and remain recoverable without hidden fallback behavior.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Verification failures move runtime state into an explicit degraded mode rather than silently falling back to stale local assumptions.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Branch-push-success/shared-publish-failure and branch-push-failure-before-shared-publish flows are durable, diagnosable, and retryable.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Repair commands and runtime recovery operate against explicit shared-ref publication state instead of inferred local heuristics.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 174,
+          "git_commit": null
+        },
+        "priority": 89,
+        "tags": [
+          "recovery",
+          "shared-ref",
+          "verification"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01knax49ge8qvv6yabya0k2xrc",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "kind": "Validate",
+        "title": "Validate the full shared-ref model end to end against the design doc",
+        "summary": "Run the completed implementation against the PRISM_SHARED_COORDINATION_REFS.md contract with targeted and release-binary validation so every remaining section is either proven implemented or explicitly deferred.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "Tests cover cold hydration, CAS races, claim visibility, authoritative lease renewal and expiry, self-write suppression, mirror-derivedness, publication orderings, and all integration modes.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Live release-binary dogfooding validates the MCP, bridge, and shared-ref runtime behavior rather than only in-process test hosts.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Any intentionally deferred behavior is named explicitly instead of being left as an ambiguous gap.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 174,
+          "git_commit": null
+        },
+        "priority": 87,
+        "tags": [
+          "dogfooding",
+          "shared-ref",
+          "validation"
+        ],
+        "metadata": null
+      },
+      {
+        "id": "coord-task:01knax5mvp5x40c6wnae7s3r9d",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "kind": "Edit",
+        "title": "Update PRISM_SHARED_COORDINATION_REFS.md to implemented reality and close the final gap list",
+        "summary": "Bring the design doc and related published plan docs into sync with the implemented system so the repo stops advertising this as a purely proposed target design once the remaining work is complete.",
+        "status": "Ready",
+        "bindings": {
+          "anchors": [],
+          "concept_handles": [],
+          "artifact_refs": [],
+          "memory_refs": [],
+          "outcome_refs": []
+        },
+        "acceptance": [
+          {
+            "label": "PRISM_SHARED_COORDINATION_REFS.md is updated from target-design wording to implemented reality with explicit remaining exceptions, if any.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "Published plan docs, PRISM.md, and the shared-ref design doc agree on what is complete, partial, or intentionally deferred.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          },
+          {
+            "label": "No remaining shared-ref gaps are left only in chat context; the repo documentation is sufficient for the next agent to resume without reconstructing intent.",
+            "anchors": [],
+            "required_checks": [],
+            "evidence_policy": "Any"
+          }
+        ],
+        "validation_refs": [],
+        "is_abstract": false,
+        "assignee": null,
+        "base_revision": {
+          "graph_version": 174,
+          "git_commit": null
+        },
+        "priority": 86,
+        "tags": [
+          "closure",
+          "docs",
+          "shared-ref"
+        ],
+        "metadata": null
       }
     ],
     "edges": [
@@ -684,6 +831,123 @@
         "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
         "from": "coord-task:01knavpwvj8r99x8yarrsam19g",
         "to": "coord-task:01knav6qm2h72t0pc3xqmv92zt",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knax3zr6tyxkcev2vzd2ptyg:depends-on:coord-task:01knav6qm2h72t0pc3xqmv92zt",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "from": "coord-task:01knax3zr6tyxkcev2vzd2ptyg",
+        "to": "coord-task:01knav6qm2h72t0pc3xqmv92zt",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knax49ge8qvv6yabya0k2xrc:depends-on:coord-task:01knavc6b8qhznt2e1yrn7mmwh",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "from": "coord-task:01knax49ge8qvv6yabya0k2xrc",
+        "to": "coord-task:01knavc6b8qhznt2e1yrn7mmwh",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knax49ge8qvv6yabya0k2xrc:depends-on:coord-task:01knavcv05nn8t2gc1z31gg0fy",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "from": "coord-task:01knax49ge8qvv6yabya0k2xrc",
+        "to": "coord-task:01knavcv05nn8t2gc1z31gg0fy",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knax49ge8qvv6yabya0k2xrc:depends-on:coord-task:01knavdeaf5qs3zp6vycxgkg9t",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "from": "coord-task:01knax49ge8qvv6yabya0k2xrc",
+        "to": "coord-task:01knavdeaf5qs3zp6vycxgkg9t",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knax49ge8qvv6yabya0k2xrc:depends-on:coord-task:01knave01nvcrq91vnt8np1mkg",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "from": "coord-task:01knax49ge8qvv6yabya0k2xrc",
+        "to": "coord-task:01knave01nvcrq91vnt8np1mkg",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knax49ge8qvv6yabya0k2xrc:depends-on:coord-task:01knavehyd4a49fk7b4rnjxz67",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "from": "coord-task:01knax49ge8qvv6yabya0k2xrc",
+        "to": "coord-task:01knavehyd4a49fk7b4rnjxz67",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knax49ge8qvv6yabya0k2xrc:depends-on:coord-task:01knavf33fkvpsc79jd5k9tkdj",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "from": "coord-task:01knax49ge8qvv6yabya0k2xrc",
+        "to": "coord-task:01knavf33fkvpsc79jd5k9tkdj",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knax49ge8qvv6yabya0k2xrc:depends-on:coord-task:01knavfm5fk9gsvb56pbsb58hh",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "from": "coord-task:01knax49ge8qvv6yabya0k2xrc",
+        "to": "coord-task:01knavfm5fk9gsvb56pbsb58hh",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knax49ge8qvv6yabya0k2xrc:depends-on:coord-task:01knavg5dce3ytrw4pbsfrbz1g",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "from": "coord-task:01knax49ge8qvv6yabya0k2xrc",
+        "to": "coord-task:01knavg5dce3ytrw4pbsfrbz1g",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knax49ge8qvv6yabya0k2xrc:depends-on:coord-task:01knavgtmdhbdm9hr190t7n7c7",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "from": "coord-task:01knax49ge8qvv6yabya0k2xrc",
+        "to": "coord-task:01knavgtmdhbdm9hr190t7n7c7",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knax49ge8qvv6yabya0k2xrc:depends-on:coord-task:01knavpwvj8r99x8yarrsam19g",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "from": "coord-task:01knax49ge8qvv6yabya0k2xrc",
+        "to": "coord-task:01knavpwvj8r99x8yarrsam19g",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knax49ge8qvv6yabya0k2xrc:depends-on:coord-task:01knax3zr6tyxkcev2vzd2ptyg",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "from": "coord-task:01knax49ge8qvv6yabya0k2xrc",
+        "to": "coord-task:01knax3zr6tyxkcev2vzd2ptyg",
+        "kind": "DependsOn",
+        "summary": null,
+        "metadata": null
+      },
+      {
+        "id": "plan-edge:coord-task:01knax5mvp5x40c6wnae7s3r9d:depends-on:coord-task:01knax49ge8qvv6yabya0k2xrc",
+        "plan_id": "plan:01knav51cj8vgw0zp49qgktzps",
+        "from": "coord-task:01knax5mvp5x40c6wnae7s3r9d",
+        "to": "coord-task:01knax49ge8qvv6yabya0k2xrc",
         "kind": "DependsOn",
         "summary": null,
         "metadata": null

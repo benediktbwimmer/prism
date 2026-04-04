@@ -4,7 +4,7 @@
   "kind": "Edit",
   "title": "Validate local-machine peer observability, capability denial, and graceful fallback with no peer",
   "summary": null,
-  "status": "Completed",
+  "status": "InProgress",
   "published_task_status": null,
   "assignee": null,
   "pending_handoff_to": null,
@@ -31,7 +31,7 @@
   "validation_refs": [],
   "is_abstract": false,
   "base_revision": {
-    "graph_version": 1249,
+    "graph_version": 1245,
     "git_commit": null
   },
   "priority": null,

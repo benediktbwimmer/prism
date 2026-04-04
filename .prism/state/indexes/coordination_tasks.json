@@ -1802,7 +1802,7 @@
   {
     "id": "coord-task:01kna8v52e247h2xymfv8ksdb0",
     "title": "Validate local-machine peer observability, capability denial, and graceful fallback with no peer",
-    "status": "Completed",
+    "status": "InProgress",
     "path": "tasks/coord-task-01kna8v52e247h2xymfv8ksdb0-49ee0589d9feadf0.json"
   },
   {
@@ -1984,6 +1984,24 @@
     "title": "Finish compaction, archive-boundary trust continuity, and operator diagnostics",
     "status": "Ready",
     "path": "tasks/coord-task-01knavpwvj8r99x8yarrsam19g-21e7f6bd45c08f6b.json"
+  },
+  {
+    "id": "coord-task:01knax3zr6tyxkcev2vzd2ptyg",
+    "title": "Harden degraded verification behavior, silent-fallback prevention, and partial publication recovery",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knax3zr6tyxkcev2vzd2ptyg-dc0aba8fe8733855.json"
+  },
+  {
+    "id": "coord-task:01knax49ge8qvv6yabya0k2xrc",
+    "title": "Validate the full shared-ref model end to end against the design doc",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knax49ge8qvv6yabya0k2xrc-14148e048e975d8e.json"
+  },
+  {
+    "id": "coord-task:01knax5mvp5x40c6wnae7s3r9d",
+    "title": "Update PRISM_SHARED_COORDINATION_REFS.md to implemented reality and close the final gap list",
+    "status": "Ready",
+    "path": "tasks/coord-task-01knax5mvp5x40c6wnae7s3r9d-a04e4ca393222ea0.json"
   },
   {
     "id": "coord-task:1",

@@ -141,7 +141,7 @@
         "kind": "Edit",
         "title": "Validate local-machine peer observability, capability denial, and graceful fallback with no peer",
         "summary": null,
-        "status": "Completed",
+        "status": "InProgress",
         "bindings": {
           "anchors": [],
           "concept_handles": [],
@@ -154,7 +154,7 @@
         "is_abstract": false,
         "assignee": null,
         "base_revision": {
-          "graph_version": 1249,
+          "graph_version": 1245,
           "git_commit": null
         },
         "priority": null,
@@ -274,19 +274,19 @@
       "effective_assignee": null,
       "awaiting_handoff_from": null,
       "git_execution": {
-        "status": "published",
+        "status": "in_progress",
         "pendingTaskStatus": null,
         "sourceRef": "task/federated-runtime-implementation",
         "targetRef": "origin/main",
         "publishRef": "task/federated-runtime-implementation",
         "targetBranch": "main",
-        "sourceCommit": "8b9d27b6d8fa593837dfd18b8fb7c8c7c8fb1fb0",
-        "publishCommit": "acae0827fefb935eace46e521662a015261c840c",
+        "sourceCommit": "8e47e7dc2013b9203aba9d7fe414050fe5e05468",
+        "publishCommit": null,
         "targetCommitAtPublish": "6a64dbf883cf97b0c1e32fa4927c9d6b4bd50310",
         "reviewArtifactRef": null,
         "integrationCommit": null,
         "integrationMode": "external",
-        "integrationStatus": "integration_pending"
+        "integrationStatus": "not_started"
       }
     }
   ]

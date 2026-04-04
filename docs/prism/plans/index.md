@@ -8,14 +8,14 @@
 - Projection class: `published`
 - Authority planes: `published_repo`
 - Projection version: `1`
-- Source head: `sha256:21a27e39a65f7dde81d203381d56804a5243d8f0ee1f03115623af3d766f0be8`
+- Source head: `sha256:94dfd1829b7572d1fd3ba168f3f29352dd5f957563c7bb5f1c09e6cb218c7817`
 - Source logical timestamp: `unknown`
-- Source snapshot: `68 plans, 44 active, 24 archived`
+- Source snapshot: `69 plans, 45 active, 24 archived`
 
 ## Overview
 
-- Published plans: 68
-- Active plans: 44
+- Published plans: 69
+- Active plans: 45
 - Archived plans: 24
 
 ## Active Plans
@@ -34,6 +34,7 @@
 - [Explicit logical repo identity layer for clone-safe shared runtime](active/plan-01kn8rmbb3qf6bxw45w0141rkr.md): Implement a stable repo-published logical_repo_id in .prism, separate it cleanly from local repo-instance and worktree identity, and use it as the future namespace boundary for shared runtime coordination across clones and machines. (`plan:01kn8rmbb3qf6bxw45w0141rkr`)
 - [Extend PRISM runtime and MCP log query views so agents can analyze daemon and MCP call state at worktree scope, repo-wide across all worktrees for the same repo on one machine, and across all available log files, while preserving current worktree-local behavior as the default.](active/plan-01kn82nwqnv42m6fw33pgrabss.md): Extend PRISM runtime and MCP log query views so agents can analyze daemon and MCP call state at worktree scope, repo-wide across all worktrees for the same repo on one machine, and across all available log files, while preserving current worktree-local behavior as the default. (`plan:01kn82nwqnv42m6fw33pgrabss`)
 - [Finish portfolio dispatch with cross-plan dependencies and a ranked actionable inbox](active/plan-01kn8n8wvmcvrqx1tvd6x93qpg.md): Complete the portfolio dispatch feature by modeling cross-plan dependencies explicitly, ranking actionable work across plans with explainable scoring, and exposing a practical inbox/next-work surface for agents. (`plan:01kn8n8wvmcvrqx1tvd6x93qpg`)
+- [Finish PRISM shared coordination refs end to end](active/plan-01knav51cj8vgw0zp49qgktzps.md): Close every remaining implementation gap in docs/PRISM_SHARED_COORDINATION_REFS.md by demoting branch-local mirrors, separating branch publication from coordination publication, completing all integration modes and evidence models, tightening lease and heartbeat semantics, hardening degraded and recovery paths, and validating the full shared-ref model against the design doc section by section. (`plan:01knav51cj8vgw0zp49qgktzps`)
 - [Finish removing legacy tracked .prism append logs](active/plan-01kna4g4q0xn8znaa7bn7s6vq0.md): Make tracked .prism/state the only repo-published authority by removing the remaining tracked legacy append-log surfaces for memory, concepts, contracts, and plans; keep append-only history in shared runtime only; and preserve cold-clone restore, manifest trust semantics, and startup performance. (`plan:01kna4g4q0xn8znaa7bn7s6vq0`)
 - [first-class-plans-spec-alignment](active/plan-01kn2nhn3trvbxej8av70jrvx2.md): first-class-plans-spec-alignment (`plan:01kn2nhn3trvbxej8av70jrvx2`)
 - [Follow up on remaining PRISM usability gaps by improving compact-tool ranking transparency, strengthening concept-to-doc-to-code continuity, hardening workspace/path edge cases, and tightening stale-context repair loops.](active/plan-01kn3cceq1sh4s78yj4m34rww2.md): Follow up on remaining PRISM usability gaps by improving compact-tool ranking transparency, strengthening concept-to-doc-to-code continuity, hardening workspace/path edge cases, and tightening stale-context repair loops. (`plan:01kn3cceq1sh4s78yj4m34rww2`)
