@@ -1,0 +1,91 @@
+use std::path::Path;
+
+use prism_core::{CredentialsFile, PrismPaths, WorkspaceSession};
+
+use crate::resource_schemas::BridgeIdentityView;
+
+pub(crate) fn ui_operator_identity_view(
+    root: &Path,
+    workspace: Option<&WorkspaceSession>,
+) -> BridgeIdentityView {
+    let credentials_path = match PrismPaths::for_workspace_root(root).and_then(|paths| paths.credentials_path()) {
+        Ok(path) => path,
+        Err(error) => {
+            return BridgeIdentityView {
+                status: "unavailable".to_string(),
+                profile: None,
+                principal_id: None,
+                credential_id: None,
+                error: Some(format!("failed to resolve local PRISM credentials path: {error}")),
+                next_action: "Bootstrap a local PRISM owner profile before using the operator console."
+                    .to_string(),
+            };
+        }
+    };
+    let credentials = match CredentialsFile::load(&credentials_path) {
+        Ok(credentials) => credentials,
+        Err(error) => {
+            return BridgeIdentityView {
+                status: "unavailable".to_string(),
+                profile: None,
+                principal_id: None,
+                credential_id: None,
+                error: Some(format!(
+                    "failed to load local PRISM credentials from {}: {error}",
+                    credentials_path.display()
+                )),
+                next_action:
+                    "Run `prism auth login` or bootstrap the local owner principal before using the operator console."
+                        .to_string(),
+            };
+        }
+    };
+    let profile = match credentials.find_by_selector(None, None, None) {
+        Ok(profile) => profile,
+        Err(error) => {
+            return BridgeIdentityView {
+                status: "unavailable".to_string(),
+                profile: None,
+                principal_id: None,
+                credential_id: None,
+                error: Some(error.to_string()),
+                next_action:
+                    "Run `prism auth login` or bootstrap the local owner principal before using the operator console."
+                        .to_string(),
+            };
+        }
+    };
+    let bound = workspace.and_then(WorkspaceSession::bound_worktree_principal);
+    if let Some(bound) = bound.as_ref() {
+        if bound.authority_id != profile.authority_id || bound.principal_id != profile.principal_id
+        {
+            return BridgeIdentityView {
+                status: "conflict".to_string(),
+                profile: Some(profile.profile.clone()),
+                principal_id: Some(profile.principal_id.clone()),
+                credential_id: Some(profile.credential_id.clone()),
+                error: Some(format!(
+                    "worktree is bound to `{}` while the active local profile resolves to `{}`",
+                    bound.principal_id, profile.principal_id
+                )),
+                next_action:
+                    "Switch the active local PRISM profile to the bound principal before using the operator console mutate endpoint."
+                        .to_string(),
+            };
+        }
+    }
+    BridgeIdentityView {
+        status: if bound.is_some() {
+            "bound".to_string()
+        } else {
+            "active_local_profile".to_string()
+        },
+        profile: Some(profile.profile.clone()),
+        principal_id: Some(profile.principal_id.clone()),
+        credential_id: Some(profile.credential_id.clone()),
+        error: None,
+        next_action:
+            "Operator console mutations will be signed with this active local PRISM profile."
+                .to_string(),
+    }
+}

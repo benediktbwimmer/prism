@@ -28,6 +28,7 @@ use crate::views::{
 };
 use crate::{claim_view, coordination_task_view, current_timestamp, QueryHost, SessionState};
 use crate::{host_resources::session_task_view, runtime_views::runtime_status};
+use crate::ui_identity::ui_operator_identity_view;
 
 const OVERVIEW_PLAN_LIMIT: usize = 3;
 const OVERVIEW_PLAN_NEXT_LIMIT: usize = 2;
@@ -1249,6 +1250,9 @@ fn ui_session_view(host: &QueryHost, session: Option<&SessionState>) -> crate::S
     let limits = session
         .map(SessionState::limits)
         .unwrap_or(host.default_limits);
+    let bridge_identity = host
+        .workspace_root()
+        .map(|root| ui_operator_identity_view(root, host.workspace_session().map(|workspace| &**workspace)));
     crate::SessionView {
         workspace_root: host
             .workspace_session()
@@ -1265,7 +1269,7 @@ fn ui_session_view(host: &QueryHost, session: Option<&SessionState>) -> crate::S
         }),
         current_agent: session
             .and_then(|session| session.current_agent().map(|agent| agent.0.to_string())),
-        bridge_identity: None,
+        bridge_identity,
         limits: crate::SessionLimitsView {
             max_result_nodes: limits.max_result_nodes,
             max_call_graph_depth: limits.max_call_graph_depth,

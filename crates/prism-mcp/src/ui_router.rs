@@ -324,6 +324,63 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn ui_v1_session_bootstrap_exposes_active_local_operator_identity() {
+        let root = temp_workspace();
+        let (session, credential) = workspace_session_with_owner_credential(&root);
+        let credentials_path = PrismPaths::for_workspace_root(&root)
+            .unwrap()
+            .credentials_path()
+            .unwrap();
+        let mut credentials = CredentialsFile::load(&credentials_path).unwrap();
+        credentials.upsert_profile(
+            CredentialProfile {
+                profile: "ui-owner".to_string(),
+                authority_id: "local-daemon".to_string(),
+                principal_id: credential.principal_id.clone(),
+                credential_id: credential.credential_id.clone(),
+                principal_token: credential.principal_token.clone(),
+            },
+            true,
+        );
+        credentials.save(&credentials_path).unwrap();
+        let server = Arc::new(PrismMcpServer::with_session(session));
+        let router = routes(PrismUiState {
+            server: Arc::clone(&server),
+            host: Arc::clone(&server.host),
+            root: root.clone(),
+        });
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/session")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let value: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            value["session"]["bridgeIdentity"]["status"],
+            Value::from("active_local_profile")
+        );
+        assert_eq!(
+            value["session"]["bridgeIdentity"]["profile"],
+            Value::from("ui-owner")
+        );
+        assert_eq!(
+            value["session"]["bridgeIdentity"]["principalId"],
+            Value::from(credential.principal_id)
+        );
+        assert_eq!(
+            value["session"]["bridgeIdentity"]["credentialId"],
+            Value::from(credential.credential_id)
+        );
+    }
+
+    #[tokio::test]
     async fn ui_v1_task_detail_and_fleet_view_are_stable_json() {
         let root = temp_workspace();
         let host = Arc::new(host_with_node(demo_node()));
