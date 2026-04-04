@@ -10,10 +10,10 @@ use axum::{Json, Router};
 use serde::Deserialize;
 
 use crate::ui_assets::{prism_ui_asset, prism_ui_index_html, prism_ui_unbuilt_html};
-use crate::ui_read_models::QueryHostUiReadModelsExt;
+use crate::ui_read_models::{QueryHostUiReadModelsExt, UiPlansQueryOptions};
 use crate::ui_types::{
-    PrismGraphView, PrismOverviewView, PrismPlansView, PrismUiApiPlaceholderView,
-    PrismUiSessionBootstrapView,
+    PrismGraphView, PrismOverviewView, PrismPlanDetailView, PrismPlansView,
+    PrismUiApiPlaceholderView, PrismUiSessionBootstrapView,
 };
 use crate::QueryHost;
 
@@ -53,6 +53,10 @@ pub(crate) fn routes(state: PrismUiState) -> Router {
 #[serde(rename_all = "camelCase")]
 struct PlansQuery {
     plan_id: Option<String>,
+    status: Option<String>,
+    search: Option<String>,
+    sort: Option<String>,
+    agent: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -97,7 +101,13 @@ async fn prism_ui_plans(
 ) -> std::result::Result<Json<PrismPlansView>, (StatusCode, String)> {
     state
         .host
-        .ui_plans_view(query.plan_id.as_deref())
+        .ui_plans_view(UiPlansQueryOptions {
+            selected_plan_id: query.plan_id,
+            status: query.status,
+            search: query.search,
+            sort: query.sort,
+            agent: query.agent,
+        })
         .map(Json)
         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
 }
@@ -105,14 +115,17 @@ async fn prism_ui_plans(
 async fn prism_ui_plan_graph(
     State(state): State<PrismUiState>,
     Path(plan_id): Path<String>,
-) -> std::result::Result<Json<prism_js::PlanGraphView>, (StatusCode, String)> {
-    let graph = state
+) -> std::result::Result<Json<PrismPlanDetailView>, (StatusCode, String)> {
+    let detail = state
         .host
         .ui_plan_graph_view(&plan_id)
         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
-    match graph {
-        Some(graph) => Ok(Json(graph)),
-        None => Err((StatusCode::NOT_FOUND, format!("plan graph not found: {plan_id}"))),
+    match detail {
+        Some(detail) => Ok(Json(detail)),
+        None => Err((
+            StatusCode::NOT_FOUND,
+            format!("plan graph not found: {plan_id}"),
+        )),
     }
 }
 
@@ -187,11 +200,15 @@ mod tests {
     use super::*;
     use axum::body::{to_bytes, Body};
     use axum::http::{Request, StatusCode};
+    use serde_json::json;
     use serde_json::Value;
     use tower::util::ServiceExt;
 
-    use crate::tests_support::{host_with_session, temp_workspace};
+    use crate::tests_support::{
+        demo_node, host_with_node, host_with_session, temp_workspace, test_session,
+    };
     use crate::ui_assets::prism_ui_index_html;
+    use crate::{CoordinationMutationKindInput, PrismCoordinationArgs};
     use prism_core::index_workspace_session;
 
     #[tokio::test]
@@ -208,9 +225,7 @@ mod tests {
                 .unwrap();
             assert_eq!(response.status(), StatusCode::OK);
             let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
-            assert!(std::str::from_utf8(&body)
-                .unwrap()
-                .contains("<title>"));
+            assert!(std::str::from_utf8(&body).unwrap().contains("<title>"));
         }
     }
 
@@ -290,5 +305,133 @@ mod tests {
             let value: Value = serde_json::from_slice(&body).unwrap();
             assert_eq!(value["status"], Value::from("not_implemented"));
         }
+    }
+
+    #[tokio::test]
+    async fn ui_v1_plans_support_filters_and_plan_graph_detail() {
+        let root = temp_workspace();
+        let host = Arc::new(host_with_node(demo_node()));
+        let session = test_session(host.as_ref());
+
+        let alpha = host
+            .store_coordination(
+                session.as_ref(),
+                PrismCoordinationArgs {
+                    kind: CoordinationMutationKindInput::PlanCreate,
+                    payload: json!({
+                        "title": "Alpha execution plan",
+                        "goal": "Ship alpha",
+                        "scheduling": {
+                            "importance": 90,
+                            "urgency": 50,
+                            "manualBoost": 20
+                        }
+                    }),
+                    task_id: None,
+                },
+            )
+            .unwrap();
+        let alpha_plan_id = alpha.state["id"].as_str().unwrap().to_string();
+        let alpha_task = host
+            .store_coordination(
+                session.as_ref(),
+                PrismCoordinationArgs {
+                    kind: CoordinationMutationKindInput::PlanNodeCreate,
+                    payload: json!({
+                        "planId": alpha_plan_id,
+                        "title": "Implement alpha graph",
+                        "summary": "Primary strategic graph node"
+                    }),
+                    task_id: None,
+                },
+            )
+            .unwrap();
+        host.store_coordination(
+            session.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Update,
+                payload: json!({
+                    "id": alpha_task.state["id"].as_str().unwrap(),
+                    "assignee": "runtime-alpha"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+
+        let beta = host
+            .store_coordination(
+                session.as_ref(),
+                PrismCoordinationArgs {
+                    kind: CoordinationMutationKindInput::PlanCreate,
+                    payload: json!({
+                        "title": "Beta completion plan",
+                        "goal": "Wrap beta",
+                        "scheduling": {
+                            "importance": 10,
+                            "urgency": 10,
+                            "manualBoost": 0
+                        }
+                    }),
+                    task_id: None,
+                },
+            )
+            .unwrap();
+        let beta_plan_id = beta.state["id"].as_str().unwrap().to_string();
+        host.store_coordination(
+            session.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanUpdate,
+                payload: json!({
+                    "planId": beta_plan_id,
+                    "status": "completed"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+
+        let router = routes(PrismUiState { host, root });
+
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/plans?status=active&search=alpha&sort=priority&agent=runtime-alpha")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let value: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(value["filters"]["status"], Value::from("active"));
+        assert_eq!(value["filters"]["sort"], Value::from("priority"));
+        assert_eq!(value["stats"]["visiblePlans"], Value::from(1));
+        assert_eq!(
+            value["plans"][0]["title"],
+            Value::from("Alpha execution plan")
+        );
+
+        let graph_response = router
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/v1/plans/{alpha_plan_id}/graph"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(graph_response.status(), StatusCode::OK);
+        let graph_body = to_bytes(graph_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let graph_value: Value = serde_json::from_slice(&graph_body).unwrap();
+        assert_eq!(graph_value["plan"]["planId"], Value::from(alpha_plan_id));
+        assert!(graph_value["graph"]["nodes"]
+            .as_array()
+            .is_some_and(|nodes| !nodes.is_empty()));
+        assert!(graph_value["execution"].as_array().is_some());
     }
 }

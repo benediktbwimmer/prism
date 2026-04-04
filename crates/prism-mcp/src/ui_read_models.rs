@@ -12,9 +12,10 @@ use prism_memory::OutcomeRecallQuery;
 use crate::ui_types::{
     GraphPlanTouchpointView, GraphTouchedNodeView, OverviewConceptSpotlightView,
     OverviewPlanSignalsView, OverviewPlanSpotlightView, PrismGraphView,
-    PrismUiApiPlaceholderView, PrismUiSessionBootstrapView,
     PrismOverviewCoordinationQueuesView, PrismOverviewCoordinationView, PrismOverviewSummaryView,
     PrismOverviewTaskView, PrismOverviewView, PrismPlanDetailView, PrismPlansView,
+    PrismUiApiPlaceholderView, PrismUiPlansFiltersView, PrismUiPlansStatsView,
+    PrismUiSessionBootstrapView,
 };
 use crate::views::{
     artifact_view, concept_packet_view, plan_execution_overlay_view, plan_graph_view,
@@ -49,12 +50,119 @@ const OVERVIEW_COORDINATION_HANDOFF_LIMIT: usize = 6;
 const OVERVIEW_COORDINATION_CLAIM_LIMIT: usize = 6;
 pub(crate) const UI_POLLING_INTERVAL_MS: u64 = 2_000;
 
+#[derive(Debug, Clone, Default)]
+pub(crate) struct UiPlansQueryOptions {
+    pub(crate) selected_plan_id: Option<String>,
+    pub(crate) status: Option<String>,
+    pub(crate) search: Option<String>,
+    pub(crate) sort: Option<String>,
+    pub(crate) agent: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UiPlanStatusFilter {
+    Active,
+    Completed,
+    Archived,
+    Blocked,
+    Abandoned,
+    Draft,
+    All,
+}
+
+impl Default for UiPlanStatusFilter {
+    fn default() -> Self {
+        Self::Active
+    }
+}
+
+impl UiPlanStatusFilter {
+    fn parse(value: Option<&str>) -> Self {
+        match value
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(|value| value.to_ascii_lowercase())
+            .as_deref()
+        {
+            Some("all") => Self::All,
+            Some("completed") => Self::Completed,
+            Some("archived") => Self::Archived,
+            Some("blocked") => Self::Blocked,
+            Some("abandoned") => Self::Abandoned,
+            Some("draft") => Self::Draft,
+            Some("active") | None => Self::Active,
+            _ => Self::Active,
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::Completed => "completed",
+            Self::Archived => "archived",
+            Self::Blocked => "blocked",
+            Self::Abandoned => "abandoned",
+            Self::Draft => "draft",
+            Self::All => "all",
+        }
+    }
+
+    fn matches(self, status: PlanStatus) -> bool {
+        match self {
+            Self::Active => status == PlanStatus::Active,
+            Self::Completed => status == PlanStatus::Completed,
+            Self::Archived => status == PlanStatus::Archived,
+            Self::Blocked => status == PlanStatus::Blocked,
+            Self::Abandoned => status == PlanStatus::Abandoned,
+            Self::Draft => status == PlanStatus::Draft,
+            Self::All => true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UiPlanSort {
+    Priority,
+    Completion,
+    Title,
+}
+
+impl Default for UiPlanSort {
+    fn default() -> Self {
+        Self::Priority
+    }
+}
+
+impl UiPlanSort {
+    fn parse(value: Option<&str>) -> Self {
+        match value
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(|value| value.to_ascii_lowercase())
+            .as_deref()
+        {
+            Some("completion") => Self::Completion,
+            Some("title") => Self::Title,
+            Some("priority") | None => Self::Priority,
+            _ => Self::Priority,
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Priority => "priority",
+            Self::Completion => "completion",
+            Self::Title => "title",
+        }
+    }
+}
+
 pub(crate) trait QueryHostUiReadModelsExt {
     fn ui_session_bootstrap_view(&self) -> Result<PrismUiSessionBootstrapView>;
     fn ui_overview_view(&self) -> Result<PrismOverviewView>;
-    fn ui_plans_view(&self, selected_plan_id: Option<&str>) -> Result<PrismPlansView>;
+    fn ui_plans_view(&self, options: UiPlansQueryOptions) -> Result<PrismPlansView>;
     fn ui_graph_view(&self, selected_concept_handle: Option<&str>) -> Result<PrismGraphView>;
-    fn ui_plan_graph_view(&self, plan_id: &str) -> Result<Option<prism_js::PlanGraphView>>;
+    fn ui_plan_graph_view(&self, plan_id: &str) -> Result<Option<PrismPlanDetailView>>;
     fn ui_placeholder_view(&self, endpoint: &str, message: &str) -> PrismUiApiPlaceholderView;
 }
 
@@ -190,15 +298,64 @@ impl QueryHostUiReadModelsExt for QueryHost {
         })
     }
 
-    fn ui_plans_view(&self, selected_plan_id: Option<&str>) -> Result<PrismPlansView> {
+    fn ui_plans_view(&self, options: UiPlansQueryOptions) -> Result<PrismPlansView> {
         let prism = self.current_prism();
-        let plans = prism
+        let all_plans = prism
             .plans(None, None, None)
             .into_iter()
             .map(plan_list_entry_view)
             .collect::<Vec<_>>();
+        let status_filter = UiPlanStatusFilter::parse(options.status.as_deref());
+        let sort = UiPlanSort::parse(options.sort.as_deref());
+        let search = options
+            .search
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string);
+        let agent = options
+            .agent
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string);
+        let stats = PrismUiPlansStatsView {
+            total_plans: all_plans.len(),
+            visible_plans: 0,
+            active_plans: all_plans
+                .iter()
+                .filter(|plan| plan.status == PlanStatus::Active)
+                .count(),
+            completed_plans: all_plans
+                .iter()
+                .filter(|plan| plan.status == PlanStatus::Completed)
+                .count(),
+            archived_plans: all_plans
+                .iter()
+                .filter(|plan| plan.status == PlanStatus::Archived)
+                .count(),
+        };
+        let mut plans = all_plans
+            .into_iter()
+            .filter(|plan| status_filter.matches(plan.status))
+            .filter(|plan| {
+                search
+                    .as_deref()
+                    .map(|query| plan_matches_search(plan, query))
+                    .unwrap_or(true)
+            })
+            .filter(|plan| {
+                agent
+                    .as_deref()
+                    .map(|query| plan_matches_agent(&prism, plan, query))
+                    .unwrap_or(true)
+            })
+            .collect::<Vec<_>>();
+        sort_plan_entries(&mut plans, sort);
 
-        let selected_plan_id = selected_plan_id
+        let selected_plan_id = options
+            .selected_plan_id
+            .as_deref()
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .filter(|value| plans.iter().any(|plan| plan.plan_id == *value))
@@ -210,6 +367,16 @@ impl QueryHostUiReadModelsExt for QueryHost {
         };
 
         Ok(PrismPlansView {
+            filters: PrismUiPlansFiltersView {
+                status: status_filter.as_str().to_string(),
+                search,
+                sort: sort.as_str().to_string(),
+                agent,
+            },
+            stats: PrismUiPlansStatsView {
+                visible_plans: plans.len(),
+                ..stats
+            },
             plans,
             selected_plan_id,
             selected_plan,
@@ -254,10 +421,14 @@ impl QueryHostUiReadModelsExt for QueryHost {
         })
     }
 
-    fn ui_plan_graph_view(&self, plan_id: &str) -> Result<Option<prism_js::PlanGraphView>> {
+    fn ui_plan_graph_view(&self, plan_id: &str) -> Result<Option<PrismPlanDetailView>> {
         let prism = self.current_prism();
-        let plan_id = PlanId::new(plan_id.to_string());
-        Ok(prism.plan_graph(&plan_id).map(plan_graph_view))
+        let plans = prism
+            .plans(None, None, None)
+            .into_iter()
+            .map(plan_list_entry_view)
+            .collect::<Vec<_>>();
+        build_plan_detail_view(self, &prism, &plans, plan_id)
     }
 
     fn ui_placeholder_view(&self, endpoint: &str, message: &str) -> PrismUiApiPlaceholderView {
@@ -267,6 +438,116 @@ impl QueryHostUiReadModelsExt for QueryHost {
             message: message.to_string(),
         }
     }
+}
+
+fn plan_matches_search(plan: &prism_js::PlanListEntryView, query: &str) -> bool {
+    let query = query.to_ascii_lowercase();
+    [
+        plan.title.as_str(),
+        plan.goal.as_str(),
+        plan.summary.as_str(),
+    ]
+    .into_iter()
+    .any(|value| value.to_ascii_lowercase().contains(&query))
+}
+
+fn plan_matches_agent(
+    prism: &prism_query::Prism,
+    plan: &prism_js::PlanListEntryView,
+    query: &str,
+) -> bool {
+    let query = query.to_ascii_lowercase();
+    let plan_id = PlanId::new(plan.plan_id.clone());
+    let graph_match = prism
+        .plan_graph(&plan_id)
+        .map(|graph| {
+            graph.nodes.iter().any(|node| {
+                node.assignee
+                    .as_ref()
+                    .map(|value| value.0.as_str().to_ascii_lowercase().contains(&query))
+                    .unwrap_or(false)
+            })
+        })
+        .unwrap_or(false);
+    if graph_match {
+        return true;
+    }
+
+    prism.plan_execution(&plan_id).into_iter().any(|overlay| {
+        [
+            overlay
+                .effective_assignee
+                .as_ref()
+                .map(|value| value.0.as_str()),
+            overlay
+                .pending_handoff_to
+                .as_ref()
+                .map(|value| value.0.as_str()),
+            overlay
+                .awaiting_handoff_from
+                .as_ref()
+                .map(|value| value.0.as_str()),
+            overlay.session.as_ref().map(|value| value.0.as_str()),
+        ]
+        .into_iter()
+        .flatten()
+        .any(|value| value.to_ascii_lowercase().contains(&query))
+    })
+}
+
+fn sort_plan_entries(plans: &mut [prism_js::PlanListEntryView], sort: UiPlanSort) {
+    match sort {
+        UiPlanSort::Priority => plans.sort_by(priority_sort_cmp),
+        UiPlanSort::Completion => plans.sort_by(completion_sort_cmp),
+        UiPlanSort::Title => plans.sort_by(|left, right| {
+            left.title
+                .to_ascii_lowercase()
+                .cmp(&right.title.to_ascii_lowercase())
+                .then_with(|| left.plan_id.cmp(&right.plan_id))
+        }),
+    }
+}
+
+fn priority_sort_cmp(
+    left: &prism_js::PlanListEntryView,
+    right: &prism_js::PlanListEntryView,
+) -> std::cmp::Ordering {
+    right
+        .scheduling
+        .manual_boost
+        .cmp(&left.scheduling.manual_boost)
+        .then_with(|| right.scheduling.importance.cmp(&left.scheduling.importance))
+        .then_with(|| right.scheduling.urgency.cmp(&left.scheduling.urgency))
+        .then_with(|| {
+            right
+                .plan_summary
+                .actionable_nodes
+                .cmp(&left.plan_summary.actionable_nodes)
+        })
+        .then_with(|| {
+            right
+                .plan_summary
+                .in_progress_nodes
+                .cmp(&left.plan_summary.in_progress_nodes)
+        })
+        .then_with(|| left.title.cmp(&right.title))
+}
+
+fn completion_sort_cmp(
+    left: &prism_js::PlanListEntryView,
+    right: &prism_js::PlanListEntryView,
+) -> std::cmp::Ordering {
+    let left_total = left.plan_summary.total_nodes.max(1);
+    let right_total = right.plan_summary.total_nodes.max(1);
+    (right.plan_summary.completed_nodes * left_total)
+        .cmp(&(left.plan_summary.completed_nodes * right_total))
+        .then_with(|| {
+            right
+                .plan_summary
+                .completed_nodes
+                .cmp(&left.plan_summary.completed_nodes)
+        })
+        .then_with(|| priority_sort_cmp(left, right))
 }
 
 fn clamp_overview_text(text: &str) -> String {

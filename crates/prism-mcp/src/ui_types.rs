@@ -110,9 +110,30 @@ pub(crate) struct OverviewConceptSpotlightView {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismPlansView {
+    pub(crate) filters: PrismUiPlansFiltersView,
+    pub(crate) stats: PrismUiPlansStatsView,
     pub(crate) plans: Vec<PlanListEntryView>,
     pub(crate) selected_plan_id: Option<String>,
     pub(crate) selected_plan: Option<PrismPlanDetailView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiPlansFiltersView {
+    pub(crate) status: String,
+    pub(crate) search: Option<String>,
+    pub(crate) sort: String,
+    pub(crate) agent: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiPlansStatsView {
+    pub(crate) total_plans: usize,
+    pub(crate) visible_plans: usize,
+    pub(crate) active_plans: usize,
+    pub(crate) completed_plans: usize,
+    pub(crate) archived_plans: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
