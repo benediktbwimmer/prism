@@ -24,8 +24,8 @@ use crate::{
     vocabulary_error, AcceptanceCriterionPayload, AcceptanceEvidencePolicyInput, AnchorRefInput,
     CapabilityInput, ClaimModeInput, CoordinationPolicyPayload, CoordinationTaskStatusInput,
     GitExecutionCompletionModeInput, GitExecutionStartModeInput, GitIntegrationModeInput,
-    InferredEdgeScopeInput, LeaseRenewalModeInput, MemoryKindInput, MemorySourceInput, NodeIdInput,
-    OutcomeEvidenceInput, OutcomeKindInput, OutcomeResultInput, PlanBindingPayload,
+    InferredEdgeScopeInput, LeaseRenewalModeInput, MemoryKindInput, MemorySourceInput,
+    NodeIdInput, OutcomeEvidenceInput, OutcomeKindInput, OutcomeResultInput, PlanBindingPayload,
     PlanEdgeKindInput, PlanNodeKindInput, PlanNodeStatusInput, PlanSchedulingPayload,
     PlanStatusInput, ReviewVerdictInput, TaskCompletionContextPayload,
 };

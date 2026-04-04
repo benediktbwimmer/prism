@@ -34,9 +34,9 @@ use serde_json::{json, Value};
 
 use crate::dashboard_events::MutationRun;
 use crate::git_execution::{
-    commit_paths, head_commit, integration_status_after_publish, prism_managed_paths,
-    push_current_branch, restore_prism_managed_paths, restore_prism_managed_roots,
-    run_preflight, user_dirty_paths, verify_target_integration, worktree_dirty_paths,
+    commit_paths, head_commit, prism_managed_paths, push_current_branch,
+    restore_prism_managed_paths, restore_prism_managed_roots, run_preflight, user_dirty_paths,
+    worktree_dirty_paths,
 };
 use crate::MutationProvenance;
 use crate::{
@@ -76,9 +76,42 @@ use crate::{
     SessionState, SparsePatch, SparsePatchInput, TaskCreatePayload, TaskReclaimPayload,
     TaskResumePayload, ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
     ValidationFeedbackVerdictInput, WorkDeclarationKindInput, WorkDeclarationResult,
-    WorkflowStatusInput, WorkflowUpdatePayload, GitIntegrationStatusInput,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+    WorkflowStatusInput, WorkflowUpdatePayload, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
+
+fn record_optional_trace_phase(
+    trace: Option<&MutationRun>,
+    operation: &'static str,
+    args: Value,
+    started: std::time::Instant,
+    success: bool,
+    error: Option<String>,
+) {
+    if let Some(trace) = trace {
+        trace.record_phase(operation, &args, started.elapsed(), success, error);
+    }
+}
+
+fn record_optional_trace_result<T>(
+    trace: Option<&MutationRun>,
+    operation: &'static str,
+    args: Value,
+    started: std::time::Instant,
+    result: &Result<T>,
+) {
+    match result {
+        Ok(_) => record_optional_trace_phase(trace, operation, args, started, true, None),
+        Err(error) => record_optional_trace_phase(
+            trace,
+            operation,
+            args,
+            started,
+            false,
+            Some(error.to_string()),
+        ),
+    }
+}
 use crate::{merge_plan_scheduling_payload, merge_policy_payload};
 
 #[derive(Default)]
@@ -189,117 +222,6 @@ fn coordination_status_bypasses_git_execution(status: prism_ir::CoordinationTask
             | prism_ir::CoordinationTaskStatus::Validating
             | prism_ir::CoordinationTaskStatus::Completed
     )
-}
-
-fn convert_git_integration_status(
-    value: GitIntegrationStatusInput,
-) -> prism_ir::GitIntegrationStatus {
-    match value {
-        GitIntegrationStatusInput::NotStarted => prism_ir::GitIntegrationStatus::NotStarted,
-        GitIntegrationStatusInput::PublishedToBranch => {
-            prism_ir::GitIntegrationStatus::PublishedToBranch
-        }
-        GitIntegrationStatusInput::IntegrationPending => {
-            prism_ir::GitIntegrationStatus::IntegrationPending
-        }
-        GitIntegrationStatusInput::IntegrationInProgress => {
-            prism_ir::GitIntegrationStatus::IntegrationInProgress
-        }
-        GitIntegrationStatusInput::IntegratedToTarget => {
-            prism_ir::GitIntegrationStatus::IntegratedToTarget
-        }
-        GitIntegrationStatusInput::IntegrationFailed => {
-            prism_ir::GitIntegrationStatus::IntegrationFailed
-        }
-    }
-}
-
-fn integration_status_requires_review_artifact(
-    mode: prism_ir::GitIntegrationMode,
-    status: prism_ir::GitIntegrationStatus,
-) -> bool {
-    matches!(
-        (mode, status),
-        (
-            prism_ir::GitIntegrationMode::ManualPr | prism_ir::GitIntegrationMode::AutoPr,
-            prism_ir::GitIntegrationStatus::IntegrationInProgress
-                | prism_ir::GitIntegrationStatus::IntegratedToTarget
-        )
-    )
-}
-
-fn updated_task_git_execution(
-    root: Option<&std::path::Path>,
-    previous: &TaskGitExecution,
-    integration_status: Option<prism_ir::GitIntegrationStatus>,
-    review_artifact_ref: Option<Option<String>>,
-    integration_commit: Option<Option<String>>,
-) -> Result<Option<TaskGitExecution>> {
-    if integration_status.is_none() && review_artifact_ref.is_none() && integration_commit.is_none()
-    {
-        return Ok(None);
-    }
-
-    let mut next = previous.clone();
-    if let Some(review_artifact_ref) = review_artifact_ref {
-        next.review_artifact_ref = review_artifact_ref;
-    }
-    if let Some(integration_commit) = integration_commit {
-        next.integration_commit = integration_commit;
-    }
-
-    let resolved_status = integration_status.unwrap_or(next.integration_status);
-    if integration_status_requires_review_artifact(next.integration_mode, resolved_status)
-        && next.review_artifact_ref.is_none()
-    {
-        return Err(anyhow!(
-            "integration status `{resolved_status:?}` requires a review artifact for integration mode `{}`",
-            format!("{:?}", next.integration_mode).to_ascii_lowercase()
-        ));
-    }
-    if matches!(
-        resolved_status,
-        prism_ir::GitIntegrationStatus::PublishedToBranch
-            | prism_ir::GitIntegrationStatus::IntegrationPending
-            | prism_ir::GitIntegrationStatus::IntegrationInProgress
-            | prism_ir::GitIntegrationStatus::IntegratedToTarget
-            | prism_ir::GitIntegrationStatus::IntegrationFailed
-    ) {
-        if next.publish_commit.is_none() {
-            return Err(anyhow!(
-                "cannot record target integration lifecycle before branch publication is recorded"
-            ));
-        }
-        if next.target_ref.is_none() {
-            return Err(anyhow!(
-                "cannot record target integration lifecycle without a configured target ref"
-            ));
-        }
-    }
-
-    if resolved_status == prism_ir::GitIntegrationStatus::IntegratedToTarget {
-        let root = root.ok_or_else(|| {
-            anyhow!("coordination task integration verification requires a workspace root")
-        })?;
-        let publish_commit = next
-            .publish_commit
-            .as_deref()
-            .ok_or_else(|| anyhow!("integrated_to_target requires a recorded publish commit"))?;
-        let target_ref = next
-            .target_ref
-            .as_deref()
-            .ok_or_else(|| anyhow!("integrated_to_target requires a configured target ref"))?;
-        let verified_commit = verify_target_integration(
-            root,
-            publish_commit,
-            target_ref,
-            next.integration_commit.as_deref(),
-        )?;
-        next.integration_commit = Some(verified_commit);
-    }
-
-    next.integration_status = resolved_status;
-    Ok(Some(next))
 }
 
 fn plan_node_status_bypasses_git_execution(status: prism_ir::PlanNodeStatus) -> bool {
@@ -620,6 +542,7 @@ enum WorkflowUpdateTarget {
     },
 }
 
+#[derive(Debug)]
 enum GitExecutionWorkflow {
     Start,
     Complete(prism_ir::CoordinationTaskStatus),
@@ -1866,7 +1789,7 @@ impl QueryHost {
     ) -> Result<CoordinationMutationResult> {
         self.ensure_tool_enabled("prism_coordination", "coordination workflow mutations")?;
         if let Some(result) =
-            self.maybe_handle_git_execution_coordination(session, &args, authenticated)?
+            self.maybe_handle_git_execution_coordination(session, &args, trace, authenticated)?
         {
             return Ok(result);
         }
@@ -1886,6 +1809,7 @@ impl QueryHost {
                 match workspace.mutate_coordination_with_session_wait_observed(
                     Some(&session.session_id()),
                     |prism| {
+                        let mutation_kind = format!("{:?}", args.kind);
                         let sync_started = std::time::Instant::now();
                         match self.ensure_coordination_runtime_current(workspace) {
                             Ok(()) => {
@@ -1911,7 +1835,19 @@ impl QueryHost {
                                 return Err(error);
                             }
                         }
-                        self.apply_coordination_mutation(session, prism, args, meta.clone())
+                        let apply_started = std::time::Instant::now();
+                        let state =
+                            self.apply_coordination_mutation(session, prism, args, meta.clone());
+                        record_optional_trace_result(
+                            Some(trace),
+                            "mutation.coordination.applyRequestedMutation",
+                            json!({
+                                "kind": mutation_kind,
+                            }),
+                            apply_started,
+                            &state,
+                        );
+                        state
                     },
                     |operation, duration, args, success, error| {
                         trace.record_phase(operation, &args, duration, success, error)
@@ -1967,15 +1903,50 @@ impl QueryHost {
                         }
                     }
                     let prism = self.current_prism();
-                    sync_session_after_coordination_mutation(
+                    let sync_session_started = std::time::Instant::now();
+                    let sync_session_result = sync_session_after_coordination_mutation(
                         self,
                         session,
                         prism.as_ref(),
                         &args_kind,
                         &state,
-                    )?;
-                    self.persist_session_seed(session)?;
+                    );
+                    record_optional_trace_result(
+                        trace,
+                        "mutation.coordination.syncSessionAfter",
+                        json!({
+                            "kind": format!("{:?}", args_kind),
+                        }),
+                        sync_session_started,
+                        &sync_session_result,
+                    );
+                    sync_session_result?;
+                    let persist_seed_started = std::time::Instant::now();
+                    let persist_seed_result = self.persist_session_seed(session);
+                    record_optional_trace_result(
+                        trace,
+                        "mutation.coordination.persistSessionSeed",
+                        json!({
+                            "kind": format!("{:?}", args_kind),
+                        }),
+                        persist_seed_started,
+                        &persist_seed_result,
+                    );
+                    persist_seed_result?;
+                    let audit_started = std::time::Instant::now();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    record_optional_trace_phase(
+                        trace,
+                        "mutation.coordination.auditSince",
+                        json!({
+                            "eventCount": audit.event_ids.len(),
+                            "violationCount": audit.violations.len(),
+                            "rejected": false,
+                        }),
+                        audit_started,
+                        true,
+                        None,
+                    );
                     return Ok(CoordinationMutationResult {
                         event_id: event_id.0.to_string(),
                         event_ids: audit.event_ids,
@@ -1986,7 +1957,20 @@ impl QueryHost {
                 }
                 Err(error) => {
                     let prism = self.current_prism();
+                    let audit_started = std::time::Instant::now();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    record_optional_trace_phase(
+                        trace,
+                        "mutation.coordination.auditSince",
+                        json!({
+                            "eventCount": audit.event_ids.len(),
+                            "violationCount": audit.violations.len(),
+                            "rejected": audit.rejected,
+                        }),
+                        audit_started,
+                        true,
+                        None,
+                    );
                     if audit.rejected && !audit.event_ids.is_empty() {
                         let sync_started = std::time::Instant::now();
                         match self.sync_coordination_revision(workspace) {
@@ -2076,12 +2060,22 @@ impl QueryHost {
         &self,
         session: &SessionState,
         args: &PrismCoordinationArgs,
+        trace: Option<&MutationRun>,
         authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<Option<CoordinationMutationResult>> {
         let Some(workspace) = self.workspace_session() else {
             return Ok(None);
         };
-        self.ensure_coordination_runtime_current(workspace)?;
+        let sync_started = std::time::Instant::now();
+        let sync_result = self.ensure_coordination_runtime_current(workspace);
+        record_optional_trace_result(
+            trace,
+            "mutation.gitExecution.syncLoadedRevisionBefore",
+            json!({}),
+            sync_started,
+            &sync_result,
+        );
+        sync_result?;
         let prism = self.current_prism();
         let Some(request) = git_execution_request(prism.as_ref(), args)? else {
             return Ok(None);
@@ -2109,10 +2103,23 @@ impl QueryHost {
         let before_events = prism.coordination_events().len();
         let now = current_timestamp();
         let require_clean_worktree = matches!(request.workflow, GitExecutionWorkflow::Start);
-        let preflight = run_preflight(root, &policy, now, require_clean_worktree)?;
+        let preflight_started = std::time::Instant::now();
+        let preflight_result = run_preflight(root, &policy, now, require_clean_worktree);
+        record_optional_trace_result(
+            trace,
+            "mutation.gitExecution.preflight",
+            json!({
+                "workflow": format!("{:?}", request.workflow),
+                "requireCleanWorktree": require_clean_worktree,
+            }),
+            preflight_started,
+            &preflight_result,
+        );
+        let preflight = preflight_result?;
         let mut post_sync_publish_branch: Option<String> = None;
         if let Some(failure) = preflight.report.failure.clone() {
-            self.record_task_git_execution(
+            let record_started = std::time::Instant::now();
+            let record_result = self.record_task_git_execution(
                 session,
                 authenticated,
                 &request.task_id,
@@ -2125,18 +2132,43 @@ impl QueryHost {
                     None,
                     prism_ir::GitIntegrationStatus::NotStarted,
                 ),
-            )?;
+                trace,
+            );
+            record_optional_trace_result(
+                trace,
+                "mutation.gitExecution.recordTaskGitExecution",
+                json!({
+                    "status": "preflight_failed",
+                    "taskId": request.task_id.0.as_str(),
+                }),
+                record_started,
+                &record_result,
+            );
+            record_result?;
             return Err(anyhow!(failure));
         }
 
         match request.workflow {
             GitExecutionWorkflow::Start => {
-                if let Err(error) = self.run_raw_coordination_args(
+                let raw_started = std::time::Instant::now();
+                let raw_result = self.run_raw_coordination_args(
                     session,
                     authenticated,
                     &request.task_id,
                     args.clone(),
-                ) {
+                    trace,
+                );
+                record_optional_trace_result(
+                    trace,
+                    "mutation.gitExecution.applyRequestedMutation",
+                    json!({
+                        "workflow": "start",
+                        "taskId": request.task_id.0.as_str(),
+                    }),
+                    raw_started,
+                    &raw_result,
+                );
+                if let Err(error) = raw_result {
                     let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     if audit.rejected && !audit.event_ids.is_empty() {
@@ -2154,7 +2186,8 @@ impl QueryHost {
                     }
                     return Err(error);
                 }
-                self.record_task_git_execution(
+                let record_started = std::time::Instant::now();
+                let record_result = self.record_task_git_execution(
                     session,
                     authenticated,
                     &request.task_id,
@@ -2167,7 +2200,19 @@ impl QueryHost {
                         None,
                         prism_ir::GitIntegrationStatus::NotStarted,
                     ),
-                )?;
+                    trace,
+                );
+                record_optional_trace_result(
+                    trace,
+                    "mutation.gitExecution.recordTaskGitExecution",
+                    json!({
+                        "status": "in_progress",
+                        "taskId": request.task_id.0.as_str(),
+                    }),
+                    record_started,
+                    &record_result,
+                );
+                record_result?;
             }
             GitExecutionWorkflow::Complete(desired_status) => {
                 post_sync_publish_branch = Some(preflight.current_branch.clone());
@@ -2189,7 +2234,8 @@ impl QueryHost {
                                 protected_paths: Vec::new(),
                                 failure: Some(failure.clone()),
                             };
-                            self.record_task_git_execution(
+                            let record_started = std::time::Instant::now();
+                            let record_result = self.record_task_git_execution(
                                 session,
                                 authenticated,
                                 &request.task_id,
@@ -2202,7 +2248,20 @@ impl QueryHost {
                                     Some(failed_publish),
                                     prism_ir::GitIntegrationStatus::NotStarted,
                                 ),
-                            )?;
+                                trace,
+                            );
+                            record_optional_trace_result(
+                                trace,
+                                "mutation.gitExecution.recordTaskGitExecution",
+                                json!({
+                                    "status": "publish_failed",
+                                    "reason": "dirty_user_paths",
+                                    "taskId": request.task_id.0.as_str(),
+                                }),
+                                record_started,
+                                &record_result,
+                            );
+                            record_result?;
                             return Err(anyhow!(failure));
                         }
                         let current_head = head_commit(root)?;
@@ -2224,7 +2283,8 @@ impl QueryHost {
                         unreachable!("completion workflow is gated above")
                     }
                 };
-                if let Err(error) = self.record_task_publish_intent(
+                let publish_intent_started = std::time::Instant::now();
+                let publish_intent_result = self.record_task_publish_intent(
                     session,
                     authenticated,
                     &request.task_id,
@@ -2238,11 +2298,24 @@ impl QueryHost {
                         Some(code_commit.clone()),
                         prism_ir::GitIntegrationStatus::NotStarted,
                     ),
-                ) {
+                    trace,
+                );
+                record_optional_trace_result(
+                    trace,
+                    "mutation.gitExecution.recordPublishIntent",
+                    json!({
+                        "desiredStatus": format!("{desired_status:?}"),
+                        "taskId": request.task_id.0.as_str(),
+                    }),
+                    publish_intent_started,
+                    &publish_intent_result,
+                );
+                if let Err(error) = publish_intent_result {
                     let failure = error.to_string();
                     let mut failed_publish = code_commit.clone();
                     failed_publish.failure = Some(failure.clone());
-                    self.record_task_git_execution_authoritative_state(
+                    let authoritative_started = std::time::Instant::now();
+                    let authoritative_result = self.record_task_git_execution_authoritative_state(
                         session,
                         authenticated,
                         &request.task_id,
@@ -2257,7 +2330,19 @@ impl QueryHost {
                             Some(failed_publish),
                             prism_ir::GitIntegrationStatus::NotStarted,
                         ),
-                    )?;
+                        trace,
+                    );
+                    record_optional_trace_result(
+                        trace,
+                        "mutation.gitExecution.recordAuthoritativeState",
+                        json!({
+                            "status": "publish_failed",
+                            "taskId": request.task_id.0.as_str(),
+                        }),
+                        authoritative_started,
+                        &authoritative_result,
+                    );
+                    authoritative_result?;
                     let dirty_paths = worktree_dirty_paths(root)?;
                     let managed_paths = prism_managed_paths(&dirty_paths);
                     restore_prism_managed_paths(root, &managed_paths)?;
@@ -2319,6 +2404,7 @@ impl QueryHost {
                             Some(failed_publish),
                             prism_ir::GitIntegrationStatus::NotStarted,
                         ),
+                        trace,
                     )?;
                     return Err(anyhow!(failure));
                 }
@@ -2327,12 +2413,24 @@ impl QueryHost {
                     if protected_paths.is_empty() {
                         (None, Vec::new(), Vec::new())
                     } else {
-                        let coordination_commit = commit_paths(
+                        let commit_started = std::time::Instant::now();
+                        let commit_result = commit_paths(
                             root,
                             &coordination_commit_message,
                             current_timestamp(),
                             &protected_paths,
-                        )?;
+                        );
+                        record_optional_trace_result(
+                            trace,
+                            "mutation.gitExecution.commitProtectedPaths",
+                            json!({
+                                "pathCount": protected_paths.len(),
+                                "taskId": request.task_id.0.as_str(),
+                            }),
+                            commit_started,
+                            &commit_result,
+                        );
+                        let coordination_commit = commit_result?;
                         let coordination_commit_sha =
                             coordination_commit.code_commit.clone().ok_or_else(|| {
                                 anyhow!("missing coordination commit sha after git commit")
@@ -2376,17 +2474,31 @@ impl QueryHost {
                             Some(published),
                             prism_ir::GitIntegrationStatus::NotStarted,
                         ),
+                        trace,
                     )?;
                     return Err(anyhow!(failure));
                 }
                 let final_prism_paths = prism_managed_paths(&post_publish_paths);
                 if !final_prism_paths.is_empty() {
-                    let final_commit = commit_paths(
+                    let final_commit_started = std::time::Instant::now();
+                    let final_commit_result = commit_paths(
                         root,
                         &coordination_commit_message,
                         current_timestamp(),
                         &final_prism_paths,
-                    )?;
+                    );
+                    record_optional_trace_result(
+                        trace,
+                        "mutation.gitExecution.commitProtectedPaths",
+                        json!({
+                            "finalize": true,
+                            "pathCount": final_prism_paths.len(),
+                            "taskId": request.task_id.0.as_str(),
+                        }),
+                        final_commit_started,
+                        &final_commit_result,
+                    );
+                    let final_commit = final_commit_result?;
                     let final_commit_sha = final_commit.code_commit.clone().ok_or_else(|| {
                         anyhow!("missing coordination commit sha after final PRISM git commit")
                     })?;
@@ -2400,12 +2512,24 @@ impl QueryHost {
                     published.protected_paths.sort();
                     published.protected_paths.dedup();
                 }
-                if let Err(error) =
-                    push_current_branch(root, &preflight.current_branch, &mut published)
-                {
+                let push_started = std::time::Instant::now();
+                let push_result =
+                    push_current_branch(root, &preflight.current_branch, &mut published);
+                record_optional_trace_result(
+                    trace,
+                    "mutation.gitExecution.pushBranch",
+                    json!({
+                        "branch": preflight.current_branch.as_str(),
+                        "taskId": request.task_id.0.as_str(),
+                    }),
+                    push_started,
+                    &push_result,
+                );
+                if let Err(error) = push_result {
                     let failure = error.to_string();
                     published.failure = Some(failure.clone());
-                    self.record_task_git_execution_authoritative_state(
+                    let authoritative_started = std::time::Instant::now();
+                    let authoritative_result = self.record_task_git_execution_authoritative_state(
                         session,
                         authenticated,
                         &request.task_id,
@@ -2420,7 +2544,19 @@ impl QueryHost {
                             Some(published),
                             prism_ir::GitIntegrationStatus::NotStarted,
                         ),
-                    )?;
+                        trace,
+                    );
+                    record_optional_trace_result(
+                        trace,
+                        "mutation.gitExecution.recordAuthoritativeState",
+                        json!({
+                            "status": "publish_failed",
+                            "taskId": request.task_id.0.as_str(),
+                        }),
+                        authoritative_started,
+                        &authoritative_result,
+                    );
+                    authoritative_result?;
                     let final_authoritative_paths = worktree_dirty_paths(root)?;
                     let unexpected_user_paths = user_dirty_paths(&final_authoritative_paths);
                     if !unexpected_user_paths.is_empty() {
@@ -2441,7 +2577,8 @@ impl QueryHost {
                     }
                     return Err(anyhow!(failure));
                 }
-                self.record_task_git_execution_authoritative_state(
+                let authoritative_started = std::time::Instant::now();
+                let authoritative_result = self.record_task_git_execution_authoritative_state(
                     session,
                     authenticated,
                     &request.task_id,
@@ -2454,9 +2591,21 @@ impl QueryHost {
                         prism_ir::GitExecutionStatus::Published,
                         None,
                         Some(published.clone()),
-                        integration_status_after_publish(policy.integration_mode),
+                        prism_ir::GitIntegrationStatus::PublishedToBranch,
                     ),
-                )?;
+                    trace,
+                );
+                record_optional_trace_result(
+                    trace,
+                    "mutation.gitExecution.recordAuthoritativeState",
+                    json!({
+                        "status": "published",
+                        "taskId": request.task_id.0.as_str(),
+                    }),
+                    authoritative_started,
+                    &authoritative_result,
+                );
+                authoritative_result?;
                 let final_authoritative_paths = worktree_dirty_paths(root)?;
                 let unexpected_user_paths = user_dirty_paths(&final_authoritative_paths);
                 if !unexpected_user_paths.is_empty() {
@@ -2468,28 +2617,89 @@ impl QueryHost {
                 let final_authoritative_prism_paths =
                     prism_managed_paths(&final_authoritative_paths);
                 if !final_authoritative_prism_paths.is_empty() {
-                    let _ = commit_paths(
+                    let finalize_commit_started = std::time::Instant::now();
+                    let finalize_commit_result = commit_paths(
                         root,
                         &coordination_commit_message,
                         current_timestamp(),
                         &final_authoritative_prism_paths,
-                    )?;
-                    push_current_branch(root, &preflight.current_branch, &mut published)?;
+                    );
+                    record_optional_trace_result(
+                        trace,
+                        "mutation.gitExecution.commitProtectedPaths",
+                        json!({
+                            "finalizeAuthoritative": true,
+                            "pathCount": final_authoritative_prism_paths.len(),
+                            "taskId": request.task_id.0.as_str(),
+                        }),
+                        finalize_commit_started,
+                        &finalize_commit_result,
+                    );
+                    let _ = finalize_commit_result?;
+                    let finalize_push_started = std::time::Instant::now();
+                    let finalize_push_result =
+                        push_current_branch(root, &preflight.current_branch, &mut published);
+                    record_optional_trace_result(
+                        trace,
+                        "mutation.gitExecution.pushBranch",
+                        json!({
+                            "finalizeAuthoritative": true,
+                            "branch": preflight.current_branch.as_str(),
+                            "taskId": request.task_id.0.as_str(),
+                        }),
+                        finalize_push_started,
+                        &finalize_push_result,
+                    );
+                    finalize_push_result?;
                 }
             }
         }
 
         let prism = self.current_prism();
+        let audit_started = std::time::Instant::now();
         let audit = coordination_audit_since(prism.as_ref(), before_events);
+        record_optional_trace_phase(
+            trace,
+            "mutation.gitExecution.auditSince",
+            json!({
+                "eventCount": audit.event_ids.len(),
+                "violationCount": audit.violations.len(),
+            }),
+            audit_started,
+            true,
+            None,
+        );
         let state = self.current_task_state_value(&request.task_id)?;
-        sync_session_after_coordination_mutation(
+        let sync_session_started = std::time::Instant::now();
+        let sync_session_result = sync_session_after_coordination_mutation(
             self,
             session,
             prism.as_ref(),
             &args.kind,
             &state,
-        )?;
-        self.persist_session_seed(session)?;
+        );
+        record_optional_trace_result(
+            trace,
+            "mutation.gitExecution.syncSessionAfter",
+            json!({
+                "taskId": request.task_id.0.as_str(),
+            }),
+            sync_session_started,
+            &sync_session_result,
+        );
+        sync_session_result?;
+        let persist_seed_started = std::time::Instant::now();
+        let persist_seed_result = self.persist_session_seed(session);
+        record_optional_trace_result(
+            trace,
+            "mutation.gitExecution.persistSessionSeed",
+            json!({
+                "taskId": request.task_id.0.as_str(),
+            }),
+            persist_seed_started,
+            &persist_seed_result,
+        );
+        persist_seed_result?;
         if let Some(branch) = post_sync_publish_branch {
             let post_sync_paths = worktree_dirty_paths(root)?;
             let unexpected_user_paths = user_dirty_paths(&post_sync_paths);
@@ -2501,13 +2711,27 @@ impl QueryHost {
             }
             let post_sync_prism_paths = prism_managed_paths(&post_sync_paths);
             if !post_sync_prism_paths.is_empty() {
-                let _ = commit_paths(
+                let post_sync_commit_started = std::time::Instant::now();
+                let post_sync_commit_result = commit_paths(
                     root,
                     "prism: finalize coordination publication",
                     current_timestamp(),
                     &post_sync_prism_paths,
-                )?;
-                push_current_branch(
+                );
+                record_optional_trace_result(
+                    trace,
+                    "mutation.gitExecution.commitProtectedPaths",
+                    json!({
+                        "postSyncFinalize": true,
+                        "pathCount": post_sync_prism_paths.len(),
+                        "taskId": request.task_id.0.as_str(),
+                    }),
+                    post_sync_commit_started,
+                    &post_sync_commit_result,
+                );
+                let _ = post_sync_commit_result?;
+                let post_sync_push_started = std::time::Instant::now();
+                let post_sync_push_result = push_current_branch(
                     root,
                     &branch,
                     &mut GitPublishReport {
@@ -2520,7 +2744,19 @@ impl QueryHost {
                         protected_paths: Vec::new(),
                         failure: None,
                     },
-                )?;
+                );
+                record_optional_trace_result(
+                    trace,
+                    "mutation.gitExecution.pushBranch",
+                    json!({
+                        "postSyncFinalize": true,
+                        "branch": branch,
+                        "taskId": request.task_id.0.as_str(),
+                    }),
+                    post_sync_push_started,
+                    &post_sync_push_result,
+                );
+                post_sync_push_result?;
             }
         }
         Ok(Some(CoordinationMutationResult {
@@ -2542,10 +2778,17 @@ impl QueryHost {
         authenticated: Option<&AuthenticatedPrincipal>,
         task_id: &CoordinationTaskId,
         args: PrismCoordinationArgs,
+        trace: Option<&MutationRun>,
     ) -> Result<Value> {
-        self.run_workspace_coordination_step(session, authenticated, task_id, move |prism, meta| {
-            self.apply_coordination_mutation(session, prism, args, meta)
-        })
+        self.run_workspace_coordination_step(
+            session,
+            authenticated,
+            task_id,
+            trace,
+            "mutation.gitExecution.applyRequestedMutationStep",
+            json!({ "taskId": task_id.0.as_str() }),
+            move |prism, meta| self.apply_coordination_mutation(session, prism, args, meta),
+        )
     }
 
     fn record_task_git_execution(
@@ -2554,6 +2797,7 @@ impl QueryHost {
         authenticated: Option<&AuthenticatedPrincipal>,
         task_id: &CoordinationTaskId,
         git_execution: TaskGitExecution,
+        trace: Option<&MutationRun>,
     ) -> Result<prism_coordination::CoordinationTask> {
         let task_id = task_id.clone();
         let task_ref = task_id.clone();
@@ -2561,6 +2805,9 @@ impl QueryHost {
             session,
             authenticated,
             &task_ref,
+            trace,
+            "mutation.gitExecution.recordTaskGitExecutionStep",
+            json!({ "taskId": task_ref.0.as_str() }),
             move |prism, meta| {
                 prism.update_native_task_authoritative_only(
                     meta,
@@ -2602,6 +2849,7 @@ impl QueryHost {
         status: Option<prism_ir::CoordinationTaskStatus>,
         published_task_status: Option<Option<prism_ir::CoordinationTaskStatus>>,
         git_execution: TaskGitExecution,
+        trace: Option<&MutationRun>,
     ) -> Result<prism_coordination::CoordinationTask> {
         let task_id = task_id.clone();
         let task_ref = task_id.clone();
@@ -2609,6 +2857,9 @@ impl QueryHost {
             session,
             authenticated,
             &task_ref,
+            trace,
+            "mutation.gitExecution.recordAuthoritativeStateStep",
+            json!({ "taskId": task_ref.0.as_str() }),
             move |prism, meta| {
                 prism.update_native_task_authoritative_only(
                     meta,
@@ -2649,6 +2900,7 @@ impl QueryHost {
         task_id: &CoordinationTaskId,
         desired_status: prism_ir::CoordinationTaskStatus,
         git_execution: TaskGitExecution,
+        trace: Option<&MutationRun>,
     ) -> Result<prism_coordination::CoordinationTask> {
         let task_id = task_id.clone();
         let task_ref = task_id.clone();
@@ -2656,6 +2908,12 @@ impl QueryHost {
             session,
             authenticated,
             &task_ref,
+            trace,
+            "mutation.gitExecution.recordPublishIntentStep",
+            json!({
+                "desiredStatus": format!("{desired_status:?}"),
+                "taskId": task_ref.0.as_str(),
+            }),
             move |prism, meta| {
                 prism.update_native_task_authoritative_only(
                     meta,
@@ -2694,6 +2952,9 @@ impl QueryHost {
         session: &SessionState,
         authenticated: Option<&AuthenticatedPrincipal>,
         task_id: &CoordinationTaskId,
+        trace: Option<&MutationRun>,
+        operation: &'static str,
+        operation_args: Value,
         mutate: F,
     ) -> Result<T>
     where
@@ -2709,6 +2970,7 @@ impl QueryHost {
             None,
             current_timestamp(),
         );
+        let step_started = std::time::Instant::now();
         let result = workspace.mutate_coordination_with_session_wait_observed(
             Some(&session.session_id()),
             |prism| {
@@ -2717,7 +2979,7 @@ impl QueryHost {
             },
             |_operation, _duration, _args, _success, _error| {},
         );
-        match result {
+        let final_result = match result {
             Ok(Some(value)) => {
                 self.sync_coordination_revision(workspace)?;
                 Ok(value)
@@ -2727,7 +2989,9 @@ impl QueryHost {
                 let _ = self.sync_coordination_revision(workspace);
                 Err(error)
             }
-        }
+        };
+        record_optional_trace_result(trace, operation, operation_args, step_started, &final_result);
+        final_result
     }
 
     fn current_task_state_value(&self, task_id: &CoordinationTaskId) -> Result<Value> {
@@ -3166,15 +3430,9 @@ impl QueryHost {
                     priority,
                     tags,
                     completion_context,
-                    review_artifact_ref,
-                    integration_commit,
-                    integration_status,
                 } = payload;
                 match resolve_workflow_update_target(prism, &id)? {
                     WorkflowUpdateTarget::CoordinationTask(task_id) => {
-                        let current_task = prism
-                            .coordination_task(&task_id)
-                            .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))?;
                         let summary = match parse_sparse_patch(summary, "summary")? {
                             SparsePatch::Keep => None,
                             SparsePatch::Set(value) => Some(Some(value)),
@@ -3186,25 +3444,11 @@ impl QueryHost {
                             SparsePatch::Clear => Some(None),
                         };
                         let status = status.map(convert_workflow_status_for_task).transpose()?;
-                        let integration_status =
-                            integration_status.map(convert_git_integration_status);
                         let assignee = match parse_sparse_patch(assignee, "assignee")? {
                             SparsePatch::Keep => None,
                             SparsePatch::Set(value) => Some(Some(AgentId::new(value))),
                             SparsePatch::Clear => Some(None),
                         };
-                        let review_artifact_ref =
-                            match parse_sparse_patch(review_artifact_ref, "reviewArtifactRef")? {
-                                SparsePatch::Keep => None,
-                                SparsePatch::Set(value) => Some(Some(value)),
-                                SparsePatch::Clear => Some(None),
-                            };
-                        let integration_commit =
-                            match parse_sparse_patch(integration_commit, "integrationCommit")? {
-                                SparsePatch::Keep => None,
-                                SparsePatch::Set(value) => Some(Some(value)),
-                                SparsePatch::Clear => Some(None),
-                            };
                         let task_anchors = anchors
                             .clone()
                             .map(|anchors| {
@@ -3235,13 +3479,6 @@ impl QueryHost {
                                         required_validations: risk.likely_validations,
                                     })
                             });
-                        let git_execution = updated_task_git_execution(
-                            workspace_root,
-                            &current_task.git_execution,
-                            integration_status,
-                            review_artifact_ref,
-                            integration_commit,
-                        )?;
                         let task = prism.update_native_task(
                             meta,
                             TaskUpdateInput {
@@ -3249,7 +3486,7 @@ impl QueryHost {
                                 kind: kind.map(convert_plan_node_kind),
                                 status,
                                 published_task_status: None,
-                                git_execution,
+                                git_execution: None,
                                 assignee,
                                 session: None,
                                 worktree_id: None,

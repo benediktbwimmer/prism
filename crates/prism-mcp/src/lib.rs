@@ -56,7 +56,6 @@ mod logging;
 mod mcp_call_log;
 mod memory_metadata;
 mod mutation_provenance;
-mod peer_runtime_router;
 mod process_lifecycle;
 mod proxy_server;
 mod query_errors;
@@ -271,9 +270,7 @@ impl PrismMcpCli {
                 "shared runtime backend must be configured with either --shared-runtime-sqlite or --shared-runtime-uri, not both"
             )),
             (Some(path), None) => Ok(SharedRuntimeBackend::Sqlite { path: path.clone() }),
-            (None, Some(_)) => Err(anyhow!(
-                "the old --shared-runtime-uri backend split is disabled in the federated runtime architecture; use shared coordination refs with the local shared runtime sqlite instead"
-            )),
+            (None, Some(uri)) => Ok(SharedRuntimeBackend::Remote { uri: uri.clone() }),
             (None, None) => default_workspace_shared_runtime(root),
         }
     }
@@ -485,15 +482,6 @@ impl PrismMcpServer {
         let prism_started = std::time::Instant::now();
         let prism = session.prism_arc();
         let get_prism_ms = prism_started.elapsed().as_millis();
-        if features.coordination_layer_enabled() {
-            if let Err(error) = prism_core::sync_live_runtime_descriptor(root) {
-                debug!(
-                    error = %error,
-                    root = %root.display(),
-                    "failed to publish shared coordination runtime descriptor on server startup"
-                );
-            }
-        }
         info!(
             root = %root.display(),
             node_count = prism.graph().node_count(),

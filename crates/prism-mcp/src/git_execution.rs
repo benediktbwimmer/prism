@@ -5,7 +5,6 @@ use std::time::UNIX_EPOCH;
 
 use anyhow::{anyhow, Context, Result};
 use prism_coordination::{GitExecutionPolicy, GitPreflightReport, GitPublishReport};
-use prism_ir::{GitIntegrationMode, GitIntegrationStatus};
 
 fn run_git(root: &Path, args: &[&str]) -> Result<String> {
     let output = Command::new("git")
@@ -208,65 +207,6 @@ pub(crate) fn commit_paths(
 
 pub(crate) fn head_commit(root: &Path) -> Result<String> {
     run_git(root, &["rev-parse", "HEAD"])
-}
-
-pub(crate) fn integration_status_after_publish(
-    _mode: GitIntegrationMode,
-) -> GitIntegrationStatus {
-    GitIntegrationStatus::IntegrationPending
-}
-
-pub(crate) fn resolve_ref_commit(root: &Path, reference: &str) -> Result<String> {
-    run_git(root, &["rev-parse", reference])
-}
-
-pub(crate) fn ref_contains_commit(root: &Path, commit: &str, reference: &str) -> Result<bool> {
-    let output = Command::new("git")
-        .current_dir(root)
-        .args(["merge-base", "--is-ancestor", commit, reference])
-        .output()
-        .with_context(|| {
-            format!(
-                "failed to verify whether commit `{commit}` is reachable from `{reference}`"
-            )
-        })?;
-    match output.status.code() {
-        Some(0) => Ok(true),
-        Some(1) => Ok(false),
-        _ => Err(anyhow!(
-            "git merge-base --is-ancestor {} {} failed: {}",
-            commit,
-            reference,
-            String::from_utf8_lossy(&output.stderr).trim()
-        )),
-    }
-}
-
-pub(crate) fn verify_target_integration(
-    root: &Path,
-    publish_commit: &str,
-    target_ref: &str,
-    integration_commit: Option<&str>,
-) -> Result<String> {
-    let target_head = resolve_ref_commit(root, target_ref)?;
-    if let Some(explicit_commit) = integration_commit {
-        if !ref_contains_commit(root, explicit_commit, target_ref)? {
-            return Err(anyhow!(
-                "integration commit `{explicit_commit}` is not reachable from `{target_ref}`"
-            ));
-        }
-    }
-
-    if ref_contains_commit(root, publish_commit, target_ref)? {
-        return Ok(integration_commit.unwrap_or(target_head.as_str()).to_string());
-    }
-
-    let explicit_commit = integration_commit.ok_or_else(|| {
-        anyhow!(
-            "publish commit `{publish_commit}` is not reachable from `{target_ref}`; provide an explicit integration commit for rebase or squash verification"
-        )
-    })?;
-    Ok(explicit_commit.to_string())
 }
 
 pub(crate) fn push_current_branch(

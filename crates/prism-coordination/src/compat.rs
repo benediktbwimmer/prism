@@ -82,10 +82,7 @@ pub fn execution_overlays_from_tasks(tasks: &[CoordinationTask]) -> Vec<PlanExec
                         target_branch: task.git_execution.target_branch.clone(),
                         source_commit: task.git_execution.source_commit.clone(),
                         publish_commit: task.git_execution.publish_commit.clone(),
-                        target_commit_at_publish: task
-                            .git_execution
-                            .target_commit_at_publish
-                            .clone(),
+                        target_commit_at_publish: task.git_execution.target_commit_at_publish.clone(),
                         review_artifact_ref: task.git_execution.review_artifact_ref.clone(),
                         integration_commit: task.git_execution.integration_commit.clone(),
                         integration_mode: task.git_execution.integration_mode,

@@ -22,7 +22,6 @@ mod parse_pipeline;
 mod patch_outcomes;
 mod path_identity;
 mod path_identity_repair;
-mod peer_runtime;
 mod principal_registry;
 mod prism_doc;
 mod prism_paths;
@@ -73,9 +72,6 @@ pub use path_identity_repair::{
     inspect_legacy_path_identity_state, repair_legacy_path_identity_state,
     LegacyPathIdentityRepairReport, LegacyPathIdentityRepairTargetReport,
 };
-pub use peer_runtime::{
-    local_peer_runtime_discovery_mode, local_peer_runtime_endpoint, PEER_RUNTIME_READ_PATH,
-};
 pub use principal_registry::{
     AuthenticatedPrincipal, BootstrapOwnerInput, MintPrincipalRequest, MintedPrincipalCredential,
 };
@@ -103,8 +99,7 @@ pub use session::{
     WorkspaceSnapshotRevisions,
 };
 pub use shared_coordination_ref::{
-    shared_coordination_ref_diagnostics, sync_live_runtime_descriptor,
-    SharedCoordinationRefDiagnostics,
+    shared_coordination_ref_diagnostics, SharedCoordinationRefDiagnostics,
 };
 pub use shared_runtime_backend::SharedRuntimeBackend;
 pub use snapshot_artifact_repair::regenerate_repo_snapshot_derived_artifacts;

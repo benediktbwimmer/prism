@@ -252,22 +252,20 @@ fn path_affects_repo_projection(relative: &Path) -> bool {
     )
 }
 
-fn refresh_affects_repo_projection(outcome: &WorkspaceFsRefreshOutcome) -> bool {
+fn refresh_affects_repo_projection(
+    outcome: &WorkspaceFsRefreshOutcome,
+) -> bool {
     outcome.observed.iter().any(|change| {
-        change
-            .previous_path
-            .as_ref()
-            .is_some_and(|path| path_affects_repo_projection(Path::new(path.as_str())))
-            || change
-                .current_path
-                .as_ref()
-                .is_some_and(|path| path_affects_repo_projection(Path::new(path.as_str())))
+        change.previous_path.as_ref().is_some_and(|path| {
+            path_affects_repo_projection(Path::new(path.as_str()))
+        }) || change.current_path.as_ref().is_some_and(|path| {
+            path_affects_repo_projection(Path::new(path.as_str()))
+        })
     })
 }
 
 fn log_relative_projection_paths(root: &Path, paths: &[PathBuf]) -> Vec<String> {
-    paths
-        .iter()
+    paths.iter()
         .map(|path| {
             path.strip_prefix(root)
                 .map(|relative| relative.display().to_string())
@@ -1296,10 +1294,17 @@ impl WorkspaceSession {
                 || next_layout.packages.len() != current_layout.packages.len(),
             Some(cached_snapshot.clone()),
             self.checkpoint_materializer.clone(),
-            crate::workspace_session_defaults::runtime_rebuild_session_options(
-                self.coordination_enabled,
-                &self.shared_runtime,
-            ),
+            crate::WorkspaceSessionOptions {
+                coordination: self.coordination_enabled,
+                shared_runtime: self.shared_runtime.sqlite_path().map_or(
+                    SharedRuntimeBackend::Disabled,
+                    |path| SharedRuntimeBackend::Sqlite {
+                        path: path.to_path_buf(),
+                    },
+                ),
+                hydrate_persisted_projections: false,
+                hydrate_persisted_co_change: true,
+            },
         )?;
         indexer.shared_runtime_materializer = self.shared_runtime_materializer.clone();
         let mut plan = WorkspaceRefreshPlan {
@@ -2079,12 +2084,12 @@ impl WorkspaceSession {
                         );
                     }
                     Err(error) => {
-                        warn!(
-                            root = %root.display(),
-                            trigger = trigger.label(),
-                            error = %error,
-                            "failed to sync PRISM doc projections in background"
-                        );
+                    warn!(
+                        root = %root.display(),
+                        trigger = trigger.label(),
+                        error = %error,
+                        "failed to sync PRISM doc projections in background"
+                    );
                     }
                 }
                 pending.store(false, Ordering::Release);
@@ -2345,7 +2350,10 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return 0;
         }
-        persisted_revision.max(self.coordination_runtime_revision.load(Ordering::Relaxed))
+        persisted_revision.max(
+            self.coordination_runtime_revision
+                .load(Ordering::Relaxed),
+        )
     }
 
     pub fn persist_inference(&self, snapshot: &InferenceSnapshot) -> Result<()> {
@@ -3327,7 +3335,7 @@ impl WorkspaceSession {
             &self.store,
             &self.cold_query_store,
             self.shared_runtime_store.as_ref(),
-            &self.shared_runtime,
+            self.shared_runtime.sqlite_path(),
             &self.refresh_lock,
             &self.refresh_state,
             &self.loaded_workspace_revision,
@@ -3357,7 +3365,7 @@ impl WorkspaceSession {
             &self.store,
             &self.cold_query_store,
             self.shared_runtime_store.as_ref(),
-            &self.shared_runtime,
+            self.shared_runtime.sqlite_path(),
             &self.refresh_lock,
             &self.refresh_state,
             &self.loaded_workspace_revision,
