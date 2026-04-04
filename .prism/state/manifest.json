@@ -1,21 +1,21 @@
 {
   "version": 1,
-  "publishedAt": 1775345727,
+  "publishedAt": 1775346763,
   "publisher": {
     "principalAuthorityId": "local-daemon",
     "principalId": "principal:codex:01kn3xe812hzt1t0mxz2vsp4ds",
     "credentialId": "credential:01kn3xe812gb7a5d5qgs1wwpez"
   },
   "workContext": {
-    "workId": "coord-task:01knd31v4ya6jc36dc34m9r0mq",
+    "workId": "coord-task:01knd39n0f591864kc4p6aj3dd",
     "kind": "coordination",
-    "title": "Implement POST /api/v1/mutate through the exact MCP mutation authentication and audit path",
-    "coordinationTaskId": "coord-task:01knd31v4ya6jc36dc34m9r0mq",
+    "title": "Expose active local principal binding and operator identity in the UI session payload",
+    "coordinationTaskId": "coord-task:01knd39n0f591864kc4p6aj3dd",
     "planId": "plan:01knd2zj2hgp4qs7qzfc7rxdgg",
     "planTitle": "Implement the operator console backend and bundled UI delivery"
   },
   "publishSummary": {
-    "title": "Implement POST /api/v1/mutate through the exact MCP mutation authentication and audit path"
+    "title": "Expose active local principal binding and operator identity in the UI session payload"
   },
   "files": {
     ".prism/state/concepts/concept-tracked_snapshot_semantic_state_and_runtime_change_history-3cbd4ae3cd61aad8.json": {
@@ -36,7 +36,7 @@
     },
     ".prism/state/indexes/coordination_materialization.json": {
       "path": ".prism/state/indexes/coordination_materialization.json",
-      "sha256": "sha256:6ac07b3754eb3f338b9f204927a03431ed133b9d553a69e83b8484f3d67955c7"
+      "sha256": "sha256:2af46a0d3c1b6be9fe29b454a77f5a7b5b27678bee4ac7c4fea8b7aa91b0e478"
     },
     ".prism/state/indexes/memory.json": {
       "path": ".prism/state/indexes/memory.json",
@@ -51,12 +51,12 @@
       "sha256": "sha256:f77575ce54b660ea0c89621e1b65dc8e3f57f58533e2c5ddc0c7ad5ced01ef0d"
     }
   },
-  "previousManifestDigest": "sha256:d835d9bde516e77ec37ad8cd4d4a7cad351a74dce7db98774e25518d7ceee95e",
+  "previousManifestDigest": "sha256:15b23cab3c264f15b981004f5655f7f663ad8d3b11aa127b54ea533a122508bc",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:qSY64bUZiKEgE8kSGMoO0Z15E5Dj/7ZKh/uGlxtSzCi/WYTqgoWBsT0o3Hhw74kbHLz/GB01DDIDbKdM7pm0CA=="
+    "value": "base64:EAZhzIuzCckpJeDYfACSVZ1pmk2aczfoXbcYDXATePn5DAC4ewyqUj3kU9PkBMi3MJWRPD1DHrsGcBGUIFGbCg=="
   }
 }
