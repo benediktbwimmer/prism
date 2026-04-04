@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use prism_agent::EdgeId;
+use prism_coordination::CoordinationTask;
 use prism_core::diagnose_protected_state;
 use prism_ir::{AnchorRef, CoordinationTaskId, EventId, LineageId, NodeId, PlanId, TaskId};
 use prism_memory::{MemoryEventQuery, MemoryId};
@@ -1199,7 +1200,7 @@ pub(crate) fn session_task_view(
     let context = session_task_context_summary(
         coordination_task_id.as_deref(),
         replay_event_count,
-        coordination_task.is_some(),
+        coordination_task.as_ref(),
         &blockers,
         heartbeat_advice.as_ref(),
     );
@@ -1239,10 +1240,11 @@ struct SessionTaskContextSummary {
 fn session_task_context_summary(
     coordination_task_id: Option<&str>,
     replay_event_count: usize,
-    has_coordination_task: bool,
+    coordination_task: Option<&CoordinationTask>,
     blockers: &[prism_coordination::TaskBlocker],
     heartbeat_advice: Option<&TaskHeartbeatAdvice>,
 ) -> SessionTaskContextSummary {
+    let has_coordination_task = coordination_task.is_some();
     if let Some(advice) = heartbeat_advice {
         return SessionTaskContextSummary {
             status: "heartbeat_due",
@@ -1276,6 +1278,56 @@ fn session_task_context_summary(
             next_action: "Inspect the current task blockers before continuing; use prism.blockers(taskId) or prism_task_brief for full coordination detail.".to_string(),
             repair_action: None,
         };
+    }
+    if let Some(task) = coordination_task {
+        if matches!(
+            task.git_execution.status,
+            prism_ir::GitExecutionStatus::PublishFailed
+                | prism_ir::GitExecutionStatus::PublishPending
+        ) {
+            let failure = task
+                .git_execution
+                .last_publish
+                .as_ref()
+                .and_then(|publish| publish.failure.as_deref())
+                .unwrap_or("shared coordination publication is still pending");
+            let status = match task.git_execution.status {
+                prism_ir::GitExecutionStatus::PublishFailed => "publish_failed",
+                prism_ir::GitExecutionStatus::PublishPending => "publish_pending",
+                _ => unreachable!(),
+            };
+            let next_action = if task.git_execution.status
+                == prism_ir::GitExecutionStatus::PublishFailed
+            {
+                "Retry authoritative completion publication for this task so the shared coordination ref records the completed state.".to_string()
+            } else {
+                "Finish the pending authoritative publication for this task so the shared coordination ref acknowledges completion.".to_string()
+            };
+            let repair_action = coordination_task_id.map(|task_id| SessionRepairActionView {
+                tool: "prism_mutate".to_string(),
+                input: json!({
+                    "action": "coordination",
+                    "input": {
+                        "kind": "update",
+                        "payload": {
+                            "id": task_id,
+                            "status": "completed",
+                            "completionContext": {}
+                        }
+                    }
+                }),
+                label: "Retry authoritative shared-coordination publication for this task."
+                    .to_string(),
+            });
+            return SessionTaskContextSummary {
+                status,
+                summary: format!(
+                    "Task completion is not yet authoritative because shared coordination publication is incomplete: {failure}"
+                ),
+                next_action,
+                repair_action,
+            };
+        }
     }
     if replay_event_count == 0 && !has_coordination_task {
         return SessionTaskContextSummary {

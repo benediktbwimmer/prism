@@ -181,6 +181,11 @@ pub struct SharedCoordinationRefDiagnostics {
     pub history_depth: u64,
     pub max_history_commits: u64,
     pub snapshot_file_count: usize,
+    pub verification_status: String,
+    pub authoritative_hydration_allowed: bool,
+    pub degraded: bool,
+    pub verification_error: Option<String>,
+    pub repair_hint: Option<String>,
     pub current_manifest_digest: Option<String>,
     pub last_verified_manifest_digest: Option<String>,
     pub previous_manifest_digest: Option<String>,
@@ -991,9 +996,33 @@ pub fn shared_coordination_ref_diagnostics(
         .as_ref()
         .map(canonical_manifest_digest)
         .transpose()?;
-    let verified_state = load_shared_coordination_ref_state_from_current_ref(root, &ref_name)?;
-    let last_verified_manifest_digest =
-        verified_state.as_ref().and(current_manifest_digest.clone());
+    let (verified_state, verification_status, authoritative_hydration_allowed, degraded, verification_error, repair_hint) =
+        match load_shared_coordination_ref_state_from_current_ref(root, &ref_name) {
+            Ok(state) => (
+                state,
+                "verified".to_string(),
+                true,
+                false,
+                None,
+                None,
+            ),
+            Err(error) => (
+                None,
+                "degraded".to_string(),
+                false,
+                true,
+                Some(error.to_string()),
+                Some(
+                    "Repair or republish the shared coordination ref before relying on authoritative shared-ref hydration."
+                        .to_string(),
+                ),
+            ),
+        };
+    let last_verified_manifest_digest = if authoritative_hydration_allowed {
+        current_manifest_digest.clone()
+    } else {
+        None
+    };
     let previous_manifest_digest = manifest
         .as_ref()
         .and_then(|manifest| manifest.previous_manifest_digest.clone());
@@ -1053,6 +1082,11 @@ pub fn shared_coordination_ref_diagnostics(
         history_depth,
         max_history_commits: SHARED_COORDINATION_HISTORY_MAX_COMMITS,
         snapshot_file_count,
+        verification_status,
+        authoritative_hydration_allowed,
+        degraded,
+        verification_error,
+        repair_hint,
         current_manifest_digest,
         last_verified_manifest_digest,
         previous_manifest_digest,
@@ -2296,6 +2330,43 @@ mod tests {
         )
         .unwrap();
         (root, remote)
+    }
+
+    fn temp_stage_dir(label: &str) -> PathBuf {
+        let nonce = NEXT_TEMP_REPO.fetch_add(1, Ordering::Relaxed);
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root =
+            std::env::temp_dir().join(format!("prism-shared-coord-stage-{label}-{unique}-{nonce}"));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        track_temp_dir(&root);
+        root
+    }
+
+    fn tamper_shared_coordination_manifest<F>(root: &Path, mutate: F)
+    where
+        F: FnOnce(&mut super::SharedCoordinationManifest),
+    {
+        let ref_name = super::shared_coordination_ref_name(root);
+        let contents = super::load_shared_coordination_ref_contents(root, &ref_name)
+            .unwrap()
+            .expect("shared coordination contents should exist");
+        let stage_dir = temp_stage_dir("tamper");
+        for (relative_path, bytes) in &contents.files {
+            let path = stage_dir.join("coordination").join(relative_path);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, bytes).unwrap();
+        }
+        let mut manifest = serde_json::from_slice::<super::SharedCoordinationManifest>(
+            contents.files.get("manifest.json").unwrap(),
+        )
+        .unwrap();
+        mutate(&mut manifest);
+        super::write_json_file(&super::stage_manifest_path(&stage_dir), &manifest).unwrap();
+        super::publish_stage_to_ref(root, &stage_dir, &ref_name).unwrap();
     }
 
     fn seed_workspace_project(root: &Path) {
@@ -3668,6 +3739,67 @@ mod tests {
             diagnostics.compaction_status.as_str(),
             "healthy" | "compacted"
         ));
+    }
+
+    #[test]
+    fn shared_coordination_ref_diagnostics_surface_degraded_verification_state() {
+        let (root, _remote) = temp_git_repo_with_origin();
+        let (snapshot, graph, execution_map) =
+            sample_snapshot_for("plan:shared-degraded", "coord-task:shared-degraded");
+        let publish = sample_publish_context();
+        sync_shared_coordination_ref_state(
+            &root,
+            &snapshot,
+            &[graph],
+            &execution_map,
+            Some(&publish),
+        )
+        .unwrap();
+
+        tamper_shared_coordination_manifest(&root, |manifest| {
+            manifest.published_at += 1;
+        });
+
+        let diagnostics = shared_coordination_ref_diagnostics(&root)
+            .unwrap()
+            .expect("shared coordination diagnostics should exist");
+        assert_eq!(diagnostics.verification_status, "degraded");
+        assert!(diagnostics.degraded);
+        assert!(!diagnostics.authoritative_hydration_allowed);
+        assert!(diagnostics.last_verified_manifest_digest.is_none());
+        assert!(diagnostics.current_manifest_digest.is_some());
+        assert!(diagnostics
+            .verification_error
+            .as_deref()
+            .is_some_and(|error| error.contains("verification failed")));
+        assert!(diagnostics
+            .repair_hint
+            .as_deref()
+            .is_some_and(|hint| hint.contains("Repair or republish")));
+    }
+
+    #[test]
+    fn invalid_shared_coordination_ref_blocks_authoritative_hydration_without_fallback() {
+        let (root, _remote) = temp_git_repo_with_origin();
+        let (shared_snapshot, shared_graph, shared_execution_map) =
+            sample_snapshot_for("plan:shared-blocked", "coord-task:shared-blocked");
+        sync_shared_coordination_ref_state(
+            &root,
+            &shared_snapshot,
+            &[shared_graph],
+            &shared_execution_map,
+            Some(&sample_publish_context()),
+        )
+        .unwrap();
+        tamper_shared_coordination_manifest(&root, |manifest| {
+            manifest.published_at += 1;
+        });
+
+        let (fallback_snapshot, _, _) =
+            sample_snapshot_for("plan:fallback-local", "coord-task:fallback-local");
+        let error = load_hydrated_coordination_plan_state(&root, Some(fallback_snapshot))
+            .expect_err("invalid shared coordination ref should block authoritative hydration");
+        assert!(error.to_string().contains("verification failed"));
     }
 
     #[test]

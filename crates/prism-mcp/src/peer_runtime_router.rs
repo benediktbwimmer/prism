@@ -9,16 +9,16 @@ use axum::routing::post;
 use axum::{Json, Router};
 use prism_coordination::{RuntimeDescriptor, RuntimeDescriptorCapability};
 use prism_core::{
-    local_runtime_id, runtime_query_endpoint, shared_coordination_ref_diagnostics,
-    CredentialsFile, PrismPaths, WorkspaceSession, PEER_RUNTIME_QUERY_PATH,
+    local_runtime_id, runtime_query_endpoint, shared_coordination_ref_diagnostics, CredentialsFile,
+    PrismPaths, WorkspaceSession, PEER_RUNTIME_QUERY_PATH,
 };
 use prism_ir::{CredentialCapability, CredentialId};
-use prism_js::QueryEnvelope;
 use prism_js::QueryDiagnostic;
+use prism_js::QueryEnvelope;
 use serde::{Deserialize, Serialize};
 
-use crate::runtime_views::runtime_status;
 use crate::remote_runtime_query_error;
+use crate::runtime_views::runtime_status;
 use crate::{QueryHost, QueryLanguage};
 
 const PEER_QUERY_TIMEOUT: Duration = Duration::from_secs(20);
@@ -219,7 +219,9 @@ pub(crate) fn execute_remote_prism_query(
         ));
     }
     let descriptor = resolve_runtime_descriptor(root, runtime_id)?;
-    if descriptor.last_seen_at.saturating_add(STALE_RUNTIME_DESCRIPTOR_AFTER_SECS)
+    if descriptor
+        .last_seen_at
+        .saturating_add(STALE_RUNTIME_DESCRIPTOR_AFTER_SECS)
         < current_timestamp_secs()
     {
         return Err(remote_runtime_query_error(
@@ -243,15 +245,14 @@ pub(crate) fn execute_remote_prism_query(
             "Choose a runtime that advertises `bounded_peer_reads`, or query the local runtime instead.",
         ));
     }
-    let endpoint = runtime_query_endpoint(&descriptor)
-        .ok_or_else(|| {
-            remote_runtime_query_error(
-                "remote_runtime_endpoint_missing",
-                Some(runtime_id),
-                format!("runtime `{runtime_id}` does not publish a query endpoint"),
-                "Set a peer or public endpoint for that runtime, or target a different runtime id.",
-            )
-        })?;
+    let endpoint = runtime_query_endpoint(&descriptor).ok_or_else(|| {
+        remote_runtime_query_error(
+            "remote_runtime_endpoint_missing",
+            Some(runtime_id),
+            format!("runtime `{runtime_id}` does not publish a query endpoint"),
+            "Set a peer or public endpoint for that runtime, or target a different runtime id.",
+        )
+    })?;
     let credential = resolve_local_peer_read_credential(root)?;
     let client = reqwest::blocking::Client::builder()
         .timeout(PEER_QUERY_TIMEOUT)
@@ -350,14 +351,20 @@ pub(crate) fn execute_remote_prism_query(
 
 fn resolve_local_peer_read_credential(root: &Path) -> Result<LocalPeerReadCredential> {
     let credentials_path = PrismPaths::for_workspace_root(root)?.credentials_path()?;
-    let credentials = CredentialsFile::load(&credentials_path)
-        .with_context(|| format!("failed to load credentials from {}", credentials_path.display()))?;
-    let profile = credentials.find_by_selector(None, None, None).with_context(|| {
+    let credentials = CredentialsFile::load(&credentials_path).with_context(|| {
         format!(
-            "no active local PRISM credential is available for peer reads in {}",
+            "failed to load credentials from {}",
             credentials_path.display()
         )
     })?;
+    let profile = credentials
+        .find_by_selector(None, None, None)
+        .with_context(|| {
+            format!(
+                "no active local PRISM credential is available for peer reads in {}",
+                credentials_path.display()
+            )
+        })?;
     Ok(LocalPeerReadCredential {
         credential_id: profile.credential_id.clone(),
         principal_token: profile.principal_token.clone(),
@@ -365,15 +372,26 @@ fn resolve_local_peer_read_credential(root: &Path) -> Result<LocalPeerReadCreden
 }
 
 fn resolve_runtime_descriptor(root: &Path, runtime_id: &str) -> Result<RuntimeDescriptor> {
-    let diagnostics = shared_coordination_ref_diagnostics(root)?
-        .ok_or_else(|| {
-            remote_runtime_query_error(
-                "remote_runtime_shared_ref_unavailable",
-                Some(runtime_id),
-                "shared coordination ref is unavailable".to_string(),
-                "Restore shared coordination connectivity, or query the local runtime instead.",
-            )
-        })?;
+    let diagnostics = shared_coordination_ref_diagnostics(root)?.ok_or_else(|| {
+        remote_runtime_query_error(
+            "remote_runtime_shared_ref_unavailable",
+            Some(runtime_id),
+            "shared coordination ref is unavailable".to_string(),
+            "Restore shared coordination connectivity, or query the local runtime instead.",
+        )
+    })?;
+    if !diagnostics.authoritative_hydration_allowed {
+        return Err(remote_runtime_query_error(
+            "remote_runtime_shared_ref_degraded",
+            Some(runtime_id),
+            diagnostics
+                .verification_error
+                .unwrap_or_else(|| "shared coordination verification is degraded".to_string()),
+            diagnostics.repair_hint.as_deref().unwrap_or(
+                "Repair or republish the shared coordination ref before relying on peer runtime routing.",
+            ),
+        ));
+    }
     diagnostics
         .runtime_descriptors
         .into_iter()
@@ -431,9 +449,7 @@ mod tests {
     use crate::tests_support::temp_workspace;
     use crate::{PrismMcpFeatures, QueryHost, QueryLanguage};
 
-    use super::{
-        execute_remote_prism_query, routes, PeerRuntimeAppState, PeerRuntimeQueryRequest,
-    };
+    use super::{execute_remote_prism_query, routes, PeerRuntimeAppState, PeerRuntimeQueryRequest};
 
     static PEER_RUNTIME_TEST_LOCK: Mutex<()> = Mutex::new(());
 
@@ -844,9 +860,9 @@ return {{ root: status.root, text: slice.text }};
         let envelope = tokio::task::spawn_blocking(move || {
             query_host.execute(query_session, &query, crate::QueryLanguage::Ts)
         })
-            .await
-            .unwrap()
-            .unwrap();
+        .await
+        .unwrap()
+        .unwrap();
         let expected_root = std::fs::canonicalize(&root)
             .unwrap_or_else(|_| root.clone())
             .display()

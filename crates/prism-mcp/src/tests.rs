@@ -25355,6 +25355,128 @@ fn session_resource_prioritizes_heartbeat_instruction_when_lease_is_due() {
 }
 
 #[test]
+fn session_resource_surfaces_publish_failed_repair_action() {
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha.clone()]);
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:session-resource-publish-failed"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            PlanCreateInput {
+                title: "Retry shared publish".into(),
+                goal: "Retry shared publish".into(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let task_id = prism_ir::CoordinationTaskId::new("coord-task:session-resource-publish-failed");
+    let mut snapshot = coordination.snapshot();
+    snapshot.tasks = vec![prism_coordination::CoordinationTask {
+        id: task_id.clone(),
+        plan: plan_id,
+        kind: prism_ir::PlanNodeKind::Edit,
+        title: "Edit alpha".into(),
+        summary: None,
+        status: prism_ir::CoordinationTaskStatus::InProgress,
+        published_task_status: None,
+        assignee: None,
+        pending_handoff_to: None,
+        session: None,
+        lease_holder: None,
+        lease_started_at: None,
+        lease_refreshed_at: None,
+        lease_stale_at: None,
+        lease_expires_at: None,
+        worktree_id: None,
+        branch_ref: None,
+        anchors: vec![AnchorRef::Node(alpha)],
+        bindings: prism_ir::PlanBinding::default(),
+        depends_on: Vec::new(),
+        coordination_depends_on: Vec::new(),
+        integrated_depends_on: Vec::new(),
+        acceptance: Vec::new(),
+        validation_refs: Vec::new(),
+        is_abstract: false,
+        base_revision: prism_ir::WorkspaceRevision::default(),
+        priority: None,
+        tags: Vec::new(),
+        metadata: serde_json::Value::Null,
+        git_execution: prism_coordination::TaskGitExecution {
+            status: prism_ir::GitExecutionStatus::PublishFailed,
+            pending_task_status: Some(prism_ir::CoordinationTaskStatus::Completed),
+            last_publish: Some(prism_coordination::GitPublishReport {
+                attempted_at: 2,
+                publish_ref: Some("refs/heads/task/retry-shared-publish".to_string()),
+                code_commit: Some("deadbeef".to_string()),
+                coordination_commit: None,
+                pushed_ref: Some("refs/heads/task/retry-shared-publish".to_string()),
+                staged_paths: Vec::new(),
+                protected_paths: vec![".prism/state/manifest.json".to_string()],
+                failure: Some("shared coordination ref push failed".to_string()),
+            }),
+            ..prism_coordination::TaskGitExecution::default()
+        },
+    }];
+    let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
+    prism.replace_coordination_snapshot(snapshot);
+    let host = host_with_prism(prism);
+    test_session(&host).set_current_task(
+        TaskId::new(task_id.0.clone()),
+        Some("Edit alpha".to_string()),
+        Vec::new(),
+        Some(task_id.0.to_string()),
+    );
+
+    let session = host
+        .session_resource_value(test_session(&host).as_ref())
+        .expect("session resource should load");
+    let current_task = session
+        .current_task
+        .expect("current task should be present");
+
+    assert_eq!(current_task.context_status, "publish_failed");
+    assert!(current_task
+        .context_summary
+        .contains("shared coordination publication is incomplete"));
+    assert!(current_task
+        .context_summary
+        .contains("shared coordination ref push failed"));
+    assert!(current_task
+        .next_action
+        .contains("Retry authoritative completion publication"));
+    let repair = current_task
+        .repair_action
+        .expect("publish failed task should surface a repair action");
+    assert_eq!(repair.tool, "prism_mutate");
+    assert_eq!(repair.input["action"], "coordination");
+    assert_eq!(repair.input["input"]["kind"], "update");
+    assert_eq!(
+        repair.input["input"]["payload"]["id"],
+        task_id.0.to_string()
+    );
+    assert_eq!(repair.input["input"]["payload"]["status"], "completed");
+}
+
+#[test]
 fn session_repair_mutation_clears_current_task_binding() {
     let host = host_with_node(demo_node());
     test_session(&host).set_current_task(
