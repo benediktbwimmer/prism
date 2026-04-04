@@ -16,9 +16,9 @@ use crate::{
     schema_examples, ResourceLinkView, ResourcePageView, ResourceSchemaCatalogEntry,
     CAPABILITIES_URI, CONTRACTS_RESOURCE_TEMPLATE_URI, CONTRACTS_URI, EDGE_RESOURCE_TEMPLATE_URI,
     ENTRYPOINTS_RESOURCE_TEMPLATE_URI, EVENT_RESOURCE_TEMPLATE_URI, FILE_RESOURCE_TEMPLATE_URI,
-    INSTRUCTIONS_URI, LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI,
-    PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI, PLAN_RESOURCE_TEMPLATE_URI, PROTECTED_STATE_URI,
-    SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
+    LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI, PLANS_RESOURCE_TEMPLATE_URI,
+    PLANS_URI, PLAN_RESOURCE_TEMPLATE_URI, PROTECTED_STATE_URI, SCHEMAS_URI,
+    SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
     TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI, VOCAB_URI,
 };
 
@@ -614,9 +614,11 @@ pub(crate) fn session_resource_link() -> RawResource {
 }
 
 pub(crate) fn instructions_resource_link() -> RawResource {
-    RawResource::new(instructions_resource_uri(), "PRISM Instructions")
-        .with_description("Canonical agent workflow guidance for PRISM MCP clients")
-        .with_mime_type("text/markdown")
+    crate::instructions::instructions_resource_link()
+}
+
+pub(crate) fn instruction_set_resource_links() -> Vec<RawResource> {
+    crate::instructions::instruction_set_resource_links()
 }
 
 pub(crate) fn capabilities_resource_link() -> RawResource {
@@ -731,11 +733,7 @@ pub(crate) fn schemas_resource_view_link() -> ResourceLinkView {
 }
 
 pub(crate) fn instructions_resource_view_link() -> ResourceLinkView {
-    resource_link_view(
-        instructions_resource_uri(),
-        "PRISM Instructions",
-        "Canonical agent workflow guidance for PRISM MCP clients",
-    )
+    crate::instructions::instructions_resource_view_link()
 }
 
 pub(crate) fn capabilities_resource_view_link() -> ResourceLinkView {
@@ -814,7 +812,11 @@ pub(crate) fn session_resource_view_link() -> ResourceLinkView {
 }
 
 pub(crate) fn instructions_resource_uri() -> String {
-    INSTRUCTIONS_URI.to_string()
+    crate::instructions::instructions_resource_uri()
+}
+
+pub(crate) fn instruction_set_resource_uri(id: &str) -> String {
+    crate::instructions::instruction_set_resource_uri(id)
 }
 
 pub(crate) fn plans_resource_view_link_with_options(

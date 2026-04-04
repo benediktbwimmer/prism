@@ -2112,89 +2112,97 @@ impl ServerHandler for PrismMcpServer {
     ) -> Result<ListResourcesResult, McpError> {
         let started_at = current_timestamp();
         let started = Instant::now();
+        let mut resources = vec![
+            instructions_resource_link()
+                .with_title("PRISM Instruction Sets")
+                .no_annotation(),
+        ];
+        resources.extend(
+            instruction_set_resource_links()
+                .into_iter()
+                .map(|resource| resource.no_annotation()),
+        );
+        resources.extend([
+            RawResource::new(API_REFERENCE_URI, "PRISM API Reference")
+                .with_description(
+                    "TypeScript query surface, d.ts-style contract, and usage recipes",
+                )
+                .with_mime_type("text/markdown")
+                .with_title("PRISM API Reference")
+                .no_annotation(),
+            capabilities_resource_link()
+                .with_title("PRISM Capabilities")
+                .no_annotation(),
+            protected_state_resource_link()
+                .with_title("PRISM Protected State")
+                .no_annotation(),
+            RawResource::new(SESSION_URI, "PRISM Session")
+                .with_description(
+                    "Active workspace root, current task context, and runtime query limits",
+                )
+                .with_mime_type("application/json")
+                .with_title("PRISM Session")
+                .with_meta(resource_meta(
+                    "session",
+                    Some(schema_resource_uri("session")),
+                    None,
+                ))
+                .no_annotation(),
+            plans_resource_link()
+                .with_title("PRISM Plans")
+                .no_annotation(),
+            contracts_resource_link()
+                .with_title("PRISM Contracts")
+                .no_annotation(),
+            RawResource::new(VOCAB_URI, "PRISM Vocabulary")
+                .with_description(
+                    "Canonical enum and action vocabularies for PRISM MCP resources, query args, and mutation payloads",
+                )
+                .with_mime_type("application/json")
+                .with_title("PRISM Vocabulary")
+                .with_meta(resource_meta(
+                    "vocab",
+                    Some(schema_resource_uri("vocab")),
+                    None,
+                ))
+                .no_annotation(),
+            RawResource::new(ENTRYPOINTS_URI, "PRISM Entrypoints")
+                .with_description(
+                    "Workspace entrypoints and top-level starting symbols in structured JSON, with optional cursor-based pagination",
+                )
+                .with_mime_type("application/json")
+                .with_title("PRISM Entrypoints")
+                .with_meta(resource_meta(
+                    "entrypoints",
+                    Some(schema_resource_uri("entrypoints")),
+                    None,
+                ))
+                .no_annotation(),
+            RawResource::new(SCHEMAS_URI, "PRISM Resource Schemas")
+                .with_description(
+                    "Catalog of JSON Schemas for all structured PRISM resource payloads",
+                )
+                .with_mime_type("application/json")
+                .with_title("PRISM Resource Schemas")
+                .with_meta(resource_meta(
+                    "schemas",
+                    Some(schema_resource_uri("schemas")),
+                    None,
+                ))
+                .no_annotation(),
+            RawResource::new(TOOL_SCHEMAS_URI, "PRISM Tool Schemas")
+                .with_description("Catalog of JSON Schemas for PRISM MCP tool input payloads")
+                .with_mime_type("application/json")
+                .with_title("PRISM Tool Schemas")
+                .with_meta(resource_meta(
+                    "tool-schemas",
+                    Some(schema_resource_uri("tool-schemas")),
+                    None,
+                ))
+                .no_annotation(),
+        ]);
         let result = ListResourcesResult {
-            resources: vec![
-                instructions_resource_link()
-                    .with_title("PRISM Instructions")
-                    .no_annotation(),
-                RawResource::new(API_REFERENCE_URI, "PRISM API Reference")
-                    .with_description(
-                        "TypeScript query surface, d.ts-style contract, and usage recipes",
-                    )
-                    .with_mime_type("text/markdown")
-                    .with_title("PRISM API Reference")
-                    .no_annotation(),
-                capabilities_resource_link()
-                    .with_title("PRISM Capabilities")
-                    .no_annotation(),
-                protected_state_resource_link()
-                    .with_title("PRISM Protected State")
-                    .no_annotation(),
-                RawResource::new(SESSION_URI, "PRISM Session")
-                    .with_description(
-                        "Active workspace root, current task context, and runtime query limits",
-                    )
-                    .with_mime_type("application/json")
-                    .with_title("PRISM Session")
-                    .with_meta(resource_meta(
-                        "session",
-                        Some(schema_resource_uri("session")),
-                        None,
-                    ))
-                    .no_annotation(),
-                plans_resource_link()
-                    .with_title("PRISM Plans")
-                    .no_annotation(),
-                contracts_resource_link()
-                    .with_title("PRISM Contracts")
-                    .no_annotation(),
-                RawResource::new(VOCAB_URI, "PRISM Vocabulary")
-                    .with_description(
-                        "Canonical enum and action vocabularies for PRISM MCP resources, query args, and mutation payloads",
-                    )
-                    .with_mime_type("application/json")
-                    .with_title("PRISM Vocabulary")
-                    .with_meta(resource_meta(
-                        "vocab",
-                        Some(schema_resource_uri("vocab")),
-                        None,
-                    ))
-                    .no_annotation(),
-                RawResource::new(ENTRYPOINTS_URI, "PRISM Entrypoints")
-                    .with_description(
-                        "Workspace entrypoints and top-level starting symbols in structured JSON, with optional cursor-based pagination",
-                    )
-                    .with_mime_type("application/json")
-                    .with_title("PRISM Entrypoints")
-                    .with_meta(resource_meta(
-                        "entrypoints",
-                        Some(schema_resource_uri("entrypoints")),
-                        None,
-                    ))
-                    .no_annotation(),
-                RawResource::new(SCHEMAS_URI, "PRISM Resource Schemas")
-                    .with_description(
-                        "Catalog of JSON Schemas for all structured PRISM resource payloads",
-                    )
-                    .with_mime_type("application/json")
-                    .with_title("PRISM Resource Schemas")
-                    .with_meta(resource_meta(
-                        "schemas",
-                        Some(schema_resource_uri("schemas")),
-                        None,
-                    ))
-                    .no_annotation(),
-                RawResource::new(TOOL_SCHEMAS_URI, "PRISM Tool Schemas")
-                    .with_description("Catalog of JSON Schemas for PRISM MCP tool input payloads")
-                    .with_mime_type("application/json")
-                    .with_title("PRISM Tool Schemas")
-                    .with_meta(resource_meta(
-                        "tool-schemas",
-                        Some(schema_resource_uri("tool-schemas")),
-                        None,
-                    ))
-                    .no_annotation(),
-            ],
+            resources,
             next_cursor: None,
             meta: None,
         };
@@ -2234,8 +2242,23 @@ impl ServerHandler for PrismMcpServer {
         let (contents_result, resource_trace) =
             crate::resource_trace::ResourceTraceState::scope(async {
                 (|| -> Result<ResourceContents, McpError> {
-                    Ok(if base_uri == INSTRUCTIONS_URI {
-                        ResourceContents::text(self.server_instructions(), request.uri.clone())
+                    Ok(if let Some(instruction_set_id) =
+                        crate::instructions::parse_instruction_resource_uri(uri)
+                    {
+                        let markdown = match instruction_set_id {
+                            None => self.server_instructions(),
+                            Some(id) => crate::instructions::render_instruction_set(
+                                &id,
+                                self.host.features.mode_label(),
+                            )
+                            .ok_or_else(|| {
+                                McpError::resource_not_found(
+                                    "resource_not_found",
+                                    Some(json!({ "uri": request.uri })),
+                                )
+                            })?,
+                        };
+                        ResourceContents::text(markdown, request.uri.clone())
                             .with_mime_type("text/markdown")
                     } else if base_uri == API_REFERENCE_URI {
                         ResourceContents::text(
@@ -2757,14 +2780,6 @@ impl ServerHandler for PrismMcpServer {
 
 impl PrismMcpServer {
     fn server_instructions(&self) -> String {
-        let mut instructions = crate::AGENT_INSTRUCTIONS_MARKDOWN.trim_end().to_string();
-
-        if self.host.features.mode_label() != "full" {
-            instructions.push_str(
-                "\n\nCoordination features are gated on this server; check `prism://session` before using plan, claim, or artifact workflows.",
-            );
-        }
-
-        instructions
+        crate::instructions::render_instructions_index(self.host.features.mode_label())
     }
 }

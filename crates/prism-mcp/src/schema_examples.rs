@@ -2,11 +2,11 @@ use serde_json::{json, Value};
 
 use crate::{
     capabilities_resource_uri, contracts_resource_uri_with_options, edge_resource_uri,
-    event_resource_uri, file_resource_uri_with_options, instructions_resource_uri,
-    memory_resource_uri, plan_resource_uri, plans_resource_uri, protected_state_resource_uri,
-    protected_state_resource_uri_with_options, schema_resource_uri, session_resource_uri,
-    symbol_resource_uri_from_node_id, task_resource_uri, tool_schema_resource_uri,
-    vocab_resource_uri, API_REFERENCE_URI,
+    event_resource_uri, file_resource_uri_with_options, instruction_set_resource_uri,
+    instructions_resource_uri, memory_resource_uri, plan_resource_uri, plans_resource_uri,
+    protected_state_resource_uri, protected_state_resource_uri_with_options, schema_resource_uri,
+    session_resource_uri, symbol_resource_uri_from_node_id, task_resource_uri,
+    tool_schema_resource_uri, vocab_resource_uri, API_REFERENCE_URI,
 };
 use prism_ir::{EdgeKind, NodeId};
 
@@ -1610,8 +1610,13 @@ fn sample_related_resources() -> Value {
     json!([
         {
             "uri": instructions_resource_uri(),
-            "name": "PRISM Instructions",
-            "description": "Canonical agent workflow guidance for PRISM MCP clients"
+            "name": "PRISM Instruction Sets",
+            "description": "Overview of the available PRISM role-specific instruction resources"
+        },
+        {
+            "uri": instruction_set_resource_uri("execution"),
+            "name": "PRISM Instructions: Execution",
+            "description": "Task execution guidance for actionable nodes, implementation, validation, and completion"
         },
         {
             "uri": capabilities_resource_uri(),

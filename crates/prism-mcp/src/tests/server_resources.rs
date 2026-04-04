@@ -27,7 +27,11 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
     assert!(initialize["result"]["instructions"]
         .as_str()
         .expect("initialize should include instructions")
-        .contains("PRISM MCP Agent Instructions"));
+        .contains("PRISM Instruction Sets"));
+    assert!(initialize["result"]["instructions"]
+        .as_str()
+        .expect("initialize should include instructions")
+        .contains("`prism://instructions/execution`"));
     assert!(initialize["result"]["capabilities"]["tools"].is_object());
     assert!(initialize["result"]["capabilities"]["resources"].is_object());
 
@@ -87,8 +91,18 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
     assert_eq!(resources["result"]["resources"][0]["uri"], INSTRUCTIONS_URI);
     assert_eq!(
         resources["result"]["resources"][0]["name"],
-        "PRISM Instructions"
+        "PRISM Instruction Sets"
     );
+    assert!(resources["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == "prism://instructions/execution"));
+    assert!(resources["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == "prism://instructions/planning"));
     assert!(resources["result"]["resources"]
         .as_array()
         .unwrap()
@@ -119,7 +133,19 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
             .as_str()
             .expect("initialize instructions should be text")
     );
-    assert!(instructions_text.contains("`prism://session`"));
+    assert!(instructions_text.contains("`prism://instructions/review`"));
+
+    client
+        .send(read_resource_request(41, "prism://instructions/execution"))
+        .await
+        .unwrap();
+    let execution_instructions = response_json(client.receive().await.unwrap());
+    let execution_text = execution_instructions["result"]["contents"][0]["text"]
+        .as_str()
+        .expect("execution instructions should be text");
+    assert!(execution_text.contains("# PRISM Execution Instructions"));
+    assert!(execution_text.contains("## Familiarization"));
+    assert!(execution_text.contains("## Mutations"));
 
     client
         .send(read_resource_request(5, API_REFERENCE_URI))
@@ -171,6 +197,11 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .unwrap()
         .iter()
         .any(|resource| resource["uri"] == INSTRUCTIONS_URI));
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == "prism://instructions/coordination"));
     assert!(capabilities_payload["resources"]
         .as_array()
         .unwrap()
@@ -942,8 +973,14 @@ async fn schema_catalog_and_capabilities_surface_stable_examples() {
         .as_array()
         .unwrap()
         .iter()
-        .any(|resource| resource["name"] == "PRISM Instructions"
+        .any(|resource| resource["name"] == "PRISM Instruction Sets"
             && resource["exampleUri"] == "prism://instructions"));
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["name"] == "PRISM Instructions: Execution"
+            && resource["exampleUri"] == "prism://instructions/execution"));
     assert!(capabilities_payload["resources"]
         .as_array()
         .unwrap()

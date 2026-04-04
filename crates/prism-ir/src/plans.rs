@@ -190,12 +190,25 @@ pub enum GitExecutionStatus {
     InProgress,
     PublishPending,
     PublishFailed,
+    #[serde(alias = "coordination_published")]
     Published,
 }
 
 impl Default for GitExecutionStatus {
     fn default() -> Self {
         Self::NotStarted
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GitExecutionStatus;
+
+    #[test]
+    fn git_execution_status_accepts_legacy_coordination_published_alias() {
+        let status: GitExecutionStatus = serde_json::from_str("\"coordination_published\"")
+            .expect("legacy shared-ref status should deserialize");
+        assert_eq!(status, GitExecutionStatus::Published);
     }
 }
 

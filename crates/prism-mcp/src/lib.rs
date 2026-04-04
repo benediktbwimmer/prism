@@ -48,6 +48,7 @@ mod git_execution;
 mod git_support;
 mod host_mutations;
 mod host_resources;
+mod instructions;
 mod js_runtime;
 mod lease_advice;
 mod lineage_views;
@@ -186,8 +187,6 @@ const SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/{resourceKind}";
 const TOOL_SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/tool/{toolName}";
 const TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI: &str =
     "prism://schema/tool/{toolName}/action/{action}";
-const AGENT_INSTRUCTIONS_MARKDOWN: &str = include_str!("../../../AGENT_INSTRUCTIONS.md");
-
 #[cfg(test)]
 fn default_query_worker_pool() -> JsWorkerPool {
     JsWorkerPool::with_worker_count(1)
