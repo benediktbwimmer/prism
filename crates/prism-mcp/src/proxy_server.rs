@@ -26,6 +26,9 @@ use crate::*;
 const DEFAULT_BRIDGE_RECONNECT_BASE_DELAY: Duration = Duration::from_millis(100);
 const DEFAULT_BRIDGE_RECONNECT_MAX_DELAY: Duration = Duration::from_secs(2);
 const DEFAULT_BRIDGE_RECONNECT_TIMEOUT: Duration = Duration::from_secs(180);
+const DEFAULT_BRIDGE_REQUEST_RECONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const DEFAULT_UPSTREAM_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+const DEFAULT_UPSTREAM_REQUEST_RETRY_ATTEMPTS: usize = 3;
 const DEFAULT_STARTUP_POLL_AFTER_MS: u64 = 3_000;
 const DEFAULT_BUILD_POLL_AFTER_MS: u64 = 10_000;
 
@@ -594,6 +597,7 @@ impl ProxyMcpServer {
         self.reconnect_with_backoff(
             "startup previously failed before an upstream was available",
             true,
+            DEFAULT_BRIDGE_RECONNECT_TIMEOUT,
         )
         .await
     }
@@ -607,8 +611,12 @@ impl ProxyMcpServer {
             if !peer.is_transport_closed() {
                 return Ok(peer);
             }
-            self.reconnect_with_backoff("upstream transport closed before request", false)
-                .await?;
+            self.reconnect_with_backoff(
+                "upstream transport closed before request",
+                false,
+                DEFAULT_BRIDGE_REQUEST_RECONNECT_TIMEOUT,
+            )
+            .await?;
             let upstream = self.upstream.lock().await;
             if let Some(upstream) = upstream.as_ref() {
                 return Ok(upstream.peer.clone());
@@ -636,7 +644,12 @@ impl ProxyMcpServer {
         }
     }
 
-    async fn reconnect_with_backoff(&self, reason: &str, force: bool) -> Result<()> {
+    async fn reconnect_with_backoff(
+        &self,
+        reason: &str,
+        force: bool,
+        timeout: Duration,
+    ) -> Result<()> {
         let _reconnect = self.reconnect_lock.lock().await;
         if !force {
             let upstream = self.upstream.lock().await;
@@ -647,12 +660,16 @@ impl ProxyMcpServer {
                 return Ok(());
             }
         }
+        {
+            let mut upstream = self.upstream.lock().await;
+            *upstream = None;
+        }
 
         let started = Instant::now();
         let mut attempt = 0usize;
         let mut delay = DEFAULT_BRIDGE_RECONNECT_BASE_DELAY;
         let mut last_error = None;
-        while started.elapsed() < DEFAULT_BRIDGE_RECONNECT_TIMEOUT {
+        while started.elapsed() < timeout {
             attempt += 1;
             let upstream_uri = match self.resolve_reconnect_upstream().await {
                 Ok(uri) => uri,
@@ -776,23 +793,64 @@ impl ProxyMcpServer {
         Op: Fn(rmcp::service::Peer<RoleClient>, Request) -> Fut + Copy + Send,
         Fut: Future<Output = Result<Output, ServiceError>> + Send,
     {
-        let peer = self.active_peer().await.map_err(map_connect_error)?;
-        match op(peer, request.clone()).await {
-            Ok(result) => Ok(result),
-            Err(error) if Self::should_reconnect(&error) => {
-                warn!(
-                    operation = op_name,
-                    error = %error,
-                    "prism-mcp bridge request failed because the upstream transport was unavailable; reconnecting"
-                );
-                self.reconnect_with_backoff(op_name, true)
+        for attempt in 1..=DEFAULT_UPSTREAM_REQUEST_RETRY_ATTEMPTS {
+            let peer = self.active_peer().await.map_err(map_connect_error)?;
+            match tokio::time::timeout(DEFAULT_UPSTREAM_REQUEST_TIMEOUT, op(peer, request.clone()))
+                .await
+            {
+                Ok(Ok(result)) => return Ok(result),
+                Ok(Err(error))
+                    if Self::should_reconnect(&error)
+                        && attempt < DEFAULT_UPSTREAM_REQUEST_RETRY_ATTEMPTS =>
+                {
+                    warn!(
+                        operation = op_name,
+                        attempt,
+                        error = %error,
+                        "prism-mcp bridge request failed because the upstream transport was unavailable; rebuilding upstream client"
+                    );
+                    self.reconnect_with_backoff(
+                        op_name,
+                        true,
+                        DEFAULT_BRIDGE_REQUEST_RECONNECT_TIMEOUT,
+                    )
                     .await
                     .map_err(map_connect_error)?;
-                let peer = self.active_peer().await.map_err(map_connect_error)?;
-                op(peer, request).await.map_err(map_proxy_error)
+                }
+                Ok(Err(error)) => return Err(map_proxy_error(error)),
+                Err(_) if attempt < DEFAULT_UPSTREAM_REQUEST_RETRY_ATTEMPTS => {
+                    warn!(
+                        operation = op_name,
+                        attempt,
+                        timeout_ms = DEFAULT_UPSTREAM_REQUEST_TIMEOUT.as_millis(),
+                        "prism-mcp bridge request timed out while waiting for upstream; rebuilding upstream client"
+                    );
+                    self.reconnect_with_backoff(
+                        op_name,
+                        true,
+                        DEFAULT_BRIDGE_REQUEST_RECONNECT_TIMEOUT,
+                    )
+                    .await
+                    .map_err(map_connect_error)?;
+                }
+                Err(_) => {
+                    return Err(McpError::internal_error(
+                        format!(
+                            "upstream {op_name} timed out after {} ms",
+                            DEFAULT_UPSTREAM_REQUEST_TIMEOUT.as_millis()
+                        ),
+                        None,
+                    ))
+                }
             }
-            Err(error) => Err(map_proxy_error(error)),
         }
+        Err(McpError::internal_error(
+            format!(
+                "upstream {op_name} remained unavailable after {} reconnect attempts",
+                DEFAULT_UPSTREAM_REQUEST_RETRY_ATTEMPTS - 1
+            ),
+            None,
+        ))
     }
 
     #[cfg(test)]

@@ -384,6 +384,66 @@ async fn stdio_proxy_reconnects_after_upstream_restart_from_uri_file() {
 }
 
 #[tokio::test]
+async fn stdio_proxy_fails_fast_when_reconnect_cannot_restore_upstream() {
+    let uri_file = temp_workspace().join("bridge-uri.txt");
+    let (first_uri, first_upstream_task) = spawn_http_upstream(server_with_node(demo_node())).await;
+    fs::write(&uri_file, format!("{first_uri}\n")).expect("uri file should be written");
+
+    let proxy = crate::proxy_server::ProxyMcpServer::connect_with_source(
+        first_uri.clone(),
+        crate::daemon_mode::BridgeUpstreamSource::HttpUriFile(uri_file.clone()),
+    )
+    .await
+    .expect("proxy should connect to upstream");
+    let (client_transport, server_transport) = tokio::io::duplex(64 * 1024);
+    let proxy_task = tokio::spawn(async move {
+        proxy
+            .serve_transport(server_transport)
+            .await
+            .expect("proxy should initialize on stdio transport");
+    });
+
+    let client = ().serve(client_transport).await.expect("client should connect through proxy");
+    client
+        .call_tool(CallToolRequestParams::new("prism_query").with_arguments(
+            serde_json::Map::from_iter([(
+                String::from("code"),
+                json!(r#"return prism.symbol("main")?.id.path ?? null;"#),
+            )]),
+        ))
+        .await
+        .expect("proxy should forward the first query");
+
+    first_upstream_task.abort();
+    let _ = first_upstream_task.await;
+    fs::write(&uri_file, "http://127.0.0.1:9/mcp\n").expect("uri file should be updated");
+
+    let error = tokio::time::timeout(
+        Duration::from_secs(15),
+        client.call_tool(CallToolRequestParams::new("prism_query").with_arguments(
+            serde_json::Map::from_iter([(
+                String::from("code"),
+                json!(r#"return prism.symbol("main")?.id.path ?? null;"#),
+            )]),
+        )),
+    )
+    .await
+    .expect("failed reconnect should surface before the outer timeout")
+    .expect_err("proxy should return an upstream failure when reconnect cannot recover");
+    assert!(
+        error.to_string().contains("failed to connect to upstream")
+            || error.to_string().contains("failed to reconnect")
+            || error.to_string().contains("timed out"),
+        "{}",
+        error
+    );
+
+    client.cancel().await.unwrap();
+    proxy_task.abort();
+    let _ = proxy_task.await;
+}
+
+#[tokio::test]
 async fn bootstrap_proxy_self_heals_stale_uri_file_from_runtime_state() {
     let root = temp_workspace();
     let cli = PrismMcpCli {

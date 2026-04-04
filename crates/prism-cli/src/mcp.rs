@@ -3,7 +3,7 @@ use std::ffi::OsString;
 use std::fs;
 use std::fs::OpenOptions;
 use std::hash::{Hash, Hasher};
-use std::io::{Read, Write};
+use std::io::{ErrorKind, Read, Write};
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
@@ -1367,10 +1367,16 @@ fn health_status(uri: &Option<String>, health_path: &str) -> Result<HealthStatus
         });
     };
     match http_health_check(uri, health_path) {
-        Ok(()) => Ok(HealthStatus {
-            ok: true,
-            detail: format!("ok ({uri})"),
-        }),
+        Ok(()) => match http_mcp_protocol_check(uri) {
+            Ok(()) => Ok(HealthStatus {
+                ok: true,
+                detail: format!("ok ({uri}; /healthz ok; mcp ok)"),
+            }),
+            Err(error) => Ok(HealthStatus {
+                ok: true,
+                detail: format!("ok ({uri}; /healthz ok; mcp probe failed: {error})"),
+            }),
+        },
         Err(error) => Ok(HealthStatus {
             ok: false,
             detail: format!("unhealthy ({uri}): {error}"),
@@ -1380,29 +1386,118 @@ fn health_status(uri: &Option<String>, health_path: &str) -> Result<HealthStatus
 
 fn http_health_check(uri: &str, health_path: &str) -> Result<()> {
     let authority = uri_authority(uri).ok_or_else(|| anyhow!("invalid uri"))?;
+    let request =
+        format!("GET {health_path} HTTP/1.1\r\nHost: {authority}\r\nConnection: close\r\n\r\n");
+    let response = send_http_request(authority, &request, 1)?;
+    let status_line = http_status_line(&response);
+    if status_line.starts_with("HTTP/1.1 200") || status_line.starts_with("HTTP/1.0 200") {
+        return Ok(());
+    }
+    bail!("unexpected response: {}", status_line)
+}
+
+fn http_mcp_protocol_check(uri: &str) -> Result<()> {
+    let authority = uri_authority(uri).ok_or_else(|| anyhow!("invalid uri"))?;
+    let path = uri_path(uri).unwrap_or("/mcp");
+    let body = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"prism-cli-health","version":"0"}}}"#;
+    let request = format!(
+        "POST {path} HTTP/1.1\r\nHost: {authority}\r\nContent-Type: application/json\r\nAccept: application/json, text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    );
+    let response = send_http_request(authority, &request, 1)?;
+    let status_line = http_status_line(&response);
+    if !status_line.starts_with("HTTP/1.1 200") && !status_line.starts_with("HTTP/1.0 200") {
+        bail!("unexpected response: {}", status_line);
+    }
+
+    let response_text = String::from_utf8_lossy(&response);
+    let has_session_header = response_text
+        .split("\r\n\r\n")
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .contains("mcp-session-id:");
+    let has_initialize_payload =
+        response_text.contains("\"result\"") || response_text.contains("\"protocolVersion\"");
+    if has_session_header || has_initialize_payload {
+        return Ok(());
+    }
+
+    bail!("initialize response did not include an MCP session or payload")
+}
+
+fn send_http_request(authority: &str, request: &str, min_body_bytes: usize) -> Result<Vec<u8>> {
     let addr = resolve_socket_addr(authority)?;
     let mut stream = TcpStream::connect_timeout(&addr, Duration::from_secs(2))
         .with_context(|| format!("failed to connect to {authority}"))?;
     stream.set_read_timeout(Some(Duration::from_secs(2)))?;
     stream.set_write_timeout(Some(Duration::from_secs(2)))?;
-    let request =
-        format!("GET {health_path} HTTP/1.1\r\nHost: {authority}\r\nConnection: close\r\n\r\n");
     stream.write_all(request.as_bytes())?;
-    let mut response = String::new();
-    stream.read_to_string(&mut response)?;
-    if response.starts_with("HTTP/1.1 200") || response.starts_with("HTTP/1.0 200") {
-        return Ok(());
+
+    let mut response = Vec::new();
+    let mut chunk = [0_u8; 4096];
+    let mut header_end = None;
+    loop {
+        match stream.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(read) => {
+                response.extend_from_slice(&chunk[..read]);
+                if header_end.is_none() {
+                    header_end = http_header_end(&response);
+                }
+                if let Some(end) = header_end {
+                    if response.len() >= end + min_body_bytes {
+                        break;
+                    }
+                }
+            }
+            Err(error) if matches!(error.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {
+                if let Some(end) = header_end {
+                    if response.len() > end {
+                        break;
+                    }
+                }
+                return Err(error).context("timed out while reading HTTP response");
+            }
+            Err(error) => {
+                return Err(error).context("failed to read HTTP response");
+            }
+        }
     }
-    bail!(
-        "unexpected response: {}",
-        response.lines().next().unwrap_or("<empty>")
-    )
+    Ok(response)
+}
+
+fn http_header_end(response: &[u8]) -> Option<usize> {
+    response
+        .windows(4)
+        .position(|window| window == b"\r\n\r\n")
+        .map(|index| index + 4)
+}
+
+fn http_status_line(response: &[u8]) -> String {
+    String::from_utf8_lossy(response)
+        .lines()
+        .next()
+        .unwrap_or("<empty>")
+        .to_string()
 }
 
 fn uri_port(uri: &str) -> Option<u16> {
     uri_authority(uri)?
         .rsplit_once(':')
         .and_then(|(_, port)| port.parse::<u16>().ok())
+}
+
+fn uri_path(uri: &str) -> Option<&str> {
+    let stripped = uri
+        .strip_prefix("http://")
+        .or_else(|| uri.strip_prefix("https://"))?;
+    let (_, path) = stripped.split_once('/').unwrap_or((stripped, ""));
+    if path.is_empty() {
+        Some("/")
+    } else {
+        Some(&stripped[stripped.len() - path.len() - 1..])
+    }
 }
 
 fn resolve_socket_addr(authority: &str) -> Result<SocketAddr> {
@@ -1436,6 +1531,8 @@ impl McpPaths {
 mod tests {
     use super::*;
     use std::env;
+    use std::net::TcpListener;
+    use std::thread;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_root(label: &str) -> PathBuf {
@@ -1453,6 +1550,56 @@ mod tests {
 
     fn create_parent(path: &Path) {
         fs::create_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    fn spawn_health_probe_server(
+        health_response: &'static str,
+        mcp_response: &'static str,
+        keep_health_open: bool,
+    ) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        thread::spawn(move || {
+            for _ in 0..2 {
+                let (mut stream, _) = listener.accept().unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
+                let mut request = Vec::new();
+                let mut buf = [0_u8; 1024];
+                loop {
+                    match stream.read(&mut buf) {
+                        Ok(0) => break,
+                        Ok(n) => {
+                            request.extend_from_slice(&buf[..n]);
+                            if request.windows(4).any(|window| window == b"\r\n\r\n") {
+                                break;
+                            }
+                        }
+                        Err(error)
+                            if matches!(
+                                error.kind(),
+                                ErrorKind::WouldBlock | ErrorKind::TimedOut
+                            ) =>
+                        {
+                            break;
+                        }
+                        Err(error) => panic!("failed to read test request: {error}"),
+                    }
+                }
+                let request_text = String::from_utf8_lossy(&request);
+                let response = if request_text.starts_with("GET /healthz") {
+                    health_response
+                } else {
+                    mcp_response
+                };
+                stream.write_all(response.as_bytes()).unwrap();
+                if keep_health_open && request_text.starts_with("GET /healthz") {
+                    thread::sleep(Duration::from_secs(3));
+                }
+            }
+        });
+        format!("http://{addr}/mcp")
     }
 
     #[test]
@@ -1590,6 +1737,38 @@ mod tests {
         assert_eq!(
             info.health_uri.as_deref(),
             Some("http://127.0.0.1:9/healthz")
+        );
+    }
+
+    #[test]
+    fn http_health_check_accepts_partial_response_without_waiting_for_close() {
+        let uri = spawn_health_probe_server(
+            "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok",
+            "HTTP/1.1 200 OK\r\nmcp-session-id: test\r\nContent-Length: 20\r\n\r\n{\"result\":{\"ok\":true}}",
+            true,
+        );
+
+        let result = http_health_check(&uri, "/healthz");
+
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn health_status_keeps_daemon_healthy_when_only_mcp_probe_fails() {
+        let uri = spawn_health_probe_server(
+            "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok",
+            "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 5\r\n\r\nerror",
+            false,
+        );
+
+        let health = health_status(&Some(uri.clone()), "/healthz").unwrap();
+
+        assert!(health.ok);
+        assert!(health.detail.contains("/healthz ok"), "{}", health.detail);
+        assert!(
+            health.detail.contains("mcp probe failed"),
+            "{}",
+            health.detail
         );
     }
 
