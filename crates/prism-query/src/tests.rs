@@ -332,6 +332,267 @@ fn authoritative_only_task_publish_intent_does_not_auto_complete_plan() {
 }
 
 #[test]
+fn authoritative_only_final_publication_auto_completes_plan() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:create"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            PlanCreateInput {
+                title: "Ship it".into(),
+                goal: "Ship it".into(),
+                status: Some(PlanStatus::Active),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:create"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Finish publish".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                assignee: None,
+                session: Some(SessionId::new("session:test")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        Graph::new(),
+        HistoryStore::default(),
+        OutcomeMemory::default(),
+        store.snapshot(),
+        ProjectionIndex::default(),
+    );
+
+    let task = prism
+        .update_native_task_authoritative_only(
+            EventMeta {
+                id: EventId::new("coord:task:published"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskUpdateInput {
+                task_id: task_id.clone(),
+                kind: None,
+                status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                published_task_status: Some(None),
+                git_execution: Some(TaskGitExecution {
+                    status: prism_ir::GitExecutionStatus::CoordinationPublished,
+                    integration_mode: prism_ir::GitIntegrationMode::External,
+                    integration_status: prism_ir::GitIntegrationStatus::PublishedToBranch,
+                    pending_task_status: None,
+                    ..TaskGitExecution::default()
+                }),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                summary: None,
+                anchors: None,
+                bindings: None,
+                depends_on: None,
+                acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
+                base_revision: Some(WorkspaceRevision::default()),
+                priority: None,
+                tags: None,
+                completion_context: Some(TaskCompletionContext::default()),
+            },
+            WorkspaceRevision::default(),
+            3,
+        )
+        .unwrap();
+
+    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::Completed);
+    assert_eq!(
+        task.git_execution.status,
+        prism_ir::GitExecutionStatus::CoordinationPublished
+    );
+    assert_eq!(
+        prism.coordination_plan(&plan_id).unwrap().status,
+        PlanStatus::Completed
+    );
+}
+
+#[test]
+fn authoritative_only_target_integration_auto_completes_plan() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:create"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            PlanCreateInput {
+                title: "Land it".into(),
+                goal: "Land it".into(),
+                status: Some(PlanStatus::Active),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:create"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Finish landing".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                assignee: None,
+                session: Some(SessionId::new("session:test")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+
+    let mut snapshot = store.snapshot();
+    snapshot.tasks = vec![CoordinationTask {
+        id: task_id.clone(),
+        plan: plan_id.clone(),
+        kind: PlanNodeKind::Edit,
+        title: "Finish landing".into(),
+        summary: None,
+        status: prism_ir::CoordinationTaskStatus::Completed,
+        published_task_status: None,
+        assignee: None,
+        pending_handoff_to: None,
+        session: Some(SessionId::new("session:test")),
+        lease_holder: None,
+        lease_started_at: None,
+        lease_refreshed_at: None,
+        lease_stale_at: None,
+        lease_expires_at: None,
+        worktree_id: None,
+        branch_ref: None,
+        anchors: Vec::new(),
+        bindings: prism_ir::PlanBinding::default(),
+        depends_on: Vec::new(),
+        acceptance: Vec::new(),
+        validation_refs: Vec::new(),
+        is_abstract: false,
+        base_revision: WorkspaceRevision::default(),
+        priority: None,
+        tags: Vec::new(),
+        metadata: serde_json::Value::Null,
+        git_execution: TaskGitExecution {
+            status: prism_ir::GitExecutionStatus::CoordinationPublished,
+            integration_mode: prism_ir::GitIntegrationMode::ManualPr,
+            integration_status: prism_ir::GitIntegrationStatus::IntegrationPending,
+            ..TaskGitExecution::default()
+        },
+    }];
+
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        Graph::new(),
+        HistoryStore::default(),
+        OutcomeMemory::default(),
+        snapshot,
+        ProjectionIndex::default(),
+    );
+
+    assert_eq!(
+        prism.coordination_plan(&plan_id).unwrap().status,
+        PlanStatus::Active
+    );
+
+    let task = prism
+        .update_native_task_authoritative_only(
+            EventMeta {
+                id: EventId::new("coord:task:integrated"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+                execution_context: None,
+            },
+            TaskUpdateInput {
+                task_id,
+                kind: None,
+                status: None,
+                published_task_status: None,
+                git_execution: Some(TaskGitExecution {
+                    status: prism_ir::GitExecutionStatus::CoordinationPublished,
+                    integration_mode: prism_ir::GitIntegrationMode::ManualPr,
+                    integration_status: prism_ir::GitIntegrationStatus::IntegratedToTarget,
+                    ..TaskGitExecution::default()
+                }),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                summary: None,
+                anchors: None,
+                bindings: None,
+                depends_on: None,
+                acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
+                base_revision: Some(WorkspaceRevision::default()),
+                priority: None,
+                tags: None,
+                completion_context: None,
+            },
+            WorkspaceRevision::default(),
+            3,
+        )
+        .unwrap();
+
+    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::Completed);
+    assert_eq!(
+        task.git_execution.integration_status,
+        prism_ir::GitIntegrationStatus::IntegratedToTarget
+    );
+    assert_eq!(
+        prism.coordination_plan(&plan_id).unwrap().status,
+        PlanStatus::Completed
+    );
+}
+
+#[test]
 fn ad_hoc_plan_projection_replays_plan_state_at_timestamp() {
     let graph = Graph::new();
     let history = HistoryStore::new();

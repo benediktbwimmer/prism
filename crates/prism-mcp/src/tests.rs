@@ -920,7 +920,12 @@ fn git_execution_policy_completion_require_publishes_after_manual_code_commit() 
         .current_prism()
         .coordination_task(&prism_ir::CoordinationTaskId::new(task_id))
         .unwrap();
+    let plan = host
+        .current_prism()
+        .coordination_plan(&prism_ir::PlanId::new(plan.state["id"].as_str().unwrap()))
+        .unwrap();
     assert_eq!(task.status, prism_ir::CoordinationTaskStatus::Completed);
+    assert_eq!(plan.status, prism_ir::PlanStatus::Completed);
     assert_eq!(
         task.git_execution.status,
         prism_ir::GitExecutionStatus::CoordinationPublished

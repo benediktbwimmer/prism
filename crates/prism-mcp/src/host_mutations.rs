@@ -455,6 +455,12 @@ fn task_git_execution_from_completion_context(
             }
         }
         next.integration_evidence = Some(integration_evidence);
+        if next.integration_commit.is_none() {
+            next.integration_commit = next
+                .integration_evidence
+                .as_ref()
+                .map(|evidence| evidence.target_commit.clone());
+        }
         next.integration_status = prism_ir::GitIntegrationStatus::IntegratedToTarget;
     }
     Ok(Some(next))
@@ -2548,8 +2554,7 @@ impl QueryHost {
                                 trace.record_phase(
                                     "mutation.coordination.syncLoadedRevisionAfter",
                                     &json!({
-                                        "loadedRevision": self
-                                            .loaded_coordination_revision_value(),
+                                        "loadedRevision": self.loaded_coordination_revision_value(),
                                     }),
                                     sync_started.elapsed(),
                                     true,
@@ -2647,8 +2652,7 @@ impl QueryHost {
                                     trace.record_phase(
                                         "mutation.coordination.syncLoadedRevisionAfter",
                                         &json!({
-                                            "loadedRevision": self
-                                                .loaded_coordination_revision_value(),
+                                            "loadedRevision": self.loaded_coordination_revision_value(),
                                         }),
                                         sync_started.elapsed(),
                                         true,
@@ -4392,7 +4396,15 @@ impl QueryHost {
                 Ok(serde_json::to_value(coordination_task_view(task))?)
             }
             CoordinationMutationKindInput::Update => {
-                let payload: WorkflowUpdatePayload = serde_json::from_value(args.payload)?;
+                let mut payload: WorkflowUpdatePayload = serde_json::from_value(args.payload.clone())?;
+                if payload.completion_context.is_none() {
+                    payload.completion_context = args
+                        .payload
+                        .get("completionContext")
+                        .or_else(|| args.payload.get("completion_context"))
+                        .map(|value| serde_json::from_value(value.clone()))
+                        .transpose()?;
+                }
                 let WorkflowUpdatePayload {
                     id,
                     kind,
@@ -4480,63 +4492,91 @@ impl QueryHost {
                             &existing_task.git_execution,
                             completion_context.as_ref(),
                         )?;
-                        let task = prism.update_native_task(
-                            meta.clone(),
-                            TaskUpdateInput {
-                                task_id,
-                                kind: kind.map(convert_plan_node_kind),
-                                status,
-                                published_task_status: None,
-                                git_execution,
-                                assignee,
-                                session: None,
-                                worktree_id: None,
-                                branch_ref: None,
-                                title,
-                                summary,
-                                anchors: task_anchors,
-                                bindings: task_bindings,
-                                depends_on: depends_on.map(|depends_on| {
-                                    depends_on
-                                        .into_iter()
-                                        .map(CoordinationTaskId::new)
-                                        .collect::<Vec<_>>()
-                                }),
-                                coordination_depends_on: coordination_depends_on.map(
-                                    |depends_on| {
-                                        depends_on
-                                            .into_iter()
-                                            .map(CoordinationTaskId::new)
-                                            .collect::<Vec<_>>()
-                                    },
-                                ),
-                                integrated_depends_on: integrated_depends_on.map(|depends_on| {
-                                    depends_on
-                                        .into_iter()
-                                        .map(CoordinationTaskId::new)
-                                        .collect::<Vec<_>>()
-                                }),
-                                acceptance: acceptance
-                                    .map(|acceptance| {
-                                        convert_acceptance(
-                                            prism,
-                                            self.workspace_session_ref(),
-                                            workspace_root,
-                                            Some(acceptance),
-                                        )
-                                    })
-                                    .transpose()?,
-                                validation_refs: validation_refs
-                                    .map(|refs| convert_validation_refs(Some(refs))),
-                                is_abstract,
-                                base_revision: Some(prism.workspace_revision()),
-                                priority,
-                                tags,
-                                completion_context,
+                        let authoritative_git_execution_only_update = git_execution.is_some()
+                            && kind.is_none()
+                            && status.is_none()
+                            && assignee.is_none()
+                            && title.is_none()
+                            && summary.is_none()
+                            && task_anchors.is_none()
+                            && task_bindings.is_none()
+                            && depends_on.is_none()
+                            && coordination_depends_on.is_none()
+                            && integrated_depends_on.is_none()
+                            && acceptance.is_none()
+                            && validation_refs.is_none()
+                            && is_abstract.is_none()
+                            && priority.is_none()
+                            && tags.is_none();
+                        let update_input = TaskUpdateInput {
+                            task_id,
+                            kind: kind.map(convert_plan_node_kind),
+                            status,
+                            published_task_status: None,
+                            git_execution,
+                            assignee,
+                            session: None,
+                            worktree_id: None,
+                            branch_ref: None,
+                            title,
+                            summary,
+                            anchors: task_anchors,
+                            bindings: task_bindings,
+                            depends_on: depends_on.map(|depends_on| {
+                                depends_on
+                                    .into_iter()
+                                    .map(CoordinationTaskId::new)
+                                    .collect::<Vec<_>>()
+                            }),
+                            coordination_depends_on: coordination_depends_on.map(|depends_on| {
+                                depends_on
+                                    .into_iter()
+                                    .map(CoordinationTaskId::new)
+                                    .collect::<Vec<_>>()
+                            }),
+                            integrated_depends_on: integrated_depends_on.map(|depends_on| {
+                                depends_on
+                                    .into_iter()
+                                    .map(CoordinationTaskId::new)
+                                    .collect::<Vec<_>>()
+                            }),
+                            acceptance: acceptance
+                                .map(|acceptance| {
+                                    convert_acceptance(
+                                        prism,
+                                        self.workspace_session_ref(),
+                                        workspace_root,
+                                        Some(acceptance),
+                                    )
+                                })
+                                .transpose()?,
+                            validation_refs: validation_refs
+                                .map(|refs| convert_validation_refs(Some(refs))),
+                            is_abstract,
+                            base_revision: Some(prism.workspace_revision()),
+                            priority,
+                            tags,
+                            completion_context: if authoritative_git_execution_only_update {
+                                None
+                            } else {
+                                completion_context
                             },
-                            prism.workspace_revision(),
-                            current_timestamp(),
-                        )?;
+                        };
+                        let task = if authoritative_git_execution_only_update {
+                            prism.update_native_task_authoritative_only(
+                                meta.clone(),
+                                update_input,
+                                prism.workspace_revision(),
+                                current_timestamp(),
+                            )?
+                        } else {
+                            prism.update_native_task(
+                                meta.clone(),
+                                update_input,
+                                prism.workspace_revision(),
+                                current_timestamp(),
+                            )?
+                        };
                         let task = match workspace_root {
                             Some(observation_root) => maybe_observe_target_integration(
                                 session,

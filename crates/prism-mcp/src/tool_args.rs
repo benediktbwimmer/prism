@@ -2918,6 +2918,7 @@ pub(crate) struct WorkflowUpdatePayload {
     pub(crate) validation_refs: Option<Vec<ValidationRefPayload>>,
     pub(crate) priority: Option<SparsePatchInput<u8>>,
     pub(crate) tags: Option<Vec<String>>,
+    #[serde(alias = "completionContext", alias = "completion_context")]
     pub(crate) completion_context: Option<TaskCompletionContextPayload>,
 }
 
@@ -3182,4 +3183,38 @@ pub(crate) struct PrismCuratorPromoteMemoryArgs {
     pub(crate) note: Option<String>,
     #[serde(alias = "task_id")]
     pub(crate) task_id: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::WorkflowUpdatePayload;
+
+    #[test]
+    fn workflow_update_payload_deserializes_completion_context() {
+        let payload: WorkflowUpdatePayload = serde_json::from_value(serde_json::json!({
+            "id": "coord-task:test",
+            "completionContext": {
+                "integrationEvidence": {
+                    "kind": "trusted_record",
+                    "targetCommit": "deadbeef",
+                    "reviewArtifactRef": "artifact:review/demo",
+                    "recordRef": "git:refs/heads/main"
+                }
+            }
+        }))
+        .expect("workflow update payload should parse completion context");
+
+        let context = payload
+            .completion_context
+            .expect("completion context should deserialize");
+        let evidence = context
+            .integration_evidence
+            .expect("integration evidence should deserialize");
+        assert_eq!(evidence.target_commit, "deadbeef");
+        assert_eq!(
+            evidence.review_artifact_ref.as_deref(),
+            Some("artifact:review/demo")
+        );
+        assert_eq!(evidence.record_ref.as_deref(), Some("git:refs/heads/main"));
+    }
 }

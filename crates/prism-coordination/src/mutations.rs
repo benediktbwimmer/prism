@@ -268,6 +268,25 @@ fn auto_complete_execution_plan_if_eligible(
     Some(plan)
 }
 
+fn should_attempt_auto_complete_after_task_update(
+    authoritative_only: bool,
+    task: &CoordinationTask,
+) -> bool {
+    if !authoritative_only {
+        return true;
+    }
+    task.status == CoordinationTaskStatus::Completed
+        && task.git_execution.status == prism_ir::GitExecutionStatus::CoordinationPublished
+        && match task.git_execution.integration_status {
+            prism_ir::GitIntegrationStatus::IntegratedToTarget => true,
+            prism_ir::GitIntegrationStatus::PublishedToBranch => matches!(
+                task.git_execution.integration_mode,
+                prism_ir::GitIntegrationMode::External
+            ),
+            _ => false,
+        }
+}
+
 pub(crate) fn acquire_claim_mutation(
     state: &mut CoordinationState,
     meta: EventMeta,
@@ -2331,7 +2350,7 @@ pub(crate) fn update_task_mutation_with_options(
         review: None,
         metadata: Value::Object(metadata),
     });
-    if !authoritative_only {
+    if should_attempt_auto_complete_after_task_update(authoritative_only, &task) {
         auto_complete_execution_plan_if_eligible(state, &meta, &task.plan);
     }
     Ok(task)
