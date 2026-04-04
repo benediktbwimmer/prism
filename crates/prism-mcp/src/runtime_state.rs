@@ -502,9 +502,11 @@ mod tests {
         record_bridge_connection_failure, record_daemon_ready, record_process_exit,
         record_process_start, runtime_state_temp_path, RuntimeProcessRecord, RuntimeState,
     };
+    use crate::tests_support::ensure_process_test_prism_home;
     use crate::{PrismMcpCli, PrismMcpMode};
 
     fn test_dir(name: &str) -> PathBuf {
+        let _ = ensure_process_test_prism_home();
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|duration| duration.as_nanos())

@@ -1,8 +1,9 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::thread;
 use std::time::Duration;
 
@@ -57,6 +58,21 @@ fn track_temp_dir(path: &Path) {
     TEMP_TEST_DIRS.with(|state| state.borrow_mut().paths.push(path.to_path_buf()));
 }
 
+pub(crate) fn ensure_process_test_prism_home() -> &'static PathBuf {
+    static TEST_PRISM_HOME: OnceLock<PathBuf> = OnceLock::new();
+    TEST_PRISM_HOME.get_or_init(|| {
+        let path = env::temp_dir().join(format!("prism-mcp-test-home-{}", new_sortable_token()));
+        let _ = fs::remove_dir_all(&path);
+        fs::create_dir_all(&path).expect("mcp test prism home should be created");
+        // SAFETY: test initialization sets a process-wide PRISM_HOME once, before the
+        // helper-driven temp workspaces are indexed. We never mutate it again.
+        unsafe {
+            env::set_var("PRISM_HOME", &path);
+        }
+        path
+    })
+}
+
 pub(crate) fn host_with_node(node: Node) -> QueryHost {
     let mut graph = Graph::default();
     graph.nodes.insert(node.id.clone(), node);
@@ -86,6 +102,7 @@ pub(crate) fn host_with_session(workspace: WorkspaceSession) -> QueryHost {
 }
 
 pub(crate) fn shared_workspace_session(root: &Path) -> Arc<WorkspaceSession> {
+    let _ = ensure_process_test_prism_home();
     Arc::new(index_workspace_session(root).expect("workspace session should index"))
 }
 
@@ -111,6 +128,7 @@ pub(crate) fn host_with_shared_session_and_features(
 pub(crate) fn workspace_session_with_owner_credential(
     root: &Path,
 ) -> (WorkspaceSession, MutationCredentialFixture) {
+    let _ = ensure_process_test_prism_home();
     let session = index_workspace_session_with_options(
         root,
         WorkspaceSessionOptions {
@@ -214,6 +232,7 @@ fn is_transient_sqlite_lock(error: &anyhow::Error) -> bool {
 }
 
 pub(crate) fn temp_workspace() -> PathBuf {
+    let _ = ensure_process_test_prism_home();
     let suffix = new_sortable_token();
     let root = std::env::temp_dir().join(format!("prism-mcp-test-{suffix}"));
     let _ = fs::remove_dir_all(&root);

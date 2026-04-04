@@ -108,6 +108,14 @@ fn cli_defaults_shared_runtime_backend_to_repo_sqlite() {
         .unwrap()
         .shared_runtime_db_path()
         .unwrap();
+    let home_prism = std::env::var_os("HOME")
+        .map(|home| std::path::PathBuf::from(home).join(".prism"))
+        .expect("HOME should be set for tests");
+
+    assert!(
+        !expected.starts_with(&home_prism),
+        "mcp temp-workspace tests must not write shared runtime state into $HOME/.prism"
+    );
 
     assert_eq!(
         cli.shared_runtime_backend(&root).unwrap(),

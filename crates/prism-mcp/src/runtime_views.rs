@@ -1352,9 +1352,11 @@ impl RuntimePaths {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tests_support::ensure_process_test_prism_home;
     use serde_json::json;
 
     fn temp_root(label: &str) -> PathBuf {
+        let _ = ensure_process_test_prism_home();
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
