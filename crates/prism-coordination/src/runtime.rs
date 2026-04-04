@@ -235,6 +235,30 @@ impl CoordinationRuntimeState {
         claims
     }
 
+    pub fn claims_for_task_in_scope(
+        &mut self,
+        task_id: &prism_ir::CoordinationTaskId,
+        now: Timestamp,
+        worktree_id: Option<&str>,
+    ) -> Vec<WorkClaim> {
+        expire_claims_locked(&mut self.state, now);
+        let mut claims = self
+            .state
+            .claims
+            .values()
+            .filter(|claim| claim_matches_worktree_scope(claim, worktree_id))
+            .filter(|claim| claim.task.as_ref() == Some(task_id))
+            .cloned()
+            .collect::<Vec<_>>();
+        claims.sort_by(|left, right| {
+            right
+                .since
+                .cmp(&left.since)
+                .then_with(|| left.id.0.cmp(&right.id.0))
+        });
+        claims
+    }
+
     pub fn conflicts_for_anchor(
         &mut self,
         anchors: &[AnchorRef],

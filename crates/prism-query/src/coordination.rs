@@ -127,6 +127,18 @@ impl Prism {
             .claims_for_anchor_in_scope(&anchors, now, worktree_id.as_deref())
     }
 
+    pub fn task_claim_history(
+        &self,
+        task_id: &CoordinationTaskId,
+        now: Timestamp,
+    ) -> Vec<WorkClaim> {
+        let worktree_id = self.coordination_worktree_scope();
+        self.continuity_runtime
+            .write()
+            .expect("continuity runtime lock poisoned")
+            .claims_for_task_in_scope(task_id, now, worktree_id.as_deref())
+    }
+
     pub fn conflicts(&self, anchors: &[AnchorRef], now: Timestamp) -> Vec<CoordinationConflict> {
         let anchors = self.coordination_scope_anchors(anchors);
         let worktree_id = self.coordination_worktree_scope();

@@ -4,6 +4,7 @@ use anyhow::{anyhow, Result};
 use prism_coordination::{
     coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
     ready_task_count_for_active_plans, CoordinationQueueReadModel, CoordinationReadModel,
+    WorkClaim,
 };
 use prism_ir::ClaimStatus;
 use prism_ir::{PlanId, PlanStatus, TaskId};
@@ -15,10 +16,12 @@ use crate::ui_types::{
     PrismOverviewCoordinationQueuesView, PrismOverviewCoordinationView, PrismOverviewSummaryView,
     PrismOverviewTaskView, PrismOverviewView, PrismPlanDetailView, PrismPlansView,
     PrismUiApiPlaceholderView, PrismUiPlansFiltersView, PrismUiPlansStatsView,
-    PrismUiSessionBootstrapView,
+    PrismUiSessionBootstrapView, PrismUiTaskBlockerEntryView, PrismUiTaskClaimHistoryEntryView,
+    PrismUiTaskCommitView, PrismUiTaskDetailView, PrismUiTaskEditableMetadataView,
 };
 use crate::views::{
-    artifact_view, concept_packet_view, plan_execution_overlay_view, plan_graph_view,
+    artifact_view, blocker_view, concept_packet_view, plan_execution_overlay_view,
+    plan_graph_view,
     plan_list_entry_view, plan_node_recommendation_view, plan_summary_view,
     policy_violation_record_view, ConceptVerbosity,
 };
@@ -163,6 +166,7 @@ pub(crate) trait QueryHostUiReadModelsExt {
     fn ui_plans_view(&self, options: UiPlansQueryOptions) -> Result<PrismPlansView>;
     fn ui_graph_view(&self, selected_concept_handle: Option<&str>) -> Result<PrismGraphView>;
     fn ui_plan_graph_view(&self, plan_id: &str) -> Result<Option<PrismPlanDetailView>>;
+    fn ui_task_detail_view(&self, task_id: &str) -> Result<Option<PrismUiTaskDetailView>>;
     fn ui_placeholder_view(&self, endpoint: &str, message: &str) -> PrismUiApiPlaceholderView;
 }
 
@@ -429,6 +433,87 @@ impl QueryHostUiReadModelsExt for QueryHost {
             .map(plan_list_entry_view)
             .collect::<Vec<_>>();
         build_plan_detail_view(self, &prism, &plans, plan_id)
+    }
+
+    fn ui_task_detail_view(&self, task_id: &str) -> Result<Option<PrismUiTaskDetailView>> {
+        let prism = self.current_prism();
+        let task_id = prism_ir::CoordinationTaskId::new(task_id.to_string());
+        let Some(task) = prism.coordination_task(&task_id) else {
+            return Ok(None);
+        };
+        let task_view = coordination_task_view(task.clone());
+        let now = crate::current_timestamp();
+        let blockers = prism
+            .blockers(&task_id, now)
+            .into_iter()
+            .map(|blocker| {
+                let related_task = blocker
+                    .related_task_id
+                    .as_ref()
+                    .and_then(|id| prism.coordination_task(id))
+                    .map(coordination_task_view);
+                PrismUiTaskBlockerEntryView {
+                    blocker: blocker_view(blocker),
+                    related_task,
+                }
+            })
+            .collect::<Vec<_>>();
+        let claim_history = prism
+            .task_claim_history(&task_id, now)
+            .into_iter()
+            .map(task_claim_history_entry_view)
+            .collect::<Vec<_>>();
+        let outcomes = prism
+            .query_outcomes(&OutcomeRecallQuery {
+                task: Some(TaskId::new(task_view.id.clone())),
+                limit: PLAN_DETAIL_OUTCOME_LIMIT,
+                ..OutcomeRecallQuery::default()
+            })
+            .into_iter()
+            .map(|event| prism_js::AgentOutcomeSummaryView {
+                ts: event.meta.ts,
+                kind: format!("{:?}", event.kind),
+                result: format!("{:?}", event.result),
+                summary: clamp_overview_text(&event.summary),
+            })
+            .collect::<Vec<_>>();
+        let recent_commits = task_recent_commits(&task_view);
+        let artifacts = prism
+            .artifacts(&task_id)
+            .into_iter()
+            .map(artifact_view)
+            .collect::<Vec<_>>();
+        let validation_guidance = prism
+            .task_validation_recipe(&task_id)
+            .map(|recipe| recipe.checks)
+            .unwrap_or_default();
+
+        Ok(Some(PrismUiTaskDetailView {
+            editable: PrismUiTaskEditableMetadataView {
+                title: task_view.title.clone(),
+                description: task_view.summary.clone(),
+                priority: task_view.priority,
+                assignee: task_view.assignee.clone(),
+                status: format!("{:?}", task_view.status),
+                validation_refs: task_view.validation_refs.clone(),
+                validation_guidance,
+                status_options: vec![
+                    "proposed".to_string(),
+                    "ready".to_string(),
+                    "in_progress".to_string(),
+                    "blocked".to_string(),
+                    "in_review".to_string(),
+                    "completed".to_string(),
+                    "abandoned".to_string(),
+                ],
+            },
+            task: task_view,
+            claim_history,
+            blockers,
+            outcomes,
+            recent_commits,
+            artifacts,
+        }))
     }
 
     fn ui_placeholder_view(&self, endpoint: &str, message: &str) -> PrismUiApiPlaceholderView {
@@ -904,6 +989,102 @@ fn plan_recent_outcomes(
             result: format!("{:?}", event.result),
             summary: clamp_overview_text(&event.summary),
         })
+        .collect()
+}
+
+fn task_claim_history_entry_view(claim: WorkClaim) -> PrismUiTaskClaimHistoryEntryView {
+    let holder = claim
+        .agent
+        .as_ref()
+        .map(|agent| agent.0.clone())
+        .unwrap_or_else(|| claim.holder.0.clone());
+    let duration_end = claim
+        .refreshed_at
+        .or(claim.stale_at)
+        .unwrap_or(claim.expires_at);
+    PrismUiTaskClaimHistoryEntryView {
+        id: claim.id.0.to_string(),
+        holder: holder.to_string(),
+        agent: claim.agent.as_ref().map(|agent| agent.0.to_string()),
+        status: format!("{:?}", claim.status),
+        capability: format!("{:?}", claim.capability),
+        mode: format!("{:?}", claim.mode),
+        started_at: claim.since,
+        refreshed_at: claim.refreshed_at,
+        stale_at: claim.stale_at,
+        expires_at: claim.expires_at,
+        duration_seconds: duration_end.checked_sub(claim.since),
+        branch_ref: claim.branch_ref.clone(),
+        worktree_id: claim.worktree_id.clone(),
+        claim: claim_view(claim),
+    }
+}
+
+fn task_recent_commits(task: &prism_js::CoordinationTaskView) -> Vec<PrismUiTaskCommitView> {
+    let mut commits = Vec::new();
+    push_task_commit(
+        &mut commits,
+        "source",
+        task.git_execution.source_commit.as_deref(),
+        task.git_execution.source_ref.as_deref(),
+        "Source commit",
+    );
+    push_task_commit(
+        &mut commits,
+        "publish",
+        task.git_execution.publish_commit.as_deref(),
+        task.git_execution.publish_ref.as_deref(),
+        "Publish commit",
+    );
+    push_task_commit(
+        &mut commits,
+        "integration",
+        task.git_execution.integration_commit.as_deref(),
+        task.git_execution.target_ref.as_deref(),
+        "Integration commit",
+    );
+    if let Some(report) = task.git_execution.last_publish.as_ref() {
+        push_task_commit(
+            &mut commits,
+            "coordination_publish",
+            report.coordination_commit.as_deref(),
+            report.pushed_ref.as_deref(),
+            "Coordination publish commit",
+        );
+        push_task_commit(
+            &mut commits,
+            "code_publish",
+            report.code_commit.as_deref(),
+            report.pushed_ref.as_deref(),
+            "Code publish commit",
+        );
+    }
+    dedupe_task_commits(commits)
+}
+
+fn push_task_commit(
+    commits: &mut Vec<PrismUiTaskCommitView>,
+    kind: &str,
+    commit: Option<&str>,
+    reference: Option<&str>,
+    label: &str,
+) {
+    let Some(commit) = commit.filter(|value| !value.is_empty()) else {
+        return;
+    };
+    commits.push(PrismUiTaskCommitView {
+        kind: kind.to_string(),
+        commit: commit.to_string(),
+        reference: reference.map(str::to_string),
+        label: label.to_string(),
+    });
+}
+
+fn dedupe_task_commits(commits: Vec<PrismUiTaskCommitView>) -> Vec<PrismUiTaskCommitView> {
+    let mut seen = HashSet::<(String, String)>::new();
+    commits
+        .into_iter()
+        .filter(|entry| seen.insert((entry.kind.clone(), entry.commit.clone())))
         .collect()
 }
 

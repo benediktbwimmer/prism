@@ -13,7 +13,7 @@ use crate::ui_assets::{prism_ui_asset, prism_ui_index_html, prism_ui_unbuilt_htm
 use crate::ui_read_models::{QueryHostUiReadModelsExt, UiPlansQueryOptions};
 use crate::ui_types::{
     PrismGraphView, PrismOverviewView, PrismPlanDetailView, PrismPlansView,
-    PrismUiApiPlaceholderView, PrismUiSessionBootstrapView,
+    PrismUiApiPlaceholderView, PrismUiSessionBootstrapView, PrismUiTaskDetailView,
 };
 use crate::QueryHost;
 
@@ -31,7 +31,7 @@ pub(crate) fn routes(state: PrismUiState) -> Router {
         .route("/api/v1/session", get(prism_ui_session))
         .route("/api/v1/plans", get(prism_ui_plans))
         .route("/api/v1/plans/{plan_id}/graph", get(prism_ui_plan_graph))
-        .route("/api/v1/tasks/{task_id}", get(prism_ui_task_placeholder))
+        .route("/api/v1/tasks/{task_id}", get(prism_ui_task_detail))
         .route("/api/v1/fleet", get(prism_ui_fleet_placeholder))
         .route("/dashboard", get(prism_ui_index))
         .route("/dashboard/", get(prism_ui_index))
@@ -140,14 +140,18 @@ async fn prism_ui_graph(
         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
 }
 
-async fn prism_ui_task_placeholder(
+async fn prism_ui_task_detail(
     State(state): State<PrismUiState>,
     Path(task_id): Path<String>,
-) -> Json<PrismUiApiPlaceholderView> {
-    Json(state.host.ui_placeholder_view(
-        &format!("/api/v1/tasks/{task_id}"),
-        "Task detail read models land in the next operator-console backend task.",
-    ))
+) -> std::result::Result<Json<PrismUiTaskDetailView>, (StatusCode, String)> {
+    let detail = state
+        .host
+        .ui_task_detail_view(&task_id)
+        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    match detail {
+        Some(detail) => Ok(Json(detail)),
+        None => Err((StatusCode::NOT_FOUND, format!("task detail not found: {task_id}"))),
+    }
 }
 
 async fn prism_ui_fleet_placeholder(
@@ -208,7 +212,9 @@ mod tests {
         demo_node, host_with_node, host_with_session, temp_workspace, test_session,
     };
     use crate::ui_assets::prism_ui_index_html;
-    use crate::{CoordinationMutationKindInput, PrismCoordinationArgs};
+    use crate::{
+        ClaimActionInput, CoordinationMutationKindInput, PrismClaimArgs, PrismCoordinationArgs,
+    };
     use prism_core::index_workspace_session;
 
     #[tokio::test]
@@ -289,22 +295,118 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ui_v1_task_and_fleet_placeholders_are_stable_json() {
+    async fn ui_v1_task_detail_and_fleet_placeholder_are_stable_json() {
         let root = temp_workspace();
-        let host = Arc::new(host_with_session(index_workspace_session(&root).unwrap()));
+        let host = Arc::new(host_with_node(demo_node()));
+        let session = test_session(host.as_ref());
+        let plan = host
+            .store_coordination(
+                session.as_ref(),
+                PrismCoordinationArgs {
+                    kind: CoordinationMutationKindInput::PlanCreate,
+                    payload: json!({
+                        "title": "Task detail plan",
+                        "goal": "Inspect task detail"
+                    }),
+                    task_id: None,
+                },
+            )
+            .unwrap();
+        let plan_id = plan.state["id"].as_str().unwrap().to_string();
+        let blocker = host
+            .store_coordination(
+                session.as_ref(),
+                PrismCoordinationArgs {
+                    kind: CoordinationMutationKindInput::PlanNodeCreate,
+                    payload: json!({
+                        "planId": plan_id,
+                        "title": "Upstream blocker",
+                        "summary": "Must finish first"
+                    }),
+                    task_id: None,
+                },
+            )
+            .unwrap();
+        let blocker_id = blocker.state["id"].as_str().unwrap().to_string();
+        let task = host
+            .store_coordination(
+                session.as_ref(),
+                PrismCoordinationArgs {
+                    kind: CoordinationMutationKindInput::PlanNodeCreate,
+                    payload: json!({
+                        "planId": plan_id,
+                        "title": "Primary task",
+                        "summary": "Editable operator console target",
+                        "dependsOn": [blocker_id]
+                    }),
+                    task_id: None,
+                },
+            )
+            .unwrap();
+        let task_id = task.state["id"].as_str().unwrap().to_string();
+        host.store_claim(
+            session.as_ref(),
+            PrismClaimArgs {
+                action: ClaimActionInput::Acquire,
+                task_id: None,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::main",
+                        "kind": "function"
+                    }],
+                    "capability": "edit",
+                    "mode": "soft_exclusive",
+                    "coordinationTaskId": task_id.clone()
+                }),
+            },
+        )
+        .unwrap();
         let router = routes(PrismUiState { host, root });
 
-        for path in ["/api/v1/tasks/demo-task", "/api/v1/fleet"] {
-            let response = router
-                .clone()
-                .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
-                .await
-                .unwrap();
-            assert_eq!(response.status(), StatusCode::OK);
-            let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
-            let value: Value = serde_json::from_slice(&body).unwrap();
-            assert_eq!(value["status"], Value::from("not_implemented"));
-        }
+        let task_response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/v1/tasks/{task_id}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(task_response.status(), StatusCode::OK);
+        let task_body = to_bytes(task_response.into_body(), usize::MAX).await.unwrap();
+        let task_value: Value = serde_json::from_slice(&task_body).unwrap();
+        assert_eq!(task_value["task"]["id"], Value::from(task_id));
+        assert_eq!(
+            task_value["editable"]["title"],
+            Value::from("Primary task")
+        );
+        assert!(task_value["claimHistory"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()));
+        assert!(task_value["blockers"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()));
+        assert!(task_value["artifacts"].is_array());
+        assert!(task_value["recentCommits"].is_array());
+
+        let fleet_response = router
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/fleet")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(fleet_response.status(), StatusCode::OK);
+        let fleet_body = to_bytes(fleet_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let fleet_value: Value = serde_json::from_slice(&fleet_body).unwrap();
+        assert_eq!(fleet_value["status"], Value::from("not_implemented"));
     }
 
     #[tokio::test]
