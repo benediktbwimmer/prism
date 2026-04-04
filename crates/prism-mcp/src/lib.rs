@@ -36,10 +36,6 @@ mod concept_followthrough;
 mod concept_resolution;
 mod daemon_log;
 mod daemon_mode;
-mod dashboard_events;
-mod dashboard_read_models;
-mod dashboard_router;
-mod dashboard_types;
 mod diagnostics;
 mod diagnostics_state;
 mod discovery_bundle;
@@ -59,6 +55,7 @@ mod logging;
 mod mcp_call_log;
 mod memory_metadata;
 mod mutation_provenance;
+mod mutation_trace;
 mod peer_runtime_router;
 mod process_lifecycle;
 mod proxy_server;
@@ -116,7 +113,6 @@ use common::*;
 use concept_followthrough::*;
 use concept_resolution::*;
 pub use daemon_mode::serve_with_mode;
-use dashboard_events::*;
 use diagnostics::*;
 use diagnostics_state::DiagnosticsState;
 use discovery_bundle::*;
@@ -424,10 +420,6 @@ impl PrismMcpServer {
         Arc::clone(&self.host.mcp_call_log_store)
     }
 
-    pub(crate) fn dashboard_state(&self) -> Arc<DashboardState> {
-        self.host.dashboard_state()
-    }
-
     pub(crate) fn workspace_session(&self) -> Option<&Arc<WorkspaceSession>> {
         self.host.workspace_session()
     }
@@ -622,8 +614,8 @@ struct QueryHost {
     default_limits: QueryLimits,
     worker_pool: Arc<JsWorkerPool>,
     pub(crate) mcp_call_log_store: Arc<McpCallLogStore>,
-    dashboard_state: Arc<DashboardState>,
     diagnostics_state: Arc<DiagnosticsState>,
+    next_mutation_trace_id: Arc<AtomicU64>,
     workspace_runtime_binding: Option<Arc<WorkspaceRuntimeBinding>>,
     restored_session_seed: Option<PersistedSessionSeed>,
     features: PrismMcpFeatures,
@@ -736,8 +728,8 @@ impl QueryHost {
             default_limits: limits,
             worker_pool: Arc::new(worker_pool),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(None)),
-            dashboard_state: Arc::new(DashboardState::default()),
             diagnostics_state: Arc::new(DiagnosticsState::default()),
+            next_mutation_trace_id: Arc::new(AtomicU64::new(1)),
             workspace_runtime_binding: None,
             restored_session_seed: None,
             features: features.clone(),
@@ -806,14 +798,12 @@ impl QueryHost {
         let notes = Arc::new(SessionMemory::new());
         let inferred_edges = Arc::new(InferenceStore::new());
         let mcp_call_log_store = Arc::new(McpCallLogStore::for_root(Some(workspace.root())));
-        let dashboard_state = Arc::new(DashboardState::default());
         let diagnostics_state = Arc::new(DiagnosticsState::default());
         let workspace_runtime_host = Arc::new(WorkspaceRuntimeHost::new());
         let workspace_runtime_binding = workspace_runtime_host.bind_workspace(
             Arc::clone(&workspace),
             Arc::clone(&notes),
             Arc::clone(&inferred_edges),
-            Arc::clone(&dashboard_state),
             Arc::clone(&diagnostics_state),
             Arc::clone(&mcp_call_log_store),
         );
@@ -832,8 +822,8 @@ impl QueryHost {
             default_limits: limits,
             worker_pool: Arc::new(worker_pool),
             mcp_call_log_store,
-            dashboard_state,
             diagnostics_state,
+            next_mutation_trace_id: Arc::new(AtomicU64::new(1)),
             workspace_runtime_binding: Some(Arc::clone(&workspace_runtime_binding)),
             restored_session_seed,
             features,
@@ -994,10 +984,6 @@ impl QueryHost {
 
     pub(crate) fn workspace_runtime_binding(&self) -> Option<Arc<WorkspaceRuntimeBinding>> {
         self.workspace_runtime_binding_ref().cloned()
-    }
-
-    pub(crate) fn ui_enabled(&self) -> bool {
-        self.features.ui
     }
 
     pub(crate) fn sync_workspace_active_work_context(&self, session: &SessionState) {

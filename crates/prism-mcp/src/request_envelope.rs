@@ -57,7 +57,6 @@ struct RequestEnvelopeState {
     route_started_at: u64,
     route_duration_ms: u64,
     mcp_call_log_store: Arc<crate::mcp_call_log::McpCallLogStore>,
-    dashboard: Arc<crate::DashboardState>,
     workspace: Option<Arc<prism_core::WorkspaceSession>>,
     session_id: String,
     task_id: Option<String>,
@@ -237,7 +236,6 @@ impl RequestEnvelope {
                 route_started_at,
                 route_duration_ms,
                 mcp_call_log_store: server.mcp_call_log_store(),
-                dashboard: server.dashboard_state(),
                 workspace: server.workspace_session().map(Arc::clone),
                 session_id,
                 task_id,
@@ -293,7 +291,6 @@ impl RequestEnvelope {
         crate::slow_call_snapshot::attach_slow_call_snapshot(
             &mut metadata,
             duration_ms,
-            self.state.dashboard.as_ref(),
             self.state.workspace.as_deref(),
         );
         let record = PersistedMcpCallRecord {
@@ -321,6 +318,7 @@ impl RequestEnvelope {
             response_preview: response_value.as_ref().and_then(preview_value),
             metadata,
             query_compat: None,
+            mutation_compat: None,
         };
         let _ = self.state.mcp_call_log_store.push(record);
     }
@@ -419,7 +417,6 @@ impl Drop for RequestEnvelope {
         crate::slow_call_snapshot::attach_slow_call_snapshot(
             &mut metadata,
             duration_ms,
-            self.state.dashboard.as_ref(),
             self.state.workspace.as_deref(),
         );
         let record = PersistedMcpCallRecord {
@@ -447,6 +444,7 @@ impl Drop for RequestEnvelope {
             response_preview: None,
             metadata,
             query_compat: None,
+            mutation_compat: None,
         };
         let _ = self.state.mcp_call_log_store.push(record);
     }
@@ -824,7 +822,6 @@ mod tests {
     #[test]
     fn dropped_request_envelope_persists_aborted_request_record() {
         let store = Arc::new(crate::mcp_call_log::McpCallLogStore::for_root(None));
-        let dashboard = Arc::new(crate::DashboardState::default());
 
         let envelope = RequestEnvelope {
             state: Arc::new(RequestEnvelopeState {
@@ -845,7 +842,6 @@ mod tests {
                 route_started_at: current_timestamp(),
                 route_duration_ms: 0,
                 mcp_call_log_store: Arc::clone(&store),
-                dashboard,
                 workspace: None,
                 session_id: "session:test".to_string(),
                 task_id: Some("task:test".to_string()),
@@ -880,7 +876,6 @@ mod tests {
     #[test]
     fn dropped_request_envelope_skips_logging_for_delegated_request() {
         let store = Arc::new(crate::mcp_call_log::McpCallLogStore::for_root(None));
-        let dashboard = Arc::new(crate::DashboardState::default());
         let request_key = Some("tools/call|61|prism_query".to_string());
         register_delegated_request(&request_key);
 
@@ -905,7 +900,6 @@ mod tests {
                 route_started_at: current_timestamp(),
                 route_duration_ms: 0,
                 mcp_call_log_store: Arc::clone(&store),
-                dashboard,
                 workspace: None,
                 session_id: "session:test".to_string(),
                 task_id: Some("task:test".to_string()),
@@ -922,7 +916,6 @@ mod tests {
     #[test]
     fn successful_delegated_request_envelope_skips_generic_wrapper_log() {
         let store = Arc::new(crate::mcp_call_log::McpCallLogStore::for_root(None));
-        let dashboard = Arc::new(crate::DashboardState::default());
 
         let envelope = RequestEnvelope {
             state: Arc::new(RequestEnvelopeState {
@@ -945,7 +938,6 @@ mod tests {
                 route_started_at: current_timestamp(),
                 route_duration_ms: 0,
                 mcp_call_log_store: Arc::clone(&store),
-                dashboard,
                 workspace: None,
                 session_id: "session:test".to_string(),
                 task_id: Some("task:test".to_string()),
@@ -963,7 +955,6 @@ mod tests {
     #[test]
     fn delegated_request_envelope_clone_drop_does_not_persist_bogus_wrapper() {
         let store = Arc::new(crate::mcp_call_log::McpCallLogStore::for_root(None));
-        let dashboard = Arc::new(crate::DashboardState::default());
 
         let envelope = RequestEnvelope {
             state: Arc::new(RequestEnvelopeState {
@@ -991,7 +982,6 @@ mod tests {
                 route_started_at: current_timestamp(),
                 route_duration_ms: 0,
                 mcp_call_log_store: Arc::clone(&store),
-                dashboard,
                 workspace: None,
                 session_id: "session:test".to_string(),
                 task_id: Some("task:test".to_string()),

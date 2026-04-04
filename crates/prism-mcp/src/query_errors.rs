@@ -116,9 +116,7 @@ fn decode_marshaled_query_error(body: &str) -> Option<QueryExecutionError> {
         "query_invalid_argument" => "prism_query arguments invalid",
         "query_feature_disabled" => "prism_query feature disabled",
         "remote_runtime_id_required" => "prism_query remote runtime target invalid",
-        "remote_runtime_target_incomplete" => {
-            "prism_query remote runtime target incomplete"
-        }
+        "remote_runtime_target_incomplete" => "prism_query remote runtime target incomplete",
         code if code.starts_with("remote_runtime_") || code.starts_with("peer_runtime_") => {
             "prism_query remote runtime failed"
         }

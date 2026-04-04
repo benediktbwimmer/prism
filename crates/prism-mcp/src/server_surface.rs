@@ -15,15 +15,13 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use crate::dashboard_events::MutationRun;
+use crate::mutation_trace::MutationRun;
 use crate::*;
 
-pub(crate) struct MutationDashboardMeta {
+pub(crate) struct MutationOutcomeMeta {
     task_id: Option<String>,
     result_ids: Vec<String>,
     violation_count: usize,
-    publish_task_update: bool,
-    publish_coordination_update: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -63,7 +61,7 @@ impl MutationCapabilityRequirement {
     }
 }
 
-impl MutationDashboardMeta {
+impl MutationOutcomeMeta {
     pub(crate) fn task(
         task_id: Option<String>,
         result_ids: Vec<String>,
@@ -73,8 +71,6 @@ impl MutationDashboardMeta {
             task_id,
             result_ids,
             violation_count,
-            publish_task_update: true,
-            publish_coordination_update: false,
         }
     }
 
@@ -83,8 +79,6 @@ impl MutationDashboardMeta {
             task_id: None,
             result_ids,
             violation_count,
-            publish_task_update: false,
-            publish_coordination_update: true,
         }
     }
 }
@@ -160,7 +154,6 @@ impl PrismMcpServer {
         crate::slow_call_snapshot::attach_slow_call_snapshot(
             &mut metadata,
             duration_ms,
-            self.host.dashboard_state().as_ref(),
             self.host.workspace_session().map(Arc::as_ref),
         );
         let entry = crate::mcp_call_log::new_log_entry(
@@ -195,6 +188,7 @@ impl PrismMcpServer {
                 .and_then(crate::mcp_call_log::preview_value),
             metadata,
             query_compat: None,
+            mutation_compat: None,
         });
     }
 
@@ -483,7 +477,7 @@ impl PrismMcpServer {
     where
         T: Serialize,
         F: FnOnce() -> Result<T, anyhow::Error>,
-        G: FnOnce(&T) -> MutationDashboardMeta,
+        G: FnOnce(&T) -> MutationOutcomeMeta,
     {
         self.execute_logged_mutation_with_run(action, refresh_policy, |_| operation(), finish)
     }
@@ -498,7 +492,7 @@ impl PrismMcpServer {
     where
         T: Serialize,
         F: FnOnce(&MutationRun) -> Result<T, anyhow::Error>,
-        G: FnOnce(&T) -> MutationDashboardMeta,
+        G: FnOnce(&T) -> MutationOutcomeMeta,
     {
         let run = self.host.begin_mutation_run(self.session.as_ref(), action);
         self.execute_logged_mutation_with_existing_run(
@@ -521,7 +515,7 @@ impl PrismMcpServer {
     where
         T: Serialize,
         F: FnOnce(&MutationRun) -> Result<T, anyhow::Error>,
-        G: FnOnce(&T) -> MutationDashboardMeta,
+        G: FnOnce(&T) -> MutationOutcomeMeta,
     {
         let refresh_started = Instant::now();
         match refresh_policy {
@@ -738,98 +732,6 @@ impl PrismMcpServer {
                         return Err(mapped);
                     }
                 };
-                if meta.publish_task_update && self.host.ui_enabled() {
-                    let publish_started = Instant::now();
-                    match self
-                        .host
-                        .dashboard_task_snapshot(Some(self.session.as_ref()))
-                    {
-                        Ok(snapshot) => {
-                            run.record_phase(
-                                "mutation.publishTaskUpdate.buildSnapshot",
-                                &json!({ "action": action }),
-                                publish_started.elapsed(),
-                                true,
-                                None,
-                            );
-                            let encode_started = Instant::now();
-                            match serde_json::to_value(&snapshot) {
-                                Ok(snapshot_json) => {
-                                    run.record_phase(
-                                        "mutation.publishTaskUpdate.encode",
-                                        &json!({ "action": action }),
-                                        encode_started.elapsed(),
-                                        true,
-                                        None,
-                                    );
-                                    let event_started = Instant::now();
-                                    self.host
-                                        .dashboard_state()
-                                        .publish_value("task.updated", snapshot_json);
-                                    run.record_phase(
-                                        "mutation.publishTaskUpdate.publishEvent",
-                                        &json!({ "action": action }),
-                                        event_started.elapsed(),
-                                        true,
-                                        None,
-                                    );
-                                    run.record_phase(
-                                        "mutation.publishTaskUpdate",
-                                        &json!({ "action": action }),
-                                        publish_started.elapsed(),
-                                        true,
-                                        None,
-                                    );
-                                }
-                                Err(error) => {
-                                    let message = error.to_string();
-                                    run.record_phase(
-                                        "mutation.publishTaskUpdate.encode",
-                                        &json!({ "action": action }),
-                                        encode_started.elapsed(),
-                                        false,
-                                        Some(message.clone()),
-                                    );
-                                    run.record_phase(
-                                        "mutation.publishTaskUpdate",
-                                        &json!({ "action": action }),
-                                        publish_started.elapsed(),
-                                        false,
-                                        Some(message),
-                                    );
-                                }
-                            }
-                        }
-                        Err(error) => {
-                            let message = error.to_string();
-                            run.record_phase(
-                                "mutation.publishTaskUpdate.buildSnapshot",
-                                &json!({ "action": action }),
-                                publish_started.elapsed(),
-                                false,
-                                Some(message.clone()),
-                            );
-                            run.record_phase(
-                                "mutation.publishTaskUpdate",
-                                &json!({ "action": action }),
-                                publish_started.elapsed(),
-                                false,
-                                Some(message),
-                            );
-                        }
-                    }
-                }
-                if meta.publish_coordination_update && self.host.ui_enabled() {
-                    let publish_started = Instant::now();
-                    let _ = self.host.publish_dashboard_coordination_update();
-                    run.record_phase(
-                        "mutation.publishCoordinationUpdate",
-                        &json!({ "action": action }),
-                        publish_started.elapsed(),
-                        true,
-                        None,
-                    );
-                }
                 run.finish_success(
                     meta.task_id.clone(),
                     meta.result_ids,
@@ -1164,7 +1066,7 @@ impl PrismMcpServer {
                         )
                     },
                     |result| {
-                        MutationDashboardMeta::task(
+                        MutationOutcomeMeta::task(
                             Some(result.work_id.clone()),
                             vec![result.work_id.clone()],
                             0,
@@ -1196,7 +1098,7 @@ impl PrismMcpServer {
                     |result| {
                         let mut result_ids = result.event_ids.clone();
                         result_ids.push(result.task_id.clone());
-                        MutationDashboardMeta::task(Some(result.task_id.clone()), result_ids, 0)
+                        MutationOutcomeMeta::task(Some(result.task_id.clone()), result_ids, 0)
                     },
                 )?;
                 structured_tool_result(PrismMutationResult {
@@ -1222,7 +1124,7 @@ impl PrismMcpServer {
                         )
                     },
                     |result| {
-                        MutationDashboardMeta::task(
+                        MutationOutcomeMeta::task(
                             Some(result.task_id.clone()),
                             vec![result.task_id.clone(), result.event_id.clone()],
                             0,
@@ -1258,7 +1160,7 @@ impl PrismMcpServer {
                         )
                     },
                     |result| {
-                        MutationDashboardMeta::task(
+                        MutationOutcomeMeta::task(
                             Some(result.task_id.clone()),
                             vec![result.task_id.clone(), result.memory_id.clone()],
                             0,
@@ -1294,7 +1196,7 @@ impl PrismMcpServer {
                         )
                     },
                     |result| {
-                        MutationDashboardMeta::task(
+                        MutationOutcomeMeta::task(
                             Some(result.task_id.clone()),
                             vec![
                                 result.task_id.clone(),
@@ -1331,7 +1233,7 @@ impl PrismMcpServer {
                         )
                     },
                     |result| {
-                        MutationDashboardMeta::task(
+                        MutationOutcomeMeta::task(
                             Some(result.task_id.clone()),
                             vec![
                                 result.task_id.clone(),
@@ -1368,7 +1270,7 @@ impl PrismMcpServer {
                         )
                     },
                     |result| {
-                        MutationDashboardMeta::task(
+                        MutationOutcomeMeta::task(
                             Some(result.task_id.clone()),
                             vec![
                                 result.task_id.clone(),
@@ -1406,7 +1308,7 @@ impl PrismMcpServer {
                             )
                     },
                     |result| {
-                        MutationDashboardMeta::task(
+                        MutationOutcomeMeta::task(
                             Some(result.task_id.clone()),
                             vec![result.task_id.clone(), result.entry_id.clone()],
                             0,
@@ -1435,7 +1337,7 @@ impl PrismMcpServer {
                             .repair_session_without_refresh(self.session.as_ref(), args)
                     },
                     |result| {
-                        MutationDashboardMeta::task(
+                        MutationOutcomeMeta::task(
                             result.cleared_task_id.clone(),
                             result.cleared_task_id.clone().into_iter().collect(),
                             0,
@@ -1466,7 +1368,7 @@ impl PrismMcpServer {
                     MutationRefreshPolicy::None,
                     || self.host.store_inferred_edge(self.session.as_ref(), args),
                     |result| {
-                        MutationDashboardMeta::task(
+                        MutationOutcomeMeta::task(
                             Some(result.task_id.clone()),
                             vec![result.task_id.clone(), result.edge_id.clone()],
                             0,
@@ -1515,7 +1417,7 @@ impl PrismMcpServer {
                         if let Some(claim_id) = &result.claim_id {
                             result_ids.push(claim_id.clone());
                         }
-                        MutationDashboardMeta::coordination(result_ids, result.violations.len())
+                        MutationOutcomeMeta::coordination(result_ids, result.violations.len())
                     },
                 )?;
                 structured_tool_result(PrismMutationResult {
@@ -1563,7 +1465,7 @@ impl PrismMcpServer {
                         )
                     },
                     |result| {
-                        MutationDashboardMeta::coordination(
+                        MutationOutcomeMeta::coordination(
                             result.event_ids.clone(),
                             result.violations.len(),
                         )
@@ -1599,7 +1501,7 @@ impl PrismMcpServer {
                         if let Some(claim_id) = &result.claim_id {
                             result_ids.push(claim_id.clone());
                         }
-                        MutationDashboardMeta::coordination(result_ids, result.violations.len())
+                        MutationOutcomeMeta::coordination(result_ids, result.violations.len())
                     },
                 )?;
                 structured_tool_result(PrismMutationResult {
@@ -1635,7 +1537,7 @@ impl PrismMcpServer {
                         if let Some(review_id) = &result.review_id {
                             result_ids.push(review_id.clone());
                         }
-                        MutationDashboardMeta::coordination(result_ids, result.violations.len())
+                        MutationOutcomeMeta::coordination(result_ids, result.violations.len())
                     },
                 )?;
                 structured_tool_result(PrismMutationResult {
@@ -1687,7 +1589,7 @@ impl PrismMcpServer {
                         )
                     },
                     |result| {
-                        MutationDashboardMeta::task(
+                        MutationOutcomeMeta::task(
                             Some(result.task_id.clone()),
                             vec![result.task_id.clone(), result.event_id.clone()],
                             0,
@@ -1733,7 +1635,7 @@ impl PrismMcpServer {
                         )
                     },
                     |result| {
-                        MutationDashboardMeta::task(
+                        MutationOutcomeMeta::task(
                             Some(result.task_id.clone()),
                             vec![result.task_id.clone(), result.event_id.clone()],
                             0,
@@ -1782,7 +1684,7 @@ impl PrismMcpServer {
                         )
                     },
                     |result| {
-                        MutationDashboardMeta::task(
+                        MutationOutcomeMeta::task(
                             Some(result.task_id.clone()),
                             vec![result.task_id.clone(), result.event_id.clone()],
                             0,
@@ -1819,7 +1721,7 @@ impl PrismMcpServer {
                         if let Some(edge_id) = &result.edge_id {
                             result_ids.push(edge_id.clone());
                         }
-                        MutationDashboardMeta::coordination(result_ids, 0)
+                        MutationOutcomeMeta::coordination(result_ids, 0)
                     },
                 )?;
                 let mut links = vec![session_resource_link()];
@@ -1868,7 +1770,7 @@ impl PrismMcpServer {
                         if let Some(concept_handle) = &result.concept_handle {
                             result_ids.push(concept_handle.clone());
                         }
-                        MutationDashboardMeta::coordination(result_ids, 0)
+                        MutationOutcomeMeta::coordination(result_ids, 0)
                     },
                 )?;
                 let mut links = vec![session_resource_link()];
@@ -1911,7 +1813,7 @@ impl PrismMcpServer {
                         if let Some(concept_handle) = &result.concept_handle {
                             result_ids.push(concept_handle.clone());
                         }
-                        MutationDashboardMeta::coordination(result_ids, 0)
+                        MutationOutcomeMeta::coordination(result_ids, 0)
                     },
                 )?;
                 structured_tool_result_with_links(
@@ -1950,7 +1852,7 @@ impl PrismMcpServer {
                         if let Some(edge_id) = &result.edge_id {
                             result_ids.push(edge_id.clone());
                         }
-                        MutationDashboardMeta::coordination(result_ids, 0)
+                        MutationOutcomeMeta::coordination(result_ids, 0)
                     },
                 )?;
                 let mut links = vec![session_resource_link()];
@@ -1988,7 +1890,7 @@ impl PrismMcpServer {
                             Some(&authenticated),
                         )
                     },
-                    |result| MutationDashboardMeta::coordination(vec![result.job_id.clone()], 0),
+                    |result| MutationOutcomeMeta::coordination(vec![result.job_id.clone()], 0),
                 )?;
                 structured_tool_result_with_links(
                     PrismMutationResult {

@@ -11,7 +11,6 @@ use prism_core::runtime_engine::{
 use prism_core::WorkspaceSession;
 use prism_memory::SessionMemory;
 
-use crate::dashboard_events::DashboardState;
 use crate::diagnostics_state::DiagnosticsState;
 use crate::mcp_call_log::McpCallLogStore;
 use crate::runtime_views::refresh_cached_runtime_status_for_config;
@@ -136,7 +135,6 @@ pub(crate) struct WorkspaceRuntimeBinding {
     workspace: Arc<WorkspaceSession>,
     notes: Arc<SessionMemory>,
     inferred_edges: Arc<InferenceStore>,
-    dashboard_state: Arc<DashboardState>,
     diagnostics_state: Arc<DiagnosticsState>,
     mcp_call_log_store: Arc<McpCallLogStore>,
     sync_lock: Arc<RwLock<()>>,
@@ -157,7 +155,6 @@ impl WorkspaceRuntimeBinding {
         workspace: Arc<WorkspaceSession>,
         notes: Arc<SessionMemory>,
         inferred_edges: Arc<InferenceStore>,
-        dashboard_state: Arc<DashboardState>,
         diagnostics_state: Arc<DiagnosticsState>,
         mcp_call_log_store: Arc<McpCallLogStore>,
     ) -> Self {
@@ -183,7 +180,6 @@ impl WorkspaceRuntimeBinding {
             workspace: Arc::clone(&workspace),
             notes: Arc::clone(&notes),
             inferred_edges: Arc::clone(&inferred_edges),
-            dashboard_state: Arc::clone(&dashboard_state),
             diagnostics_state: Arc::clone(&diagnostics_state),
             mcp_call_log_store: Arc::clone(&mcp_call_log_store),
             sync_lock: Arc::clone(&sync_lock),
@@ -230,7 +226,6 @@ impl WorkspaceRuntimeBinding {
             workspace,
             notes,
             inferred_edges,
-            dashboard_state,
             diagnostics_state,
             mcp_call_log_store,
             sync_lock,
@@ -294,7 +289,6 @@ impl WorkspaceRuntimeBinding {
             workspace: Arc::clone(&self.workspace),
             notes: Arc::clone(&self.notes),
             inferred_edges: Arc::clone(&self.inferred_edges),
-            dashboard_state: Arc::clone(&self.dashboard_state),
             diagnostics_state: Arc::clone(&self.diagnostics_state),
             mcp_call_log_store: Arc::clone(&self.mcp_call_log_store),
             sync_lock: Arc::clone(&self.sync_lock),
@@ -336,7 +330,6 @@ impl WorkspaceRuntimeHost {
         workspace: Arc<WorkspaceSession>,
         notes: Arc<SessionMemory>,
         inferred_edges: Arc<InferenceStore>,
-        dashboard_state: Arc<DashboardState>,
         diagnostics_state: Arc<DiagnosticsState>,
         mcp_call_log_store: Arc<McpCallLogStore>,
     ) -> Arc<WorkspaceRuntimeBinding> {
@@ -355,7 +348,6 @@ impl WorkspaceRuntimeHost {
             workspace,
             notes,
             inferred_edges,
-            dashboard_state,
             diagnostics_state,
             mcp_call_log_store,
         ));

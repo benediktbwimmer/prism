@@ -17,7 +17,6 @@ use tokio::net::TcpListener;
 use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
-use crate::dashboard_router::{routes as dashboard_routes, DashboardAppState};
 use crate::peer_runtime_router::{routes as peer_runtime_routes, PeerRuntimeAppState};
 use crate::proxy_server::ProxyMcpServer;
 use crate::runtime_state;
@@ -102,10 +101,6 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         Default::default(),
         StreamableHttpServerConfig::default(),
     );
-    let dashboard_state = DashboardAppState {
-        host: Arc::clone(&server.host),
-        root: root.to_path_buf(),
-    };
     let prism_ui_state = PrismUiState {
         host: Arc::clone(&server.host),
         root: root.to_path_buf(),
@@ -125,9 +120,7 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         .merge(mcp_router)
         .merge(peer_runtime_routes(peer_runtime_state));
     if features.ui {
-        router = router
-            .merge(prism_ui_routes(prism_ui_state))
-            .merge(dashboard_routes(dashboard_state));
+        router = router.merge(prism_ui_routes(prism_ui_state));
     }
 
     axum::serve(listener, router)

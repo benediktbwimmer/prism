@@ -35,13 +35,13 @@ use prism_query::{
 };
 use serde_json::{json, Value};
 
-use crate::dashboard_events::MutationRun;
 use crate::git_execution::{
     commit_paths, direct_integrate_published_branch, head_commit, prism_managed_paths,
     push_current_branch, ref_contains_commit, ref_head_commit, refresh_origin,
     restore_prism_managed_paths, restore_prism_managed_roots, run_preflight, user_dirty_paths,
     worktree_dirty_paths,
 };
+use crate::mutation_trace::MutationRun;
 use crate::MutationProvenance;
 use crate::{
     artifact_view, claim_view, concept_packet_view, concept_relation_view, conflict_view,
