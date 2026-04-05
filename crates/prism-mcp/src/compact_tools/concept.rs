@@ -203,7 +203,14 @@ fn agent_concept_packet_view(
         relation_evidence_omitted: relation_truncation.relation_evidence_omitted,
     }
     .into_view();
-    let fallback = crate::concept_followthrough::ConceptFollowthroughTargets::default();
+    let fallback = if packet.core_members.is_empty()
+        && packet.supporting_members.is_empty()
+        && packet.likely_tests.is_empty()
+    {
+        concept_followthrough_targets(prism, packet)
+    } else {
+        crate::concept_followthrough::ConceptFollowthroughTargets::default()
+    };
     let fallback_primary =
         if core_members.is_empty() && supporting_members.is_empty() && likely_tests.is_empty() {
             compact_optional_handle_for_id(session, prism, fallback.inspect_first.as_ref())?

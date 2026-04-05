@@ -432,11 +432,18 @@ pub(crate) fn concept_packet_view(
 }
 
 fn concept_curation_hints_view_from_packet(
-    _prism: &Prism,
+    prism: &Prism,
     packet: &ConceptPacket,
     verbosity: ConceptVerbosity,
 ) -> ConceptCurationHintsView {
-    let fallback = crate::concept_followthrough::ConceptFollowthroughTargets::default();
+    let fallback = if packet.core_members.is_empty()
+        && packet.supporting_members.is_empty()
+        && packet.likely_tests.is_empty()
+    {
+        crate::concept_followthrough_targets(prism, packet)
+    } else {
+        crate::concept_followthrough::ConceptFollowthroughTargets::default()
+    };
     let inspect_first = packet
         .core_members
         .first()
