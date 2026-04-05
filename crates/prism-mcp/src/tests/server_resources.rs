@@ -6,11 +6,19 @@ use serde_json::{json, Value};
 
 use super::*;
 use crate::tests_support::{
-    client_message, demo_node, initialize_client, initialized_notification, list_resources_request,
-    list_tools_request, ping_request, read_resource_request, response_json, server_with_node,
-    server_with_node_and_features, temp_workspace, test_session, wait_until,
+    client_message, demo_node, initialize_client, initialized_notification,
+    list_resource_templates_request, list_resources_request, list_tools_request, ping_request,
+    read_resource_request, response_json, server_with_node, server_with_node_and_features,
+    temp_workspace, test_session, wait_until,
 };
 use prism_core::index_workspace_session;
+
+fn resource_text(response: serde_json::Value) -> String {
+    response["result"]["contents"][0]["text"]
+        .as_str()
+        .unwrap_or_else(|| panic!("resource should be text: {response}"))
+        .to_string()
+}
 
 #[tokio::test]
 async fn mcp_server_advertises_tools_and_api_reference_resource() {
@@ -118,6 +126,11 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .unwrap()
         .iter()
         .any(|resource| resource["uri"] == PROTECTED_STATE_URI));
+    assert!(resources["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == "prism://self-description"));
 
     client
         .send(read_resource_request(4, INSTRUCTIONS_URI))
@@ -217,6 +230,12 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .unwrap()
         .iter()
         .any(|resource| resource["uri"] == VOCAB_URI));
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == "prism://self-description"
+            && resource["shapeUri"] == "prism://shape/resource/self-description-audit"));
 
     running.cancel().await.unwrap();
 }
@@ -446,6 +465,30 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
         .expect("action schema examples")
         .iter()
         .any(|example| example["input"]["kind"] == "task_create"));
+
+    client
+        .send(read_resource_request(
+            51,
+            "prism://schema/tool/prism_mutate/action/coordination/variant/plan_bootstrap",
+        ))
+        .await
+        .unwrap();
+    let variant_schema = response_json(client.receive().await.unwrap());
+    let variant_schema_payload = serde_json::from_str::<Value>(
+        variant_schema["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("tool variant schema should be text"),
+    )
+    .unwrap();
+    assert_eq!(
+        variant_schema_payload["$id"],
+        "prism://schema/tool/prism_mutate/action/coordination/variant/plan_bootstrap"
+    );
+    assert_eq!(
+        variant_schema_payload["title"],
+        "PRISM Tool Variant Schema: prism_mutate.coordination.plan_bootstrap"
+    );
+    assert!(variant_schema_payload["examples"].is_array());
 
     client
         .send(read_resource_request(
@@ -956,7 +999,7 @@ async fn schema_catalog_and_capabilities_surface_stable_examples() {
         search_schema_payload["examples"][0]["query"],
         "read context"
     );
-    assert!(search_schema_payload["examples"][0]["topReadContext"].is_object());
+    assert!(search_schema_payload["examples"][0]["results"].is_array());
 
     client
         .send(read_resource_request(22, CAPABILITIES_URI))
@@ -988,7 +1031,8 @@ async fn schema_catalog_and_capabilities_surface_stable_examples() {
         .unwrap()
         .iter()
         .any(|resource| resource["name"] == "PRISM Session"
-            && resource["exampleUri"] == "prism://session"));
+            && resource["exampleUri"] == "prism://session"
+            && resource["shapeUri"] == "prism://shape/resource/session"));
     assert!(capabilities_payload["resources"]
         .as_array()
         .unwrap()
@@ -1005,18 +1049,32 @@ async fn schema_catalog_and_capabilities_surface_stable_examples() {
         .as_array()
         .unwrap()
         .iter()
-        .any(|tool| tool["name"] == "prism_locate" && tool["exampleInput"]["query"] == "session"));
+        .any(|tool| tool["name"] == "prism_locate"
+            && tool["exampleInput"]["query"] == "session"
+            && tool["exampleUri"] == "prism://example/tool/prism_locate"
+            && tool["shapeUri"] == "prism://shape/tool/prism_locate"));
     assert!(capabilities_payload["tools"]
         .as_array()
         .unwrap()
         .iter()
-        .any(|tool| tool["name"] == "prism_query" && tool["exampleInput"]["language"] == "ts"));
+        .any(|tool| tool["name"] == "prism_query"
+            && tool["exampleInput"]["language"] == "ts"
+            && tool["exampleUri"] == "prism://example/tool/prism_query"
+            && tool["shapeUri"] == "prism://shape/tool/prism_query"));
     assert!(capabilities_payload["resourceTemplates"]
         .as_array()
         .unwrap()
         .iter()
         .any(|template| template["name"] == "PRISM Plan"
-            && template["exampleUri"] == "prism://plan/plan%3A1"));
+            && template["exampleUri"] == "prism://plan/plan%3A1"
+            && template["shapeUri"] == "prism://shape/resource/plan"));
+    assert!(capabilities_payload["resourceTemplates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|template| template["name"] == "PRISM Tool Variant Schema"
+            && template["exampleUri"]
+                == "prism://schema/tool/prism_mutate/action/coordination/variant/plan_bootstrap"));
 
     let plan_entry = catalog_payload["schemas"]
         .as_array()
@@ -1025,6 +1083,7 @@ async fn schema_catalog_and_capabilities_surface_stable_examples() {
         .find(|entry| entry["resourceKind"] == "plan")
         .expect("plan schema entry should exist");
     assert_eq!(plan_entry["exampleUri"], "prism://plan/plan%3A1");
+    assert_eq!(plan_entry["shapeUri"], "prism://shape/resource/plan");
     let protected_state_entry = catalog_payload["schemas"]
         .as_array()
         .unwrap()
@@ -1035,6 +1094,318 @@ async fn schema_catalog_and_capabilities_surface_stable_examples() {
         protected_state_entry["exampleUri"],
         "prism://protected-state?stream=concepts%3Aevents"
     );
+    let tool_shape_entry = catalog_payload["schemas"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["resourceKind"] == "tool-shape")
+        .expect("tool-shape schema entry should exist");
+    assert_eq!(
+        tool_shape_entry["resourceUri"],
+        "prism://shape/tool/{toolName}"
+    );
+    assert_eq!(
+        tool_shape_entry["exampleUri"],
+        "prism://shape/tool/prism_mutate"
+    );
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn self_description_surface_exposes_companions_templates_and_audit() {
+    let server = server_with_node(demo_node());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(list_resource_templates_request(70))
+        .await
+        .unwrap();
+    let templates = response_json(client.receive().await.unwrap());
+    let template_uris = templates["result"]["resourceTemplates"]
+        .as_array()
+        .expect("resource templates should be an array")
+        .iter()
+        .filter_map(|template| template["uriTemplate"].as_str())
+        .collect::<Vec<_>>();
+    assert!(template_uris.contains(&"prism://schema/tool/{toolName}/action/{action}/variant/{tag}"));
+    assert!(
+        template_uris.contains(&"prism://example/tool/{toolName}/action/{action}/variant/{tag}")
+    );
+    assert!(template_uris.contains(&"prism://shape/tool/{toolName}/action/{action}/variant/{tag}"));
+    assert!(template_uris.contains(&"prism://example/resource/{resourceKind}"));
+    assert!(template_uris.contains(&"prism://shape/resource/{resourceKind}"));
+    assert!(template_uris.contains(&"prism://capabilities/{section}"));
+    assert!(template_uris.contains(&"prism://vocab/{key}"));
+    assert!(template_uris.contains(&"prism://recipe/tool/{toolName}/action/{action}/variant/{tag}"));
+
+    client
+        .send(read_resource_request(71, "prism://shape/tool/prism_mutate"))
+        .await
+        .unwrap();
+    let tool_shape = response_json(client.receive().await.unwrap());
+    let tool_shape_payload = serde_json::from_str::<Value>(
+        tool_shape["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("tool shape should be text"),
+    )
+    .unwrap();
+    assert_eq!(tool_shape_payload["toolName"], "prism_mutate");
+    assert_eq!(
+        tool_shape_payload["exampleUri"],
+        "prism://example/tool/prism_mutate"
+    );
+
+    client
+        .send(read_resource_request(
+            72,
+            "prism://example/tool/prism_mutate/action/coordination/variant/plan_bootstrap",
+        ))
+        .await
+        .unwrap();
+    let tool_example = response_json(client.receive().await.unwrap());
+    let tool_example_payload = serde_json::from_str::<Value>(
+        tool_example["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("tool example should be text"),
+    )
+    .unwrap();
+    assert_eq!(tool_example_payload["variant"], "plan_bootstrap");
+    assert_eq!(
+        tool_example_payload["targetSchemaUri"],
+        "prism://schema/tool/prism_mutate/action/coordination/variant/plan_bootstrap"
+    );
+    assert_eq!(
+        tool_example_payload["shapeUri"],
+        "prism://shape/tool/prism_mutate/action/coordination/variant/plan_bootstrap"
+    );
+
+    client
+        .send(read_resource_request(73, "prism://shape/resource/search"))
+        .await
+        .unwrap();
+    let resource_shape = response_json(client.receive().await.unwrap());
+    let resource_shape_payload = serde_json::from_str::<Value>(
+        resource_shape["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("resource shape should be text"),
+    )
+    .unwrap();
+    assert_eq!(resource_shape_payload["resourceKind"], "search");
+    assert_eq!(
+        resource_shape_payload["exampleUri"],
+        "prism://example/resource/search"
+    );
+
+    client
+        .send(read_resource_request(74, "prism://capabilities/tools"))
+        .await
+        .unwrap();
+    let capabilities_section = response_json(client.receive().await.unwrap());
+    let capabilities_section_payload = serde_json::from_str::<Value>(
+        capabilities_section["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("capabilities section should be text"),
+    )
+    .unwrap();
+    assert_eq!(capabilities_section_payload["section"], "tools");
+    assert!(capabilities_section_payload["value"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|tool| tool["name"] == "prism_mutate"));
+
+    client
+        .send(read_resource_request(
+            75,
+            "prism://vocab/coordinationMutationKind",
+        ))
+        .await
+        .unwrap();
+    let vocab_entry = response_json(client.receive().await.unwrap());
+    let vocab_entry_payload = serde_json::from_str::<Value>(
+        vocab_entry["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("vocab entry should be text"),
+    )
+    .unwrap();
+    assert_eq!(vocab_entry_payload["key"], "coordinationMutationKind");
+
+    client
+        .send(read_resource_request(
+            76,
+            "prism://recipe/tool/prism_mutate/action/coordination/variant/plan_bootstrap",
+        ))
+        .await
+        .unwrap();
+    let recipe = response_json(client.receive().await.unwrap());
+    let recipe_text = recipe["result"]["contents"][0]["text"]
+        .as_str()
+        .expect("recipe should be text");
+    assert!(recipe_text.contains("plan_bootstrap"));
+    assert!(recipe_text.contains("Read the shape resource"));
+
+    client
+        .send(read_resource_request(77, "prism://self-description"))
+        .await
+        .unwrap();
+    let audit = response_json(client.receive().await.unwrap());
+    let audit_payload = serde_json::from_str::<Value>(&resource_text(audit)).unwrap();
+    let invalid_entries = audit_payload["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|entry| {
+            entry["issues"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|issue| issue == "example_invalid")
+        })
+        .map(|entry| entry["name"].as_str().unwrap_or("<unknown>").to_string())
+        .collect::<Vec<_>>();
+    let non_operable_entries = audit_payload["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|entry| entry["sourceFreeOperable"] == Value::Bool(false))
+        .map(|entry| entry["name"].as_str().unwrap_or("<unknown>").to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(audit_payload["missingCompanionEntries"], 0);
+    assert_eq!(audit_payload["missingRecipeEntries"], 0);
+    assert_eq!(
+        audit_payload["invalidExampleEntries"], 0,
+        "{invalid_entries:?}"
+    );
+    assert_eq!(
+        audit_payload["nonOperableEntries"], 0,
+        "{non_operable_entries:?}"
+    );
+    let bootstrap_entry = audit_payload["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["name"] == "prism_mutate.coordination.plan_bootstrap")
+        .expect("plan_bootstrap audit entry should exist");
+    assert!(!bootstrap_entry["issues"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|issue| issue == "missing_example"
+            || issue == "missing_shape"
+            || issue == "example_oversize"
+            || issue == "shape_oversize"));
+    assert!(bootstrap_entry["exampleBytes"].as_u64().unwrap() < 12_288);
+    assert!(bootstrap_entry["shapeBytes"].as_u64().unwrap() < 12_288);
+    assert_eq!(bootstrap_entry["exampleValid"], Value::Bool(true));
+    assert_eq!(bootstrap_entry["sourceFreeOperable"], Value::Bool(true));
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn instruction_sets_advertise_compact_self_description_ladder() {
+    let server = server_with_node(demo_node());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    for (id, uri) in [
+        (80_u64, "prism://instructions/planning"),
+        (81, "prism://instructions/execution"),
+        (82, "prism://instructions/coordination"),
+    ] {
+        client.send(read_resource_request(id, uri)).await.unwrap();
+        let text = resource_text(response_json(client.receive().await.unwrap()));
+        assert!(
+            text.contains("prism://shape/tool/{toolName}"),
+            "{uri}: {text}"
+        );
+        assert!(
+            text.contains("prism://example/tool/{toolName}"),
+            "{uri}: {text}"
+        );
+        assert!(
+            text.contains("prism://recipe/tool/{toolName}/action/{action}"),
+            "{uri}: {text}"
+        );
+        assert!(
+            text.contains("prism://capabilities/{section}"),
+            "{uri}: {text}"
+        );
+    }
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn self_description_audit_keeps_compact_discovery_surfaces_under_budget() {
+    let server = server_with_node(demo_node());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(read_resource_request(90, "prism://self-description"))
+        .await
+        .unwrap();
+    let audit_payload = serde_json::from_str::<Value>(&resource_text(response_json(
+        client.receive().await.unwrap(),
+    )))
+    .unwrap();
+    let budget = audit_payload["budgetBytes"]
+        .as_u64()
+        .expect("budget bytes should exist") as usize;
+
+    let entries = audit_payload["entries"]
+        .as_array()
+        .expect("audit entries should be an array");
+    assert!(entries
+        .iter()
+        .any(|entry| entry["surfaceKind"] == "resource_template"));
+
+    let mut request_id = 91_u64;
+    for entry in entries {
+        for key in ["exampleUri", "shapeUri", "recipeUri"] {
+            let Some(uri) = entry[key].as_str() else {
+                continue;
+            };
+            client
+                .send(read_resource_request(request_id, uri))
+                .await
+                .unwrap();
+            request_id += 1;
+            let payload = resource_text(response_json(client.receive().await.unwrap()));
+            assert!(
+                payload.len() <= budget,
+                "resource `{uri}` exceeded compact budget of {budget} bytes with {} bytes",
+                payload.len()
+            );
+        }
+    }
 
     running.cancel().await.unwrap();
 }

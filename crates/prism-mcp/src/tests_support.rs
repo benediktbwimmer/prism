@@ -383,6 +383,12 @@ pub(crate) fn list_resources_request(id: u64) -> ClientJsonRpcMessage {
     ))
 }
 
+pub(crate) fn list_resource_templates_request(id: u64) -> ClientJsonRpcMessage {
+    client_message(&format!(
+        r#"{{ "jsonrpc": "2.0", "id": {id}, "method": "resources/templates/list" }}"#
+    ))
+}
+
 pub(crate) fn ping_request(id: u64) -> ClientJsonRpcMessage {
     client_message(&format!(
         r#"{{ "jsonrpc": "2.0", "id": {id}, "method": "ping" }}"#

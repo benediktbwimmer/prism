@@ -2,6 +2,7 @@
 
 - Prefer the staged PRISM-first path for normal agent work:
   - orient with `prism://session`, `prism://capabilities`, and `prism://vocab`
+  - in truncation-prone harnesses, take the compact discovery path first through `prism://capabilities/{section}`, `prism://shape/...`, `prism://example/...`, and `prism://recipe/...`
   - use `prism_locate`, `prism_gather`, `prism_open`, `prism_workset`, and `prism_expand` for bounded context and edit targeting
   - use `prism_concept` when the unit of thought is a broad repo-native subsystem or multi-artifact cluster
   - use a `memory` lens on concept reads before substantial work in an unfamiliar subsystem

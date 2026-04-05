@@ -9,17 +9,21 @@ use crate::{
     capabilities_resource_view_link, dedupe_resource_link_views, json_resource_contents_with_meta,
     resource_meta, schema_resource_contents, schema_resource_uri, schema_resource_value,
     schema_resource_view_link, session_resource_view_link, tool_action_example,
-    tool_action_examples, tool_action_schema_resource_uri, tool_action_schema_resource_view_link,
-    tool_input_example, tool_input_examples, tool_schema_resource_uri,
-    tool_schema_resource_view_link, tool_schemas_resource_view_link, vocab_resource_view_link,
-    ArtifactProposePayload, ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload,
-    ClaimReleasePayload, ClaimRenewPayload, HandoffAcceptPayload, HandoffPayload,
-    MemoryRetirePayload, MemoryStorePayload, PlanArchivePayload, PlanBootstrapPayload,
-    PlanCreatePayload, PlanEdgeCreatePayload, PlanEdgeDeletePayload, PlanNodeCreatePayload,
-    PlanUpdatePayload, PrismConceptArgs, PrismExpandArgs, PrismGatherArgs, PrismLocateArgs,
-    PrismMutationArgs, PrismOpenArgs, PrismQueryArgs, PrismTaskBriefArgs, PrismWorksetArgs,
-    ResourceLinkView, TaskCreatePayload, TaskReclaimPayload, TaskResumePayload,
-    WorkflowUpdatePayload, TOOL_SCHEMAS_URI,
+    tool_action_example_resource_uri, tool_action_examples, tool_action_recipe_resource_uri,
+    tool_action_schema_resource_uri, tool_action_schema_resource_view_link,
+    tool_action_shape_resource_uri, tool_example_resource_uri, tool_input_example,
+    tool_input_examples, tool_schema_resource_uri, tool_schema_resource_view_link,
+    tool_schemas_resource_view_link, tool_shape_resource_uri, tool_variant_example_resource_uri,
+    tool_variant_recipe_resource_uri, tool_variant_schema_resource_uri,
+    tool_variant_shape_resource_uri, vocab_resource_view_link, ArtifactProposePayload,
+    ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload, ClaimReleasePayload,
+    ClaimRenewPayload, HandoffAcceptPayload, HandoffPayload, MemoryRetirePayload,
+    MemoryStorePayload, PlanArchivePayload, PlanBootstrapPayload, PlanCreatePayload,
+    PlanEdgeCreatePayload, PlanEdgeDeletePayload, PlanNodeCreatePayload, PlanUpdatePayload,
+    PrismConceptArgs, PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMutationArgs,
+    PrismOpenArgs, PrismQueryArgs, PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView,
+    TaskCreatePayload, TaskReclaimPayload, TaskResumePayload, WorkflowUpdatePayload,
+    TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -32,6 +36,8 @@ pub(crate) struct ToolSchemaCatalogEntry {
     pub(crate) schema_uri: String,
     pub(crate) description: String,
     pub(crate) example_input: Value,
+    pub(crate) example_uri: Option<String>,
+    pub(crate) shape_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
@@ -50,12 +56,16 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
             schema_uri: tool_schema_resource_uri("prism_locate"),
             description: "Input schema for the compact first-hop target locator.".to_string(),
             example_input: tool_input_example("prism_locate").expect("tool example"),
+            example_uri: Some(tool_example_resource_uri("prism_locate")),
+            shape_uri: Some(tool_shape_resource_uri("prism_locate")),
         },
         ToolSchemaCatalogEntry {
             tool_name: "prism_gather".to_string(),
             schema_uri: tool_schema_resource_uri("prism_gather"),
             description: "Input schema for gathering 1 to 3 bounded exact-text slices.".to_string(),
             example_input: tool_input_example("prism_gather").expect("tool example"),
+            example_uri: Some(tool_example_resource_uri("prism_gather")),
+            shape_uri: Some(tool_shape_resource_uri("prism_gather")),
         },
         ToolSchemaCatalogEntry {
             tool_name: "prism_open".to_string(),
@@ -64,24 +74,32 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
                 "Input schema for opening one compact handle or exact workspace path as a bounded code slice."
                     .to_string(),
             example_input: tool_input_example("prism_open").expect("tool example"),
+            example_uri: Some(tool_example_resource_uri("prism_open")),
+            shape_uri: Some(tool_shape_resource_uri("prism_open")),
         },
         ToolSchemaCatalogEntry {
             tool_name: "prism_workset".to_string(),
             schema_uri: tool_schema_resource_uri("prism_workset"),
             description: "Input schema for building a compact implementation workset.".to_string(),
             example_input: tool_input_example("prism_workset").expect("tool example"),
+            example_uri: Some(tool_example_resource_uri("prism_workset")),
+            shape_uri: Some(tool_shape_resource_uri("prism_workset")),
         },
         ToolSchemaCatalogEntry {
             tool_name: "prism_expand".to_string(),
             schema_uri: tool_schema_resource_uri("prism_expand"),
             description: "Input schema for explicit depth-on-demand handle expansion.".to_string(),
             example_input: tool_input_example("prism_expand").expect("tool example"),
+            example_uri: Some(tool_example_resource_uri("prism_expand")),
+            shape_uri: Some(tool_shape_resource_uri("prism_expand")),
         },
         ToolSchemaCatalogEntry {
             tool_name: "prism_task_brief".to_string(),
             schema_uri: tool_schema_resource_uri("prism_task_brief"),
             description: "Input schema for the compact coordination task brief tool.".to_string(),
             example_input: tool_input_example("prism_task_brief").expect("tool example"),
+            example_uri: Some(tool_example_resource_uri("prism_task_brief")),
+            shape_uri: Some(tool_shape_resource_uri("prism_task_brief")),
         },
         ToolSchemaCatalogEntry {
             tool_name: "prism_concept".to_string(),
@@ -90,6 +108,8 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
                 "Input schema for resolving a broad repo concept into a compact concept packet."
                     .to_string(),
             example_input: tool_input_example("prism_concept").expect("tool example"),
+            example_uri: Some(tool_example_resource_uri("prism_concept")),
+            shape_uri: Some(tool_shape_resource_uri("prism_concept")),
         },
         ToolSchemaCatalogEntry {
             tool_name: "prism_query".to_string(),
@@ -97,6 +117,8 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
             description: "Input schema for programmable read-only TypeScript PRISM queries."
                 .to_string(),
             example_input: tool_input_example("prism_query").expect("tool example"),
+            example_uri: Some(tool_example_resource_uri("prism_query")),
+            shape_uri: Some(tool_shape_resource_uri("prism_query")),
         },
         ToolSchemaCatalogEntry {
             tool_name: "prism_mutate".to_string(),
@@ -104,6 +126,8 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
             description: "Input schema for coarse PRISM state mutations and tagged action unions."
                 .to_string(),
             example_input: tool_input_example("prism_mutate").expect("tool example"),
+            example_uri: Some(tool_example_resource_uri("prism_mutate")),
+            shape_uri: Some(tool_shape_resource_uri("prism_mutate")),
         },
     ]
 }
@@ -145,6 +169,8 @@ pub(crate) fn tool_catalog_views() -> Vec<ToolCatalogEntryView> {
             schema_uri: entry.schema_uri,
             description: entry.description,
             example_input: entry.example_input,
+            example_uri: entry.example_uri,
+            shape_uri: entry.shape_uri,
         })
         .collect()
 }
@@ -159,6 +185,8 @@ pub(crate) fn tool_schema_view(tool_name: &str) -> Option<ToolSchemaView> {
         schema_uri: entry.schema_uri,
         description: entry.description,
         example_input: entry.example_input.clone(),
+        example_uri: entry.example_uri.clone(),
+        shape_uri: entry.shape_uri.clone(),
         example_inputs: tool_input_examples(tool_name)
             .unwrap_or_else(|| vec![entry.example_input.clone()]),
         actions: tool_action_views(tool_name, &input_schema, &entry.example_input),
@@ -208,6 +236,57 @@ pub(crate) fn tool_action_schema_value(tool_name: &str, action: &str) -> Option<
                 Value::Array(action_view.example_inputs.clone()),
             );
         } else if let Some(example_input) = &action_view.example_input {
+            object.insert(
+                "examples".to_string(),
+                Value::Array(vec![example_input.clone()]),
+            );
+        }
+    }
+    Some(schema)
+}
+
+pub(crate) fn tool_variant_schema_view(
+    tool_name: &str,
+    action: &str,
+    tag: &str,
+) -> Option<ToolPayloadVariantSchemaView> {
+    let action_view = tool_action_schema_view(tool_name, action)?;
+    action_view
+        .payload_variants
+        .into_iter()
+        .find(|variant| variant.tag == tag)
+}
+
+pub(crate) fn tool_variant_schema_value(tool_name: &str, action: &str, tag: &str) -> Option<Value> {
+    let variant_view = tool_variant_schema_view(tool_name, action, tag)?;
+    let mut schema = variant_view.schema.clone();
+    if let Some(object) = schema.as_object_mut() {
+        object.insert(
+            "$schema".to_string(),
+            Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+        );
+        object.insert(
+            "$id".to_string(),
+            Value::String(tool_variant_schema_resource_uri(tool_name, action, tag)),
+        );
+        object.insert(
+            "title".to_string(),
+            Value::String(format!(
+                "PRISM Tool Variant Schema: {tool_name}.{action}.{tag}"
+            )),
+        );
+        object.insert(
+            "description".to_string(),
+            Value::String(format!(
+                "Exact payload schema for `{tool_name}` action `{action}` variant `{tag}`."
+            )),
+        );
+        if !variant_view.example_inputs.is_empty() {
+            object.insert(
+                "examples".to_string(),
+                Value::Array(variant_view.example_inputs.clone()),
+            );
+        } else if let Some(example_input) = &variant_view.example_input {
             object.insert(
                 "examples".to_string(),
                 Value::Array(vec![example_input.clone()]),
@@ -525,6 +604,9 @@ fn tool_action_view(
     Some(ToolActionSchemaView {
         action: action.clone(),
         schema_uri: tool_action_schema_resource_uri(tool_name, &action),
+        example_uri: Some(tool_action_example_resource_uri(tool_name, &action)),
+        shape_uri: Some(tool_action_shape_resource_uri(tool_name, &action)),
+        recipe_uri: Some(tool_action_recipe_resource_uri(tool_name, &action)),
         description: Some(action_description(tool_name, &action)),
         required_fields,
         fields,
@@ -782,10 +864,10 @@ fn payload_variant_view(
     let example_inputs = payload_variant_examples(action_examples, discriminator, tag);
     Some(ToolPayloadVariantSchemaView {
         tag: tag.to_string(),
-        schema_uri: format!(
-            "{}#payloadVariant={tag}",
-            tool_action_schema_resource_uri(tool_name, action)
-        ),
+        schema_uri: tool_variant_schema_resource_uri(tool_name, action, tag),
+        example_uri: Some(tool_variant_example_resource_uri(tool_name, action, tag)),
+        shape_uri: Some(tool_variant_shape_resource_uri(tool_name, action, tag)),
+        recipe_uri: Some(tool_variant_recipe_resource_uri(tool_name, action, tag)),
         required_fields,
         fields,
         schema: variant_schema.clone(),

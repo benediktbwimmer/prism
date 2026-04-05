@@ -1,12 +1,19 @@
 use serde_json::{json, Value};
 
 use crate::{
-    capabilities_resource_uri, contracts_resource_uri_with_options, edge_resource_uri,
-    event_resource_uri, file_resource_uri_with_options, instruction_set_resource_uri,
-    instructions_resource_uri, memory_resource_uri, plan_resource_uri, plans_resource_uri,
-    protected_state_resource_uri, protected_state_resource_uri_with_options, schema_resource_uri,
+    capabilities_resource_uri, capabilities_section_resource_uri,
+    contracts_resource_uri_with_options, edge_resource_uri, event_resource_uri,
+    file_resource_uri_with_options, instruction_set_resource_uri, instructions_resource_uri,
+    memory_resource_uri, plan_resource_uri, plans_resource_uri, protected_state_resource_uri,
+    protected_state_resource_uri_with_options, resource_example_resource_uri,
+    resource_shape_resource_uri, schema_resource_uri, self_description_audit_resource_uri,
     session_resource_uri, symbol_resource_uri_from_node_id, task_resource_uri,
-    tool_schema_resource_uri, vocab_resource_uri, API_REFERENCE_URI,
+    tool_action_example_resource_uri, tool_action_recipe_resource_uri,
+    tool_action_schema_resource_uri, tool_action_shape_resource_uri, tool_example_resource_uri,
+    tool_schema_resource_uri, tool_shape_resource_uri, tool_variant_example_resource_uri,
+    tool_variant_recipe_resource_uri, tool_variant_schema_resource_uri,
+    tool_variant_shape_resource_uri, vocab_entry_resource_uri, vocab_resource_uri,
+    API_REFERENCE_URI,
 };
 use prism_ir::{EdgeKind, NodeId};
 
@@ -50,6 +57,13 @@ pub(crate) fn resource_example_uri(resource_kind: &str) -> Option<String> {
         "event" => Some(event_resource_uri("event:demo-main")),
         "memory" => Some(memory_resource_uri("memory:demo-main")),
         "edge" => Some(edge_resource_uri("edge:demo-main-calls-helper")),
+        "tool-example" => Some(tool_example_resource_uri("prism_mutate")),
+        "tool-shape" => Some(tool_shape_resource_uri("prism_mutate")),
+        "resource-example" => Some(resource_example_resource_uri("search")),
+        "resource-shape" => Some(resource_shape_resource_uri("search")),
+        "capabilities-section" => Some(capabilities_section_resource_uri("tools")),
+        "vocab-entry" => Some(vocab_entry_resource_uri("coordinationMutationKind")),
+        "self-description-audit" => Some(self_description_audit_resource_uri()),
         _ => None,
     }
 }
@@ -476,6 +490,7 @@ fn extra_prism_mutate_examples() -> Vec<Value> {
             "input": {
                 "kind": "plan_create",
                 "payload": {
+                    "title": "Investigate refresh path latency",
                     "goal": "Investigate refresh path latency",
                     "status": "active",
                     "policy": {
@@ -540,6 +555,79 @@ fn extra_prism_mutate_examples() -> Vec<Value> {
             }
         }),
         json!({
+            "action": "coordination",
+            "input": {
+                "kind": "plan_update",
+                "payload": {
+                    "planId": "plan:demo-main",
+                    "title": "Investigate refresh path latency deeply",
+                    "scheduling": {
+                        "importance": 80,
+                        "urgency": 70
+                    }
+                },
+                "taskId": "task:demo-main"
+            }
+        }),
+        json!({
+            "action": "coordination",
+            "input": {
+                "kind": "plan_edge_delete",
+                "payload": {
+                    "planId": "plan:demo-main",
+                    "fromNodeId": "coord-task:1",
+                    "toNodeId": "coord-task:2",
+                    "kind": "depends_on"
+                },
+                "taskId": "task:demo-main"
+            }
+        }),
+        json!({
+            "action": "coordination",
+            "input": {
+                "kind": "handoff",
+                "payload": {
+                    "taskId": "coord-task:1",
+                    "toAgent": "agent:reviewer",
+                    "summary": "Hand off the reviewable artifact workflow."
+                },
+                "taskId": "task:demo-main"
+            }
+        }),
+        json!({
+            "action": "coordination",
+            "input": {
+                "kind": "resume",
+                "payload": {
+                    "taskId": "coord-task:1",
+                    "agent": "agent:demo"
+                },
+                "taskId": "task:demo-main"
+            }
+        }),
+        json!({
+            "action": "coordination",
+            "input": {
+                "kind": "reclaim",
+                "payload": {
+                    "taskId": "coord-task:1",
+                    "agent": "agent:demo"
+                },
+                "taskId": "task:demo-main"
+            }
+        }),
+        json!({
+            "action": "coordination",
+            "input": {
+                "kind": "handoff_accept",
+                "payload": {
+                    "taskId": "coord-task:1",
+                    "agent": "agent:reviewer"
+                },
+                "taskId": "task:demo-main"
+            }
+        }),
+        json!({
             "action": "claim",
             "input": {
                 "action": "renew",
@@ -556,6 +644,16 @@ fn extra_prism_mutate_examples() -> Vec<Value> {
                 "action": "release",
                 "payload": {
                     "claimId": "claim:demo-main"
+                },
+                "taskId": "task:demo-main"
+            }
+        }),
+        json!({
+            "action": "artifact",
+            "input": {
+                "action": "supersede",
+                "payload": {
+                    "artifactId": "artifact:demo-main"
                 },
                 "taskId": "task:demo-main"
             }
@@ -607,7 +705,7 @@ fn sample_node_id_input(crate_name: &str, path: &str, kind: &str) -> Value {
     })
 }
 
-fn resource_payload_example(resource_kind: &str) -> Option<Value> {
+pub(crate) fn resource_payload_example(resource_kind: &str) -> Option<Value> {
     match resource_kind {
         "capabilities" => Some(capabilities_payload_example()),
         "schemas" => Some(resource_schema_catalog_payload_example()),
@@ -627,8 +725,196 @@ fn resource_payload_example(resource_kind: &str) -> Option<Value> {
         "event" => Some(event_payload_example()),
         "memory" => Some(memory_payload_example()),
         "edge" => Some(edge_payload_example()),
+        "tool-example" => Some(tool_example_payload_example()),
+        "tool-shape" => Some(tool_shape_payload_example()),
+        "resource-example" => Some(resource_example_payload_example()),
+        "resource-shape" => Some(resource_shape_payload_example()),
+        "capabilities-section" => Some(capabilities_section_payload_example()),
+        "vocab-entry" => Some(vocab_entry_payload_example()),
+        "self-description-audit" => Some(self_description_audit_payload_example()),
         _ => None,
     }
+}
+
+fn tool_example_payload_example() -> Value {
+    json!({
+        "uri": tool_variant_example_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
+        "schemaUri": schema_resource_uri("tool-example"),
+        "toolName": "prism_mutate",
+        "action": "coordination",
+        "variant": "plan_bootstrap",
+        "discriminator": "kind",
+        "targetSchemaUri": tool_variant_schema_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
+        "shapeUri": tool_variant_shape_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
+        "recipeUri": tool_variant_recipe_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
+        "example": {
+            "plan": {
+                "title": "Improve self-description",
+                "goal": "Make PRISM MCP self-describing under truncation"
+            }
+        },
+        "examples": [{
+            "plan": {
+                "title": "Improve self-description",
+                "goal": "Make PRISM MCP self-describing under truncation"
+            }
+        }],
+        "relatedResources": sample_related_resources(),
+    })
+}
+
+fn tool_shape_payload_example() -> Value {
+    json!({
+        "uri": tool_action_shape_resource_uri("prism_mutate", "coordination"),
+        "schemaUri": schema_resource_uri("tool-shape"),
+        "toolName": "prism_mutate",
+        "toolSchemaUri": tool_action_schema_resource_uri("prism_mutate", "coordination"),
+        "exampleUri": tool_action_example_resource_uri("prism_mutate", "coordination"),
+        "description": "Compact shape summary for `prism_mutate` action `coordination`",
+        "requiredFields": ["payload"],
+        "optionalFields": ["taskId", "planId", "kind"],
+        "fields": [{
+            "name": "payload",
+            "required": true,
+            "description": "Tagged coordination payload",
+            "types": ["object"],
+            "enumValues": [],
+            "nestedFields": []
+        }],
+        "actions": [{
+            "action": "coordination",
+            "schemaUri": tool_action_schema_resource_uri("prism_mutate", "coordination"),
+            "exampleUri": tool_action_example_resource_uri("prism_mutate", "coordination"),
+            "shapeUri": tool_action_shape_resource_uri("prism_mutate", "coordination"),
+            "recipeUri": tool_action_recipe_resource_uri("prism_mutate", "coordination"),
+            "description": "Exact input schema for `prism_mutate` action `coordination`.",
+            "requiredFields": ["payload"],
+            "optionalFields": ["taskId", "planId", "kind"],
+            "fields": [{
+                "name": "payload",
+                "required": true,
+                "description": "Tagged coordination payload",
+                "types": ["object"],
+                "enumValues": [],
+                "nestedFields": []
+            }],
+            "payloadDiscriminator": "kind",
+            "variants": [{
+                "tag": "plan_bootstrap",
+                "discriminator": "kind",
+                "schemaUri": tool_variant_schema_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
+                "exampleUri": tool_variant_example_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
+                "shapeUri": tool_variant_shape_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
+                "recipeUri": tool_variant_recipe_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
+                "requiredFields": ["plan", "tasks"],
+                "optionalFields": ["nodes", "edges"],
+                "fields": []
+            }]
+        }],
+        "relatedResources": sample_related_resources(),
+    })
+}
+
+fn resource_example_payload_example() -> Value {
+    json!({
+        "uri": resource_example_resource_uri("search"),
+        "schemaUri": schema_resource_uri("resource-example"),
+        "resourceKind": "search",
+        "resourceSchemaUri": schema_resource_uri("search"),
+        "shapeUri": resource_shape_resource_uri("search"),
+        "example": search_payload_example(),
+        "relatedResources": sample_related_resources(),
+    })
+}
+
+fn resource_shape_payload_example() -> Value {
+    json!({
+        "uri": resource_shape_resource_uri("search"),
+        "schemaUri": schema_resource_uri("resource-shape"),
+        "resourceKind": "search",
+        "resourceSchemaUri": schema_resource_uri("search"),
+        "exampleUri": resource_example_resource_uri("search"),
+        "description": "Compact shape summary for the search resource payload.",
+        "requiredFields": ["uri", "schemaUri", "query"],
+        "optionalFields": ["results", "page", "truncated"],
+        "fields": [{
+            "name": "query",
+            "required": true,
+            "description": "Search query string",
+            "types": ["string"],
+            "enumValues": [],
+            "nestedFields": []
+        }],
+        "relatedResources": sample_related_resources(),
+    })
+}
+
+fn capabilities_section_payload_example() -> Value {
+    json!({
+        "uri": capabilities_section_resource_uri("tools"),
+        "schemaUri": schema_resource_uri("capabilities-section"),
+        "section": "tools",
+        "value": [{
+            "name": "prism_mutate",
+            "description": "Input schema for coarse PRISM state mutations and tagged action unions.",
+            "schemaUri": tool_schema_resource_uri("prism_mutate"),
+            "exampleUri": tool_example_resource_uri("prism_mutate"),
+            "shapeUri": tool_shape_resource_uri("prism_mutate")
+        }],
+        "relatedResources": sample_related_resources(),
+    })
+}
+
+fn vocab_entry_payload_example() -> Value {
+    json!({
+        "uri": vocab_entry_resource_uri("coordinationMutationKind"),
+        "schemaUri": schema_resource_uri("vocab-entry"),
+        "key": "coordinationMutationKind",
+        "vocabulary": {
+            "key": "coordinationMutationKind",
+            "title": "Coordination Mutation Kinds",
+            "description": "Nested kind values accepted by prism_mutate action coordination.",
+            "values": [{
+                "value": "plan_bootstrap",
+                "aliases": [],
+                "description": "Create a plan and its initial graph in one authoritative write."
+            }]
+        },
+        "relatedResources": sample_related_resources(),
+    })
+}
+
+fn self_description_audit_payload_example() -> Value {
+    json!({
+        "uri": self_description_audit_resource_uri(),
+        "schemaUri": schema_resource_uri("self-description-audit"),
+        "budgetBytes": 12288,
+        "totalEntries": 3,
+        "oversizeEntries": 0,
+        "missingCompanionEntries": 0,
+        "entries": [{
+            "surfaceKind": "tool_variant",
+            "name": "prism_mutate.coordination.plan_bootstrap",
+            "fullUri": tool_variant_schema_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
+            "schemaUri": tool_variant_schema_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
+            "exampleUri": tool_variant_example_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
+            "shapeUri": tool_variant_shape_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
+            "recipeUri": tool_variant_recipe_resource_uri("prism_mutate", "coordination", "plan_bootstrap"),
+            "fullBytes": 4096,
+            "schemaBytes": 4096,
+            "exampleBytes": 1024,
+            "shapeBytes": 2048,
+            "recipeBytes": 512,
+            "exampleValid": true,
+            "exampleValidationIssueCodes": [],
+            "sourceFreeOperable": true,
+            "issues": []
+        }],
+        "missingRecipeEntries": 0,
+        "invalidExampleEntries": 0,
+        "nonOperableEntries": 0,
+        "relatedResources": sample_related_resources(),
+    })
 }
 
 fn session_payload_example() -> Value {
@@ -1010,11 +1296,7 @@ fn search_payload_example() -> Value {
         "structuredPath": "workspace",
         "topLevelOnly": true,
         "includeInferred": true,
-        "suggestedReads": [sample_owner_candidate()],
         "results": [sample_symbol()],
-        "discovery": sample_discovery_bundle(),
-        "topReadContext": sample_read_context(),
-        "ambiguity": null,
         "suggestedQueries": [sample_suggested_query()],
         "page": sample_page(),
         "truncated": false,
@@ -1050,22 +1332,24 @@ fn symbol_payload_example() -> Value {
             "graphVersion": 42,
             "gitCommit": "abc123def456"
         },
-        "symbol": sample_symbol(),
-        "discovery": sample_discovery_bundle(),
-        "suggestedReads": [sample_owner_candidate()],
-        "readContext": sample_read_context(),
-        "editContext": sample_edit_context(),
-        "suggestedQueries": [sample_suggested_query()],
-        "relations": sample_relations(),
-        "specCluster": null,
-        "specDrift": null,
-        "lineage": sample_lineage(),
-        "coChangeNeighbors": [sample_co_change()],
-        "relatedFailures": [sample_outcome_event()],
-        "blastRadius": sample_change_impact(),
-        "validationRecipe": sample_validation_recipe(),
+        "symbol": {
+            "id": sample_node_id_value(),
+            "name": "main",
+            "kind": "function",
+            "filePath": "src/main.rs",
+            "location": {
+                "startLine": 1,
+                "startColumn": 1,
+                "endLine": 3,
+                "endColumn": 2
+            }
+        },
         "diagnostics": [],
-        "relatedResources": sample_related_resources(),
+        "relatedResources": [{
+            "uri": schema_resource_uri("symbol"),
+            "name": "PRISM Schema: symbol",
+            "description": "JSON Schema for the `symbol` PRISM resource payload"
+        }],
     })
 }
 

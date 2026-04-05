@@ -12,14 +12,18 @@ use rmcp::{
 use serde_json::{json, Value};
 
 use crate::{
-    compact_followups::workspace_display_path, parse_node_kind, resource_example_uri,
-    schema_examples, ResourceLinkView, ResourcePageView, ResourceSchemaCatalogEntry,
-    CAPABILITIES_URI, CONTRACTS_RESOURCE_TEMPLATE_URI, CONTRACTS_URI, EDGE_RESOURCE_TEMPLATE_URI,
+    capabilities_section_resource_uri, compact_followups::workspace_display_path, parse_node_kind,
+    resource_example_resource_uri, resource_example_uri, resource_shape_resource_uri,
+    schema_examples, vocab_entry_resource_uri, ResourceLinkView, ResourcePageView,
+    ResourceSchemaCatalogEntry, CAPABILITIES_SECTION_RESOURCE_TEMPLATE_URI, CAPABILITIES_URI,
+    CONTRACTS_RESOURCE_TEMPLATE_URI, CONTRACTS_URI, EDGE_RESOURCE_TEMPLATE_URI,
     ENTRYPOINTS_RESOURCE_TEMPLATE_URI, EVENT_RESOURCE_TEMPLATE_URI, FILE_RESOURCE_TEMPLATE_URI,
     LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI, PLANS_RESOURCE_TEMPLATE_URI,
-    PLANS_URI, PLAN_RESOURCE_TEMPLATE_URI, PROTECTED_STATE_URI, SCHEMAS_URI,
-    SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
-    TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI, VOCAB_URI,
+    PLANS_URI, PLAN_RESOURCE_TEMPLATE_URI, PROTECTED_STATE_URI,
+    RESOURCE_EXAMPLE_RESOURCE_TEMPLATE_URI, RESOURCE_SHAPE_RESOURCE_TEMPLATE_URI, SCHEMAS_URI,
+    SEARCH_RESOURCE_TEMPLATE_URI, SELF_DESCRIPTION_AUDIT_URI, SESSION_URI,
+    SYMBOL_RESOURCE_TEMPLATE_URI, TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI,
+    VOCAB_ENTRY_RESOURCE_TEMPLATE_URI, VOCAB_URI,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -171,7 +175,7 @@ pub(crate) fn parse_tool_action_schema_resource_uri(uri: &str) -> Option<(String
     let (tool_name, action) = rest.split_once("/action/")?;
     let tool_name = percent_decode_lossy(tool_name);
     let action = percent_decode_lossy(action);
-    if tool_name.trim().is_empty() || action.trim().is_empty() {
+    if tool_name.trim().is_empty() || action.trim().is_empty() || action.contains("/variant/") {
         return None;
     }
     Some((tool_name, action))
@@ -1007,6 +1011,7 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             schema_uri: schema_resource_uri("capabilities"),
             resource_uri: Some(CAPABILITIES_URI.to_string()),
             example_uri: resource_example_uri("capabilities"),
+            shape_uri: Some(resource_shape_resource_uri("capabilities")),
             description:
                 "Schema for the canonical PRISM capability map, including methods, resources, and build info."
                     .to_string(),
@@ -1016,6 +1021,7 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             schema_uri: schema_resource_uri("schemas"),
             resource_uri: Some(SCHEMAS_URI.to_string()),
             example_uri: resource_example_uri("schemas"),
+            shape_uri: Some(resource_shape_resource_uri("schemas")),
             description: "Schema for the JSON Schema catalog resource itself.".to_string(),
         },
         ResourceSchemaCatalogEntry {
@@ -1023,6 +1029,7 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             schema_uri: schema_resource_uri("vocab"),
             resource_uri: Some(VOCAB_URI.to_string()),
             example_uri: resource_example_uri("vocab"),
+            shape_uri: Some(resource_shape_resource_uri("vocab")),
             description:
                 "Schema for the canonical PRISM vocabulary catalog, including enums, actions, and allowed values."
                     .to_string(),
@@ -1032,6 +1039,7 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             schema_uri: schema_resource_uri("session"),
             resource_uri: Some(SESSION_URI.to_string()),
             example_uri: resource_example_uri("session"),
+            shape_uri: Some(resource_shape_resource_uri("session")),
             description: "Schema for the active workspace, task context, and runtime limits."
                 .to_string(),
         },
@@ -1040,6 +1048,7 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             schema_uri: schema_resource_uri("protected-state"),
             resource_uri: Some(PROTECTED_STATE_URI.to_string()),
             example_uri: resource_example_uri("protected-state"),
+            shape_uri: Some(resource_shape_resource_uri("protected-state")),
             description:
                 "Schema for protected .prism stream verification status, trust diagnostics, and repair hints."
                     .to_string(),
@@ -1049,6 +1058,7 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             schema_uri: schema_resource_uri("tool-schemas"),
             resource_uri: Some(TOOL_SCHEMAS_URI.to_string()),
             example_uri: resource_example_uri("tool-schemas"),
+            shape_uri: Some(resource_shape_resource_uri("tool-schemas")),
             description: "Schema for the tool-schema catalog resource.".to_string(),
         },
         ResourceSchemaCatalogEntry {
@@ -1056,6 +1066,7 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             schema_uri: schema_resource_uri("plans"),
             resource_uri: Some(PLANS_RESOURCE_TEMPLATE_URI.to_string()),
             example_uri: resource_example_uri("plans"),
+            shape_uri: Some(resource_shape_resource_uri("plans")),
             description:
                 "Schema for compact plan discovery results, filters, and pagination metadata."
                     .to_string(),
@@ -1065,6 +1076,7 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             schema_uri: schema_resource_uri("plan"),
             resource_uri: Some(PLAN_RESOURCE_TEMPLATE_URI.to_string()),
             example_uri: resource_example_uri("plan"),
+            shape_uri: Some(resource_shape_resource_uri("plan")),
             description: "Schema for a single coordination plan detail resource.".to_string(),
         },
         ResourceSchemaCatalogEntry {
@@ -1072,6 +1084,7 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             schema_uri: schema_resource_uri("contracts"),
             resource_uri: Some(CONTRACTS_RESOURCE_TEMPLATE_URI.to_string()),
             example_uri: resource_example_uri("contracts"),
+            shape_uri: Some(resource_shape_resource_uri("contracts")),
             description:
                 "Schema for contract discovery results, promise metadata, and pagination."
                     .to_string(),
@@ -1081,6 +1094,7 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             schema_uri: schema_resource_uri("entrypoints"),
             resource_uri: Some(ENTRYPOINTS_RESOURCE_TEMPLATE_URI.to_string()),
             example_uri: resource_example_uri("entrypoints"),
+            shape_uri: Some(resource_shape_resource_uri("entrypoints")),
             description:
                 "Schema for the workspace entrypoint overview and its pagination metadata."
                     .to_string(),
@@ -1090,6 +1104,7 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             schema_uri: schema_resource_uri("search"),
             resource_uri: Some(SEARCH_RESOURCE_TEMPLATE_URI.to_string()),
             example_uri: resource_example_uri("search"),
+            shape_uri: Some(resource_shape_resource_uri("search")),
             description: "Schema for browseable search results and diagnostics.".to_string(),
         },
         ResourceSchemaCatalogEntry {
@@ -1097,6 +1112,7 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             schema_uri: schema_resource_uri("file"),
             resource_uri: Some(FILE_RESOURCE_TEMPLATE_URI.to_string()),
             example_uri: resource_example_uri("file"),
+            shape_uri: Some(resource_shape_resource_uri("file")),
             description: "Schema for read-only workspace file excerpts addressed by path."
                 .to_string(),
         },
@@ -1105,6 +1121,7 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             schema_uri: schema_resource_uri("symbol"),
             resource_uri: Some(SYMBOL_RESOURCE_TEMPLATE_URI.to_string()),
             example_uri: resource_example_uri("symbol"),
+            shape_uri: Some(resource_shape_resource_uri("symbol")),
             description:
                 "Schema for exact symbol snapshots, including relations, lineage, and risk context."
                     .to_string(),
@@ -1114,6 +1131,7 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             schema_uri: schema_resource_uri("lineage"),
             resource_uri: Some(LINEAGE_RESOURCE_TEMPLATE_URI.to_string()),
             example_uri: resource_example_uri("lineage"),
+            shape_uri: Some(resource_shape_resource_uri("lineage")),
             description: "Schema for lineage history and current-node views.".to_string(),
         },
         ResourceSchemaCatalogEntry {
@@ -1121,6 +1139,7 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             schema_uri: schema_resource_uri("task"),
             resource_uri: Some(TASK_RESOURCE_TEMPLATE_URI.to_string()),
             example_uri: resource_example_uri("task"),
+            shape_uri: Some(resource_shape_resource_uri("task")),
             description: "Schema for task replay pages and correlated outcome events.".to_string(),
         },
         ResourceSchemaCatalogEntry {
@@ -1128,6 +1147,7 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             schema_uri: schema_resource_uri("event"),
             resource_uri: Some(EVENT_RESOURCE_TEMPLATE_URI.to_string()),
             example_uri: resource_example_uri("event"),
+            shape_uri: Some(resource_shape_resource_uri("event")),
             description: "Schema for a single recorded outcome event.".to_string(),
         },
         ResourceSchemaCatalogEntry {
@@ -1135,6 +1155,7 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             schema_uri: schema_resource_uri("memory"),
             resource_uri: Some(MEMORY_RESOURCE_TEMPLATE_URI.to_string()),
             example_uri: resource_example_uri("memory"),
+            shape_uri: Some(resource_shape_resource_uri("memory")),
             description: "Schema for a single episodic memory entry.".to_string(),
         },
         ResourceSchemaCatalogEntry {
@@ -1142,7 +1163,64 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             schema_uri: schema_resource_uri("edge"),
             resource_uri: Some(EDGE_RESOURCE_TEMPLATE_URI.to_string()),
             example_uri: resource_example_uri("edge"),
+            shape_uri: Some(resource_shape_resource_uri("edge")),
             description: "Schema for a single inferred-edge record.".to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "tool-example".to_string(),
+            schema_uri: schema_resource_uri("tool-example"),
+            resource_uri: Some(crate::TOOL_EXAMPLE_RESOURCE_TEMPLATE_URI.to_string()),
+            example_uri: Some(crate::tool_example_resource_uri("prism_mutate")),
+            shape_uri: Some(resource_shape_resource_uri("tool-example")),
+            description: "Schema for compact tool example companion resources.".to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "tool-shape".to_string(),
+            schema_uri: schema_resource_uri("tool-shape"),
+            resource_uri: Some(crate::TOOL_SHAPE_RESOURCE_TEMPLATE_URI.to_string()),
+            example_uri: Some(crate::tool_shape_resource_uri("prism_mutate")),
+            shape_uri: Some(resource_shape_resource_uri("tool-shape")),
+            description: "Schema for compact tool shape companion resources.".to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "resource-example".to_string(),
+            schema_uri: schema_resource_uri("resource-example"),
+            resource_uri: Some(RESOURCE_EXAMPLE_RESOURCE_TEMPLATE_URI.to_string()),
+            example_uri: Some(resource_example_resource_uri("search")),
+            shape_uri: Some(resource_shape_resource_uri("resource-example")),
+            description: "Schema for compact resource example companion resources.".to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "resource-shape".to_string(),
+            schema_uri: schema_resource_uri("resource-shape"),
+            resource_uri: Some(RESOURCE_SHAPE_RESOURCE_TEMPLATE_URI.to_string()),
+            example_uri: Some(resource_shape_resource_uri("search")),
+            shape_uri: Some(resource_shape_resource_uri("resource-shape")),
+            description: "Schema for compact resource shape companion resources.".to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "capabilities-section".to_string(),
+            schema_uri: schema_resource_uri("capabilities-section"),
+            resource_uri: Some(CAPABILITIES_SECTION_RESOURCE_TEMPLATE_URI.to_string()),
+            example_uri: Some(capabilities_section_resource_uri("tools")),
+            shape_uri: Some(resource_shape_resource_uri("capabilities-section")),
+            description: "Schema for segmented capabilities section resources.".to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "vocab-entry".to_string(),
+            schema_uri: schema_resource_uri("vocab-entry"),
+            resource_uri: Some(VOCAB_ENTRY_RESOURCE_TEMPLATE_URI.to_string()),
+            example_uri: Some(vocab_entry_resource_uri("coordinationMutationKind")),
+            shape_uri: Some(resource_shape_resource_uri("vocab-entry")),
+            description: "Schema for segmented vocabulary entry resources.".to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "self-description-audit".to_string(),
+            schema_uri: schema_resource_uri("self-description-audit"),
+            resource_uri: Some(SELF_DESCRIPTION_AUDIT_URI.to_string()),
+            example_uri: Some(SELF_DESCRIPTION_AUDIT_URI.to_string()),
+            shape_uri: Some(resource_shape_resource_uri("self-description-audit")),
+            description: "Schema for the self-description audit resource.".to_string(),
         },
     ]
 }

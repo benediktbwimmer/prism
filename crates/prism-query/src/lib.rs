@@ -1253,7 +1253,10 @@ impl Prism {
                 .as_ref()
                 .and_then(|context| task.session.as_ref().and(context.branch_ref.clone()));
             let (task_id, _) = coordination_runtime.create_task(
-                derived_coordination_meta(&meta, &format!("bootstrap-task-create:{}", task.client_id)),
+                derived_coordination_meta(
+                    &meta,
+                    &format!("bootstrap-task-create:{}", task.client_id),
+                ),
                 TaskCreateInput {
                     plan_id: plan_id.clone(),
                     title: task.title,
@@ -1365,12 +1368,7 @@ impl Prism {
 
         let mut node_ids_by_client_id = task_ids_by_client_id
             .iter()
-            .map(|(client_id, task_id)| {
-                (
-                    client_id.clone(),
-                    PlanNodeId::new(task_id.0.clone()),
-                )
-            })
+            .map(|(client_id, task_id)| (client_id.clone(), PlanNodeId::new(task_id.0.clone())))
             .collect::<BTreeMap<_, _>>();
 
         let mut created_nodes = Vec::with_capacity(nodes.len());
@@ -1448,7 +1446,8 @@ impl Prism {
             });
         }
 
-        let final_snapshot = plan_runtime.apply_to_coordination_snapshot(after_coordination_snapshot);
+        let final_snapshot =
+            plan_runtime.apply_to_coordination_snapshot(after_coordination_snapshot);
         *self
             .plan_runtime
             .write()
@@ -1993,7 +1992,9 @@ fn resolve_bootstrap_node_reference(
     node_ids_by_client_id
         .get(client_id)
         .cloned()
-        .ok_or_else(|| anyhow!("plan bootstrap references unknown client id `{client_id}` in `{field}`"))
+        .ok_or_else(|| {
+            anyhow!("plan bootstrap references unknown client id `{client_id}` in `{field}`")
+        })
 }
 
 fn merge_lineage_events(hot: Vec<LineageEvent>, cold: Vec<LineageEvent>) -> Vec<LineageEvent> {

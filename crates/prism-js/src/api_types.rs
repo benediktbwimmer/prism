@@ -360,6 +360,10 @@ pub struct ToolCatalogEntryView {
     pub schema_uri: String,
     pub description: String,
     pub example_input: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub example_uri: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shape_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -380,6 +384,12 @@ pub struct ToolFieldSchemaView {
 pub struct ToolPayloadVariantSchemaView {
     pub tag: String,
     pub schema_uri: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub example_uri: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shape_uri: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recipe_uri: Option<String>,
     pub required_fields: Vec<String>,
     pub fields: Vec<ToolFieldSchemaView>,
     pub schema: Value,
@@ -393,6 +403,12 @@ pub struct ToolPayloadVariantSchemaView {
 pub struct ToolActionSchemaView {
     pub action: String,
     pub schema_uri: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub example_uri: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shape_uri: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recipe_uri: Option<String>,
     pub description: Option<String>,
     pub required_fields: Vec<String>,
     pub fields: Vec<ToolFieldSchemaView>,
@@ -412,6 +428,10 @@ pub struct ToolSchemaView {
     pub schema_uri: String,
     pub description: String,
     pub example_input: Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub example_uri: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shape_uri: Option<String>,
     #[serde(default)]
     pub example_inputs: Vec<Value>,
     pub input_schema: Value,

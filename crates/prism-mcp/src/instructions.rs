@@ -195,6 +195,7 @@ pub(crate) fn instruction_resource_capabilities() -> Vec<ResourceCapabilityView>
             .to_string(),
         schema_uri: None,
         example_uri: Some(instructions_resource_uri()),
+        shape_uri: None,
     }];
     resources.extend(instruction_set_definitions().iter().map(|definition| {
         ResourceCapabilityView {
@@ -204,6 +205,7 @@ pub(crate) fn instruction_resource_capabilities() -> Vec<ResourceCapabilityView>
             description: definition.description.to_string(),
             schema_uri: None,
             example_uri: Some(instruction_set_resource_uri(definition.id)),
+            shape_uri: None,
         }
     }));
     resources
