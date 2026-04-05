@@ -107,6 +107,32 @@ impl From<anyhow::Error> for WorktreeMutatorSlotError {
 }
 
 impl WorktreeMutatorSlotRecord {
+    fn from_worktree_executor(
+        identity: &WorkspaceIdentity,
+        session_id: &SessionId,
+        now: u64,
+    ) -> Self {
+        let principal_id = identity.worktree_id.clone();
+        Self {
+            version: WORKTREE_MUTATOR_SLOT_FILE_VERSION,
+            storage_worktree_id: identity.storage_worktree_id.clone(),
+            worktree_id: identity.worktree_id.clone(),
+            agent_label: identity.agent_label.clone(),
+            worktree_mode: identity.worktree_mode,
+            session_id: session_id.0.to_string(),
+            authority_id: "worktree_executor".to_string(),
+            principal_id: principal_id.clone(),
+            principal_name: identity
+                .agent_label
+                .clone()
+                .unwrap_or_else(|| principal_id.clone()),
+            principal_kind: PrincipalKind::Agent,
+            credential_id: format!("worktree-executor:{principal_id}"),
+            acquired_at: now,
+            last_heartbeat_at: now,
+        }
+    }
+
     fn from_authenticated(
         identity: &WorkspaceIdentity,
         authenticated: &AuthenticatedPrincipal,
@@ -149,6 +175,65 @@ impl WorktreeMutatorSlotRecord {
 }
 
 impl WorkspaceSession {
+    pub fn acquire_or_refresh_agent_worktree_mutator_slot(
+        &self,
+        session_id: &SessionId,
+    ) -> std::result::Result<WorktreeMutatorSlotRecord, WorktreeMutatorSlotError> {
+        let paths = PrismPaths::for_workspace_root(&self.root)?;
+        let now = current_timestamp_millis();
+        let attempted =
+            WorktreeMutatorSlotRecord::from_worktree_executor(paths.identity(), session_id, now);
+        let _lock = WorktreeMutatorSlotFileLock::acquire(&paths)?;
+        let current = load_worktree_mutator_slot(&paths)?;
+        let next = match current {
+            Some(mut current)
+                if current.worktree_id == attempted.worktree_id
+                    && current.authority_id == attempted.authority_id
+                    && current.principal_id == attempted.principal_id =>
+            {
+                current.session_id = attempted.session_id.clone();
+                current.principal_name = attempted.principal_name.clone();
+                current.principal_kind = attempted.principal_kind;
+                current.credential_id = attempted.credential_id.clone();
+                current.agent_label = attempted.agent_label.clone();
+                current.worktree_mode = attempted.worktree_mode;
+                current.last_heartbeat_at = now;
+                current
+            }
+            Some(current) if !current.is_stale_at(now) => {
+                return Err(WorktreeMutatorSlotError::Conflict(
+                    WorktreeMutatorSlotConflict {
+                        worktree_id: current.worktree_id.clone(),
+                        stale_at: current.stale_at(),
+                        current_owner: current,
+                        attempted_session_id: attempted.session_id.clone(),
+                        attempted_principal: attempted.bound_principal(),
+                    },
+                ));
+            }
+            Some(mut current) => {
+                current.version = WORKTREE_MUTATOR_SLOT_FILE_VERSION;
+                current.storage_worktree_id = attempted.storage_worktree_id.clone();
+                current.worktree_id = attempted.worktree_id.clone();
+                current.agent_label = attempted.agent_label.clone();
+                current.worktree_mode = attempted.worktree_mode;
+                current.session_id = attempted.session_id.clone();
+                current.authority_id = attempted.authority_id.clone();
+                current.principal_id = attempted.principal_id.clone();
+                current.principal_name = attempted.principal_name.clone();
+                current.principal_kind = attempted.principal_kind;
+                current.credential_id = attempted.credential_id.clone();
+                current.acquired_at = now;
+                current.last_heartbeat_at = now;
+                current
+            }
+            None => attempted,
+        };
+        save_worktree_mutator_slot(&paths, &next)?;
+        self.update_cached_worktree_mutator_slot(Some(next.clone()));
+        Ok(next)
+    }
+
     pub fn acquire_or_refresh_worktree_mutator_slot(
         &self,
         authenticated: &AuthenticatedPrincipal,

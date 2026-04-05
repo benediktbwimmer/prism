@@ -78,6 +78,9 @@ pub(crate) struct BridgeIdentityView {
     pub(crate) profile: Option<String>,
     pub(crate) principal_id: Option<String>,
     pub(crate) credential_id: Option<String>,
+    pub(crate) worktree_id: Option<String>,
+    pub(crate) agent_label: Option<String>,
+    pub(crate) worktree_mode: Option<String>,
     pub(crate) error: Option<String>,
     pub(crate) next_action: String,
 }

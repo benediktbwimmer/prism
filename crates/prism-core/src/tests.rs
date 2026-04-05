@@ -737,6 +737,38 @@ fn worktree_mutator_slot_allows_stale_same_worktree_reacquire() {
 }
 
 #[test]
+fn agent_worktree_mutator_slot_allows_immediate_same_worktree_session_reattach() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    let session = index_workspace_session(&root).unwrap();
+    PrismPaths::for_workspace_root(&root)
+        .unwrap()
+        .register_worktree("agent-a", WorktreeMode::Agent)
+        .unwrap();
+
+    let first = session
+        .acquire_or_refresh_agent_worktree_mutator_slot(&SessionId::new("session:agent-slot-a"))
+        .expect("first worktree executor session should acquire the slot");
+    let second = session
+        .acquire_or_refresh_agent_worktree_mutator_slot(&SessionId::new("session:agent-slot-b"))
+        .expect("same worktree executor should reattach immediately");
+
+    assert_eq!(second.worktree_id, first.worktree_id);
+    assert_eq!(second.principal_id, first.principal_id);
+    assert_eq!(second.session_id, "session:agent-slot-b");
+    assert!(
+        second.last_heartbeat_at >= first.last_heartbeat_at,
+        "reattach should refresh liveness"
+    );
+}
+
+#[test]
 fn worktree_mutator_slot_takeover_requires_human_and_replaces_live_owner() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

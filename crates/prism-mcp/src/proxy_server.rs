@@ -330,15 +330,15 @@ impl ProxyMcpServer {
     }
 
     #[cfg(test)]
-    pub(crate) async fn connect_with_credentials_path(
-        credentials_path: std::path::PathBuf,
+    pub(crate) async fn connect_with_root(
+        root: std::path::PathBuf,
         upstream_uri: String,
         upstream_source: BridgeUpstreamSource,
     ) -> Result<Self> {
         Self::connect_with_bridge_auth(
             upstream_uri,
             upstream_source,
-            BridgeAuthContext::from_credentials_path(credentials_path),
+            BridgeAuthContext::from_root(root),
         )
         .await
     }
@@ -1106,22 +1106,11 @@ impl ServerHandler for ProxyMcpServer {
                 payload.message, payload.poll_after_ms
             ))]));
         }
-        let mut injected_binding_credential_id = None;
         let request = if request.name.as_ref() == "prism_mutate" {
             let mut request = request;
-            if request
-                .arguments
-                .as_ref()
-                .is_some_and(|arguments| !arguments.contains_key("credential"))
-            {
-                injected_binding_credential_id = self
-                    .bridge_auth
-                    .binding()
-                    .map(|binding| binding.credential_id().to_string());
-            }
             request.arguments = self
                 .bridge_auth
-                .inject_mutation_credential(request.arguments)?;
+                .inject_mutation_bridge_execution(request.arguments)?;
             request
         } else {
             request
@@ -1131,11 +1120,6 @@ impl ServerHandler for ProxyMcpServer {
                 peer.call_tool(request).await
             })
             .await;
-        if let (Some(credential_id), Err(error)) =
-            (injected_binding_credential_id.as_deref(), &result)
-        {
-            self.invalidate_stale_bridge_binding(credential_id, error);
-        }
         result
     }
 
@@ -1193,30 +1177,6 @@ impl ServerHandler for ProxyMcpServer {
                     tool
                 }
             })
-    }
-}
-
-impl ProxyMcpServer {
-    fn invalidate_stale_bridge_binding(&self, credential_id: &str, error: &McpError) {
-        let Some(data) = error.data.as_ref() else {
-            return;
-        };
-        if data.get("code").and_then(Value::as_str) != Some("mutation_auth_failed") {
-            return;
-        }
-        if data.get("credentialId").and_then(Value::as_str) != Some(credential_id) {
-            return;
-        }
-        if self
-            .bridge_auth
-            .mark_binding_stale(credential_id, &error.to_string())
-        {
-            warn!(
-                credential_id,
-                root = %self.root.display(),
-                "invalidated stale bridge auth binding after upstream credential rejection"
-            );
-        }
     }
 }
 
