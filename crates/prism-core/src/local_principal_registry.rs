@@ -123,16 +123,14 @@ fn rebuild_registry_snapshot_from_local_credentials_with_unlocked_profile(
 fn build_principal_profile(
     profile: &CredentialProfile,
     active_human_session: Option<&HumanSessionRecord>,
-    unlocked_profile: Option<(&CredentialProfile, &str)>,
+    _unlocked_profile: Option<(&CredentialProfile, &str)>,
     now: u64,
 ) -> Option<PrincipalProfile> {
     if let Some(metadata) = profile.principal_metadata.as_ref() {
         return Some(metadata_to_principal_profile(profile, metadata));
     }
 
-    if matches_active_human_session(profile, active_human_session)
-        || matches_unlocked_profile(profile, unlocked_profile)
-    {
+    if matches_active_human_session(profile, active_human_session) {
         return Some(PrincipalProfile {
             authority_id: PrincipalAuthorityId::new(profile.authority_id.clone()),
             principal_id: PrincipalId::new(profile.principal_id.clone()),
@@ -147,27 +145,13 @@ fn build_principal_profile(
                 .unwrap_or(Value::Null),
         });
     }
-
-    build_credential_record(profile, active_human_session, unlocked_profile, now).map(|_| {
-        PrincipalProfile {
-            authority_id: PrincipalAuthorityId::new(profile.authority_id.clone()),
-            principal_id: PrincipalId::new(profile.principal_id.clone()),
-            kind: PrincipalKind::Agent,
-            name: profile.profile.clone(),
-            role: None,
-            status: PrincipalStatus::Active,
-            created_at: now,
-            updated_at: now,
-            parent_principal_id: None,
-            profile: Value::Null,
-        }
-    })
+    None
 }
 
 fn build_credential_record(
     profile: &CredentialProfile,
     active_human_session: Option<&HumanSessionRecord>,
-    unlocked_profile: Option<(&CredentialProfile, &str)>,
+    _unlocked_profile: Option<(&CredentialProfile, &str)>,
     now: u64,
 ) -> Option<CredentialRecord> {
     if let Some(metadata) = profile.credential_metadata.as_ref() {
@@ -181,11 +165,6 @@ fn build_credential_record(
             active_human_session
                 .filter(|session| matches_active_human_session(profile, Some(session)))
                 .map(|session| credential_token_verifier(&session.principal_token))
-        })
-        .or_else(|| {
-            unlocked_profile
-                .filter(|(unlocked, _)| same_profile_identity(profile, unlocked))
-                .map(|(_, principal_token)| credential_token_verifier(principal_token))
         })?;
 
     Some(CredentialRecord {
@@ -211,19 +190,6 @@ fn matches_active_human_session(
     session.profile == profile.profile
         && session.principal_id == profile.principal_id
         && session.credential_id == profile.credential_id
-}
-
-fn matches_unlocked_profile(
-    profile: &CredentialProfile,
-    unlocked_profile: Option<(&CredentialProfile, &str)>,
-) -> bool {
-    unlocked_profile.is_some_and(|(unlocked, _)| same_profile_identity(profile, unlocked))
-}
-
-fn same_profile_identity(left: &CredentialProfile, right: &CredentialProfile) -> bool {
-    left.profile == right.profile
-        && left.principal_id == right.principal_id
-        && left.credential_id == right.credential_id
 }
 
 fn metadata_to_principal_profile(
@@ -300,7 +266,7 @@ mod tests {
     };
 
     #[test]
-    fn rebuild_registry_snapshot_uses_stored_metadata_and_human_session_fallbacks() {
+    fn rebuild_registry_snapshot_ignores_legacy_agent_compatibility_profiles() {
         let credentials = CredentialsFile {
             version: 3,
             active_profile: Some("owner".to_string()),
@@ -359,15 +325,11 @@ mod tests {
         let snapshot =
             rebuild_registry_snapshot_from_local_credentials(&credentials, Some(&session)).unwrap();
 
-        assert_eq!(snapshot.principals.len(), 2);
-        assert_eq!(snapshot.credentials.len(), 2);
+        assert_eq!(snapshot.principals.len(), 1);
+        assert_eq!(snapshot.credentials.len(), 1);
         assert!(snapshot
             .principals
             .iter()
             .any(|principal| principal.kind == PrincipalKind::Human && principal.name == "Owner"));
-        assert!(snapshot
-            .principals
-            .iter()
-            .any(|principal| principal.kind == PrincipalKind::Agent && principal.name == "codex-d"));
     }
 }

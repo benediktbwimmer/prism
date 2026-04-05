@@ -131,7 +131,16 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
                     &selected,
                     &principal_token,
                 )?
-                .ok_or_else(|| anyhow!("principal registry is not initialized"))?;
+                .ok_or_else(|| {
+                    if selected.is_legacy_local_compatibility_profile() {
+                        anyhow!(
+                            "selected profile `{}` is a legacy local compatibility credential and cannot be used for human login; bootstrap or recover a human owner profile, then register this worktree for agent execution",
+                            selected.profile
+                        )
+                    } else {
+                        anyhow!("principal registry is not initialized")
+                    }
+                })?;
             }
             let authenticated = authenticate_principal_credential_in_registry(
                 &mut snapshot,

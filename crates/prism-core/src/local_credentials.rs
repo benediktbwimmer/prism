@@ -237,6 +237,12 @@ impl CredentialProfile {
         self.encrypted_secret.is_some()
     }
 
+    pub fn is_legacy_local_compatibility_profile(&self) -> bool {
+        self.principal_metadata.is_none()
+            && self.credential_metadata.is_none()
+            && (self.has_inline_principal_token() || self.has_encrypted_secret())
+    }
+
     pub fn token_verifier(&self) -> Option<&str> {
         self.credential_metadata
             .as_ref()
