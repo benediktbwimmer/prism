@@ -70,7 +70,7 @@ function AppInner() {
   let page = <PlansPage search={locationState.search} onNavigate={navigate} />
 
   if (route.key === 'fleet') {
-    page = <FleetPage onNavigate={navigate} />
+    page = <FleetPage search={locationState.search} onNavigate={navigate} />
   }
 
   return (

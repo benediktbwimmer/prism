@@ -1,11 +1,16 @@
+import { TaskDetailDrawer } from '../components/tasks/TaskDetailDrawer'
+import { FleetTimeline } from '../components/fleet/FleetTimeline'
 import { useFleetData } from '../hooks/useFleetData'
 
 type FleetPageProps = {
+  search: string
   onNavigate: (path: string) => void
 }
 
-export function FleetPage({ onNavigate }: FleetPageProps) {
+export function FleetPage({ search, onNavigate }: FleetPageProps) {
   const fleet = useFleetData()
+  const query = new URLSearchParams(search)
+  const selectedTaskId = query.get('task')
 
   if (!fleet) {
     return (
@@ -21,6 +26,19 @@ export function FleetPage({ onNavigate }: FleetPageProps) {
   const staleBars = fleet.bars.filter((bar) => bar.stale)
   const idleLanes = fleet.lanes.filter((lane) => lane.idle)
 
+  function navigateWithPatch(patch: Record<string, string | null>) {
+    const next = new URLSearchParams(search)
+    for (const [key, value] of Object.entries(patch)) {
+      if (value && value.trim().length > 0) {
+        next.set(key, value)
+      } else {
+        next.delete(key)
+      }
+    }
+    const serialized = next.toString()
+    onNavigate(serialized ? `/fleet?${serialized}` : '/fleet')
+  }
+
   return (
     <div className="page-stack">
       <section className="hero-bar panel operator-hero">
@@ -28,7 +46,7 @@ export function FleetPage({ onNavigate }: FleetPageProps) {
           <p className="eyebrow">Utilization</p>
           <h2>Runtime lanes and task leases</h2>
           <p className="lede">
-            Track who is active, who is stale, and which runtimes have gone idle.
+            Spot stalled agents, idle runtimes, and long-running claims without leaving the operator console.
           </p>
         </div>
         <div className="hero-actions">
@@ -61,101 +79,48 @@ export function FleetPage({ onNavigate }: FleetPageProps) {
         </article>
       </section>
 
-      <section className="fleet-layout">
-        <article className="panel fleet-lanes-panel">
-          <div className="panel-header">
-            <h3>Runtime Lanes</h3>
-            <span>{fleet.lanes.length}</span>
-          </div>
-          <div className="panel-body fleet-lanes">
-            {fleet.lanes.map((lane) => {
-              const laneBars = fleet.bars.filter((bar) => bar.laneId === lane.id)
-              return (
-                <section key={lane.id} className="fleet-lane-card">
-                  <div className="fleet-lane-header">
-                    <div>
-                      <p className="operation-kind">{lane.discoveryMode ?? 'runtime'}</p>
-                      <h4>{lane.label}</h4>
-                      <p className="operation-meta">
-                        {lane.branchRef ?? lane.worktreeId ?? 'No branch metadata'}
-                      </p>
-                    </div>
-                    <div className="fleet-lane-badges">
-                      {lane.idle ? <span className="table-status">idle</span> : null}
-                      {lane.staleBarCount > 0 ? <span className="table-status error">stale</span> : null}
-                    </div>
-                  </div>
-                  <div className="fleet-lane-strip">
-                    {laneBars.length === 0 ? (
-                      <div className="fleet-strip-empty">No task leases in the current time window.</div>
-                    ) : (
-                      laneBars.map((bar) => (
-                        <button
-                          key={bar.id}
-                          type="button"
-                          className={[
-                            'fleet-bar-chip',
-                            bar.active ? 'fleet-bar-active' : '',
-                            bar.stale ? 'fleet-bar-stale' : '',
-                          ].filter(Boolean).join(' ')}
-                          onClick={() => {
-                            if (bar.taskId) {
-                              onNavigate(`/plans?task=${encodeURIComponent(bar.taskId)}`)
-                            }
-                          }}
-                        >
-                          <strong>{bar.taskTitle}</strong>
-                          <span>{formatDuration(bar.durationSeconds)}</span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </section>
-              )
-            })}
-          </div>
-        </article>
+      <div className="fleet-console">
+        <FleetTimeline
+          fleet={fleet}
+          selectedTaskId={selectedTaskId}
+          onSelectTask={(taskId) => navigateWithPatch({ task: taskId })}
+        />
 
         <aside className="panel fleet-inspector-panel">
           <div className="panel-header">
-            <h3>Utilization Notes</h3>
-            <span>v1</span>
+            <h3>Operational Cues</h3>
+            <span>{selectedTaskId ? 'task selected' : 'live'}</span>
           </div>
           <div className="panel-body signal-list">
             <div className="signal-row">
               <div>
-                <p className="operation-kind">Focus</p>
-                <h4>Watch continuous bars</h4>
+                <p className="operation-kind">Stuck detection</p>
+                <h4>Long bars deserve human attention first</h4>
               </div>
-              <span className="runtime-metric">{activeBars.length}</span>
+              <span className="runtime-metric">{staleBars.length}</span>
             </div>
             <div className="signal-row">
               <div>
-                <p className="operation-kind">Idle detection</p>
-                <h4>Empty swimlanes stand out immediately</h4>
+                <p className="operation-kind">Idle capacity</p>
+                <h4>Empty lanes indicate available execution slots</h4>
               </div>
               <span className="runtime-metric">{idleLanes.length}</span>
             </div>
             <div className="signal-row">
               <div>
-                <p className="operation-kind">Next step</p>
-                <h4>Full horizontal gantt layout lands in the fleet implementation task</h4>
+                <p className="operation-kind">Task drill-down</p>
+                <h4>Click any bar to open the same task intervention drawer</h4>
               </div>
-              <span className="runtime-metric">pending</span>
+              <span className="runtime-metric">{selectedTaskId ? 'open' : 'ready'}</span>
             </div>
           </div>
         </aside>
-      </section>
+      </div>
+
+      <TaskDetailDrawer
+        taskId={selectedTaskId}
+        onClose={() => navigateWithPatch({ task: null })}
+      />
     </div>
   )
-}
-
-function formatDuration(durationSeconds: number | null | undefined) {
-  if (!durationSeconds || durationSeconds < 60) {
-    return `${durationSeconds ?? 0}s`
-  }
-  if (durationSeconds < 3600) {
-    return `${Math.round(durationSeconds / 60)}m`
-  }
-  return `${(durationSeconds / 3600).toFixed(1)}h`
 }
