@@ -11,13 +11,11 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::ui_assets::{prism_ui_asset, prism_ui_index_html, prism_ui_unbuilt_html};
-use crate::ui_mutations::{
-    map_ui_mutation_error, resolve_ui_mutation_args, PrismUiMutateRequest,
-};
+use crate::ui_mutations::{map_ui_mutation_error, resolve_ui_mutation_args, PrismUiMutateRequest};
 use crate::ui_read_models::{QueryHostUiReadModelsExt, UiPlansQueryOptions};
 use crate::ui_types::{
-    PrismGraphView, PrismOverviewView, PrismPlanDetailView, PrismPlansView,
-    PrismUiFleetView, PrismUiSessionBootstrapView, PrismUiTaskDetailView,
+    PrismGraphView, PrismOverviewView, PrismPlanDetailView, PrismPlansView, PrismUiFleetView,
+    PrismUiSessionBootstrapView, PrismUiTaskDetailView,
 };
 use crate::{PrismMcpServer, PrismMutationResult, QueryHost};
 
@@ -152,7 +150,10 @@ async fn prism_ui_task_detail(
         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     match detail {
         Some(detail) => Ok(Json(detail)),
-        None => Err((StatusCode::NOT_FOUND, format!("task detail not found: {task_id}"))),
+        None => Err((
+            StatusCode::NOT_FOUND,
+            format!("task detail not found: {task_id}"),
+        )),
     }
 }
 
@@ -441,11 +442,7 @@ mod tests {
         let server = Arc::new(PrismMcpServer::with_session(
             index_workspace_session(&root).unwrap(),
         ));
-        let router = routes(PrismUiState {
-            server,
-            host,
-            root,
-        });
+        let router = routes(PrismUiState { server, host, root });
 
         let task_response = router
             .clone()
@@ -458,13 +455,12 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(task_response.status(), StatusCode::OK);
-        let task_body = to_bytes(task_response.into_body(), usize::MAX).await.unwrap();
+        let task_body = to_bytes(task_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let task_value: Value = serde_json::from_slice(&task_body).unwrap();
         assert_eq!(task_value["task"]["id"], Value::from(task_id.clone()));
-        assert_eq!(
-            task_value["editable"]["title"],
-            Value::from("Primary task")
-        );
+        assert_eq!(task_value["editable"]["title"], Value::from("Primary task"));
         assert!(task_value["claimHistory"]
             .as_array()
             .is_some_and(|items| !items.is_empty()));
@@ -587,11 +583,7 @@ mod tests {
         let server = Arc::new(PrismMcpServer::with_session(
             index_workspace_session(&root).unwrap(),
         ));
-        let router = routes(PrismUiState {
-            server,
-            host,
-            root,
-        });
+        let router = routes(PrismUiState { server, host, root });
 
         let response = router
             .clone()

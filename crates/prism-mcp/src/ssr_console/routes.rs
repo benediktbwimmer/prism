@@ -16,14 +16,14 @@ use super::concepts::{
     build_concept_slice, concept_handle_to_slug, concept_slug_to_handle, ConceptDirection,
 };
 use super::html::{
-    duration_label, escape_html, markdown_to_html, page_shell, percent, status_badge,
-    status_slug, truncate,
+    duration_label, escape_html, markdown_to_html, page_shell, percent, status_badge, status_slug,
+    truncate,
 };
 use super::mermaid::{concept_graph_mermaid, plan_graph_mermaid};
+use crate::ui_assets::prism_ui_asset;
 use crate::ui_mutations::{map_ui_mutation_error, resolve_ui_mutation_args, PrismUiMutateRequest};
 use crate::ui_read_models::{QueryHostUiReadModelsExt, UiPlansQueryOptions};
 use crate::ui_router::PrismUiState;
-use crate::ui_assets::prism_ui_asset;
 use crate::ui_types::{PrismPlanDetailView, PrismPlansView, PrismUiFleetView};
 use crate::{PrismMcpServer, QueryHost};
 
@@ -73,13 +73,25 @@ pub(crate) fn routes(state: PrismConsoleState) -> Router {
         .route("/console", get(console_overview))
         .route("/console/plans", get(console_plans_page))
         .route("/console/plans/{plan_id}", get(console_plan_page))
-        .route("/console/plans/{plan_id}/archive", post(console_plan_archive))
+        .route(
+            "/console/plans/{plan_id}/archive",
+            post(console_plan_archive),
+        )
         .route("/console/fragments/plans", get(console_plans_fragment))
-        .route("/console/fragments/plans/{plan_id}", get(console_plan_fragment))
+        .route(
+            "/console/fragments/plans/{plan_id}",
+            get(console_plan_fragment),
+        )
         .route("/console/tasks/{task_id}", get(console_task_page))
         .route("/console/tasks/{task_id}/edit", post(console_task_edit))
-        .route("/console/tasks/{task_id}/release-lease", post(console_task_release_lease))
-        .route("/console/fragments/tasks/{task_id}", get(console_task_fragment))
+        .route(
+            "/console/tasks/{task_id}/release-lease",
+            post(console_task_release_lease),
+        )
+        .route(
+            "/console/fragments/tasks/{task_id}",
+            get(console_task_fragment),
+        )
         .route("/console/concepts", get(console_concepts_index))
         .route("/console/concepts/{slug}", get(console_concept_page))
         .route("/console/fleet", get(console_fleet_page))
@@ -91,17 +103,23 @@ pub(crate) fn routes(state: PrismConsoleState) -> Router {
 }
 
 async fn console_css_asset() -> impl IntoResponse {
-    ([(
-        CONTENT_TYPE,
-        HeaderValue::from_static("text/css; charset=utf-8"),
-    )], console_css())
+    (
+        [(
+            CONTENT_TYPE,
+            HeaderValue::from_static("text/css; charset=utf-8"),
+        )],
+        console_css(),
+    )
 }
 
 async fn console_js_asset() -> impl IntoResponse {
-    ([(
-        CONTENT_TYPE,
-        HeaderValue::from_static("text/javascript; charset=utf-8"),
-    )], console_js())
+    (
+        [(
+            CONTENT_TYPE,
+            HeaderValue::from_static("text/javascript; charset=utf-8"),
+        )],
+        console_js(),
+    )
 }
 
 async fn console_favicon(
@@ -272,9 +290,10 @@ async fn console_task_edit(
             }
         }),
     };
-    let args = resolve_ui_mutation_args(&state.root, request)
-        .map_err(ui_error_to_status_message)?;
-    state.server
+    let args =
+        resolve_ui_mutation_args(&state.root, request).map_err(ui_error_to_status_message)?;
+    state
+        .server
         .execute_prism_mutation_via_tool(args)
         .map_err(|error| ui_error_to_status_message(map_ui_mutation_error(error)))?;
     Ok(Html(
@@ -296,9 +315,10 @@ async fn console_task_release_lease(
             }
         }),
     };
-    let args = resolve_ui_mutation_args(&state.root, request)
-        .map_err(ui_error_to_status_message)?;
-    state.server
+    let args =
+        resolve_ui_mutation_args(&state.root, request).map_err(ui_error_to_status_message)?;
+    state
+        .server
         .execute_prism_mutation_via_tool(args)
         .map_err(|error| ui_error_to_status_message(map_ui_mutation_error(error)))?;
     Ok(Html(
@@ -317,9 +337,10 @@ async fn console_plan_archive(
             "payload": { "id": plan_id }
         }),
     };
-    let args = resolve_ui_mutation_args(&state.root, request)
-        .map_err(ui_error_to_status_message)?;
-    state.server
+    let args =
+        resolve_ui_mutation_args(&state.root, request).map_err(ui_error_to_status_message)?;
+    state
+        .server
         .execute_prism_mutation_via_tool(args)
         .map_err(|error| ui_error_to_status_message(map_ui_mutation_error(error)))?;
     let mut headers = HeaderMap::new();
@@ -408,7 +429,12 @@ async fn console_concept_page(
         direction,
         query.relation.as_deref(),
     )
-    .ok_or_else(|| (StatusCode::NOT_FOUND, format!("concept not found: {handle}")))?;
+    .ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            format!("concept not found: {handle}"),
+        )
+    })?;
     let mermaid = concept_graph_mermaid(&slice.focus.handle, &slice.nodes, &slice.edges);
     let relation_html = slice
         .focus
@@ -512,7 +538,9 @@ fn render_plans_workspace(host: &QueryHost, query: PlansQuery) -> Result<String>
         .selected_plan
         .as_ref()
         .map(render_plan_detail)
-        .unwrap_or_else(|| "<div class=\"console-empty\">No plan matches the current filters.</div>".to_string());
+        .unwrap_or_else(|| {
+            "<div class=\"console-empty\">No plan matches the current filters.</div>".to_string()
+        });
     Ok(format!(
         "<section id=\"console-plans-workspace\" class=\"console-layout console-layout--two\">\
          <aside class=\"console-sidebar\">{}\
@@ -699,7 +727,13 @@ fn render_task_detail_fragment(host: &QueryHost, task_id: &str) -> Result<String
             let related = entry
                 .related_task
                 .as_ref()
-                .map(|task| format!("<a href=\"/console/tasks/{}\">{}</a>", escape_html(&task.id), escape_html(&task.title)))
+                .map(|task| {
+                    format!(
+                        "<a href=\"/console/tasks/{}\">{}</a>",
+                        escape_html(&task.id),
+                        escape_html(&task.title)
+                    )
+                })
                 .unwrap_or_else(|| "unknown".to_string());
             format!(
                 "<tr><td>{}</td><td>{}</td></tr>",
@@ -1038,7 +1072,10 @@ async fn prism_ui_favicon(
     let Some((bytes, mime)) = prism_ui_asset(&state.root, "favicon.svg")
         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
     else {
-        return Err((StatusCode::NOT_FOUND, "ui asset not found: favicon.svg".to_string()));
+        return Err((
+            StatusCode::NOT_FOUND,
+            "ui asset not found: favicon.svg".to_string(),
+        ));
     };
     Response::builder()
         .status(StatusCode::OK)
@@ -1074,7 +1111,12 @@ mod tests {
         let root = temp_workspace();
         let router = routes(console_state_from_root(&root));
 
-        for path in ["/console", "/console/plans", "/console/concepts", "/console/fleet"] {
+        for path in [
+            "/console",
+            "/console/plans",
+            "/console/concepts",
+            "/console/fleet",
+        ] {
             let response = router
                 .clone()
                 .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())

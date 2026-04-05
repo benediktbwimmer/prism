@@ -129,7 +129,11 @@ pub(crate) fn truncate(value: &str, max_chars: usize) -> String {
     if value.chars().count() <= max_chars {
         return value.to_string();
     }
-    value.chars().take(max_chars.saturating_sub(1)).collect::<String>() + "…"
+    value
+        .chars()
+        .take(max_chars.saturating_sub(1))
+        .collect::<String>()
+        + "…"
 }
 
 pub(crate) fn percent(value: usize, total: usize) -> usize {

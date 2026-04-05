@@ -1,6 +1,5 @@
 pub(crate) const HTMX_CDN: &str = "https://unpkg.com/htmx.org@2.0.4";
-pub(crate) const MERMAID_CDN: &str =
-    "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
+pub(crate) const MERMAID_CDN: &str = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
 pub(crate) const VIS_TIMELINE_JS_CDN: &str =
     "https://unpkg.com/vis-timeline@7.7.4/standalone/umd/vis-timeline-graph2d.min.js";
 pub(crate) const VIS_TIMELINE_CSS_CDN: &str =
