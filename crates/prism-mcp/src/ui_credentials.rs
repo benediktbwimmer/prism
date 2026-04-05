@@ -116,6 +116,9 @@ mod tests {
             principal_id: principal_id.to_string(),
             credential_id: credential_id.to_string(),
             principal_token: format!("token:{credential_id}"),
+            encrypted_secret: None,
+            principal_metadata: None,
+            credential_metadata: None,
         }
     }
 
