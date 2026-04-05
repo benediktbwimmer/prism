@@ -1,4 +1,7 @@
-use prism_core::{AdmissionBusyError, AuthenticatedPrincipal, ObservedChangeFlushTrigger};
+use prism_core::{
+    AdmissionBusyError, AuthenticatedPrincipal, ObservedChangeFlushTrigger,
+    WorktreeMutatorSlotError,
+};
 use prism_ir::{CredentialCapability, CredentialId};
 use prism_js::{
     AgentConceptResultView, AgentExpandResultView, AgentGatherResultView, AgentLocateResultView,
@@ -84,6 +87,53 @@ impl MutationOutcomeMeta {
 }
 
 impl PrismMcpServer {
+    fn map_worktree_mutator_slot_error(error: WorktreeMutatorSlotError) -> McpError {
+        match error {
+            WorktreeMutatorSlotError::Conflict(conflict) => McpError::invalid_params(
+                "prism_mutate conflicts with the active worktree mutator session",
+                Some(json!({
+                    "code": "mutation_worktree_mutator_slot_conflict",
+                    "worktreeId": conflict.worktree_id,
+                    "currentOwner": {
+                        "sessionId": conflict.current_owner.session_id,
+                        "authorityId": conflict.current_owner.authority_id,
+                        "principalId": conflict.current_owner.principal_id,
+                        "name": conflict.current_owner.principal_name,
+                        "credentialId": conflict.current_owner.credential_id,
+                        "lastHeartbeatAt": conflict.current_owner.last_heartbeat_at,
+                    },
+                    "attemptedSessionId": conflict.attempted_session_id,
+                    "attemptedPrincipal": {
+                        "authorityId": conflict.attempted_principal.authority_id,
+                        "principalId": conflict.attempted_principal.principal_id,
+                        "name": conflict.attempted_principal.principal_name,
+                    },
+                    "staleAt": conflict.stale_at,
+                    "nextAction": "Retry after the current worktree mutator session goes stale, or have a human operator explicitly take over the worktree before retrying authenticated mutations.",
+                })),
+            ),
+            WorktreeMutatorSlotError::TakeoverRequiresHuman {
+                principal_id,
+                principal_kind,
+            } => McpError::invalid_params(
+                "only a human principal can authorize worktree mutator takeover",
+                Some(json!({
+                    "code": "mutation_worktree_mutator_takeover_requires_human",
+                    "principalId": principal_id,
+                    "principalKind": principal_kind,
+                    "nextAction": "Retry with an authenticated human operator session if this worktree really needs an explicit takeover.",
+                })),
+            ),
+            WorktreeMutatorSlotError::Storage(error) => McpError::internal_error(
+                "failed to update the worktree mutator slot",
+                Some(json!({
+                    "code": "mutation_worktree_mutator_slot_storage_failed",
+                    "error": error.to_string(),
+                })),
+            ),
+        }
+    }
+
     fn payload_has_nonempty_string(payload: &Value, keys: &[&str]) -> bool {
         keys.iter().any(|key| {
             payload
@@ -300,27 +350,8 @@ impl PrismMcpServer {
                 )
             })?;
         workspace
-            .bind_or_validate_worktree_principal(&authenticated)
-            .map_err(|error| {
-                McpError::invalid_params(
-                    "prism_mutate principal conflicts with the worktree-bound principal",
-                    Some(json!({
-                        "code": "mutation_worktree_principal_conflict",
-                        "worktreeId": error.worktree_id,
-                        "boundPrincipal": {
-                            "authorityId": error.bound_principal.authority_id,
-                            "principalId": error.bound_principal.principal_id,
-                            "name": error.bound_principal.principal_name,
-                        },
-                        "attemptedPrincipal": {
-                            "authorityId": error.attempted_principal.authority_id,
-                            "principalId": error.attempted_principal.principal_id,
-                            "name": error.attempted_principal.principal_name,
-                        },
-                        "nextAction": "Use the same principal for this worktree, or move the other principal onto a separate git worktree before attempting authenticated mutations.",
-                    })),
-                )
-            })?;
+            .acquire_or_refresh_worktree_mutator_slot(&authenticated, &self.session.session_id())
+            .map_err(Self::map_worktree_mutator_slot_error)?;
         if !requirement.allows(&authenticated) {
             return Err(McpError::invalid_params(
                 "prism_mutate credential lacks the required capability",
@@ -402,27 +433,13 @@ impl PrismMcpServer {
                     }
                 };
                 let bind_started = Instant::now();
-                if let Err(error) = workspace.bind_or_validate_worktree_principal(&authenticated) {
-                    let mapped = McpError::invalid_params(
-                        "prism_mutate principal conflicts with the worktree-bound principal",
-                        Some(json!({
-                            "code": "mutation_worktree_principal_conflict",
-                            "worktreeId": error.worktree_id,
-                            "boundPrincipal": {
-                                "authorityId": error.bound_principal.authority_id,
-                                "principalId": error.bound_principal.principal_id,
-                                "name": error.bound_principal.principal_name,
-                            },
-                            "attemptedPrincipal": {
-                                "authorityId": error.attempted_principal.authority_id,
-                                "principalId": error.attempted_principal.principal_id,
-                                "name": error.attempted_principal.principal_name,
-                            },
-                            "nextAction": "Use the same principal for this worktree, or move the other principal onto a separate git worktree before attempting authenticated mutations.",
-                        })),
-                    );
+                if let Err(error) = workspace.acquire_or_refresh_worktree_mutator_slot(
+                    &authenticated,
+                    &self.session.session_id(),
+                ) {
+                    let mapped = Self::map_worktree_mutator_slot_error(error);
                     run.record_phase(
-                        "mutation.auth.bindWorktreePrincipal",
+                        "mutation.auth.acquireWorktreeMutatorSlot",
                         &json!({ "credentialId": credential.credential_id }),
                         bind_started.elapsed(),
                         false,
@@ -431,7 +448,7 @@ impl PrismMcpServer {
                     return Err(mapped);
                 }
                 run.record_phase(
-                    "mutation.auth.bindWorktreePrincipal",
+                    "mutation.auth.acquireWorktreeMutatorSlot",
                     &json!({ "credentialId": credential.credential_id }),
                     bind_started.elapsed(),
                     true,

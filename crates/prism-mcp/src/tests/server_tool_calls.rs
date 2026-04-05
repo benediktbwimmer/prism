@@ -1658,7 +1658,7 @@ async fn mcp_server_rejects_authenticated_mutation_from_second_principal_on_same
                 "input": {
                     "context": "Bind the workspace to the owner principal before a second agent attempts to mutate it.",
                     "prismSaid": "First authenticated mutation should bind the worktree principal.",
-                    "actuallyTrue": "The first principal to mutate the worktree becomes its exclusive authenticated author for this daemon session.",
+                    "actuallyTrue": "The first authenticated bridge session to mutate the worktree holds the active mutator slot until it goes stale or a human explicitly takes it over.",
                     "category": "coordination",
                     "verdict": "helpful"
                 }
@@ -1682,7 +1682,7 @@ async fn mcp_server_rejects_authenticated_mutation_from_second_principal_on_same
                 "input": {
                     "context": "Try to mutate the same worktree from a different authenticated principal.",
                     "prismSaid": "Another principal should be able to reuse the same worktree if it has valid credentials.",
-                    "actuallyTrue": "Authenticated mutations are exclusive to the principal that already bound the worktree.",
+                    "actuallyTrue": "Authenticated mutations are exclusive to the currently active worktree mutator session, even if another principal also has valid credentials.",
                     "category": "coordination",
                     "verdict": "wrong"
                 }
@@ -1698,16 +1698,19 @@ async fn mcp_server_rejects_authenticated_mutation_from_second_principal_on_same
     assert_eq!(response["error"]["code"], -32602);
     assert_eq!(
         response["error"]["data"]["code"],
-        Value::String("mutation_worktree_principal_conflict".to_string())
+        Value::String("mutation_worktree_mutator_slot_conflict".to_string())
     );
     assert_eq!(
-        response["error"]["data"]["boundPrincipal"]["principalId"],
+        response["error"]["data"]["currentOwner"]["principalId"],
         Value::String(owner.principal.principal_id.0.to_string())
     );
     assert_eq!(
         response["error"]["data"]["attemptedPrincipal"]["principalId"],
         Value::String(worker.principal.principal_id.0.to_string())
     );
+    assert!(response["error"]["data"]["currentOwner"]["sessionId"]
+        .as_str()
+        .is_some_and(|value| value.starts_with("session:")));
 
     running.cancel().await.unwrap();
 }

@@ -146,6 +146,10 @@ impl PrismPaths {
         &self.worktree_dir
     }
 
+    pub fn worktree_mutator_slot_path(&self) -> PathBuf {
+        self.worktree_dir.join("mutator-slot.json")
+    }
+
     pub fn worktree_cache_dir(&self) -> &Path {
         &self.worktree_cache_dir
     }
