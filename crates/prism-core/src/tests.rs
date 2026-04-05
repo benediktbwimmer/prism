@@ -5829,6 +5829,160 @@ fn repo_published_plans_do_not_write_tracked_snapshot_manifest() {
 }
 
 #[test]
+fn coordination_publication_does_not_republish_existing_tracked_snapshot_manifest() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    let mut entry = MemoryEntry::new(
+        MemoryKind::Structural,
+        "tracked snapshot authority should stay stable during coordination work",
+    );
+    entry.id = MemoryId("structural:coordination-no-manifest-churn".to_string());
+    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.scope = MemoryScope::Repo;
+    entry.source = MemorySource::Agent;
+    entry.trust = 0.95;
+
+    let mut event = MemoryEvent::from_entry(
+        MemoryEventKind::Promoted,
+        entry,
+        Some("task:coordination-no-manifest-churn".to_string()),
+        Vec::new(),
+        Vec::new(),
+    );
+    event.actor = Some(EventActor::Principal(prism_ir::PrincipalActor {
+        authority_id: PrincipalAuthorityId::new("local-daemon"),
+        principal_id: PrincipalId::new("codex-test"),
+        kind: Some(PrincipalKind::Agent),
+        name: Some("codex-test".to_string()),
+    }));
+    event.execution_context = Some(EventExecutionContext {
+        credential_id: Some(CredentialId::new("credential:test")),
+        work_context: Some(WorkContextSnapshot {
+            work_id: "work:tracked-snapshot-seed".to_string(),
+            kind: WorkContextKind::AdHoc,
+            title: "Seed tracked snapshot authority".to_string(),
+            summary: Some("Publish repo memory into tracked snapshot state first.".to_string()),
+            parent_work_id: None,
+            coordination_task_id: None,
+            plan_id: None,
+            plan_title: None,
+        }),
+        ..Default::default()
+    });
+    append_repo_memory_event(&root, &event).unwrap();
+
+    let manifest_path = root.join(".prism/state/manifest.json");
+    let manifest_before = fs::read(&manifest_path).unwrap();
+
+    session
+        .mutate_coordination(|prism| {
+            let base_revision = prism.workspace_revision();
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:no-manifest-churn"),
+                    ts: 1,
+                    actor: EventActor::Principal(prism_ir::PrincipalActor {
+                        authority_id: PrincipalAuthorityId::new("local-daemon"),
+                        principal_id: PrincipalId::new("codex-plan"),
+                        kind: Some(PrincipalKind::Agent),
+                        name: Some("codex-plan".to_string()),
+                    }),
+                    correlation: Some(TaskId::new("task:no-manifest-churn")),
+                    causation: None,
+                    execution_context: Some(EventExecutionContext {
+                        credential_id: Some(CredentialId::new("credential:plan")),
+                        work_context: Some(WorkContextSnapshot {
+                            work_id: "work:no-manifest-churn".to_string(),
+                            kind: WorkContextKind::Coordination,
+                            title: "Coordination mutation should not republish tracked snapshots"
+                                .to_string(),
+                            summary: Some(
+                                "Verify coordination-only work leaves tracked snapshot publication metadata untouched."
+                                    .to_string(),
+                            ),
+                            parent_work_id: None,
+                            coordination_task_id: None,
+                            plan_id: None,
+                            plan_title: None,
+                        }),
+                        ..Default::default()
+                    }),
+                },
+                "No manifest churn".into(),
+                "No manifest churn".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:no-manifest-churn-task"),
+                    ts: 2,
+                    actor: EventActor::Principal(prism_ir::PrincipalActor {
+                        authority_id: PrincipalAuthorityId::new("local-daemon"),
+                        principal_id: PrincipalId::new("codex-plan"),
+                        kind: Some(PrincipalKind::Agent),
+                        name: Some("codex-plan".to_string()),
+                    }),
+                    correlation: Some(TaskId::new("task:no-manifest-churn")),
+                    causation: None,
+                    execution_context: None,
+                },
+                prism_coordination::TaskCreateInput {
+                    plan_id: plan_id.clone(),
+                    title: "Create one coordination task".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision,
+                },
+            )?;
+            anyhow::Ok(())
+        })
+        .unwrap();
+    flush_coordination_materializations(&session);
+
+    assert_eq!(
+        fs::read(&manifest_path).unwrap(),
+        manifest_before,
+        "coordination publication should not republish an existing tracked snapshot manifest"
+    );
+    assert!(
+        !root.join(".prism/state/plans").exists(),
+        "coordination publication should not recreate tracked plan shards"
+    );
+    assert!(
+        !root.join(".prism/state/coordination/tasks").exists(),
+        "coordination publication should not recreate tracked coordination task shards"
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn repo_published_plans_hydrate_from_tracked_snapshots_without_plan_logs() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

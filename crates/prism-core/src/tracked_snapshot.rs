@@ -436,13 +436,14 @@ pub(crate) fn sync_coordination_snapshot_state(
     _snapshot: &CoordinationSnapshot,
     _plan_graphs: &[PlanGraph],
     _execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
-    publish: Option<&TrackedSnapshotPublishContext>,
+    _publish: Option<&TrackedSnapshotPublishContext>,
     _coordination_revision: Option<u64>,
 ) -> Result<()> {
-    cleanup_tracked_plan_snapshot_exports(root)?;
-    cleanup_shared_coordination_mirror_exports(root)?;
-    remove_file_if_exists(&snapshot_indexes_dir(root).join("coordination_materialization.json"))?;
-    refresh_manifest(root, publish)
+    // Coordination state now lives in shared refs and runtime-local read models rather than the
+    // tracked snapshot authority. Keep the normal mutation path side-effect free so coordination
+    // work does not republish unrelated tracked `.prism/state` manifests for concepts/memory.
+    let _ = root;
+    Ok(())
 }
 
 pub(crate) fn regenerate_tracked_snapshot_derived_artifacts(root: &Path) -> Result<()> {
