@@ -370,8 +370,25 @@ export type PlanListEntryView = {
   status: string
   scope: string
   kind: string
+  scheduling: {
+    importance: number
+    urgency: number
+    manualBoost: number
+    dueAt?: number | null
+  }
+  gitExecutionPolicy: {
+    startMode: string
+    completionMode: string
+    integrationMode: string
+    targetRef?: string | null
+    targetBranch: string
+    requireTaskBranch: boolean
+    maxCommitsBehindTarget: number
+    maxFetchAgeSeconds?: number | null
+  }
+  summary: string
+  planSummary: PlanSummaryView
   rootNodeIds: string[]
-  summary: PlanSummaryView
 }
 
 export type ValidationRefView = {
@@ -516,7 +533,24 @@ export type PrismPlanDetailView = {
   recentOutcomes: OutcomeSummaryView[]
 }
 
+export type PrismUiPlansFiltersView = {
+  status: string
+  search?: string | null
+  sort: string
+  agent?: string | null
+}
+
+export type PrismUiPlansStatsView = {
+  totalPlans: number
+  visiblePlans: number
+  activePlans: number
+  completedPlans: number
+  archivedPlans: number
+}
+
 export type PrismPlansView = {
+  filters: PrismUiPlansFiltersView
+  stats: PrismUiPlansStatsView
   plans: PlanListEntryView[]
   selectedPlanId?: string | null
   selectedPlan?: PrismPlanDetailView | null

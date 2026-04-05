@@ -292,8 +292,8 @@ function PlanOverlayInspector({
         <p>{plan.plan.goal}</p>
       </section>
       <div className="inspector-stat-grid">
-        <StatPill label="Ready" value={plan.plan.summary.actionableNodes} />
-        <StatPill label="Blocked" value={plan.plan.summary.executionBlockedNodes} />
+        <StatPill label="Ready" value={plan.plan.planSummary.actionableNodes} />
+        <StatPill label="Blocked" value={plan.plan.planSummary.executionBlockedNodes} />
         <StatPill label="Touched" value={plan.touchedNodes.length} />
         <StatPill label="Status" value={formatLabel(plan.plan.status)} />
       </div>

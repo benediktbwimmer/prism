@@ -4,8 +4,23 @@ import type { PrismPlansView } from '../types'
 
 const POLL_INTERVAL_MS = 2000
 
-export function usePlansData(selectedPlanId: string | null) {
+type PlansQueryOptions = {
+  agent?: string | null
+  planId?: string | null
+  search?: string | null
+  sort?: string | null
+  status?: string | null
+}
+
+export function usePlansData(options: PlansQueryOptions) {
   const [plans, setPlans] = useState<PrismPlansView | null>(null)
+  const {
+    agent = null,
+    planId = null,
+    search = null,
+    sort = null,
+    status = null,
+  } = options
 
   useEffect(() => {
     let cancelled = false
@@ -13,8 +28,20 @@ export function usePlansData(selectedPlanId: string | null) {
 
     async function loadPlans() {
       const params = new URLSearchParams()
-      if (selectedPlanId) {
-        params.set('planId', selectedPlanId)
+      if (planId) {
+        params.set('planId', planId)
+      }
+      if (status) {
+        params.set('status', status)
+      }
+      if (search) {
+        params.set('search', search)
+      }
+      if (sort) {
+        params.set('sort', sort)
+      }
+      if (agent) {
+        params.set('agent', agent)
       }
       const query = params.toString()
       try {
@@ -41,7 +68,7 @@ export function usePlansData(selectedPlanId: string | null) {
         window.clearTimeout(timeoutHandle)
       }
     }
-  }, [selectedPlanId])
+  }, [agent, planId, search, sort, status])
 
   return plans
 }
