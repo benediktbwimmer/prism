@@ -694,6 +694,11 @@ pre {
     var(--panel-muted);
 }
 
+.detail-block-syncing {
+  opacity: 0.62;
+  border-style: dashed;
+}
+
 .task-detail-list {
   display: grid;
   gap: 10px;
@@ -728,6 +733,62 @@ pre {
   text-align: right;
   color: var(--muted);
   font-size: 0.78rem;
+}
+
+.task-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.task-form-span {
+  grid-column: 1 / -1;
+}
+
+.task-form-grid textarea {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  padding: 12px 14px;
+  font: inherit;
+  resize: vertical;
+}
+
+.drawer-action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.operator-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 50;
+  display: grid;
+  gap: 4px;
+  max-width: min(360px, calc(100vw - 40px));
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, rgba(22, 104, 199, 0.18), rgba(22, 104, 199, 0.04) 70%),
+    var(--panel-strong);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(20px);
+}
+
+.operator-toast strong {
+  font-size: 0.92rem;
+}
+
+.operator-toast span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
 }
 
 .detail-list,
@@ -1662,6 +1723,10 @@ pre {
 
   .strategic-status-grid,
   .plans-portfolio-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .task-form-grid {
     grid-template-columns: 1fr;
   }
 }

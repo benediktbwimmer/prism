@@ -8,6 +8,8 @@ type AppFrameProps = {
   connection: 'connecting' | 'open' | 'closed'
   currentPath: string
   operatorIdentity: BridgeIdentityView | null
+  pendingActionCount: number
+  pendingActionLabel: string | null
   routes: PrismRoute[]
   themeChoice: ThemeChoice
   workspaceRoot: string | null
@@ -20,6 +22,8 @@ export function AppFrame({
   connection,
   currentPath,
   operatorIdentity,
+  pendingActionCount,
+  pendingActionLabel,
   routes,
   themeChoice,
   workspaceRoot,
@@ -75,6 +79,13 @@ export function AppFrame({
       <div className="shell-content">
         {children}
       </div>
+
+      {pendingActionCount > 0 ? (
+        <div className="operator-toast">
+          <strong>{pendingActionCount} action pending</strong>
+          <span>{pendingActionLabel ?? 'Waiting for the polling loop to confirm backend state.'}</span>
+        </div>
+      ) : null}
     </div>
   )
 }
