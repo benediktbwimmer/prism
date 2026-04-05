@@ -21,6 +21,13 @@ This repository must stay highly modularized. Prefer small, focused modules with
 - Keep public APIs minimal and intentional.
 - When adding a feature, first decide which module owns it; if no clear owner exists, create one.
 
+## Path Policy
+
+- The entire codebase, including documentation, must stay free of absolute paths.
+- Use relative paths exclusively in source code, configuration, and docs.
+- Do not introduce filesystem-specific paths such as `/Users/...` into committed files.
+- When referencing repo files in docs, use repo-relative paths.
+
 ## Refactoring Guidance
 
 When touching code that violates this policy, move it toward the target architecture instead of extending the violation.

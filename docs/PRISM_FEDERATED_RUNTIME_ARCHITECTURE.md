@@ -250,6 +250,7 @@ small runtime descriptor per live runtime.
 
 Illustrative descriptor fields:
 
+- `schema_version`
 - `runtime_id`
 - `repo_id`
 - `worktree_id`
@@ -272,6 +273,10 @@ Illustrative descriptor fields:
 - optional `export_policy`
 
 The descriptor must stay compact.
+
+The descriptor must also be explicitly versioned because peer discovery can cross release
+boundaries. The pre-v1 compatibility contract for shared coordination payloads and runtime
+descriptors is defined in `docs/PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md`.
 
 The descriptor is not the primary user-facing query handle.
 

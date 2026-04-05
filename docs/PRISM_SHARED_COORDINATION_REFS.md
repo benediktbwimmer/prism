@@ -63,6 +63,10 @@ shared coordination ref as a startup database:
 No items in the matrix below remain intentionally deferred. The matrix is now a closure record for
 the work that brought this document from target design to implemented reality.
 
+Pre-v1 follow-up: this document describes the implemented baseline. The compatibility contract and
+1000-agent-scale topology that should replace the single live ref as the hot write path are defined
+in `docs/PRISM_SHARED_COORDINATION_V1_ARCHITECTURE.md`.
+
 ### 1.2 Closed implementation matrix
 
 This matrix is the authoritative closure record for the shared-ref work tracked by
