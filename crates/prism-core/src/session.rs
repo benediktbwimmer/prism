@@ -111,6 +111,7 @@ use crate::workspace_tree::{
     plan_full_refresh, populate_package_regions, WorkspaceRefreshDelta, WorkspaceRefreshMode,
     WorkspaceRefreshPlan,
 };
+use crate::worktree_mutator_slot::WorktreeMutatorSlotRecord;
 use crate::worktree_principal::BoundWorktreePrincipal;
 use crate::{ActiveWorkContextBinding, FlushedObservedChangeSet, ObservedChangeFlushTrigger};
 
@@ -467,6 +468,7 @@ pub struct WorkspaceSession {
     pub(crate) checkpoint_materializer: Option<CheckpointMaterializerHandle>,
     pub(crate) shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     pub(crate) coordination_enabled: bool,
+    pub(crate) worktree_mutator_slot: Arc<Mutex<Option<WorktreeMutatorSlotRecord>>>,
     pub(crate) worktree_principal_binding: Arc<Mutex<Option<BoundWorktreePrincipal>>>,
     pub(crate) observed_change_tracker: SharedObservedChangeTracker,
 }

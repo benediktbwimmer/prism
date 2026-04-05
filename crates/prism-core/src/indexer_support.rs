@@ -148,6 +148,7 @@ pub(crate) fn build_workspace_session(
     }
     let fs_snapshot = Arc::new(Mutex::new(workspace_tree_snapshot));
     let observed_change_tracker = Arc::new(Mutex::new(ObservedChangeTracker::default()));
+    let worktree_mutator_slot = Arc::new(Mutex::new(None));
     let worktree_principal_binding = Arc::new(Mutex::new(None));
     let checkpoint_materializer =
         CheckpointMaterializerHandle::new(root.clone(), Arc::clone(&store));
@@ -257,6 +258,7 @@ pub(crate) fn build_workspace_session(
         checkpoint_materializer: Some(checkpoint_materializer),
         shared_runtime_materializer,
         coordination_enabled,
+        worktree_mutator_slot,
         worktree_principal_binding,
         observed_change_tracker,
     })

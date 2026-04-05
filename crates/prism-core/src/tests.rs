@@ -52,6 +52,7 @@ use super::{
     AttestedHumanPrincipalInput, BootstrapOwnerInput, MintPrincipalRequest, PrismDocSyncStatus,
     PrismPaths, SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
     ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions, WorktreeMode,
+    WorktreeMutatorSlotError, WORKTREE_MUTATOR_SLOT_STALE_AFTER_MS,
 };
 use crate::concept_events::append_repo_concept_event;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
@@ -625,6 +626,178 @@ fn prism_paths_reject_duplicate_worktree_labels_across_machine() {
             .contains("worktree label `shared-label` is already registered"),
         "{error}"
     );
+}
+
+#[test]
+fn worktree_mutator_slot_rejects_second_live_session_until_stale() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    let session = index_workspace_session(&root).unwrap();
+    let credential = session
+        .bootstrap_owner_principal(BootstrapOwnerInput {
+            authority_id: None,
+            name: "Mutator Owner".to_string(),
+            role: Some("repo_owner".to_string()),
+        })
+        .unwrap();
+    let authenticated = session
+        .authenticate_principal_credential(
+            &credential.credential.credential_id,
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    let first = session
+        .acquire_or_refresh_worktree_mutator_slot(
+            &authenticated,
+            &SessionId::new("session:mutator-slot-a"),
+        )
+        .expect("first session should acquire the slot");
+
+    let error = session
+        .acquire_or_refresh_worktree_mutator_slot(
+            &authenticated,
+            &SessionId::new("session:mutator-slot-b"),
+        )
+        .expect_err("second live session should conflict");
+    let WorktreeMutatorSlotError::Conflict(conflict) = error else {
+        panic!("expected live slot conflict");
+    };
+    assert_eq!(conflict.worktree_id, first.worktree_id);
+    assert_eq!(conflict.current_owner.session_id, "session:mutator-slot-a");
+    assert_eq!(
+        conflict.attempted_principal.principal_id,
+        authenticated.principal.principal_id.0
+    );
+    assert_eq!(
+        conflict.stale_at,
+        first
+            .last_heartbeat_at
+            .saturating_add(WORKTREE_MUTATOR_SLOT_STALE_AFTER_MS)
+    );
+}
+
+#[test]
+fn worktree_mutator_slot_allows_stale_same_worktree_reacquire() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    let session = index_workspace_session(&root).unwrap();
+    let credential = session
+        .bootstrap_owner_principal(BootstrapOwnerInput {
+            authority_id: None,
+            name: "Stale Owner".to_string(),
+            role: Some("repo_owner".to_string()),
+        })
+        .unwrap();
+    let authenticated = session
+        .authenticate_principal_credential(
+            &credential.credential.credential_id,
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    let acquired = session
+        .acquire_or_refresh_worktree_mutator_slot(
+            &authenticated,
+            &SessionId::new("session:stale-slot-a"),
+        )
+        .expect("first session should acquire the slot");
+
+    let paths = PrismPaths::for_workspace_root(&root).unwrap();
+    let mut stale = crate::worktree_mutator_slot::load_worktree_mutator_slot(&paths)
+        .unwrap()
+        .expect("persisted slot should exist");
+    stale.last_heartbeat_at = acquired
+        .last_heartbeat_at
+        .saturating_sub(WORKTREE_MUTATOR_SLOT_STALE_AFTER_MS + 1);
+    crate::worktree_mutator_slot::save_worktree_mutator_slot(&paths, &stale).unwrap();
+
+    let reacquired = session
+        .acquire_or_refresh_worktree_mutator_slot(
+            &authenticated,
+            &SessionId::new("session:stale-slot-b"),
+        )
+        .expect("stale slot should reacquire automatically");
+    assert_eq!(reacquired.session_id, "session:stale-slot-b");
+    assert_eq!(reacquired.worktree_id, acquired.worktree_id);
+    assert!(
+        reacquired.last_heartbeat_at > stale.last_heartbeat_at,
+        "reacquired slot should refresh liveness"
+    );
+}
+
+#[test]
+fn worktree_mutator_slot_takeover_requires_human_and_replaces_live_owner() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    let session = index_workspace_session(&root).unwrap();
+    let owner = session
+        .bootstrap_owner_principal(BootstrapOwnerInput {
+            authority_id: None,
+            name: "Human Owner".to_string(),
+            role: Some("repo_owner".to_string()),
+        })
+        .unwrap();
+    let human = session
+        .authenticate_principal_credential(&owner.credential.credential_id, &owner.principal_token)
+        .unwrap();
+    let service = session
+        .mint_principal_credential(
+            &human,
+            MintPrincipalRequest {
+                authority_id: None,
+                kind: PrincipalKind::Service,
+                name: "Hosted UI".to_string(),
+                role: Some("automation".to_string()),
+                parent_principal_id: Some(human.principal.principal_id.clone()),
+                capabilities: vec![CredentialCapability::MutateCoordination],
+                profile: json!({ "service": "hosted-ui" }),
+            },
+        )
+        .unwrap();
+    let service_auth = session
+        .authenticate_principal_credential(
+            &service.credential.credential_id,
+            &service.principal_token,
+        )
+        .unwrap();
+    session
+        .acquire_or_refresh_worktree_mutator_slot(
+            &service_auth,
+            &SessionId::new("session:service-slot"),
+        )
+        .unwrap();
+
+    let service_takeover = session
+        .take_over_worktree_mutator_slot(&service_auth, &SessionId::new("session:service-takeover"))
+        .expect_err("service principal should not authorize takeover");
+    assert!(matches!(
+        service_takeover,
+        WorktreeMutatorSlotError::TakeoverRequiresHuman { .. }
+    ));
+
+    let taken = session
+        .take_over_worktree_mutator_slot(&human, &SessionId::new("session:human-takeover"))
+        .expect("human takeover should replace the live slot");
+    assert_eq!(taken.session_id, "session:human-takeover");
+    assert_eq!(taken.principal_id, human.principal.principal_id.0);
+    assert_eq!(taken.principal_kind, PrincipalKind::Human);
 }
 
 #[test]
