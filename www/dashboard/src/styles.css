@@ -344,15 +344,6 @@ pre {
   margin-top: 22px;
 }
 
-.placeholder-layout .page-hero,
-.overview-hero {
-  margin-bottom: 0;
-}
-
-.dashboard-page {
-  padding-right: 400px;
-}
-
 .content-grid {
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
@@ -412,11 +403,6 @@ pre {
 .spotlight-next {
   display: grid;
   gap: 12px;
-}
-
-.focus-note {
-  margin: 12px 0 0;
-  color: rgba(248, 251, 255, 0.82);
 }
 
 .signal-row {
@@ -1709,10 +1695,6 @@ pre {
 }
 
 @media (max-width: 1320px) {
-  .dashboard-page {
-    padding-right: 0;
-  }
-
   .operation-drawer {
     width: min(100vw - 32px, 520px);
   }

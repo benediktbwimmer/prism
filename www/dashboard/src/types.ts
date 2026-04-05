@@ -224,20 +224,6 @@ export type PolicyViolationRecordView = {
   violations: PolicyViolationView[]
 }
 
-export type DashboardSummaryView = {
-  session: SessionView
-  runtime: RuntimeStatusView
-  activeQueryCount: number
-  activeMutationCount: number
-  recentQueryErrorCount: number
-  lastRuntimeEvent?: RuntimeLogEventView | null
-}
-
-export type DashboardTaskSnapshotView = {
-  session: SessionView
-  journal?: TaskJournalView | null
-}
-
 export type CoordinationTaskView = {
   id: string
   planId: string
@@ -269,32 +255,6 @@ export type CoordinationTaskView = {
     sourceRef?: string | null
     publishRef?: string | null
   }
-}
-
-export type DashboardCoordinationSummaryView = {
-  enabled: boolean
-  activePlanCount: number
-  taskCount: number
-  readyTaskCount: number
-  inReviewTaskCount: number
-  activeClaimCount: number
-  pendingReviewCount: number
-  proposedArtifactCount: number
-  recentPendingReviews: ArtifactView[]
-  recentViolations: PolicyViolationRecordView[]
-}
-
-export type DashboardOperationsView = {
-  active: ActiveOperationView[]
-  recentQueries: QueryLogEntryView[]
-  recentMutations: MutationLogEntryView[]
-}
-
-export type DashboardBootstrapView = {
-  summary: DashboardSummaryView
-  operations: DashboardOperationsView
-  task: DashboardTaskSnapshotView
-  coordination: DashboardCoordinationSummaryView
 }
 
 export type PrismUiSessionBootstrapView = {
@@ -558,43 +518,11 @@ export type PlanNodeRecommendationView = {
   unblocks?: string[]
 }
 
-export type OverviewPlanSignalsView = {
-  blockedNodes: number
-  reviewGatedNodes: number
-  validationGatedNodes: number
-  claimConflictedNodes: number
-}
-
-export type OverviewPlanSpotlightView = {
-  planId: string
-  title: string
-  goal: string
-  summary: PlanSummaryView
-  nextNodes: PlanNodeRecommendationView[]
-}
-
-export type OverviewConceptSpotlightView = {
-  handle: string
-  canonicalName: string
-  summary: string
-}
-
 export type OutcomeSummaryView = {
   ts: number
   kind: string
   result: string
   summary: string
-}
-
-export type PrismOverviewView = {
-  summary: DashboardSummaryView
-  task: DashboardTaskSnapshotView
-  coordination: DashboardCoordinationSummaryView
-  planSignals: OverviewPlanSignalsView
-  spotlightPlans: OverviewPlanSpotlightView[]
-  hotConcepts: OverviewConceptSpotlightView[]
-  recentOutcomes: OutcomeSummaryView[]
-  pendingHandoffs: CoordinationTaskView[]
 }
 
 export type PrismPlanDetailView = {
