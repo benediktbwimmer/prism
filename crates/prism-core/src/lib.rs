@@ -52,6 +52,7 @@ mod workspace_identity;
 mod workspace_runtime_state;
 mod workspace_session_defaults;
 mod workspace_tree;
+mod worktree_inventory;
 mod worktree_mutator_slot;
 mod worktree_principal;
 mod worktree_registration;
@@ -135,6 +136,7 @@ pub use watch::{assisted_lease_renewal_diagnostics, AssistedLeaseRenewalDiagnost
 pub use workspace_session_defaults::{
     default_workspace_session_options, default_workspace_shared_runtime,
 };
+pub use worktree_inventory::{list_registered_worktrees, RegisteredWorktreeSummary};
 pub use worktree_mutator_slot::{
     WorktreeMutatorSlotConflict, WorktreeMutatorSlotError, WorktreeMutatorSlotRecord,
     WORKTREE_MUTATOR_SLOT_STALE_AFTER_MS,

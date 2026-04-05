@@ -1,26 +1,23 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, bail, Result};
 use prism_core::{
     authenticate_principal_credential_in_registry, bootstrap_owner_principal_in_registry,
-    ensure_local_principal_registry_snapshot,
     ensure_local_principal_registry_snapshot_with_unlocked_profile,
     mint_principal_credential_in_registry, recover_owner_principal_in_registry,
     AttestedHumanPrincipalInput, CredentialProfile, CredentialProfileCredentialMetadata,
     CredentialProfilePrincipalMetadata, CredentialsFile, HumanSessionFile, MintPrincipalRequest,
-    PrismPaths,
 };
 use prism_ir::{
     CredentialId, HumanAttestationAssurance, HumanAttestationOperation, HumanAttestationRecord,
     HumanPrincipalProfile, PrincipalAuthorityId, PrincipalId, PrincipalKind,
-    PrincipalRegistrySnapshot,
 };
-use prism_store::{SqliteStore, Store};
+use prism_store::Store;
 use serde_json::Value;
 
 use crate::cli::{AuthAssuranceArg, AuthCommand, PrincipalCommand};
-use crate::git_support::ensure_repo_git_support;
+use crate::operator_auth::{load_auth_registry_context, load_principal_registry_snapshot};
 use crate::parsing::{parse_credential_capability, parse_principal_kind};
 
 const AUTH_PASSPHRASE_ENV: &str = "PRISM_AUTH_PASSPHRASE";
@@ -35,7 +32,10 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
             subject,
             assurance,
         } => {
-            let (mut store, credentials_path, human_session_path) = load_auth_registry_store(root)?;
+            let context = load_auth_registry_context(root)?;
+            let mut store = context.store;
+            let credentials_path = context.credentials_path;
+            let human_session_path = context.human_session_path;
             let mut snapshot = store
                 .load_principal_registry_snapshot()?
                 .unwrap_or_default();
@@ -72,7 +72,10 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
             subject,
             assurance,
         } => {
-            let (mut store, credentials_path, human_session_path) = load_auth_registry_store(root)?;
+            let context = load_auth_registry_context(root)?;
+            let mut store = context.store;
+            let credentials_path = context.credentials_path;
+            let human_session_path = context.human_session_path;
             let mut snapshot = store
                 .load_principal_registry_snapshot()?
                 .unwrap_or_default();
@@ -106,7 +109,10 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
             principal,
             credential,
         } => {
-            let (mut store, credentials_path, human_session_path) = load_auth_registry_store(root)?;
+            let context = load_auth_registry_context(root)?;
+            let mut store = context.store;
+            let credentials_path = context.credentials_path;
+            let human_session_path = context.human_session_path;
             let mut credentials_file = CredentialsFile::load(&credentials_path)?;
             let selected = credentials_file
                 .set_active_by_selector(
@@ -156,7 +162,10 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
             println!("credential_id = {}", selected.credential_id);
         }
         AuthCommand::Whoami => {
-            let (mut store, credentials_path, human_session_path) = load_auth_registry_store(root)?;
+            let context = load_auth_registry_context(root)?;
+            let mut store = context.store;
+            let credentials_path = context.credentials_path;
+            let human_session_path = context.human_session_path;
             let credentials_file = CredentialsFile::load(&credentials_path)?;
             let selected = credentials_file.find_by_selector(None, None, None)?.clone();
             let mut sessions = HumanSessionFile::load(&human_session_path)?;
@@ -230,7 +239,10 @@ pub(crate) fn handle_principal_command(root: &Path, command: PrincipalCommand) -
             metadata_json,
             capabilities,
         } => {
-            let (mut store, credentials_path, human_session_path) = load_auth_registry_store(root)?;
+            let context = load_auth_registry_context(root)?;
+            let mut store = context.store;
+            let credentials_path = context.credentials_path;
+            let human_session_path = context.human_session_path;
             let mut credentials_file = CredentialsFile::load(&credentials_path)?;
             let mut sessions = HumanSessionFile::load(&human_session_path)?;
             let session = sessions.active_session_now().ok_or_else(|| {
@@ -292,22 +304,6 @@ pub(crate) fn handle_principal_command(root: &Path, command: PrincipalCommand) -
     }
 
     Ok(())
-}
-
-fn load_auth_registry_store(root: &Path) -> Result<(SqliteStore, PathBuf, PathBuf)> {
-    ensure_repo_git_support(root)?;
-    let paths = PrismPaths::for_workspace_root(root)?;
-    let credentials_path = paths.credentials_path()?;
-    let human_session_path = paths.human_session_path()?;
-    let mut store = SqliteStore::open(paths.shared_runtime_db_path()?)?;
-    let _ = ensure_local_principal_registry_snapshot(root, &mut store)?;
-    Ok((store, credentials_path, human_session_path))
-}
-
-fn load_principal_registry_snapshot(store: &mut SqliteStore) -> Result<PrincipalRegistrySnapshot> {
-    store
-        .load_principal_registry_snapshot()?
-        .ok_or_else(|| anyhow!("principal registry is not initialized"))
 }
 
 fn default_parent_for_kind(kind: PrincipalKind, principal_id: &PrincipalId) -> Option<PrincipalId> {

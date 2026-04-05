@@ -2,6 +2,8 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
 
+use crate::worktree_commands::WorktreeModeArg;
+
 #[derive(Parser)]
 #[command(name = "prism")]
 #[command(about = "Deterministic local-first code perception")]
@@ -24,6 +26,10 @@ pub enum Command {
     Auth {
         #[command(subcommand)]
         command: AuthCommand,
+    },
+    Worktree {
+        #[command(subcommand)]
+        command: WorktreeCommand,
     },
     Docs {
         #[command(subcommand)]
@@ -139,6 +145,21 @@ pub enum AuthCommand {
         credential: Option<String>,
     },
     Whoami,
+}
+
+#[derive(Subcommand)]
+pub enum WorktreeCommand {
+    List,
+    Register {
+        #[arg(long)]
+        label: Option<String>,
+        #[arg(long, value_enum)]
+        mode: Option<WorktreeModeArg>,
+    },
+    Relabel {
+        label: Option<String>,
+    },
+    Takeover,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -438,8 +459,9 @@ mod tests {
 
     use super::{
         AuthAssuranceArg, AuthCommand, Cli, Command, DocsBundleArg, DocsCommand, McpCommand,
-        PrincipalCommand, ProtectedStateCommand, ProtectedStateTrustCommand,
+        PrincipalCommand, ProtectedStateCommand, ProtectedStateTrustCommand, WorktreeCommand,
     };
+    use crate::worktree_commands::WorktreeModeArg;
 
     #[test]
     fn mcp_restart_preserves_bridges_by_default() {
@@ -724,6 +746,55 @@ mod tests {
         match cli.command {
             Command::Auth {
                 command: AuthCommand::Whoami,
+            } => {}
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn worktree_register_parses() {
+        let cli = Cli::parse_from([
+            "prism",
+            "worktree",
+            "register",
+            "--label",
+            "codex-d",
+            "--mode",
+            "agent",
+        ]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Worktree {
+                command: WorktreeCommand::Register { label, mode },
+            } => {
+                assert_eq!(label.as_deref(), Some("codex-d"));
+                assert_eq!(mode, Some(WorktreeModeArg::Agent));
+            }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn worktree_relabel_parses() {
+        let cli = Cli::parse_from(["prism", "worktree", "relabel", "operator-a"]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Worktree {
+                command: WorktreeCommand::Relabel { label },
+            } => {
+                assert_eq!(label.as_deref(), Some("operator-a"));
+            }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn worktree_takeover_parses() {
+        let cli = Cli::parse_from(["prism", "worktree", "takeover"]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Worktree {
+                command: WorktreeCommand::Takeover,
             } => {}
             _ => panic!("unexpected command"),
         }

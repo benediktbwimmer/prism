@@ -33,6 +33,7 @@ use crate::runtime::{
     record_validation_outcome, resolve_optional_anchors, resolve_single_symbol,
     run_validation_command,
 };
+use crate::worktree_commands::handle_worktree_command;
 use crate::workspace_root;
 
 pub fn run(cli: Cli) -> Result<()> {
@@ -50,6 +51,9 @@ pub fn run(cli: Cli) -> Result<()> {
     if let Command::Principal { command } = command {
         return handle_principal_command(&root, command);
     }
+    if let Command::Worktree { command } = command {
+        return handle_worktree_command(&root, command);
+    }
     if let Command::ProtectedState { command } = command {
         return handle_protected_state_command(&root, command);
     }
@@ -60,6 +64,7 @@ pub fn run(cli: Cli) -> Result<()> {
     match command {
         Command::Mcp { .. } => unreachable!("handled above"),
         Command::Auth { .. } => unreachable!("handled above"),
+        Command::Worktree { .. } => unreachable!("handled above"),
         Command::Docs { command } => handle_docs_command(&session, command)?,
         Command::Project { target, at, diff } => {
             handle_project_command(prism.as_ref(), target, at, diff)?

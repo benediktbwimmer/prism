@@ -47,7 +47,8 @@ use super::{
     hydrate_workspace_session, hydrate_workspace_session_with_options, index_workspace,
     index_workspace_session, index_workspace_session_with_curator,
     index_workspace_session_with_options, inspect_legacy_path_identity_state,
-    inspect_repo_published_plan_artifacts, regenerate_repo_published_plan_artifacts,
+    inspect_repo_published_plan_artifacts, list_registered_worktrees,
+    regenerate_repo_published_plan_artifacts,
     repair_legacy_path_identity_state, repair_repo_published_plan_artifacts,
     AttestedHumanPrincipalInput, BootstrapOwnerInput, CredentialProfile,
     CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata, CredentialsFile,
@@ -629,6 +630,43 @@ fn prism_paths_reject_duplicate_worktree_labels_across_machine() {
             .contains("worktree label `shared-label` is already registered"),
         "{error}"
     );
+}
+
+#[test]
+fn list_registered_worktrees_discovers_machine_registrations() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+
+    let root_a = temp_workspace();
+    let root_b = temp_workspace();
+    let prism_home = temp_workspace();
+
+    for (root, branch) in [(&root_a, "main"), (&root_b, "task/agent")] {
+        fs::create_dir_all(root).unwrap();
+        fs::create_dir_all(root.join(".git")).unwrap();
+        fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
+        fs::write(root.join(".git/HEAD"), format!("ref: refs/heads/{branch}\n")).unwrap();
+    }
+    fs::create_dir_all(&prism_home).unwrap();
+
+    let _env = PrismHomeEnvGuard::set(&prism_home);
+
+    PrismPaths::for_workspace_root(&root_a)
+        .unwrap()
+        .register_worktree("operator-a", WorktreeMode::Human)
+        .unwrap();
+    PrismPaths::for_workspace_root(&root_b)
+        .unwrap()
+        .register_worktree("agent-b", WorktreeMode::Agent)
+        .unwrap();
+
+    let registrations = list_registered_worktrees(&prism_home).unwrap();
+    assert_eq!(registrations.len(), 2);
+    assert_eq!(registrations[0].agent_label, "agent-b");
+    assert_eq!(registrations[0].mode, WorktreeMode::Agent);
+    assert_eq!(registrations[1].agent_label, "operator-a");
+    assert_eq!(registrations[1].mode, WorktreeMode::Human);
+    assert_eq!(registrations[0].branch_ref.as_deref(), Some("refs/heads/task/agent"));
+    assert_eq!(registrations[1].branch_ref.as_deref(), Some("refs/heads/main"));
 }
 
 #[test]

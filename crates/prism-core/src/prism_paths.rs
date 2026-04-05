@@ -26,7 +26,7 @@ const MIGRATION_CONFLICTS_DIR_NAME: &str = "migration-conflicts";
 const PRINCIPAL_REGISTRY_RECONCILED_MARKER: &str = ".principal-registry-merged-v1";
 const REPO_METADATA_FILE_NAME: &str = "repo.json";
 const SESSION_SEED_FILE_NAME: &str = "prism-mcp-session-seed.json";
-const WORKTREE_METADATA_FILE_NAME: &str = "worktree.json";
+pub(crate) const WORKTREE_METADATA_FILE_NAME: &str = "worktree.json";
 
 #[cfg(test)]
 thread_local! {
