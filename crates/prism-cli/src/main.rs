@@ -5,10 +5,12 @@ mod daemon_log;
 mod display;
 mod git_support;
 mod mcp;
+mod operator_auth;
 mod parsing;
 mod projection_commands;
 mod protected_state_commands;
 mod runtime;
+mod worktree_commands;
 mod workspace_root;
 
 use anyhow::Result;

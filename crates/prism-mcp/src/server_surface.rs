@@ -1,5 +1,8 @@
-use prism_core::{AdmissionBusyError, AuthenticatedPrincipal, ObservedChangeFlushTrigger};
-use prism_ir::{CredentialCapability, CredentialId};
+use prism_core::{
+    AdmissionBusyError, AuthenticatedPrincipal, ObservedChangeFlushTrigger, PrismPaths,
+    WorktreeMode, WorktreeMutatorSlotError,
+};
+use prism_ir::{CredentialCapability, CredentialId, PrincipalKind};
 use prism_js::{
     AgentConceptResultView, AgentExpandResultView, AgentGatherResultView, AgentLocateResultView,
     AgentOpenResultView, AgentWorksetResultView, QueryPhaseView,
@@ -61,6 +64,20 @@ impl MutationCapabilityRequirement {
     }
 }
 
+enum MutationAuthentication {
+    Principal(AuthenticatedPrincipal),
+    WorktreeExecutor,
+}
+
+impl MutationAuthentication {
+    fn authenticated_principal(&self) -> Option<&AuthenticatedPrincipal> {
+        match self {
+            Self::Principal(authenticated) => Some(authenticated),
+            Self::WorktreeExecutor => None,
+        }
+    }
+}
+
 impl MutationOutcomeMeta {
     pub(crate) fn task(
         task_id: Option<String>,
@@ -84,6 +101,125 @@ impl MutationOutcomeMeta {
 }
 
 impl PrismMcpServer {
+    fn worktree_mode_label(mode: WorktreeMode) -> &'static str {
+        match mode {
+            WorktreeMode::Human => "human",
+            WorktreeMode::Agent => "agent",
+        }
+    }
+
+    fn required_worktree_mode_for_principal(kind: PrincipalKind) -> WorktreeMode {
+        match kind {
+            PrincipalKind::Human => WorktreeMode::Human,
+            PrincipalKind::Agent
+            | PrincipalKind::Service
+            | PrincipalKind::System
+            | PrincipalKind::Ci
+            | PrincipalKind::External => WorktreeMode::Agent,
+        }
+    }
+
+    fn load_registered_worktree_for_authenticated_mutation(
+        &self,
+        workspace: &prism_core::WorkspaceSession,
+        authenticated: &AuthenticatedPrincipal,
+    ) -> Result<prism_core::WorktreeRegistrationRecord, McpError> {
+        let paths = PrismPaths::for_workspace_root(workspace.root()).map_err(|error| {
+            McpError::internal_error(
+                "failed to resolve the current PRISM worktree paths",
+                Some(json!({
+                    "code": "mutation_worktree_paths_failed",
+                    "error": error.to_string(),
+                })),
+            )
+        })?;
+        let registration = paths.worktree_registration().map_err(|error| {
+            McpError::internal_error(
+                "failed to read the current PRISM worktree registration",
+                Some(json!({
+                    "code": "mutation_worktree_registration_load_failed",
+                    "error": error.to_string(),
+                })),
+            )
+        })?;
+        let registration = registration.ok_or_else(|| {
+            McpError::invalid_params(
+                "authoritative mutations require a registered worktree",
+                Some(json!({
+                    "code": "mutation_worktree_unregistered",
+                    "principalId": authenticated.principal.principal_id.0,
+                    "principalKind": authenticated.principal.kind,
+                    "nextAction": "Register this worktree in the correct mode before retrying the mutation.",
+                })),
+            )
+        })?;
+        let required_mode =
+            Self::required_worktree_mode_for_principal(authenticated.principal.kind);
+        if registration.mode != required_mode {
+            return Err(McpError::invalid_params(
+                "principal kind does not match the current registered worktree mode",
+                Some(json!({
+                    "code": "mutation_worktree_mode_mismatch",
+                    "principalId": authenticated.principal.principal_id.0,
+                    "principalKind": authenticated.principal.kind,
+                    "worktreeId": registration.worktree_id,
+                    "agentLabel": registration.agent_label,
+                    "worktreeMode": Self::worktree_mode_label(registration.mode),
+                    "requiredWorktreeMode": Self::worktree_mode_label(required_mode),
+                    "nextAction": "Use a worktree registered in the matching mode for this actor, or retry through the appropriate bridge or human session.",
+                })),
+            ));
+        }
+        Ok(registration)
+    }
+
+    fn map_worktree_mutator_slot_error(error: WorktreeMutatorSlotError) -> McpError {
+        match error {
+            WorktreeMutatorSlotError::Conflict(conflict) => McpError::invalid_params(
+                "prism_mutate conflicts with the active worktree mutator session",
+                Some(json!({
+                    "code": "mutation_worktree_mutator_slot_conflict",
+                    "worktreeId": conflict.worktree_id,
+                    "currentOwner": {
+                        "sessionId": conflict.current_owner.session_id,
+                        "authorityId": conflict.current_owner.authority_id,
+                        "principalId": conflict.current_owner.principal_id,
+                        "name": conflict.current_owner.principal_name,
+                        "credentialId": conflict.current_owner.credential_id,
+                        "lastHeartbeatAt": conflict.current_owner.last_heartbeat_at,
+                    },
+                    "attemptedSessionId": conflict.attempted_session_id,
+                    "attemptedPrincipal": {
+                        "authorityId": conflict.attempted_principal.authority_id,
+                        "principalId": conflict.attempted_principal.principal_id,
+                        "name": conflict.attempted_principal.principal_name,
+                    },
+                    "staleAt": conflict.stale_at,
+                    "nextAction": "Retry after the current worktree mutator session goes stale, or have a human operator explicitly take over the worktree before retrying authenticated mutations.",
+                })),
+            ),
+            WorktreeMutatorSlotError::TakeoverRequiresHuman {
+                principal_id,
+                principal_kind,
+            } => McpError::invalid_params(
+                "only a human principal can authorize worktree mutator takeover",
+                Some(json!({
+                    "code": "mutation_worktree_mutator_takeover_requires_human",
+                    "principalId": principal_id,
+                    "principalKind": principal_kind,
+                    "nextAction": "Retry with an authenticated human operator session if this worktree really needs an explicit takeover.",
+                })),
+            ),
+            WorktreeMutatorSlotError::Storage(error) => McpError::internal_error(
+                "failed to update the worktree mutator slot",
+                Some(json!({
+                    "code": "mutation_worktree_mutator_slot_storage_failed",
+                    "error": error.to_string(),
+                })),
+            ),
+        }
+    }
+
     fn payload_has_nonempty_string(payload: &Value, keys: &[&str]) -> bool {
         keys.iter().any(|key| {
             payload
@@ -271,9 +407,31 @@ impl PrismMcpServer {
 
     fn authenticate_mutation(
         &self,
+        credential: Option<&PrismMutationCredentialArgs>,
+        bridge_execution: Option<&PrismMutationBridgeExecutionArgs>,
+        requirement: MutationCapabilityRequirement,
+    ) -> Result<MutationAuthentication, McpError> {
+        if let Some(credential) = credential {
+            return self.authenticate_principal_mutation(credential, requirement);
+        }
+        if let Some(bridge_execution) = bridge_execution {
+            self.authenticate_bridge_execution(bridge_execution)?;
+            return Ok(MutationAuthentication::WorktreeExecutor);
+        }
+        Err(McpError::invalid_params(
+            "prism_mutate requires either `credential` or an attached bridge execution binding",
+            Some(json!({
+                "code": "mutation_auth_missing",
+                "nextAction": "Supply `credential` directly, or call `prism_bridge_adopt` on a stdio bridge attached to a registered agent worktree before retrying the mutation.",
+            })),
+        ))
+    }
+
+    fn authenticate_principal_mutation(
+        &self,
         credential: &PrismMutationCredentialArgs,
         requirement: MutationCapabilityRequirement,
-    ) -> Result<AuthenticatedPrincipal, McpError> {
+    ) -> Result<MutationAuthentication, McpError> {
         let workspace = self.host.workspace_session().ok_or_else(|| {
             McpError::internal_error(
                 "prism_mutate requires a workspace-backed session",
@@ -299,28 +457,10 @@ impl PrismMcpServer {
                     })),
                 )
             })?;
+        self.load_registered_worktree_for_authenticated_mutation(workspace.as_ref(), &authenticated)?;
         workspace
-            .bind_or_validate_worktree_principal(&authenticated)
-            .map_err(|error| {
-                McpError::invalid_params(
-                    "prism_mutate principal conflicts with the worktree-bound principal",
-                    Some(json!({
-                        "code": "mutation_worktree_principal_conflict",
-                        "worktreeId": error.worktree_id,
-                        "boundPrincipal": {
-                            "authorityId": error.bound_principal.authority_id,
-                            "principalId": error.bound_principal.principal_id,
-                            "name": error.bound_principal.principal_name,
-                        },
-                        "attemptedPrincipal": {
-                            "authorityId": error.attempted_principal.authority_id,
-                            "principalId": error.attempted_principal.principal_id,
-                            "name": error.attempted_principal.principal_name,
-                        },
-                        "nextAction": "Use the same principal for this worktree, or move the other principal onto a separate git worktree before attempting authenticated mutations.",
-                    })),
-                )
-            })?;
+            .acquire_or_refresh_worktree_mutator_slot(&authenticated, &self.session.session_id())
+            .map_err(Self::map_worktree_mutator_slot_error)?;
         if !requirement.allows(&authenticated) {
             return Err(McpError::invalid_params(
                 "prism_mutate credential lacks the required capability",
@@ -333,15 +473,122 @@ impl PrismMcpServer {
                 })),
             ));
         }
-        Ok(authenticated)
+        Ok(MutationAuthentication::Principal(authenticated))
+    }
+
+    fn authenticate_bridge_execution(
+        &self,
+        bridge_execution: &PrismMutationBridgeExecutionArgs,
+    ) -> Result<(), McpError> {
+        let workspace = self.host.workspace_session().ok_or_else(|| {
+            McpError::internal_error(
+                "prism_mutate requires a workspace-backed session",
+                Some(json!({
+                    "code": "mutation_auth_workspace_required",
+                    "nextAction": "Run the mutation against a workspace-backed PRISM MCP session so the server can verify the attached worktree execution lane.",
+                })),
+            )
+        })?;
+        let paths = PrismPaths::for_workspace_root(workspace.root()).map_err(|error| {
+            McpError::internal_error(
+                "failed to resolve the current PRISM worktree paths",
+                Some(json!({
+                    "code": "mutation_worktree_paths_failed",
+                    "error": error.to_string(),
+                })),
+            )
+        })?;
+        let registration = paths.worktree_registration().map_err(|error| {
+            McpError::internal_error(
+                "failed to read the current PRISM worktree registration",
+                Some(json!({
+                    "code": "mutation_worktree_registration_load_failed",
+                    "error": error.to_string(),
+                })),
+            )
+        })?;
+        let registration = registration.ok_or_else(|| {
+            McpError::invalid_params(
+                "authoritative mutations require a registered worktree",
+                Some(json!({
+                    "code": "mutation_worktree_unregistered",
+                    "nextAction": "Register this worktree before retrying the mutation, or supply an explicit human/service credential.",
+                })),
+            )
+        })?;
+        if registration.mode != WorktreeMode::Agent {
+            return Err(McpError::invalid_params(
+                "bridge execution requires a worktree registered in agent mode",
+                Some(json!({
+                    "code": "mutation_bridge_execution_requires_agent_worktree",
+                    "worktreeId": registration.worktree_id,
+                    "agentLabel": registration.agent_label,
+                    "worktreeMode": "human",
+                    "nextAction": "Use a bridge attached to a registered agent worktree, or supply an explicit human credential for direct operator mutation.",
+                })),
+            ));
+        }
+        if registration.worktree_id != bridge_execution.worktree_id
+            || registration.agent_label != bridge_execution.agent_label
+        {
+            return Err(McpError::invalid_params(
+                "bridge execution binding does not match the current registered worktree",
+                Some(json!({
+                    "code": "mutation_bridge_execution_mismatch",
+                    "expectedWorktreeId": registration.worktree_id,
+                    "expectedAgentLabel": registration.agent_label,
+                    "receivedWorktreeId": bridge_execution.worktree_id,
+                    "receivedAgentLabel": bridge_execution.agent_label,
+                    "nextAction": "Call `prism_bridge_adopt` again so the bridge reattaches to the current registered worktree lane.",
+                })),
+            ));
+        }
+        workspace
+            .acquire_or_refresh_agent_worktree_mutator_slot(&self.session.session_id())
+            .map_err(Self::map_worktree_mutator_slot_error)?;
+        Ok(())
     }
 
     fn authenticate_mutation_with_run(
         &self,
         run: &MutationRun,
+        credential: Option<&PrismMutationCredentialArgs>,
+        bridge_execution: Option<&PrismMutationBridgeExecutionArgs>,
+        requirement: MutationCapabilityRequirement,
+    ) -> Result<MutationAuthentication, McpError> {
+        if let Some(credential) = credential {
+            return self.authenticate_principal_mutation_with_run(run, credential, requirement);
+        }
+        if let Some(bridge_execution) = bridge_execution {
+            let started = Instant::now();
+            let result = self.authenticate_bridge_execution(bridge_execution);
+            run.record_phase(
+                "mutation.auth.bridgeExecution",
+                &json!({
+                    "worktreeId": bridge_execution.worktree_id,
+                    "agentLabel": bridge_execution.agent_label,
+                }),
+                started.elapsed(),
+                result.is_ok(),
+                result.as_ref().err().map(ToString::to_string),
+            );
+            return result.map(|_| MutationAuthentication::WorktreeExecutor);
+        }
+        Err(McpError::invalid_params(
+            "prism_mutate requires either `credential` or an attached bridge execution binding",
+            Some(json!({
+                "code": "mutation_auth_missing",
+                "nextAction": "Supply `credential` directly, or call `prism_bridge_adopt` on a stdio bridge attached to a registered agent worktree before retrying the mutation.",
+            })),
+        ))
+    }
+
+    fn authenticate_principal_mutation_with_run(
+        &self,
+        run: &MutationRun,
         credential: &PrismMutationCredentialArgs,
         requirement: MutationCapabilityRequirement,
-    ) -> Result<AuthenticatedPrincipal, McpError> {
+    ) -> Result<MutationAuthentication, McpError> {
         let total_started = Instant::now();
         let workspace_started = Instant::now();
         let workspace = self.host.workspace_session().ok_or_else(|| {
@@ -401,28 +648,48 @@ impl PrismMcpServer {
                         return Err(error);
                     }
                 };
-                let bind_started = Instant::now();
-                if let Err(error) = workspace.bind_or_validate_worktree_principal(&authenticated) {
-                    let mapped = McpError::invalid_params(
-                        "prism_mutate principal conflicts with the worktree-bound principal",
-                        Some(json!({
-                            "code": "mutation_worktree_principal_conflict",
-                            "worktreeId": error.worktree_id,
-                            "boundPrincipal": {
-                                "authorityId": error.bound_principal.authority_id,
-                                "principalId": error.bound_principal.principal_id,
-                                "name": error.bound_principal.principal_name,
-                            },
-                            "attemptedPrincipal": {
-                                "authorityId": error.attempted_principal.authority_id,
-                                "principalId": error.attempted_principal.principal_id,
-                                "name": error.attempted_principal.principal_name,
-                            },
-                            "nextAction": "Use the same principal for this worktree, or move the other principal onto a separate git worktree before attempting authenticated mutations.",
-                        })),
+                let registration_started = Instant::now();
+                let registration_result = self
+                    .load_registered_worktree_for_authenticated_mutation(
+                        workspace.as_ref(),
+                        &authenticated,
                     );
+                let registration = match registration_result {
+                    Ok(registration) => {
+                        run.record_phase(
+                            "mutation.auth.requireRegisteredWorktree",
+                            &json!({
+                                "principalKind": authenticated.principal.kind,
+                                "worktreeId": registration.worktree_id,
+                                "worktreeMode": Self::worktree_mode_label(registration.mode),
+                            }),
+                            registration_started.elapsed(),
+                            true,
+                            None,
+                        );
+                        registration
+                    }
+                    Err(error) => {
+                        run.record_phase(
+                            "mutation.auth.requireRegisteredWorktree",
+                            &json!({
+                                "principalKind": authenticated.principal.kind,
+                            }),
+                            registration_started.elapsed(),
+                            false,
+                            Some(error.to_string()),
+                        );
+                        return Err(error);
+                    }
+                };
+                let bind_started = Instant::now();
+                if let Err(error) = workspace.acquire_or_refresh_worktree_mutator_slot(
+                    &authenticated,
+                    &self.session.session_id(),
+                ) {
+                    let mapped = Self::map_worktree_mutator_slot_error(error);
                     run.record_phase(
-                        "mutation.auth.bindWorktreePrincipal",
+                        "mutation.auth.acquireWorktreeMutatorSlot",
                         &json!({ "credentialId": credential.credential_id }),
                         bind_started.elapsed(),
                         false,
@@ -431,8 +698,12 @@ impl PrismMcpServer {
                     return Err(mapped);
                 }
                 run.record_phase(
-                    "mutation.auth.bindWorktreePrincipal",
-                    &json!({ "credentialId": credential.credential_id }),
+                    "mutation.auth.acquireWorktreeMutatorSlot",
+                    &json!({
+                        "credentialId": credential.credential_id,
+                        "worktreeId": registration.worktree_id,
+                        "worktreeMode": Self::worktree_mode_label(registration.mode),
+                    }),
                     bind_started.elapsed(),
                     true,
                     None,
@@ -475,7 +746,7 @@ impl PrismMcpServer {
                     true,
                     None,
                 );
-                Ok(authenticated)
+                Ok(MutationAuthentication::Principal(authenticated))
             }
             Err(error) => {
                 run.record_phase(
@@ -1110,11 +1381,16 @@ impl PrismMcpServer {
         &self,
         Parameters(args): Parameters<PrismMutationArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let credential = args.credential;
-        match args.mutation {
+        let PrismMutationArgs {
+            credential,
+            bridge_execution,
+            mutation,
+        } = args;
+        match mutation {
             PrismMutationKindArgs::DeclareWork(args) => {
                 let authenticated = self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::AnyAuthenticated,
                 )?;
                 let result = self.execute_logged_mutation(
@@ -1124,7 +1400,7 @@ impl PrismMcpServer {
                         self.host.declare_work_without_refresh_authenticated(
                             self.session.as_ref(),
                             args,
-                            Some(&authenticated),
+                            authenticated.authenticated_principal(),
                         )
                     },
                     |result| {
@@ -1143,7 +1419,8 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::Checkpoint(args) => {
                 let authenticated = self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
                 self.require_declared_work_context("checkpoint", args.task_id.is_some())?;
@@ -1154,7 +1431,7 @@ impl PrismMcpServer {
                         self.host.store_checkpoint_authenticated(
                             self.session.as_ref(),
                             args,
-                            Some(&authenticated),
+                            authenticated.authenticated_principal(),
                         )
                     },
                     |result| {
@@ -1171,7 +1448,8 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::Outcome(args) => {
                 let authenticated = self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
                 self.require_declared_work_context("outcome", args.task_id.is_some())?;
@@ -1182,7 +1460,7 @@ impl PrismMcpServer {
                         self.host.store_outcome_without_refresh_authenticated(
                             self.session.as_ref(),
                             args,
-                            Some(&authenticated),
+                            authenticated.authenticated_principal(),
                         )
                     },
                     |result| {
@@ -1207,7 +1485,8 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::Memory(args) => {
                 let authenticated = self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
                 self.require_declared_work_context("memory", args.task_id.is_some())?;
@@ -1218,7 +1497,7 @@ impl PrismMcpServer {
                         self.host.store_memory_without_refresh_authenticated(
                             self.session.as_ref(),
                             args,
-                            Some(&authenticated),
+                            authenticated.authenticated_principal(),
                         )
                     },
                     |result| {
@@ -1243,7 +1522,8 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::Concept(args) => {
                 let authenticated = self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
                 self.require_declared_work_context("concept", args.task_id.is_some())?;
@@ -1254,7 +1534,7 @@ impl PrismMcpServer {
                         self.host.store_concept_without_refresh_authenticated(
                             self.session.as_ref(),
                             args,
-                            Some(&authenticated),
+                            authenticated.authenticated_principal(),
                         )
                     },
                     |result| {
@@ -1280,7 +1560,8 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::Contract(args) => {
                 let authenticated = self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
                 self.require_declared_work_context("contract", args.task_id.is_some())?;
@@ -1291,7 +1572,7 @@ impl PrismMcpServer {
                         self.host.store_contract_without_refresh_authenticated(
                             self.session.as_ref(),
                             args,
-                            Some(&authenticated),
+                            authenticated.authenticated_principal(),
                         )
                     },
                     |result| {
@@ -1317,7 +1598,8 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::ConceptRelation(args) => {
                 let authenticated = self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
                 self.require_declared_work_context("concept_relation", args.task_id.is_some())?;
@@ -1328,7 +1610,7 @@ impl PrismMcpServer {
                         self.host.store_concept_relation_authenticated(
                             self.session.as_ref(),
                             args,
-                            Some(&authenticated),
+                            authenticated.authenticated_principal(),
                         )
                     },
                     |result| {
@@ -1354,7 +1636,8 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::ValidationFeedback(args) => {
                 let authenticated = self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
                 self.require_declared_work_context("validation_feedback", args.task_id.is_some())?;
@@ -1366,7 +1649,7 @@ impl PrismMcpServer {
                             .store_validation_feedback_without_refresh_authenticated(
                                 self.session.as_ref(),
                                 args,
-                                Some(&authenticated),
+                                authenticated.authenticated_principal(),
                             )
                     },
                     |result| {
@@ -1388,7 +1671,8 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::SessionRepair(args) => {
                 self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::AnyAuthenticated,
                 )?;
                 let result = self.execute_logged_mutation(
@@ -1421,7 +1705,8 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::InferEdge(args) => {
                 self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
                 self.require_declared_work_context("infer_edge", args.task_id.is_some())?;
@@ -1454,7 +1739,8 @@ impl PrismMcpServer {
                     .ensure_tool_enabled("prism_coordination", "coordination lease heartbeats")
                     .map_err(map_query_error)?;
                 let authenticated = self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateCoordination,
                 )?;
                 self.require_declared_work_context(
@@ -1468,7 +1754,7 @@ impl PrismMcpServer {
                         self.host.store_heartbeat_lease_authenticated(
                             self.session.as_ref(),
                             args,
-                            Some(&authenticated),
+                            authenticated.authenticated_principal(),
                         )
                     },
                     |result| {
@@ -1497,7 +1783,8 @@ impl PrismMcpServer {
                     .begin_mutation_run(self.session.as_ref(), "mutate.coordination");
                 let authenticated = match self.authenticate_mutation_with_run(
                     &run,
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateCoordination,
                 ) {
                     Ok(authenticated) => authenticated,
@@ -1523,7 +1810,7 @@ impl PrismMcpServer {
                             self.session.as_ref(),
                             args,
                             run,
-                            Some(&authenticated),
+                            authenticated.authenticated_principal(),
                         )
                     },
                     |result| {
@@ -1544,7 +1831,8 @@ impl PrismMcpServer {
                     .ensure_tool_enabled("prism_claim", "coordination claim mutations")
                     .map_err(map_query_error)?;
                 let authenticated = self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateCoordination,
                 )?;
                 self.require_declared_work_context("claim", args.task_id.is_some())?;
@@ -1555,7 +1843,7 @@ impl PrismMcpServer {
                         self.host.store_claim_authenticated(
                             self.session.as_ref(),
                             args,
-                            Some(&authenticated),
+                            authenticated.authenticated_principal(),
                         )
                     },
                     |result| {
@@ -1577,7 +1865,8 @@ impl PrismMcpServer {
                     .ensure_tool_enabled("prism_artifact", "coordination artifact mutations")
                     .map_err(map_query_error)?;
                 let authenticated = self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateCoordination,
                 )?;
                 self.require_declared_work_context("artifact", args.task_id.is_some())?;
@@ -1588,7 +1877,7 @@ impl PrismMcpServer {
                         self.host.store_artifact_authenticated(
                             self.session.as_ref(),
                             args,
-                            Some(&authenticated),
+                            authenticated.authenticated_principal(),
                         )
                     },
                     |result| {
@@ -1610,7 +1899,8 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::TestRan(args) => {
                 let authenticated = self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
                 self.require_declared_work_context("test_ran", args.task_id.is_some())?;
@@ -1647,7 +1937,7 @@ impl PrismMcpServer {
                                 evidence: Some(evidence),
                                 task_id: args.task_id,
                             },
-                            Some(&authenticated),
+                            authenticated.authenticated_principal(),
                         )
                     },
                     |result| {
@@ -1672,7 +1962,8 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::FailureObserved(args) => {
                 let authenticated = self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
                 self.require_declared_work_context("failure_observed", args.task_id.is_some())?;
@@ -1693,7 +1984,7 @@ impl PrismMcpServer {
                                 evidence,
                                 task_id: args.task_id,
                             },
-                            Some(&authenticated),
+                            authenticated.authenticated_principal(),
                         )
                     },
                     |result| {
@@ -1718,7 +2009,8 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::FixValidated(args) => {
                 let authenticated = self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
                 self.require_declared_work_context("fix_validated", args.task_id.is_some())?;
@@ -1742,7 +2034,7 @@ impl PrismMcpServer {
                                 evidence,
                                 task_id: args.task_id,
                             },
-                            Some(&authenticated),
+                            authenticated.authenticated_principal(),
                         )
                     },
                     |result| {
@@ -1767,7 +2059,8 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::CuratorPromoteEdge(args) => {
                 self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
                 self.require_declared_work_context("curator_promote_edge", args.task_id.is_some())?;
@@ -1804,7 +2097,8 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::CuratorApplyProposal(args) => {
                 let authenticated = self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
                 self.require_declared_work_context(
@@ -1818,7 +2112,7 @@ impl PrismMcpServer {
                         self.host.apply_curator_proposal_authenticated(
                             self.session.as_ref(),
                             args,
-                            Some(&authenticated),
+                            authenticated.authenticated_principal(),
                         )
                     },
                     |result| {
@@ -1853,7 +2147,8 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::CuratorPromoteConcept(args) => {
                 let authenticated = self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
                 self.require_declared_work_context(
@@ -1867,7 +2162,7 @@ impl PrismMcpServer {
                         self.host.promote_curator_concept_authenticated(
                             self.session.as_ref(),
                             args,
-                            Some(&authenticated),
+                            authenticated.authenticated_principal(),
                         )
                     },
                     |result| {
@@ -1889,7 +2184,8 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::CuratorPromoteMemory(args) => {
                 let authenticated = self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
                 self.require_declared_work_context(
@@ -1903,7 +2199,7 @@ impl PrismMcpServer {
                         self.host.promote_curator_memory_authenticated(
                             self.session.as_ref(),
                             args,
-                            Some(&authenticated),
+                            authenticated.authenticated_principal(),
                         )
                     },
                     |result| {
@@ -1935,7 +2231,8 @@ impl PrismMcpServer {
             }
             PrismMutationKindArgs::CuratorRejectProposal(args) => {
                 let authenticated = self.authenticate_mutation(
-                    &credential,
+                    credential.as_ref(),
+                    bridge_execution.as_ref(),
                     MutationCapabilityRequirement::MutateRepoMemory,
                 )?;
                 self.require_declared_work_context(
@@ -1949,7 +2246,7 @@ impl PrismMcpServer {
                         self.host.reject_curator_proposal_authenticated(
                             self.session.as_ref(),
                             args,
-                            Some(&authenticated),
+                            authenticated.authenticated_principal(),
                         )
                     },
                     |result| MutationOutcomeMeta::coordination(vec![result.job_id.clone()], 0),

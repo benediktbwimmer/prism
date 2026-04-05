@@ -24,6 +24,12 @@ fn session_id_from_meta(meta: &EventMeta) -> Option<SessionId> {
         .map(|value| SessionId::new(value.clone()))
 }
 
+fn worktree_id_from_meta(meta: &EventMeta) -> Option<String> {
+    meta.execution_context
+        .as_ref()
+        .and_then(|context| context.worktree_id.clone())
+}
+
 fn principal_from_meta(meta: &EventMeta) -> Option<prism_ir::PrincipalActor> {
     match &meta.actor {
         EventActor::Principal(principal) => Some(principal.clone()),
@@ -54,7 +60,10 @@ pub fn assisted_heartbeat_window(policy: &CoordinationPolicy) -> u64 {
 }
 
 fn holder_has_identity(holder: &LeaseHolder) -> bool {
-    holder.principal.is_some() || holder.session_id.is_some() || holder.agent_id.is_some()
+    holder.principal.is_some()
+        || holder.session_id.is_some()
+        || holder.worktree_id.is_some()
+        || holder.agent_id.is_some()
 }
 
 pub fn task_lease_state(task: &CoordinationTask, now: Timestamp) -> LeaseState {
@@ -194,6 +203,7 @@ pub(crate) fn refresh_task_lease(
     let holder = LeaseHolder {
         principal: principal_from_meta(meta),
         session_id: task.session.clone().or_else(|| session_id_from_meta(meta)),
+        worktree_id: task.worktree_id.clone().or_else(|| worktree_id_from_meta(meta)),
         agent_id: task.assignee.clone(),
     };
     if !holder_has_identity(&holder) {
@@ -222,6 +232,7 @@ pub(crate) fn refresh_claim_lease(
     let holder = LeaseHolder {
         principal: principal_from_meta(meta),
         session_id: Some(claim.holder.clone()),
+        worktree_id: claim.worktree_id.clone().or_else(|| worktree_id_from_meta(meta)),
         agent_id: claim.agent.clone(),
     };
     claim.lease_holder = holder_has_identity(&holder).then_some(holder);
@@ -235,6 +246,11 @@ fn same_principal(left: &prism_ir::PrincipalActor, right: &prism_ir::PrincipalAc
 }
 
 pub(crate) fn same_holder(left: &LeaseHolder, right: &LeaseHolder) -> bool {
+    if let (Some(left_worktree), Some(right_worktree)) =
+        (left.worktree_id.as_ref(), right.worktree_id.as_ref())
+    {
+        return left_worktree == right_worktree;
+    }
     if let Some(left_principal) = left.principal.as_ref() {
         return right
             .principal
@@ -258,6 +274,7 @@ pub(crate) fn authoritative_task_holder(task: &CoordinationTask) -> Option<Lease
         let holder = LeaseHolder {
             principal: None,
             session_id: task.session.clone(),
+            worktree_id: task.worktree_id.clone(),
             agent_id: task.assignee.clone(),
         };
         holder_has_identity(&holder).then_some(holder)
@@ -268,6 +285,7 @@ pub(crate) fn current_task_holder(meta: &EventMeta, task: &CoordinationTask) -> 
     LeaseHolder {
         principal: principal_from_meta(meta),
         session_id: session_id_from_meta(meta).or_else(|| task.session.clone()),
+        worktree_id: task.worktree_id.clone().or_else(|| worktree_id_from_meta(meta)),
         agent_id: task.assignee.clone(),
     }
 }
@@ -280,6 +298,7 @@ pub(crate) fn current_claim_holder(
     LeaseHolder {
         principal: principal_from_meta(meta),
         session_id: Some(session_id.clone()),
+        worktree_id: claim.worktree_id.clone().or_else(|| worktree_id_from_meta(meta)),
         agent_id: claim.agent.clone(),
     }
 }

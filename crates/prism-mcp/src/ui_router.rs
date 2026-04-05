@@ -329,6 +329,9 @@ mod tests {
                 principal_id: credential.principal_id.clone(),
                 credential_id: credential.credential_id.clone(),
                 principal_token: credential.principal_token.clone(),
+                encrypted_secret: None,
+                principal_metadata: None,
+                credential_metadata: None,
             },
             true,
         );
@@ -354,7 +357,7 @@ mod tests {
         let value: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(
             value["session"]["bridgeIdentity"]["status"],
-            Value::from("active_local_profile")
+            Value::from("locked_local_profile")
         );
         assert_eq!(
             value["session"]["bridgeIdentity"]["profile"],
@@ -643,6 +646,9 @@ mod tests {
                 principal_id: credential.principal_id.clone(),
                 credential_id: credential.credential_id.clone(),
                 principal_token: credential.principal_token.clone(),
+                encrypted_secret: None,
+                principal_metadata: None,
+                credential_metadata: None,
             },
             true,
         );

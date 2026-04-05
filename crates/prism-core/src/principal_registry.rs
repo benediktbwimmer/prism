@@ -1,7 +1,8 @@
 use anyhow::{anyhow, bail, Result};
 use prism_ir::{
     new_prefixed_id, new_slugged_id, CredentialCapability, CredentialId, CredentialRecord,
-    CredentialStatus, PrincipalAuthorityId, PrincipalId, PrincipalKind, PrincipalProfile,
+    CredentialStatus, HumanAttestationAssurance, HumanAttestationOperation, HumanAttestationRecord,
+    HumanPrincipalProfile, PrincipalAuthorityId, PrincipalId, PrincipalKind, PrincipalProfile,
     PrincipalRegistrySnapshot, PrincipalStatus,
 };
 use rand::rngs::OsRng;
@@ -19,6 +20,14 @@ pub struct BootstrapOwnerInput {
     pub authority_id: Option<PrincipalAuthorityId>,
     pub name: String,
     pub role: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AttestedHumanPrincipalInput {
+    pub authority_id: Option<PrincipalAuthorityId>,
+    pub name: String,
+    pub role: Option<String>,
+    pub attestation: HumanAttestationRecord,
 }
 
 #[derive(Debug, Clone)]
@@ -46,28 +55,46 @@ pub struct AuthenticatedPrincipal {
 }
 
 impl WorkspaceSession {
+    pub fn bootstrap_owner_principal_with_attestation(
+        &self,
+        input: AttestedHumanPrincipalInput,
+    ) -> Result<MintedPrincipalCredential> {
+        let mut snapshot = self.load_principal_registry()?.unwrap_or_default();
+        let issued = bootstrap_owner_principal_in_registry(&mut snapshot, input)?;
+        self.persist_principal_registry(&snapshot)?;
+        Ok(issued)
+    }
+
+    pub fn recover_owner_principal_with_attestation(
+        &self,
+        input: AttestedHumanPrincipalInput,
+    ) -> Result<MintedPrincipalCredential> {
+        let mut snapshot = self.load_principal_registry()?.unwrap_or_default();
+        let issued = recover_owner_principal_in_registry(&mut snapshot, input)?;
+        self.persist_principal_registry(&snapshot)?;
+        Ok(issued)
+    }
+
     pub fn bootstrap_owner_principal(
         &self,
         input: BootstrapOwnerInput,
     ) -> Result<MintedPrincipalCredential> {
-        let mut snapshot = self.load_principal_registry()?.unwrap_or_default();
-        if !snapshot.principals.is_empty() || !snapshot.credentials.is_empty() {
-            bail!("principal registry is already initialized");
-        }
-        let issued = issue_principal_credential(
-            &mut snapshot,
-            MintPrincipalRequest {
-                authority_id: input.authority_id,
-                kind: PrincipalKind::Human,
-                name: input.name,
-                role: input.role,
-                parent_principal_id: None,
-                capabilities: vec![CredentialCapability::All],
-                profile: Value::Null,
+        let authority_id = input.authority_id.clone();
+        self.bootstrap_owner_principal_with_attestation(AttestedHumanPrincipalInput {
+            authority_id: authority_id.clone(),
+            name: input.name.clone(),
+            role: input.role.clone(),
+            attestation: HumanAttestationRecord {
+                issuer: authority_id
+                    .unwrap_or_else(|| PrincipalAuthorityId::new(DEFAULT_PRINCIPAL_AUTHORITY_ID))
+                    .0
+                    .to_string(),
+                subject: input.name,
+                assurance: HumanAttestationAssurance::Legacy,
+                operation: HumanAttestationOperation::Bootstrap,
+                verified_at: current_timestamp(),
             },
-        )?;
-        self.persist_principal_registry(&snapshot)?;
-        Ok(issued)
+        })
     }
 
     pub fn authenticate_principal_credential(
@@ -84,12 +111,16 @@ impl WorkspaceSession {
         request: MintPrincipalRequest,
     ) -> Result<MintedPrincipalCredential> {
         let mut snapshot = self.load_principal_registry()?.unwrap_or_default();
-        verify_actor_still_active(&snapshot, actor)?;
-        ensure_mint_capability(actor, &request)?;
-        let issued = issue_principal_credential(&mut snapshot, request)?;
+        let issued = mint_principal_credential_in_registry(&mut snapshot, actor, request)?;
         self.persist_principal_registry(&snapshot)?;
         Ok(issued)
     }
+}
+
+fn human_principal_profile_value(attestation: HumanAttestationRecord) -> Result<Value> {
+    Ok(serde_json::to_value(HumanPrincipalProfile {
+        attestation: Some(attestation),
+    })?)
 }
 
 pub(crate) fn authenticate_principal_credential_without_persist(
@@ -103,7 +134,7 @@ pub(crate) fn authenticate_principal_credential_without_persist(
         .position(|credential| credential.credential_id == *credential_id)
         .ok_or_else(|| anyhow!("credential `{}` not found", credential_id.0))?;
     let now = current_timestamp();
-    let verifier = credential_verifier(principal_token);
+    let verifier = credential_token_verifier(principal_token);
     let credential = snapshot.credentials[credential_index].clone();
     if credential.status != CredentialStatus::Active {
         bail!("credential `{}` is not active", credential.credential_id.0);
@@ -128,6 +159,55 @@ pub(crate) fn authenticate_principal_credential_without_persist(
         principal,
         credential: snapshot.credentials[credential_index].clone(),
     })
+}
+
+pub fn authenticate_principal_credential_in_registry(
+    snapshot: &mut PrincipalRegistrySnapshot,
+    credential_id: &CredentialId,
+    principal_token: &str,
+) -> Result<AuthenticatedPrincipal> {
+    authenticate_principal_credential_without_persist(snapshot, credential_id, principal_token)
+}
+
+pub fn bootstrap_owner_principal_in_registry(
+    snapshot: &mut PrincipalRegistrySnapshot,
+    input: AttestedHumanPrincipalInput,
+) -> Result<MintedPrincipalCredential> {
+    if !snapshot.principals.is_empty() || !snapshot.credentials.is_empty() {
+        bail!("principal registry is already initialized");
+    }
+    issue_principal_credential(
+        snapshot,
+        MintPrincipalRequest {
+            authority_id: input.authority_id,
+            kind: PrincipalKind::Human,
+            name: input.name,
+            role: input.role,
+            parent_principal_id: None,
+            capabilities: vec![CredentialCapability::All],
+            profile: human_principal_profile_value(input.attestation)?,
+        },
+    )
+}
+
+pub fn recover_owner_principal_in_registry(
+    snapshot: &mut PrincipalRegistrySnapshot,
+    input: AttestedHumanPrincipalInput,
+) -> Result<MintedPrincipalCredential> {
+    if input.attestation.operation != HumanAttestationOperation::Recovery {
+        bail!("recovery attestation input must use operation `recovery`");
+    }
+    bootstrap_owner_principal_in_registry(snapshot, input)
+}
+
+pub fn mint_principal_credential_in_registry(
+    snapshot: &mut PrincipalRegistrySnapshot,
+    actor: &AuthenticatedPrincipal,
+    request: MintPrincipalRequest,
+) -> Result<MintedPrincipalCredential> {
+    verify_actor_still_active(snapshot, actor)?;
+    ensure_mint_capability(actor, &request)?;
+    issue_principal_credential(snapshot, request)
 }
 
 fn verify_actor_still_active(
@@ -166,6 +246,8 @@ fn ensure_mint_capability(
     actor: &AuthenticatedPrincipal,
     request: &MintPrincipalRequest,
 ) -> Result<()> {
+    ensure_supported_durable_principal_kind(request.kind)?;
+
     if has_capability(&actor.credential.capabilities, CredentialCapability::All)
         || has_capability(
             &actor.credential.capabilities,
@@ -185,8 +267,8 @@ fn ensure_mint_capability(
         if *parent_principal_id != actor.principal.principal_id {
             bail!("mint_child_principal can only mint children of the authenticated principal");
         }
-        if request.kind != PrincipalKind::Agent {
-            bail!("mint_child_principal can only mint agent principals");
+        if request.kind != PrincipalKind::Service {
+            bail!("mint_child_principal can only mint service principals");
         }
         return Ok(());
     }
@@ -201,6 +283,7 @@ fn issue_principal_credential(
     snapshot: &mut PrincipalRegistrySnapshot,
     request: MintPrincipalRequest,
 ) -> Result<MintedPrincipalCredential> {
+    ensure_supported_durable_principal_kind(request.kind)?;
     let authority_id = request
         .authority_id
         .unwrap_or_else(|| PrincipalAuthorityId::new(DEFAULT_PRINCIPAL_AUTHORITY_ID));
@@ -240,7 +323,7 @@ fn issue_principal_credential(
         credential_id: CredentialId::new(new_prefixed_id("credential")),
         authority_id,
         principal_id: principal.principal_id.clone(),
-        token_verifier: credential_verifier(&principal_token),
+        token_verifier: credential_token_verifier(&principal_token),
         capabilities: normalized_capabilities(request.capabilities),
         status: CredentialStatus::Active,
         created_at: now,
@@ -254,6 +337,32 @@ fn issue_principal_credential(
         credential,
         principal_token,
     })
+}
+
+fn ensure_supported_durable_principal_kind(kind: PrincipalKind) -> Result<()> {
+    if kind.is_durable_principal() {
+        return Ok(());
+    }
+    if kind.is_legacy_local_agent() {
+        bail!(
+            "legacy local agent principals are no longer mintable; use worktree execution identity instead"
+        );
+    }
+    bail!(
+        "principal kind `{}` is not supported for durable principal minting",
+        durable_principal_kind_name(kind)
+    )
+}
+
+fn durable_principal_kind_name(kind: PrincipalKind) -> &'static str {
+    match kind {
+        PrincipalKind::Human => "human",
+        PrincipalKind::Service => "service",
+        PrincipalKind::Agent => "agent",
+        PrincipalKind::System => "system",
+        PrincipalKind::Ci => "ci",
+        PrincipalKind::External => "external",
+    }
 }
 
 fn normalized_capabilities(capabilities: Vec<CredentialCapability>) -> Vec<CredentialCapability> {
@@ -282,7 +391,7 @@ fn generate_principal_token() -> String {
     format!("prism_ptok_{}", hex_encode(&bytes))
 }
 
-fn credential_verifier(principal_token: &str) -> String {
+pub(crate) fn credential_token_verifier(principal_token: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(principal_token.as_bytes());
     format!("sha256:{}", hex_encode(&hasher.finalize()))

@@ -27,6 +27,7 @@ use crate::session::{WorkspaceRefreshSeed, WorkspaceRefreshState, WorkspaceSessi
 use crate::shared_coordination_ref::initialize_shared_coordination_ref_live_sync;
 use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
+use crate::local_principal_registry::ensure_local_principal_registry_snapshot;
 use crate::shared_runtime_store::SharedRuntimeStore;
 use crate::util::{persisted_file_hash, workspace_walk};
 use crate::watch::{
@@ -87,8 +88,7 @@ pub(crate) fn build_workspace_session(
         let mut store = shared_runtime_store
             .lock()
             .expect("shared runtime store lock poisoned");
-        prism_store::MaterializationStore::load_principal_registry_snapshot(&mut *store)?
-            .unwrap_or_default()
+        ensure_local_principal_registry_snapshot(&root, &mut *store)?.unwrap_or_default()
     } else {
         PrincipalRegistrySnapshot::default()
     };
@@ -148,6 +148,7 @@ pub(crate) fn build_workspace_session(
     }
     let fs_snapshot = Arc::new(Mutex::new(workspace_tree_snapshot));
     let observed_change_tracker = Arc::new(Mutex::new(ObservedChangeTracker::default()));
+    let worktree_mutator_slot = Arc::new(Mutex::new(None));
     let worktree_principal_binding = Arc::new(Mutex::new(None));
     let checkpoint_materializer =
         CheckpointMaterializerHandle::new(root.clone(), Arc::clone(&store));
@@ -257,6 +258,7 @@ pub(crate) fn build_workspace_session(
         checkpoint_materializer: Some(checkpoint_materializer),
         shared_runtime_materializer,
         coordination_enabled,
+        worktree_mutator_slot,
         worktree_principal_binding,
         observed_change_tracker,
     })

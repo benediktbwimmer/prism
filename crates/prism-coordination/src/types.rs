@@ -46,6 +46,8 @@ pub struct LeaseHolder {
     #[serde(default)]
     pub session_id: Option<SessionId>,
     #[serde(default)]
+    pub worktree_id: Option<String>,
+    #[serde(default)]
     pub agent_id: Option<AgentId>,
 }
 

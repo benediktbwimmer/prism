@@ -8,10 +8,13 @@ use crate::tests_support::{
     server_with_node, temp_workspace, workspace_session_with_owner_credential,
 };
 use prism_coordination::TaskCreateInput;
-use prism_core::{index_workspace_session, MintPrincipalRequest};
+use prism_core::{
+    default_workspace_shared_runtime, index_workspace_session, index_workspace_session_with_options,
+    BootstrapOwnerInput, MintPrincipalRequest, PrismPaths, WorkspaceSessionOptions, WorktreeMode,
+};
 use prism_ir::{
     CoordinationTaskStatus, CredentialCapability, CredentialId, EventActor, EventId, EventMeta,
-    PlanStatus, PrincipalActor, PrincipalId, PrincipalKind, SessionId,
+    PlanStatus, PrincipalActor, PrincipalAuthorityId, PrincipalId, PrincipalKind, SessionId,
 };
 
 fn resource_text(response: serde_json::Value) -> String {
@@ -315,8 +318,11 @@ fn prism_mutate_validation_feedback_accepts_flat_snake_case_fields() {
     }))
     .expect("snake_case shorthand should deserialize");
 
-    assert_eq!(args.credential.credential_id, "credential:test");
-    assert_eq!(args.credential.principal_token, "prism_ptok_test");
+    let credential = args
+        .credential
+        .expect("explicit credential should deserialize");
+    assert_eq!(credential.credential_id, "credential:test");
+    assert_eq!(credential.principal_token, "prism_ptok_test");
     let PrismMutationKindArgs::ValidationFeedback(input) = args.mutation else {
         panic!("expected validation feedback mutation");
     };
@@ -951,6 +957,135 @@ async fn mcp_server_auto_resumes_stale_same_principal_ready_task_on_update() {
 }
 
 #[tokio::test]
+async fn mcp_server_auto_resumes_stale_same_worktree_executor_task_on_update() {
+    let root = temp_workspace();
+    let (session, _credential) = workspace_session_with_owner_credential(&root);
+    let registration = PrismPaths::for_workspace_root(&root)
+        .expect("paths should resolve")
+        .register_worktree("agent-a", WorktreeMode::Agent)
+        .expect("agent worktree registration should persist");
+    let slot = session
+        .acquire_or_refresh_agent_worktree_mutator_slot(&SessionId::new("session:bridge-current"))
+        .expect("agent worktree slot should be acquired");
+
+    let prior_session = SessionId::new("session:bridge-stale-prior");
+    let stale_ts = crate::current_timestamp().saturating_sub(8_000);
+    let actor = EventActor::Principal(PrincipalActor {
+        authority_id: PrincipalAuthorityId::new(slot.authority_id.clone()),
+        principal_id: PrincipalId::new(slot.principal_id.clone()),
+        kind: Some(slot.principal_kind),
+        name: Some(slot.principal_name.clone()),
+    });
+    let execution_context = Some(session.event_execution_context(Some(&prior_session), None, None));
+    let (_plan_id, task_id) = session
+        .mutate_coordination_with_session_wait_observed(
+            Some(&prior_session),
+            |prism| {
+                let plan_meta = EventMeta {
+                    id: EventId::new("coordination:bridge-worktree-resume:plan"),
+                    ts: stale_ts,
+                    actor: actor.clone(),
+                    correlation: None,
+                    causation: None,
+                    execution_context: execution_context.clone(),
+                };
+                let plan_id = prism.create_native_plan(
+                    plan_meta,
+                    "Resume stale same-worktree task".to_string(),
+                    "Resume stale same-worktree task".to_string(),
+                    Some(PlanStatus::Active),
+                    None,
+                )?;
+                let task_meta = EventMeta {
+                    id: EventId::new("coordination:bridge-worktree-resume:task"),
+                    ts: stale_ts,
+                    actor: actor.clone(),
+                    correlation: None,
+                    causation: None,
+                    execution_context: execution_context.clone(),
+                };
+                let task = prism.create_native_task(
+                    task_meta,
+                    TaskCreateInput {
+                        plan_id: plan_id.clone(),
+                        title: "Resume me through worktree continuity".to_string(),
+                        status: Some(CoordinationTaskStatus::InProgress),
+                        assignee: None,
+                        session: Some(prior_session.clone()),
+                        worktree_id: Some(registration.worktree_id.clone()),
+                        branch_ref: None,
+                        anchors: Vec::new(),
+                        depends_on: Vec::new(),
+                        coordination_depends_on: Vec::new(),
+                        integrated_depends_on: Vec::new(),
+                        acceptance: Vec::new(),
+                        base_revision: prism.workspace_revision(),
+                    },
+                )?;
+                Ok((plan_id, task.id))
+            },
+            |_operation, _duration, _args, _success, _error| {},
+        )
+        .expect("stale seeded coordination mutation should succeed")
+        .expect("coordination mutation should acquire the refresh lock");
+
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_mutate",
+            json!({
+                "action": "coordination",
+                "bridgeExecution": {
+                    "worktreeId": registration.worktree_id,
+                    "agentLabel": "agent-a"
+                },
+                "input": {
+                    "kind": "update",
+                    "payload": {
+                        "id": task_id.0,
+                        "summary": "bridge continuity resumed the stale task"
+                    }
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let resumed = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(resumed["result"]["state"]["id"], Value::from(task_id.0.to_string()));
+    assert_eq!(
+        resumed["result"]["state"]["summary"],
+        Value::from("bridge continuity resumed the stale task")
+    );
+
+    let reloaded = index_workspace_session(&root).expect("workspace should reload");
+    let task = reloaded
+        .prism()
+        .coordination_task(&task_id)
+        .expect("task should remain queryable");
+    let holder = task.lease_holder.expect("task should carry a lease holder");
+    let principal = holder.principal.expect("lease holder principal should be recorded");
+    assert_eq!(principal.authority_id.0, "worktree_executor");
+    assert_eq!(principal.principal_id.0, registration.worktree_id);
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn mcp_server_resumes_stale_same_principal_task_when_git_execution_start_is_require() {
     let root = temp_workspace();
     let (session, credential) = workspace_session_with_owner_credential(&root);
@@ -1528,9 +1663,9 @@ async fn mcp_server_rejects_prism_mutate_when_capability_is_denied() {
             &owner,
             MintPrincipalRequest {
                 authority_id: None,
-                kind: PrincipalKind::Agent,
-                name: "Memory Worker".to_string(),
-                role: Some("memory_only".to_string()),
+                kind: PrincipalKind::Service,
+                name: "Memory Service".to_string(),
+                role: Some("memory_only_service".to_string()),
                 parent_principal_id: Some(PrincipalId::new(owner.principal.principal_id.0.clone())),
                 capabilities: vec![CredentialCapability::MutateRepoMemory],
                 profile: Value::Null,
@@ -1591,30 +1726,51 @@ async fn mcp_server_rejects_prism_mutate_when_capability_is_denied() {
 async fn mcp_server_rejects_authenticated_mutation_from_second_principal_on_same_worktree() {
     let root = temp_workspace();
     let (session, owner_credential) = workspace_session_with_owner_credential(&root);
+    PrismPaths::for_workspace_root(&root)
+        .expect("paths should resolve")
+        .register_worktree("agent-a", WorktreeMode::Agent)
+        .expect("agent worktree registration should persist");
     let owner = session
         .authenticate_principal_credential(
             &CredentialId::new(owner_credential.credential_id.clone()),
             &owner_credential.principal_token,
         )
         .expect("owner credential should authenticate");
-    let worker = session
+    let first_worker = session
         .mint_principal_credential(
             &owner,
             MintPrincipalRequest {
                 authority_id: None,
-                kind: PrincipalKind::Agent,
-                name: "Second Worker".to_string(),
-                role: Some("second_worker".to_string()),
+                kind: PrincipalKind::Service,
+                name: "First Service".to_string(),
+                role: Some("first_service".to_string()),
                 parent_principal_id: Some(PrincipalId::new(owner.principal.principal_id.0.clone())),
                 capabilities: vec![CredentialCapability::All],
                 profile: Value::Null,
             },
         )
-        .expect("child principal should mint");
-    let owner_credential = mutation_credential_json(&owner_credential);
-    let worker_credential = json!({
-        "credentialId": worker.credential.credential_id.0,
-        "principalToken": worker.principal_token,
+        .expect("first child principal should mint");
+    let second_worker = session
+        .mint_principal_credential(
+            &owner,
+            MintPrincipalRequest {
+                authority_id: None,
+                kind: PrincipalKind::Service,
+                name: "Second Service".to_string(),
+                role: Some("second_service".to_string()),
+                parent_principal_id: Some(PrincipalId::new(owner.principal.principal_id.0.clone())),
+                capabilities: vec![CredentialCapability::All],
+                profile: Value::Null,
+            },
+        )
+        .expect("second child principal should mint");
+    let first_worker_credential = json!({
+        "credentialId": first_worker.credential.credential_id.0,
+        "principalToken": first_worker.principal_token,
+    });
+    let second_worker_credential = json!({
+        "credentialId": second_worker.credential.credential_id.0,
+        "principalToken": second_worker.principal_token,
     });
     let server = PrismMcpServer::with_session(session);
     let (server_transport, client_transport) = tokio::io::duplex(4096);
@@ -1634,9 +1790,9 @@ async fn mcp_server_rejects_authenticated_mutation_from_second_principal_on_same
             "prism_mutate",
             json!({
                 "action": "declare_work",
-                "credential": owner_credential.clone(),
+                "credential": first_worker_credential.clone(),
                 "input": {
-                    "title": "Bind the worktree to the owner principal"
+                    "title": "Bind the worktree to the first service principal"
                 }
             })
             .as_object()
@@ -1654,11 +1810,11 @@ async fn mcp_server_rejects_authenticated_mutation_from_second_principal_on_same
             "prism_mutate",
             json!({
                 "action": "validation_feedback",
-                "credential": owner_credential,
+                "credential": first_worker_credential,
                 "input": {
-                    "context": "Bind the workspace to the owner principal before a second agent attempts to mutate it.",
+                    "context": "Bind the workspace to the first service principal before a second service attempts to mutate it.",
                     "prismSaid": "First authenticated mutation should bind the worktree principal.",
-                    "actuallyTrue": "The first principal to mutate the worktree becomes its exclusive authenticated author for this daemon session.",
+                    "actuallyTrue": "The first authenticated service session to mutate the worktree holds the active mutator slot until it goes stale or a human explicitly takes it over.",
                     "category": "coordination",
                     "verdict": "helpful"
                 }
@@ -1678,11 +1834,11 @@ async fn mcp_server_rejects_authenticated_mutation_from_second_principal_on_same
             "prism_mutate",
             json!({
                 "action": "validation_feedback",
-                "credential": worker_credential,
+                "credential": second_worker_credential,
                 "input": {
-                    "context": "Try to mutate the same worktree from a different authenticated principal.",
-                    "prismSaid": "Another principal should be able to reuse the same worktree if it has valid credentials.",
-                    "actuallyTrue": "Authenticated mutations are exclusive to the principal that already bound the worktree.",
+                    "context": "Try to mutate the same worktree from a different authenticated service principal.",
+                    "prismSaid": "Another service principal should be able to reuse the same worktree if it has valid credentials.",
+                    "actuallyTrue": "Authenticated mutations are exclusive to the currently active worktree mutator session, even when both principals are valid service identities for the same machine.",
                     "category": "coordination",
                     "verdict": "wrong"
                 }
@@ -1698,15 +1854,184 @@ async fn mcp_server_rejects_authenticated_mutation_from_second_principal_on_same
     assert_eq!(response["error"]["code"], -32602);
     assert_eq!(
         response["error"]["data"]["code"],
-        Value::String("mutation_worktree_principal_conflict".to_string())
+        Value::String("mutation_worktree_mutator_slot_conflict".to_string())
     );
     assert_eq!(
-        response["error"]["data"]["boundPrincipal"]["principalId"],
-        Value::String(owner.principal.principal_id.0.to_string())
+        response["error"]["data"]["currentOwner"]["principalId"],
+        Value::String(first_worker.principal.principal_id.0.to_string())
     );
     assert_eq!(
         response["error"]["data"]["attemptedPrincipal"]["principalId"],
-        Value::String(worker.principal.principal_id.0.to_string())
+        Value::String(second_worker.principal.principal_id.0.to_string())
+    );
+    assert!(response["error"]["data"]["currentOwner"]["sessionId"]
+        .as_str()
+        .is_some_and(|value| value.starts_with("session:")));
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_rejects_authenticated_mutation_on_unregistered_worktree() {
+    let root = temp_workspace();
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: default_workspace_shared_runtime(&root)
+                .expect("default shared runtime should resolve"),
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
+        },
+    )
+    .expect("workspace session should index");
+    let issued = session
+        .bootstrap_owner_principal(BootstrapOwnerInput {
+            authority_id: None,
+            name: "Test Owner".to_string(),
+            role: Some("test_owner".to_string()),
+        })
+        .expect("owner bootstrap should succeed");
+    let credential = crate::tests_support::MutationCredentialFixture {
+        credential_id: issued.credential.credential_id.0.to_string(),
+        principal_id: issued.principal.principal_id.0.to_string(),
+        principal_token: issued.principal_token,
+    };
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_mutate",
+            json!({
+                "action": "declare_work",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "title": "Try direct mutation without registering the worktree"
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let response = response_json(client.receive().await.unwrap());
+    assert_eq!(response["error"]["code"], -32602);
+    assert_eq!(
+        response["error"]["data"]["code"],
+        Value::String("mutation_worktree_unregistered".to_string())
+    );
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_allows_human_authenticated_mutation_on_registered_human_worktree() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    PrismPaths::for_workspace_root(&root)
+        .expect("paths should resolve")
+        .register_worktree("operator-a", WorktreeMode::Human)
+        .expect("human worktree registration should persist");
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_mutate",
+            json!({
+                "action": "declare_work",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "title": "Direct human mutation from a registered human worktree"
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let declared = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(declared["action"], Value::String("declare_work".to_string()));
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_rejects_human_authenticated_mutation_on_agent_worktree() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    PrismPaths::for_workspace_root(&root)
+        .expect("paths should resolve")
+        .register_worktree("agent-a", WorktreeMode::Agent)
+        .expect("agent worktree registration should persist");
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_mutate",
+            json!({
+                "action": "declare_work",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "title": "Human direct mutation on an agent worktree should fail"
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let response = response_json(client.receive().await.unwrap());
+    assert_eq!(response["error"]["code"], -32602);
+    assert_eq!(
+        response["error"]["data"]["code"],
+        Value::String("mutation_worktree_mode_mismatch".to_string())
+    );
+    assert_eq!(
+        response["error"]["data"]["requiredWorktreeMode"],
+        Value::String("human".to_string())
+    );
+    assert_eq!(
+        response["error"]["data"]["worktreeMode"],
+        Value::String("agent".to_string())
     );
 
     running.cancel().await.unwrap();
@@ -1831,6 +2156,8 @@ async fn mcp_server_executes_heartbeat_lease_mutation_round_trip() {
         .as_str()
         .expect("claim id should be present")
         .to_string();
+    assert!(claim["result"]["state"]["worktreeId"].as_str().is_some());
+    assert!(claim["result"]["state"]["agent"].is_null());
     let event_count_before_heartbeat = server_handle
         .host
         .current_prism()

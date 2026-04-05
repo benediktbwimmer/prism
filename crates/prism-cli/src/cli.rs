@@ -2,6 +2,8 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
 
+use crate::worktree_commands::WorktreeModeArg;
+
 #[derive(Parser)]
 #[command(name = "prism")]
 #[command(about = "Deterministic local-first code perception")]
@@ -24,6 +26,10 @@ pub enum Command {
     Auth {
         #[command(subcommand)]
         command: AuthCommand,
+    },
+    Worktree {
+        #[command(subcommand)]
+        command: WorktreeCommand,
     },
     Docs {
         #[command(subcommand)]
@@ -102,13 +108,33 @@ pub enum Command {
 
 #[derive(Subcommand)]
 pub enum AuthCommand {
-    Init {
+    Bootstrap {
         #[arg(long)]
         name: String,
         #[arg(long, default_value = "local-daemon")]
         authority: String,
         #[arg(long)]
         role: Option<String>,
+        #[arg(long)]
+        issuer: String,
+        #[arg(long)]
+        subject: String,
+        #[arg(long, value_enum)]
+        assurance: AuthAssuranceArg,
+    },
+    Recover {
+        #[arg(long)]
+        name: String,
+        #[arg(long, default_value = "local-daemon")]
+        authority: String,
+        #[arg(long)]
+        role: Option<String>,
+        #[arg(long)]
+        issuer: String,
+        #[arg(long)]
+        subject: String,
+        #[arg(long, value_enum)]
+        assurance: AuthAssuranceArg,
     },
     Login {
         #[arg(long)]
@@ -118,6 +144,32 @@ pub enum AuthCommand {
         #[arg(long)]
         credential: Option<String>,
     },
+    Whoami,
+}
+
+#[derive(Subcommand)]
+pub enum WorktreeCommand {
+    List,
+    Register {
+        #[arg(long)]
+        label: Option<String>,
+        #[arg(long, value_enum)]
+        mode: Option<WorktreeModeArg>,
+    },
+    Relabel {
+        label: Option<String>,
+    },
+    Takeover {
+        #[arg(long)]
+        reason: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum AuthAssuranceArg {
+    High,
+    Moderate,
+    Legacy,
 }
 
 #[derive(Subcommand)]
@@ -409,9 +461,10 @@ mod tests {
     use clap::Parser;
 
     use super::{
-        AuthCommand, Cli, Command, DocsBundleArg, DocsCommand, McpCommand, PrincipalCommand,
-        ProtectedStateCommand, ProtectedStateTrustCommand,
+        AuthAssuranceArg, AuthCommand, Cli, Command, DocsBundleArg, DocsCommand, McpCommand,
+        PrincipalCommand, ProtectedStateCommand, ProtectedStateTrustCommand, WorktreeCommand,
     };
+    use crate::worktree_commands::WorktreeModeArg;
 
     #[test]
     fn mcp_restart_preserves_bridges_by_default() {
@@ -596,21 +649,73 @@ mod tests {
     }
 
     #[test]
-    fn auth_init_parses() {
-        let cli = Cli::parse_from(["prism", "auth", "init", "--name", "Bene"]);
+    fn auth_bootstrap_parses() {
+        let cli = Cli::parse_from([
+            "prism",
+            "auth",
+            "bootstrap",
+            "--name",
+            "Bene",
+            "--issuer",
+            "github-device-flow",
+            "--subject",
+            "bene",
+            "--assurance",
+            "high",
+        ]);
         assert!(cli.root.is_none());
         match cli.command {
             Command::Auth {
                 command:
-                    AuthCommand::Init {
+                    AuthCommand::Bootstrap {
                         name,
                         authority,
                         role,
+                        issuer,
+                        subject,
+                        assurance,
                     },
             } => {
                 assert_eq!(name, "Bene");
                 assert_eq!(authority, "local-daemon");
                 assert!(role.is_none());
+                assert_eq!(issuer, "github-device-flow");
+                assert_eq!(subject, "bene");
+                assert_eq!(assurance, AuthAssuranceArg::High);
+            }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn auth_recover_parses() {
+        let cli = Cli::parse_from([
+            "prism",
+            "auth",
+            "recover",
+            "--name",
+            "Bene",
+            "--issuer",
+            "ssh-signature",
+            "--subject",
+            "bene@laptop",
+            "--assurance",
+            "moderate",
+        ]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Auth {
+                command:
+                    AuthCommand::Recover {
+                        issuer,
+                        subject,
+                        assurance,
+                        ..
+                    },
+            } => {
+                assert_eq!(issuer, "ssh-signature");
+                assert_eq!(subject, "bene@laptop");
+                assert_eq!(assurance, AuthAssuranceArg::Moderate);
             }
             _ => panic!("unexpected command"),
         }
@@ -633,6 +738,73 @@ mod tests {
                 assert!(profile.is_none());
                 assert!(credential.is_none());
             }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn auth_whoami_parses() {
+        let cli = Cli::parse_from(["prism", "auth", "whoami"]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Auth {
+                command: AuthCommand::Whoami,
+            } => {}
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn worktree_register_parses() {
+        let cli = Cli::parse_from([
+            "prism",
+            "worktree",
+            "register",
+            "--label",
+            "codex-d",
+            "--mode",
+            "agent",
+        ]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Worktree {
+                command: WorktreeCommand::Register { label, mode },
+            } => {
+                assert_eq!(label.as_deref(), Some("codex-d"));
+                assert_eq!(mode, Some(WorktreeModeArg::Agent));
+            }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn worktree_relabel_parses() {
+        let cli = Cli::parse_from(["prism", "worktree", "relabel", "operator-a"]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Worktree {
+                command: WorktreeCommand::Relabel { label },
+            } => {
+                assert_eq!(label.as_deref(), Some("operator-a"));
+            }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn worktree_takeover_parses() {
+        let cli = Cli::parse_from([
+            "prism",
+            "worktree",
+            "takeover",
+            "--reason",
+            "stuck bridge",
+        ]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Worktree {
+                command: WorktreeCommand::Takeover { reason },
+            } => assert_eq!(reason.as_deref(), Some("stuck bridge")),
             _ => panic!("unexpected command"),
         }
     }

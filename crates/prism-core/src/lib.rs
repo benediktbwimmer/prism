@@ -13,6 +13,7 @@ mod indexer_support;
 mod invalidation;
 mod layout;
 mod local_credentials;
+mod local_principal_registry;
 mod materialization;
 mod memory_events;
 mod memory_refresh;
@@ -51,7 +52,10 @@ mod workspace_identity;
 mod workspace_runtime_state;
 mod workspace_session_defaults;
 mod workspace_tree;
+mod worktree_inventory;
+mod worktree_mutator_slot;
 mod worktree_principal;
+mod worktree_registration;
 
 use std::sync::Arc;
 
@@ -63,7 +67,14 @@ use session_bootstrap::hydrate_workspace_session_with_options as bootstrap_works
 pub use admission::AdmissionBusyError;
 pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;
-pub use local_credentials::{CredentialProfile, CredentialsFile};
+pub use local_credentials::{
+    CredentialProfile, CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata,
+    CredentialsFile, EncryptedCredentialSecret, HumanSessionFile, HumanSessionRecord,
+};
+pub use local_principal_registry::{
+    ensure_local_principal_registry_snapshot,
+    ensure_local_principal_registry_snapshot_with_unlocked_profile,
+};
 pub use materialization::{
     WorkspaceBoundaryRegion, WorkspaceMaterializationCoverage, WorkspaceMaterializationSummary,
 };
@@ -77,7 +88,10 @@ pub use path_identity_repair::{
 };
 pub use peer_runtime::{local_runtime_id, runtime_query_endpoint, PEER_RUNTIME_QUERY_PATH};
 pub use principal_registry::{
-    AuthenticatedPrincipal, BootstrapOwnerInput, MintPrincipalRequest, MintedPrincipalCredential,
+    authenticate_principal_credential_in_registry, bootstrap_owner_principal_in_registry,
+    mint_principal_credential_in_registry, recover_owner_principal_in_registry,
+    AttestedHumanPrincipalInput, AuthenticatedPrincipal, BootstrapOwnerInput, MintPrincipalRequest,
+    MintedPrincipalCredential,
 };
 pub use prism_doc::{
     PrismDocBundleFormat, PrismDocExportBundle, PrismDocExportResult, PrismDocSyncResult,
@@ -122,7 +136,13 @@ pub use watch::{assisted_lease_renewal_diagnostics, AssistedLeaseRenewalDiagnost
 pub use workspace_session_defaults::{
     default_workspace_session_options, default_workspace_shared_runtime,
 };
+pub use worktree_inventory::{list_registered_worktrees, RegisteredWorktreeSummary};
+pub use worktree_mutator_slot::{
+    WorktreeMutatorSlotConflict, WorktreeMutatorSlotError, WorktreeMutatorSlotRecord,
+    WORKTREE_MUTATOR_SLOT_STALE_AFTER_MS,
+};
 pub use worktree_principal::{BoundWorktreePrincipal, WorktreePrincipalConflict};
+pub use worktree_registration::{WorktreeMode, WorktreeRegistrationRecord};
 
 #[derive(Debug, Clone)]
 pub struct WorkspaceSessionOptions {

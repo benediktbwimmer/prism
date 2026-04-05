@@ -8,8 +8,9 @@ use prism_coordination::{
     TaskUpdateInput,
 };
 use prism_core::{
-    AdmissionBusyError, AuthenticatedPrincipal, ValidationFeedbackCategory,
+    AdmissionBusyError, AuthenticatedPrincipal, PrismPaths, ValidationFeedbackCategory,
     ValidationFeedbackRecord, ValidationFeedbackVerdict, WorkspaceSession,
+    WorktreeMode,
 };
 use prism_curator::{
     CandidateConcept, CandidateConceptOperation, CuratorJobId, CuratorProposal,
@@ -127,6 +128,13 @@ struct CoordinationAudit {
     event_ids: Vec<String>,
     violations: Vec<MutationViolationView>,
     rejected: bool,
+}
+
+#[derive(Clone, Default)]
+struct CoordinationExecutionBinding {
+    assignee: Option<AgentId>,
+    worktree_id: Option<String>,
+    branch_ref: Option<String>,
 }
 
 #[derive(Clone, serde::Serialize)]
@@ -1157,12 +1165,15 @@ fn mutation_provenance(
 ) -> MutationProvenance {
     let workspace = host.workspace_session_ref();
     let prism = host.current_prism();
-    authenticated.map_or_else(
-        || MutationProvenance::fallback(workspace, session, prism.clone()),
-        |authenticated| {
-            MutationProvenance::authenticated(workspace, session, prism.clone(), authenticated)
-        },
-    )
+    if let Some(authenticated) = authenticated {
+        return MutationProvenance::authenticated(workspace, session, prism, authenticated);
+    }
+    if let Some(workspace) = workspace {
+        if let Some(slot) = workspace.current_worktree_mutator_slot() {
+            return MutationProvenance::worktree_executor(workspace, session, prism, &slot);
+        }
+    }
+    MutationProvenance::fallback(workspace, session, prism)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1193,6 +1204,12 @@ fn session_id_from_meta(meta: &EventMeta) -> Option<prism_ir::SessionId> {
         .map(|value| prism_ir::SessionId::new(value.clone()))
 }
 
+fn worktree_id_from_meta(meta: &EventMeta) -> Option<String> {
+    meta.execution_context
+        .as_ref()
+        .and_then(|context| context.worktree_id.clone())
+}
+
 fn principal_from_meta(meta: &EventMeta) -> Option<prism_ir::PrincipalActor> {
     match &meta.actor {
         prism_ir::EventActor::Principal(principal) => Some(principal.clone()),
@@ -1205,6 +1222,11 @@ fn same_principal(left: &prism_ir::PrincipalActor, right: &prism_ir::PrincipalAc
 }
 
 fn same_task_holder(left: &LeaseHolder, right: &LeaseHolder) -> bool {
+    if let (Some(left_worktree), Some(right_worktree)) =
+        (left.worktree_id.as_ref(), right.worktree_id.as_ref())
+    {
+        return left_worktree == right_worktree;
+    }
     if let Some(left_principal) = left.principal.as_ref() {
         return right
             .principal
@@ -1228,10 +1250,14 @@ fn authoritative_task_holder(task: &CoordinationTask) -> Option<LeaseHolder> {
         let holder = LeaseHolder {
             principal: None,
             session_id: task.session.clone(),
+            worktree_id: task.worktree_id.clone(),
             agent_id: task.assignee.clone(),
         };
-        (holder.principal.is_some() || holder.session_id.is_some() || holder.agent_id.is_some())
-            .then_some(holder)
+        (holder.principal.is_some()
+            || holder.session_id.is_some()
+            || holder.worktree_id.is_some()
+            || holder.agent_id.is_some())
+        .then_some(holder)
     })
 }
 
@@ -1239,7 +1265,31 @@ fn current_task_holder(meta: &EventMeta, task: &CoordinationTask) -> LeaseHolder
     LeaseHolder {
         principal: principal_from_meta(meta),
         session_id: session_id_from_meta(meta).or_else(|| task.session.clone()),
+        worktree_id: task.worktree_id.clone().or_else(|| worktree_id_from_meta(meta)),
         agent_id: task.assignee.clone(),
+    }
+}
+
+fn coordination_execution_binding(workspace_root: Option<&Path>) -> CoordinationExecutionBinding {
+    let Some(workspace_root) = workspace_root else {
+        return CoordinationExecutionBinding::default();
+    };
+    let Ok(paths) = PrismPaths::for_workspace_root(workspace_root) else {
+        return CoordinationExecutionBinding::default();
+    };
+    let Ok(registration) = paths.worktree_registration() else {
+        return CoordinationExecutionBinding::default();
+    };
+    let Some(registration) = registration else {
+        return CoordinationExecutionBinding::default();
+    };
+    CoordinationExecutionBinding {
+        assignee: match registration.mode {
+            WorktreeMode::Agent => Some(AgentId::new(registration.agent_label.clone())),
+            WorktreeMode::Human => None,
+        },
+        worktree_id: Some(registration.worktree_id),
+        branch_ref: None,
     }
 }
 
@@ -1263,6 +1313,7 @@ fn maybe_auto_resume_stale_same_holder_task(
     session: &SessionState,
     meta: &EventMeta,
     task_id: &CoordinationTaskId,
+    execution: &CoordinationExecutionBinding,
 ) -> Result<bool> {
     let Some(task) = prism.coordination_task(task_id) else {
         return Ok(false);
@@ -1285,9 +1336,9 @@ fn maybe_auto_resume_stale_same_holder_task(
         next_coordination_meta(session, task_id, meta),
         TaskResumeInput {
             task_id: task_id.clone(),
-            agent: session.current_agent(),
-            worktree_id: None,
-            branch_ref: None,
+            agent: task.assignee.clone().or_else(|| execution.assignee.clone()),
+            worktree_id: task.worktree_id.clone().or_else(|| execution.worktree_id.clone()),
+            branch_ref: task.branch_ref.clone().or_else(|| execution.branch_ref.clone()),
         },
     )?;
     Ok(true)
@@ -2726,7 +2777,11 @@ impl QueryHost {
                                 .as_ref()
                                 .map(|task_id| {
                                     maybe_auto_resume_stale_same_holder_task(
-                                        prism, session, &meta, task_id,
+                                        prism,
+                                        session,
+                                        &meta,
+                                        task_id,
+                                        &coordination_execution_binding(self.workspace_root()),
                                     )
                                 })
                                 .transpose()
@@ -2773,7 +2828,11 @@ impl QueryHost {
                             coordination_task_target_for_auto_resume(prism, &args)?
                         {
                             let _ = maybe_auto_resume_stale_same_holder_task(
-                                prism, session, &meta, &task_id,
+                                prism,
+                                session,
+                                &meta,
+                                &task_id,
+                                &coordination_execution_binding(self.workspace_root()),
                             )?;
                         }
                         self.apply_coordination_mutation(session, prism, args, meta.clone())
@@ -3851,7 +3910,13 @@ impl QueryHost {
                 let _ = self.ensure_coordination_runtime_current(workspace)?;
                 let auto_resume_started = std::time::Instant::now();
                 let auto_resume_result =
-                    maybe_auto_resume_stale_same_holder_task(prism, session, &apply_meta, &task_id);
+                    maybe_auto_resume_stale_same_holder_task(
+                        prism,
+                        session,
+                        &apply_meta,
+                        &task_id,
+                        &coordination_execution_binding(self.workspace_root()),
+                    );
                 record_optional_trace_result(
                     trace,
                     "mutation.gitExecution.autoResumeStaleTask",
@@ -4245,7 +4310,13 @@ impl QueryHost {
                 |prism| {
                     let _ = self.ensure_coordination_runtime_current(workspace)?;
                     let _ =
-                        maybe_auto_resume_stale_same_holder_task(prism, session, &meta, task_id)?;
+                        maybe_auto_resume_stale_same_holder_task(
+                            prism,
+                            session,
+                            &meta,
+                            task_id,
+                            &coordination_execution_binding(self.workspace_root()),
+                        )?;
                     mutate(prism, meta)
                 },
                 observed,
@@ -4256,7 +4327,13 @@ impl QueryHost {
                 |prism| {
                     let _ = self.ensure_coordination_runtime_current(workspace)?;
                     let _ =
-                        maybe_auto_resume_stale_same_holder_task(prism, session, &meta, task_id)?;
+                        maybe_auto_resume_stale_same_holder_task(
+                            prism,
+                            session,
+                            &meta,
+                            task_id,
+                            &coordination_execution_binding(self.workspace_root()),
+                        )?;
                     mutate(prism, meta)
                 },
                 observed,
@@ -4566,6 +4643,7 @@ impl QueryHost {
         meta: EventMeta,
     ) -> Result<Value> {
         let workspace_root = self.workspace_root();
+        let execution = coordination_execution_binding(workspace_root);
         match args.kind {
             CoordinationMutationKindInput::PlanBootstrap => {
                 let payload: PlanBootstrapPayload = serde_json::from_value(args.payload)?;
@@ -4906,10 +4984,10 @@ impl QueryHost {
                         assignee: payload
                             .assignee
                             .map(AgentId::new)
-                            .or_else(|| session.current_agent()),
+                            .or_else(|| execution.assignee.clone()),
                         session: Some(session.session_id()),
-                        worktree_id: None,
-                        branch_ref: None,
+                        worktree_id: execution.worktree_id.clone(),
+                        branch_ref: execution.branch_ref.clone(),
                         anchors: convert_anchors(
                             prism,
                             self.workspace_session_ref(),
@@ -5067,8 +5145,8 @@ impl QueryHost {
                             git_execution,
                             assignee,
                             session: None,
-                            worktree_id: None,
-                            branch_ref: None,
+                            worktree_id: execution.worktree_id.clone().map(Some),
+                            branch_ref: execution.branch_ref.clone().map(Some),
                             title,
                             summary,
                             anchors: task_anchors,
@@ -5225,7 +5303,7 @@ impl QueryHost {
                     payload
                         .assignee
                         .map(AgentId::new)
-                        .or_else(|| session.current_agent()),
+                        .or_else(|| execution.assignee.clone()),
                     payload.is_abstract.unwrap_or(false),
                     convert_plan_binding(
                         prism,
@@ -5295,7 +5373,7 @@ impl QueryHost {
             }
             CoordinationMutationKindInput::Resume => {
                 let payload: TaskResumePayload = serde_json::from_value(args.payload)?;
-                let session_agent = session.current_agent();
+                let session_agent = execution.assignee.clone().or_else(|| session.current_agent());
                 if let (Some(expected), Some(current)) =
                     (payload.agent.as_ref(), session_agent.as_ref())
                 {
@@ -5311,15 +5389,15 @@ impl QueryHost {
                     TaskResumeInput {
                         task_id: CoordinationTaskId::new(payload.task_id),
                         agent: session_agent,
-                        worktree_id: None,
-                        branch_ref: None,
+                        worktree_id: execution.worktree_id.clone(),
+                        branch_ref: execution.branch_ref.clone(),
                     },
                 )?;
                 Ok(serde_json::to_value(coordination_task_view(task))?)
             }
             CoordinationMutationKindInput::Reclaim => {
                 let payload: TaskReclaimPayload = serde_json::from_value(args.payload)?;
-                let session_agent = session.current_agent();
+                let session_agent = execution.assignee.clone().or_else(|| session.current_agent());
                 if let (Some(expected), Some(current)) =
                     (payload.agent.as_ref(), session_agent.as_ref())
                 {
@@ -5335,15 +5413,15 @@ impl QueryHost {
                     TaskReclaimInput {
                         task_id: CoordinationTaskId::new(payload.task_id),
                         agent: session_agent,
-                        worktree_id: None,
-                        branch_ref: None,
+                        worktree_id: execution.worktree_id.clone(),
+                        branch_ref: execution.branch_ref.clone(),
                     },
                 )?;
                 Ok(serde_json::to_value(coordination_task_view(task))?)
             }
             CoordinationMutationKindInput::HandoffAccept => {
                 let payload: HandoffAcceptPayload = serde_json::from_value(args.payload)?;
-                let session_agent = session.current_agent();
+                let session_agent = execution.assignee.clone().or_else(|| session.current_agent());
                 if let (Some(expected), Some(current)) =
                     (payload.agent.as_ref(), session_agent.as_ref())
                 {
@@ -5359,8 +5437,8 @@ impl QueryHost {
                     HandoffAcceptInput {
                         task_id: CoordinationTaskId::new(payload.task_id),
                         agent: session_agent,
-                        worktree_id: None,
-                        branch_ref: None,
+                        worktree_id: execution.worktree_id.clone(),
+                        branch_ref: execution.branch_ref.clone(),
                     },
                 )?;
                 Ok(serde_json::to_value(coordination_task_view(task))?)
@@ -5376,6 +5454,7 @@ impl QueryHost {
         meta: EventMeta,
     ) -> Result<ClaimMutationResult> {
         let workspace_root = self.workspace_root();
+        let execution = coordination_execution_binding(workspace_root);
         match args.action {
             ClaimActionInput::Acquire => {
                 let payload: ClaimAcquirePayload = serde_json::from_value(args.payload)?;
@@ -5399,9 +5478,9 @@ impl QueryHost {
                         agent: payload
                             .agent
                             .map(AgentId::new)
-                            .or_else(|| session.current_agent()),
-                        worktree_id: None,
-                        branch_ref: None,
+                            .or_else(|| execution.assignee.clone()),
+                        worktree_id: execution.worktree_id.clone(),
+                        branch_ref: execution.branch_ref.clone(),
                     },
                 )?;
                 Ok(ClaimMutationResult {
@@ -5512,6 +5591,7 @@ impl QueryHost {
         meta: EventMeta,
     ) -> Result<ArtifactMutationResult> {
         let workspace_root = self.workspace_root();
+        let execution = coordination_execution_binding(workspace_root);
         match args.action {
             ArtifactActionInput::Propose => {
                 let payload: ArtifactProposePayload = serde_json::from_value(args.payload)?;
@@ -5563,8 +5643,8 @@ impl QueryHost {
                         risk_score: payload
                             .risk_score
                             .or_else(|| risk.map(|risk| risk.risk_score)),
-                        worktree_id: None,
-                        branch_ref: None,
+                        worktree_id: execution.worktree_id.clone(),
+                        branch_ref: execution.branch_ref.clone(),
                     },
                 )?;
                 maybe_link_review_artifact_to_task_git_execution(

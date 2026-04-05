@@ -1864,6 +1864,8 @@ pub(crate) fn claim_view(value: prism_coordination::WorkClaim) -> ClaimView {
         id: value.id.0.to_string(),
         holder: value.holder.0.to_string(),
         task_id: value.task.map(|task| task.0.to_string()),
+        agent: value.agent.map(|agent| agent.0.to_string()),
+        worktree_id: value.worktree_id,
         capability: value.capability,
         mode: value.mode,
         status: value.status,

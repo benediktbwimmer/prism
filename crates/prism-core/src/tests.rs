@@ -20,10 +20,11 @@ use prism_curator::{
 use prism_ir::{
     AnchorRef, ChangeTrigger, CoordinationEventKind, CredentialCapability, CredentialId,
     CredentialRecord, CredentialStatus, EdgeKind, EventActor, EventExecutionContext, EventId,
-    EventMeta, GraphChange, LineageEvent, LineageEventKind, LineageEvidence, LineageId, NodeId,
-    NodeKind, PrincipalAuthorityId, PrincipalId, PrincipalKind, PrincipalProfile,
-    PrincipalRegistrySnapshot, PrincipalStatus, SessionId, TaskId, WorkContextKind,
-    WorkContextSnapshot,
+    EventMeta, GraphChange, HumanAttestationAssurance, HumanAttestationOperation,
+    HumanAttestationRecord, HumanPrincipalProfile, LineageEvent, LineageEventKind, LineageEvidence,
+    LineageId, NodeId, NodeKind, PrincipalAuthorityId, PrincipalId, PrincipalKind,
+    PrincipalProfile, PrincipalRegistrySnapshot, PrincipalStatus, SessionId, TaskId,
+    WorkContextKind, WorkContextSnapshot,
 };
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryEventQuery, MemoryId,
@@ -46,11 +47,16 @@ use super::{
     hydrate_workspace_session, hydrate_workspace_session_with_options, index_workspace,
     index_workspace_session, index_workspace_session_with_curator,
     index_workspace_session_with_options, inspect_legacy_path_identity_state,
-    inspect_repo_published_plan_artifacts, regenerate_repo_published_plan_artifacts,
-    repair_legacy_path_identity_state, repair_repo_published_plan_artifacts, BootstrapOwnerInput,
-    MintPrincipalRequest, PrismDocSyncStatus, PrismPaths, SharedRuntimeBackend,
-    ValidationFeedbackCategory, ValidationFeedbackRecord, ValidationFeedbackVerdict,
-    WorkspaceIndexer, WorkspaceSessionOptions,
+    inspect_repo_published_plan_artifacts, list_registered_worktrees,
+    regenerate_repo_published_plan_artifacts,
+    repair_legacy_path_identity_state, repair_repo_published_plan_artifacts,
+    AttestedHumanPrincipalInput, BootstrapOwnerInput, CredentialProfile,
+    CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata, CredentialsFile,
+    HumanSessionFile, MintPrincipalRequest, PrismDocSyncStatus, PrismPaths,
+    SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
+    ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions, WorktreeMode,
+    WorktreeMutatorSlotError, WORKTREE_MUTATOR_SLOT_STALE_AFTER_MS,
+    ensure_local_principal_registry_snapshot_with_unlocked_profile,
 };
 use crate::concept_events::append_repo_concept_event;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
@@ -455,12 +461,14 @@ fn prism_paths_respect_prism_home_override_and_write_metadata_manifests() {
     let shared_runtime_db = paths.shared_runtime_db_path().unwrap();
     let worktree_cache_db = paths.worktree_cache_db_path().unwrap();
     let credentials_path = paths.credentials_path().unwrap();
+    let human_session_path = paths.human_session_path().unwrap();
     let repo_metadata_path = paths.repo_home_dir().join("repo.json");
     let worktree_metadata_path = paths.worktree_dir().join("worktree.json");
 
     assert!(shared_runtime_db.starts_with(&prism_home));
     assert!(worktree_cache_db.starts_with(&prism_home));
     assert_eq!(credentials_path, prism_home.join("credentials.toml"));
+    assert_eq!(human_session_path, prism_home.join("human-session.toml"));
     assert!(repo_metadata_path.exists());
     assert!(worktree_metadata_path.exists());
 
@@ -485,7 +493,7 @@ fn prism_paths_respect_prism_home_override_and_write_metadata_manifests() {
         repo_metadata["canonical_root_hint"],
         json!(canonical_root.to_string_lossy().to_string())
     );
-    assert_eq!(worktree_metadata["version"], json!(1));
+    assert_eq!(worktree_metadata["version"], json!(2));
     assert_eq!(
         worktree_metadata["repo_id"], repo_metadata["repo_id"],
         "repo and worktree metadata should share repo identity"
@@ -498,6 +506,9 @@ fn prism_paths_respect_prism_home_override_and_write_metadata_manifests() {
         worktree_metadata["canonical_root"],
         json!(canonical_root.to_string_lossy().to_string())
     );
+    assert!(worktree_metadata["registered_worktree_id"].is_null());
+    assert!(worktree_metadata["agent_label"].is_null());
+    assert!(worktree_metadata["worktree_mode"].is_null());
     assert!(worktree_metadata["created_at"].as_u64().is_some());
     assert!(worktree_metadata["last_seen_at"].as_u64().is_some());
 
@@ -536,6 +547,342 @@ fn prism_paths_default_test_home_is_temporary_and_cleans_up_after_thread_exit() 
     );
 
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn prism_paths_register_worktree_persists_durable_registration_metadata() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+
+    let root = temp_workspace();
+    let prism_home = temp_workspace();
+    fs::create_dir_all(&root).unwrap();
+    fs::create_dir_all(root.join(".git")).unwrap();
+    fs::create_dir_all(&prism_home).unwrap();
+    fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
+    fs::write(root.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
+
+    let _env = PrismHomeEnvGuard::set(&prism_home);
+
+    let paths = PrismPaths::for_workspace_root(&root).unwrap();
+    assert!(!paths.identity().is_worktree_registered());
+    assert!(paths.worktree_registration().unwrap().is_none());
+
+    let registration = paths
+        .register_worktree("codex-d", WorktreeMode::Agent)
+        .unwrap();
+
+    assert!(registration.worktree_id.starts_with("worktree:"));
+    assert_eq!(registration.agent_label, "codex-d");
+    assert_eq!(registration.mode, WorktreeMode::Agent);
+
+    let reloaded = PrismPaths::for_workspace_root(&root).unwrap();
+    assert!(reloaded.identity().is_worktree_registered());
+    assert_eq!(
+        reloaded.identity().registered_worktree_id.as_deref(),
+        Some(registration.worktree_id.as_str())
+    );
+    assert_eq!(reloaded.identity().worktree_id, registration.worktree_id);
+    assert_eq!(reloaded.identity().agent_label.as_deref(), Some("codex-d"));
+    assert_eq!(reloaded.identity().worktree_mode, Some(WorktreeMode::Agent));
+
+    let metadata: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(reloaded.worktree_dir().join("worktree.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        metadata["registered_worktree_id"],
+        json!(registration.worktree_id)
+    );
+    assert_eq!(metadata["agent_label"], json!("codex-d"));
+    assert_eq!(metadata["worktree_mode"], json!("agent"));
+}
+
+#[test]
+fn prism_paths_reject_duplicate_worktree_labels_across_machine() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+
+    let root_a = temp_workspace();
+    let root_b = temp_workspace();
+    let prism_home = temp_workspace();
+
+    for root in [&root_a, &root_b] {
+        fs::create_dir_all(root).unwrap();
+        fs::create_dir_all(root.join(".git")).unwrap();
+        fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
+        fs::write(root.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
+    }
+    fs::create_dir_all(&prism_home).unwrap();
+
+    let _env = PrismHomeEnvGuard::set(&prism_home);
+
+    PrismPaths::for_workspace_root(&root_a)
+        .unwrap()
+        .register_worktree("shared-label", WorktreeMode::Agent)
+        .unwrap();
+    let error = PrismPaths::for_workspace_root(&root_b)
+        .unwrap()
+        .register_worktree("shared-label", WorktreeMode::Human)
+        .unwrap_err();
+
+    assert!(
+        error
+            .to_string()
+            .contains("worktree label `shared-label` is already registered"),
+        "{error}"
+    );
+}
+
+#[test]
+fn list_registered_worktrees_discovers_machine_registrations() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+
+    let root_a = temp_workspace();
+    let root_b = temp_workspace();
+    let prism_home = temp_workspace();
+
+    for (root, branch) in [(&root_a, "main"), (&root_b, "task/agent")] {
+        fs::create_dir_all(root).unwrap();
+        fs::create_dir_all(root.join(".git")).unwrap();
+        fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
+        fs::write(root.join(".git/HEAD"), format!("ref: refs/heads/{branch}\n")).unwrap();
+    }
+    fs::create_dir_all(&prism_home).unwrap();
+
+    let _env = PrismHomeEnvGuard::set(&prism_home);
+
+    PrismPaths::for_workspace_root(&root_a)
+        .unwrap()
+        .register_worktree("operator-a", WorktreeMode::Human)
+        .unwrap();
+    PrismPaths::for_workspace_root(&root_b)
+        .unwrap()
+        .register_worktree("agent-b", WorktreeMode::Agent)
+        .unwrap();
+
+    let registrations = list_registered_worktrees(&prism_home).unwrap();
+    assert_eq!(registrations.len(), 2);
+    assert_eq!(registrations[0].agent_label, "agent-b");
+    assert_eq!(registrations[0].mode, WorktreeMode::Agent);
+    assert_eq!(registrations[1].agent_label, "operator-a");
+    assert_eq!(registrations[1].mode, WorktreeMode::Human);
+    assert_eq!(registrations[0].branch_ref.as_deref(), Some("refs/heads/task/agent"));
+    assert_eq!(registrations[1].branch_ref.as_deref(), Some("refs/heads/main"));
+}
+
+#[test]
+fn worktree_mutator_slot_rejects_second_live_session_until_stale() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    let session = index_workspace_session(&root).unwrap();
+    let credential = session
+        .bootstrap_owner_principal(BootstrapOwnerInput {
+            authority_id: None,
+            name: "Mutator Owner".to_string(),
+            role: Some("repo_owner".to_string()),
+        })
+        .unwrap();
+    let authenticated = session
+        .authenticate_principal_credential(
+            &credential.credential.credential_id,
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    let first = session
+        .acquire_or_refresh_worktree_mutator_slot(
+            &authenticated,
+            &SessionId::new("session:mutator-slot-a"),
+        )
+        .expect("first session should acquire the slot");
+
+    let error = session
+        .acquire_or_refresh_worktree_mutator_slot(
+            &authenticated,
+            &SessionId::new("session:mutator-slot-b"),
+        )
+        .expect_err("second live session should conflict");
+    let WorktreeMutatorSlotError::Conflict(conflict) = error else {
+        panic!("expected live slot conflict");
+    };
+    assert_eq!(conflict.worktree_id, first.worktree_id);
+    assert_eq!(conflict.current_owner.session_id, "session:mutator-slot-a");
+    assert_eq!(
+        conflict.attempted_principal.principal_id,
+        authenticated.principal.principal_id.0
+    );
+    assert_eq!(
+        conflict.stale_at,
+        first
+            .last_heartbeat_at
+            .saturating_add(WORKTREE_MUTATOR_SLOT_STALE_AFTER_MS)
+    );
+}
+
+#[test]
+fn worktree_mutator_slot_allows_stale_same_worktree_reacquire() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    let session = index_workspace_session(&root).unwrap();
+    let credential = session
+        .bootstrap_owner_principal(BootstrapOwnerInput {
+            authority_id: None,
+            name: "Stale Owner".to_string(),
+            role: Some("repo_owner".to_string()),
+        })
+        .unwrap();
+    let authenticated = session
+        .authenticate_principal_credential(
+            &credential.credential.credential_id,
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    let acquired = session
+        .acquire_or_refresh_worktree_mutator_slot(
+            &authenticated,
+            &SessionId::new("session:stale-slot-a"),
+        )
+        .expect("first session should acquire the slot");
+
+    let paths = PrismPaths::for_workspace_root(&root).unwrap();
+    let mut stale = crate::worktree_mutator_slot::load_worktree_mutator_slot(&paths)
+        .unwrap()
+        .expect("persisted slot should exist");
+    stale.last_heartbeat_at = acquired
+        .last_heartbeat_at
+        .saturating_sub(WORKTREE_MUTATOR_SLOT_STALE_AFTER_MS + 1);
+    crate::worktree_mutator_slot::save_worktree_mutator_slot(&paths, &stale).unwrap();
+
+    let reacquired = session
+        .acquire_or_refresh_worktree_mutator_slot(
+            &authenticated,
+            &SessionId::new("session:stale-slot-b"),
+        )
+        .expect("stale slot should reacquire automatically");
+    assert_eq!(reacquired.session_id, "session:stale-slot-b");
+    assert_eq!(reacquired.worktree_id, acquired.worktree_id);
+    assert!(
+        reacquired.last_heartbeat_at > stale.last_heartbeat_at,
+        "reacquired slot should refresh liveness"
+    );
+}
+
+#[test]
+fn agent_worktree_mutator_slot_allows_immediate_same_worktree_session_reattach() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    let session = index_workspace_session(&root).unwrap();
+    PrismPaths::for_workspace_root(&root)
+        .unwrap()
+        .register_worktree("agent-a", WorktreeMode::Agent)
+        .unwrap();
+
+    let first = session
+        .acquire_or_refresh_agent_worktree_mutator_slot(&SessionId::new("session:agent-slot-a"))
+        .expect("first worktree executor session should acquire the slot");
+    let second = session
+        .acquire_or_refresh_agent_worktree_mutator_slot(&SessionId::new("session:agent-slot-b"))
+        .expect("same worktree executor should reattach immediately");
+
+    assert_eq!(second.worktree_id, first.worktree_id);
+    assert_eq!(second.principal_id, first.principal_id);
+    assert_eq!(second.session_id, "session:agent-slot-b");
+    assert!(
+        second.last_heartbeat_at >= first.last_heartbeat_at,
+        "reattach should refresh liveness"
+    );
+}
+
+#[test]
+fn worktree_mutator_slot_takeover_requires_human_and_replaces_live_owner() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    let session = index_workspace_session(&root).unwrap();
+    let owner = session
+        .bootstrap_owner_principal(BootstrapOwnerInput {
+            authority_id: None,
+            name: "Human Owner".to_string(),
+            role: Some("repo_owner".to_string()),
+        })
+        .unwrap();
+    let human = session
+        .authenticate_principal_credential(&owner.credential.credential_id, &owner.principal_token)
+        .unwrap();
+    let service = session
+        .mint_principal_credential(
+            &human,
+            MintPrincipalRequest {
+                authority_id: None,
+                kind: PrincipalKind::Service,
+                name: "Hosted UI".to_string(),
+                role: Some("automation".to_string()),
+                parent_principal_id: Some(human.principal.principal_id.clone()),
+                capabilities: vec![CredentialCapability::MutateCoordination],
+                profile: json!({ "service": "hosted-ui" }),
+            },
+        )
+        .unwrap();
+    let service_auth = session
+        .authenticate_principal_credential(
+            &service.credential.credential_id,
+            &service.principal_token,
+        )
+        .unwrap();
+    session
+        .acquire_or_refresh_worktree_mutator_slot(
+            &service_auth,
+            &SessionId::new("session:service-slot"),
+        )
+        .unwrap();
+
+    let service_takeover = session
+        .take_over_worktree_mutator_slot(
+            &service_auth,
+            &SessionId::new("session:service-takeover"),
+            Some("service cannot take over"),
+        )
+        .expect_err("service principal should not authorize takeover");
+    assert!(matches!(
+        service_takeover,
+        WorktreeMutatorSlotError::TakeoverRequiresHuman { .. }
+    ));
+
+    let taken = session
+        .take_over_worktree_mutator_slot(
+            &human,
+            &SessionId::new("session:human-takeover"),
+            Some("Operator approved takeover"),
+        )
+        .expect("human takeover should replace the live slot");
+    assert_eq!(taken.session_id, "session:human-takeover");
+    assert_eq!(
+        taken.takeover_reason.as_deref(),
+        Some("Operator approved takeover")
+    );
+    assert_eq!(taken.principal_id, human.principal.principal_id.0);
+    assert_eq!(taken.principal_kind, PrincipalKind::Human);
 }
 
 #[test]
@@ -4171,7 +4518,7 @@ fn shared_runtime_sqlite_shares_principal_registry_across_workspaces() {
 }
 
 #[test]
-fn bootstrap_owner_and_mint_child_principal_round_trip_through_shared_runtime_registry() {
+fn bootstrap_owner_and_mint_child_service_round_trip_through_shared_runtime_registry() {
     let shared_runtime_root = temp_workspace();
     let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
     let root = temp_workspace();
@@ -4226,15 +4573,16 @@ fn bootstrap_owner_and_mint_child_principal_round_trip_through_shared_runtime_re
             &authenticated,
             MintPrincipalRequest {
                 authority_id: Some(PrincipalAuthorityId::new("local-daemon")),
-                kind: PrincipalKind::Agent,
-                name: "Worker".to_string(),
-                role: Some("coordination_worker".to_string()),
+                kind: PrincipalKind::Service,
+                name: "Indexer".to_string(),
+                role: Some("background_indexer".to_string()),
                 parent_principal_id: Some(owner.principal.principal_id.clone()),
                 capabilities: vec![CredentialCapability::MutateCoordination],
-                profile: json!({ "lane": "coordination" }),
+                profile: json!({ "service": "indexer" }),
             },
         )
         .unwrap();
+    assert_eq!(child.principal.kind, PrincipalKind::Service);
     assert_eq!(
         child.principal.parent_principal_id,
         Some(owner.principal.principal_id.clone())
@@ -4255,6 +4603,340 @@ fn bootstrap_owner_and_mint_child_principal_round_trip_through_shared_runtime_re
         principal.principal_id == child.principal.principal_id
             && principal.parent_principal_id == Some(owner.principal.principal_id.clone())
     }));
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
+fn bootstrap_owner_with_attestation_records_shared_human_profile_metadata() {
+    let shared_runtime_root = temp_workspace();
+    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: false,
+            shared_runtime: SharedRuntimeBackend::Sqlite {
+                path: shared_runtime_sqlite.clone(),
+            },
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+
+    let issued = session
+        .bootstrap_owner_principal_with_attestation(AttestedHumanPrincipalInput {
+            authority_id: Some(PrincipalAuthorityId::new("github")),
+            name: "Bene".to_string(),
+            role: Some("repo_owner".to_string()),
+            attestation: HumanAttestationRecord {
+                issuer: "github-device-flow".to_string(),
+                subject: "bene".to_string(),
+                assurance: HumanAttestationAssurance::High,
+                operation: HumanAttestationOperation::Bootstrap,
+                verified_at: 123,
+            },
+        })
+        .unwrap();
+
+    let profile: HumanPrincipalProfile =
+        serde_json::from_value(issued.principal.profile.clone()).unwrap();
+    let attestation = profile.attestation.expect("attestation should be recorded");
+    assert_eq!(attestation.issuer, "github-device-flow");
+    assert_eq!(attestation.subject, "bene");
+    assert_eq!(attestation.assurance, HumanAttestationAssurance::High);
+    assert_eq!(attestation.operation, HumanAttestationOperation::Bootstrap);
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
+fn recover_owner_with_attestation_records_recovery_operation() {
+    let shared_runtime_root = temp_workspace();
+    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: false,
+            shared_runtime: SharedRuntimeBackend::Sqlite {
+                path: shared_runtime_sqlite.clone(),
+            },
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+
+    let issued = session
+        .recover_owner_principal_with_attestation(AttestedHumanPrincipalInput {
+            authority_id: Some(PrincipalAuthorityId::new("ssh")),
+            name: "Bene".to_string(),
+            role: Some("repo_owner".to_string()),
+            attestation: HumanAttestationRecord {
+                issuer: "ssh-signature".to_string(),
+                subject: "bene@laptop".to_string(),
+                assurance: HumanAttestationAssurance::Moderate,
+                operation: HumanAttestationOperation::Recovery,
+                verified_at: 456,
+            },
+        })
+        .unwrap();
+
+    let profile: HumanPrincipalProfile =
+        serde_json::from_value(issued.principal.profile.clone()).unwrap();
+    assert_eq!(
+        profile.attestation.unwrap().operation,
+        HumanAttestationOperation::Recovery
+    );
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
+fn workspace_session_rehydrates_missing_principal_registry_from_local_credentials() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+    let prism_home = temp_workspace();
+    let _env = PrismHomeEnvGuard::set(&prism_home);
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let issued = session
+        .bootstrap_owner_principal_with_attestation(AttestedHumanPrincipalInput {
+            authority_id: Some(PrincipalAuthorityId::new("github")),
+            name: "Benedikt Wimmer".to_string(),
+            role: Some("repo_owner".to_string()),
+            attestation: HumanAttestationRecord {
+                issuer: "github-device-flow".to_string(),
+                subject: "bene".to_string(),
+                assurance: HumanAttestationAssurance::High,
+                operation: HumanAttestationOperation::Bootstrap,
+                verified_at: 123,
+            },
+        })
+        .unwrap();
+
+    let paths = PrismPaths::for_workspace_root(&root).unwrap();
+    let mut credentials = CredentialsFile::load(&paths.credentials_path().unwrap()).unwrap();
+    let profile = CredentialProfile {
+        profile: issued.principal.principal_id.0.to_string(),
+        authority_id: issued.principal.authority_id.0.to_string(),
+        principal_id: issued.principal.principal_id.0.to_string(),
+        credential_id: issued.credential.credential_id.0.to_string(),
+        principal_token: String::new(),
+        encrypted_secret: None,
+        principal_metadata: Some(CredentialProfilePrincipalMetadata {
+            kind: issued.principal.kind,
+            name: issued.principal.name.clone(),
+            role: issued.principal.role.clone(),
+            status: issued.principal.status,
+            created_at: issued.principal.created_at,
+            updated_at: issued.principal.updated_at,
+            parent_principal_id: issued
+                .principal
+                .parent_principal_id
+                .as_ref()
+                .map(|value| value.0.to_string()),
+            profile: issued.principal.profile.clone(),
+        }),
+        credential_metadata: Some(CredentialProfileCredentialMetadata {
+            token_verifier: issued.credential.token_verifier.clone(),
+            capabilities: issued.credential.capabilities.clone(),
+            status: issued.credential.status,
+            created_at: issued.credential.created_at,
+            last_used_at: issued.credential.last_used_at,
+            revoked_at: issued.credential.revoked_at,
+        }),
+    };
+    credentials.upsert_profile(profile.clone(), true);
+    credentials.save(&paths.credentials_path().unwrap()).unwrap();
+    let mut human_sessions = HumanSessionFile::load(&paths.human_session_path().unwrap()).unwrap();
+    human_sessions.activate(&profile, issued.principal_token.clone(), 200);
+    human_sessions.save(&paths.human_session_path().unwrap()).unwrap();
+
+    let mut shared_runtime = SqliteStore::open(paths.shared_runtime_db_path().unwrap()).unwrap();
+    shared_runtime
+        .save_principal_registry_snapshot(&PrincipalRegistrySnapshot::default())
+        .unwrap();
+    drop(session);
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let authenticated = reloaded
+        .authenticate_principal_credential(&issued.credential.credential_id, &issued.principal_token)
+        .unwrap();
+    assert_eq!(authenticated.principal.kind, PrincipalKind::Human);
+    assert_eq!(
+        authenticated.principal.principal_id,
+        issued.principal.principal_id
+    );
+    assert!(reloaded.load_principal_registry().unwrap().is_some());
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(prism_home);
+}
+
+#[test]
+fn principal_registry_rehydrates_from_unlocked_encrypted_human_profile() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+    let prism_home = temp_workspace();
+    let _env = PrismHomeEnvGuard::set(&prism_home);
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let issued = session
+        .bootstrap_owner_principal_with_attestation(AttestedHumanPrincipalInput {
+            authority_id: Some(PrincipalAuthorityId::new("github")),
+            name: "Benedikt Wimmer".to_string(),
+            role: Some("repo_owner".to_string()),
+            attestation: HumanAttestationRecord {
+                issuer: "github-device-flow".to_string(),
+                subject: "bene".to_string(),
+                assurance: HumanAttestationAssurance::High,
+                operation: HumanAttestationOperation::Bootstrap,
+                verified_at: 123,
+            },
+        })
+        .unwrap();
+
+    let paths = PrismPaths::for_workspace_root(&root).unwrap();
+    let passphrase = "test-passphrase";
+    let mut credentials = CredentialsFile::default();
+    let mut profile = CredentialProfile {
+        profile: issued.principal.principal_id.0.to_string(),
+        authority_id: issued.principal.authority_id.0.to_string(),
+        principal_id: issued.principal.principal_id.0.to_string(),
+        credential_id: issued.credential.credential_id.0.to_string(),
+        principal_token: String::new(),
+        encrypted_secret: None,
+        principal_metadata: None,
+        credential_metadata: None,
+    };
+    profile
+        .encrypt_principal_token(&issued.principal_token, passphrase)
+        .unwrap();
+    credentials.upsert_profile(profile.clone(), true);
+    credentials.save(&paths.credentials_path().unwrap()).unwrap();
+    HumanSessionFile::default()
+        .save(&paths.human_session_path().unwrap())
+        .unwrap();
+
+    let mut shared_runtime = SqliteStore::open(paths.shared_runtime_db_path().unwrap()).unwrap();
+    shared_runtime
+        .save_principal_registry_snapshot(&PrincipalRegistrySnapshot::default())
+        .unwrap();
+
+    let rebuilt = ensure_local_principal_registry_snapshot_with_unlocked_profile(
+        &root,
+        &mut shared_runtime,
+        &profile,
+        &issued.principal_token,
+    )
+    .unwrap()
+    .expect("registry should be rebuilt from unlocked profile");
+    assert_eq!(rebuilt.principals.len(), 1);
+    assert_eq!(rebuilt.credentials.len(), 1);
+    assert_eq!(rebuilt.principals[0].kind, PrincipalKind::Human);
+    assert_eq!(
+        rebuilt.principals[0].principal_id,
+        issued.principal.principal_id
+    );
+    assert_eq!(
+        rebuilt.credentials[0].credential_id,
+        issued.credential.credential_id
+    );
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(prism_home);
+}
+
+#[test]
+fn mint_child_principal_rejects_legacy_agent_principals() {
+    let shared_runtime_root = temp_workspace();
+    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: false,
+            shared_runtime: SharedRuntimeBackend::Sqlite {
+                path: shared_runtime_sqlite.clone(),
+            },
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
+        },
+    )
+    .unwrap();
+
+    let owner = session
+        .bootstrap_owner_principal(BootstrapOwnerInput {
+            authority_id: Some(PrincipalAuthorityId::new("local-daemon")),
+            name: "Owner".to_string(),
+            role: Some("repo_owner".to_string()),
+        })
+        .unwrap();
+    let authenticated = session
+        .authenticate_principal_credential(&owner.credential.credential_id, &owner.principal_token)
+        .unwrap();
+
+    let error = session
+        .mint_principal_credential(
+            &authenticated,
+            MintPrincipalRequest {
+                authority_id: Some(PrincipalAuthorityId::new("local-daemon")),
+                kind: PrincipalKind::Agent,
+                name: "Worker".to_string(),
+                role: Some("coordination_worker".to_string()),
+                parent_principal_id: Some(owner.principal.principal_id.clone()),
+                capabilities: vec![CredentialCapability::MutateCoordination],
+                profile: json!({ "lane": "coordination" }),
+            },
+        )
+        .unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("legacy local agent principals are no longer mintable"));
 
     let _ = fs::remove_dir_all(root);
     let _ = fs::remove_dir_all(shared_runtime_root);

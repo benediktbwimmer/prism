@@ -12,6 +12,7 @@ prism-ir = { path = "../prism-ir" }
 prism-memory = { path = "../prism-memory" }
 prism-query = { path = "../prism-query" }
 prism-store = { path = "../prism-store" }
+rpassword.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 time = { version = "0.3", features = ["formatting", "parsing"] }

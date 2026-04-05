@@ -108,6 +108,7 @@ use crate::workspace_tree::{
     plan_full_refresh, populate_package_regions, WorkspaceRefreshDelta, WorkspaceRefreshMode,
     WorkspaceRefreshPlan,
 };
+use crate::worktree_mutator_slot::WorktreeMutatorSlotRecord;
 use crate::worktree_principal::BoundWorktreePrincipal;
 use crate::{ActiveWorkContextBinding, FlushedObservedChangeSet, ObservedChangeFlushTrigger};
 
@@ -464,6 +465,7 @@ pub struct WorkspaceSession {
     pub(crate) checkpoint_materializer: Option<CheckpointMaterializerHandle>,
     pub(crate) shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     pub(crate) coordination_enabled: bool,
+    pub(crate) worktree_mutator_slot: Arc<Mutex<Option<WorktreeMutatorSlotRecord>>>,
     pub(crate) worktree_principal_binding: Arc<Mutex<Option<BoundWorktreePrincipal>>>,
     pub(crate) observed_change_tracker: SharedObservedChangeTracker,
 }
@@ -1967,18 +1969,40 @@ impl WorkspaceSession {
         credential_id: &CredentialId,
         principal_token: &str,
     ) -> Result<crate::AuthenticatedPrincipal> {
-        let mut snapshot = self
-            .principal_registry
-            .write()
-            .expect("principal registry lock poisoned");
-        if snapshot.principals.is_empty() && snapshot.credentials.is_empty() {
-            return Err(anyhow!("principal registry is not initialized"));
+        let mut repair_attempted = false;
+        loop {
+            let mut snapshot = self
+                .principal_registry
+                .write()
+                .expect("principal registry lock poisoned");
+            if snapshot.principals.is_empty() && snapshot.credentials.is_empty() {
+                drop(snapshot);
+                if repair_attempted {
+                    return Err(anyhow!("principal registry is not initialized"));
+                }
+                repair_attempted = true;
+                if let Some(shared_runtime_store) = self.shared_runtime_store.as_ref() {
+                    let mut store = shared_runtime_store
+                        .lock()
+                        .expect("shared runtime store lock poisoned");
+                    if let Some(snapshot) =
+                        crate::ensure_local_principal_registry_snapshot(&self.root, &mut *store)?
+                    {
+                        *self
+                            .principal_registry
+                            .write()
+                            .expect("principal registry lock poisoned") = snapshot;
+                        continue;
+                    }
+                }
+                return Err(anyhow!("principal registry is not initialized"));
+            }
+            return crate::principal_registry::authenticate_principal_credential_without_persist(
+                &mut snapshot,
+                credential_id,
+                principal_token,
+            );
         }
-        crate::principal_registry::authenticate_principal_credential_without_persist(
-            &mut snapshot,
-            credential_id,
-            principal_token,
-        )
     }
 
     pub fn event_execution_context(
@@ -1987,7 +2011,15 @@ impl WorkspaceSession {
         request_id: Option<String>,
         credential_id: Option<&CredentialId>,
     ) -> EventExecutionContext {
-        let context = coordination_persist_context_for_root(&self.root, session_id);
+        let context = crate::PrismPaths::for_workspace_root(&self.root)
+            .map(|paths| prism_store::CoordinationPersistContext {
+                repo_id: paths.identity().repo_id.clone(),
+                worktree_id: paths.identity().worktree_id.clone(),
+                branch_ref: paths.identity().branch_ref.clone(),
+                session_id: session_id.map(|session_id| session_id.0.to_string()),
+                instance_id: Some(paths.identity().instance_id.clone()),
+            })
+            .unwrap_or_else(|_| coordination_persist_context_for_root(&self.root, session_id));
         EventExecutionContext {
             repo_id: Some(context.repo_id),
             worktree_id: Some(context.worktree_id),
@@ -3348,6 +3380,11 @@ fn merge_patch_file_summaries(
 
 impl Drop for WorkspaceSession {
     fn drop(&mut self) {
+        let principal_registry = self
+            .principal_registry
+            .read()
+            .expect("principal registry lock poisoned")
+            .clone();
         if let Some(watch) = self.watch.take() {
             let _ = watch.stop.send(WatchMessage::Stop);
             let _ = watch.handle.join();
@@ -3372,6 +3409,20 @@ impl Drop for WorkspaceSession {
         }
         if let Some(mut materializer) = self.shared_runtime_materializer.take() {
             materializer.stop();
+        }
+        if !principal_registry.principals.is_empty() || !principal_registry.credentials.is_empty() {
+            if let Some(shared_runtime_store) = self.shared_runtime_store.as_ref() {
+                let persist_result =
+                    prism_store::MaterializationStore::save_principal_registry_snapshot(
+                        &mut *shared_runtime_store
+                            .lock()
+                            .expect("shared runtime store lock poisoned"),
+                        &principal_registry,
+                    );
+                if let Err(error) = persist_result {
+                    warn!(error = %error, "failed to persist principal registry during workspace session shutdown");
+                }
+            }
         }
     }
 }

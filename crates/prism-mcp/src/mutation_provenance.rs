@@ -1,8 +1,9 @@
 use prism_core::ValidationFeedbackRecord;
-use prism_core::{AuthenticatedPrincipal, WorkspaceSession};
+use prism_core::{AuthenticatedPrincipal, WorktreeMutatorSlotRecord, WorkspaceSession};
 use prism_ir::{
     CoordinationTaskId, CredentialId, EventActor, EventExecutionContext, EventId, EventMeta,
-    PrincipalActor, TaskId, WorkContextKind, WorkContextSnapshot,
+    PrincipalActor, PrincipalAuthorityId, PrincipalId, TaskId, WorkContextKind,
+    WorkContextSnapshot,
 };
 use prism_memory::MemoryEvent;
 use prism_query::{ConceptEvent, ConceptRelationEvent, ContractEvent, Prism};
@@ -53,6 +54,26 @@ impl MutationProvenance {
                 session,
                 Some(&authenticated.credential.credential_id),
             ),
+            prism,
+            current_task: session.effective_current_task_state(),
+            current_work: session.current_work_state(),
+        }
+    }
+
+    pub(crate) fn worktree_executor(
+        workspace: &WorkspaceSession,
+        session: &SessionState,
+        prism: Arc<Prism>,
+        slot: &WorktreeMutatorSlotRecord,
+    ) -> Self {
+        Self {
+            actor: EventActor::Principal(PrincipalActor {
+                authority_id: PrincipalAuthorityId::new(slot.authority_id.clone()),
+                principal_id: PrincipalId::new(slot.principal_id.clone()),
+                kind: Some(slot.principal_kind),
+                name: Some(slot.principal_name.clone()),
+            }),
+            execution_context: execution_context(Some(workspace), session, None),
             prism,
             current_task: session.effective_current_task_state(),
             current_work: session.current_work_state(),

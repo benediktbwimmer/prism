@@ -1959,6 +1959,8 @@ pub struct ClaimView {
     pub id: String,
     pub holder: String,
     pub task_id: Option<String>,
+    pub agent: Option<String>,
+    pub worktree_id: Option<String>,
     pub capability: Capability,
     pub mode: ClaimMode,
     pub status: ClaimStatus,

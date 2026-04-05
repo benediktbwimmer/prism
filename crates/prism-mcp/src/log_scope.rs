@@ -37,6 +37,8 @@ pub(crate) struct RepoLogSource {
 struct WorktreeMetadata {
     repo_id: String,
     worktree_id: String,
+    #[serde(default)]
+    registered_worktree_id: Option<String>,
     canonical_root: String,
 }
 
@@ -74,11 +76,14 @@ pub(crate) fn current_log_source(root: &Path) -> Result<RepoLogSource> {
                     .and_then(|value| value.to_str())
                     .unwrap_or_default()
                     .to_string(),
+                registered_worktree_id: None,
                 canonical_root: root.display().to_string(),
             });
     Ok(RepoLogSource {
         repo_id: metadata.repo_id,
-        worktree_id: metadata.worktree_id,
+        worktree_id: metadata
+            .registered_worktree_id
+            .unwrap_or(metadata.worktree_id),
         workspace_root: metadata.canonical_root,
         daemon_log_path: prism_paths.mcp_daemon_log_path()?,
         mcp_call_log_path: prism_paths.mcp_call_log_path()?,
@@ -104,7 +109,9 @@ fn repo_log_sources(root: &Path) -> Result<Vec<RepoLogSource>> {
         };
         sources.push(RepoLogSource {
             repo_id: metadata.repo_id,
-            worktree_id: metadata.worktree_id,
+            worktree_id: metadata
+                .registered_worktree_id
+                .unwrap_or(metadata.worktree_id),
             workspace_root: metadata.canonical_root,
             daemon_log_path: worktree_dir
                 .join(MCP_LOGS_DIR)
