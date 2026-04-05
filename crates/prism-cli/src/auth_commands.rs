@@ -219,7 +219,7 @@ fn load_auth_session(root: &Path) -> Result<(WorkspaceSession, PathBuf)> {
                 path: paths.shared_runtime_db_path()?,
             },
             hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: true,
+            hydrate_persisted_co_change: false,
         },
     )?;
     Ok((session, credentials_path))
