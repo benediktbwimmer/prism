@@ -1,5 +1,7 @@
 # PRISM First-Class Plans Specification
 
+Superseded for execution-planning rewrite by [PRISM_COORDINATION_GRAPH_REWRITE.md](./PRISM_COORDINATION_GRAPH_REWRITE.md).
+
 Status: proposed target design  
 Audience: PRISM core, coordination, MCP, memory, and projection maintainers  
 Scope: full first-class plan implementation, not an MVP or transitional shim
