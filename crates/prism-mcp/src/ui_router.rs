@@ -171,7 +171,7 @@ async fn prism_ui_mutate(
     State(state): State<PrismUiState>,
     Json(request): Json<PrismUiMutateRequest>,
 ) -> std::result::Result<Json<PrismMutationResult>, (StatusCode, Json<Value>)> {
-    let args = resolve_ui_mutation_args(&state.root, request)?;
+    let args = resolve_ui_mutation_args(&state.root, state.host.workspace_session_ref(), request)?;
     state
         .server
         .execute_prism_mutation_via_tool(args)

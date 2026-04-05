@@ -42,8 +42,8 @@ use serde_json::Value;
 use std::path::Path;
 
 use crate::{
-    compact_followups::workspace_display_path, concept_followthrough_targets,
-    normalize_query_diagnostic, InferredEdgeRecordView, SessionState,
+    compact_followups::workspace_display_path, normalize_query_diagnostic,
+    InferredEdgeRecordView, SessionState,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -432,11 +432,11 @@ pub(crate) fn concept_packet_view(
 }
 
 fn concept_curation_hints_view_from_packet(
-    prism: &Prism,
+    _prism: &Prism,
     packet: &ConceptPacket,
     verbosity: ConceptVerbosity,
 ) -> ConceptCurationHintsView {
-    let fallback = concept_followthrough_targets(prism, packet);
+    let fallback = crate::concept_followthrough::ConceptFollowthroughTargets::default();
     let inspect_first = packet
         .core_members
         .first()

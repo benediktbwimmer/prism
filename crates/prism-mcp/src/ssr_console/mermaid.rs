@@ -22,12 +22,10 @@ pub(crate) fn plan_graph_mermaid(graph: &PlanGraphView) -> String {
         .collect::<BTreeMap<_, _>>();
 
     for node in &graph.nodes {
-        let node_ref = ids.get(&node.id).expect("node id should have a generated ref");
-        lines.push(format!(
-            "{}[\"{}\"]",
-            node_ref,
-            plan_node_label(node)
-        ));
+        let node_ref = ids
+            .get(&node.id)
+            .expect("node id should have a generated ref");
+        lines.push(format!("{}[\"{}\"]", node_ref, plan_node_label(node)));
         let class_name = match status_slug(&format!("{:?}", node.status)).as_str() {
             "ready" | "proposed" => "status-ready",
             "in-progress" | "in_progress" | "validating" | "in-review" | "in_review" => {
@@ -38,6 +36,13 @@ pub(crate) fn plan_graph_mermaid(graph: &PlanGraphView) -> String {
             _ => "status-other",
         };
         lines.push(format!("class {} {};", node_ref, class_name));
+        if node.id.starts_with("coord-task:") {
+            lines.push(format!(
+                "click {} href \"/console/tasks/{}\" \"Open task detail\";",
+                node_ref,
+                escape_html(&node.id)
+            ));
+        }
     }
 
     for edge in &graph.edges {
@@ -77,12 +82,12 @@ pub(crate) fn concept_graph_mermaid(
 
     for (handle, label) in nodes {
         let node_ref = ids.get(handle).expect("concept node id should exist");
-        lines.push(format!(
-            "{}[\"{}\"]",
-            node_ref,
-            escape_html(label)
-        ));
-        let class_name = if handle == focus_handle { "focus" } else { "concept" };
+        lines.push(format!("{}[\"{}\"]", node_ref, escape_html(label)));
+        let class_name = if handle == focus_handle {
+            "focus"
+        } else {
+            "concept"
+        };
         lines.push(format!("class {} {};", node_ref, class_name));
     }
 

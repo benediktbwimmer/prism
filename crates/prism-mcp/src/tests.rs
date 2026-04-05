@@ -4871,6 +4871,103 @@ fn mcp_plan_archive_archives_abandoned_plan_via_explicit_mutation_kind() {
 }
 
 #[test]
+fn mcp_plan_archive_terminalizes_active_task_execution_plan_before_archiving() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Archive active task execution plan",
+                    "goal": "Archive active task execution plan"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Only task",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    let plan_id_value = prism_ir::PlanId::new(plan_id.clone());
+    let node_id = prism_ir::PlanNodeId::new(task_id);
+    host.current_prism().replace_coordination_snapshot_and_plan_graphs(
+        host.current_prism().coordination_snapshot(),
+        vec![prism_ir::PlanGraph {
+            id: plan_id_value.clone(),
+            scope: prism_ir::PlanScope::Repo,
+            kind: prism_ir::PlanKind::TaskExecution,
+            title: "Archive active task execution plan".into(),
+            goal: "Archive active task execution plan".into(),
+            status: prism_ir::PlanStatus::Active,
+            revision: 1,
+            root_nodes: vec![node_id.clone()],
+            tags: Vec::new(),
+            created_from: None,
+            metadata: serde_json::Value::Null,
+            nodes: vec![prism_ir::PlanNode {
+                id: node_id,
+                plan_id: plan_id_value.clone(),
+                kind: prism_ir::PlanNodeKind::Release,
+                title: "Only task".into(),
+                summary: None,
+                status: prism_ir::PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                validation_refs: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: prism_ir::WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            }],
+            edges: Vec::new(),
+        }],
+        std::collections::BTreeMap::new(),
+    );
+
+    let archived = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanArchive,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+
+    assert!(!archived.rejected);
+    assert_eq!(archived.state["status"], "Archived");
+    assert_eq!(
+        host.current_prism()
+            .coordination_plan(&prism_ir::PlanId::new(plan_id))
+            .unwrap()
+            .status,
+        prism_ir::PlanStatus::Archived
+    );
+}
+
+#[test]
 fn drift_candidates_and_task_intent_flow_through_prism_query_reads() {
     let spec = NodeId::new("demo", "docs::request_spec", NodeKind::Document);
     let implementation = NodeId::new("demo", "demo::handle_request", NodeKind::Function);
@@ -11780,6 +11877,70 @@ fn compact_concept_followthrough_falls_back_when_live_members_are_empty() {
             |value| value.contains("doc or spec section") && value.contains("code owner")
         )
     );
+}
+
+#[test]
+fn ui_concept_entrypoints_view_lists_curated_concepts_without_root_fallback() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    host.current_prism().replace_curated_concepts(vec![
+        ConceptPacket {
+            handle: "concept://zeta_runtime".to_string(),
+            canonical_name: "Zeta runtime".to_string(),
+            summary: "Runtime concept used to verify direct concept inventory listing."
+                .to_string(),
+            aliases: vec!["zeta".to_string()],
+            confidence: 0.95,
+            core_members: Vec::new(),
+            core_member_lineages: Vec::new(),
+            supporting_members: Vec::new(),
+            supporting_member_lineages: Vec::new(),
+            likely_tests: Vec::new(),
+            likely_test_lineages: Vec::new(),
+            evidence: vec!["Seeded for SSR concepts index coverage.".to_string()],
+            risk_hint: None,
+            decode_lenses: vec![ConceptDecodeLens::Open],
+            scope: ConceptScope::Session,
+            provenance: ConceptProvenance {
+                origin: "test".to_string(),
+                kind: "seed".to_string(),
+                task_id: None,
+            },
+            publication: None,
+        },
+        ConceptPacket {
+            handle: "concept://alpha_identity".to_string(),
+            canonical_name: "Alpha identity".to_string(),
+            summary: "Identity concept used to verify stable alphabetical ordering."
+                .to_string(),
+            aliases: vec!["alpha".to_string()],
+            confidence: 0.95,
+            core_members: Vec::new(),
+            core_member_lineages: Vec::new(),
+            supporting_members: Vec::new(),
+            supporting_member_lineages: Vec::new(),
+            likely_tests: Vec::new(),
+            likely_test_lineages: Vec::new(),
+            evidence: vec!["Seeded for SSR concepts index ordering coverage.".to_string()],
+            risk_hint: None,
+            decode_lenses: vec![ConceptDecodeLens::Open],
+            scope: ConceptScope::Session,
+            provenance: ConceptProvenance {
+                origin: "test".to_string(),
+                kind: "seed".to_string(),
+                task_id: None,
+            },
+            publication: None,
+        },
+    ]);
+
+    let concepts = host
+        .ui_concept_entrypoints_view()
+        .expect("concept entrypoints view should read curated concept inventory");
+
+    assert_eq!(concepts.len(), 2);
+    assert_eq!(concepts[0].handle, "concept://alpha_identity");
+    assert_eq!(concepts[1].handle, "concept://zeta_runtime");
 }
 
 #[test]

@@ -1,7 +1,8 @@
 use std::path::Path;
 
-use prism_core::{CredentialsFile, PrismPaths, WorkspaceSession};
+use prism_core::{PrismPaths, WorkspaceSession};
 
+use crate::ui_credentials::{load_ui_credentials, resolve_ui_credential_profile};
 use crate::resource_schemas::BridgeIdentityView;
 
 pub(crate) fn ui_operator_identity_view(
@@ -10,23 +11,23 @@ pub(crate) fn ui_operator_identity_view(
 ) -> BridgeIdentityView {
     let credentials_path =
         match PrismPaths::for_workspace_root(root).and_then(|paths| paths.credentials_path()) {
-            Ok(path) => path,
-            Err(error) => {
-                return BridgeIdentityView {
-                    status: "unavailable".to_string(),
-                    profile: None,
-                    principal_id: None,
-                    credential_id: None,
-                    error: Some(format!(
-                        "failed to resolve local PRISM credentials path: {error}"
-                    )),
-                    next_action:
-                        "Bootstrap a local PRISM owner profile before using the operator console."
-                            .to_string(),
-                };
-            }
-        };
-    let credentials = match CredentialsFile::load(&credentials_path) {
+        Ok(path) => path,
+        Err(error) => {
+            return BridgeIdentityView {
+                status: "unavailable".to_string(),
+                profile: None,
+                principal_id: None,
+                credential_id: None,
+                error: Some(format!(
+                    "failed to resolve local PRISM credentials path: {error}"
+                )),
+                next_action:
+                    "Bootstrap a local PRISM owner profile before using the operator console."
+                        .to_string(),
+            };
+        }
+    };
+    let credentials = match load_ui_credentials(root) {
         Ok(credentials) => credentials,
         Err(error) => {
             return BridgeIdentityView {
@@ -44,7 +45,7 @@ pub(crate) fn ui_operator_identity_view(
             };
         }
     };
-    let profile = match credentials.find_by_selector(None, None, None) {
+    let profile = match resolve_ui_credential_profile(&credentials, workspace) {
         Ok(profile) => profile,
         Err(error) => {
             return BridgeIdentityView {

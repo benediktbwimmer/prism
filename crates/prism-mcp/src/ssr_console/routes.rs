@@ -1,29 +1,29 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
+use axum::Router;
 use axum::body::Body;
 use axum::extract::{Form, Path, Query, State};
-use axum::http::{header::CONTENT_TYPE, HeaderMap, HeaderValue, Response, StatusCode};
-use axum::response::{Html, IntoResponse, Redirect};
+use axum::http::{HeaderMap, HeaderValue, Response, StatusCode, header::CONTENT_TYPE};
+use axum::response::{Html, IntoResponse};
 use axum::routing::{get, post};
-use axum::Router;
 use serde::Deserialize;
 use serde_json::json;
 
 use super::assets::{console_css, console_js};
 use super::concepts::{
-    build_concept_slice, concept_handle_to_slug, concept_slug_to_handle, ConceptDirection,
+    ConceptDirection, build_concept_slice, concept_handle_to_slug, concept_slug_to_handle,
 };
 use super::html::{
-    duration_label, escape_html, markdown_to_html, page_shell, percent, status_badge,
-    status_slug, truncate,
+    duration_label, escape_html, json_script_escape, markdown_to_html, page_shell, percent,
+    status_badge, status_slug, truncate,
 };
 use super::mermaid::{concept_graph_mermaid, plan_graph_mermaid};
-use crate::ui_mutations::{map_ui_mutation_error, resolve_ui_mutation_args, PrismUiMutateRequest};
+use crate::ui_assets::prism_ui_asset;
+use crate::ui_mutations::{PrismUiMutateRequest, map_ui_mutation_error, resolve_ui_mutation_args};
 use crate::ui_read_models::{QueryHostUiReadModelsExt, UiPlansQueryOptions};
 use crate::ui_router::PrismUiState;
-use crate::ui_assets::prism_ui_asset;
 use crate::ui_types::{PrismPlanDetailView, PrismPlansView, PrismUiFleetView};
 use crate::{PrismMcpServer, QueryHost};
 
@@ -73,13 +73,25 @@ pub(crate) fn routes(state: PrismConsoleState) -> Router {
         .route("/console", get(console_overview))
         .route("/console/plans", get(console_plans_page))
         .route("/console/plans/{plan_id}", get(console_plan_page))
-        .route("/console/plans/{plan_id}/archive", post(console_plan_archive))
+        .route(
+            "/console/plans/{plan_id}/archive",
+            post(console_plan_archive),
+        )
         .route("/console/fragments/plans", get(console_plans_fragment))
-        .route("/console/fragments/plans/{plan_id}", get(console_plan_fragment))
+        .route(
+            "/console/fragments/plans/{plan_id}",
+            get(console_plan_fragment),
+        )
         .route("/console/tasks/{task_id}", get(console_task_page))
         .route("/console/tasks/{task_id}/edit", post(console_task_edit))
-        .route("/console/tasks/{task_id}/release-lease", post(console_task_release_lease))
-        .route("/console/fragments/tasks/{task_id}", get(console_task_fragment))
+        .route(
+            "/console/tasks/{task_id}/release-lease",
+            post(console_task_release_lease),
+        )
+        .route(
+            "/console/fragments/tasks/{task_id}",
+            get(console_task_fragment),
+        )
         .route("/console/concepts", get(console_concepts_index))
         .route("/console/concepts/{slug}", get(console_concept_page))
         .route("/console/fleet", get(console_fleet_page))
@@ -91,17 +103,23 @@ pub(crate) fn routes(state: PrismConsoleState) -> Router {
 }
 
 async fn console_css_asset() -> impl IntoResponse {
-    ([(
-        CONTENT_TYPE,
-        HeaderValue::from_static("text/css; charset=utf-8"),
-    )], console_css())
+    (
+        [(
+            CONTENT_TYPE,
+            HeaderValue::from_static("text/css; charset=utf-8"),
+        )],
+        console_css(),
+    )
 }
 
 async fn console_js_asset() -> impl IntoResponse {
-    ([(
-        CONTENT_TYPE,
-        HeaderValue::from_static("text/javascript; charset=utf-8"),
-    )], console_js())
+    (
+        [(
+            CONTENT_TYPE,
+            HeaderValue::from_static("text/javascript; charset=utf-8"),
+        )],
+        console_js(),
+    )
 }
 
 async fn console_favicon(
@@ -182,7 +200,7 @@ async fn console_plans_page(
     );
     Ok(Html(page_shell(
         "SSR Plans",
-        "Priority-sorted portfolio view with Mermaid-rendered dependency graphs and operator actions.",
+        "Portfolio view with server-rendered dependency graphs and operator actions.",
         "plans",
         &session.session,
         &body,
@@ -272,11 +290,15 @@ async fn console_task_edit(
             }
         }),
     };
-    let args = resolve_ui_mutation_args(&state.root, request)
+    let args = resolve_ui_mutation_args(&state.root, state.host.workspace_session_ref(), request)
         .map_err(ui_error_to_status_message)?;
-    state.server
+    let result = state
+        .server
         .execute_prism_mutation_via_tool(args)
         .map_err(|error| ui_error_to_status_message(map_ui_mutation_error(error)))?;
+    if let Some(message) = rejected_mutation_message(&result) {
+        return Err((StatusCode::UNPROCESSABLE_ENTITY, message));
+    }
     Ok(Html(
         render_task_detail_fragment(&state.host, &task_id).map_err(internal_error)?,
     ))
@@ -296,11 +318,15 @@ async fn console_task_release_lease(
             }
         }),
     };
-    let args = resolve_ui_mutation_args(&state.root, request)
+    let args = resolve_ui_mutation_args(&state.root, state.host.workspace_session_ref(), request)
         .map_err(ui_error_to_status_message)?;
-    state.server
+    let result = state
+        .server
         .execute_prism_mutation_via_tool(args)
         .map_err(|error| ui_error_to_status_message(map_ui_mutation_error(error)))?;
+    if let Some(message) = rejected_mutation_message(&result) {
+        return Err((StatusCode::UNPROCESSABLE_ENTITY, message));
+    }
     Ok(Html(
         render_task_detail_fragment(&state.host, &task_id).map_err(internal_error)?,
     ))
@@ -314,17 +340,21 @@ async fn console_plan_archive(
         action: "coordination".to_string(),
         input: json!({
             "kind": "plan_archive",
-            "payload": { "id": plan_id }
+            "payload": { "planId": plan_id }
         }),
     };
-    let args = resolve_ui_mutation_args(&state.root, request)
+    let args = resolve_ui_mutation_args(&state.root, state.host.workspace_session_ref(), request)
         .map_err(ui_error_to_status_message)?;
-    state.server
+    let result = state
+        .server
         .execute_prism_mutation_via_tool(args)
         .map_err(|error| ui_error_to_status_message(map_ui_mutation_error(error)))?;
+    if let Some(message) = rejected_mutation_message(&result) {
+        return Err((StatusCode::UNPROCESSABLE_ENTITY, message));
+    }
     let mut headers = HeaderMap::new();
     headers.insert("HX-Redirect", HeaderValue::from_static("/console/plans"));
-    Ok((headers, Redirect::to("/console/plans")))
+    Ok((StatusCode::NO_CONTENT, headers))
 }
 
 async fn console_concepts_index(
@@ -335,15 +365,17 @@ async fn console_concepts_index(
         .host
         .ui_session_bootstrap_view()
         .map_err(internal_error)?;
-    let graph = state.host.ui_graph_view(None).map_err(internal_error)?;
+    let entry_concepts = state
+        .host
+        .ui_concept_entrypoints_view()
+        .unwrap_or_default();
     let search = query
         .search
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(|value| value.to_ascii_lowercase());
-    let concepts = graph
-        .entry_concepts
+    let concepts = entry_concepts
         .into_iter()
         .filter(|concept| {
             search.as_ref().map(|needle| {
@@ -408,7 +440,12 @@ async fn console_concept_page(
         direction,
         query.relation.as_deref(),
     )
-    .ok_or_else(|| (StatusCode::NOT_FOUND, format!("concept not found: {handle}")))?;
+    .ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            format!("concept not found: {handle}"),
+        )
+    })?;
     let mermaid = concept_graph_mermaid(&slice.focus.handle, &slice.nodes, &slice.edges);
     let relation_html = slice
         .focus
@@ -440,7 +477,7 @@ async fn console_concept_page(
          </form>\
          <div class=\"console-grid-two\">\
          <article class=\"console-doc\"><h3>Summary</h3>{}<h3>Neighbor list</h3><ul class=\"console-list\">{}</ul></article>\
-         <article class=\"console-card\"><div class=\"console-card-header\"><h3>Concept graph slice</h3><span class=\"console-muted console-small\">Depth {} · {}</span></div><pre class=\"console-mermaid prism-mermaid\">{}</pre></article>\
+         <article class=\"console-card\"><div class=\"console-card-header\"><h3>Concept graph slice</h3><span class=\"console-muted console-small\">Depth {} · {}</span></div><pre class=\"console-mermaid prism-mermaid mermaid\">{}</pre></article>\
          </div></section></main>",
         escape_html(&slice.focus.canonical_name),
         status_badge(&format!("{:?}", slice.focus.scope)),
@@ -451,7 +488,8 @@ async fn console_concept_page(
         escape_html(slice.relation_filter.as_deref().unwrap_or("")),
         markdown_to_html(&slice.focus.summary),
         if relation_html.is_empty() {
-            "<li class=\"console-empty\">No matching neighbors in the current bounded slice.</li>".to_string()
+            "<li class=\"console-empty\">No matching neighbors in the current bounded slice.</li>"
+                .to_string()
         } else {
             relation_html
         },
@@ -512,7 +550,9 @@ fn render_plans_workspace(host: &QueryHost, query: PlansQuery) -> Result<String>
         .selected_plan
         .as_ref()
         .map(render_plan_detail)
-        .unwrap_or_else(|| "<div class=\"console-empty\">No plan matches the current filters.</div>".to_string());
+        .unwrap_or_else(|| {
+            "<div class=\"console-empty\">No plan matches the current filters.</div>".to_string()
+        });
     Ok(format!(
         "<section id=\"console-plans-workspace\" class=\"console-layout console-layout--two\">\
          <aside class=\"console-sidebar\">{}\
@@ -535,8 +575,7 @@ fn render_plan_sidebar(view: &PrismPlansView) -> String {
                 "<a class=\"console-plan-link\" href=\"/console/plans/{}\" data-selected=\"{}\">\
                  <div class=\"console-card-header\"><strong>{}</strong>{}</div>\
                  <div class=\"console-progress\"><span style=\"width:{}%\"></span></div>\
-                 <div class=\"console-inline-list\"><span class=\"console-pill\">{}% complete</span><span class=\"console-pill\">{} active</span></div>\
-                 <div class=\"console-muted console-small\">{}</div></a>",
+                 <div class=\"console-inline-list\"><span class=\"console-pill\">{}% complete</span><span class=\"console-pill\">{} active</span></div></a>",
                 escape_html(&plan.plan_id),
                 if view.selected_plan_id.as_deref() == Some(plan.plan_id.as_str()) { "true" } else { "false" },
                 escape_html(&plan.title),
@@ -544,7 +583,6 @@ fn render_plan_sidebar(view: &PrismPlansView) -> String {
                 progress,
                 progress,
                 plan.plan_summary.in_progress_nodes,
-                escape_html(&truncate(&plan.goal, 140)),
             )
         })
         .collect::<Vec<_>>()
@@ -575,13 +613,21 @@ fn render_plan_sidebar(view: &PrismPlansView) -> String {
             &view.filters.status
         ),
         render_select_options(
-            &[("priority", "Priority"), ("completion", "Completion"), ("title", "Title")],
+            &[
+                ("newest", "Newest first"),
+                ("oldest", "Oldest first"),
+                ("priority", "Priority"),
+                ("actionable", "Most actionable"),
+                ("completion", "Completion"),
+                ("title", "Title")
+            ],
             &view.filters.sort
         ),
         escape_html(view.filters.search.as_deref().unwrap_or("")),
         escape_html(view.filters.agent.as_deref().unwrap_or("")),
         if items.is_empty() {
-            "<div class=\"console-empty\">No plans matched the current filter set.</div>".to_string()
+            "<div class=\"console-empty\">No plans matched the current filter set.</div>"
+                .to_string()
         } else {
             items
         }
@@ -604,18 +650,6 @@ fn render_plan_detail(view: &PrismPlanDetailView) -> String {
         })
         .collect::<Vec<_>>()
         .join("");
-    let execution = view
-        .execution
-        .iter()
-        .map(|overlay| {
-            format!(
-                "<li><strong>{}</strong><div class=\"console-muted console-small\">effective assignee: {}</div></li>",
-                escape_html(&overlay.node_id),
-                escape_html(overlay.effective_assignee.as_deref().unwrap_or("none"))
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("");
     let outcomes = view
         .recent_outcomes
         .iter()
@@ -632,13 +666,10 @@ fn render_plan_detail(view: &PrismPlanDetailView) -> String {
         "<article class=\"console-card\">\
          <div class=\"console-card-header\">\
          <div><p class=\"console-eyebrow\">Plan detail</p><h2>{}</h2><p class=\"console-subtitle\">{}</p></div>\
-         <div class=\"console-actions\"><form hx-post=\"/console/plans/{}/archive\" hx-swap=\"none\"><button class=\"console-button console-button--warn\" type=\"submit\">Archive plan</button></form></div>\
+         <div class=\"console-actions\"><form class=\"console-action-form\" hx-post=\"/console/plans/{}/archive\" hx-swap=\"none\" hx-indicator=\"closest .console-action-form\"><button class=\"console-button console-button--warn\" type=\"submit\"><span class=\"console-action-label\">Archive plan</span><span class=\"console-action-spinner\" aria-hidden=\"true\"></span></button></form></div>\
          </div>\
          <div class=\"console-inline-list\">{}<span class=\"console-pill\">{} total nodes</span><span class=\"console-pill\">{} actionable</span></div>\
-         <div class=\"console-grid-two\">\
-         <section class=\"console-card\"><div class=\"console-card-header\"><h3>Dependency graph</h3><span class=\"console-sync\">Live via polling</span></div><pre class=\"console-mermaid prism-mermaid\">{}</pre></section>\
-         <section class=\"console-doc\"><h3>Goal</h3>{}<h3>Execution overlays</h3><ul class=\"console-list\">{}</ul></section>\
-         </div>\
+         <section class=\"console-card console-graph-card\"><div class=\"console-card-header\"><div><h3>Dependency graph</h3><p class=\"console-subtitle\">Click task nodes to open task detail. Drag to pan, wheel to zoom.</p></div><span class=\"console-sync\">Live via polling</span></div><div class=\"console-graph-shell\" data-console-graph><div class=\"console-graph-controls\"><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-zoom-out>-</button><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-reset>Reset</button><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-zoom-in>+</button><button class=\"console-button console-button--ghost console-button--small\" type=\"button\" data-graph-fullscreen>Full page</button></div><div class=\"console-graph-viewport\" data-graph-viewport><pre class=\"console-mermaid prism-mermaid mermaid\">{}</pre></div></div></section>\
          <section class=\"console-card\"><div class=\"console-card-header\"><h3>Ready tasks</h3><span class=\"console-muted console-small\">{}</span></div>\
          <table class=\"console-data-table\"><thead><tr><th>Task</th><th>Status</th><th>Assignee</th></tr></thead><tbody>{}</tbody></table></section>\
          <section class=\"console-card\"><div class=\"console-card-header\"><h3>Recent outcomes</h3></div><ul class=\"console-list\">{}</ul></section>\
@@ -650,12 +681,6 @@ fn render_plan_detail(view: &PrismPlanDetailView) -> String {
         view.summary.total_nodes,
         view.summary.actionable_nodes,
         escape_html(&graph_src),
-        markdown_to_html(&view.plan.goal),
-        if execution.is_empty() {
-            "<li class=\"console-empty\">No active execution overlays.</li>".to_string()
-        } else {
-            execution
-        },
         view.ready_tasks.len(),
         if ready_rows.is_empty() {
             "<tr><td colspan=\"3\"><div class=\"console-empty\">No ready tasks right now.</div></td></tr>".to_string()
@@ -663,7 +688,8 @@ fn render_plan_detail(view: &PrismPlanDetailView) -> String {
             ready_rows
         },
         if outcomes.is_empty() {
-            "<li class=\"console-empty\">No recent outcomes recorded for this plan yet.</li>".to_string()
+            "<li class=\"console-empty\">No recent outcomes recorded for this plan yet.</li>"
+                .to_string()
         } else {
             outcomes
         }
@@ -699,7 +725,13 @@ fn render_task_detail_fragment(host: &QueryHost, task_id: &str) -> Result<String
             let related = entry
                 .related_task
                 .as_ref()
-                .map(|task| format!("<a href=\"/console/tasks/{}\">{}</a>", escape_html(&task.id), escape_html(&task.title)))
+                .map(|task| {
+                    format!(
+                        "<a href=\"/console/tasks/{}\">{}</a>",
+                        escape_html(&task.id),
+                        escape_html(&task.title)
+                    )
+                })
                 .unwrap_or_else(|| "unknown".to_string());
             format!(
                 "<tr><td>{}</td><td>{}</td></tr>",
@@ -865,7 +897,7 @@ fn render_fleet_fragment(host: &QueryHost) -> Result<String> {
          <article class=\"console-card\"><div class=\"console-card-header\"><h3>Lane summary</h3></div><table class=\"console-data-table\"><thead><tr><th>Runtime</th><th>Branch</th><th>Bars</th><th>State</th></tr></thead><tbody>{}</tbody></table></article>\
          <article class=\"console-card\"><div class=\"console-card-header\"><h3>Window</h3></div><ul class=\"console-list\"><li>Runtimes: <strong>{}</strong></li><li>Bars: <strong>{}</strong></li><li>Window seconds: <strong>{}</strong></li></ul></article>\
          </div></section>",
-        escape_html(&timeline_payload.to_string()),
+        json_script_escape(&timeline_payload.to_string()),
         if lanes.is_empty() {
             "<tr><td colspan=\"4\"><div class=\"console-empty\">No runtimes are currently visible.</div></td></tr>".to_string()
         } else {
@@ -1029,7 +1061,22 @@ fn internal_error(error: anyhow::Error) -> (StatusCode, String) {
 fn ui_error_to_status_message(
     error: (StatusCode, axum::Json<serde_json::Value>),
 ) -> (StatusCode, String) {
-    (error.0, error.1 .0.to_string())
+    (error.0, error.1.0.to_string())
+}
+
+fn rejected_mutation_message(result: &crate::PrismMutationResult) -> Option<String> {
+    let payload = result.result.as_object()?;
+    if !payload.get("rejected").and_then(serde_json::Value::as_bool).unwrap_or(false) {
+        return None;
+    }
+    payload
+        .get("violations")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|violations| violations.first())
+        .and_then(|violation| violation.get("summary"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
+        .or_else(|| Some("operator console mutation was rejected".to_string()))
 }
 
 async fn prism_ui_favicon(
@@ -1038,7 +1085,10 @@ async fn prism_ui_favicon(
     let Some((bytes, mime)) = prism_ui_asset(&state.root, "favicon.svg")
         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
     else {
-        return Err((StatusCode::NOT_FOUND, "ui asset not found: favicon.svg".to_string()));
+        return Err((
+            StatusCode::NOT_FOUND,
+            "ui asset not found: favicon.svg".to_string(),
+        ));
     };
     Response::builder()
         .status(StatusCode::OK)
@@ -1050,7 +1100,7 @@ async fn prism_ui_favicon(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::body::{to_bytes, Body};
+    use axum::body::{Body, to_bytes};
     use axum::http::{Request, StatusCode};
     use tower::util::ServiceExt;
 
@@ -1074,7 +1124,12 @@ mod tests {
         let root = temp_workspace();
         let router = routes(console_state_from_root(&root));
 
-        for path in ["/console", "/console/plans", "/console/concepts", "/console/fleet"] {
+        for path in [
+            "/console",
+            "/console/plans",
+            "/console/concepts",
+            "/console/fleet",
+        ] {
             let response = router
                 .clone()
                 .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
@@ -1084,6 +1139,7 @@ mod tests {
             let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
             let text = std::str::from_utf8(&body).unwrap();
             assert!(text.contains("PRISM SSR Console"), "{path}");
+            assert!(text.contains("/console/favicon.svg"), "{path}");
         }
     }
 
@@ -1092,7 +1148,11 @@ mod tests {
         let root = temp_workspace();
         let router = routes(console_state_from_root(&root));
 
-        for path in ["/console/assets/console.css", "/console/assets/console.js"] {
+        for path in [
+            "/console/assets/console.css",
+            "/console/assets/console.js",
+            "/console/favicon.svg",
+        ] {
             let response = router
                 .clone()
                 .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())

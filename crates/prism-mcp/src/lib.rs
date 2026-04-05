@@ -95,6 +95,7 @@ mod text_search;
 mod tool_args;
 mod tool_schemas;
 mod ui_assets;
+mod ui_credentials;
 mod ui_identity;
 mod ui_mutations;
 mod ui_read_models;

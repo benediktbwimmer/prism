@@ -2,11 +2,12 @@ use std::path::Path;
 
 use axum::http::StatusCode;
 use axum::Json;
-use prism_core::{CredentialsFile, PrismPaths};
+use prism_core::PrismPaths;
 use rmcp::ErrorData as McpError;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
+use crate::ui_credentials::{load_ui_credentials, resolve_ui_credential_profile};
 use crate::{PrismMutationArgs, PrismMutationCredentialArgs};
 
 #[derive(Debug, Clone, Deserialize)]
@@ -19,9 +20,10 @@ pub(crate) struct PrismUiMutateRequest {
 
 pub(crate) fn resolve_ui_mutation_args(
     root: &Path,
+    workspace: Option<&prism_core::WorkspaceSession>,
     request: PrismUiMutateRequest,
 ) -> Result<PrismMutationArgs, (StatusCode, Json<Value>)> {
-    let credential = resolve_active_local_mutation_credential(root)?;
+    let credential = resolve_active_local_mutation_credential(root, workspace)?;
     serde_json::from_value::<PrismMutationArgs>(json!({
         "action": request.action,
         "credential": {
@@ -62,6 +64,7 @@ pub(crate) fn map_ui_mutation_error(error: McpError) -> (StatusCode, Json<Value>
 
 fn resolve_active_local_mutation_credential(
     root: &Path,
+    workspace: Option<&prism_core::WorkspaceSession>,
 ) -> Result<PrismMutationCredentialArgs, (StatusCode, Json<Value>)> {
     let credentials_path = PrismPaths::for_workspace_root(root)
         .and_then(|paths| paths.credentials_path())
@@ -74,7 +77,7 @@ fn resolve_active_local_mutation_credential(
                 })),
             )
         })?;
-    let credentials = CredentialsFile::load(&credentials_path).map_err(|error| {
+    let credentials = load_ui_credentials(root).map_err(|error| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({
@@ -86,13 +89,13 @@ fn resolve_active_local_mutation_credential(
             })),
         )
     })?;
-    let profile = credentials.find_by_selector(None, None, None).map_err(|error| {
+    let profile = resolve_ui_credential_profile(&credentials, workspace).map_err(|error| {
         (
             StatusCode::UNAUTHORIZED,
             Json(json!({
                 "code": "ui_mutation_local_identity_unavailable",
                 "message": format!(
-                    "no active local PRISM credential is available for UI mutations in {}: {error}",
+                    "no valid local PRISM credential is available for UI mutations in {}: {error}",
                     credentials_path.display()
                 ),
                 "nextAction": "Run `prism auth login` or bootstrap the local owner principal before using the operator console mutate endpoint.",

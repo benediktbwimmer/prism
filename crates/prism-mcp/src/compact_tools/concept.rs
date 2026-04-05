@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::time::Instant;
 
 use prism_ir::{AnchorRef, NodeId};
 use prism_js::{
@@ -53,11 +54,23 @@ impl QueryHost {
             Arc::clone(&session),
             "prism_concept",
             query_text,
-            move |host, _| {
+            move |host, query_run| {
                 let prism = host.current_prism();
+                let resolve_started = Instant::now();
                 let resolution = resolve_concept_packet(prism.as_ref(), session.as_ref(), &args)?;
+                query_run.record_phase(
+                    "concept.resolve",
+                    &json!({
+                        "mode": if args.handle.is_some() { "handle" } else { "query" },
+                        "matchedHandle": resolution.packet.handle,
+                    }),
+                    resolve_started.elapsed(),
+                    true,
+                    None,
+                );
                 let packet = resolution.packet.clone();
                 let verbosity = concept_verbosity(args.verbosity);
+                let packet_view_started = Instant::now();
                 let packet_view = agent_concept_packet_view(
                     session.as_ref(),
                     prism.as_ref(),
@@ -66,6 +79,19 @@ impl QueryHost {
                     Some(resolution.clone()),
                     args.include_binding_metadata.unwrap_or(false),
                 )?;
+                query_run.record_phase(
+                    "concept.packetView",
+                    &json!({
+                        "verbosity": format!("{:?}", verbosity),
+                        "coreMembers": packet.core_members.len(),
+                        "supportingMembers": packet.supporting_members.len(),
+                        "likelyTests": packet.likely_tests.len(),
+                    }),
+                    packet_view_started.elapsed(),
+                    true,
+                    None,
+                );
+                let alternates_started = Instant::now();
                 let alternates = resolve_concept_alternates(
                     prism.as_ref(),
                     session.as_ref(),
@@ -74,6 +100,17 @@ impl QueryHost {
                     verbosity,
                     args.include_binding_metadata.unwrap_or(false),
                 )?;
+                query_run.record_phase(
+                    "concept.alternates",
+                    &json!({
+                        "count": alternates.len(),
+                        "queryDriven": args.query.is_some(),
+                    }),
+                    alternates_started.elapsed(),
+                    true,
+                    None,
+                );
+                let decode_started = Instant::now();
                 let decode = args
                     .lens
                     .as_ref()
@@ -81,6 +118,15 @@ impl QueryHost {
                         decode_concept(session.as_ref(), prism.as_ref(), &packet, lens, verbosity)
                     })
                     .transpose()?;
+                query_run.record_phase(
+                    "concept.decode",
+                    &json!({
+                        "requested": args.lens.is_some(),
+                    }),
+                    decode_started.elapsed(),
+                    true,
+                    None,
+                );
                 Ok((
                     AgentConceptResultView {
                         packet: packet_view,
@@ -157,7 +203,7 @@ fn agent_concept_packet_view(
         relation_evidence_omitted: relation_truncation.relation_evidence_omitted,
     }
     .into_view();
-    let fallback = concept_followthrough_targets(prism, packet);
+    let fallback = crate::concept_followthrough::ConceptFollowthroughTargets::default();
     let fallback_primary =
         if core_members.is_empty() && supporting_members.is_empty() && likely_tests.is_empty() {
             compact_optional_handle_for_id(session, prism, fallback.inspect_first.as_ref())?

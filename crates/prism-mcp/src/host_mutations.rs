@@ -4825,14 +4825,46 @@ impl QueryHost {
             CoordinationMutationKindInput::PlanArchive => {
                 let payload: PlanArchivePayload = serde_json::from_value(args.payload)?;
                 let plan_id = PlanId::new(payload.plan_id);
-                prism.update_native_plan(
-                    meta,
-                    &plan_id,
-                    None,
-                    Some(prism_ir::PlanStatus::Archived),
-                    None,
-                    None,
-                )?;
+                let existing_plan = prism
+                    .coordination_plan(&plan_id)
+                    .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
+                let mut next_meta = EventMeta {
+                    id: session.next_event_id("coordination"),
+                    ts: current_timestamp(),
+                    causation: Some(meta.id.clone()),
+                    ..meta.clone()
+                };
+                if !matches!(
+                    existing_plan.status,
+                    prism_ir::PlanStatus::Archived
+                        | prism_ir::PlanStatus::Completed
+                        | prism_ir::PlanStatus::Abandoned
+                ) {
+                    prism.update_native_plan(
+                        next_meta.clone(),
+                        &plan_id,
+                        None,
+                        Some(prism_ir::PlanStatus::Abandoned),
+                        None,
+                        None,
+                    )?;
+                    next_meta = EventMeta {
+                        id: session.next_event_id("coordination"),
+                        ts: current_timestamp(),
+                        causation: Some(next_meta.id.clone()),
+                        ..meta.clone()
+                    };
+                }
+                if existing_plan.status != prism_ir::PlanStatus::Archived {
+                    prism.update_native_plan(
+                        next_meta,
+                        &plan_id,
+                        None,
+                        Some(prism_ir::PlanStatus::Archived),
+                        None,
+                        None,
+                    )?;
+                }
                 let plan = prism
                     .coordination_plan(&plan_id)
                     .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;

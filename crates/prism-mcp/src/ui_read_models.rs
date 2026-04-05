@@ -1,10 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use prism_coordination::{
+    CoordinationQueueReadModel, CoordinationReadModel, WorkClaim,
     coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
-    ready_task_count_for_active_plans, CoordinationQueueReadModel, CoordinationReadModel,
-    WorkClaim,
+    ready_task_count_for_active_plans,
 };
 use prism_ir::{ClaimStatus, CoordinationEventKind, CoordinationTaskStatus};
 use prism_ir::{PlanId, PlanStatus, TaskId};
@@ -22,11 +22,11 @@ use crate::ui_types::{
     PrismUiTaskDetailView, PrismUiTaskEditableMetadataView,
 };
 use crate::views::{
-    artifact_view, blocker_view, concept_packet_view, plan_execution_overlay_view, plan_graph_view,
-    plan_list_entry_view, plan_node_recommendation_view, plan_summary_view,
-    policy_violation_record_view, ConceptVerbosity,
+    ConceptVerbosity, artifact_view, blocker_view, concept_packet_view,
+    plan_execution_overlay_view, plan_graph_view, plan_list_entry_view,
+    plan_node_recommendation_view, plan_summary_view, policy_violation_record_view,
 };
-use crate::{claim_view, coordination_task_view, current_timestamp, QueryHost, SessionState};
+use crate::{QueryHost, SessionState, claim_view, coordination_task_view, current_timestamp};
 use crate::{host_resources::session_task_view, runtime_views::runtime_status};
 
 const OVERVIEW_PLAN_LIMIT: usize = 3;
@@ -128,14 +128,17 @@ impl UiPlanStatusFilter {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum UiPlanSort {
+    Newest,
+    Oldest,
     Priority,
+    Actionable,
     Completion,
     Title,
 }
 
 impl Default for UiPlanSort {
     fn default() -> Self {
-        Self::Priority
+        Self::Newest
     }
 }
 
@@ -147,16 +150,22 @@ impl UiPlanSort {
             .map(|value| value.to_ascii_lowercase())
             .as_deref()
         {
+            Some("oldest") => Self::Oldest,
+            Some("priority") => Self::Priority,
+            Some("actionable") => Self::Actionable,
             Some("completion") => Self::Completion,
             Some("title") => Self::Title,
-            Some("priority") | None => Self::Priority,
-            _ => Self::Priority,
+            Some("newest") | None => Self::Newest,
+            _ => Self::Newest,
         }
     }
 
     fn as_str(self) -> &'static str {
         match self {
+            Self::Newest => "newest",
+            Self::Oldest => "oldest",
             Self::Priority => "priority",
+            Self::Actionable => "actionable",
             Self::Completion => "completion",
             Self::Title => "title",
         }
@@ -167,6 +176,7 @@ pub(crate) trait QueryHostUiReadModelsExt {
     fn ui_session_bootstrap_view(&self) -> Result<PrismUiSessionBootstrapView>;
     fn ui_overview_view(&self) -> Result<PrismOverviewView>;
     fn ui_plans_view(&self, options: UiPlansQueryOptions) -> Result<PrismPlansView>;
+    fn ui_concept_entrypoints_view(&self) -> Result<Vec<OverviewConceptSpotlightView>>;
     fn ui_graph_view(&self, selected_concept_handle: Option<&str>) -> Result<PrismGraphView>;
     fn ui_plan_graph_view(&self, plan_id: &str) -> Result<Option<PrismPlanDetailView>>;
     fn ui_task_detail_view(&self, task_id: &str) -> Result<Option<PrismUiTaskDetailView>>;
@@ -389,6 +399,25 @@ impl QueryHostUiReadModelsExt for QueryHost {
             selected_plan_id,
             selected_plan,
         })
+    }
+
+    fn ui_concept_entrypoints_view(&self) -> Result<Vec<OverviewConceptSpotlightView>> {
+        let prism = self.current_prism();
+        let mut concepts = prism
+            .curated_concepts_snapshot()
+            .into_iter()
+            .map(|packet| OverviewConceptSpotlightView {
+                handle: packet.handle,
+                canonical_name: packet.canonical_name,
+                summary: packet.summary,
+            })
+            .collect::<Vec<_>>();
+        concepts.sort_by(|left, right| {
+            left.canonical_name
+                .cmp(&right.canonical_name)
+                .then_with(|| left.handle.cmp(&right.handle))
+        });
+        Ok(concepts)
     }
 
     fn ui_graph_view(&self, selected_concept_handle: Option<&str>) -> Result<PrismGraphView> {
@@ -956,15 +985,36 @@ fn plan_matches_agent(
 
 fn sort_plan_entries(plans: &mut [prism_js::PlanListEntryView], sort: UiPlanSort) {
     match sort {
+        UiPlanSort::Newest => plans.sort_by(newest_sort_cmp),
+        UiPlanSort::Oldest => plans.sort_by(oldest_sort_cmp),
         UiPlanSort::Priority => plans.sort_by(priority_sort_cmp),
+        UiPlanSort::Actionable => plans.sort_by(actionable_sort_cmp),
         UiPlanSort::Completion => plans.sort_by(completion_sort_cmp),
         UiPlanSort::Title => plans.sort_by(|left, right| {
             left.title
                 .to_ascii_lowercase()
                 .cmp(&right.title.to_ascii_lowercase())
-                .then_with(|| left.plan_id.cmp(&right.plan_id))
+                .then_with(|| newest_sort_cmp(left, right))
         }),
     }
+}
+
+fn newest_sort_cmp(
+    left: &prism_js::PlanListEntryView,
+    right: &prism_js::PlanListEntryView,
+) -> std::cmp::Ordering {
+    plan_created_sort_token(&right.plan_id)
+        .cmp(plan_created_sort_token(&left.plan_id))
+        .then_with(|| left.title.cmp(&right.title))
+}
+
+fn oldest_sort_cmp(
+    left: &prism_js::PlanListEntryView,
+    right: &prism_js::PlanListEntryView,
+) -> std::cmp::Ordering {
+    plan_created_sort_token(&left.plan_id)
+        .cmp(plan_created_sort_token(&right.plan_id))
+        .then_with(|| left.title.cmp(&right.title))
 }
 
 fn priority_sort_cmp(
@@ -989,7 +1039,24 @@ fn priority_sort_cmp(
                 .in_progress_nodes
                 .cmp(&left.plan_summary.in_progress_nodes)
         })
-        .then_with(|| left.title.cmp(&right.title))
+        .then_with(|| newest_sort_cmp(left, right))
+}
+
+fn actionable_sort_cmp(
+    left: &prism_js::PlanListEntryView,
+    right: &prism_js::PlanListEntryView,
+) -> std::cmp::Ordering {
+    right
+        .plan_summary
+        .actionable_nodes
+        .cmp(&left.plan_summary.actionable_nodes)
+        .then_with(|| {
+            right
+                .plan_summary
+                .in_progress_nodes
+                .cmp(&left.plan_summary.in_progress_nodes)
+        })
+        .then_with(|| priority_sort_cmp(left, right))
 }
 
 fn completion_sort_cmp(
@@ -1007,6 +1074,10 @@ fn completion_sort_cmp(
                 .cmp(&left.plan_summary.completed_nodes)
         })
         .then_with(|| priority_sort_cmp(left, right))
+}
+
+fn plan_created_sort_token(plan_id: &str) -> &str {
+    plan_id.rsplit(':').next().unwrap_or(plan_id)
 }
 
 fn clamp_overview_text(text: &str) -> String {
@@ -1546,4 +1617,86 @@ fn graph_plan_touchpoints(
     });
     touchpoints.truncate(GRAPH_PLAN_LIMIT);
     touchpoints
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{UiPlanSort, sort_plan_entries};
+    use prism_ir::{PlanKind, PlanScope, PlanStatus};
+    use prism_js::{
+        GitExecutionPolicyView, PlanListEntryView, PlanSchedulingView, PlanSummaryView,
+    };
+
+    #[test]
+    fn ui_plan_sort_defaults_to_newest() {
+        assert_eq!(UiPlanSort::default(), UiPlanSort::Newest);
+        assert_eq!(UiPlanSort::parse(None), UiPlanSort::Newest);
+        assert_eq!(UiPlanSort::parse(Some("oldest")), UiPlanSort::Oldest);
+        assert_eq!(
+            UiPlanSort::parse(Some("actionable")),
+            UiPlanSort::Actionable
+        );
+    }
+
+    #[test]
+    fn newest_sort_prefers_more_recent_plan_ids() {
+        let mut plans = vec![
+            test_plan("plan:01kn0000000000000000000000", "older", 0, 4, 0, 0),
+            test_plan("plan:01kp0000000000000000000000", "newer", 0, 4, 0, 0),
+        ];
+        sort_plan_entries(&mut plans, UiPlanSort::Newest);
+        assert_eq!(plans[0].title, "newer");
+        assert_eq!(plans[1].title, "older");
+    }
+
+    fn test_plan(
+        plan_id: &str,
+        title: &str,
+        completed_nodes: usize,
+        total_nodes: usize,
+        actionable_nodes: usize,
+        in_progress_nodes: usize,
+    ) -> PlanListEntryView {
+        PlanListEntryView {
+            plan_id: plan_id.to_string(),
+            title: title.to_string(),
+            goal: format!("{title} goal"),
+            status: PlanStatus::Active,
+            scope: PlanScope::Repo,
+            kind: PlanKind::TaskExecution,
+            scheduling: PlanSchedulingView {
+                importance: 0,
+                urgency: 0,
+                manual_boost: 0,
+                due_at: None,
+            },
+            git_execution_policy: GitExecutionPolicyView {
+                start_mode: "auto".to_string(),
+                completion_mode: "auto".to_string(),
+                integration_mode: "branch".to_string(),
+                target_ref: None,
+                target_branch: "main".to_string(),
+                require_task_branch: false,
+                max_commits_behind_target: 0,
+                max_fetch_age_seconds: None,
+            },
+            root_node_ids: Vec::new(),
+            summary: title.to_string(),
+            plan_summary: PlanSummaryView {
+                plan_id: plan_id.to_string(),
+                status: PlanStatus::Active,
+                total_nodes,
+                completed_nodes,
+                abandoned_nodes: 0,
+                in_progress_nodes,
+                actionable_nodes,
+                execution_blocked_nodes: 0,
+                completion_gated_nodes: 0,
+                review_gated_nodes: 0,
+                validation_gated_nodes: 0,
+                stale_nodes: 0,
+                claim_conflicted_nodes: 0,
+            },
+        }
+    }
 }
