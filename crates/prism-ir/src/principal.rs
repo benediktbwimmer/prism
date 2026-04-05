@@ -8,10 +8,21 @@ use crate::{CredentialId, PrincipalAuthorityId, PrincipalId, Timestamp};
 #[serde(rename_all = "snake_case")]
 pub enum PrincipalKind {
     Human,
+    Service,
     Agent,
     System,
     Ci,
     External,
+}
+
+impl PrincipalKind {
+    pub fn is_durable_principal(self) -> bool {
+        matches!(self, Self::Human | Self::Service)
+    }
+
+    pub fn is_legacy_local_agent(self) -> bool {
+        matches!(self, Self::Agent)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -103,4 +114,26 @@ pub struct PrincipalRegistrySnapshot {
     pub principals: Vec<PrincipalProfile>,
     #[serde(default)]
     pub credentials: Vec<CredentialRecord>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PrincipalKind;
+
+    #[test]
+    fn only_human_and_service_are_durable_principal_kinds() {
+        assert!(PrincipalKind::Human.is_durable_principal());
+        assert!(PrincipalKind::Service.is_durable_principal());
+        assert!(!PrincipalKind::Agent.is_durable_principal());
+        assert!(!PrincipalKind::System.is_durable_principal());
+        assert!(!PrincipalKind::Ci.is_durable_principal());
+        assert!(!PrincipalKind::External.is_durable_principal());
+    }
+
+    #[test]
+    fn only_agent_is_marked_as_legacy_local_agent_kind() {
+        assert!(PrincipalKind::Agent.is_legacy_local_agent());
+        assert!(!PrincipalKind::Human.is_legacy_local_agent());
+        assert!(!PrincipalKind::Service.is_legacy_local_agent());
+    }
 }

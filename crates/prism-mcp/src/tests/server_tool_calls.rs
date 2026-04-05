@@ -1078,7 +1078,10 @@ async fn mcp_server_resumes_stale_same_principal_task_when_git_execution_start_i
         resumed["result"]["state"]["id"],
         Value::from(task_id.0.to_string())
     );
-    assert_eq!(resumed["result"]["state"]["status"], Value::from("InProgress"));
+    assert_eq!(
+        resumed["result"]["state"]["status"],
+        Value::from("InProgress")
+    );
 
     running.cancel().await.unwrap();
 }
@@ -1525,9 +1528,9 @@ async fn mcp_server_rejects_prism_mutate_when_capability_is_denied() {
             &owner,
             MintPrincipalRequest {
                 authority_id: None,
-                kind: PrincipalKind::Agent,
-                name: "Memory Worker".to_string(),
-                role: Some("memory_only".to_string()),
+                kind: PrincipalKind::Service,
+                name: "Memory Service".to_string(),
+                role: Some("memory_only_service".to_string()),
                 parent_principal_id: Some(PrincipalId::new(owner.principal.principal_id.0.clone())),
                 capabilities: vec![CredentialCapability::MutateRepoMemory],
                 profile: Value::Null,
@@ -1599,9 +1602,9 @@ async fn mcp_server_rejects_authenticated_mutation_from_second_principal_on_same
             &owner,
             MintPrincipalRequest {
                 authority_id: None,
-                kind: PrincipalKind::Agent,
-                name: "Second Worker".to_string(),
-                role: Some("second_worker".to_string()),
+                kind: PrincipalKind::Service,
+                name: "Second Service".to_string(),
+                role: Some("second_service".to_string()),
                 parent_principal_id: Some(PrincipalId::new(owner.principal.principal_id.0.clone())),
                 capabilities: vec![CredentialCapability::All],
                 profile: Value::Null,

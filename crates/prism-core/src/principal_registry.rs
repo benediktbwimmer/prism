@@ -166,6 +166,8 @@ fn ensure_mint_capability(
     actor: &AuthenticatedPrincipal,
     request: &MintPrincipalRequest,
 ) -> Result<()> {
+    ensure_supported_durable_principal_kind(request.kind)?;
+
     if has_capability(&actor.credential.capabilities, CredentialCapability::All)
         || has_capability(
             &actor.credential.capabilities,
@@ -185,8 +187,8 @@ fn ensure_mint_capability(
         if *parent_principal_id != actor.principal.principal_id {
             bail!("mint_child_principal can only mint children of the authenticated principal");
         }
-        if request.kind != PrincipalKind::Agent {
-            bail!("mint_child_principal can only mint agent principals");
+        if request.kind != PrincipalKind::Service {
+            bail!("mint_child_principal can only mint service principals");
         }
         return Ok(());
     }
@@ -201,6 +203,7 @@ fn issue_principal_credential(
     snapshot: &mut PrincipalRegistrySnapshot,
     request: MintPrincipalRequest,
 ) -> Result<MintedPrincipalCredential> {
+    ensure_supported_durable_principal_kind(request.kind)?;
     let authority_id = request
         .authority_id
         .unwrap_or_else(|| PrincipalAuthorityId::new(DEFAULT_PRINCIPAL_AUTHORITY_ID));
@@ -254,6 +257,32 @@ fn issue_principal_credential(
         credential,
         principal_token,
     })
+}
+
+fn ensure_supported_durable_principal_kind(kind: PrincipalKind) -> Result<()> {
+    if kind.is_durable_principal() {
+        return Ok(());
+    }
+    if kind.is_legacy_local_agent() {
+        bail!(
+            "legacy local agent principals are no longer mintable; use worktree execution identity instead"
+        );
+    }
+    bail!(
+        "principal kind `{}` is not supported for durable principal minting",
+        durable_principal_kind_name(kind)
+    )
+}
+
+fn durable_principal_kind_name(kind: PrincipalKind) -> &'static str {
+    match kind {
+        PrincipalKind::Human => "human",
+        PrincipalKind::Service => "service",
+        PrincipalKind::Agent => "agent",
+        PrincipalKind::System => "system",
+        PrincipalKind::Ci => "ci",
+        PrincipalKind::External => "external",
+    }
 }
 
 fn normalized_capabilities(capabilities: Vec<CredentialCapability>) -> Vec<CredentialCapability> {

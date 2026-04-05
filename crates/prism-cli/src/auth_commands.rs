@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use prism_core::{
     hydrate_workspace_session_with_options, BootstrapOwnerInput, CredentialProfile,
     CredentialsFile, MintPrincipalRequest, PrismPaths, SharedRuntimeBackend, WorkspaceSession,
@@ -81,6 +81,17 @@ pub(crate) fn handle_principal_command(root: &Path, command: PrincipalCommand) -
                 &active.principal_token,
             )?;
             let kind = parse_principal_kind(&kind)?;
+            if !kind.is_durable_principal() {
+                if kind.is_legacy_local_agent() {
+                    bail!(
+                        "legacy local agent principals are no longer mintable; use worktree execution identity instead"
+                    );
+                }
+                bail!(
+                    "principal kind `{:?}` is not supported for durable principal minting",
+                    kind
+                );
+            }
             let parent_principal_id = parent
                 .map(PrincipalId::new)
                 .or_else(|| default_parent_for_kind(kind, &authenticated.principal.principal_id));
@@ -130,7 +141,7 @@ fn load_auth_session(root: &Path) -> Result<(WorkspaceSession, PathBuf)> {
 
 fn default_parent_for_kind(kind: PrincipalKind, principal_id: &PrincipalId) -> Option<PrincipalId> {
     match kind {
-        PrincipalKind::Agent => Some(principal_id.clone()),
+        PrincipalKind::Service => Some(principal_id.clone()),
         _ => None,
     }
 }
