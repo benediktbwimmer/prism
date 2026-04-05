@@ -183,6 +183,12 @@ impl PrismPaths {
         Ok(self.home_root.join("credentials.toml"))
     }
 
+    pub fn human_session_path(&self) -> Result<PathBuf> {
+        fs::create_dir_all(&self.home_root)
+            .with_context(|| format!("failed to create {}", self.home_root.display()))?;
+        Ok(self.home_root.join("human-session.toml"))
+    }
+
     pub fn trust_dir(&self) -> Result<PathBuf> {
         self.ensure_home_metadata()?;
         let path = self.home_root.join("trust");

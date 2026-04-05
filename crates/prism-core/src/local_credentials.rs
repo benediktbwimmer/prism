@@ -1,10 +1,28 @@
 use std::fs;
 use std::path::Path;
 
-use anyhow::{anyhow, Result};
+use aes_gcm_siv::aead::{Aead, KeyInit};
+use aes_gcm_siv::{Aes256GcmSiv, Nonce};
+use anyhow::{anyhow, bail, Context, Result};
+use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
+use base64::Engine;
+use pbkdf2::pbkdf2_hmac_array;
+use rand::rngs::OsRng;
+use rand::RngCore;
 use serde::{Deserialize, Serialize};
+use sha2::Sha256;
 
-const CREDENTIALS_FILE_VERSION: u32 = 1;
+use crate::util::current_timestamp;
+
+const CREDENTIALS_FILE_VERSION: u32 = 2;
+const HUMAN_SESSION_FILE_VERSION: u32 = 1;
+const HUMAN_SESSION_IDLE_TIMEOUT_SECS: u64 = 15 * 60;
+const HUMAN_SESSION_MAX_LIFETIME_SECS: u64 = 8 * 60 * 60;
+const HUMAN_SESSION_FRESH_REAUTH_WINDOW_SECS: u64 = 5 * 60;
+const PBKDF2_ROUNDS: u32 = 600_000;
+const ENCRYPTION_SALT_LEN: usize = 16;
+const ENCRYPTION_KEY_LEN: usize = 32;
+const ENCRYPTION_NONCE_LEN: usize = 12;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CredentialsFile {
@@ -21,7 +39,41 @@ pub struct CredentialProfile {
     pub authority_id: String,
     pub principal_id: String,
     pub credential_id: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub principal_token: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encrypted_secret: Option<EncryptedCredentialSecret>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EncryptedCredentialSecret {
+    pub algorithm: String,
+    pub kdf: String,
+    pub rounds: u32,
+    pub salt_b64: String,
+    pub nonce_b64: String,
+    pub ciphertext_b64: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct HumanSessionFile {
+    pub version: u32,
+    #[serde(default)]
+    pub active_session: Option<HumanSessionRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct HumanSessionRecord {
+    pub profile: String,
+    pub authority_id: String,
+    pub principal_id: String,
+    pub credential_id: String,
+    pub principal_token: String,
+    pub unlocked_at: u64,
+    pub last_used_at: u64,
+    pub idle_timeout_secs: u64,
+    pub absolute_expires_at: u64,
+    pub fresh_until: u64,
 }
 
 impl CredentialsFile {
@@ -34,7 +86,7 @@ impl CredentialsFile {
         }
         let content = fs::read_to_string(path)?;
         let mut file: Self = toml::from_str(&content)?;
-        if file.version == 0 {
+        if file.version == 0 || file.version == 1 {
             file.version = CREDENTIALS_FILE_VERSION;
         }
         Ok(file)
@@ -106,6 +158,22 @@ impl CredentialsFile {
             .ok_or_else(|| anyhow!("no stored credential matched the requested selector"))
     }
 
+    pub fn find_by_selector_mut(
+        &mut self,
+        profile: Option<&str>,
+        principal_id: Option<&str>,
+        credential_id: Option<&str>,
+    ) -> Result<&mut CredentialProfile> {
+        let selected_profile = self
+            .find_by_selector(profile, principal_id, credential_id)?
+            .profile
+            .clone();
+        self.profiles
+            .iter_mut()
+            .find(|candidate| candidate.profile == selected_profile)
+            .ok_or_else(|| anyhow!("selected profile disappeared from the credentials file"))
+    }
+
     pub fn set_active_by_selector(
         &mut self,
         profile: Option<&str>,
@@ -124,14 +192,187 @@ impl CredentialsFile {
     }
 }
 
+impl CredentialProfile {
+    pub fn has_inline_principal_token(&self) -> bool {
+        !self.principal_token.is_empty()
+    }
+
+    pub fn has_encrypted_secret(&self) -> bool {
+        self.encrypted_secret.is_some()
+    }
+
+    pub fn encrypt_principal_token(
+        &mut self,
+        principal_token: &str,
+        passphrase: &str,
+    ) -> Result<()> {
+        if passphrase.trim().is_empty() {
+            bail!("passphrase must not be empty");
+        }
+        let mut salt = [0u8; ENCRYPTION_SALT_LEN];
+        let mut nonce_bytes = [0u8; ENCRYPTION_NONCE_LEN];
+        OsRng.fill_bytes(&mut salt);
+        OsRng.fill_bytes(&mut nonce_bytes);
+        let key = pbkdf2_hmac_array::<Sha256, ENCRYPTION_KEY_LEN>(
+            passphrase.as_bytes(),
+            &salt,
+            PBKDF2_ROUNDS,
+        );
+        let cipher = Aes256GcmSiv::new_from_slice(&key)
+            .map_err(|_| anyhow!("failed to initialize credential cipher"))?;
+        let nonce = Nonce::from_slice(&nonce_bytes);
+        let ciphertext = cipher
+            .encrypt(nonce, principal_token.as_bytes())
+            .map_err(|_| anyhow!("failed to encrypt credential secret"))?;
+        self.encrypted_secret = Some(EncryptedCredentialSecret {
+            algorithm: "aes-256-gcm-siv".to_string(),
+            kdf: "pbkdf2-sha256".to_string(),
+            rounds: PBKDF2_ROUNDS,
+            salt_b64: BASE64_STANDARD.encode(salt),
+            nonce_b64: BASE64_STANDARD.encode(nonce_bytes),
+            ciphertext_b64: BASE64_STANDARD.encode(ciphertext),
+        });
+        self.principal_token.clear();
+        Ok(())
+    }
+
+    pub fn decrypt_principal_token(&self, passphrase: &str) -> Result<String> {
+        if self.has_inline_principal_token() {
+            return Ok(self.principal_token.clone());
+        }
+        let encrypted = self.encrypted_secret.as_ref().ok_or_else(|| {
+            anyhow!(
+                "profile `{}` does not contain any local credential secret",
+                self.profile
+            )
+        })?;
+        if encrypted.algorithm != "aes-256-gcm-siv" {
+            bail!(
+                "profile `{}` uses unsupported secret algorithm `{}`",
+                self.profile,
+                encrypted.algorithm
+            );
+        }
+        if encrypted.kdf != "pbkdf2-sha256" {
+            bail!(
+                "profile `{}` uses unsupported secret kdf `{}`",
+                self.profile,
+                encrypted.kdf
+            );
+        }
+        let salt = decode_fixed_bytes::<ENCRYPTION_SALT_LEN>(&encrypted.salt_b64, "salt")?;
+        let nonce_bytes =
+            decode_fixed_bytes::<ENCRYPTION_NONCE_LEN>(&encrypted.nonce_b64, "nonce")?;
+        let ciphertext = BASE64_STANDARD
+            .decode(encrypted.ciphertext_b64.as_bytes())
+            .context("failed to decode credential ciphertext")?;
+        let key = pbkdf2_hmac_array::<Sha256, ENCRYPTION_KEY_LEN>(
+            passphrase.as_bytes(),
+            &salt,
+            encrypted.rounds,
+        );
+        let cipher = Aes256GcmSiv::new_from_slice(&key)
+            .map_err(|_| anyhow!("failed to initialize credential cipher"))?;
+        let plaintext = cipher
+            .decrypt(Nonce::from_slice(&nonce_bytes), ciphertext.as_ref())
+            .map_err(|_| anyhow!("credential passphrase did not unlock the local secret"))?;
+        String::from_utf8(plaintext).context("credential secret was not valid utf-8")
+    }
+}
+
+impl HumanSessionFile {
+    pub fn load(path: &Path) -> Result<Self> {
+        if !path.exists() {
+            return Ok(Self {
+                version: HUMAN_SESSION_FILE_VERSION,
+                ..Self::default()
+            });
+        }
+        let content = fs::read_to_string(path)?;
+        let mut file: Self = toml::from_str(&content)?;
+        if file.version == 0 {
+            file.version = HUMAN_SESSION_FILE_VERSION;
+        }
+        Ok(file)
+    }
+
+    pub fn save(&self, path: &Path) -> Result<()> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(path, toml::to_string_pretty(self)?)?;
+        Ok(())
+    }
+
+    pub fn clear(&mut self) {
+        self.active_session = None;
+    }
+
+    pub fn activate(&mut self, profile: &CredentialProfile, principal_token: String, now: u64) {
+        self.version = HUMAN_SESSION_FILE_VERSION;
+        self.active_session = Some(HumanSessionRecord {
+            profile: profile.profile.clone(),
+            authority_id: profile.authority_id.clone(),
+            principal_id: profile.principal_id.clone(),
+            credential_id: profile.credential_id.clone(),
+            principal_token,
+            unlocked_at: now,
+            last_used_at: now,
+            idle_timeout_secs: HUMAN_SESSION_IDLE_TIMEOUT_SECS,
+            absolute_expires_at: now.saturating_add(HUMAN_SESSION_MAX_LIFETIME_SECS),
+            fresh_until: now.saturating_add(HUMAN_SESSION_FRESH_REAUTH_WINDOW_SECS),
+        });
+    }
+
+    pub fn active_session(&mut self, now: u64, touch: bool) -> Option<HumanSessionRecord> {
+        let session = self.active_session.as_mut()?;
+        if session.is_expired_at(now) {
+            self.active_session = None;
+            return None;
+        }
+        if touch {
+            session.last_used_at = now;
+        }
+        Some(session.clone())
+    }
+
+    pub fn active_session_now(&mut self) -> Option<HumanSessionRecord> {
+        self.active_session(current_timestamp(), true)
+    }
+}
+
+impl HumanSessionRecord {
+    pub fn is_expired_at(&self, now: u64) -> bool {
+        now > self.absolute_expires_at
+            || now.saturating_sub(self.last_used_at) > self.idle_timeout_secs
+    }
+
+    pub fn requires_fresh_reauth_at(&self, now: u64) -> bool {
+        now > self.fresh_until
+    }
+}
+
+fn decode_fixed_bytes<const N: usize>(value: &str, label: &str) -> Result<[u8; N]> {
+    let decoded = BASE64_STANDARD
+        .decode(value.as_bytes())
+        .with_context(|| format!("failed to decode credential {label}"))?;
+    let decoded_len = decoded.len();
+    decoded.try_into().map_err(|_| {
+        anyhow!(
+            "decoded credential {label} length {} did not match expected length {N}",
+            decoded_len
+        )
+    })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{CredentialProfile, CredentialsFile};
+    use super::{CredentialProfile, CredentialsFile, HumanSessionFile, HUMAN_SESSION_FILE_VERSION};
 
     #[test]
     fn find_by_principal_selects_matching_profile_without_mutating_active() {
         let file = CredentialsFile {
-            version: 1,
+            version: 2,
             active_profile: Some("owner".to_string()),
             profiles: vec![
                 CredentialProfile {
@@ -140,6 +381,7 @@ mod tests {
                     principal_id: "principal:owner".to_string(),
                     credential_id: "credential:owner".to_string(),
                     principal_token: "token:owner".to_string(),
+                    encrypted_secret: None,
                 },
                 CredentialProfile {
                     profile: "worker".to_string(),
@@ -147,6 +389,7 @@ mod tests {
                     principal_id: "principal:worker".to_string(),
                     credential_id: "credential:worker".to_string(),
                     principal_token: "token:worker".to_string(),
+                    encrypted_secret: None,
                 },
             ],
         };
@@ -162,7 +405,7 @@ mod tests {
     #[test]
     fn upsert_profile_without_activation_preserves_active_profile() {
         let mut file = CredentialsFile {
-            version: 1,
+            version: 2,
             active_profile: Some("owner".to_string()),
             profiles: vec![CredentialProfile {
                 profile: "owner".to_string(),
@@ -170,6 +413,7 @@ mod tests {
                 principal_id: "principal:owner".to_string(),
                 credential_id: "credential:owner".to_string(),
                 principal_token: "token:owner".to_string(),
+                encrypted_secret: None,
             }],
         };
 
@@ -180,11 +424,58 @@ mod tests {
                 principal_id: "principal:worker".to_string(),
                 credential_id: "credential:worker".to_string(),
                 principal_token: "token:worker".to_string(),
+                encrypted_secret: None,
             },
             false,
         );
 
         assert_eq!(file.active_profile.as_deref(), Some("owner"));
         assert_eq!(file.profiles.len(), 2);
+    }
+
+    #[test]
+    fn encrypted_profile_secret_round_trips_without_persisting_inline_token() {
+        let mut profile = CredentialProfile {
+            profile: "owner".to_string(),
+            authority_id: "local-daemon".to_string(),
+            principal_id: "principal:owner".to_string(),
+            credential_id: "credential:owner".to_string(),
+            principal_token: String::new(),
+            encrypted_secret: None,
+        };
+
+        profile
+            .encrypt_principal_token("token:owner", "correct horse battery staple")
+            .unwrap();
+
+        assert!(profile.principal_token.is_empty());
+        assert!(profile.encrypted_secret.is_some());
+        assert_eq!(
+            profile
+                .decrypt_principal_token("correct horse battery staple")
+                .unwrap(),
+            "token:owner"
+        );
+        assert!(profile.decrypt_principal_token("wrong passphrase").is_err());
+    }
+
+    #[test]
+    fn human_session_expires_after_idle_timeout() {
+        let profile = CredentialProfile {
+            profile: "owner".to_string(),
+            authority_id: "local-daemon".to_string(),
+            principal_id: "principal:owner".to_string(),
+            credential_id: "credential:owner".to_string(),
+            principal_token: String::new(),
+            encrypted_secret: None,
+        };
+        let mut session = HumanSessionFile {
+            version: HUMAN_SESSION_FILE_VERSION,
+            active_session: None,
+        };
+
+        session.activate(&profile, "token:owner".to_string(), 100);
+        assert!(session.active_session(100 + 60, false).is_some());
+        assert!(session.active_session(100 + (15 * 60) + 1, false).is_none());
     }
 }

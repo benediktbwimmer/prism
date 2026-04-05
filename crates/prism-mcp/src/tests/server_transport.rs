@@ -639,6 +639,7 @@ async fn stdio_proxy_can_adopt_local_profile_and_mutate_without_explicit_credent
             principal_id: authenticated.principal.principal_id.0.to_string(),
             credential_id: credential.credential_id.clone(),
             principal_token: credential.principal_token.clone(),
+            encrypted_secret: None,
         },
         true,
     );
@@ -830,6 +831,7 @@ async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
             principal_id: authenticated.principal.principal_id.0.to_string(),
             credential_id: issued.credential.credential_id.0.to_string(),
             principal_token: issued.principal_token.clone(),
+            encrypted_secret: None,
         },
         true,
     );
@@ -1017,6 +1019,7 @@ async fn stdio_proxy_marks_bridge_auth_stale_after_upstream_rejects_bound_creden
             principal_id: authenticated.principal.principal_id.0.to_string(),
             credential_id: issued.credential.credential_id.0.to_string(),
             principal_token: issued.principal_token.clone(),
+            encrypted_secret: None,
         },
         true,
     );
@@ -1125,6 +1128,7 @@ async fn stdio_proxy_marks_bridge_auth_stale_after_upstream_rejects_bound_creden
             principal_id: second_authenticated.principal.principal_id.0.to_string(),
             credential_id: second_issued.credential.credential_id.0.to_string(),
             principal_token: second_issued.principal_token.clone(),
+            encrypted_secret: None,
         },
         true,
     );

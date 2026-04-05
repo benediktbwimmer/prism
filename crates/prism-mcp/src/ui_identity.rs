@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use prism_core::{PrismPaths, WorkspaceSession};
+use prism_core::{HumanSessionFile, PrismPaths, WorkspaceSession};
 
 use crate::ui_credentials::{load_ui_credentials, resolve_ui_credential_profile};
 use crate::resource_schemas::BridgeIdentityView;
@@ -9,9 +9,10 @@ pub(crate) fn ui_operator_identity_view(
     root: &Path,
     workspace: Option<&WorkspaceSession>,
 ) -> BridgeIdentityView {
-    let credentials_path =
-        match PrismPaths::for_workspace_root(root).and_then(|paths| paths.credentials_path()) {
-        Ok(path) => path,
+    let (credentials_path, human_session_path) = match PrismPaths::for_workspace_root(root)
+        .and_then(|paths| Ok((paths.credentials_path()?, paths.human_session_path()?)))
+    {
+        Ok(paths) => paths,
         Err(error) => {
             return BridgeIdentityView {
                 status: "unavailable".to_string(),
@@ -61,6 +62,10 @@ pub(crate) fn ui_operator_identity_view(
         }
     };
     let bound = workspace.and_then(WorkspaceSession::bound_worktree_principal);
+    let mut sessions = HumanSessionFile::load(&human_session_path).ok();
+    let active_session = sessions
+        .as_mut()
+        .and_then(HumanSessionFile::active_session_now);
     if let Some(bound) = bound.as_ref() {
         if bound.authority_id != profile.authority_id || bound.principal_id != profile.principal_id
         {
@@ -80,17 +85,23 @@ pub(crate) fn ui_operator_identity_view(
         }
     }
     BridgeIdentityView {
-        status: if bound.is_some() {
+        status: if active_session.is_some() {
+            "unlocked_human_session".to_string()
+        } else if bound.is_some() {
             "bound".to_string()
         } else {
-            "active_local_profile".to_string()
+            "locked_local_profile".to_string()
         },
         profile: Some(profile.profile.clone()),
         principal_id: Some(profile.principal_id.clone()),
         credential_id: Some(profile.credential_id.clone()),
         error: None,
-        next_action:
-            "Operator console mutations will be signed with this active local PRISM profile."
-                .to_string(),
+        next_action: if active_session.is_some() {
+            "The active local human session is unlocked for direct operator work in this worktree."
+                .to_string()
+        } else {
+            "Run `prism auth login` to unlock a short-lived local human session before using direct operator mutation flows."
+                .to_string()
+        },
     }
 }

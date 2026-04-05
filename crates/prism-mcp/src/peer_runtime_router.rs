@@ -558,6 +558,7 @@ mod tests {
                 principal_id: principal_id.to_string(),
                 credential_id: credential_id.to_string(),
                 principal_token: principal_token.to_string(),
+                encrypted_secret: None,
             },
             true,
         );

@@ -456,12 +456,14 @@ fn prism_paths_respect_prism_home_override_and_write_metadata_manifests() {
     let shared_runtime_db = paths.shared_runtime_db_path().unwrap();
     let worktree_cache_db = paths.worktree_cache_db_path().unwrap();
     let credentials_path = paths.credentials_path().unwrap();
+    let human_session_path = paths.human_session_path().unwrap();
     let repo_metadata_path = paths.repo_home_dir().join("repo.json");
     let worktree_metadata_path = paths.worktree_dir().join("worktree.json");
 
     assert!(shared_runtime_db.starts_with(&prism_home));
     assert!(worktree_cache_db.starts_with(&prism_home));
     assert_eq!(credentials_path, prism_home.join("credentials.toml"));
+    assert_eq!(human_session_path, prism_home.join("human-session.toml"));
     assert!(repo_metadata_path.exists());
     assert!(worktree_metadata_path.exists());
 
