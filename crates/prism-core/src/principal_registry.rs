@@ -1,7 +1,8 @@
 use anyhow::{anyhow, bail, Result};
 use prism_ir::{
     new_prefixed_id, new_slugged_id, CredentialCapability, CredentialId, CredentialRecord,
-    CredentialStatus, PrincipalAuthorityId, PrincipalId, PrincipalKind, PrincipalProfile,
+    CredentialStatus, HumanAttestationAssurance, HumanAttestationOperation, HumanAttestationRecord,
+    HumanPrincipalProfile, PrincipalAuthorityId, PrincipalId, PrincipalKind, PrincipalProfile,
     PrincipalRegistrySnapshot, PrincipalStatus,
 };
 use rand::rngs::OsRng;
@@ -19,6 +20,14 @@ pub struct BootstrapOwnerInput {
     pub authority_id: Option<PrincipalAuthorityId>,
     pub name: String,
     pub role: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AttestedHumanPrincipalInput {
+    pub authority_id: Option<PrincipalAuthorityId>,
+    pub name: String,
+    pub role: Option<String>,
+    pub attestation: HumanAttestationRecord,
 }
 
 #[derive(Debug, Clone)]
@@ -46,9 +55,9 @@ pub struct AuthenticatedPrincipal {
 }
 
 impl WorkspaceSession {
-    pub fn bootstrap_owner_principal(
+    pub fn bootstrap_owner_principal_with_attestation(
         &self,
-        input: BootstrapOwnerInput,
+        input: AttestedHumanPrincipalInput,
     ) -> Result<MintedPrincipalCredential> {
         let mut snapshot = self.load_principal_registry()?.unwrap_or_default();
         if !snapshot.principals.is_empty() || !snapshot.credentials.is_empty() {
@@ -63,11 +72,43 @@ impl WorkspaceSession {
                 role: input.role,
                 parent_principal_id: None,
                 capabilities: vec![CredentialCapability::All],
-                profile: Value::Null,
+                profile: human_principal_profile_value(input.attestation)?,
             },
         )?;
         self.persist_principal_registry(&snapshot)?;
         Ok(issued)
+    }
+
+    pub fn recover_owner_principal_with_attestation(
+        &self,
+        input: AttestedHumanPrincipalInput,
+    ) -> Result<MintedPrincipalCredential> {
+        if input.attestation.operation != HumanAttestationOperation::Recovery {
+            bail!("recovery attestation input must use operation `recovery`");
+        }
+        self.bootstrap_owner_principal_with_attestation(input)
+    }
+
+    pub fn bootstrap_owner_principal(
+        &self,
+        input: BootstrapOwnerInput,
+    ) -> Result<MintedPrincipalCredential> {
+        let authority_id = input.authority_id.clone();
+        self.bootstrap_owner_principal_with_attestation(AttestedHumanPrincipalInput {
+            authority_id: authority_id.clone(),
+            name: input.name.clone(),
+            role: input.role.clone(),
+            attestation: HumanAttestationRecord {
+                issuer: authority_id
+                    .unwrap_or_else(|| PrincipalAuthorityId::new(DEFAULT_PRINCIPAL_AUTHORITY_ID))
+                    .0
+                    .to_string(),
+                subject: input.name,
+                assurance: HumanAttestationAssurance::Legacy,
+                operation: HumanAttestationOperation::Bootstrap,
+                verified_at: current_timestamp(),
+            },
+        })
     }
 
     pub fn authenticate_principal_credential(
@@ -90,6 +131,12 @@ impl WorkspaceSession {
         self.persist_principal_registry(&snapshot)?;
         Ok(issued)
     }
+}
+
+fn human_principal_profile_value(attestation: HumanAttestationRecord) -> Result<Value> {
+    Ok(serde_json::to_value(HumanPrincipalProfile {
+        attestation: Some(attestation),
+    })?)
 }
 
 pub(crate) fn authenticate_principal_credential_without_persist(

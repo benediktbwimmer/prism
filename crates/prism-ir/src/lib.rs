@@ -42,6 +42,7 @@ pub use plans::{
 };
 pub use primitives::{EdgeIndex, FileId, Language, Span, Timestamp};
 pub use principal::{
-    CredentialCapability, CredentialRecord, CredentialStatus, PrincipalActor, PrincipalKind,
-    PrincipalProfile, PrincipalRef, PrincipalRegistrySnapshot, PrincipalStatus,
+    CredentialCapability, CredentialRecord, CredentialStatus, HumanAttestationAssurance,
+    HumanAttestationOperation, HumanAttestationRecord, HumanPrincipalProfile, PrincipalActor,
+    PrincipalKind, PrincipalProfile, PrincipalRef, PrincipalRegistrySnapshot, PrincipalStatus,
 };

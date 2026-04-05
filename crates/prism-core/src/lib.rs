@@ -76,7 +76,8 @@ pub use path_identity_repair::{
 };
 pub use peer_runtime::{local_runtime_id, runtime_query_endpoint, PEER_RUNTIME_QUERY_PATH};
 pub use principal_registry::{
-    AuthenticatedPrincipal, BootstrapOwnerInput, MintPrincipalRequest, MintedPrincipalCredential,
+    AttestedHumanPrincipalInput, AuthenticatedPrincipal, BootstrapOwnerInput, MintPrincipalRequest,
+    MintedPrincipalCredential,
 };
 pub use prism_doc::{
     PrismDocBundleFormat, PrismDocExportBundle, PrismDocExportResult, PrismDocSyncResult,
