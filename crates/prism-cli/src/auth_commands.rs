@@ -3,14 +3,17 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Result};
 use prism_core::{
-    hydrate_workspace_session_with_options, AttestedHumanPrincipalInput, CredentialProfile,
-    CredentialsFile, MintPrincipalRequest, PrismPaths, SharedRuntimeBackend, WorkspaceSession,
-    WorkspaceSessionOptions,
+    authenticate_principal_credential_in_registry, bootstrap_owner_principal_in_registry,
+    mint_principal_credential_in_registry, recover_owner_principal_in_registry,
+    AttestedHumanPrincipalInput, CredentialProfile, CredentialsFile, MintPrincipalRequest,
+    PrismPaths,
 };
 use prism_ir::{
     CredentialId, HumanAttestationAssurance, HumanAttestationOperation, HumanAttestationRecord,
     HumanPrincipalProfile, PrincipalAuthorityId, PrincipalId, PrincipalKind,
+    PrincipalRegistrySnapshot,
 };
+use prism_store::{SqliteStore, Store};
 use serde_json::Value;
 
 use crate::cli::{AuthAssuranceArg, AuthCommand, PrincipalCommand};
@@ -27,8 +30,12 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
             subject,
             assurance,
         } => {
-            let (session, credentials_path) = load_auth_session(root)?;
-            let issued = session.bootstrap_owner_principal_with_attestation(
+            let (mut store, credentials_path) = load_auth_registry_store(root)?;
+            let mut snapshot = store
+                .load_principal_registry_snapshot()?
+                .unwrap_or_default();
+            let issued = bootstrap_owner_principal_in_registry(
+                &mut snapshot,
                 AttestedHumanPrincipalInput {
                     authority_id: Some(PrincipalAuthorityId::new(authority)),
                     name,
@@ -42,6 +49,7 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
                     },
                 },
             )?;
+            store.save_principal_registry_snapshot(&snapshot)?;
             let mut credentials = CredentialsFile::load(&credentials_path)?;
             let stored = store_issued_credential(&mut credentials, &issued, None, false);
             credentials.save(&credentials_path)?;
@@ -56,9 +64,13 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
             subject,
             assurance,
         } => {
-            let (session, credentials_path) = load_auth_session(root)?;
-            let issued =
-                session.recover_owner_principal_with_attestation(AttestedHumanPrincipalInput {
+            let (mut store, credentials_path) = load_auth_registry_store(root)?;
+            let mut snapshot = store
+                .load_principal_registry_snapshot()?
+                .unwrap_or_default();
+            let issued = recover_owner_principal_in_registry(
+                &mut snapshot,
+                AttestedHumanPrincipalInput {
                     authority_id: Some(PrincipalAuthorityId::new(authority)),
                     name,
                     role,
@@ -69,7 +81,9 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
                         operation: HumanAttestationOperation::Recovery,
                         verified_at: current_unix_timestamp(),
                     },
-                })?;
+                },
+            )?;
+            store.save_principal_registry_snapshot(&snapshot)?;
             let mut credentials = CredentialsFile::load(&credentials_path)?;
             let stored = store_issued_credential(&mut credentials, &issued, None, false);
             credentials.save(&credentials_path)?;
@@ -81,7 +95,7 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
             principal,
             credential,
         } => {
-            let (session, credentials_path) = load_auth_session(root)?;
+            let (mut store, credentials_path) = load_auth_registry_store(root)?;
             let mut credentials_file = CredentialsFile::load(&credentials_path)?;
             let selected = credentials_file
                 .set_active_by_selector(
@@ -90,10 +104,13 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
                     credential.as_deref(),
                 )?
                 .clone();
-            session.authenticate_principal_credential(
+            let mut snapshot = load_principal_registry_snapshot(&mut store)?;
+            authenticate_principal_credential_in_registry(
+                &mut snapshot,
                 &CredentialId::new(selected.credential_id.clone()),
                 &selected.principal_token,
             )?;
+            store.save_principal_registry_snapshot(&snapshot)?;
             credentials_file.save(&credentials_path)?;
             println!("logged in");
             println!("profile = {}", selected.profile);
@@ -101,13 +118,16 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
             println!("credential_id = {}", selected.credential_id);
         }
         AuthCommand::Whoami => {
-            let (session, credentials_path) = load_auth_session(root)?;
+            let (mut store, credentials_path) = load_auth_registry_store(root)?;
             let credentials_file = CredentialsFile::load(&credentials_path)?;
             let selected = credentials_file.find_by_selector(None, None, None)?.clone();
-            let authenticated = session.authenticate_principal_credential(
+            let mut snapshot = load_principal_registry_snapshot(&mut store)?;
+            let authenticated = authenticate_principal_credential_in_registry(
+                &mut snapshot,
                 &CredentialId::new(selected.credential_id.clone()),
                 &selected.principal_token,
             )?;
+            store.save_principal_registry_snapshot(&snapshot)?;
             println!("profile = {}", selected.profile);
             println!("authority_id = {}", authenticated.principal.authority_id.0);
             println!("principal_id = {}", authenticated.principal.principal_id.0);
@@ -159,10 +179,12 @@ pub(crate) fn handle_principal_command(root: &Path, command: PrincipalCommand) -
             metadata_json,
             capabilities,
         } => {
-            let (session, credentials_path) = load_auth_session(root)?;
+            let (mut store, credentials_path) = load_auth_registry_store(root)?;
             let mut credentials_file = CredentialsFile::load(&credentials_path)?;
             let active = credentials_file.find_by_selector(None, None, None)?.clone();
-            let authenticated = session.authenticate_principal_credential(
+            let mut snapshot = load_principal_registry_snapshot(&mut store)?;
+            let authenticated = authenticate_principal_credential_in_registry(
+                &mut snapshot,
                 &CredentialId::new(active.credential_id.clone()),
                 &active.principal_token,
             )?;
@@ -181,7 +203,8 @@ pub(crate) fn handle_principal_command(root: &Path, command: PrincipalCommand) -
             let parent_principal_id = parent
                 .map(PrincipalId::new)
                 .or_else(|| default_parent_for_kind(kind, &authenticated.principal.principal_id));
-            let issued = session.mint_principal_credential(
+            let issued = mint_principal_credential_in_registry(
+                &mut snapshot,
                 &authenticated,
                 MintPrincipalRequest {
                     authority_id: authority.map(PrincipalAuthorityId::new),
@@ -196,6 +219,7 @@ pub(crate) fn handle_principal_command(root: &Path, command: PrincipalCommand) -
                     profile: parse_metadata_json(metadata_json.as_deref())?,
                 },
             )?;
+            store.save_principal_registry_snapshot(&snapshot)?;
             let stored =
                 store_issued_credential(&mut credentials_file, &issued, profile.as_deref(), false);
             credentials_file.save(&credentials_path)?;
@@ -207,22 +231,18 @@ pub(crate) fn handle_principal_command(root: &Path, command: PrincipalCommand) -
     Ok(())
 }
 
-fn load_auth_session(root: &Path) -> Result<(WorkspaceSession, PathBuf)> {
+fn load_auth_registry_store(root: &Path) -> Result<(SqliteStore, PathBuf)> {
     ensure_repo_git_support(root)?;
     let paths = PrismPaths::for_workspace_root(root)?;
     let credentials_path = paths.credentials_path()?;
-    let session = hydrate_workspace_session_with_options(
-        root,
-        WorkspaceSessionOptions {
-            coordination: false,
-            shared_runtime: SharedRuntimeBackend::Sqlite {
-                path: paths.shared_runtime_db_path()?,
-            },
-            hydrate_persisted_projections: false,
-            hydrate_persisted_co_change: false,
-        },
-    )?;
-    Ok((session, credentials_path))
+    let store = SqliteStore::open(paths.shared_runtime_db_path()?)?;
+    Ok((store, credentials_path))
+}
+
+fn load_principal_registry_snapshot(store: &mut SqliteStore) -> Result<PrincipalRegistrySnapshot> {
+    store
+        .load_principal_registry_snapshot()?
+        .ok_or_else(|| anyhow::anyhow!("principal registry is not initialized"))
 }
 
 fn default_parent_for_kind(kind: PrincipalKind, principal_id: &PrincipalId) -> Option<PrincipalId> {

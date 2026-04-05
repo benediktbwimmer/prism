@@ -3348,6 +3348,11 @@ fn merge_patch_file_summaries(
 
 impl Drop for WorkspaceSession {
     fn drop(&mut self) {
+        let principal_registry = self
+            .principal_registry
+            .read()
+            .expect("principal registry lock poisoned")
+            .clone();
         if let Some(watch) = self.watch.take() {
             let _ = watch.stop.send(WatchMessage::Stop);
             let _ = watch.handle.join();
@@ -3372,6 +3377,20 @@ impl Drop for WorkspaceSession {
         }
         if let Some(mut materializer) = self.shared_runtime_materializer.take() {
             materializer.stop();
+        }
+        if !principal_registry.principals.is_empty() || !principal_registry.credentials.is_empty() {
+            if let Some(shared_runtime_store) = self.shared_runtime_store.as_ref() {
+                let persist_result =
+                    prism_store::MaterializationStore::save_principal_registry_snapshot(
+                        &mut *shared_runtime_store
+                            .lock()
+                            .expect("shared runtime store lock poisoned"),
+                        &principal_registry,
+                    );
+                if let Err(error) = persist_result {
+                    warn!(error = %error, "failed to persist principal registry during workspace session shutdown");
+                }
+            }
         }
     }
 }

@@ -77,6 +77,8 @@ pub use path_identity_repair::{
 };
 pub use peer_runtime::{local_runtime_id, runtime_query_endpoint, PEER_RUNTIME_QUERY_PATH};
 pub use principal_registry::{
+    authenticate_principal_credential_in_registry, bootstrap_owner_principal_in_registry,
+    mint_principal_credential_in_registry, recover_owner_principal_in_registry,
     AttestedHumanPrincipalInput, AuthenticatedPrincipal, BootstrapOwnerInput, MintPrincipalRequest,
     MintedPrincipalCredential,
 };
