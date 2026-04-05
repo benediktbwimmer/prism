@@ -154,7 +154,7 @@ impl WorkspaceIndexer<SqliteStore> {
             sync_repo_protected_state_ms = sync_protected_started.elapsed().as_millis();
             if options.coordination && !shared_runtime_aliases_workspace_store {
                 let load_shared_plan_state_started = Instant::now();
-                let plan_state = load_repo_protected_plan_state(&root, shared_store)?;
+                let plan_state = load_repo_protected_plan_state(&root, &mut indexer.store)?;
                 indexer.coordination_snapshot = plan_state
                     .as_ref()
                     .map(|state| state.snapshot.clone())

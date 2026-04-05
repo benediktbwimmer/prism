@@ -1182,7 +1182,8 @@ pub(crate) fn sync_protected_state_watch_update(
                 .expect("shared runtime store lock poisoned");
             let report = sync_selected_repo_protected_state(root, &mut *shared_store, selection)?;
             let plan_state = if coordination_enabled && selection.reloads_coordination() {
-                load_repo_protected_plan_state(root, &mut *shared_store)?
+                let mut local_store = store.lock().expect("workspace store lock poisoned");
+                load_repo_protected_plan_state(root, &mut *local_store)?
             } else {
                 None
             };
@@ -1307,17 +1308,10 @@ pub(crate) fn sync_shared_coordination_ref_watch_update(
         .lock()
         .expect("workspace store lock poisoned")
         .workspace_revision()?;
-    let persisted_coordination_revision = if let Some(shared_store) = shared_runtime_store {
-        shared_store
-            .lock()
-            .expect("shared runtime store lock poisoned")
-            .coordination_revision()?
-    } else {
-        store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .coordination_revision()?
-    };
+    let persisted_coordination_revision = store
+        .lock()
+        .expect("workspace store lock poisoned")
+        .coordination_revision()?;
     let shared_workspace_revision = shared_runtime_store
         .map(|store| {
             store
@@ -1333,25 +1327,13 @@ pub(crate) fn sync_shared_coordination_ref_watch_update(
         .lock()
         .expect("workspace runtime state lock poisoned")
         .clone();
-    if let Some(shared_store) = shared_runtime_store {
-        save_shared_coordination_startup_checkpoint(
-            root,
-            &mut *shared_store
-                .lock()
-                .expect("shared runtime store lock poisoned"),
-            &shared.snapshot,
-            &shared.plan_graphs,
-            &shared.execution_overlays,
-        )?;
-    } else {
-        save_shared_coordination_startup_checkpoint(
-            root,
-            &mut *store.lock().expect("workspace store lock poisoned"),
-            &shared.snapshot,
-            &shared.plan_graphs,
-            &shared.execution_overlays,
-        )?;
-    }
+    save_shared_coordination_startup_checkpoint(
+        root,
+        &mut *store.lock().expect("workspace store lock poisoned"),
+        &shared.snapshot,
+        &shared.plan_graphs,
+        &shared.execution_overlays,
+    )?;
     next_state.replace_coordination_runtime(
         shared.snapshot.clone(),
         shared.plan_graphs.clone(),

@@ -6932,21 +6932,21 @@ fn coordination_session_materializes_read_models_off_request_path() {
 
     session.flush_materializations().unwrap();
 
-    let mut shared_runtime_store = SqliteStore::open(
+    let mut worktree_store = SqliteStore::open(
         PrismPaths::for_workspace_root(&root)
             .unwrap()
-            .shared_runtime_db_path()
+            .worktree_cache_db_path()
             .unwrap(),
     )
     .unwrap();
-    let persisted_read_model = shared_runtime_store
+    let persisted_read_model = worktree_store
         .load_coordination_read_model()
         .unwrap()
         .expect("persisted coordination read model should materialize after flush");
     assert_eq!(persisted_read_model.active_plans.len(), 1);
     assert_eq!(persisted_read_model.task_count, 1);
     assert_eq!(persisted_read_model.revision, authoritative_revision);
-    let persisted_queue_model = shared_runtime_store
+    let persisted_queue_model = worktree_store
         .load_coordination_queue_read_model()
         .unwrap()
         .expect("persisted coordination queue model should materialize after flush");
@@ -6958,6 +6958,107 @@ fn coordination_session_materializes_read_models_off_request_path() {
             .is_none(),
         "coordination materialization should no longer write tracked snapshot revision state"
     );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn coordination_read_models_ignore_stale_persisted_shared_runtime_cache() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    session
+        .mutate_coordination(|prism| {
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:local-authority-plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:local-authority-plan")),
+                    causation: None,
+                    execution_context: None,
+                },
+                "Keep coordination materialization local".into(),
+                "Keep coordination materialization local".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            let _ = prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:local-authority-task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:local-authority-plan")),
+                    causation: None,
+                    execution_context: None,
+                },
+                TaskCreateInput {
+                    plan_id,
+                    title: "Prefer local coordination cache over shared runtime cache".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    coordination_depends_on: Vec::new(),
+                    integrated_depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: prism_ir::WorkspaceRevision::default(),
+                },
+            )?;
+            Ok::<_, anyhow::Error>(())
+        })
+        .unwrap();
+    session.flush_materializations().unwrap();
+
+    let paths = PrismPaths::for_workspace_root(&root).unwrap();
+    let mut shared_runtime_store =
+        SqliteStore::open(paths.shared_runtime_db_path().unwrap()).unwrap();
+    let stale_snapshot = CoordinationSnapshot::default();
+    shared_runtime_store
+        .persist_coordination_authoritative_state_for_root(&root, &stale_snapshot, None, None)
+        .unwrap();
+    let mut stale_read_model =
+        prism_coordination::coordination_read_model_from_snapshot(&stale_snapshot);
+    stale_read_model.revision = 999;
+    shared_runtime_store
+        .save_coordination_read_model(&stale_read_model)
+        .unwrap();
+    let mut stale_queue_model =
+        prism_coordination::coordination_queue_read_model_from_snapshot(&stale_snapshot);
+    stale_queue_model.revision = 999;
+    shared_runtime_store
+        .save_coordination_queue_read_model(&stale_queue_model)
+        .unwrap();
+
+    let read_model = session
+        .load_coordination_read_model()
+        .unwrap()
+        .expect("coordination read model should load from the local cache");
+    assert_eq!(read_model.active_plans.len(), 1);
+    assert_eq!(read_model.task_count, 1);
+
+    let queue_model = session
+        .load_coordination_queue_read_model()
+        .unwrap()
+        .expect("coordination queue model should load from the local cache");
+    assert_eq!(queue_model.pending_handoff_tasks.len(), 0);
+    assert!(session
+        .load_coordination_snapshot()
+        .unwrap()
+        .expect("coordination snapshot should hydrate from the local store")
+        .tasks
+        .iter()
+        .any(|task| task.title == "Prefer local coordination cache over shared runtime cache"));
 
     let _ = fs::remove_dir_all(root);
 }
