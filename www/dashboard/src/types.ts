@@ -282,6 +282,49 @@ export type PrismUiSessionBootstrapView = {
   pollingIntervalMs: number
 }
 
+export type PrismUiFleetLaneView = {
+  id: string
+  runtimeId?: string | null
+  label: string
+  principalId?: string | null
+  worktreeId?: string | null
+  branchRef?: string | null
+  discoveryMode?: string | null
+  lastSeenAt?: number | null
+  activeBarCount: number
+  staleBarCount: number
+  idle: boolean
+}
+
+export type PrismUiFleetBarView = {
+  id: string
+  laneId: string
+  runtimeId?: string | null
+  taskId?: string | null
+  taskTitle: string
+  taskStatus: string
+  claimId?: string | null
+  claimStatus?: string | null
+  holder?: string | null
+  agent?: string | null
+  capability?: string | null
+  mode?: string | null
+  branchRef?: string | null
+  startedAt: number
+  endedAt?: number | null
+  durationSeconds?: number | null
+  active: boolean
+  stale: boolean
+}
+
+export type PrismUiFleetView = {
+  generatedAt: number
+  windowStart: number
+  windowEnd: number
+  lanes: PrismUiFleetLaneView[]
+  bars: PrismUiFleetBarView[]
+}
+
 export type DashboardOperationDetailView =
   | {
       kind: 'active'

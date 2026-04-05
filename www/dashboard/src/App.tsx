@@ -2,10 +2,9 @@ import { useEffect, useState } from 'react'
 
 import { PRISM_ROUTES, resolveRoute } from './appRoutes'
 import { AppFrame } from './components/AppFrame'
+import { FleetPage } from './pages/FleetPage'
 import { useSessionBootstrap } from './hooks/useSessionBootstrap'
 import { useThemeChoice } from './hooks/useThemeChoice'
-import { GraphPage } from './pages/GraphPage'
-import { OverviewPage } from './pages/OverviewPage'
 import { PlansPage } from './pages/PlansPage'
 
 export function App() {
@@ -20,6 +19,17 @@ export function App() {
   useEffect(() => {
     document.title = route.title
   }, [route])
+
+  useEffect(() => {
+    if (window.location.pathname !== '/') {
+      return
+    }
+    window.history.replaceState({}, '', '/plans')
+    setLocationState({
+      pathname: window.location.pathname,
+      search: window.location.search,
+    })
+  }, [])
 
   useEffect(() => {
     function handlePopState() {
@@ -47,23 +57,17 @@ export function App() {
     })
   }
 
-  let page = (
-    <OverviewPage
-      connection={connection}
-      onNavigate={navigate}
-    />
-  )
+  let page = <PlansPage search={locationState.search} onNavigate={navigate} />
 
-  if (route.key === 'plans') {
-    page = <PlansPage search={locationState.search} onNavigate={navigate} />
-  } else if (route.key === 'graph') {
-    page = <GraphPage search={locationState.search} onNavigate={navigate} />
+  if (route.key === 'fleet') {
+    page = <FleetPage onNavigate={navigate} />
   }
 
   return (
     <AppFrame
       connection={connection}
       currentPath={route.path}
+      operatorIdentity={bootstrap?.session.bridgeIdentity ?? null}
       routes={PRISM_ROUTES}
       themeChoice={themeChoice}
       workspaceRoot={bootstrap?.session.workspaceRoot ?? null}

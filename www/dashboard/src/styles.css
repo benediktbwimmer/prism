@@ -98,7 +98,7 @@ pre {
 
 .shell-header {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.1fr) auto;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.95fr) minmax(320px, auto);
   gap: 18px;
   padding: 24px 28px;
   margin-bottom: 18px;
@@ -155,6 +155,26 @@ pre {
   align-items: start;
   justify-content: end;
   flex-wrap: wrap;
+}
+
+.shell-identity {
+  display: grid;
+  gap: 4px;
+  max-width: 320px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--panel-muted);
+}
+
+.shell-identity strong {
+  font-size: 0.98rem;
+}
+
+.shell-identity span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .shell-content,
@@ -1061,6 +1081,80 @@ pre {
   gap: 18px;
 }
 
+.fleet-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.8fr);
+  gap: 18px;
+}
+
+.fleet-lanes {
+  display: grid;
+  gap: 14px;
+}
+
+.fleet-lane-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--panel-muted);
+}
+
+.fleet-lane-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.fleet-lane-header h4 {
+  margin: 4px 0;
+  font-size: 1rem;
+}
+
+.fleet-lane-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fleet-lane-strip {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.fleet-strip-empty {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.fleet-bar-chip {
+  display: grid;
+  gap: 4px;
+  min-width: 180px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  background: rgba(22, 104, 199, 0.08);
+}
+
+.fleet-bar-chip span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.fleet-bar-active {
+  border-color: rgba(21, 115, 71, 0.22);
+  background: rgba(21, 115, 71, 0.1);
+}
+
+.fleet-bar-stale {
+  border-color: rgba(180, 35, 24, 0.24);
+  background: rgba(180, 35, 24, 0.08);
+}
+
 .compact-panel-body {
   display: grid;
   gap: 12px;
@@ -1185,6 +1279,7 @@ pre {
   .content-grid,
   .plans-layout,
   .flow-layout,
+  .fleet-layout,
   .flow-support-grid {
     grid-template-columns: 1fr;
   }

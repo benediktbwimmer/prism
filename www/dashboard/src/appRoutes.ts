@@ -1,4 +1,4 @@
-export type PrismRouteKey = 'overview' | 'plans' | 'graph'
+export type PrismRouteKey = 'plans' | 'fleet'
 
 export type PrismRoute = {
   key: PrismRouteKey
@@ -10,25 +10,18 @@ export type PrismRoute = {
 
 export const PRISM_ROUTES: PrismRoute[] = [
   {
-    key: 'overview',
-    path: '/',
-    label: 'Overview',
-    title: 'PRISM Overview',
-    summary: 'Orient to the repo, the runtime, and the current work.',
-  },
-  {
     key: 'plans',
     path: '/plans',
-    label: 'Plans',
-    title: 'PRISM Plans',
-    summary: 'Track intent, blockers, and execution state.',
+    label: 'Strategic',
+    title: 'PRISM Operator Console',
+    summary: 'Plans, blockers, graph state, and human intervention.',
   },
   {
-    key: 'graph',
-    path: '/graph',
-    label: 'Graph',
-    title: 'PRISM Graph',
-    summary: 'Explore architecture, evidence, and overlays.',
+    key: 'fleet',
+    path: '/fleet',
+    label: 'Utilization',
+    title: 'PRISM Fleet Timeline',
+    summary: 'Runtime lanes, task leases, and stuck or idle agents.',
   },
 ]
 
@@ -36,5 +29,8 @@ export function resolveRoute(pathname: string): PrismRoute {
   const normalized = pathname.endsWith('/') && pathname !== '/'
     ? pathname.slice(0, -1)
     : pathname
+  if (normalized === '/') {
+    return PRISM_ROUTES[0]
+  }
   return PRISM_ROUTES.find((route) => route.path === normalized) ?? PRISM_ROUTES[0]
 }

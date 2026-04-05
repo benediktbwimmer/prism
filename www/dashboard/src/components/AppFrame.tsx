@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react'
 
 import type { PrismRoute } from '../appRoutes'
-import type { ThemeChoice } from '../types'
+import type { BridgeIdentityView, ThemeChoice } from '../types'
 
 type AppFrameProps = {
   children: ReactNode
   connection: 'connecting' | 'open' | 'closed'
   currentPath: string
+  operatorIdentity: BridgeIdentityView | null
   routes: PrismRoute[]
   themeChoice: ThemeChoice
   workspaceRoot: string | null
@@ -18,6 +19,7 @@ export function AppFrame({
   children,
   connection,
   currentPath,
+  operatorIdentity,
   routes,
   themeChoice,
   workspaceRoot,
@@ -28,8 +30,8 @@ export function AppFrame({
     <div className="app-shell">
       <header className="panel shell-header">
         <div className="brand-stack">
-          <p className="eyebrow">PRISM Control Plane</p>
-          <h1>See architecture, intent, and runtime together.</h1>
+          <p className="eyebrow">PRISM Operator Console</p>
+          <h1>Coordinate agents. Intervene when the graph needs a human.</h1>
           <p className="shell-copy">
             {workspaceRoot ?? 'Workspace not yet loaded'}
           </p>
@@ -53,6 +55,11 @@ export function AppFrame({
         </nav>
 
         <div className="shell-controls">
+          <div className="shell-identity">
+            <p className="eyebrow">Operator</p>
+            <strong>{operatorLabel(operatorIdentity)}</strong>
+            <span>{operatorIdentity?.nextAction ?? 'Mutations from this console use the active local profile.'}</span>
+          </div>
           <span className={`connection-pill connection-${connection}`}>{connection}</span>
           <label className="theme-picker">
             <span>Theme</span>
@@ -70,4 +77,13 @@ export function AppFrame({
       </div>
     </div>
   )
+}
+
+function operatorLabel(identity: BridgeIdentityView | null) {
+  if (!identity) {
+    return 'Loading local profile'
+  }
+  return identity.profile
+    ?? identity.principalId
+    ?? identity.status
 }
