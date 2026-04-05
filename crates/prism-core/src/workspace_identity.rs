@@ -9,6 +9,7 @@ use prism_ir::SessionId;
 use prism_store::CoordinationPersistContext;
 
 use crate::util::current_timestamp_millis;
+use crate::worktree_registration::{WorktreeMode, WorktreeRegistrationRecord};
 
 #[derive(Debug)]
 struct GitWorkspaceIdentity {
@@ -22,7 +23,13 @@ pub(crate) struct WorkspaceIdentity {
     pub(crate) repo_id: String,
     pub(crate) repo_locator_kind: &'static str,
     pub(crate) repo_locator_path: PathBuf,
+    pub(crate) storage_worktree_id: String,
     pub(crate) worktree_id: String,
+    pub(crate) registered_worktree_id: Option<String>,
+    pub(crate) agent_label: Option<String>,
+    pub(crate) worktree_mode: Option<WorktreeMode>,
+    pub(crate) registered_at: Option<u64>,
+    pub(crate) last_registered_at: Option<u64>,
     pub(crate) branch_ref: Option<String>,
     pub(crate) instance_id: String,
 }
@@ -41,12 +48,19 @@ pub(crate) fn workspace_identity_for_root(root: &Path) -> WorkspaceIdentity {
         "canonical_root"
     };
     let repo_source = repo_locator_path.to_string_lossy().to_string();
+    let storage_worktree_id = scoped_id("worktree", &canonical_root.to_string_lossy());
     WorkspaceIdentity {
         canonical_root: canonical_root.clone(),
         repo_id: scoped_id("repo", &repo_source),
         repo_locator_kind,
         repo_locator_path,
-        worktree_id: scoped_id("worktree", &canonical_root.to_string_lossy()),
+        storage_worktree_id: storage_worktree_id.clone(),
+        worktree_id: storage_worktree_id,
+        registered_worktree_id: None,
+        agent_label: None,
+        worktree_mode: None,
+        registered_at: None,
+        last_registered_at: None,
         branch_ref: git_identity.head_ref,
         instance_id: instance_id_for_root(&canonical_root),
     }
@@ -68,6 +82,31 @@ pub(crate) fn coordination_persist_context_for_root(
         branch_ref: identity.branch_ref,
         session_id: session_id.map(|session_id| session_id.0.to_string()),
         instance_id: Some(identity.instance_id),
+    }
+}
+
+impl WorkspaceIdentity {
+    pub(crate) fn is_worktree_registered(&self) -> bool {
+        self.registered_worktree_id.is_some()
+    }
+
+    pub(crate) fn worktree_registration(&self) -> Option<WorktreeRegistrationRecord> {
+        Some(WorktreeRegistrationRecord {
+            worktree_id: self.registered_worktree_id.clone()?,
+            agent_label: self.agent_label.clone()?,
+            mode: self.worktree_mode?,
+            registered_at: self.registered_at?,
+            last_registered_at: self.last_registered_at?,
+        })
+    }
+
+    pub(crate) fn apply_worktree_registration(&mut self, registration: WorktreeRegistrationRecord) {
+        self.worktree_id = registration.worktree_id.clone();
+        self.registered_worktree_id = Some(registration.worktree_id);
+        self.agent_label = Some(registration.agent_label);
+        self.worktree_mode = Some(registration.mode);
+        self.registered_at = Some(registration.registered_at);
+        self.last_registered_at = Some(registration.last_registered_at);
     }
 }
 

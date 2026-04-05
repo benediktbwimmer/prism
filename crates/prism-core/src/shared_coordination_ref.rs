@@ -1401,7 +1401,7 @@ fn local_runtime_descriptor(
     publish: Option<&TrackedSnapshotPublishContext>,
     existing: Option<&[RuntimeDescriptor]>,
 ) -> Result<RuntimeDescriptor> {
-    let identity = workspace_identity_for_root(root);
+    let identity = PrismPaths::for_workspace_root(root)?.identity().clone();
     let now = current_timestamp();
     let publish = publish
         .cloned()
