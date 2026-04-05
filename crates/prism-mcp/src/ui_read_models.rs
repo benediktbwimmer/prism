@@ -1697,6 +1697,7 @@ mod tests {
                 stale_nodes: 0,
                 claim_conflicted_nodes: 0,
             },
+            activity: None,
         }
     }
 }
