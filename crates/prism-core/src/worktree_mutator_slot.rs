@@ -36,6 +36,8 @@ pub struct WorktreeMutatorSlotRecord {
     pub credential_id: String,
     pub acquired_at: u64,
     pub last_heartbeat_at: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub takeover_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -130,6 +132,7 @@ impl WorktreeMutatorSlotRecord {
             credential_id: format!("worktree-executor:{principal_id}"),
             acquired_at: now,
             last_heartbeat_at: now,
+            takeover_reason: None,
         }
     }
 
@@ -153,6 +156,7 @@ impl WorktreeMutatorSlotRecord {
             credential_id: authenticated.credential.credential_id.0.to_string(),
             acquired_at: now,
             last_heartbeat_at: now,
+            takeover_reason: None,
         }
     }
 
@@ -302,6 +306,7 @@ impl WorkspaceSession {
         &self,
         authenticated: &AuthenticatedPrincipal,
         session_id: &SessionId,
+        reason: Option<&str>,
     ) -> std::result::Result<WorktreeMutatorSlotRecord, WorktreeMutatorSlotError> {
         if authenticated.principal.kind != PrincipalKind::Human {
             return Err(WorktreeMutatorSlotError::TakeoverRequiresHuman {
@@ -317,6 +322,11 @@ impl WorkspaceSession {
             session_id,
             now,
         );
+        let mut next = next;
+        next.takeover_reason = reason
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned);
         let _lock = WorktreeMutatorSlotFileLock::acquire(&paths)?;
         save_worktree_mutator_slot(&paths, &next)?;
         self.update_cached_worktree_mutator_slot(Some(next.clone()));

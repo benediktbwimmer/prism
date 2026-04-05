@@ -858,7 +858,11 @@ fn worktree_mutator_slot_takeover_requires_human_and_replaces_live_owner() {
         .unwrap();
 
     let service_takeover = session
-        .take_over_worktree_mutator_slot(&service_auth, &SessionId::new("session:service-takeover"))
+        .take_over_worktree_mutator_slot(
+            &service_auth,
+            &SessionId::new("session:service-takeover"),
+            Some("service cannot take over"),
+        )
         .expect_err("service principal should not authorize takeover");
     assert!(matches!(
         service_takeover,
@@ -866,9 +870,17 @@ fn worktree_mutator_slot_takeover_requires_human_and_replaces_live_owner() {
     ));
 
     let taken = session
-        .take_over_worktree_mutator_slot(&human, &SessionId::new("session:human-takeover"))
+        .take_over_worktree_mutator_slot(
+            &human,
+            &SessionId::new("session:human-takeover"),
+            Some("Operator approved takeover"),
+        )
         .expect("human takeover should replace the live slot");
     assert_eq!(taken.session_id, "session:human-takeover");
+    assert_eq!(
+        taken.takeover_reason.as_deref(),
+        Some("Operator approved takeover")
+    );
     assert_eq!(taken.principal_id, human.principal.principal_id.0);
     assert_eq!(taken.principal_kind, PrincipalKind::Human);
 }

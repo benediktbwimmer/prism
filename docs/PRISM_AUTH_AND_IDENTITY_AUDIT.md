@@ -1,10 +1,12 @@
 # PRISM Auth And Identity Audit
 
-Status: implementation audit
+Status: historical baseline audit captured before the auth-and-identity cutover
 Audience: PRISM auth, coordination, MCP, runtime, storage, and operator UX maintainers
 Scope: current codebase audit against the canonical target model in [PRISM_AUTH_AND_IDENTITY_MODEL.md](PRISM_AUTH_AND_IDENTITY_MODEL.md)
 
-This document maps the current implementation to the target model and identifies the concrete gaps that must be closed for the end-to-end auth and identity redesign.
+This document maps the pre-cutover implementation to the target model and identifies the concrete gaps that had to be closed for the end-to-end auth and identity redesign.
+
+It is retained as baseline context. The current target and operator-facing contract live in [PRISM_AUTH_AND_IDENTITY_MODEL.md](PRISM_AUTH_AND_IDENTITY_MODEL.md).
 
 ## 1. Executive Summary
 

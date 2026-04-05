@@ -472,7 +472,7 @@ Takeover should support both:
 
 Representative command:
 
-- `prism worktree takeover --worktree <id> --reason <text>`
+- `prism worktree takeover --reason <text>`
 
 The audit trail should record:
 
@@ -581,9 +581,9 @@ Representative commands should include:
 - `prism auth login`
 - `prism auth whoami`
 - `prism worktree list`
-- `prism worktree register <worktree> --label <label> --mode human|agent`
-- `prism worktree relabel <worktree> <new-label>`
-- `prism worktree takeover <worktree>`
+- `prism worktree register --label <label> --mode human|agent`
+- `prism worktree relabel <new-label>`
+- `prism worktree takeover --reason <text>`
 
 Bridge UX should be:
 

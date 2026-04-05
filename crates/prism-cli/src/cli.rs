@@ -159,7 +159,10 @@ pub enum WorktreeCommand {
     Relabel {
         label: Option<String>,
     },
-    Takeover,
+    Takeover {
+        #[arg(long)]
+        reason: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -790,12 +793,18 @@ mod tests {
 
     #[test]
     fn worktree_takeover_parses() {
-        let cli = Cli::parse_from(["prism", "worktree", "takeover"]);
+        let cli = Cli::parse_from([
+            "prism",
+            "worktree",
+            "takeover",
+            "--reason",
+            "stuck bridge",
+        ]);
         assert!(cli.root.is_none());
         match cli.command {
             Command::Worktree {
-                command: WorktreeCommand::Takeover,
-            } => {}
+                command: WorktreeCommand::Takeover { reason },
+            } => assert_eq!(reason.as_deref(), Some("stuck bridge")),
             _ => panic!("unexpected command"),
         }
     }

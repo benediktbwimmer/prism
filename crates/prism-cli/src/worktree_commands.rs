@@ -23,7 +23,7 @@ pub(crate) fn handle_worktree_command(root: &Path, command: WorktreeCommand) -> 
         WorktreeCommand::List => handle_worktree_list(root),
         WorktreeCommand::Register { label, mode } => handle_worktree_register(root, label, mode),
         WorktreeCommand::Relabel { label } => handle_worktree_relabel(root, label),
-        WorktreeCommand::Takeover => handle_worktree_takeover(root),
+        WorktreeCommand::Takeover { reason } => handle_worktree_takeover(root, reason),
     }
 }
 
@@ -84,12 +84,13 @@ fn handle_worktree_relabel(root: &Path, label: Option<String>) -> Result<()> {
     Ok(())
 }
 
-fn handle_worktree_takeover(root: &Path) -> Result<()> {
+fn handle_worktree_takeover(root: &Path, reason: Option<String>) -> Result<()> {
     let mut auth = require_active_human_session(root)?;
     let paths = PrismPaths::for_workspace_root(root)?;
     if paths.worktree_registration()?.is_none() {
         bail!("current worktree is not registered; run `prism worktree register` first");
     }
+    let reason = resolve_worktree_label(reason, "Takeover reason")?;
     let session = hydrate_workspace_session(root)?;
     let slot = session.take_over_worktree_mutator_slot(
         &auth.authenticated,
@@ -97,12 +98,16 @@ fn handle_worktree_takeover(root: &Path) -> Result<()> {
             "session:worktree-takeover:{}",
             current_unix_timestamp()
         )),
+        Some(reason.as_str()),
     )?;
     auth.persist()?;
     println!("took over mutator slot");
     println!("worktree_id = {}", slot.worktree_id);
     println!("session_id = {}", slot.session_id);
     println!("principal_id = {}", slot.principal_id);
+    if let Some(reason) = slot.takeover_reason.as_deref() {
+        println!("takeover_reason = {}", reason);
+    }
     Ok(())
 }
 
