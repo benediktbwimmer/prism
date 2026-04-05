@@ -4,10 +4,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{anyhow, bail, Result};
 use prism_core::{
     authenticate_principal_credential_in_registry, bootstrap_owner_principal_in_registry,
-    ensure_local_principal_registry_snapshot, mint_principal_credential_in_registry,
-    recover_owner_principal_in_registry, AttestedHumanPrincipalInput, CredentialProfile,
-    CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata, CredentialsFile,
-    HumanSessionFile, MintPrincipalRequest, PrismPaths,
+    ensure_local_principal_registry_snapshot,
+    ensure_local_principal_registry_snapshot_with_unlocked_profile,
+    mint_principal_credential_in_registry, recover_owner_principal_in_registry,
+    AttestedHumanPrincipalInput, CredentialProfile, CredentialProfileCredentialMetadata,
+    CredentialProfilePrincipalMetadata, CredentialsFile, HumanSessionFile, MintPrincipalRequest,
+    PrismPaths,
 };
 use prism_ir::{
     CredentialId, HumanAttestationAssurance, HumanAttestationOperation, HumanAttestationRecord,
@@ -115,7 +117,16 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
                 .clone();
             let passphrase = prompt_existing_passphrase()?;
             let principal_token = selected.decrypt_principal_token(&passphrase)?;
-            let mut snapshot = load_principal_registry_snapshot(&mut store)?;
+            let mut snapshot = store.load_principal_registry_snapshot()?.unwrap_or_default();
+            if snapshot.principals.is_empty() || snapshot.credentials.is_empty() {
+                snapshot = ensure_local_principal_registry_snapshot_with_unlocked_profile(
+                    root,
+                    &mut store,
+                    &selected,
+                    &principal_token,
+                )?
+                .ok_or_else(|| anyhow!("principal registry is not initialized"))?;
+            }
             let authenticated = authenticate_principal_credential_in_registry(
                 &mut snapshot,
                 &CredentialId::new(selected.credential_id.clone()),

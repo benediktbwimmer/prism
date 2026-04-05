@@ -40,18 +40,61 @@ pub fn ensure_local_principal_registry_snapshot<S: MaterializationStore>(
     Ok(Some(snapshot))
 }
 
+pub fn ensure_local_principal_registry_snapshot_with_unlocked_profile<S: MaterializationStore>(
+    root: &Path,
+    store: &mut S,
+    unlocked_profile: &CredentialProfile,
+    principal_token: &str,
+) -> Result<Option<PrincipalRegistrySnapshot>> {
+    if let Some(snapshot) = store.load_principal_registry_snapshot()? {
+        if !snapshot.principals.is_empty() || !snapshot.credentials.is_empty() {
+            return Ok(Some(snapshot));
+        }
+    }
+
+    let paths = PrismPaths::for_workspace_root(root)?;
+    let credentials = CredentialsFile::load(&paths.credentials_path()?)?;
+    let mut sessions = HumanSessionFile::load(&paths.human_session_path()?)?;
+    let active_human_session = sessions.active_session(current_timestamp(), false);
+    let Some(snapshot) = rebuild_registry_snapshot_from_local_credentials_with_unlocked_profile(
+        &credentials,
+        active_human_session.as_ref(),
+        Some((unlocked_profile, principal_token)),
+    ) else {
+        return Ok(None);
+    };
+    store.save_principal_registry_snapshot(&snapshot)?;
+    Ok(Some(snapshot))
+}
+
 pub(crate) fn rebuild_registry_snapshot_from_local_credentials(
     credentials: &CredentialsFile,
     active_human_session: Option<&HumanSessionRecord>,
+) -> Option<PrincipalRegistrySnapshot> {
+    rebuild_registry_snapshot_from_local_credentials_with_unlocked_profile(
+        credentials,
+        active_human_session,
+        None,
+    )
+}
+
+fn rebuild_registry_snapshot_from_local_credentials_with_unlocked_profile(
+    credentials: &CredentialsFile,
+    active_human_session: Option<&HumanSessionRecord>,
+    unlocked_profile: Option<(&CredentialProfile, &str)>,
 ) -> Option<PrincipalRegistrySnapshot> {
     let now = current_timestamp();
     let mut snapshot = PrincipalRegistrySnapshot::default();
 
     for profile in &credentials.profiles {
-        let Some(principal) = build_principal_profile(profile, active_human_session, now) else {
+        let Some(principal) =
+            build_principal_profile(profile, active_human_session, unlocked_profile, now)
+        else {
             continue;
         };
-        let Some(credential) = build_credential_record(profile, active_human_session, now) else {
+        let Some(credential) =
+            build_credential_record(profile, active_human_session, unlocked_profile, now)
+        else {
             continue;
         };
         if !snapshot
@@ -80,13 +123,16 @@ pub(crate) fn rebuild_registry_snapshot_from_local_credentials(
 fn build_principal_profile(
     profile: &CredentialProfile,
     active_human_session: Option<&HumanSessionRecord>,
+    unlocked_profile: Option<(&CredentialProfile, &str)>,
     now: u64,
 ) -> Option<PrincipalProfile> {
     if let Some(metadata) = profile.principal_metadata.as_ref() {
         return Some(metadata_to_principal_profile(profile, metadata));
     }
 
-    if matches_active_human_session(profile, active_human_session) {
+    if matches_active_human_session(profile, active_human_session)
+        || matches_unlocked_profile(profile, unlocked_profile)
+    {
         return Some(PrincipalProfile {
             authority_id: PrincipalAuthorityId::new(profile.authority_id.clone()),
             principal_id: PrincipalId::new(profile.principal_id.clone()),
@@ -102,23 +148,26 @@ fn build_principal_profile(
         });
     }
 
-    build_credential_record(profile, active_human_session, now).map(|_| PrincipalProfile {
-        authority_id: PrincipalAuthorityId::new(profile.authority_id.clone()),
-        principal_id: PrincipalId::new(profile.principal_id.clone()),
-        kind: PrincipalKind::Agent,
-        name: profile.profile.clone(),
-        role: None,
-        status: PrincipalStatus::Active,
-        created_at: now,
-        updated_at: now,
-        parent_principal_id: None,
-        profile: Value::Null,
+    build_credential_record(profile, active_human_session, unlocked_profile, now).map(|_| {
+        PrincipalProfile {
+            authority_id: PrincipalAuthorityId::new(profile.authority_id.clone()),
+            principal_id: PrincipalId::new(profile.principal_id.clone()),
+            kind: PrincipalKind::Agent,
+            name: profile.profile.clone(),
+            role: None,
+            status: PrincipalStatus::Active,
+            created_at: now,
+            updated_at: now,
+            parent_principal_id: None,
+            profile: Value::Null,
+        }
     })
 }
 
 fn build_credential_record(
     profile: &CredentialProfile,
     active_human_session: Option<&HumanSessionRecord>,
+    unlocked_profile: Option<(&CredentialProfile, &str)>,
     now: u64,
 ) -> Option<CredentialRecord> {
     if let Some(metadata) = profile.credential_metadata.as_ref() {
@@ -132,6 +181,11 @@ fn build_credential_record(
             active_human_session
                 .filter(|session| matches_active_human_session(profile, Some(session)))
                 .map(|session| credential_token_verifier(&session.principal_token))
+        })
+        .or_else(|| {
+            unlocked_profile
+                .filter(|(unlocked, _)| same_profile_identity(profile, unlocked))
+                .map(|(_, principal_token)| credential_token_verifier(principal_token))
         })?;
 
     Some(CredentialRecord {
@@ -157,6 +211,19 @@ fn matches_active_human_session(
     session.profile == profile.profile
         && session.principal_id == profile.principal_id
         && session.credential_id == profile.credential_id
+}
+
+fn matches_unlocked_profile(
+    profile: &CredentialProfile,
+    unlocked_profile: Option<(&CredentialProfile, &str)>,
+) -> bool {
+    unlocked_profile.is_some_and(|(unlocked, _)| same_profile_identity(profile, unlocked))
+}
+
+fn same_profile_identity(left: &CredentialProfile, right: &CredentialProfile) -> bool {
+    left.profile == right.profile
+        && left.principal_id == right.principal_id
+        && left.credential_id == right.credential_id
 }
 
 fn metadata_to_principal_profile(

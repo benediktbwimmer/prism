@@ -70,7 +70,10 @@ pub use local_credentials::{
     CredentialProfile, CredentialProfileCredentialMetadata, CredentialProfilePrincipalMetadata,
     CredentialsFile, EncryptedCredentialSecret, HumanSessionFile, HumanSessionRecord,
 };
-pub use local_principal_registry::ensure_local_principal_registry_snapshot;
+pub use local_principal_registry::{
+    ensure_local_principal_registry_snapshot,
+    ensure_local_principal_registry_snapshot_with_unlocked_profile,
+};
 pub use materialization::{
     WorkspaceBoundaryRegion, WorkspaceMaterializationCoverage, WorkspaceMaterializationSummary,
 };

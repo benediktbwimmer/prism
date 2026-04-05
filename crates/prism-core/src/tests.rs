@@ -55,6 +55,7 @@ use super::{
     SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
     ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions, WorktreeMode,
     WorktreeMutatorSlotError, WORKTREE_MUTATOR_SLOT_STALE_AFTER_MS,
+    ensure_local_principal_registry_snapshot_with_unlocked_profile,
 };
 use crate::concept_events::append_repo_concept_event;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
@@ -4746,6 +4747,87 @@ fn workspace_session_rehydrates_missing_principal_registry_from_local_credential
         issued.principal.principal_id
     );
     assert!(reloaded.load_principal_registry().unwrap().is_some());
+
+    let _ = fs::remove_dir_all(root);
+    let _ = fs::remove_dir_all(prism_home);
+}
+
+#[test]
+fn principal_registry_rehydrates_from_unlocked_encrypted_human_profile() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+    let prism_home = temp_workspace();
+    let _env = PrismHomeEnvGuard::set(&prism_home);
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let issued = session
+        .bootstrap_owner_principal_with_attestation(AttestedHumanPrincipalInput {
+            authority_id: Some(PrincipalAuthorityId::new("github")),
+            name: "Benedikt Wimmer".to_string(),
+            role: Some("repo_owner".to_string()),
+            attestation: HumanAttestationRecord {
+                issuer: "github-device-flow".to_string(),
+                subject: "bene".to_string(),
+                assurance: HumanAttestationAssurance::High,
+                operation: HumanAttestationOperation::Bootstrap,
+                verified_at: 123,
+            },
+        })
+        .unwrap();
+
+    let paths = PrismPaths::for_workspace_root(&root).unwrap();
+    let passphrase = "test-passphrase";
+    let mut credentials = CredentialsFile::default();
+    let mut profile = CredentialProfile {
+        profile: issued.principal.principal_id.0.to_string(),
+        authority_id: issued.principal.authority_id.0.to_string(),
+        principal_id: issued.principal.principal_id.0.to_string(),
+        credential_id: issued.credential.credential_id.0.to_string(),
+        principal_token: String::new(),
+        encrypted_secret: None,
+        principal_metadata: None,
+        credential_metadata: None,
+    };
+    profile
+        .encrypt_principal_token(&issued.principal_token, passphrase)
+        .unwrap();
+    credentials.upsert_profile(profile.clone(), true);
+    credentials.save(&paths.credentials_path().unwrap()).unwrap();
+    HumanSessionFile::default()
+        .save(&paths.human_session_path().unwrap())
+        .unwrap();
+
+    let mut shared_runtime = SqliteStore::open(paths.shared_runtime_db_path().unwrap()).unwrap();
+    shared_runtime
+        .save_principal_registry_snapshot(&PrincipalRegistrySnapshot::default())
+        .unwrap();
+
+    let rebuilt = ensure_local_principal_registry_snapshot_with_unlocked_profile(
+        &root,
+        &mut shared_runtime,
+        &profile,
+        &issued.principal_token,
+    )
+    .unwrap()
+    .expect("registry should be rebuilt from unlocked profile");
+    assert_eq!(rebuilt.principals.len(), 1);
+    assert_eq!(rebuilt.credentials.len(), 1);
+    assert_eq!(rebuilt.principals[0].kind, PrincipalKind::Human);
+    assert_eq!(
+        rebuilt.principals[0].principal_id,
+        issued.principal.principal_id
+    );
+    assert_eq!(
+        rebuilt.credentials[0].credential_id,
+        issued.credential.credential_id
+    );
 
     let _ = fs::remove_dir_all(root);
     let _ = fs::remove_dir_all(prism_home);
