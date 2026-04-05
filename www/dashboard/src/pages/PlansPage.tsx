@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { PlansPortfolio } from '../components/plans/PlansPortfolio'
 import { PlanWorkspace } from '../components/plans/PlanWorkspace'
+import { TaskDetailDrawer } from '../components/tasks/TaskDetailDrawer'
 import { usePlansData } from '../hooks/usePlansData'
 
 type PlansPageProps = {
@@ -152,6 +153,11 @@ export function PlansPage({ search, onNavigate }: PlansPageProps) {
             task: nodeId.startsWith('coord-task:') ? nodeId : null,
           })
         }}
+      />
+
+      <TaskDetailDrawer
+        taskId={requestedTaskId}
+        onClose={() => navigateWithPatch({ task: null })}
       />
     </div>
   )

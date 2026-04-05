@@ -241,13 +241,34 @@ export type DashboardTaskSnapshotView = {
 export type CoordinationTaskView = {
   id: string
   planId: string
+  kind?: string
   title: string
+  summary?: string | null
   status: string
+  publishedTaskStatus?: string | null
   assignee?: string | null
   pendingHandoffTo?: string | null
   anchors?: AnchorRef[]
+  bindings?: PlanBindingView
   dependsOn: string[]
+  coordinationDependsOn?: string[]
+  integratedDependsOn?: string[]
+  lifecycle?: {
+    completed: boolean
+    coordinationPublished: boolean
+    integratedToTarget: boolean
+    publishedToBranch: boolean
+  }
+  validationRefs?: ValidationRefView[]
+  isAbstract?: boolean
   baseRevision?: WorkspaceRevisionView
+  priority?: number | null
+  tags?: string[]
+  gitExecution?: {
+    status?: string | null
+    sourceRef?: string | null
+    publishRef?: string | null
+  }
 }
 
 export type DashboardCoordinationSummaryView = {
@@ -323,6 +344,62 @@ export type PrismUiFleetView = {
   windowEnd: number
   lanes: PrismUiFleetLaneView[]
   bars: PrismUiFleetBarView[]
+}
+
+export type PrismUiTaskEditableMetadataView = {
+  title: string
+  description?: string | null
+  priority?: number | null
+  assignee?: string | null
+  status: string
+  validationRefs: ValidationRefView[]
+  validationGuidance: string[]
+  statusOptions: string[]
+}
+
+export type PrismUiTaskClaimHistoryEntryView = {
+  id: string
+  holder: string
+  agent?: string | null
+  status: string
+  capability: string
+  mode: string
+  startedAt: number
+  refreshedAt?: number | null
+  staleAt?: number | null
+  expiresAt: number
+  durationSeconds?: number | null
+  branchRef?: string | null
+  worktreeId?: string | null
+}
+
+export type PrismUiTaskBlockerEntryView = {
+  blocker: {
+    kind: string
+    summary: string
+    relatedTaskId?: string | null
+    relatedArtifactId?: string | null
+    riskScore?: number | null
+    validationChecks: string[]
+  }
+  relatedTask?: CoordinationTaskView | null
+}
+
+export type PrismUiTaskCommitView = {
+  kind: string
+  commit: string
+  reference?: string | null
+  label: string
+}
+
+export type PrismUiTaskDetailView = {
+  task: CoordinationTaskView
+  editable: PrismUiTaskEditableMetadataView
+  claimHistory: PrismUiTaskClaimHistoryEntryView[]
+  blockers: PrismUiTaskBlockerEntryView[]
+  outcomes: OutcomeSummaryView[]
+  recentCommits: PrismUiTaskCommitView[]
+  artifacts: ArtifactView[]
 }
 
 export type DashboardOperationDetailView =

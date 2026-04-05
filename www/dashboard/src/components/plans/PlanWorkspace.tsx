@@ -67,7 +67,7 @@ export function PlanWorkspace({
           <span className="connection-pill">{plan.summary.actionableNodes} ready</span>
           <span className="connection-pill">{plan.summary.inProgressNodes} active</span>
           <span className="connection-pill">{plan.summary.executionBlockedNodes} blocked</span>
-          {selectedTaskId ? <span className="connection-pill">Task target armed</span> : null}
+          {selectedTaskId ? <span className="connection-pill">Drawer open</span> : null}
         </div>
       </section>
 
@@ -200,7 +200,7 @@ function PlanSummaryInspector({ plan }: { plan: PrismPlanDetailView }) {
         <StatPill label="Stale" value={plan.summary.staleNodes} />
       </div>
       <InspectorSection title="How to use this view">
-        <p>Select a node to target the future task drawer, inspect blockers, and decide whether the current plan ordering still makes sense.</p>
+        <p>Select a concrete task node to open the drawer, inspect blockers, and decide whether the current plan ordering still makes sense.</p>
       </InspectorSection>
       <InspectorSection title="Current pressure">
         <ul className="inspector-list">
