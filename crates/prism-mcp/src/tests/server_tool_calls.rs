@@ -8,10 +8,10 @@ use crate::tests_support::{
     server_with_node, temp_workspace, workspace_session_with_owner_credential,
 };
 use prism_coordination::TaskCreateInput;
-use prism_core::{index_workspace_session, MintPrincipalRequest};
+use prism_core::{index_workspace_session, MintPrincipalRequest, PrismPaths, WorktreeMode};
 use prism_ir::{
     CoordinationTaskStatus, CredentialCapability, CredentialId, EventActor, EventId, EventMeta,
-    PlanStatus, PrincipalActor, PrincipalId, PrincipalKind, SessionId,
+    PlanStatus, PrincipalActor, PrincipalAuthorityId, PrincipalId, PrincipalKind, SessionId,
 };
 
 fn resource_text(response: serde_json::Value) -> String {
@@ -949,6 +949,135 @@ async fn mcp_server_auto_resumes_stale_same_principal_ready_task_on_update() {
         resumed["result"]["state"]["summary"],
         Value::from("resume should unblock ready follow-up updates")
     );
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_auto_resumes_stale_same_worktree_executor_task_on_update() {
+    let root = temp_workspace();
+    let (session, _credential) = workspace_session_with_owner_credential(&root);
+    let registration = PrismPaths::for_workspace_root(&root)
+        .expect("paths should resolve")
+        .register_worktree("agent-a", WorktreeMode::Agent)
+        .expect("agent worktree registration should persist");
+    let slot = session
+        .acquire_or_refresh_agent_worktree_mutator_slot(&SessionId::new("session:bridge-current"))
+        .expect("agent worktree slot should be acquired");
+
+    let prior_session = SessionId::new("session:bridge-stale-prior");
+    let stale_ts = crate::current_timestamp().saturating_sub(8_000);
+    let actor = EventActor::Principal(PrincipalActor {
+        authority_id: PrincipalAuthorityId::new(slot.authority_id.clone()),
+        principal_id: PrincipalId::new(slot.principal_id.clone()),
+        kind: Some(slot.principal_kind),
+        name: Some(slot.principal_name.clone()),
+    });
+    let execution_context = Some(session.event_execution_context(Some(&prior_session), None, None));
+    let (_plan_id, task_id) = session
+        .mutate_coordination_with_session_wait_observed(
+            Some(&prior_session),
+            |prism| {
+                let plan_meta = EventMeta {
+                    id: EventId::new("coordination:bridge-worktree-resume:plan"),
+                    ts: stale_ts,
+                    actor: actor.clone(),
+                    correlation: None,
+                    causation: None,
+                    execution_context: execution_context.clone(),
+                };
+                let plan_id = prism.create_native_plan(
+                    plan_meta,
+                    "Resume stale same-worktree task".to_string(),
+                    "Resume stale same-worktree task".to_string(),
+                    Some(PlanStatus::Active),
+                    None,
+                )?;
+                let task_meta = EventMeta {
+                    id: EventId::new("coordination:bridge-worktree-resume:task"),
+                    ts: stale_ts,
+                    actor: actor.clone(),
+                    correlation: None,
+                    causation: None,
+                    execution_context: execution_context.clone(),
+                };
+                let task = prism.create_native_task(
+                    task_meta,
+                    TaskCreateInput {
+                        plan_id: plan_id.clone(),
+                        title: "Resume me through worktree continuity".to_string(),
+                        status: Some(CoordinationTaskStatus::InProgress),
+                        assignee: None,
+                        session: Some(prior_session.clone()),
+                        worktree_id: Some(registration.worktree_id.clone()),
+                        branch_ref: None,
+                        anchors: Vec::new(),
+                        depends_on: Vec::new(),
+                        coordination_depends_on: Vec::new(),
+                        integrated_depends_on: Vec::new(),
+                        acceptance: Vec::new(),
+                        base_revision: prism.workspace_revision(),
+                    },
+                )?;
+                Ok((plan_id, task.id))
+            },
+            |_operation, _duration, _args, _success, _error| {},
+        )
+        .expect("stale seeded coordination mutation should succeed")
+        .expect("coordination mutation should acquire the refresh lock");
+
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_mutate",
+            json!({
+                "action": "coordination",
+                "bridgeExecution": {
+                    "worktreeId": registration.worktree_id,
+                    "agentLabel": "agent-a"
+                },
+                "input": {
+                    "kind": "update",
+                    "payload": {
+                        "id": task_id.0,
+                        "summary": "bridge continuity resumed the stale task"
+                    }
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let resumed = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(resumed["result"]["state"]["id"], Value::from(task_id.0.to_string()));
+    assert_eq!(
+        resumed["result"]["state"]["summary"],
+        Value::from("bridge continuity resumed the stale task")
+    );
+
+    let reloaded = index_workspace_session(&root).expect("workspace should reload");
+    let task = reloaded
+        .prism()
+        .coordination_task(&task_id)
+        .expect("task should remain queryable");
+    let holder = task.lease_holder.expect("task should carry a lease holder");
+    let principal = holder.principal.expect("lease holder principal should be recorded");
+    assert_eq!(principal.authority_id.0, "worktree_executor");
+    assert_eq!(principal.principal_id.0, registration.worktree_id);
 
     running.cancel().await.unwrap();
 }

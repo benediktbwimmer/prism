@@ -1989,7 +1989,15 @@ impl WorkspaceSession {
         request_id: Option<String>,
         credential_id: Option<&CredentialId>,
     ) -> EventExecutionContext {
-        let context = coordination_persist_context_for_root(&self.root, session_id);
+        let context = crate::PrismPaths::for_workspace_root(&self.root)
+            .map(|paths| prism_store::CoordinationPersistContext {
+                repo_id: paths.identity().repo_id.clone(),
+                worktree_id: paths.identity().worktree_id.clone(),
+                branch_ref: paths.identity().branch_ref.clone(),
+                session_id: session_id.map(|session_id| session_id.0.to_string()),
+                instance_id: Some(paths.identity().instance_id.clone()),
+            })
+            .unwrap_or_else(|_| coordination_persist_context_for_root(&self.root, session_id));
         EventExecutionContext {
             repo_id: Some(context.repo_id),
             worktree_id: Some(context.worktree_id),

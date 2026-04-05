@@ -17,9 +17,7 @@ use crate::tests_support::{
     test_session, workspace_session_with_owner_credential,
 };
 use crate::{PrismMcpCli, PrismMcpMode};
-use prism_core::{
-    PrismPaths, SharedRuntimeBackend, WorktreeMode,
-};
+use prism_core::{index_workspace_session, PrismPaths, SharedRuntimeBackend, WorktreeMode};
 use prism_ir::{Language, Node, NodeId, NodeKind, Span};
 use prism_store::Graph;
 
@@ -686,7 +684,8 @@ async fn stdio_proxy_can_attach_registered_agent_worktree_and_mutate_without_exp
                 (
                     "input".to_string(),
                     json!({
-                        "title": "Bridge auth smoke test"
+                        "title": "Bridge auth smoke test",
+                        "kind": "coordination"
                     }),
                 ),
             ]),
@@ -697,6 +696,10 @@ async fn stdio_proxy_can_attach_registered_agent_worktree_and_mutate_without_exp
         .structured_content
         .expect("declare_work result should be structured");
     assert_eq!(declare_work_payload["action"], "declare_work");
+    let declared_work_id = declare_work_payload["result"]["workId"]
+        .as_str()
+        .expect("declare_work should return a work id")
+        .to_string();
 
     let mutation = client
         .call_tool(
@@ -711,6 +714,7 @@ async fn stdio_proxy_can_attach_registered_agent_worktree_and_mutate_without_exp
                         "category": "coordination",
                         "verdict": "helpful",
                         "correctedManually": false,
+                        "taskId": declared_work_id.clone(),
                     }),
                 ),
             ])),
@@ -754,6 +758,35 @@ async fn stdio_proxy_can_attach_registered_agent_worktree_and_mutate_without_exp
     assert!(session_payload["bridgeIdentity"]["profile"].is_null());
     assert!(session_payload["bridgeIdentity"]["principalId"].is_null());
     assert!(session_payload["bridgeIdentity"]["credentialId"].is_null());
+
+    let reloaded = index_workspace_session(&root).expect("workspace should reload");
+    let entry = reloaded
+        .validation_feedback(Some(5))
+        .expect("validation feedback should load")
+        .into_iter()
+        .find(|entry| entry.context == "Bridge auth smoke test.")
+        .expect("bridge feedback should be recorded");
+    let principal = match entry.actor.expect("actor should be recorded") {
+        prism_ir::EventActor::Principal(principal) => principal,
+        actor => panic!("expected principal actor, got {actor:?}"),
+    };
+    assert_eq!(principal.authority_id.0, "worktree_executor");
+    assert_eq!(principal.principal_id.0, registration.worktree_id);
+    assert_eq!(principal.name.as_deref(), Some("agent-a"));
+    let execution_context = entry
+        .execution_context
+        .expect("execution context should be recorded");
+    assert_eq!(execution_context.credential_id, None);
+    assert_eq!(
+        execution_context.worktree_id.as_deref(),
+        Some(registration.worktree_id.as_str())
+    );
+    let work_context = execution_context
+        .work_context
+        .expect("work context should be recorded");
+    assert_eq!(work_context.work_id, declared_work_id);
+    assert_eq!(work_context.kind, prism_ir::WorkContextKind::Coordination);
+    assert_eq!(work_context.title, "Bridge auth smoke test");
 
     client.cancel().await.unwrap();
     proxy_task.abort();

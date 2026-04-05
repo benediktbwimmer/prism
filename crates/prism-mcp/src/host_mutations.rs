@@ -1157,12 +1157,15 @@ fn mutation_provenance(
 ) -> MutationProvenance {
     let workspace = host.workspace_session_ref();
     let prism = host.current_prism();
-    authenticated.map_or_else(
-        || MutationProvenance::fallback(workspace, session, prism.clone()),
-        |authenticated| {
-            MutationProvenance::authenticated(workspace, session, prism.clone(), authenticated)
-        },
-    )
+    if let Some(authenticated) = authenticated {
+        return MutationProvenance::authenticated(workspace, session, prism, authenticated);
+    }
+    if let Some(workspace) = workspace {
+        if let Some(slot) = workspace.current_worktree_mutator_slot() {
+            return MutationProvenance::worktree_executor(workspace, session, prism, &slot);
+        }
+    }
+    MutationProvenance::fallback(workspace, session, prism)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
