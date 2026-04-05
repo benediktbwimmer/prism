@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import type { ThemeChoice } from '../types'
 
-const THEME_KEY = 'prism-dashboard-theme'
+const THEME_KEY = 'prism-operator-console-theme'
 
 export function useThemeChoice() {
   const [themeChoice, setThemeChoice] = useState<ThemeChoice>(() => {

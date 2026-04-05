@@ -238,6 +238,30 @@ impl PrismMcpServer {
         Self::tool_router()
     }
 
+    pub(crate) fn execute_prism_mutation_via_tool(
+        &self,
+        args: PrismMutationArgs,
+    ) -> Result<PrismMutationResult, McpError> {
+        let response = self.prism_mutate(Parameters(args))?;
+        let structured = response.structured_content.ok_or_else(|| {
+            McpError::internal_error(
+                "prism_mutate did not return structured content",
+                Some(json!({
+                    "code": "mutation_missing_structured_content",
+                })),
+            )
+        })?;
+        serde_json::from_value::<PrismMutationResult>(structured).map_err(|error| {
+            McpError::internal_error(
+                "failed to decode structured prism_mutate result",
+                Some(json!({
+                    "code": "mutation_result_decode_failed",
+                    "error": error.to_string(),
+                })),
+            )
+        })
+    }
+
     pub(crate) fn transport_bind_tool_schema(mut tool: Tool) -> Tool {
         if let Some(Value::Object(schema)) = tool_transport_input_schema_value(tool.name.as_ref()) {
             tool.input_schema = Arc::new(schema);

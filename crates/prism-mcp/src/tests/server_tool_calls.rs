@@ -951,6 +951,139 @@ async fn mcp_server_auto_resumes_stale_same_principal_ready_task_on_update() {
 }
 
 #[tokio::test]
+async fn mcp_server_resumes_stale_same_principal_task_when_git_execution_start_is_require() {
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let authenticated = session
+        .authenticate_principal_credential(
+            &CredentialId::new(credential.credential_id.clone()),
+            &credential.principal_token,
+        )
+        .expect("credential should authenticate");
+    session
+        .bind_or_validate_worktree_principal(&authenticated)
+        .expect("principal should bind to the worktree");
+
+    let prior_session = SessionId::new("session:stale-prior-git-exec");
+    let stale_ts = crate::current_timestamp().saturating_sub(8_000);
+    let actor = EventActor::Principal(PrincipalActor {
+        authority_id: authenticated.principal.authority_id.clone(),
+        principal_id: authenticated.principal.principal_id.clone(),
+        kind: Some(authenticated.principal.kind),
+        name: Some(authenticated.principal.name.clone()),
+    });
+    let execution_context = Some(session.event_execution_context(
+        Some(&prior_session),
+        None,
+        Some(&authenticated.credential.credential_id),
+    ));
+    let (_plan_id, task_id) = session
+        .mutate_coordination_with_session_wait_observed(
+            Some(&prior_session),
+            |prism| {
+                let plan_meta = EventMeta {
+                    id: EventId::new("coordination:stale-resume-git-exec:plan"),
+                    ts: stale_ts,
+                    actor: actor.clone(),
+                    correlation: None,
+                    causation: None,
+                    execution_context: execution_context.clone(),
+                };
+                let plan_id = prism.create_native_plan(
+                    plan_meta,
+                    "Resume stale same-principal task with require start".to_string(),
+                    "Resume stale same-principal task with require start".to_string(),
+                    Some(PlanStatus::Active),
+                    Some(prism_coordination::CoordinationPolicy {
+                        git_execution: prism_coordination::GitExecutionPolicy {
+                            start_mode: prism_coordination::GitExecutionStartMode::Require,
+                            completion_mode: prism_coordination::GitExecutionCompletionMode::Off,
+                            target_ref: None,
+                            target_branch: "main".into(),
+                            require_task_branch: true,
+                            max_commits_behind_target: 0,
+                            max_fetch_age_seconds: None,
+                            integration_mode: prism_ir::GitIntegrationMode::External,
+                        },
+                        ..prism_coordination::CoordinationPolicy::default()
+                    }),
+                )?;
+                let task_meta = EventMeta {
+                    id: EventId::new("coordination:stale-resume-git-exec:task"),
+                    ts: stale_ts,
+                    actor: actor.clone(),
+                    correlation: None,
+                    causation: None,
+                    execution_context: execution_context.clone(),
+                };
+                let task = prism.create_native_task(
+                    task_meta,
+                    TaskCreateInput {
+                        plan_id: plan_id.clone(),
+                        title: "Resume me through prism_mutate with require start".to_string(),
+                        status: Some(CoordinationTaskStatus::InProgress),
+                        assignee: None,
+                        session: Some(prior_session.clone()),
+                        worktree_id: None,
+                        branch_ref: None,
+                        anchors: Vec::new(),
+                        depends_on: Vec::new(),
+                        coordination_depends_on: Vec::new(),
+                        integrated_depends_on: Vec::new(),
+                        acceptance: Vec::new(),
+                        base_revision: prism.workspace_revision(),
+                    },
+                )?;
+                Ok((plan_id, task.id))
+            },
+            |_operation, _duration, _args, _success, _error| {},
+        )
+        .expect("stale seeded coordination mutation should succeed")
+        .expect("coordination mutation should acquire the refresh lock");
+
+    let server = PrismMcpServer::with_session(session);
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_mutate",
+            json!({
+                "action": "coordination",
+                "credential": mutation_credential_json(&credential),
+                "input": {
+                    "kind": "resume",
+                    "payload": {
+                        "taskId": task_id.0
+                    }
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let resumed = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(
+        resumed["result"]["state"]["id"],
+        Value::from(task_id.0.to_string())
+    );
+    assert_eq!(resumed["result"]["state"]["status"], Value::from("InProgress"));
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn mcp_server_rejects_invalid_prism_mutate_credential() {
     let root = temp_workspace();
     let (session, credential) = workspace_session_with_owner_credential(&root);

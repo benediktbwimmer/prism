@@ -2,25 +2,44 @@ import { useEffect, useState } from 'react'
 
 import { PRISM_ROUTES, resolveRoute } from './appRoutes'
 import { AppFrame } from './components/AppFrame'
-import { useDashboardData } from './hooks/useDashboardData'
+import { FleetPage } from './pages/FleetPage'
+import { useSessionBootstrap } from './hooks/useSessionBootstrap'
+import { UiMutationQueueProvider, useUiMutationQueue } from './hooks/useUiMutationQueue'
 import { useThemeChoice } from './hooks/useThemeChoice'
-import { DashboardPage } from './pages/DashboardPage'
-import { GraphPage } from './pages/GraphPage'
-import { OverviewPage } from './pages/OverviewPage'
 import { PlansPage } from './pages/PlansPage'
 
 export function App() {
+  return (
+    <UiMutationQueueProvider>
+      <AppInner />
+    </UiMutationQueueProvider>
+  )
+}
+
+function AppInner() {
   const [locationState, setLocationState] = useState(() => ({
     pathname: window.location.pathname,
     search: window.location.search,
   }))
   const route = resolveRoute(locationState.pathname)
-  const dashboardState = useDashboardData()
+  const { bootstrap, connection } = useSessionBootstrap()
+  const { pendingActions, pendingCount } = useUiMutationQueue()
   const { themeChoice, setThemeChoice } = useThemeChoice()
 
   useEffect(() => {
     document.title = route.title
   }, [route])
+
+  useEffect(() => {
+    if (window.location.pathname !== '/') {
+      return
+    }
+    window.history.replaceState({}, '', '/plans')
+    setLocationState({
+      pathname: window.location.pathname,
+      search: window.location.search,
+    })
+  }, [])
 
   useEffect(() => {
     function handlePopState() {
@@ -48,30 +67,22 @@ export function App() {
     })
   }
 
-  let page = (
-    <OverviewPage
-      dashboard={dashboardState.dashboard}
-      connection={dashboardState.connection}
-      search={locationState.search}
-      onNavigate={navigate}
-    />
-  )
+  let page = <PlansPage search={locationState.search} onNavigate={navigate} />
 
-  if (route.key === 'dashboard') {
-    page = <DashboardPage {...dashboardState} search={locationState.search} />
-  } else if (route.key === 'plans') {
-    page = <PlansPage search={locationState.search} onNavigate={navigate} />
-  } else if (route.key === 'graph') {
-    page = <GraphPage search={locationState.search} onNavigate={navigate} />
+  if (route.key === 'fleet') {
+    page = <FleetPage search={locationState.search} onNavigate={navigate} />
   }
 
   return (
     <AppFrame
-      connection={dashboardState.connection}
+      connection={connection}
       currentPath={route.path}
+      operatorIdentity={bootstrap?.session.bridgeIdentity ?? null}
+      pendingActionCount={pendingCount}
+      pendingActionLabel={pendingActions[0]?.label ?? null}
       routes={PRISM_ROUTES}
       themeChoice={themeChoice}
-      workspaceRoot={dashboardState.dashboard?.summary.session.workspaceRoot ?? null}
+      workspaceRoot={bootstrap?.session.workspaceRoot ?? null}
       onNavigate={navigate}
       onThemeChange={setThemeChoice}
     >

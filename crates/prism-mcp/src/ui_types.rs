@@ -1,8 +1,8 @@
 use prism_js::{
-    AgentOutcomeSummaryView, ArtifactView, ClaimView, ConceptPacketView, CoordinationTaskView,
-    PlanExecutionOverlayView, PlanGraphView, PlanListEntryView, PlanNodeRecommendationView,
-    PlanSummaryView, PolicyViolationRecordView, RuntimeLogEventView, RuntimeStatusView,
-    TaskJournalView,
+    AgentOutcomeSummaryView, ArtifactView, BlockerView, ClaimView, ConceptPacketView,
+    CoordinationTaskView, PlanExecutionOverlayView, PlanGraphView, PlanListEntryView,
+    PlanNodeRecommendationView, PlanSummaryView, PolicyViolationRecordView, RuntimeLogEventView,
+    RuntimeStatusView, TaskJournalView, ValidationRefView,
 };
 use serde::Serialize;
 
@@ -66,6 +66,22 @@ pub(crate) struct PrismOverviewView {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiSessionBootstrapView {
+    pub(crate) session: SessionView,
+    pub(crate) runtime: RuntimeStatusView,
+    pub(crate) polling_interval_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiApiPlaceholderView {
+    pub(crate) endpoint: String,
+    pub(crate) status: String,
+    pub(crate) message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct OverviewPlanSignalsView {
     pub(crate) blocked_nodes: usize,
     pub(crate) review_gated_nodes: usize,
@@ -94,9 +110,30 @@ pub(crate) struct OverviewConceptSpotlightView {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismPlansView {
+    pub(crate) filters: PrismUiPlansFiltersView,
+    pub(crate) stats: PrismUiPlansStatsView,
     pub(crate) plans: Vec<PlanListEntryView>,
     pub(crate) selected_plan_id: Option<String>,
     pub(crate) selected_plan: Option<PrismPlanDetailView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiPlansFiltersView {
+    pub(crate) status: String,
+    pub(crate) search: Option<String>,
+    pub(crate) sort: String,
+    pub(crate) agent: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiPlansStatsView {
+    pub(crate) total_plans: usize,
+    pub(crate) visible_plans: usize,
+    pub(crate) active_plans: usize,
+    pub(crate) completed_plans: usize,
+    pub(crate) archived_plans: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -121,6 +158,115 @@ pub(crate) struct PrismGraphView {
     pub(crate) focus: ConceptPacketView,
     pub(crate) entry_concepts: Vec<ConceptPacketView>,
     pub(crate) related_plans: Vec<GraphPlanTouchpointView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiTaskDetailView {
+    pub(crate) task: CoordinationTaskView,
+    pub(crate) editable: PrismUiTaskEditableMetadataView,
+    pub(crate) claim_history: Vec<PrismUiTaskClaimHistoryEntryView>,
+    pub(crate) blockers: Vec<PrismUiTaskBlockerEntryView>,
+    pub(crate) outcomes: Vec<AgentOutcomeSummaryView>,
+    pub(crate) recent_commits: Vec<PrismUiTaskCommitView>,
+    pub(crate) artifacts: Vec<ArtifactView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiTaskEditableMetadataView {
+    pub(crate) title: String,
+    pub(crate) description: Option<String>,
+    pub(crate) priority: Option<u8>,
+    pub(crate) assignee: Option<String>,
+    pub(crate) status: String,
+    pub(crate) validation_refs: Vec<ValidationRefView>,
+    pub(crate) validation_guidance: Vec<String>,
+    pub(crate) status_options: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiTaskClaimHistoryEntryView {
+    pub(crate) id: String,
+    pub(crate) holder: String,
+    pub(crate) agent: Option<String>,
+    pub(crate) status: String,
+    pub(crate) capability: String,
+    pub(crate) mode: String,
+    pub(crate) started_at: u64,
+    pub(crate) refreshed_at: Option<u64>,
+    pub(crate) stale_at: Option<u64>,
+    pub(crate) expires_at: u64,
+    pub(crate) duration_seconds: Option<u64>,
+    pub(crate) branch_ref: Option<String>,
+    pub(crate) worktree_id: Option<String>,
+    pub(crate) claim: ClaimView,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiTaskBlockerEntryView {
+    pub(crate) blocker: BlockerView,
+    pub(crate) related_task: Option<CoordinationTaskView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiTaskCommitView {
+    pub(crate) kind: String,
+    pub(crate) commit: String,
+    pub(crate) reference: Option<String>,
+    pub(crate) label: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiFleetView {
+    pub(crate) generated_at: u64,
+    pub(crate) window_start: u64,
+    pub(crate) window_end: u64,
+    pub(crate) lanes: Vec<PrismUiFleetLaneView>,
+    pub(crate) bars: Vec<PrismUiFleetBarView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiFleetLaneView {
+    pub(crate) id: String,
+    pub(crate) runtime_id: Option<String>,
+    pub(crate) label: String,
+    pub(crate) principal_id: Option<String>,
+    pub(crate) worktree_id: Option<String>,
+    pub(crate) branch_ref: Option<String>,
+    pub(crate) discovery_mode: Option<String>,
+    pub(crate) last_seen_at: Option<u64>,
+    pub(crate) active_bar_count: usize,
+    pub(crate) stale_bar_count: usize,
+    pub(crate) idle: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismUiFleetBarView {
+    pub(crate) id: String,
+    pub(crate) lane_id: String,
+    pub(crate) runtime_id: Option<String>,
+    pub(crate) task_id: Option<String>,
+    pub(crate) task_title: String,
+    pub(crate) task_status: String,
+    pub(crate) claim_id: Option<String>,
+    pub(crate) claim_status: Option<String>,
+    pub(crate) holder: Option<String>,
+    pub(crate) agent: Option<String>,
+    pub(crate) capability: Option<String>,
+    pub(crate) mode: Option<String>,
+    pub(crate) branch_ref: Option<String>,
+    pub(crate) started_at: u64,
+    pub(crate) ended_at: Option<u64>,
+    pub(crate) duration_seconds: Option<u64>,
+    pub(crate) active: bool,
+    pub(crate) stale: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

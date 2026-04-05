@@ -1484,27 +1484,6 @@ fn git_execution_request(
             };
             Ok(Some(GitExecutionRequest { task_id, workflow }))
         }
-        CoordinationMutationKindInput::Resume => {
-            let payload: TaskResumePayload = serde_json::from_value(args.payload.clone())?;
-            Ok(Some(GitExecutionRequest {
-                task_id: CoordinationTaskId::new(payload.task_id),
-                workflow: GitExecutionWorkflow::Start,
-            }))
-        }
-        CoordinationMutationKindInput::Reclaim => {
-            let payload: TaskReclaimPayload = serde_json::from_value(args.payload.clone())?;
-            Ok(Some(GitExecutionRequest {
-                task_id: CoordinationTaskId::new(payload.task_id),
-                workflow: GitExecutionWorkflow::Start,
-            }))
-        }
-        CoordinationMutationKindInput::HandoffAccept => {
-            let payload: HandoffAcceptPayload = serde_json::from_value(args.payload.clone())?;
-            Ok(Some(GitExecutionRequest {
-                task_id: CoordinationTaskId::new(payload.task_id),
-                workflow: GitExecutionWorkflow::Start,
-            }))
-        }
         _ => Ok(None),
     }
 }

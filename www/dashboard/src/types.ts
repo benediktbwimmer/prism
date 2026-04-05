@@ -28,8 +28,18 @@ export type SessionView = {
   workspaceRoot: string | null
   currentTask: SessionTaskView | null
   currentAgent?: string | null
+  bridgeIdentity?: BridgeIdentityView | null
   limits?: SessionLimitsView
   features?: FeatureFlagsView
+}
+
+export type BridgeIdentityView = {
+  status: string
+  profile?: string | null
+  principalId?: string | null
+  credentialId?: string | null
+  error?: string | null
+  nextAction?: string | null
 }
 
 export type RuntimeHealthView = {
@@ -214,56 +224,142 @@ export type PolicyViolationRecordView = {
   violations: PolicyViolationView[]
 }
 
-export type DashboardSummaryView = {
-  session: SessionView
-  runtime: RuntimeStatusView
-  activeQueryCount: number
-  activeMutationCount: number
-  recentQueryErrorCount: number
-  lastRuntimeEvent?: RuntimeLogEventView | null
-}
-
-export type DashboardTaskSnapshotView = {
-  session: SessionView
-  journal?: TaskJournalView | null
-}
-
 export type CoordinationTaskView = {
   id: string
   planId: string
+  kind?: string
   title: string
+  summary?: string | null
   status: string
+  publishedTaskStatus?: string | null
   assignee?: string | null
   pendingHandoffTo?: string | null
   anchors?: AnchorRef[]
+  bindings?: PlanBindingView
   dependsOn: string[]
+  coordinationDependsOn?: string[]
+  integratedDependsOn?: string[]
+  lifecycle?: {
+    completed: boolean
+    coordinationPublished: boolean
+    integratedToTarget: boolean
+    publishedToBranch: boolean
+  }
+  validationRefs?: ValidationRefView[]
+  isAbstract?: boolean
   baseRevision?: WorkspaceRevisionView
+  priority?: number | null
+  tags?: string[]
+  gitExecution?: {
+    status?: string | null
+    sourceRef?: string | null
+    publishRef?: string | null
+  }
 }
 
-export type DashboardCoordinationSummaryView = {
-  enabled: boolean
-  activePlanCount: number
-  taskCount: number
-  readyTaskCount: number
-  inReviewTaskCount: number
-  activeClaimCount: number
-  pendingReviewCount: number
-  proposedArtifactCount: number
-  recentPendingReviews: ArtifactView[]
-  recentViolations: PolicyViolationRecordView[]
+export type PrismUiSessionBootstrapView = {
+  session: SessionView
+  runtime: RuntimeStatusView
+  pollingIntervalMs: number
 }
 
-export type DashboardOperationsView = {
-  active: ActiveOperationView[]
-  recentQueries: QueryLogEntryView[]
-  recentMutations: MutationLogEntryView[]
+export type PrismUiFleetLaneView = {
+  id: string
+  runtimeId?: string | null
+  label: string
+  principalId?: string | null
+  worktreeId?: string | null
+  branchRef?: string | null
+  discoveryMode?: string | null
+  lastSeenAt?: number | null
+  activeBarCount: number
+  staleBarCount: number
+  idle: boolean
 }
 
-export type DashboardBootstrapView = {
-  summary: DashboardSummaryView
-  operations: DashboardOperationsView
-  task: DashboardTaskSnapshotView
-  coordination: DashboardCoordinationSummaryView
+export type PrismUiFleetBarView = {
+  id: string
+  laneId: string
+  runtimeId?: string | null
+  taskId?: string | null
+  taskTitle: string
+  taskStatus: string
+  claimId?: string | null
+  claimStatus?: string | null
+  holder?: string | null
+  agent?: string | null
+  capability?: string | null
+  mode?: string | null
+  branchRef?: string | null
+  startedAt: number
+  endedAt?: number | null
+  durationSeconds?: number | null
+  active: boolean
+  stale: boolean
+}
+
+export type PrismUiFleetView = {
+  generatedAt: number
+  windowStart: number
+  windowEnd: number
+  lanes: PrismUiFleetLaneView[]
+  bars: PrismUiFleetBarView[]
+}
+
+export type PrismUiTaskEditableMetadataView = {
+  title: string
+  description?: string | null
+  priority?: number | null
+  assignee?: string | null
+  status: string
+  validationRefs: ValidationRefView[]
+  validationGuidance: string[]
+  statusOptions: string[]
+}
+
+export type PrismUiTaskClaimHistoryEntryView = {
+  id: string
+  holder: string
+  agent?: string | null
+  status: string
+  capability: string
+  mode: string
+  startedAt: number
+  refreshedAt?: number | null
+  staleAt?: number | null
+  expiresAt: number
+  durationSeconds?: number | null
+  branchRef?: string | null
+  worktreeId?: string | null
+}
+
+export type PrismUiTaskBlockerEntryView = {
+  blocker: {
+    kind: string
+    summary: string
+    relatedTaskId?: string | null
+    relatedArtifactId?: string | null
+    riskScore?: number | null
+    validationChecks: string[]
+  }
+  relatedTask?: CoordinationTaskView | null
+}
+
+export type PrismUiTaskCommitView = {
+  kind: string
+  commit: string
+  reference?: string | null
+  label: string
+}
+
+export type PrismUiTaskDetailView = {
+  task: CoordinationTaskView
+  editable: PrismUiTaskEditableMetadataView
+  claimHistory: PrismUiTaskClaimHistoryEntryView[]
+  blockers: PrismUiTaskBlockerEntryView[]
+  outcomes: OutcomeSummaryView[]
+  recentCommits: PrismUiTaskCommitView[]
+  artifacts: ArtifactView[]
 }
 
 export type DashboardOperationDetailView =
@@ -311,8 +407,25 @@ export type PlanListEntryView = {
   status: string
   scope: string
   kind: string
+  scheduling: {
+    importance: number
+    urgency: number
+    manualBoost: number
+    dueAt?: number | null
+  }
+  gitExecutionPolicy: {
+    startMode: string
+    completionMode: string
+    integrationMode: string
+    targetRef?: string | null
+    targetBranch: string
+    requireTaskBranch: boolean
+    maxCommitsBehindTarget: number
+    maxFetchAgeSeconds?: number | null
+  }
+  summary: string
+  planSummary: PlanSummaryView
   rootNodeIds: string[]
-  summary: PlanSummaryView
 }
 
 export type ValidationRefView = {
@@ -405,43 +518,11 @@ export type PlanNodeRecommendationView = {
   unblocks?: string[]
 }
 
-export type OverviewPlanSignalsView = {
-  blockedNodes: number
-  reviewGatedNodes: number
-  validationGatedNodes: number
-  claimConflictedNodes: number
-}
-
-export type OverviewPlanSpotlightView = {
-  planId: string
-  title: string
-  goal: string
-  summary: PlanSummaryView
-  nextNodes: PlanNodeRecommendationView[]
-}
-
-export type OverviewConceptSpotlightView = {
-  handle: string
-  canonicalName: string
-  summary: string
-}
-
 export type OutcomeSummaryView = {
   ts: number
   kind: string
   result: string
   summary: string
-}
-
-export type PrismOverviewView = {
-  summary: DashboardSummaryView
-  task: DashboardTaskSnapshotView
-  coordination: DashboardCoordinationSummaryView
-  planSignals: OverviewPlanSignalsView
-  spotlightPlans: OverviewPlanSpotlightView[]
-  hotConcepts: OverviewConceptSpotlightView[]
-  recentOutcomes: OutcomeSummaryView[]
-  pendingHandoffs: CoordinationTaskView[]
 }
 
 export type PrismPlanDetailView = {
@@ -457,7 +538,24 @@ export type PrismPlanDetailView = {
   recentOutcomes: OutcomeSummaryView[]
 }
 
+export type PrismUiPlansFiltersView = {
+  status: string
+  search?: string | null
+  sort: string
+  agent?: string | null
+}
+
+export type PrismUiPlansStatsView = {
+  totalPlans: number
+  visiblePlans: number
+  activePlans: number
+  completedPlans: number
+  archivedPlans: number
+}
+
 export type PrismPlansView = {
+  filters: PrismUiPlansFiltersView
+  stats: PrismUiPlansStatsView
   plans: PlanListEntryView[]
   selectedPlanId?: string | null
   selectedPlan?: PrismPlanDetailView | null

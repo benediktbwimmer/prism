@@ -53,12 +53,12 @@
       "sha256": "sha256:f77575ce54b660ea0c89621e1b65dc8e3f57f58533e2c5ddc0c7ad5ced01ef0d"
     }
   },
-  "previousManifestDigest": "sha256:1cad12f23a348e36ca83d7f7520bd4f328f3cade1c1a228efa037ee1292aa572",
+  "previousManifestDigest": "sha256:7f5524a88e1d286ec19354a914a14151eff4d938ae97b9477c647ee642caaecf",
   "signature": {
     "algorithm": "ed25519",
     "runtimeAuthorityId": "authority:runtime:01kn6kf5ew2qtvfbec8km037q8",
     "runtimeKeyId": "key-runtime:01kn6kf5ewyjr4yh67eqd0rctt",
     "trustBundleId": "trust-bundle:01kn6kf5ews8xtnbvz8xm7rkyc",
-    "value": "base64:/Ugt0246LGJXl6JHNySfGoqscCU69ishvvaY6cnlJl2VIId8lLha2jDMk0gTcqR7xvLqfDarzFmi/PEeCAdRBA=="
+    "value": "base64:KEM6vvLSxILV0k419jJkKSk1Dbzztcj7ifhvtzxUO/I0mfhLGdPY/Z4Kk0+i+XjVRFZX414UCKjIsDvU+HooAQ=="
   }
 }

@@ -102,6 +102,7 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         StreamableHttpServerConfig::default(),
     );
     let prism_ui_state = PrismUiState {
+        server: Arc::new(server.clone()),
         host: Arc::clone(&server.host),
         root: root.to_path_buf(),
     };
