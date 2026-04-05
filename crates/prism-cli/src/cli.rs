@@ -149,6 +149,8 @@ pub enum McpCommand {
         no_coordination: bool,
         #[arg(long, default_value_t = false)]
         internal_developer: bool,
+        #[arg(long, default_value_t = false)]
+        ui: bool,
         #[arg(long = "http-bind")]
         http_bind: Option<String>,
         #[arg(long = "shared-runtime-sqlite")]
@@ -169,6 +171,8 @@ pub enum McpCommand {
         no_coordination: bool,
         #[arg(long, default_value_t = false)]
         internal_developer: bool,
+        #[arg(long, default_value_t = false)]
+        ui: bool,
         #[arg(long = "http-bind")]
         http_bind: Option<String>,
         #[arg(long = "shared-runtime-sqlite")]
@@ -405,6 +409,7 @@ mod tests {
                         kill_bridges,
                         no_coordination,
                         internal_developer,
+                        ui,
                         http_bind,
                         shared_runtime_sqlite,
                         shared_runtime_uri,
@@ -413,6 +418,7 @@ mod tests {
                 assert!(!kill_bridges);
                 assert!(!no_coordination);
                 assert!(!internal_developer);
+                assert!(!ui);
                 assert!(http_bind.is_none());
                 assert!(shared_runtime_sqlite.is_none());
                 assert!(shared_runtime_uri.is_none());
@@ -484,6 +490,18 @@ mod tests {
                         internal_developer, ..
                     },
             } => assert!(internal_developer),
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn mcp_restart_ui_flag_is_opt_in() {
+        let cli = Cli::parse_from(["prism", "mcp", "restart", "--ui"]);
+        assert!(cli.root.is_none());
+        match cli.command {
+            Command::Mcp {
+                command: McpCommand::Restart { ui, .. },
+            } => assert!(ui),
             _ => panic!("unexpected command"),
         }
     }

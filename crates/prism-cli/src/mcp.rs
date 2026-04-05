@@ -178,6 +178,7 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
         McpCommand::Start {
             no_coordination,
             internal_developer,
+            ui,
             http_bind,
             shared_runtime_sqlite,
             shared_runtime_uri,
@@ -185,6 +186,7 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             &root,
             no_coordination,
             internal_developer,
+            ui,
             http_bind,
             shared_runtime_sqlite,
             shared_runtime_uri,
@@ -197,6 +199,7 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             kill_bridges,
             no_coordination,
             internal_developer,
+            ui,
             http_bind,
             shared_runtime_sqlite,
             shared_runtime_uri,
@@ -219,6 +222,7 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
                 &root,
                 no_coordination,
                 internal_developer,
+                ui,
                 http_bind,
                 shared_runtime_sqlite,
                 shared_runtime_uri,
@@ -421,6 +425,7 @@ fn start(
     root: &Path,
     no_coordination: bool,
     internal_developer: bool,
+    ui: bool,
     http_bind: Option<String>,
     shared_runtime_sqlite: Option<PathBuf>,
     shared_runtime_uri: Option<String>,
@@ -476,6 +481,7 @@ fn start(
         &http_bind,
         no_coordination,
         internal_developer,
+        ui,
         shared_runtime_sqlite.as_deref(),
         shared_runtime_uri.as_deref(),
         restart_nonce,
@@ -798,6 +804,7 @@ fn spawn_daemon(
     http_bind: &str,
     no_coordination: bool,
     internal_developer: bool,
+    ui: bool,
     shared_runtime_sqlite: Option<&Path>,
     shared_runtime_uri: Option<&str>,
     restart_nonce: Option<&str>,
@@ -827,6 +834,9 @@ fn spawn_daemon(
     }
     if internal_developer {
         args.push("--internal-developer".to_string());
+    }
+    if ui {
+        args.push("--ui".to_string());
     }
     if let Some(shared_runtime_sqlite) = shared_runtime_sqlite {
         args.push("--shared-runtime-sqlite".to_string());
