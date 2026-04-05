@@ -1,12 +1,12 @@
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use prism_core::{
     authenticate_principal_credential_in_registry, bootstrap_owner_principal_in_registry,
     mint_principal_credential_in_registry, recover_owner_principal_in_registry,
-    AttestedHumanPrincipalInput, CredentialProfile, CredentialsFile, MintPrincipalRequest,
-    PrismPaths,
+    AttestedHumanPrincipalInput, CredentialProfile, CredentialsFile, HumanSessionFile,
+    MintPrincipalRequest, PrismPaths,
 };
 use prism_ir::{
     CredentialId, HumanAttestationAssurance, HumanAttestationOperation, HumanAttestationRecord,
@@ -20,6 +20,8 @@ use crate::cli::{AuthAssuranceArg, AuthCommand, PrincipalCommand};
 use crate::git_support::ensure_repo_git_support;
 use crate::parsing::{parse_credential_capability, parse_principal_kind};
 
+const AUTH_PASSPHRASE_ENV: &str = "PRISM_AUTH_PASSPHRASE";
+
 pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<()> {
     match command {
         AuthCommand::Bootstrap {
@@ -30,7 +32,7 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
             subject,
             assurance,
         } => {
-            let (mut store, credentials_path) = load_auth_registry_store(root)?;
+            let (mut store, credentials_path, human_session_path) = load_auth_registry_store(root)?;
             let mut snapshot = store
                 .load_principal_registry_snapshot()?
                 .unwrap_or_default();
@@ -50,9 +52,12 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
                 },
             )?;
             store.save_principal_registry_snapshot(&snapshot)?;
+            let passphrase = prompt_new_passphrase()?;
             let mut credentials = CredentialsFile::load(&credentials_path)?;
-            let stored = store_issued_credential(&mut credentials, &issued, None, false);
+            let stored =
+                store_issued_credential(&mut credentials, &issued, &passphrase, None, true)?;
             credentials.save(&credentials_path)?;
+            activate_human_session(&human_session_path, &stored, &issued.principal_token)?;
             println!("initialized principal registry");
             print_issued_credential(&stored, &issued);
         }
@@ -64,7 +69,7 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
             subject,
             assurance,
         } => {
-            let (mut store, credentials_path) = load_auth_registry_store(root)?;
+            let (mut store, credentials_path, human_session_path) = load_auth_registry_store(root)?;
             let mut snapshot = store
                 .load_principal_registry_snapshot()?
                 .unwrap_or_default();
@@ -84,9 +89,12 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
                 },
             )?;
             store.save_principal_registry_snapshot(&snapshot)?;
+            let passphrase = prompt_new_passphrase()?;
             let mut credentials = CredentialsFile::load(&credentials_path)?;
-            let stored = store_issued_credential(&mut credentials, &issued, None, false);
+            let stored =
+                store_issued_credential(&mut credentials, &issued, &passphrase, None, true)?;
             credentials.save(&credentials_path)?;
+            activate_human_session(&human_session_path, &stored, &issued.principal_token)?;
             println!("initialized principal registry from recovery attestation");
             print_issued_credential(&stored, &issued);
         }
@@ -95,7 +103,7 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
             principal,
             credential,
         } => {
-            let (mut store, credentials_path) = load_auth_registry_store(root)?;
+            let (mut store, credentials_path, human_session_path) = load_auth_registry_store(root)?;
             let mut credentials_file = CredentialsFile::load(&credentials_path)?;
             let selected = credentials_file
                 .set_active_by_selector(
@@ -104,30 +112,55 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
                     credential.as_deref(),
                 )?
                 .clone();
+            let passphrase = prompt_existing_passphrase()?;
+            let principal_token = selected.decrypt_principal_token(&passphrase)?;
             let mut snapshot = load_principal_registry_snapshot(&mut store)?;
-            authenticate_principal_credential_in_registry(
+            let authenticated = authenticate_principal_credential_in_registry(
                 &mut snapshot,
                 &CredentialId::new(selected.credential_id.clone()),
-                &selected.principal_token,
+                &principal_token,
             )?;
+            if authenticated.principal.kind != PrincipalKind::Human {
+                bail!(
+                    "local human login only supports human principals; `{}` is `{:?}`",
+                    authenticated.principal.principal_id.0,
+                    authenticated.principal.kind
+                );
+            }
+            if !selected.has_encrypted_secret() {
+                let selected = credentials_file.find_by_selector_mut(
+                    Some(selected.profile.as_str()),
+                    None,
+                    None,
+                )?;
+                selected.encrypt_principal_token(&principal_token, &passphrase)?;
+            }
             store.save_principal_registry_snapshot(&snapshot)?;
             credentials_file.save(&credentials_path)?;
+            activate_human_session(&human_session_path, &selected, &principal_token)?;
             println!("logged in");
             println!("profile = {}", selected.profile);
             println!("principal_id = {}", selected.principal_id);
             println!("credential_id = {}", selected.credential_id);
         }
         AuthCommand::Whoami => {
-            let (mut store, credentials_path) = load_auth_registry_store(root)?;
+            let (mut store, credentials_path, human_session_path) = load_auth_registry_store(root)?;
             let credentials_file = CredentialsFile::load(&credentials_path)?;
             let selected = credentials_file.find_by_selector(None, None, None)?.clone();
+            let mut sessions = HumanSessionFile::load(&human_session_path)?;
+            let session = sessions.active_session_now().ok_or_else(|| {
+                anyhow!(
+                    "no active local human session is available; run `prism auth login` to unlock the stored credential first"
+                )
+            })?;
             let mut snapshot = load_principal_registry_snapshot(&mut store)?;
             let authenticated = authenticate_principal_credential_in_registry(
                 &mut snapshot,
-                &CredentialId::new(selected.credential_id.clone()),
-                &selected.principal_token,
+                &CredentialId::new(session.credential_id.clone()),
+                &session.principal_token,
             )?;
             store.save_principal_registry_snapshot(&snapshot)?;
+            sessions.save(&human_session_path)?;
             println!("profile = {}", selected.profile);
             println!("authority_id = {}", authenticated.principal.authority_id.0);
             println!("principal_id = {}", authenticated.principal.principal_id.0);
@@ -136,6 +169,12 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
                 "credential_id = {}",
                 authenticated.credential.credential_id.0
             );
+            println!("session_status = unlocked");
+            println!(
+                "session_fresh = {}",
+                !session.requires_fresh_reauth_at(current_unix_timestamp())
+            );
+            println!("session_expires_at = {}", session.absolute_expires_at);
             if let Ok(profile) =
                 serde_json::from_value::<HumanPrincipalProfile>(authenticated.principal.profile)
             {
@@ -179,14 +218,19 @@ pub(crate) fn handle_principal_command(root: &Path, command: PrincipalCommand) -
             metadata_json,
             capabilities,
         } => {
-            let (mut store, credentials_path) = load_auth_registry_store(root)?;
+            let (mut store, credentials_path, human_session_path) = load_auth_registry_store(root)?;
             let mut credentials_file = CredentialsFile::load(&credentials_path)?;
-            let active = credentials_file.find_by_selector(None, None, None)?.clone();
+            let mut sessions = HumanSessionFile::load(&human_session_path)?;
+            let session = sessions.active_session_now().ok_or_else(|| {
+                anyhow!(
+                    "no active local human session is available; run `prism auth login` to unlock the stored credential first"
+                )
+            })?;
             let mut snapshot = load_principal_registry_snapshot(&mut store)?;
             let authenticated = authenticate_principal_credential_in_registry(
                 &mut snapshot,
-                &CredentialId::new(active.credential_id.clone()),
-                &active.principal_token,
+                &CredentialId::new(session.credential_id.clone()),
+                &session.principal_token,
             )?;
             let kind = parse_principal_kind(&kind)?;
             if !kind.is_durable_principal() {
@@ -220,8 +264,15 @@ pub(crate) fn handle_principal_command(root: &Path, command: PrincipalCommand) -
                 },
             )?;
             store.save_principal_registry_snapshot(&snapshot)?;
-            let stored =
-                store_issued_credential(&mut credentials_file, &issued, profile.as_deref(), false);
+            sessions.save(&human_session_path)?;
+            let passphrase = prompt_existing_passphrase()?;
+            let stored = store_issued_credential(
+                &mut credentials_file,
+                &issued,
+                &passphrase,
+                profile.as_deref(),
+                false,
+            )?;
             credentials_file.save(&credentials_path)?;
             println!("minted principal");
             print_issued_credential(&stored, &issued);
@@ -231,18 +282,19 @@ pub(crate) fn handle_principal_command(root: &Path, command: PrincipalCommand) -
     Ok(())
 }
 
-fn load_auth_registry_store(root: &Path) -> Result<(SqliteStore, PathBuf)> {
+fn load_auth_registry_store(root: &Path) -> Result<(SqliteStore, PathBuf, PathBuf)> {
     ensure_repo_git_support(root)?;
     let paths = PrismPaths::for_workspace_root(root)?;
     let credentials_path = paths.credentials_path()?;
+    let human_session_path = paths.human_session_path()?;
     let store = SqliteStore::open(paths.shared_runtime_db_path()?)?;
-    Ok((store, credentials_path))
+    Ok((store, credentials_path, human_session_path))
 }
 
 fn load_principal_registry_snapshot(store: &mut SqliteStore) -> Result<PrincipalRegistrySnapshot> {
     store
         .load_principal_registry_snapshot()?
-        .ok_or_else(|| anyhow::anyhow!("principal registry is not initialized"))
+        .ok_or_else(|| anyhow!("principal registry is not initialized"))
 }
 
 fn default_parent_for_kind(kind: PrincipalKind, principal_id: &PrincipalId) -> Option<PrincipalId> {
@@ -262,24 +314,24 @@ fn parse_metadata_json(value: Option<&str>) -> Result<Value> {
 fn store_issued_credential(
     credentials: &mut CredentialsFile,
     issued: &prism_core::MintedPrincipalCredential,
+    passphrase: &str,
     profile: Option<&str>,
     set_active: bool,
-) -> CredentialProfile {
-    credentials
-        .upsert_profile(
-            CredentialProfile {
-                profile: profile
-                    .filter(|value| !value.trim().is_empty())
-                    .unwrap_or(issued.principal.principal_id.0.as_str())
-                    .to_string(),
-                authority_id: issued.principal.authority_id.0.to_string(),
-                principal_id: issued.principal.principal_id.0.to_string(),
-                credential_id: issued.credential.credential_id.0.to_string(),
-                principal_token: issued.principal_token.clone(),
-            },
-            set_active,
-        )
-        .clone()
+) -> Result<CredentialProfile> {
+    let mut stored = CredentialProfile {
+        profile: profile
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or(issued.principal.principal_id.0.as_str())
+            .to_string(),
+        authority_id: issued.principal.authority_id.0.to_string(),
+        principal_id: issued.principal.principal_id.0.to_string(),
+        credential_id: issued.credential.credential_id.0.to_string(),
+        principal_token: String::new(),
+        encrypted_secret: None,
+    };
+    stored.encrypt_principal_token(&issued.principal_token, passphrase)?;
+    credentials.upsert_profile(stored.clone(), set_active);
+    Ok(stored)
 }
 
 fn print_issued_credential(
@@ -291,5 +343,51 @@ fn print_issued_credential(
     println!("principal_id = {}", issued.principal.principal_id.0);
     println!("principal_kind = {:?}", issued.principal.kind);
     println!("credential_id = {}", issued.credential.credential_id.0);
-    println!("principal_token = {}", issued.principal_token);
+    println!("local_secret = encrypted");
+}
+
+fn activate_human_session(
+    human_session_path: &Path,
+    stored: &CredentialProfile,
+    principal_token: &str,
+) -> Result<()> {
+    let mut session = HumanSessionFile::load(human_session_path)?;
+    session.activate(
+        stored,
+        principal_token.to_string(),
+        current_unix_timestamp(),
+    );
+    session.save(human_session_path)
+}
+
+fn prompt_new_passphrase() -> Result<String> {
+    if let Ok(passphrase) = std::env::var(AUTH_PASSPHRASE_ENV) {
+        if passphrase.trim().is_empty() {
+            bail!("{AUTH_PASSPHRASE_ENV} must not be empty");
+        }
+        return Ok(passphrase);
+    }
+    let passphrase = rpassword::prompt_password("PRISM passphrase: ")?;
+    if passphrase.trim().is_empty() {
+        bail!("passphrase must not be empty");
+    }
+    let confirmation = rpassword::prompt_password("Confirm PRISM passphrase: ")?;
+    if passphrase != confirmation {
+        bail!("passphrase confirmation did not match");
+    }
+    Ok(passphrase)
+}
+
+fn prompt_existing_passphrase() -> Result<String> {
+    if let Ok(passphrase) = std::env::var(AUTH_PASSPHRASE_ENV) {
+        if passphrase.trim().is_empty() {
+            bail!("{AUTH_PASSPHRASE_ENV} must not be empty");
+        }
+        return Ok(passphrase);
+    }
+    let passphrase = rpassword::prompt_password("PRISM passphrase: ")?;
+    if passphrase.trim().is_empty() {
+        bail!("passphrase must not be empty");
+    }
+    Ok(passphrase)
 }
