@@ -59,7 +59,7 @@ pub(crate) fn is_flat_tagged_tool_input(value: &Value) -> bool {
 
 fn preserved_tagged_input_keys(tool_name: &str) -> &'static [&'static str] {
     match tool_name {
-        "prism_mutate" => &["action", "credential"],
+        "prism_mutate" => &["action", "credential", "bridgeExecution"],
         _ => &["action"],
     }
 }
@@ -1771,9 +1771,18 @@ pub(crate) struct PrismMutationCredentialArgs {
     pub(crate) principal_token: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismMutationBridgeExecutionArgs {
+    #[serde(alias = "worktree_id")]
+    pub(crate) worktree_id: String,
+    pub(crate) agent_label: String,
+}
+
 #[derive(Debug)]
 pub(crate) struct PrismMutationArgs {
-    pub(crate) credential: PrismMutationCredentialArgs,
+    pub(crate) credential: Option<PrismMutationCredentialArgs>,
+    pub(crate) bridge_execution: Option<PrismMutationBridgeExecutionArgs>,
     pub(crate) mutation: PrismMutationKindArgs,
 }
 
@@ -1853,7 +1862,8 @@ enum PrismMutationKindArgsWire {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PrismMutationArgsWire {
-    pub(crate) credential: PrismMutationCredentialArgs,
+    pub(crate) credential: Option<PrismMutationCredentialArgs>,
+    pub(crate) bridge_execution: Option<PrismMutationBridgeExecutionArgs>,
     #[serde(flatten)]
     pub(crate) mutation: PrismMutationKindArgsWire,
 }
@@ -1942,6 +1952,7 @@ impl<'de> Deserialize<'de> for PrismMutationArgs {
         parse_tagged_tool_input::<PrismMutationArgsWire>("prism_mutate", value)
             .map(|wire| Self {
                 credential: wire.credential,
+                bridge_execution: wire.bridge_execution,
                 mutation: wire.mutation.into(),
             })
             .map_err(serde::de::Error::custom)

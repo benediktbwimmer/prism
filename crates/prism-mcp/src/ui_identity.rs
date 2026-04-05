@@ -19,6 +19,9 @@ pub(crate) fn ui_operator_identity_view(
                 profile: None,
                 principal_id: None,
                 credential_id: None,
+                worktree_id: None,
+                agent_label: None,
+                worktree_mode: None,
                 error: Some(format!(
                     "failed to resolve local PRISM credentials path: {error}"
                 )),
@@ -36,6 +39,9 @@ pub(crate) fn ui_operator_identity_view(
                 profile: None,
                 principal_id: None,
                 credential_id: None,
+                worktree_id: None,
+                agent_label: None,
+                worktree_mode: None,
                 error: Some(format!(
                     "failed to load local PRISM credentials from {}: {error}",
                     credentials_path.display()
@@ -54,6 +60,9 @@ pub(crate) fn ui_operator_identity_view(
                 profile: None,
                 principal_id: None,
                 credential_id: None,
+                worktree_id: None,
+                agent_label: None,
+                worktree_mode: None,
                 error: Some(error.to_string()),
                 next_action:
                     "Run `prism auth login` or bootstrap the local owner principal before using the operator console."
@@ -74,6 +83,9 @@ pub(crate) fn ui_operator_identity_view(
                 profile: Some(profile.profile.clone()),
                 principal_id: Some(profile.principal_id.clone()),
                 credential_id: Some(profile.credential_id.clone()),
+                worktree_id: None,
+                agent_label: None,
+                worktree_mode: None,
                 error: Some(format!(
                     "worktree is bound to `{}` while the active local profile resolves to `{}`",
                     bound.principal_id, profile.principal_id
@@ -95,6 +107,9 @@ pub(crate) fn ui_operator_identity_view(
         profile: Some(profile.profile.clone()),
         principal_id: Some(profile.principal_id.clone()),
         credential_id: Some(profile.credential_id.clone()),
+        worktree_id: None,
+        agent_label: None,
+        worktree_mode: None,
         error: None,
         next_action: if active_session.is_some() {
             "The active local human session is unlocked for direct operator work in this worktree."

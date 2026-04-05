@@ -315,8 +315,11 @@ fn prism_mutate_validation_feedback_accepts_flat_snake_case_fields() {
     }))
     .expect("snake_case shorthand should deserialize");
 
-    assert_eq!(args.credential.credential_id, "credential:test");
-    assert_eq!(args.credential.principal_token, "prism_ptok_test");
+    let credential = args
+        .credential
+        .expect("explicit credential should deserialize");
+    assert_eq!(credential.credential_id, "credential:test");
+    assert_eq!(credential.principal_token, "prism_ptok_test");
     let PrismMutationKindArgs::ValidationFeedback(input) = args.mutation else {
         panic!("expected validation feedback mutation");
     };
