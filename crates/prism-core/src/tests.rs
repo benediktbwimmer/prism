@@ -51,7 +51,7 @@ use super::{
     repair_legacy_path_identity_state, repair_repo_published_plan_artifacts,
     AttestedHumanPrincipalInput, BootstrapOwnerInput, MintPrincipalRequest, PrismDocSyncStatus,
     PrismPaths, SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
-    ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
+    ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions, WorktreeMode,
 };
 use crate::concept_events::append_repo_concept_event;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
@@ -488,7 +488,7 @@ fn prism_paths_respect_prism_home_override_and_write_metadata_manifests() {
         repo_metadata["canonical_root_hint"],
         json!(canonical_root.to_string_lossy().to_string())
     );
-    assert_eq!(worktree_metadata["version"], json!(1));
+    assert_eq!(worktree_metadata["version"], json!(2));
     assert_eq!(
         worktree_metadata["repo_id"], repo_metadata["repo_id"],
         "repo and worktree metadata should share repo identity"
@@ -501,6 +501,9 @@ fn prism_paths_respect_prism_home_override_and_write_metadata_manifests() {
         worktree_metadata["canonical_root"],
         json!(canonical_root.to_string_lossy().to_string())
     );
+    assert!(worktree_metadata["registered_worktree_id"].is_null());
+    assert!(worktree_metadata["agent_label"].is_null());
+    assert!(worktree_metadata["worktree_mode"].is_null());
     assert!(worktree_metadata["created_at"].as_u64().is_some());
     assert!(worktree_metadata["last_seen_at"].as_u64().is_some());
 
@@ -539,6 +542,89 @@ fn prism_paths_default_test_home_is_temporary_and_cleans_up_after_thread_exit() 
     );
 
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn prism_paths_register_worktree_persists_durable_registration_metadata() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+
+    let root = temp_workspace();
+    let prism_home = temp_workspace();
+    fs::create_dir_all(&root).unwrap();
+    fs::create_dir_all(root.join(".git")).unwrap();
+    fs::create_dir_all(&prism_home).unwrap();
+    fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
+    fs::write(root.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
+
+    let _env = PrismHomeEnvGuard::set(&prism_home);
+
+    let paths = PrismPaths::for_workspace_root(&root).unwrap();
+    assert!(!paths.identity().is_worktree_registered());
+    assert!(paths.worktree_registration().unwrap().is_none());
+
+    let registration = paths
+        .register_worktree("codex-d", WorktreeMode::Agent)
+        .unwrap();
+
+    assert!(registration.worktree_id.starts_with("worktree:"));
+    assert_eq!(registration.agent_label, "codex-d");
+    assert_eq!(registration.mode, WorktreeMode::Agent);
+
+    let reloaded = PrismPaths::for_workspace_root(&root).unwrap();
+    assert!(reloaded.identity().is_worktree_registered());
+    assert_eq!(
+        reloaded.identity().registered_worktree_id.as_deref(),
+        Some(registration.worktree_id.as_str())
+    );
+    assert_eq!(reloaded.identity().worktree_id, registration.worktree_id);
+    assert_eq!(reloaded.identity().agent_label.as_deref(), Some("codex-d"));
+    assert_eq!(reloaded.identity().worktree_mode, Some(WorktreeMode::Agent));
+
+    let metadata: serde_json::Value = serde_json::from_str(
+        &fs::read_to_string(reloaded.worktree_dir().join("worktree.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        metadata["registered_worktree_id"],
+        json!(registration.worktree_id)
+    );
+    assert_eq!(metadata["agent_label"], json!("codex-d"));
+    assert_eq!(metadata["worktree_mode"], json!("agent"));
+}
+
+#[test]
+fn prism_paths_reject_duplicate_worktree_labels_across_machine() {
+    let _guard = PRISM_HOME_ENV_LOCK.lock().unwrap();
+
+    let root_a = temp_workspace();
+    let root_b = temp_workspace();
+    let prism_home = temp_workspace();
+
+    for root in [&root_a, &root_b] {
+        fs::create_dir_all(root).unwrap();
+        fs::create_dir_all(root.join(".git")).unwrap();
+        fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = []\n").unwrap();
+        fs::write(root.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
+    }
+    fs::create_dir_all(&prism_home).unwrap();
+
+    let _env = PrismHomeEnvGuard::set(&prism_home);
+
+    PrismPaths::for_workspace_root(&root_a)
+        .unwrap()
+        .register_worktree("shared-label", WorktreeMode::Agent)
+        .unwrap();
+    let error = PrismPaths::for_workspace_root(&root_b)
+        .unwrap()
+        .register_worktree("shared-label", WorktreeMode::Human)
+        .unwrap_err();
+
+    assert!(
+        error
+            .to_string()
+            .contains("worktree label `shared-label` is already registered"),
+        "{error}"
+    );
 }
 
 #[test]

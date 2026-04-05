@@ -15,9 +15,13 @@ use crate::util::current_timestamp_millis;
 use crate::workspace_identity::{
     canonical_root_repo_id, workspace_identity_for_root, WorkspaceIdentity,
 };
+use crate::worktree_registration::{
+    new_worktree_registration, read_worktree_metadata, WorktreeMetadata, WorktreeMode,
+    WorktreeRegistrationRecord,
+};
 
 const PRISM_HOME_ENV: &str = "PRISM_HOME";
-const PATH_METADATA_VERSION: u32 = 1;
+const REPO_METADATA_VERSION: u32 = 1;
 const MIGRATION_CONFLICTS_DIR_NAME: &str = "migration-conflicts";
 const PRINCIPAL_REGISTRY_RECONCILED_MARKER: &str = ".principal-registry-merged-v1";
 const REPO_METADATA_FILE_NAME: &str = "repo.json";
@@ -71,7 +75,7 @@ pub struct PrismPaths {
 impl PrismPaths {
     pub fn for_workspace_root(root: &Path) -> Result<Self> {
         let canonical_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-        let identity = workspace_identity_for_root(&canonical_root);
+        let mut identity = workspace_identity_for_root(&canonical_root);
         let home_root = prism_home_root()?;
         let repo_home_dir = home_root
             .join("repos")
@@ -80,7 +84,12 @@ impl PrismPaths {
         reconcile_archived_shared_runtime_principal_registry(&repo_home_dir)?;
         let worktree_dir = repo_home_dir
             .join("worktrees")
-            .join(storage_component(&identity.worktree_id));
+            .join(storage_component(&identity.storage_worktree_id));
+        if let Some(metadata) =
+            read_worktree_metadata(&worktree_dir.join(WORKTREE_METADATA_FILE_NAME))?
+        {
+            metadata.apply_to_identity(&mut identity);
+        }
         let worktree_cache_dir = worktree_dir.join("cache");
         let shared_runtime_dir = repo_home_dir.join("shared").join("runtime");
         let feedback_dir = repo_home_dir.join("feedback");
@@ -107,6 +116,10 @@ impl PrismPaths {
 
     pub fn repo_prism_dir(&self) -> &Path {
         &self.repo_prism_dir
+    }
+
+    pub(crate) fn identity(&self) -> &WorkspaceIdentity {
+        &self.identity
     }
 
     pub fn home_root(&self) -> &Path {
@@ -147,6 +160,45 @@ impl PrismPaths {
 
     pub fn worktree_mcp_logs_dir(&self) -> &Path {
         &self.worktree_mcp_logs_dir
+    }
+
+    pub fn worktree_registration(&self) -> Result<Option<WorktreeRegistrationRecord>> {
+        Ok(
+            read_worktree_metadata(&self.worktree_dir.join(WORKTREE_METADATA_FILE_NAME))?
+                .and_then(|metadata| metadata.registration()),
+        )
+    }
+
+    pub fn register_worktree(
+        &self,
+        label: &str,
+        mode: WorktreeMode,
+    ) -> Result<WorktreeRegistrationRecord> {
+        let trimmed_label = label.trim();
+        if trimmed_label.is_empty() {
+            return Err(anyhow!("worktree label must not be empty"));
+        }
+        self.ensure_home_metadata()?;
+        ensure_unique_worktree_label(
+            &self.home_root,
+            trimmed_label,
+            &self.identity.repo_id,
+            &self.identity.storage_worktree_id,
+        )?;
+        let metadata_path = self.worktree_dir.join(WORKTREE_METADATA_FILE_NAME);
+        let existing = read_worktree_metadata(&metadata_path)?;
+        let registration = new_worktree_registration(
+            trimmed_label,
+            mode,
+            existing
+                .as_ref()
+                .and_then(WorktreeMetadata::registration)
+                .as_ref(),
+        );
+        let mut identity = self.identity.clone();
+        identity.apply_worktree_registration(registration.clone());
+        write_worktree_metadata(&metadata_path, &identity)?;
+        Ok(registration)
     }
 
     pub fn shared_runtime_db_path(&self) -> Result<PathBuf> {
@@ -432,17 +484,6 @@ struct RepoMetadata {
     last_seen_at: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct WorktreeMetadata {
-    version: u32,
-    repo_id: String,
-    worktree_id: String,
-    canonical_root: String,
-    branch_ref: Option<String>,
-    created_at: u64,
-    last_seen_at: u64,
-}
-
 fn prism_home_root() -> Result<PathBuf> {
     #[cfg(test)]
     {
@@ -533,7 +574,7 @@ fn write_repo_metadata(path: &Path, identity: &WorkspaceIdentity) -> Result<()> 
     write_json_file(
         path,
         &RepoMetadata {
-            version: PATH_METADATA_VERSION,
+            version: REPO_METADATA_VERSION,
             repo_id: identity.repo_id.clone(),
             locator_kind: identity.repo_locator_kind.to_string(),
             locator_path: identity.repo_locator_path.to_string_lossy().to_string(),
@@ -551,17 +592,7 @@ fn write_worktree_metadata(path: &Path, identity: &WorkspaceIdentity) -> Result<
     let now = current_timestamp_millis();
     write_json_file(
         path,
-        &WorktreeMetadata {
-            version: PATH_METADATA_VERSION,
-            repo_id: identity.repo_id.clone(),
-            worktree_id: identity.worktree_id.clone(),
-            canonical_root: identity.canonical_root.to_string_lossy().to_string(),
-            branch_ref: identity.branch_ref.clone(),
-            created_at: existing
-                .as_ref()
-                .map_or(now, |metadata| metadata.created_at),
-            last_seen_at: now,
-        },
+        &WorktreeMetadata::from_identity(identity, existing.as_ref(), now),
     )
 }
 
@@ -582,6 +613,51 @@ fn rewrite_worktree_repo_ids(worktrees_dir: &Path, repo_id: &str) -> Result<()> 
         }
         metadata.repo_id = repo_id.to_string();
         write_json_file(&metadata_path, &metadata)?;
+    }
+    Ok(())
+}
+
+fn ensure_unique_worktree_label(
+    home_root: &Path,
+    label: &str,
+    repo_id: &str,
+    storage_worktree_id: &str,
+) -> Result<()> {
+    let repos_dir = home_root.join("repos");
+    if !repos_dir.exists() {
+        return Ok(());
+    }
+    for repo_entry in fs::read_dir(&repos_dir)
+        .with_context(|| format!("failed to read {}", repos_dir.display()))?
+    {
+        let repo_entry =
+            repo_entry.with_context(|| format!("failed to read {}", repos_dir.display()))?;
+        let worktrees_dir = repo_entry.path().join("worktrees");
+        if !worktrees_dir.exists() {
+            continue;
+        }
+        for worktree_entry in fs::read_dir(&worktrees_dir)
+            .with_context(|| format!("failed to read {}", worktrees_dir.display()))?
+        {
+            let worktree_entry = worktree_entry
+                .with_context(|| format!("failed to read {}", worktrees_dir.display()))?;
+            let metadata_path = worktree_entry.path().join(WORKTREE_METADATA_FILE_NAME);
+            let Some(metadata) = read_worktree_metadata(&metadata_path)? else {
+                continue;
+            };
+            let Some(existing_label) = metadata.agent_label.as_deref() else {
+                continue;
+            };
+            if existing_label != label {
+                continue;
+            }
+            if metadata.repo_id == repo_id && metadata.worktree_id == storage_worktree_id {
+                continue;
+            }
+            return Err(anyhow!(
+                "worktree label `{label}` is already registered on this machine"
+            ));
+        }
     }
     Ok(())
 }

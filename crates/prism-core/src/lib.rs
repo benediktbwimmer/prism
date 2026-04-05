@@ -51,6 +51,7 @@ mod workspace_runtime_state;
 mod workspace_session_defaults;
 mod workspace_tree;
 mod worktree_principal;
+mod worktree_registration;
 
 use std::sync::Arc;
 
@@ -125,6 +126,7 @@ pub use workspace_session_defaults::{
     default_workspace_session_options, default_workspace_shared_runtime,
 };
 pub use worktree_principal::{BoundWorktreePrincipal, WorktreePrincipalConflict};
+pub use worktree_registration::{WorktreeMode, WorktreeRegistrationRecord};
 
 #[derive(Debug, Clone)]
 pub struct WorkspaceSessionOptions {
